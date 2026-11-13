@@ -38,7 +38,7 @@ import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
 
 const { values } = parseArgs({ options: {
   variants: { type: "string", default: "[{}]" }, batteries: { type: "string", default: "stand,edge,step,walk,shove" },
-  hz: { type: "string", default: "120" }, workers: { type: "string" }, models: { type: "string", default: "workshop-rogue,workshop-fighter" },
+  hz: { type: "string", default: "120" }, workers: { type: "string" }, models: { type: "string", default: "woman,man" },
   top: { type: "string", default: "60" }, walked: { type: "string", default: "0" },
   speeds: { type: "string", default: "0.2,0.3,0.4,0.5,0.7" }, ways: { type: "string", default: "0,90,180,270,45" },
   balance: { type: "string" }, gusts: { type: "string" }, orders: { type: "string", default: "0.5,1:1-50" }, shoves: { type: "string", default: "0" },

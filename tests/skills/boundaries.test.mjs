@@ -19,7 +19,7 @@ import { heldClearance } from "../../src/skills/locomotion/navigation/held-clear
 import { withLoadout, LOADOUTS } from "../../src/core/bodies/items/held.ts";
 import { coreStand } from "../harness/core-stand.mjs";
 
-const stock = modelSpec("workshop-fighter");
+const stock = modelSpec("man");
 
 test("invalid authored settings return refusals before the implementation consumes them", () => {
   const renamed = { ...RUN_CYCLE };

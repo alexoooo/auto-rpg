@@ -6,12 +6,12 @@
  * every collection in them (`PerformanceObserver`), then 240 steps under the sampling heap profiler
  * (`allocatedIn`).
  *
- *   node research/step-garbage.mjs [--model crypt-skeleton] [--bodies 2,8,16,32,48] [--steps 1200]
+ *   node research/step-garbage.mjs [--model skeleton] [--bodies 2,8,16,32,48] [--steps 1200]
  *
  * With `--sites` it plays one arena bout instead and prints where its steps allocate: by file, by
  * function (its own body's), and by function with everything it calls.
  *
- *   node research/step-garbage.mjs --sites [--left workshop-fighter] [--right workshop-rogue] [--bare]
+ *   node research/step-garbage.mjs --sites [--left man] [--right woman] [--bare]
  *
  * The bytes and the counts are the same on any machine. The times are wall time on the machine it
  * runs on: read them on a quiet one, and compare rows of one run.
@@ -28,9 +28,9 @@ import { BOUT_ENGINE } from "./bout.mjs";
 import { seededBareRecipe } from "./bare-recipe.mjs";
 
 const { values } = parseArgs({ options: {
-  model: { type: "string", default: "crypt-skeleton" }, bodies: { type: "string", default: "2,8,16,32,48" }, steps: { type: "string", default: "1200" },
+  model: { type: "string", default: "skeleton" }, bodies: { type: "string", default: "2,8,16,32,48" }, steps: { type: "string", default: "1200" },
   one: { type: "string" }, sites: { type: "boolean", default: false },
-  left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
+  left: { type: "string", default: "man" }, right: { type: "string", default: "woman" },
   bare: { type: "boolean", default: false },
 } });
 const steps = Number(values.steps), SAMPLED = 240, MIB = 1048576;

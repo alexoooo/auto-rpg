@@ -6,7 +6,7 @@ import type { StraightPunch } from "../../straight-punch.ts";
 
 /**
  * **A straight punch's record for one body** (`dataOf("straight-punch")`,
- * `assets/skills/strikes/straight-punch/straight-punch.json`, by `bodyKey`): the settings it was tuned to on that body,
+ * `assets/skills/strikes/straight-punch/straight-punch.json`, by model): the settings it was tuned to on that body,
  * whole, and the network that steers it where it was trained (`punchFeatures` in, its steer out,
  * as `PUNCH_LAYOUT` lays them out and `recoveryNetwork` evaluates it), or null; `made` says how
  * (`research/skills/strikes/straight-punch/punch-export.mjs` writes it). A body throws the straight punch by its own record or
@@ -16,7 +16,7 @@ export interface PunchRecord extends SkillRecord<StraightPunch> {
   readonly network: Network | null;
 }
 
-/** Every body's straight punch record, by `bodyKey`. */
+/** Every body's straight punch record, by model. */
 type PunchRecords = Readonly<Record<string, PunchRecord>>;
 
 declare module "../../../../core/data/store.ts" {

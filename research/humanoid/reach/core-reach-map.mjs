@@ -25,7 +25,7 @@ const { values } = parseArgs({ options: {
 } });
 const ups = values.up.split(",").map(Number), aheads = values.ahead.split(",").map(Number);
 
-const spec = armed(humanSpec("workshop-fighter"), "right", woodenClub());
+const spec = armed(humanSpec("man"), "right", woodenClub());
 const stand = await coreStand(spec, { ground: false, pinned: "lowerTrunk" });
 const hand = stand.built.segments.get("hand.right"), chain = chainTo(stand.built, hand), points = rigidPoints(spec, hand.spec);
 const name = (j, k) => `${chain[j].spec.name} ${chain[j].dofs[k].spec.positive}`;

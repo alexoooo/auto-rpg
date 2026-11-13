@@ -40,7 +40,7 @@ The straight punch and the sword thrust share one executor, the club blow and th
 
 **The Warrior's punch into fights**, a goal driven unattended ([driven](recipes/documents.md)):
 the straight punch begun from close in the Strike drill, then landing in the Arena's fights by
-Option Mind's footwork; met when the `punch` row on `workshop-fighter` reads better than its
+Option Mind's footwork; met when the `punch` row on `man` reads better than its
 baseline and the punch lands more often in the Strike drill's fights (`fight`) than it did when
 the goal began. The empty-handed cell reads 0.256 hp a second traded, better than its baseline;
 every Warrior punch trial begins across the three loadouts. The drill keeps its ordered facing
@@ -68,7 +68,7 @@ The standing goal behind it: every cell of the table raised from its baseline, a
 
 In order; each is a row of the table or one question, taken up on the owner's request.
 
-1. **The Warrior's punch**: the table's `punch` row on `workshop-fighter`
+1. **The Warrior's punch**: the table's `punch` row on `man`
    ([its notes](plans/2026-11-10-warrior-punch.md)): the straight punch at the trunk.
 2. **The strikes' profiles from fights**: a strike's profile is built only from the Strike drill's
    fights (`fights`, [the evaluations](architecture.md#evaluations)). The asset still holds the
@@ -115,7 +115,7 @@ Each holds its goal, where it stands and the questions open
 - Standing up in the Lab, the Arena and the Crypt, and whether the rise looks human.
 - The reaction time, 0.15 s, beside a bout at `&senseDelay=0`.
 - The crowd fight and the Crypt with minds on workers (`npm run preview`): smooth, no slow motion.
-- The Skeleton in play (`?play=arena&matchup=crypt-skeleton,workshop-fighter`).
+- The Skeleton in play (`?play=arena&matchup=skeleton,man`).
 - The reptile and the rat on the game's Option Mind against a Warrior and a Reptile: the trot,
   the bite, righting; the Walker in the Lab (`&scenario=reach`).
 - The Crypt's commands (H, X, Q, E, right click), the level-clearer (`&party=clearer`) and the mob.

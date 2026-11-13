@@ -126,7 +126,7 @@ test("a released joint gives its detached component an independent floating cont
   const { coreStand } = await import("./harness/core-stand.mjs");
   const { modelSpec } = await import("../src/core/bodies/models.ts");
   const { contactMass } = await import("../src/core/bodies/build/contact-mass.ts");
-  const stand = await coreStand(modelSpec("workshop-fighter"), { ground: false });
+  const stand = await coreStand(modelSpec("man"), { ground: false });
   try {
     const { built } = stand, segment = built.segments.get("hand.right");
     const mass = contactMass(built), point = [segment.pose.position.x, segment.pose.position.y, segment.pose.position.z];
@@ -146,7 +146,7 @@ test("a released joint gives its detached component an independent floating cont
 test("a failed stage build releases the minds it creates before awaiting the engine", async () => {
   const { teamStage } = await import("../src/app/worker/stage.ts");
   const { CONTEXT } = await import("../src/app/node/context.ts");
-  const side = { model: "workshop-fighter", count: 1, loadout: { left: "empty", right: "empty" } };
+  const side = { model: "man", count: 1, loadout: { left: "empty", right: "empty" } };
   let made = 0, disposed = 0;
   await assert.rejects(teamStage(CONTEXT, { left: side, right: side }, 0, {
     engine: "missing-engine", minds: () => { made++; return { dispose() { disposed++; } }; },
@@ -163,7 +163,7 @@ test("configurable non-extremities take the same collision injury as their uncha
   const { centreOfToRef } = await import("../src/core/bodies/read-motion.ts");
   const { createPool } = await import("../src/combat/pool.ts");
   const { watchBlows } = await import("../src/combat/blows.ts");
-  const engine = await freshEngine(), base = modelSpec("workshop-fighter"), head = base.segments.find(segment => segment.name === "head");
+  const engine = await freshEngine(), base = modelSpec("man"), head = base.segments.find(segment => segment.name === "head");
   const rules = rulebook("arena");
   const collide = (configurable) => {
     const segment = { ...head, ...configurable ? { configurations: { initial: "normal", shapes: { normal: head.shape } } } : {} };
@@ -264,10 +264,10 @@ test("world requests settle their own replies and reject on every terminal path"
 
 test("external character settings return owner refusals for geometry and numeric limits", async () => {
   const { BODY_MODELS, HUMANOID_MODELS, resolveCharacter, resolveCharacterChecked } = await import("../src/core/bodies/models.ts");
-  const model = "workshop-fighter";
+  const model = "man";
   assert.deepEqual(resolveCharacterChecked({ model, attributes: { size: -1 } }), { refused: "Size must be greater than zero." });
   assert.deepEqual(resolveCharacterChecked({ model, attributes: { weight: 1.5 } }), {
-    refused: "Invalid workshop-fighter geometry: middleTrunk intersects upperArm.left; middleTrunk intersects upperArm.right",
+    refused: "Invalid man geometry: middleTrunk intersects upperArm.left; middleTrunk intersects upperArm.right",
   });
   const capsule = resolveCharacterChecked({ model, attributes: { weight: 100 } });
   assert.deepEqual(Object.keys(capsule), ["refused"]);
@@ -278,7 +278,7 @@ test("external character settings return owner refusals for geometry and numeric
     assert.deepEqual(resolveCharacterChecked({ model, attributes: { size: 1e-308 } }), { refused: mass + " underflows a positive physical quantity" });
   }
   assert.deepEqual(resolveCharacterChecked({ model, attributes: { size: 1e100, weight: 1e-300 } }), {
-    refused: "Invalid workshop-fighter geometry: upperTrunk: the points lie in a plane and bound no volume",
+    refused: "Invalid man geometry: upperTrunk: the points lie in a plane and bound no volume",
   });
   const supported = { model, attributes: { size: 1.05, weight: 1.01, strength: 1.2, speed: .9, haste: 50 } };
   assert.deepEqual(resolveCharacterChecked(supported), resolveCharacter(supported));

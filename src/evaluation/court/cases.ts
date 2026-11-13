@@ -28,7 +28,7 @@ import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena
  * long each way, s. A change here is a new protocol.
  */
 const COURT = deepFreeze({
-  models: ["workshop-fighter", "workshop-rogue"] as BodyModel[],
+  models: ["man", "woman"] as BodyModel[],
   gaps: [4, 6],
   sides: ["left", "right"] as Side[],
   targets: ["still", "moving"] as ("still" | "moving")[],
@@ -74,7 +74,7 @@ export function createCourtCases(context: GameContext) {
         const foe = otherSide(side);
         return { kind: "bout", engine, tape: target === "moving" ? walks(foe) : [],
           // A task, not a fight: the target throws nothing, so the bout asks no attack of either side (`EntryRule`); the subject's own is asked in `faultsOf`.
-          recipe: { level: "obstacle-court", ...{ [side]: model, [foe]: "workshop-fighter" } as Record<Side, BodyModel>, gap, capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ...sideAttributes({ [side]: character }),
+          recipe: { level: "obstacle-court", ...{ [side]: model, [foe]: "man" } as Record<Side, BodyModel>, gap, capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ...sideAttributes({ [side]: character }),
             loadouts: { [side]: HELD, [foe]: { left: "empty", right: "empty" } } as Record<Side, typeof HELD>,
             minds: { [side]: mindOf(mind), [foe]: target === "moving" ? MOVES : STANDS } as Record<Side, MindConfig> } };
       },

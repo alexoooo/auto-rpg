@@ -1,26 +1,26 @@
-import fighterRig from "../../../../assets/humanoid/workshop-fighter.json" with { type: "json" };
-import rogueRig from "../../../../assets/humanoid/workshop-rogue.json" with { type: "json" };
+import manRig from "../../../../assets/humanoid/man.json" with { type: "json" };
+import womanRig from "../../../../assets/humanoid/woman.json" with { type: "json" };
 import type { SourceKey } from "../../sources.ts";
 import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 
 /**
- * **The two workshop models' rigs**, as the core reads them: bone ends from
- * `assets/humanoid/workshop-*.json`, exported from each model's Blender file by
- * `scripts/humanoid/export-workshop.py`, at the size the model was authored.
+ * **The two human models' rigs**, as the core reads them: bone ends from
+ * `assets/humanoid/man.json` and `woman.json`, exported from each model's Blender file by
+ * `scripts/humanoid/export-rig.py`, at the size the model was authored.
  *
  * Every point is three sourced components with the JSON pointer each came from, turned into the
  * body frame (`src/core/bodies/spec/body.ts`) by `fromBlender`. Nothing here scales: the size a model is
  * built at is the human spec's.
  */
-export type WorkshopModel = "workshop-fighter" | "workshop-rogue";
-export const WORKSHOP_MODELS: readonly WorkshopModel[] = Object.freeze(["workshop-fighter", "workshop-rogue"]);
+export type HumanModel = "man" | "woman";
+export const HUMAN_MODELS: readonly HumanModel[] = Object.freeze(["man", "woman"]);
 
 interface RigBone { readonly head: readonly number[]; readonly tail: readonly number[] }
 interface Rig { readonly bones: Readonly<Record<string, RigBone>> }
 
-const RIGS: Readonly<Record<WorkshopModel, { readonly rig: Rig; readonly source: SourceKey }>> = Object.freeze({
-  "workshop-fighter": { rig: fighterRig as Rig, source: "workshop-fighter-rig" },
-  "workshop-rogue": { rig: rogueRig as Rig, source: "workshop-rogue-rig" },
+const RIGS: Readonly<Record<HumanModel, { readonly rig: Rig; readonly source: SourceKey }>> = Object.freeze({
+  man: { rig: manRig as Rig, source: "man-rig" },
+  woman: { rig: womanRig as Rig, source: "woman-rig" },
 });
 
 /**
@@ -33,7 +33,7 @@ const fromBlender = (x: number, y: number, z: number): Vec3 => [-x, z, -y];
 const cache = new Map<string, Quantity<Vec3>>();
 
 /** The end `end` of `bone` in `model`'s rig, body frame, metres at the authored size. */
-export function rigPoint(model: WorkshopModel, bone: string, end: "head" | "tail"): Quantity<Vec3> {
+export function rigPoint(model: HumanModel, bone: string, end: "head" | "tail"): Quantity<Vec3> {
   const key = `${model}/${bone}/${end}`;
   let point = cache.get(key);
   if (!point) {

@@ -42,7 +42,7 @@ export function cryptModel(model: BodyModel, spec?: BodySpec): CryptModel {
 
 /** **What the crypt needs of each model**, read when first asked: the one list a body family is added to here. */
 const CRYPT_MODELS: Readonly<Record<BodyModel, () => CryptModel>> = Object.freeze({
-  "workshop-fighter": () => HUMANOID, "workshop-rogue": () => HUMANOID, "crypt-skeleton": () => HUMANOID,
+  man: () => HUMANOID, woman: () => HUMANOID, skeleton: () => HUMANOID,
   reptile: () => quadrupeds.reptile ??= readQuadruped("reptile"), rat: () => quadrupeds.rat ??= readQuadruped("rat"),
 });
 

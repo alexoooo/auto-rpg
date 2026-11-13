@@ -11,9 +11,9 @@ test("Arena setup loads compatibility data before offering Option Mind", async (
   const { readControls, linkedMind } = createMatchup(context), { mindFaults } = mindLinks(catalog);
   assert.throws(() => dataOf("stomp"), /mind data "stomp" is not loaded/);
   await catalog.loadFitData();
-  const search = "?control=option&matchup=workshop-fighter,workshop-rogue";
+  const search = "?control=option&matchup=man,woman";
   assert.deepEqual(readControls(search), { left: "option", right: "option" });
-  for (const [side, model] of [["left", "workshop-fighter"], ["right", "workshop-rogue"]]) {
+  for (const [side, model] of [["left", "man"], ["right", "woman"]]) {
     const mind = linkedMind(search, side), spec = modelSpec(model);
     assert.deepEqual(mind, { config: catalog.minds.option.config, faults: [] });
     assert.deepEqual(mindFaults(mind.config, spec), []);

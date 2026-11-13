@@ -8,7 +8,7 @@
  * (`option-drill`), and scored by the seconds its trials lose against their orders (`-lost`, a fall
  * at `FALL_PRICE`). It writes each generation to `<out>.jsonl` and the best to `<out>-best.json`.
  *
- *   node research/skills/locomotion/walk-run/run-cycle-search.mjs --out .tmp/<task>/run [--body workshop-fighter] [--loadout empty,empty]
+ *   node research/skills/locomotion/walk-run/run-cycle-search.mjs --out .tmp/<task>/run [--body man] [--loadout empty,empty]
  *     [--dims accel,brake] [--start '{"cv":0.3}' | file.json] [--braking-only] [--stride file.json]
  *     [--generations 60] [--lambda 28] [--sigma 0.1] [--workers 28] [--score] [--confirm <out>-best.json]
  *
@@ -39,7 +39,7 @@ const DIMS = {
 const WALK = { at: "run", swerve: "swerve" };
 
 const { values: o } = parseArgs({ options: {
-  out: { type: "string" }, body: { type: "string", default: "workshop-fighter" }, loadout: { type: "string" }, dims: { type: "string" }, start: { type: "string" },
+  out: { type: "string" }, body: { type: "string", default: "man" }, loadout: { type: "string" }, dims: { type: "string" }, start: { type: "string" },
   "braking-only": { type: "boolean" }, stride: { type: "string" }, generations: { type: "string", default: "60" }, lambda: { type: "string", default: "28" },
   sigma: { type: "string", default: "0.1" }, workers: { type: "string" }, score: { type: "boolean" }, confirm: { type: "string" },
 } });

@@ -60,7 +60,7 @@ import { buildBout } from "../src/app/node/evaluation.ts";
 import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
 
 const KINDS = ["stand", "walk", "run", "shove", "fall", "bouts"];
-const BOUTS = [["workshop-fighter", "workshop-rogue"], ["crypt-skeleton", "workshop-fighter"], ["workshop-rogue", "crypt-skeleton"]];
+const BOUTS = [["man", "woman"], ["skeleton", "man"], ["woman", "skeleton"]];
 const WALKS = [0.2, 0.5], SHOVES = [20, 30, 40, 50, 60], FALL_SHOVE = 80;
 /** `point` (body frame, reference pose) in `segment`'s own frame. */
 function inFrameOf(segment, point) {

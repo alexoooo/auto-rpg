@@ -6,9 +6,9 @@ import { deepFreeze } from "../../core/state.ts";
  * (`wearsClothing`), and the colour its shapes are drawn in where no skin covers them.
  */
 export const MODEL_DISPLAY: Readonly<Record<BodyModel, { readonly label: string; readonly clothing: boolean; readonly tint: string }>> = deepFreeze({
-  "workshop-fighter": { label: "Warrior", clothing: true, tint: "#8c99a8" },
-  "workshop-rogue": { label: "Rogue", clothing: true, tint: "#809e8c" },
-  "crypt-skeleton": { label: "Skeleton", clothing: false, tint: "#b8ad94" },
+  man: { label: "Warrior", clothing: true, tint: "#8c99a8" },
+  woman: { label: "Rogue", clothing: true, tint: "#809e8c" },
+  skeleton: { label: "Skeleton", clothing: false, tint: "#b8ad94" },
   "reptile": { label: "Reptile", clothing: false, tint: "#78834d" },
   "rat": { label: "Rat", clothing: false, tint: "#6e6258" },
 });

@@ -35,7 +35,7 @@
  *   read as the least factor, of `HASTE`, at which no frame's use passes 1; past the last, a frame
  *   asks more than the joint's peak, which no speed gives.
  *
- *   node research/skills/locomotion/walk-run/run-feasibility.mjs <clip.bvh>[@rate] [...] [--models workshop-fighter,workshop-rogue]
+ *   node research/skills/locomotion/walk-run/run-feasibility.mjs <clip.bvh>[@rate] [...] [--models man,woman]
  *     [--cutoff 8] [--json out.json]
  *
  * `@rate` is a clip's frames a second where its file's frame time is not (CMU's subjects captured
@@ -397,7 +397,7 @@ function summarise(result, body) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { values: options, positionals } = parseArgs({ allowPositionals: true, options: {
-    models: { type: "string", default: "workshop-fighter,workshop-rogue" }, cutoff: { type: "string", default: "8" }, json: { type: "string" },
+    models: { type: "string", default: "man,woman" }, cutoff: { type: "string", default: "8" }, json: { type: "string" },
   } });
   if (!positionals.length) throw new Error("usage: node research/skills/locomotion/walk-run/run-feasibility.mjs <clip.bvh>[@rate] [...] [--models a,b] [--cutoff hz] [--json out]");
   const cutoff = Number(options.cutoff);

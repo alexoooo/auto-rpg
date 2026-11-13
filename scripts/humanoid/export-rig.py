@@ -1,6 +1,6 @@
-"""Blender --background --disable-autoexec assets/character-lab/fighter.blend --python this.py.
+"""Blender --background --disable-autoexec assets/character-lab/man.blend --python this.py.
 
-Read-only derivative of the workshop source. Never saves the .blend or rewrites the preview.
+Read-only derivative of the Character Lab source. Never saves the .blend or rewrites the preview.
 Keeps authored topology, UVs, materials, textures and rest transforms; removes preview motion.
 """
 import bpy, json, hashlib, sys
@@ -8,13 +8,13 @@ from pathlib import Path
 from mathutils import Vector, Matrix, Quaternion
 
 ROOT = Path(__file__).resolve().parents[2]
-model = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'fighter'
-assert model in ('fighter', 'rogue')
+model = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'man'
+assert model in ('man', 'woman')
 source = ROOT / f'assets/character-lab/{model}.blend'
-rig = bpy.data.objects['WorkshopRig']
+rig, = [o for o in bpy.data.objects if o.type == 'ARMATURE']
 bones = rig.data.bones
-out = ROOT / f'.tmp/art-measurements/workshop-{model}.glb'
-profile_path = ROOT / f'assets/humanoid/workshop-{model}.json'
+out = ROOT / f'.tmp/art-measurements/{model}.glb'
+profile_path = ROOT / f'assets/humanoid/{model}.json'
 
 def length(name):
     return (bones[name].tail_local - bones[name].head_local).length
@@ -44,7 +44,7 @@ rig.animation_data.action = bpy.data.actions['inspection-empty']
 bpy.context.scene.frame_set(1)
 for obj in list(bpy.data.objects):
     obj.animation_data_clear()
-    if (model == 'fighter' and obj.name.startswith('bow__')) or obj.get('authoringOnly'):
+    if (model == 'man' and obj.name.startswith('bow__')) or obj.get('authoringOnly'):
         bpy.data.objects.remove(obj, do_unlink=True)
 for pose in rig.pose.bones:
     pose.matrix_basis.identity()
@@ -52,10 +52,10 @@ rig.data.pose_position = 'REST'
 bpy.context.view_layer.update()
 
 profile = {
-    'version': 1, 'model': 'workshop-' + model,
+    'version': 1, 'model': model,
     'source': {'path': f'assets/character-lab/{model}.blend',
                'sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
-               'anatomy': 'MakeHuman/MPFB CC0; workshop-authored clothing, equipment and fitting'},
+               'anatomy': 'MakeHuman/MPFB CC0; authored clothing, equipment and fitting'},
     'upperLength': length('upperarm_r'), 'foreLength': length('lowerarm_r'),
     'thighLength': length('thigh_r'), 'shinLength': length('calf_r'),
     'hipSide': abs(bones['thigh_r'].head_local.x),
@@ -110,7 +110,7 @@ for prefix, slot, part in [('sword','primary','blade'),('shield','secondary','pl
     obj=bpy.data.objects[prefix+'__'+('blade' if prefix=='sword' else 'board')]
     points=[q.inverted()@(point(obj.matrix_world@v.co)-centre) for v in obj.data.vertices]
     equipment[part]={'points':[list(p) for p in points]}
-if model == 'rogue':
+if model == 'woman':
     row = frames['secondary.hand']; q = Quaternion((row['rotation'][3], *row['rotation'][:3])); centre = Vector(row['position'])
     equipment['bow'] = {obj.name: [list(q.inverted() @ (point(obj.matrix_world @ v.co) - centre)) for v in obj.data.vertices] for obj in bpy.data.objects if obj.type == 'MESH' and obj.name.startswith('bow__')}
 profile['equipment']=equipment
@@ -118,4 +118,4 @@ profile_path.write_text(json.dumps(profile, indent=2) + '\n')
 out.parent.mkdir(parents=True, exist_ok=True)
 bpy.ops.export_scene.gltf(filepath=str(out), export_format='GLB', export_animations=False,
                          export_skins=True, export_extras=True, export_yup=True)
-print('Workshop derivative:', out, 'source SHA256:', profile['source']['sha256'])
+print('Rig derivative:', out, 'source SHA256:', profile['source']['sha256'])

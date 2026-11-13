@@ -19,13 +19,13 @@
     {
       "protocol": "bonk-twin",
       "where": {
-        "model": "workshop-fighter"
+        "model": "man"
       }
     },
     {
       "protocol": "walk-twin",
       "where": {
-        "model": "workshop-fighter"
+        "model": "man"
       }
     }
   ],

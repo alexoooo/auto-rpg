@@ -8,7 +8,7 @@ import { workerJobs } from "../../worker-jobs.mjs";
  * pace asked, wind and seed, each run for `--seconds` or until the body falls. A fall ends a run as
  * a failure.
  *
- *   node research/skills/locomotion/locomotion-run.mjs [--models workshop-fighter,workshop-rogue] [--holds empty,club]
+ *   node research/skills/locomotion/locomotion-run.mjs [--models man,woman] [--holds empty,club]
  *     [--tracks circle,shuttle,square,diamond,random,forward,right,back,left]
  *     [--paces max,0.5,1,1.5] [--winds 0:0,1:50] [--seeds 1,2] [--seconds 30] [--side 6] [--radius 4] [--distance 6] [--area 10]
  *     [--legs '{"kind":"stance-walk"}'] [--stance '{...}'] [--physique '{"strength":2}'] [--played] [--workers 16] [--out runs.jsonl]
@@ -296,7 +296,7 @@ if (!isMainThread) {
 } else {
   const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
   const list = (name, fallback) => arg(name, fallback).split(",");
-  const models = list("models", "workshop-fighter,workshop-rogue"), holds = list("holds", "empty"), tracks = list("tracks", "square");
+  const models = list("models", "man,woman"), holds = list("holds", "empty"), tracks = list("tracks", "square");
   const paces = list("paces", "0.5,0.7,1,1.4").map((p) => p === "max" ? p : Number(p)), seeds = list("seeds", "1,2").map(Number);
   const winds = list("winds", "0:0").map((w) => { const [rate, strength] = w.split(":").map(Number); return { rate, strength }; });
   const seconds = Number(arg("seconds", "30")), side = Number(arg("side", "6")), radius = Number(arg("radius", "4"));

@@ -86,10 +86,8 @@ export type BearingEndSpec = EndLimb | ProppedLimb | FootLimb | PawLimb;
  * mass -- reads both.
  */
 export interface BodySpec {
-  /** Which body it is, such as `workshop-fighter`; a spec never spreads another family's spec. */
+  /** Which body it is, such as `man`; a spec never spreads another family's spec. */
   readonly model: string;
-  /** An explicit anatomy variant keeps its measured skill data separate. */
-  readonly variant?: string;
   /** Whole-body mass: the segments' masses sum to it. */
   readonly mass: Quantity<number>;
   readonly stature: Quantity<number>;
@@ -499,16 +497,6 @@ export interface SegmentFrame {
 }
 
 const BODY_RIGHT: Vec3 = [1, 0, 0];
-
-/**
- * **The key a body's measured data is read under** (a walk's envelope, a technique's profile, a
- * learned skill's settings): its model, `+toes` where its feet have toes (`ToesSpec`), and its
- * explicit anatomy variant. Each foot and variant has its own measurements.
- */
-export const bodyKey = (spec: Pick<BodySpec, "model" | "segments" | "variant">): string => {
-  const base = spec.segments.some((segment) => segment.toes !== undefined) ? `${spec.model}+toes` : spec.model;
-  return spec.variant ? `${base}+${spec.variant}` : base;
-};
 
 /**
  * A segment's frame from its ends: origin at `proximal`, y toward `distal`, x `right` made square

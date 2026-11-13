@@ -11,7 +11,7 @@ import { WALK_RUN_CYCLE } from "../../../src/skills/locomotion/walk-run.ts";
 import { legOf } from "../../../src/skills/locomotion/gait-scale.ts";
 
 test("run cadence scales clip feedforward with the reference phase", async () => {
-  const spec = modelSpec("workshop-fighter");
+  const spec = modelSpec("man");
   const stand = await coreStand(spec, { gravity: false, ground: false, posture: guardPosture(spec), engine: "rapier-coordinate" });
   let host;
   try {

@@ -1,12 +1,12 @@
 import { derive, type Quantity, type Vec3 } from "../../quantity.ts";
 import { lerp, midpoint } from "../spec/vec.ts";
-import { skinTop, WORKSHOP_SEX } from "./model.ts";
-import { rigPoint, type WorkshopModel } from "./rig.ts";
+import { skinTop, HUMAN_SEX } from "./model.ts";
+import { rigPoint, type HumanModel } from "./rig.ts";
 import { DE_LEVA_1996, type Sex } from "./tables/de-leva-1996.ts";
 import type { Side } from "../bilateral.ts";
 
 /**
- * **de Leva's landmarks, found on a workshop rig**: body frame, metres at the authored size.
+ * **de Leva's landmarks, found on a human rig**: body frame, metres at the authored size.
  *
  * - Joint centres are the rig's bone heads: SJC the upper arm's, EJC the forearm's, WJC the hand's,
  *   HJC the thigh's, KJC the calf's, AJC the foot's, and CERV (the cervicale, where the head and
@@ -18,7 +18,7 @@ import type { Side } from "../bilateral.ts";
  * - XYPH (the xiphoid) and OMPH (the navel) have no bone. They divide the rig's CERV-MIDH line in
  *   the proportions of de Leva's upper, middle and lower trunk lengths for the model's sex.
  *
- * HEEL and TTIP are the foot's ends: a workshop model's from its boot's footprint (`workshop.ts`), the
+ * HEEL and TTIP are the foot's ends: a human model's from its boot's footprint (`rigged.ts`), the
  * skeleton's from its foot bones (`skeleton.ts`).
  */
 
@@ -44,13 +44,13 @@ export interface LimbLandmarks {
   readonly AJC: Quantity<Vec3>;
 }
 
-export function trunkLandmarks(model: WorkshopModel): TrunkLandmarks {
+export function trunkLandmarks(model: HumanModel): TrunkLandmarks {
   const CERV = rigPoint(model, "neck_01", "head");
   const VERT = derive("m", "the head bone's tail, raised to the skin top", [rigPoint(model, "head", "tail"), skinTop(model)],
     (tail, top) => [tail[0], top, tail[2]]);
   const MIDH = derive("m", "between the hip joint centres", [rigPoint(model, "thigh_l", "head"), rigPoint(model, "thigh_r", "head")],
     (left, right) => midpoint(left, right));
-  return dividedTrunk(WORKSHOP_SEX[model], VERT, CERV, MIDH);
+  return dividedTrunk(HUMAN_SEX[model], VERT, CERV, MIDH);
 }
 
 /**
@@ -67,7 +67,7 @@ export function dividedTrunk(sex: Sex, VERT: Quantity<Vec3>, CERV: Quantity<Vec3
   return { VERT, CERV, XYPH, OMPH, MIDH };
 }
 
-export function limbLandmarks(model: WorkshopModel, side: Side): LimbLandmarks {
+export function limbLandmarks(model: HumanModel, side: Side): LimbLandmarks {
   const s = SUFFIX[side];
   return {
     SJC: rigPoint(model, `upperarm${s}`, "head"),

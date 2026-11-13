@@ -1,5 +1,5 @@
 {
-  "workshop-fighter+toes": {
+  "man": {
     "made": "The strongest well-formed bonk searched on the Strike drill's bonk rung at 120 and 480 Hz (research/skills/strikes/swing/swing-drill.mjs --blow bonk --protocol bonk --other empty --feasible --near --footing --rates 120,480 --gaps 1,1.2,1.4 --across 0,0.2: windup, schedule, stand-off and footing)",
     "settings": {
       "pace": 1.021,

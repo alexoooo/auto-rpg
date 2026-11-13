@@ -13,7 +13,7 @@
  * trials each thing's own played.
  *
  *   node research/skills/locomotion/stance/core-stance-envelope.mjs [--legs stance|walk-run] [--write] [--add] [--out file]
- *     [--models workshop-fighter,...] [--holds empty,club] [--walks] [--gusts 1:5:1,2,3,4] [--workers 30]
+ *     [--models man,...] [--holds empty,club] [--walks] [--gusts 1:5:1,2,3,4] [--workers 30]
  *     [--physique '{"speed":1.25}']
  *
  * `--legs` names the walk measured: the stance's own (`stance`, the default), or the walk and run
@@ -22,7 +22,7 @@
  * `--walks` measures the walks alone, with no turns. `--gusts rate:strength:seeds` walks each walk
  * calm and again in the lab's gusts (`startWind`) on each seed, and a speed holds only if every one
  * of them held: calm, as asked; in the gusts, standing. `--physique` builds each body of that
- * physique (`Physique`, `src/core/bodies/human/physique.ts`) in place of its own. Each body's readings are kept under its key (`bodyKey`).
+ * physique (`Physique`, `src/core/bodies/human/physique.ts`) in place of its own. Each body's readings are kept under its model.
  *
  * `--add` writes the bodies measured into the asset as it stands, each with the day it was measured,
  * and keeps the others: the asset's grid (speeds, ways, rates, holds and the rest) must be this run's.
@@ -34,7 +34,6 @@ import { Worker } from "node:worker_threads";
 import { HELD } from "../../../../src/core/bodies/items/held.ts";
 import { turnedAsAsked, wentAsAsked } from "../../../../src/evaluation/locomotion/acceptance.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
-import { bodyKey } from "../../../../src/core/bodies/spec/body.ts";
 import { PHYSICS_HZ } from "../../../../src/core/world/world.ts";
 import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
 
@@ -52,7 +51,7 @@ const WAYS = [0, 90, 180, 270];
  * `brake`), from 0 to 4.5 m/s and back in some 8 s each way.
  */
 const TIMES_OF = { stance: {}, "walk-run": { setOff: 10, rest: 10 } };
-const MODELS = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
+const MODELS = ["man", "woman", "skeleton"];
 /**
  * The turn battery's rates, rad/s, by the legs it measures: the walk and run's finer, for its turns
  * set the Run's pace round a bend and a turn read between two rates is the slower's.
@@ -81,8 +80,8 @@ if (!Object.hasOwn(SPEEDS_OF, legs)) throw new Error(`no envelope is measured fo
 const walker = legs === "stance" ? null : legs;
 /** The character each trial's body is built with (`modelSpec`): the physique asked. */
 const physique = values.physique ? JSON.parse(values.physique) : undefined;
-/** The key `model`'s readings are kept under: its body's (`bodyKey`). */
-const keyOf = (model) => bodyKey(modelSpec(model, physique));
+/** The key `model`'s readings are kept under: its model. */
+const keyOf = (model) => modelSpec(model, physique).model;
 /** The winds each walk is walked in: calm, and the gusts on each seed asked. */
 const WINDS = [null, ...(() => {
   if (!values.gusts) return [];

@@ -4,7 +4,7 @@
  * executor kind. Nearby wound records are physical correlations, not action-attributed damage.
  * Node core world, Rapier, 120 Hz, the arena's rulebook; one sequential loop per worker.
  *
- * node research/skills/strikes/strike-bouts.mjs --models workshop-fighter --gaps 3 --held empty --seconds 8 --workers 1
+ * node research/skills/strikes/strike-bouts.mjs --models man --gaps 3 --held empty --seconds 8 --workers 1
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";

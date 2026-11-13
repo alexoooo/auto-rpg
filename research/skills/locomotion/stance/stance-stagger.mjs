@@ -9,7 +9,7 @@ import { footOn } from "../../../../src/control/support.ts";
  *
  * Node core stand, Rapier.
  *
- *   node research/skills/locomotion/stance/stance-stagger.mjs [--models workshop-fighter,workshop-rogue,crypt-skeleton] [--across 0.3] [--back 0.15]
+ *   node research/skills/locomotion/stance/stance-stagger.mjs [--models man,woman,skeleton] [--across 0.3] [--back 0.15]
  *     [--seconds 0.3] [--hz 120,480,1920]
  */
 import { parseArgs } from "node:util";
@@ -19,7 +19,7 @@ import { coreStand } from "../../../../tests/harness/core-stand.mjs";
 import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
 
 const { values } = parseArgs({ options: {
-  models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, across: { type: "string", default: "0.3" },
+  models: { type: "string", default: "man,woman,skeleton" }, across: { type: "string", default: "0.3" },
   back: { type: "string", default: "0.15" }, seconds: { type: "string", default: "0.3" }, hz: { type: "string", default: "120,480,1920" },
 } });
 const across = Number(values.across), back = Number(values.back), seconds = Number(values.seconds);

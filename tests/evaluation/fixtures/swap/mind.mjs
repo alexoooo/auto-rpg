@@ -11,8 +11,8 @@ export const SWAP = Object.freeze({
   name: "swap",
   minds: Object.freeze([{ ...OPTION_MIND, label: "Calibration fixture", stage: "experimental", defaults }]),
   presets: Object.freeze({
-    "swap-stub": Object.freeze({ label: "Warrior calibration", config: defaults, models: Object.freeze(["workshop-fighter"]) }),
-    "swap-unarmed": Object.freeze({ label: "Bare-hand calibration", config: unarmed, models: Object.freeze(["workshop-fighter"]) }),
-    "swap-skeleton": Object.freeze({ label: "Skeleton calibration", config: defaults, models: Object.freeze(["crypt-skeleton"]) }),
+    "swap-stub": Object.freeze({ label: "Warrior calibration", config: defaults, models: Object.freeze(["man"]) }),
+    "swap-unarmed": Object.freeze({ label: "Bare-hand calibration", config: unarmed, models: Object.freeze(["man"]) }),
+    "swap-skeleton": Object.freeze({ label: "Skeleton calibration", config: defaults, models: Object.freeze(["skeleton"]) }),
   }),
 });

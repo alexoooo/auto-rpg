@@ -18,7 +18,7 @@ if mode == 'unpack':
     unpack_images(source, destination)
     bpy.ops.wm.save_as_mainfile(filepath=str(source), compress=True)
 elif mode == 'export':
-    rig = bpy.data.objects['WorkshopRig']
+    rig, = [o for o in bpy.data.objects if o.type == 'ARMATURE']
     rig.animation_data.action = None
     for bone in rig.pose.bones:
         bone.matrix_basis = Matrix.Identity(4)

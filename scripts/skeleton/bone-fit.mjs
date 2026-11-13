@@ -1,5 +1,5 @@
 /**
- * **The crypt skeleton's body, measured from its bones.** Reads the art
+ * **The skeleton's body, measured from its bones.** Reads the art
  * (`assets/art/environment/skeleton/skeleton.glb`), places each piece at its bind
  * (`assets/skeleton/bind.json`, the fist build) in the body frame, groups the pieces by the
  * segment that carries them (`SKELETON_PIECES`), and writes `assets/skeleton/bones.json`:

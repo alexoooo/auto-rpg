@@ -6,7 +6,7 @@ import type { BodyModel } from "../../../core/bodies/models.ts";
 import { drawBody } from "./body-shapes.ts";
 import { dressSkeleton, loadSkeletonArt } from "./skeleton-skin.ts";
 import { dressBody, loadSkin } from "./skin.ts";
-import type { WorkshopModel } from "../../../core/bodies/human/rig.ts";
+import type { HumanModel } from "../../../core/bodies/human/rig.ts";
 import { appearanceFor, type Appearance } from "../../../game/appearance/appearance.ts";
 import { dressRobot } from "./robot-skin.ts";
 import type { SkinOptions, SkinView } from "./skin-view.ts";
@@ -22,7 +22,7 @@ export type Dresser = (built: DrawnBody, options: SkinOptions) => SkinView;
 type Art = (model: BodyModel, scene: Scene, options: { readonly skeletonArt?: () => Promise<SkeletonArt> }) => Promise<Dresser>;
 
 /** A human's skin, its clothing as each instance says. */
-const humanSkin: Art = (model, scene) => loadSkin(model as WorkshopModel, scene)
+const humanSkin: Art = (model, scene) => loadSkin(model as HumanModel, scene)
   .then(container => (built, instance) => dressBody(built, container, scene, instance.clothing, instance.closure));
 
 /** A creature drawn as one skinned mesh (`SKINNED_LOOKS`). */
@@ -31,8 +31,8 @@ const skinned = (model: keyof typeof SKINNED_LOOKS): Art => (_model, scene) => l
 
 /** **Every model's own art**: the one list a body family is added to here. */
 const ART: Readonly<Record<BodyModel, Art>> = Object.freeze({
-  "workshop-fighter": humanSkin, "workshop-rogue": humanSkin,
-  "crypt-skeleton": (_model, scene, options) => (options.skeletonArt ?? loadSkeletonArt)().then(art => (built: DrawnBody) => dressSkeleton(built, art, scene)),
+  man: humanSkin, woman: humanSkin,
+  skeleton: (_model, scene, options) => (options.skeletonArt ?? loadSkeletonArt)().then(art => (built: DrawnBody) => dressSkeleton(built, art, scene)),
   reptile: skinned("reptile"), rat: skinned("rat"),
 });
 

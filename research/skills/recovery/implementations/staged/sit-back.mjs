@@ -7,7 +7,7 @@ import { footOn } from "../../../../../src/control/support.ts";
  * its feet `STAND_CHECK.quiet` s. A seed moves the start's joints; the technique runs in the motor part, as the game's ground actions do. Node stand, core world, Rapier,
  * 120 Hz, calm, no assist; the stance holds the body once the technique is done.
  *
- *   node research/skills/recovery/implementations/staged/sit-back.mjs [--model workshop-fighter] [--held empty] [--seeds 1-32] [--each] [--delay <steps, at least 1>]
+ *   node research/skills/recovery/implementations/staged/sit-back.mjs [--model man] [--held empty] [--seeds 1-32] [--each] [--delay <steps, at least 1>]
  *
  * Prints how many stood within 6 s and the median time to verified standing, failures counted
  * last; `--each` a line a seed.
@@ -37,7 +37,7 @@ import { SIDES } from "../../../../../src/core/bodies/bilateral.ts";
 const WITHIN = 6, CAP = 12;
 
 /** One seed: when the technique ended and how, and when the body was verified standing, s from the start; null where it was not. */
-export async function sitBackTrial({ model = "workshop-fighter", held = "empty", seed = 1, technique = "sit-back", delay = undefined }) {
+export async function sitBackTrial({ model = "man", held = "empty", seed = 1, technique = "sit-back", delay = undefined }) {
   const spec = armedWith(humanoidSpec(model), "right", held), placed = placement("push-off-bear", spec, seed);
   if ("refused" in placed) return { seed, refused: placed.refused };
   const world = createWorld(await loadEngine(), delay === undefined ? {} : { delay });
@@ -92,6 +92,6 @@ if (process.argv[1]?.endsWith("sit-back.mjs")) {
   }
   const played = rows.filter((row) => !row.refused), times = played.map((row) => row.verified ?? Infinity).sort((a, b) => a - b), n = times.length;
   const median = (times[(n - 1) >> 1] + times[n >> 1]) / 2;
-  console.log(`${values.model ?? "workshop-fighter"} ${values.held ?? "empty"}: stood within ${WITHIN} s ${times.filter((t) => t <= WITHIN).length} of ${n}, median ${Number.isFinite(median) ? median.toFixed(2) : "none"} s`
+  console.log(`${values.model ?? "man"} ${values.held ?? "empty"}: stood within ${WITHIN} s ${times.filter((t) => t <= WITHIN).length} of ${n}, median ${Number.isFinite(median) ? median.toFixed(2) : "none"} s`
     + `; not standing: ${played.filter((row) => row.verified === null).map((row) => `${row.seed} (${row.end ?? "running"} at ${row.at}, ${row.stages})`).join(", ") || "none"}`);
 }

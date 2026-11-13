@@ -281,8 +281,8 @@ export class TeamBout {
 export function crowdFight(context: GameContext, seed = 0): TeamRecipe {
   const mind = context.catalog.minds["option"]!.config;
   return {
-    left: { model: "workshop-fighter", count: 5, loadout: { left: "empty", right: "sword" }, mind },
-    right: { model: "workshop-fighter", count: 5, loadout: { left: "empty", right: "club" }, mind },
+    left: { model: "man", count: 5, loadout: { left: "empty", right: "sword" }, mind },
+    right: { model: "man", count: 5, loadout: { left: "empty", right: "club" }, mind },
     seed,
   };
 }

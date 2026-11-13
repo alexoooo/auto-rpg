@@ -1,8 +1,8 @@
 {
  "harness": "Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook; each rate's mean of eight throws' energies, J, the first's landing beside it",
- "model": "workshop-fighter",
+ "model": "man",
  "hand": "right",
- "found": "research/core-strike-search.mjs --model workshop-fighter --held \"wooden club\" --band high --seed 12 --hz 960 --generations 30 --population 96 --from <the blow of research/core-club-unit.json@7601bd36, as encodeHeld writes it> --sigma 0.2, 4 trials a candidate and one at nothing; searched mean 1.387 HP; read again by research/core-club-unit.mjs",
+ "found": "research/core-strike-search.mjs --model man --held \"wooden club\" --band high --seed 12 --hz 960 --generations 30 --population 96 --from <the blow of research/core-club-unit.json@7601bd36, as encodeHeld writes it> --sigma 0.2, 4 trials a candidate and one at nothing; searched mean 1.387 HP; read again by research/core-club-unit.mjs",
  "readings": {
   "at120": {
    "mean": 87.85,

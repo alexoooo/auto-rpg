@@ -3,7 +3,6 @@ import {writeFileSync} from 'node:fs';
 import {parseArgs} from 'node:util';
 import {isDeepStrictEqual} from 'node:util';
 import {modelSpec} from '../../../src/core/bodies/models.ts';
-import {bodyKey} from '../../../src/core/bodies/spec/body.ts';
 import {derive} from '../../../src/core/quantity.ts';
 import {Vector3} from '../../../src/core/math/vector.ts';
 import {driveMuscles} from '../../../src/core/bodies/muscle/driver.ts';
@@ -23,7 +22,7 @@ const hz=Number(o.hz);
 if(![120,480].includes(hz))throw Error('ground screen runs at 120 or 480 Hz');
 if(!Number.isFinite(seconds)||seconds<=0||pgs!==null&&(!Number.isInteger(pgs)||pgs<1))throw Error('seconds and PGS are positive');
 const R=await rapierModule(),layer=Object.freeze([1e6,12500,.0005]);
-const original=modelSpec('workshop-fighter'),spec=passiveToeBody(original);
+const original=modelSpec('man'),spec=passiveToeBody(original);
 const segments=spec.segments.filter(s=>s.name==='foot.left'||s.name==='toe.left');
 const foot={...spec,segments,joints:spec.joints.filter(j=>j.name==='mtp.left'),held:[],ends:[],effectors:[],
  mass:derive('kg','isolated foot mass',segments.map(s=>s.mass),(...m)=>m.reduce((a,b)=>a+b,0))};
@@ -84,11 +83,11 @@ for(const body of [original,spec]) {
      anchorError:pointOfToRef(j.parent,j.spec.centre.value,new Vector3()).subtract(pointOfToRef(j.child,j.spec.centre.value,new Vector3())).length()}))});
    if(i<seconds*hz)s.step();
   }
-  ground.push({key:bodyKey(body),rows});
+  ground.push({key:body.model,rows});
  }finally{s.dispose();}
 }
 const result={protocol:'passive authority and braced guard contact screen; no travel or recovery acceptance',
  conditioning:{soleLayer:o['sole-layer']?layer:null,physicalFallRule:o.physical===true,pgs,seconds,hz,groundImpulseReading:'last native step, not rate aligned'},
- body:{key:bodyKey(spec),segments:spec.segments.length,joints:spec.joints.length,mass:spec.segments.reduce((s,p)=>s+p.mass.value,0)},authority,ground};
+ body:{key:spec.model,segments:spec.segments.length,joints:spec.joints.length,mass:spec.segments.reduce((s,p)=>s+p.mass.value,0)},authority,ground};
 writeFileSync(o.out,JSON.stringify(result,null,2)+'\n');
 console.log(JSON.stringify({authority,ground:ground.map(g=>({key:g.key,last:g.rows.at(-1)}))}));

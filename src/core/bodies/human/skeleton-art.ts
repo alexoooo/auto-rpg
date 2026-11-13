@@ -3,7 +3,7 @@ import { deepFreeze } from "../../state.ts";
 import { SIDES } from "../bilateral.ts";
 
 /**
- * **The crypt skeleton as the world sees it**: the pieces of `assets/art/environment/skeleton/skeleton.glb`
+ * **The skeleton as the world sees it**: the pieces of `assets/art/environment/skeleton/skeleton.glb`
  * (Blender Studio's realistic skeleton, CC0; its README), each carried rigidly by the core segment
  * its bone belongs to. Like the humans' skin (`skin.ts`) it reads the segments' achieved transforms
  * and nothing else, owns no collision and decides nothing.

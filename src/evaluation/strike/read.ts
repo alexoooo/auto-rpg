@@ -139,8 +139,8 @@ function strengthOf(spec: BodySpec): number {
   return sum;
 }
 
-/** The body `BAR` is set for: the toed Warrior at the default attributes. */
-const BAR_BODY = modelSpec("workshop-fighter");
+/** The body `BAR` is set for: the Warrior at the default attributes. */
+const BAR_BODY = modelSpec("man");
 const BARS = new WeakMap<BodySpec, Bar>();
 
 /**

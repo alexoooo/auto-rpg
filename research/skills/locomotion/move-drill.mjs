@@ -16,7 +16,6 @@
 import "../../../tests/harness/preload-data.mjs";
 import { isRefused } from "../../../src/core/refusal.ts";
 import { dataOf } from "../../../src/core/data/store.ts";
-import { bodyKey } from "../../../src/core/bodies/spec/body.ts";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
 import { withLegs } from "../../../src/minds/option/config.ts";
 import { withGaitTuning, withStanceTuning } from "../../../src/minds/option/index.ts";
@@ -55,7 +54,7 @@ export function valuesWith(settings) {
 
 /** The walk and run's record of `body` (`walk-run.json`, by its key): its settings, which a search's start and a learned policy go over. */
 export function walkRunRecord(body) {
-  const settings = dataOf("walk-run")[bodyKey(modelSpec(body))]?.settings;
+  const settings = dataOf("walk-run")[modelSpec(body).model]?.settings;
   if (!settings) throw new Error(`${body} has no walk and run record`);
   return settings;
 }

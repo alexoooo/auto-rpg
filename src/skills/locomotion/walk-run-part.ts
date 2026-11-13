@@ -5,7 +5,7 @@ import { dataOf } from "../../core/data/store.ts";
 import type { GaitPart } from "../framework/locomotion-part.ts";
 import type { SkillRecords } from "../framework/records.ts";
 import { fitsSoles } from "../../control/stance/stance-balance.ts";
-import { bodyKey, type BodySpec } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { runCycleSettings, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 import { WALK_RUN, WALK_RUN_CYCLE, validWalkRun, walkRun, type WalkRunSettings } from "./walk-run.ts";
@@ -99,7 +99,7 @@ export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
   },
   reads: () => ["walk-run"],
   make: (body, config) => {
-    const { walk, run, braking, stride, learned, envelope, steered } = tunedOver(dataOf("walk-run")[bodyKey(body.built.spec)]?.settings ?? DEFAULTS, config);
+    const { walk, run, braking, stride, learned, envelope, steered } = tunedOver(dataOf("walk-run")[body.built.spec.model]?.settings ?? DEFAULTS, config);
     const motion = walkRun(body, walk, run, { braking, stride, envelope, entry: learned?.entry, trim: learned?.trim });
     // Steered with no learned corrections, there is no actor to steer: the gait runs as it is, and a trainer finds no learner in it.
     return learned ? learnedRun(body, motion, learned, run.settle, { steered }) : motion;

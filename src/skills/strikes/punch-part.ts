@@ -7,7 +7,6 @@ import { STRAIGHT_PUNCH_KEYS, timedChannelFault, straightPunchExecutor, straight
 import { handConfigurationRefusal, holdsNothing } from "../reach/hand.ts";
 import { PUNCH_BODIES } from "./straight-punch/data/records.ts";
 import { recordFault } from "../framework/records.ts";
-import { bodyKey } from "../../core/bodies/spec/body.ts";
 
 /**
  * **The straight punch** (`straightPunchExecutor`): the arm driven flat out at a lined-up contact
@@ -33,7 +32,7 @@ export const PUNCH_PART: ExecutorPart<Config> = {
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),
   make({ body, guard, aim }, config, actions) {
-    const record = dataOf("straight-punch")[bodyKey(body.built.spec)], settings = { ...record?.settings, ...config.tuning } as StraightPunch;
+    const record = dataOf("straight-punch")[body.built.spec.model], settings = { ...record?.settings, ...config.tuning } as StraightPunch;
     const network = config.tuning === undefined ? record?.network : null;
     return straightPunchExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim), network ? { policy: recoveryNetwork(network) } : {});
   },

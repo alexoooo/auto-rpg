@@ -27,7 +27,7 @@ import { footOn } from "../../../../src/control/support.ts";
  * witness is verified within the target's allowance.
  *
  *   node research/skills/recovery/witness/rise-witness.mjs --move push-off --out .tmp/rise-witness/push-off
- *     [--model workshop-fighter] [--held empty] [--generations 100] [--workers 16] [--sigma .15] [--cap 8]
+ *     [--model man] [--held empty] [--generations 100] [--workers 16] [--sigma .15] [--cap 8]
  *   node research/skills/recovery/witness/rise-witness.mjs --replay <best.json> [--seeds 4] [--hold 2] [--steady <json>]
  *
  * `--steady` changes the steady as `research/skills/recovery/witness/crouch-steady.mjs`'s variants do (`research/skills/recovery/witness/climb.mjs`).
@@ -135,9 +135,9 @@ const SETTINGS = {
 
 /** A posture by channel (the pose drive's values, bind included) for a seed name on `spec`. */
 function seedPosture(spec, name) {
-  const reference = humanSpec("workshop-fighter");
+  const reference = humanSpec("man");
   const stored = id => {
-    const held = poses.find(p => p.model === "workshop-fighter" && p.id === id);
+    const held = poses.find(p => p.model === "man" && p.id === id);
     return Object.fromEntries(reference.joints.flatMap(j => j.dofs.map((d, k) => [`${j.name} ${d.positive}`, held.placement.joints[j.name][k] + d.bind.value])));
   };
   if (name === "stand") {
@@ -192,7 +192,7 @@ export function placement(move, spec, seed) {
   const start = MOVES[move].start, own = groundPostures(spec).includes(start);
   let waypoint;
   if (!own) {
-    const reference = humanSpec("workshop-fighter"), source = poses.find(p => p.model === "workshop-fighter" && p.id === start);
+    const reference = humanSpec("man"), source = poses.find(p => p.model === "man" && p.id === start);
     const angles = Object.fromEntries(reference.joints.flatMap(j => j.dofs.map((d, k) => [`${j.name} ${d.positive}`, source.placement.joints[j.name][k] + d.bind.value])));
     waypoint = { ...source.placement, joints: Object.fromEntries(spec.joints.map(j => [j.name, j.dofs.map(d => (angles[`${j.name} ${d.positive}`] ?? 0) - d.bind.value)])) };
   }
@@ -262,7 +262,7 @@ function bearer(own, view) {
 }
 
 /** One trial of `u` from `move`'s start at `seed`: its score, the hand-over and verified times from the start, s. */
-export async function witnessTrial({ move, model = "workshop-fighter", held = "empty", seed, u, hold = 1, cap = 8, trace = false, steady = {} }) {
+export async function witnessTrial({ move, model = "man", held = "empty", seed, u, hold = 1, cap = 8, trace = false, steady = {} }) {
   const spec = bodySpec(model, held), placed = placement(move, spec, seed);
   if ("refused" in placed) return { score: 0, refused: placed.refused };
   const plan = phases(move, spec, u), handover = plan.reduce((s, p) => s + p.duration, 0);
@@ -348,7 +348,7 @@ if (!isMainThread && workerData.harness === "rise-witness") {
     for (const seed of acceptedSeeds(best.move, spec, Number(values.seeds ?? 4)))
       console.log(JSON.stringify(await witnessTrial({ move: best.move, model: best.model, held: best.held, seed, u: best.u, hold: Number(values.hold ?? 2), cap, trace: true, steady: JSON.parse(values.steady ?? "{}") })));
   } else {
-    const move = values.move, model = values.model ?? "workshop-fighter", held = values.held ?? "empty";
+    const move = values.move, model = values.model ?? "man", held = values.held ?? "empty";
     if (!MOVES[move]) throw new Error(`--move is one of ${Object.keys(MOVES).join(", ")}`);
     if (!values.out) throw new Error("--out names the search's files");
     const spec = bodySpec(model, held), [seed] = acceptedSeeds(move, spec, 1), start = seedUnit(move, spec);

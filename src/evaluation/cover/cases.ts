@@ -36,7 +36,7 @@ export type CoverCondition = { readonly model: BodyModel; readonly held: CoverHe
  */
 const PUNCHED = deepFreeze({
   opponent: "drill-punch", foe: { left: "empty", right: "empty" } as Loadout,
-  models: ["workshop-fighter"] as BodyModel[], loadouts: [{ left: "empty", right: "empty" }] as Loadout[],
+  models: ["man"] as BodyModel[], loadouts: [{ left: "empty", right: "empty" }] as Loadout[],
   across: [0, .2], gaps: [1.2, 1.6, 2], seconds: 8,
 });
 
@@ -44,7 +44,7 @@ type Rung = typeof PUNCHED;
 
 /** Against a weapon: every body holding the buckler with the club or the sword, struck by a drill opponent's club on its rhythm. */
 const CLUBBED = deepFreeze({ ...PUNCHED, opponent: "drill-club", foe: { left: "empty", right: "club" } as Loadout,
-  models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[],
+  models: ["man", "woman", "skeleton"] as BodyModel[],
   loadouts: [{ left: "buckler", right: "club" }, { left: "buckler", right: "sword" }] as Loadout[] });
 
 /** The same, struck by a drill opponent's sword thrust. */
@@ -84,7 +84,7 @@ export function createCoverCases(context: GameContext) {
         const { model, across, gap } = condition;
         return { kind: "bout", engine, tape: [],
           // A drill, not a fight: nothing ends it but its reader.
-          recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
+          recipe: { left: model, right: "man", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
             loadouts: { left: loadoutOf(condition), right: protocol.foe },
             // Along +x, as the open stage's spawns are.
             start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, across], heading: -Math.PI / 2 } },

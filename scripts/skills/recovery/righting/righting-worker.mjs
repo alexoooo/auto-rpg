@@ -27,9 +27,9 @@ const withRecipe = (model, recipe) => {
 export const rightingOf = (mind) => mind.skills.actions.executors.find((executor) => executor?.run && "mirrored" in executor.run).run;
 
 /** **The fight a fork is of**: `model`, bare, against the sword Warrior `gap` m away; its mind's righting `recipe` where one is given. */
-export const forkBout = (model, gap, recipe) => ({ left: model, right: "workshop-fighter", gap,
+export const forkBout = (model, gap, recipe) => ({ left: model, right: "man", gap,
   loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "sword" } },
-  ...recipe ? { minds: { left: withRecipe(model, recipe), right: defaultMind("workshop-fighter") } } : {} });
+  ...recipe ? { minds: { left: withRecipe(model, recipe), right: defaultMind("man") } } : {} });
 
 const forksRead = new Map();
 /**

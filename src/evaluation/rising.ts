@@ -198,15 +198,15 @@ export function createRising(context: GameContext) {
 
   /** Eight-second technique cap, followed by an independent two-second standing check on success; no mind or combat preset takes part. */
   async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
-    const model = job.model ?? "workshop-fighter", factor = job.factor ?? 1, cap = Math.min(8, job.cap ?? 8);
+    const model = job.model ?? "man", factor = job.factor ?? 1, cap = Math.min(8, job.cap ?? 8);
     if (!Number.isFinite(factor) || factor < 1 || factor > 1.5) throw new Error("research strength factor stays between 1 and 1.5");
     const technique = job.technique ?? "sit-back";
     if (!TECHNIQUES[technique] || !isWayUp(TECHNIQUES[technique])) throw new Error(`no way up ${technique}`);
     const rejected = (error: string): TechniqueResult => ({ ...job, factor, reached: false, survived: false, end: "rejected start", phase: null, seconds: cap, error, trail: [], saturation: {} });
     if (job.after && !TECHNIQUES[job.after]) return rejected(`unknown predecessor ${job.after}`);
     const destination = TECHNIQUES[technique].edges[0]!.to;
-    if (!["workshop-fighter", "workshop-rogue", "crypt-skeleton"].includes(model)) throw new Error(`unsupported humanoid technique model ${model}`);
-    const spec = strengthSpec(armedWith(humanoidSpec(model as "workshop-fighter"), "right", job.held ?? "empty"), factor);
+    if (!["man", "woman", "skeleton"].includes(model)) throw new Error(`unsupported humanoid technique model ${model}`);
+    const spec = strengthSpec(armedWith(humanoidSpec(model as "man"), "right", job.held ?? "empty"), factor);
     const fitted = motorAndGuardOf(partLookup, spec);
     for (const name of [technique, ...(job.after ? [job.after] : [])]) {
       const part = TECHNIQUES[name];

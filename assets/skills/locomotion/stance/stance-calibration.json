@@ -1,11 +1,11 @@
 {
-  "workshop-fighter+toes": {
+  "man": {
     "made": "Track the Warrior stance for travel entry, braking and recovery.",
     "settings": {
       "track": 0.15
     }
   },
-  "crypt-skeleton+toes": {
+  "skeleton": {
     "made": "Track the Skeleton stance while placing its feet after walking.",
     "settings": {
       "track": 0.15

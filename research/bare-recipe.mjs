@@ -3,7 +3,7 @@ import { randomStream } from "../src/core/math/random.ts";
 import { deepFreeze } from "../src/core/state.ts";
 
 /** A fixed, nonzero actor over the bare mind's channel and body inputs (`bareLayout`). */
-export function seededBareRecipe(model = "workshop-fighter") {
+export function seededBareRecipe(model = "man") {
   const channels = modelSpec(model).joints.reduce((count, joint) => count + joint.dofs.length, 0);
   const inputs = channels * 2 + 21, random = randomStream(0xba7e);
   const network = { actions: channels, layers: [{

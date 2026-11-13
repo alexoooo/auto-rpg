@@ -4,7 +4,7 @@ import type { StanceEnvelope } from "../../../control/stance/stance-envelope.ts"
 import { envelopeIn } from "../envelope-table.ts";
 
 /**
- * The measured envelope of `spec`'s body (`bodyKey`) walking by the walk and run (`src/skills/locomotion/walk-run.ts`)
+ * The measured envelope of `spec`'s model walking by the walk and run (`src/skills/locomotion/walk-run.ts`)
  * free to run: `assets/skills/locomotion/walk-run/walk-run-envelope.json`, each way's walks by the rule
  * (`research/skills/locomotion/stance/core-stance-envelope.mjs --legs walk-run`), and its turns.
  */

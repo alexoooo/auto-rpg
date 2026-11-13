@@ -42,7 +42,7 @@ export type RiseCondition = PlacedCondition | MovingCondition;
 type Carrier = { readonly model: HumanoidModel; readonly held: Held; readonly left?: Held };
 
 /** What a rung's own protocol plays: the Warrior with nothing in its hands, and with the buckler in the left and the club in the right. */
-const OWN: readonly Carrier[] = [{ model: "workshop-fighter", held: "empty" }, { model: "workshop-fighter", held: "club", left: "buckler" }];
+const OWN: readonly Carrier[] = [{ model: "man", held: "empty" }, { model: "man", held: "club", left: "buckler" }];
 
 const same = (a: Carrier, b: Carrier): boolean => a.model === b.model && a.held === b.held && (a.left ?? "empty") === (b.left ?? "empty");
 

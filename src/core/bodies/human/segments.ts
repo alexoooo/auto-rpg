@@ -40,7 +40,7 @@ const STRIDE_ROOM = sourced(0.03, "m", "owner-stride-room", "the room between th
  *   across the segment; the two transverse radii are his, a stated assumption.
  * - **Shape.** The head and the limbs are capsules as long as the segment that hold its mass at
  *   Dempster's density, a thigh's no wider than leaves the stride's room between the two
- *   (`STRIDE_ROOM`), and a limb no wider than its figure leaves it (`HumanFigure.widest`). A trunk segment is the convex hull of its stretch of the figure (a workshop
+ *   (`STRIDE_ROOM`), and a limb no wider than its figure leaves it (`HumanFigure.widest`). A trunk segment is the convex hull of its stretch of the figure (a human
  *   model's clothed envelope), not a box on its extents, whose corners stand out of the body where
  *   a driven upper arm passes. A foot is a box on its extents (the boot), short of the toe by its
  *   toes where the figure has them (`HumanFigure.toes`), which bend ahead of it. A shape carries no mass

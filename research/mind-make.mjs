@@ -21,7 +21,7 @@ import { buildBody } from "../src/core/bodies/build/build-body.ts";
 const { values } = parseArgs({ options: { makes: { type: "string", default: "60" } } });
 const makes = Number(values.makes), WARM = 3;
 /** Each model the Crypt makes a mind for, and what it holds there. */
-const BODIES = [["workshop-fighter", { left: "empty", right: "club" }], ["crypt-skeleton", { left: "empty", right: "empty" }]];
+const BODIES = [["man", { left: "empty", right: "club" }], ["skeleton", { left: "empty", right: "empty" }]];
 
 for (const [model, loadout] of BODIES) {
   const spec = modelHolding(model, loadout), config = defaultMind(model), stand = await coreStand(spec);

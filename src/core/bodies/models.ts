@@ -49,7 +49,7 @@ const quadruped = (data: Parameters<typeof reptileSpec>[0], source: Parameters<t
 const REPTILE = quadruped(reptileBody, "reptile-anatomy"), RAT = quadruped(ratBody, "rat-anatomy");
 
 /** **Every model's family**: the one list a body family is added to in the core. */
-const FAMILIES: Readonly<Record<BodyModel, Family>> = Object.freeze({ "workshop-fighter": HUMANOID, "workshop-rogue": HUMANOID, "crypt-skeleton": HUMANOID, reptile: REPTILE, rat: RAT });
+const FAMILIES: Readonly<Record<BodyModel, Family>> = Object.freeze({ man: HUMANOID, woman: HUMANOID, skeleton: HUMANOID, reptile: REPTILE, rat: RAT });
 
 /** The family of a trusted model from `BODY_MODELS`. */
 function familyOf(model: BodyModel): Family {

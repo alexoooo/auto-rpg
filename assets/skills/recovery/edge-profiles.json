@@ -1,7 +1,7 @@
 {
   "source": {"script":"research/skills/recovery/edge-profiles.mjs","engine":"rapier-coordinate","falls":"rising-target","offsets":[5.625,16.875]},
   "profiles": [
-    { "measured": {"body":"workshop-fighter+toes","spec":"50b9e5de4469c288","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"8746db49fe57014f","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.4,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.75,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.1,"recovers":null,"down":true},
@@ -11,14 +11,14 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.167,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.067,"recovers":null,"down":true,"end":"front"}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"597a96a1fb72584f","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"64ec4908bf066faa","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.133,"recovers":null,"down":true,"end":"right"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.267,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.217,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.183,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.15,"recovers":null,"down":true,"end":"left"}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"72a88eea618ef2bc","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"893b518d83d1516b","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.7,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"crouch","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.008,"recovers":null,"down":true,"end":"standing"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.183,"recovers":null,"down":true,"end":"front"},
@@ -33,13 +33,13 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.1,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.5,"recovers":null,"down":true,"end":"front"}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"e853e5fbd782db31","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"7091f24e8a393878","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.65,"recovers":null,"down":true,"end":"right"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.183,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.167,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.183,"recovers":null,"down":true,"end":"back"}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"fc14bb2551391823","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"da26ecd4ebd45f36","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.217,"recovers":null,"down":true,"end":"right"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.217,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.983,"recovers":null,"down":true,"end":"front"},
@@ -50,7 +50,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.033,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.183,"recovers":null,"down":true,"end":"sitting"}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"50b9e5de4469c288","skill":"394d4b22a5eefd48","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"8746db49fe57014f","skill":"d5f724b45ede68f2","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":5.833,"recovers":null,"down":true,"end":"crouch"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.783,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.683,"recovers":null,"down":false},
@@ -87,7 +87,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.617,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.267,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"597a96a1fb72584f","skill":"394d4b22a5eefd48","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"64ec4908bf066faa","skill":"d5f724b45ede68f2","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.55,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.433,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.6,"recovers":null,"down":false},
@@ -124,7 +124,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.317,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.667,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"72a88eea618ef2bc","skill":"394d4b22a5eefd48","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"893b518d83d1516b","skill":"d5f724b45ede68f2","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.267,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.008,"recovers":null,"down":true,"end":"crouch"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.633,"recovers":null,"down":false},
@@ -164,7 +164,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.633,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.833,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"e853e5fbd782db31","skill":"394d4b22a5eefd48","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"7091f24e8a393878","skill":"d5f724b45ede68f2","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":6,"recovers":null,"down":true,"end":"between"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.017,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.283,"recovers":null,"down":false},
@@ -197,7 +197,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.717,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"fc14bb2551391823","skill":"394d4b22a5eefd48","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"da26ecd4ebd45f36","skill":"d5f724b45ede68f2","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.567,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.217,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.45,"recovers":null,"down":false},
@@ -239,10 +239,10 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.45,"recovers":null,"down":true,"end":"crouch"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.367,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"597a96a1fb72584f","skill":"0e3ddb14100c26ea","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"64ec4908bf066faa","skill":"bc4f416ebef9be24","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.65,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"72a88eea618ef2bc","skill":"0e3ddb14100c26ea","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"893b518d83d1516b","skill":"bc4f416ebef9be24","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.55,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":4.867,"recovers":null,"down":true,"end":"between"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.717,"recovers":null,"down":false},
@@ -250,38 +250,38 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.017,"recovers":null,"down":true,"end":"between"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.25,"recovers":null,"down":true,"end":"right"}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"e853e5fbd782db31","skill":"0e3ddb14100c26ea","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"7091f24e8a393878","skill":"bc4f416ebef9be24","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.217,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.317,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.317,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.75,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"fc14bb2551391823","skill":"0e3ddb14100c26ea","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"da26ecd4ebd45f36","skill":"bc4f416ebef9be24","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.117,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.2,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"597a96a1fb72584f","skill":"a1150bc3f096ec11","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"64ec4908bf066faa","skill":"8994cc5500e5ba13","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.85,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"72a88eea618ef2bc","skill":"a1150bc3f096ec11","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"893b518d83d1516b","skill":"8994cc5500e5ba13","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.017,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.983,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.433,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.35,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"e853e5fbd782db31","skill":"a1150bc3f096ec11","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"7091f24e8a393878","skill":"8994cc5500e5ba13","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.217,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.25,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.283,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.017,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.283,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"fc14bb2551391823","skill":"a1150bc3f096ec11","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"da26ecd4ebd45f36","skill":"8994cc5500e5ba13","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.217,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.567,"recovers":null,"down":true,"end":"sitting"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.367,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"50b9e5de4469c288","skill":"268c3cb6c88d0140","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"8746db49fe57014f","skill":"7235161c3c616b46","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.733,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.517,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.267,"recovers":null,"down":true},
@@ -302,7 +302,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.583,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.15,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"597a96a1fb72584f","skill":"268c3cb6c88d0140","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"64ec4908bf066faa","skill":"7235161c3c616b46","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.867,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.283,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.617,"recovers":null,"down":true},
@@ -326,7 +326,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.65,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.133,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"72a88eea618ef2bc","skill":"268c3cb6c88d0140","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"893b518d83d1516b","skill":"7235161c3c616b46","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.8,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.55,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.05,"recovers":null,"down":true},
@@ -359,7 +359,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.4,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.533,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"e853e5fbd782db31","skill":"268c3cb6c88d0140","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"7091f24e8a393878","skill":"7235161c3c616b46","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.533,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.65,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3,"recovers":null,"down":true},
@@ -383,7 +383,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.617,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.533,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-fighter+toes","spec":"fc14bb2551391823","skill":"268c3cb6c88d0140","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"man","spec":"da26ecd4ebd45f36","skill":"7235161c3c616b46","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.35,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.933,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":1.533,"recovers":null,"down":true},
@@ -414,7 +414,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.017,"recovers":null,"down":true,"end":"standing"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.733,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"0b145b661559b8c0","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"19e94554683f34b2","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.2,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.333,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.183,"recovers":null,"down":true,"end":"front"},
@@ -438,7 +438,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.008,"recovers":null,"down":true,"end":"standing"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.083,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"74fcfe6993a0c3cf","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"d52b9b792e16232b","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.033,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.267,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.083,"recovers":null,"down":true},
@@ -461,7 +461,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.683,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.05,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"92dfce2b6652dd5d","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"29d0552f710c8fd5","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.4,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.133,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.883,"recovers":null,"down":true},
@@ -484,7 +484,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.1,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.183,"recovers":null,"down":true,"end":"front"}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"a8b0f95b863768c9","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"61a2fddf0c744dd9","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.133,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.083,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.833,"recovers":null,"down":true},
@@ -509,7 +509,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.15,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.233,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"e59b9816d95b4ccc","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"9879a544ff7148f6","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.133,"recovers":null,"down":true,"end":"right"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.383,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.45,"recovers":null,"down":true,"end":"back"},
@@ -529,7 +529,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.008,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.383,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"0b145b661559b8c0","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"19e94554683f34b2","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.6,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.217,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.533,"recovers":null,"down":true,"end":"left"},
@@ -566,7 +566,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.283,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.783,"recovers":null,"down":true,"end":"back"}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"74fcfe6993a0c3cf","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"d52b9b792e16232b","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.117,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.233,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.383,"recovers":null,"down":true},
@@ -598,7 +598,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.95,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.283,"recovers":null,"down":true,"end":"right"}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"92dfce2b6652dd5d","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"29d0552f710c8fd5","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.217,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.783,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.817,"recovers":null,"down":true,"end":"front"},
@@ -639,7 +639,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.583,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.617,"recovers":null,"down":true,"end":"front"}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"a8b0f95b863768c9","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"61a2fddf0c744dd9","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.4,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.483,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.45,"recovers":null,"down":true,"end":"front"},
@@ -683,7 +683,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.317,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.45,"recovers":null,"down":true,"end":"left"}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"e59b9816d95b4ccc","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"9879a544ff7148f6","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.35,"recovers":null,"down":true,"end":"right"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.633,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.5,"recovers":null,"down":true,"end":"right"},
@@ -714,7 +714,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.917,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.65,"recovers":null,"down":true,"end":"left"}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"0b145b661559b8c0","skill":"4d3ad93a65422950","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"19e94554683f34b2","skill":"ff950ae21da422a4","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.583,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.333,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.2,"recovers":null,"down":true,"end":"back"},
@@ -761,7 +761,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.067,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.083,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"74fcfe6993a0c3cf","skill":"4d3ad93a65422950","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"d52b9b792e16232b","skill":"ff950ae21da422a4","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.983,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.95,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.483,"recovers":null,"down":true,"end":"right"},
@@ -807,7 +807,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":7.667,"recovers":null,"down":true,"end":"between"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.95,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"92dfce2b6652dd5d","skill":"4d3ad93a65422950","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"29d0552f710c8fd5","skill":"ff950ae21da422a4","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.35,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.767,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.233,"recovers":null,"down":false},
@@ -860,7 +860,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.942,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.067,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"a8b0f95b863768c9","skill":"4d3ad93a65422950","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"61a2fddf0c744dd9","skill":"ff950ae21da422a4","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.267,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":14.6,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.275,"recovers":null,"down":true,"end":"between"},
@@ -912,7 +912,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.883,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.85,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"e59b9816d95b4ccc","skill":"4d3ad93a65422950","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"9879a544ff7148f6","skill":"ff950ae21da422a4","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.767,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.783,"recovers":null,"down":false},
@@ -957,20 +957,20 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":6.667,"recovers":null,"down":true,"end":"between"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.083,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"0b145b661559b8c0","skill":"24d8ecfccb96a0e2","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"19e94554683f34b2","skill":"46ed81543d60d8de","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":6.7,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.85,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":4.517,"recovers":null,"down":true,"end":"between"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.883,"recovers":null,"down":true,"end":"right"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.733,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"74fcfe6993a0c3cf","skill":"24d8ecfccb96a0e2","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"d52b9b792e16232b","skill":"46ed81543d60d8de","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.6,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.2,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.633,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.117,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"92dfce2b6652dd5d","skill":"24d8ecfccb96a0e2","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"29d0552f710c8fd5","skill":"46ed81543d60d8de","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.933,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.967,"recovers":null,"down":true,"end":"between"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.867,"recovers":null,"down":true,"end":"front"},
@@ -979,7 +979,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.8,"recovers":null,"down":true,"end":"fours"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":10.083,"recovers":null,"down":true,"end":"between"}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"a8b0f95b863768c9","skill":"24d8ecfccb96a0e2","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"61a2fddf0c744dd9","skill":"46ed81543d60d8de","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.367,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.517,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":21.675,"recovers":null,"down":true,"end":"fours"},
@@ -990,7 +990,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":4.85,"recovers":null,"down":true,"end":"between"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.983,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"e59b9816d95b4ccc","skill":"24d8ecfccb96a0e2","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"9879a544ff7148f6","skill":"46ed81543d60d8de","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.633,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.017,"recovers":null,"down":true,"end":"front"},
@@ -998,19 +998,19 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.1,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":7.075,"recovers":null,"down":true,"end":"between"}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"0b145b661559b8c0","skill":"ddae66bb48c66cd9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"19e94554683f34b2","skill":"b03edb03ed881505","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.717,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.383,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.383,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"74fcfe6993a0c3cf","skill":"ddae66bb48c66cd9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"d52b9b792e16232b","skill":"b03edb03ed881505","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.383,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":6.533,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.85,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.383,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":6.4,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"92dfce2b6652dd5d","skill":"ddae66bb48c66cd9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"29d0552f710c8fd5","skill":"b03edb03ed881505","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.45,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":7.3,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.483,"recovers":null,"down":true},
@@ -1020,7 +1020,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.017,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":7.3,"recovers":null,"down":true,"end":"front"}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"a8b0f95b863768c9","skill":"ddae66bb48c66cd9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"61a2fddf0c744dd9","skill":"b03edb03ed881505","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":7.3,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.383,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.817,"recovers":null,"down":true},
@@ -1028,12 +1028,12 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.183,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.783,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"e59b9816d95b4ccc","skill":"ddae66bb48c66cd9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"9879a544ff7148f6","skill":"b03edb03ed881505","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.383,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":7.533,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.883,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"0b145b661559b8c0","skill":"1c8345fe273c44f8","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"19e94554683f34b2","skill":"f90ac7f64802484c","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.783,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.017,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.467,"recovers":null,"down":true},
@@ -1076,7 +1076,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.417,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.4,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"74fcfe6993a0c3cf","skill":"1c8345fe273c44f8","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"d52b9b792e16232b","skill":"f90ac7f64802484c","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.35,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.333,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.283,"recovers":null,"down":true},
@@ -1112,7 +1112,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.383,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.55,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"92dfce2b6652dd5d","skill":"1c8345fe273c44f8","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"29d0552f710c8fd5","skill":"f90ac7f64802484c","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.55,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.433,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.5,"recovers":null,"down":true},
@@ -1151,7 +1151,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.567,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.733,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"a8b0f95b863768c9","skill":"1c8345fe273c44f8","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"61a2fddf0c744dd9","skill":"f90ac7f64802484c","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.767,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.533,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.25,"recovers":null,"down":true},
@@ -1197,7 +1197,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.3,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.983,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"workshop-rogue+toes","spec":"e59b9816d95b4ccc","skill":"1c8345fe273c44f8","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"woman","spec":"9879a544ff7148f6","skill":"f90ac7f64802484c","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.833,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.467,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.317,"recovers":null,"down":true},
@@ -1233,7 +1233,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.6,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.65,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"4897a3fc1e104752","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"cf5a1ce390b39cb9","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.283,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.167,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.1,"recovers":null,"down":true},
@@ -1248,7 +1248,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.083,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.017,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"53de6532f55aba5c","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"065f1c99c4bf1843","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.05,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.05,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.317,"recovers":null,"down":true},
@@ -1257,19 +1257,19 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.35,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.033,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"a619f4fc33c9c112","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"3abd35e3c3affff9","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.317,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.217,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.008,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"c8ef7504c2bcbed6","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"0b7440abc6ebd71d","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.317,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.133,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.008,"recovers":null,"down":true,"end":"standing"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.867,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.192,"recovers":null,"down":true,"end":"back"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"d3a2fa32da8e3a9c","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"058f99999272f803","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.017,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.25,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.008,"recovers":null,"down":true,"end":"standing"},
@@ -1284,7 +1284,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.008,"recovers":null,"down":true,"end":"standing"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.167,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"4897a3fc1e104752","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"cf5a1ce390b39cb9","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.383,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.267,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.1,"recovers":null,"down":true},
@@ -1308,7 +1308,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.233,"recovers":null,"down":true,"end":"right"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.15,"recovers":null,"down":true,"end":"right"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"53de6532f55aba5c","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"065f1c99c4bf1843","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.8,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.3,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.217,"recovers":null,"down":true,"end":"back"},
@@ -1329,7 +1329,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.35,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.2,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"a619f4fc33c9c112","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"3abd35e3c3affff9","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.267,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.3,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.3,"recovers":null,"down":true,"end":"back"},
@@ -1352,7 +1352,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.217,"recovers":null,"down":true,"end":"right"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.158,"recovers":null,"down":true,"end":"back"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"c8ef7504c2bcbed6","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"0b7440abc6ebd71d","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"right","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.3,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.25,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1,"recovers":null,"down":true,"end":"front"},
@@ -1373,7 +1373,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.2,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.183,"recovers":null,"down":true,"end":"back"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"d3a2fa32da8e3a9c","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"058f99999272f803","skill":"f2cf2d430596a9d9","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.333,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.217,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"between","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.617,"recovers":null,"down":true,"end":"front"},
@@ -1396,7 +1396,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.15,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.317,"recovers":null,"down":true,"end":"back"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"4897a3fc1e104752","skill":"1851a09d0591b3a7","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"cf5a1ce390b39cb9","skill":"274fd720dea627da","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.592,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":6.133,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.017,"recovers":null,"down":true,"end":"back"},
@@ -1420,7 +1420,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.233,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":6.933,"recovers":null,"down":true,"end":"crouch"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"53de6532f55aba5c","skill":"1851a09d0591b3a7","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"065f1c99c4bf1843","skill":"274fd720dea627da","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":4.3,"recovers":null,"down":true,"end":"between"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":6.833,"recovers":null,"down":true,"end":"fours"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":6.65,"recovers":null,"down":true,"end":"crouch"},
@@ -1476,7 +1476,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.333,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.4,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"a619f4fc33c9c112","skill":"1851a09d0591b3a7","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"3abd35e3c3affff9","skill":"274fd720dea627da","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":5.217,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":6.867,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":4.758,"recovers":null,"down":true,"end":"front"},
@@ -1507,7 +1507,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.083,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.35,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"c8ef7504c2bcbed6","skill":"1851a09d0591b3a7","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"0b7440abc6ebd71d","skill":"274fd720dea627da","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.017,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":4.225,"recovers":null,"down":true,"end":"crouch"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":5.233,"recovers":null,"down":false},
@@ -1548,7 +1548,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":6.017,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":8.667,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"d3a2fa32da8e3a9c","skill":"1851a09d0591b3a7","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"058f99999272f803","skill":"274fd720dea627da","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":6.767,"recovers":null,"down":true,"end":"crouch"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":6.7,"recovers":null,"down":true,"end":"crouch"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":6.383,"recovers":null,"down":true,"end":"back"},
@@ -1600,13 +1600,13 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":7.1,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.592,"recovers":null,"down":true,"end":"kneeling"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"4897a3fc1e104752","skill":"c75c9e633834bea5","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"cf5a1ce390b39cb9","skill":"ac856072fc79cf9c","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":4.75,"recovers":null,"down":true,"end":"crouch"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.483,"recovers":null,"down":true,"end":"crouch"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.317,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.017,"recovers":null,"down":true,"end":"standing"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"53de6532f55aba5c","skill":"c75c9e633834bea5","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"065f1c99c4bf1843","skill":"ac856072fc79cf9c","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":4.75,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.283,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":4.683,"recovers":null,"down":true,"end":"front"},
@@ -1614,23 +1614,23 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.1,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.017,"recovers":null,"down":true,"end":"standing"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"a619f4fc33c9c112","skill":"c75c9e633834bea5","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"3abd35e3c3affff9","skill":"ac856072fc79cf9c","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.317,"recovers":null,"down":true,"end":"fours"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":4.983,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.5,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"c8ef7504c2bcbed6","skill":"c75c9e633834bea5","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"0b7440abc6ebd71d","skill":"ac856072fc79cf9c","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.317,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.883,"recovers":null,"down":false},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.933,"recovers":null,"down":false}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"d3a2fa32da8e3a9c","skill":"c75c9e633834bea5","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"058f99999272f803","skill":"ac856072fc79cf9c","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.367,"recovers":null,"down":true,"end":"fours"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.558,"recovers":null,"down":true,"end":"fours"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":4.183,"recovers":null,"down":true,"end":"left"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"fours","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.4,"recovers":null,"down":true,"end":"left"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"4897a3fc1e104752","skill":"9b99dbd6c27ddb00","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"cf5a1ce390b39cb9","skill":"f482a3297ab1525b","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.517,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.5,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.017,"recovers":null,"down":true,"end":"back"},
@@ -1638,7 +1638,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":4.15,"recovers":null,"down":true,"end":"right"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.7,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"53de6532f55aba5c","skill":"9b99dbd6c27ddb00","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"065f1c99c4bf1843","skill":"f482a3297ab1525b","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.383,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.583,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.383,"recovers":null,"down":true,"end":"back"},
@@ -1648,7 +1648,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.633,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":7.667,"recovers":null,"down":true,"end":"front"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"a619f4fc33c9c112","skill":"9b99dbd6c27ddb00","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"3abd35e3c3affff9","skill":"f482a3297ab1525b","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.167,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.433,"recovers":null,"down":true,"end":"crouch"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.833,"recovers":null,"down":true},
@@ -1658,14 +1658,14 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.7,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":2.7,"recovers":null,"down":true,"end":"left"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"c8ef7504c2bcbed6","skill":"9b99dbd6c27ddb00","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"0b7440abc6ebd71d","skill":"f482a3297ab1525b","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":7.3,"recovers":null,"down":true,"end":"between"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.95,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.033,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":3.183,"recovers":null,"down":true,"end":"front"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.2,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"d3a2fa32da8e3a9c","skill":"9b99dbd6c27ddb00","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"058f99999272f803","skill":"f482a3297ab1525b","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":7.283,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":6.7,"recovers":null,"down":true,"end":"between"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3,"recovers":null,"down":true},
@@ -1677,7 +1677,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":1.225,"recovers":null,"down":true,"end":"crouch"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"front","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":0.017,"recovers":null,"down":true,"end":"standing"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"4897a3fc1e104752","skill":"d7483657fad7cded","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"cf5a1ce390b39cb9","skill":"75db7108ca620c9e","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":25.317,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":11.417,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":16.017,"recovers":null,"down":true,"end":"back"},
@@ -1737,7 +1737,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":16.033,"recovers":null,"down":true,"end":"back"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":13.142,"recovers":null,"down":true,"end":"back"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"53de6532f55aba5c","skill":"d7483657fad7cded","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"065f1c99c4bf1843","skill":"75db7108ca620c9e","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":4.35,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.267,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":15.983,"recovers":null,"down":true,"end":"back"},
@@ -1796,7 +1796,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":2.533,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":28.8,"recovers":null,"down":true,"end":"back"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"a619f4fc33c9c112","skill":"d7483657fad7cded","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"3abd35e3c3affff9","skill":"75db7108ca620c9e","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.05,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":17.85,"recovers":null,"down":true,"end":"right"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":29.108,"recovers":null,"down":true,"end":"back"},
@@ -1847,7 +1847,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":29.517,"recovers":null,"down":true,"end":"right"},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":29.042,"recovers":null,"down":true,"end":"back"}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"c8ef7504c2bcbed6","skill":"d7483657fad7cded","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"0b7440abc6ebd71d","skill":"75db7108ca620c9e","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":7.383,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":7.317,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":false,"dealt":0,"taken":0,"seconds":16.333,"recovers":null,"down":true,"end":"back"},
@@ -1884,7 +1884,7 @@
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":3.217,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":6.167,"recovers":null,"down":true}
     ] },
-    { "measured": {"body":"crypt-skeleton+toes","spec":"d3a2fa32da8e3a9c","skill":"d7483657fad7cded","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
+    { "measured": {"body":"skeleton","spec":"058f99999272f803","skill":"75db7108ca620c9e","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":7.733,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"left","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":8.117,"recovers":null,"down":true},
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":6.233,"recovers":null,"down":true},

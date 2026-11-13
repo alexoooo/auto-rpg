@@ -10,7 +10,7 @@
  * `scoreOn`), and its record is kept on the row's confirmation (`confirmRow`).
  *
  *   import { cellOf, drillTrials, playTrial, subjectOf, confirm } from "../drill-trials.mjs";
- *   const cell = cellOf({ body: "workshop-fighter", skill: "stomp", loadout: "empty,empty" });
+ *   const cell = cellOf({ body: "man", skill: "stomp", loadout: "empty,empty" });
  *   const trials = drillTrials(cell, "twin");           // research's; "cell" for the held-out cases
  *   const one = await playTrial(trials[0], valueWith(subjectOf(trials[0])), { hz: 120 });
  *   const kept = await confirm(cell, (trial) => valueWith(subjectOf(trial)));   // 120 and 480 Hz, the worse counting

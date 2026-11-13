@@ -31,7 +31,7 @@ try {
   await page.goto(`${base}/?play=arena`);
   await page.waitForFunction(() => window.__arena && !document.querySelector("#begin").disabled);
   await page.getByLabel("Left appearance", { exact: true }).selectOption("industrial");
-  await page.getByLabel("Right character", { exact: true }).selectOption("workshop-fighter");
+  await page.getByLabel("Right character", { exact: true }).selectOption("man");
   await page.getByLabel("Right appearance", { exact: true }).selectOption("relic");
   await page.waitForTimeout(2000);
   await capture("arena-industrial-relic");
@@ -52,9 +52,9 @@ try {
   await page.keyboard.press("Space");
   await page.locator("#leave").click();
   assert.equal(await page.getByLabel("Left appearance", { exact: true }).inputValue(), "duelist");
-  await page.getByLabel("Right character", { exact: true }).selectOption("workshop-rogue");
+  await page.getByLabel("Right character", { exact: true }).selectOption("woman");
   assert.equal(await page.getByLabel("Right appearance", { exact: true }).isVisible(), false);
-  await page.getByLabel("Right character", { exact: true }).selectOption("workshop-fighter");
+  await page.getByLabel("Right character", { exact: true }).selectOption("man");
   assert.equal(await page.getByLabel("Right appearance", { exact: true }).inputValue(), "default");
   checks.push("Arena previews, fight, restart, setup and compatible selection");
 
@@ -105,19 +105,19 @@ try {
 
   let release, requested;
   const art = JSON.parse(await readFile("public/assets/generated/manifest.json", "utf8"));
-  const fighterUri = art.characters.fighter.model.uri;
+  const manUri = art.characters.man.model.uri;
   const requestedPromise = new Promise(done => { requested = done; });
   const releasePromise = new Promise(done => { release = done; });
-  await page.route(`**/${fighterUri}`, async route => { requested(); await releasePromise; await route.continue(); });
+  await page.route(`**/${manUri}`, async route => { requested(); await releasePromise; await route.continue(); });
   await appearances.getByRole("button", { name: "Original", exact: true }).click();
   await requestedPromise;
   await choose("Futuristic", "duelist", false);
-  const response = page.waitForResponse(r => r.url().endsWith(`/${fighterUri}`));
+  const response = page.waitForResponse(r => r.url().endsWith(`/${manUri}`));
   release(); await response;
   await page.evaluate(() => __lab.scene.whenReadyAsync());
   await page.waitForTimeout(100);
   assert.ok(await page.evaluate(() => __lab.current().skin.meshes.every(m => m.name.includes(".duelist."))));
-  await page.unroute(`**/${fighterUri}`);
+  await page.unroute(`**/${manUri}`);
   await choose("Original", "default");
   assert.ok(await page.getByRole("group", { name: "Wears", exact: true }).isVisible());
   await choose("Industrial", "industrial");
@@ -137,7 +137,7 @@ try {
   await page.waitForTimeout(900);
   await capture("lab-shoved");
   await page.getByRole("button", { name: "Rogue", exact: true }).click();
-  await page.waitForFunction(() => __lab.current().built.spec.model === "workshop-rogue");
+  await page.waitForFunction(() => __lab.current().built.spec.model === "woman");
   assert.equal(await appearances.isVisible(), false);
   assert.equal(new URL(page.url()).searchParams.has("appearance"), false);
   await page.goto(`${base}/?play=lab&scenario=routine&appearance=relic&right=club`);

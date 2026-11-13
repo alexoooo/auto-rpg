@@ -4,7 +4,7 @@ import "@babylonjs/core/Materials/Textures/Loaders/ktxTextureLoader.js";
 import { publicAssetUrl } from "../asset-url.ts";
 
 interface ArtManifest {
-  characters: Record<string, { model: { uri: string }; workshop: { uri: string } }>;
+  characters: Record<string, { model: { uri: string }; animated: { uri: string } }>;
   models: Record<string, { uri: string }>;
   textures: Record<string, { uri: string }>;
   decoders: Record<string, string> & { meshopt: string };
@@ -41,8 +41,8 @@ export async function loadArtAssets(): Promise<ArtAssets> {
   return { model: id => url(value.models[id], id), texture: id => url(value.textures[id], id) };
 }
 
-export async function characterAssetUrl(model: string, workshop = false): Promise<string> {
-  const value = await manifest(), id = model.replace(/^workshop-/, ""), asset = value.characters[id];
+export async function characterAssetUrl(model: string, animated = false): Promise<string> {
+  const value = await manifest(), asset = value.characters[model];
   if (!asset) throw new Error(`Unknown character art: ${model}`);
-  return publicAssetUrl(`/assets/generated/${(workshop ? asset.workshop : asset.model).uri}`);
+  return publicAssetUrl(`/assets/generated/${(animated ? asset.animated : asset.model).uri}`);
 }

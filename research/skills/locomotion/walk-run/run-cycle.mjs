@@ -90,7 +90,7 @@ const { values: options, positionals } = parseArgs({ allowPositionals: true, opt
   cutoff: { type: "string", default: "8" }, out: { type: "string", default: "assets/skills/locomotion/cycle-run/run-cycle.json" },
 } });
 if (!positionals.length) throw new Error("usage: node research/skills/locomotion/walk-run/run-cycle.mjs <clip.bvh>[@rate] [...] [--cutoff hz] [--out file]");
-const body = bodyModel(modelSpec("workshop-fighter"));
+const body = bodyModel(modelSpec("man"));
 const cycles = positionals.map((arg) => { const [file, rate] = arg.split("@"); return cycleOf(file, rate ? Number(rate) : undefined, Number(options.cutoff), body); })
   .sort((a, b) => a.speed / Math.sqrt(a.leg) - b.speed / Math.sqrt(b.leg));
 for (const c of cycles) console.log(`${c.clip}: ${c.speed} m/s on a ${c.leg} m leg, a cycle of ${c.period} s, the sole leaving at ${c.leaves}, leaning ${c.lean}; residual ${JSON.stringify(c.residual)}`);

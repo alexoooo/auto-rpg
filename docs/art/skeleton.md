@@ -1,6 +1,6 @@
 # The skeleton's art
 
-The crypt skeleton is drawn with Blender Studio's realistic human skeleton, cut into rigid pieces,
+The skeleton is drawn with Blender Studio's realistic human skeleton, cut into rigid pieces,
 one per part of the body, each carried by the core segment its bones belong to
 (`src/app/browser/render/skeleton-skin.ts`). The art is cosmetic: it collides with nothing, is not pickable
 and decides nothing. The core skeleton (`src/core/bodies/human/skeleton.ts`) reads the art's bind,

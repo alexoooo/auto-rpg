@@ -43,7 +43,7 @@ import { SIDES } from "../../../src/core/bodies/bilateral.ts";
 export const STATICS_HARNESS = "Node, statics: the joints' kinematics and the body's dynamics (src/core/bodies/build/dynamics.ts), no world step";
 
 /** The body every row is read on: the Warrior, nothing in its hands, no assist. */
-export const AUDITED = "workshop-fighter";
+export const AUDITED = "man";
 
 /** How far a touch may stand off the ground, and any other point under it, and still be on it, m. */
 export const ON = 0.001;
@@ -84,7 +84,7 @@ export const STRIPPED = 3;
 
 /**
  * **The hands and feet a body is read with**: `boot`, the Warrior as built, a box boot and a
- * capsule hand; `barefoot`, Man's measured contact geometry (`SOURCES["man-contact-geometry"]`),
+ * capsule hand; `barefoot`, the man's measured contact geometry (`SOURCES["man-contact-geometry"]`),
  * the whole bare foot rigid and the open hand's hull; `toe`, as
  * `barefoot` with the foot cut at the ball and the toes on a passive hinge (`TOE`). Only shapes
  * change: mass stays where the spec puts it, the toes' in the foot.
@@ -108,7 +108,7 @@ export const TOE = Object.freeze({ stiffness: 25, rest: 0, lo: -Math.PI / 2, hi:
  */
 export const TOE_ON = 0.02;
 
-/** A point of Man's contact geometry, body frame, at the fit scale. */
+/** A point of the man's contact geometry, body frame, at the fit scale. */
 const atFit = (p) => scale(p, FIT_SCALE.value);
 
 /**
@@ -125,7 +125,7 @@ export function envelopeSpec(spec, envelope) {
   }
   const hull = (side, piece) => ({
     kind: "hull",
-    points: MAN[side][piece].hull.map((p, i) => derive("m", "Man's contact geometry at the fit scale",
+    points: MAN[side][piece].hull.map((p, i) => derive("m", "The man's contact geometry at the fit scale",
       [sourced(p, "m", "man-contact-geometry", `/${side}/${piece}/hull/${i}`), FIT_SCALE], (q, s) => scale(q, s))),
   });
   return {
@@ -263,7 +263,7 @@ function contactsOf(body) {
 }
 
 /**
- * **A side's hand and foot contacts on Man's hulls**, each touch the lowest of a quarter of a
+ * **A side's hand and foot contacts on the man's hulls**, each touch the lowest of a quarter of a
  * patch or a half of a piece. The foot's axes are the hinge's: across along its axis, ahead square
  * to it and the vertical. The hand's: ahead the hand segment's length laid on the palm patch's
  * plane, across square to it in the plane.

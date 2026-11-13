@@ -16,8 +16,8 @@ import { createStrikeCases } from "../strike/cases.ts";
 import { ATTEMPT_CAP } from "../way-up/read.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
-/** The bodies the table reads: the toed Warrior, the Rogue and the Skeleton. */
-export const TABLE_BODIES: readonly HumanoidModel[] = Object.freeze(["workshop-fighter", "workshop-rogue", "crypt-skeleton"]);
+/** The bodies the table reads: the Warrior, the Rogue and the Skeleton. */
+export const TABLE_BODIES: readonly HumanoidModel[] = Object.freeze(["man", "woman", "skeleton"]);
 
 /** The loadouts the table reads: the five minds are rated on (`REPRESENTATIVE`). */
 export const TABLE_LOADOUTS: readonly Loadout[] = REPRESENTATIVE;
@@ -72,7 +72,7 @@ type Skill = { readonly name: string; readonly value: string; readonly has: (bod
 const always = () => true;
 
 /** The bodies with a run to read: the Warrior's Travel drill and the Rogue's Locomotion runs. */
-const RUNNERS: readonly HumanoidModel[] = Object.freeze(["workshop-fighter", "workshop-rogue"]);
+const RUNNERS: readonly HumanoidModel[] = Object.freeze(["man", "woman"]);
 
 /** What a blow's value is, in words. */
 const BLOW = "the life each trial took from the target less the life it cost, a second of the action's cycle, a fall adding a fall's price (10 s), a blow not begun worth 0";
@@ -124,7 +124,7 @@ export function createTableCells(context: GameContext) {
     { name: "walk", has: always, readings: () => [{ drill: "locomotion", protocol: "every", subject: TABLE_MIND, judge: "orders", byLoadout: true }],
       value: `${MOVE}: the Locomotion screen's walks eight ways at paces up to the body's fastest each way, runs, turns and shoves, its walks again in the gusts` },
     { name: "run", has: (body) => RUNNERS.includes(body),
-      readings: body => body === "workshop-fighter"
+      readings: body => body === "man"
         ? [{ drill: "travel", protocol: "confirmation", subject: TABLE_MIND, judge: "orders", byLoadout: true }]
         : [{ drill: "locomotion", protocol: "run", subject: TABLE_MIND, judge: "orders", byLoadout: true }],
       value: `${MOVE}: Warrior, the Travel drill's forward, directional, steering, corner, reversal and stop orders, a run from a walk, and places by a route with a corner and moved as it runs; Rogue, the Locomotion runs, the same three among them; calm and gusts, seeds 1 to 4` },

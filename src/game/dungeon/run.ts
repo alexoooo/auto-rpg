@@ -80,9 +80,9 @@ export function runMap(options: Pick<DungeonRunOptions, "seed" | "layout">): Dun
   const generated = generateEncounterLevel(options.seed);
   return isRefused(generated) ? generated : generated.map;
 }
-const heroOf = (options: Pick<DungeonRunOptions, "hero">): BodyModel => options.hero ?? "workshop-fighter";
+const heroOf = (options: Pick<DungeonRunOptions, "hero">): BodyModel => options.hero ?? "man";
 const enemyAt = (map: DungeonMap, options: Pick<DungeonRunOptions, "enemy">, i: number): BodyModel =>
-  options.enemy?.(i) ?? map.encounters?.[i]?.model ?? "crypt-skeleton";
+  options.enemy?.(i) ?? map.encounters?.[i]?.model ?? "skeleton";
 /** Every body a run of `options` on `map` fields, as its mind is chosen (`DungeonRunOptions.mind`): the hero, the companions, then the enemies. */
 export function runParticipants(map: DungeonMap, options: Pick<DungeonRunOptions, "hero" | "companions" | "enemy">): Participant[] {
   return [{ id: "hero", side: "party", model: heroOf(options) },

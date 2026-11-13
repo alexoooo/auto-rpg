@@ -13,7 +13,7 @@ export function createTravelIndex(context: GameContext) {
   const { TRAVEL_CASES } = createTravelCases(context);
   const TRAVEL_DRILL: Evaluation<TravelCondition, TravelReading, BuiltLone> = {
     id: "travel", title: "Warrior travel", group: "skills",
-    question: "How much time does the toed Warrior lose against forward, directional, turning, stopping and place orders without assistance?",
+    question: "How much time does the Warrior lose against forward, directional, turning, stopping and place orders without assistance?",
     protocols: TRAVEL_CASES, defaultProtocol: "minimum", schedule: "all", analysis: {},
     subjects: choice => mindSubjects(choice, ["option"]),
     figures: [

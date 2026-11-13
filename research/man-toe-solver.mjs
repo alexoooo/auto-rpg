@@ -1,5 +1,5 @@
 /**
- * **Man's passive toe on the game's solver**: one foot of
+ * **The man's passive toe on the game's solver**: one foot of
  * the Warrior, cut at the ball (`assets/humanoid/man-contact-geometry.json`), on the arena's ground,
  * built through the core's Rapier world (`createRapierPhysics`: `SOLVER`'s iterations, the contract's
  * friction) and not through the core's body.

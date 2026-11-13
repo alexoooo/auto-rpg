@@ -8,12 +8,12 @@ and turning limits; the braced walk remains available for fighting. Travel never
 braced walk (the stance's walk): the Run starts from a stand, goes slow, turns and stops by its own
 controller, and the stance only holds the body standing between orders.
 
-Train and confirm on the game's toed Warrior, unassisted. Use existing gait implementations,
+Train and confirm on the game's Warrior, unassisted. Use existing gait implementations,
 records and training checkpoints as seeds, replayed on this body before reuse; their
 readings on this body are the baseline, taken before the body or controller changes. Every body
 change is read on recovery as well.
 
-This plan owns the Warrior's movement: the table's `run` row on `workshop-fighter`. Warrior
+This plan owns the Warrior's movement: the table's `run` row on `man`. Warrior
 recovery is serviceable for this work: a change here that costs recovery reports the cost beside
 its gain.
 Body and controller changes serve travel and recovery together. A changed toe or other body part
@@ -189,7 +189,7 @@ actual orders and the cases of [Value and figures](#value-and-figures).
 
 ## Where it stands
 
-The row, from saved results: `npm run evaluate -- table --body workshop-fighter --skill run`. Each
+The row, from saved results: `npm run evaluate -- table --body man --skill run`. Each
 loadout loses 6.8 to 7.1 s against the orders of the Travel confirmation protocol, falling on
 none and ending down on 9 to 25 of 312, read before the protocol added a run from a walk and places
 by a route with a corner and moved (352 a loadout), so the row reads again when played.

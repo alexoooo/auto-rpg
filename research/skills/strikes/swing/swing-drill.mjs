@@ -16,7 +16,7 @@
  * drill). `--confirm` plays a search's best and the record the body plays now on the row's cells'
  * own cases at 120 and 480 Hz, the worse counting (`confirmRow`).
  *
- *   node research/skills/strikes/swing/swing-drill.mjs --body workshop-fighter --skill bonk --out <file.json> [--loadout <left,right>] [--hand right]
+ *   node research/skills/strikes/swing/swing-drill.mjs --body man --skill bonk --out <file.json> [--loadout <left,right>] [--hand right]
  *     [--footing <behind,right,behind,right>] [--workers N] [--lambda 16] [--generations 60] [--seed 1] [--from <file.json>] [--sigma 0.15]
  *   node research/skills/strikes/swing/swing-drill.mjs --confirm <file.json> [--workers N]
  *   node research/skills/strikes/swing/swing-drill.mjs --settings <file.json>   the found swing's settings, whole, for `skill-records.mjs`
@@ -34,7 +34,6 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import "../../../../tests/harness/preload-data.mjs";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
-import { bodyKey } from "../../../../src/core/bodies/spec/body.ts";
 import { SWINGS } from "../../../../src/skills/strikes/swing-part.ts";
 import { cmaSearch } from "../../../cma.mjs";
 import { confirmRow, drillTrials, rowOf, scoreOn, subjectOf, trialPool, withTuning } from "../../../drill-trials.mjs";
@@ -127,7 +126,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     confirm: { type: "string" }, settings: { type: "string" }, footing: { type: "string" } } });
   if (values.settings) {
     // Whole, as a record holds them: the body's record the search played over, its tuning over it.
-    const found = JSON.parse(readFileSync(values.settings, "utf8")), record = recordsOf(SKILLS[found.cell.skill])[bodyKey(modelSpec(found.cell.body))];
+    const found = JSON.parse(readFileSync(values.settings, "utf8")), record = recordsOf(SKILLS[found.cell.skill])[modelSpec(found.cell.body).model];
     if (!record) throw new Error(`${found.cell.body} has no ${found.cell.skill} record the search played over`);
     console.log(JSON.stringify({ ...record.settings, ...tuningOf(found.best.x, found.cell) }, null, 2));
     process.exit(0);

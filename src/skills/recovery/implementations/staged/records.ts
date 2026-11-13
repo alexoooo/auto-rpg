@@ -3,7 +3,7 @@ import sitBackMeta from "../../../../../assets/skills/recovery/staged/sit-back.m
 import { dataOf } from "../../../../core/data/store.ts";
 import type { SkillRecords } from "../../../framework/records.ts";
 import { deepFreeze } from "../../../../core/state.ts";
-import { bodyKey, type BodySpec } from "../../../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
 import { heldBy, loadoutKey } from "../../../../core/bodies/items/held.ts";
 import type { stagedRise } from "./staged.ts";
 import { RISE, rollOver, type BearStage, type PoseStage, type Posture, type Recipe, type RollPoses, type Stage } from "./stages.ts";
@@ -90,7 +90,7 @@ const byBody = new WeakMap<BodySpec, StepUpTuning>();
 
 /** A body of `spec`'s step-up settings (`record`), `sitBack`'s stages with them, and its loadout's over both. */
 function composed(spec: BodySpec, record: StepUpTuning | undefined, sitBack: SitBackTuning | undefined): StepUpTuning {
-  if (!record) throw new Error(`the step-up has no record for ${bodyKey(spec)}`);
+  if (!record) throw new Error(`the step-up has no record for ${spec.model}`);
   const { loadouts, ...own } = record;
   const left = heldBy(spec, "left"), right = heldBy(spec, "right");
   const loaded = left === null || right === null ? undefined : loadouts?.[loadoutKey({ left, right })];
@@ -114,7 +114,7 @@ export function stepUpTuning(spec: BodySpec): StepUpTuning {
  * it (a staged technique's `tuning`).
  */
 export function stepUpTuningWith(spec: BodySpec, { stepUp, sitBack }: { readonly stepUp?: StepUpTuning; readonly sitBack?: SitBackTuning }): StepUpTuning {
-  const key = bodyKey(spec);
+  const key = spec.model;
   return composed(spec, stepUp ?? dataOf("step-up")[key]?.settings, sitBack ?? dataOf("sit-back")[key]?.settings);
 }
 

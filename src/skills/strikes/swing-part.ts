@@ -4,7 +4,6 @@ import clubMeta from "../../../assets/skills/strikes/club-blow/club-blow.meta.js
 import bonkMeta from "../../../assets/skills/strikes/bonk/bonk.meta.json" with { type: "json" };
 import bonkLayout from "../../../assets/skills/strikes/bonk/bonk.layout.json" with { type: "json" };
 import { recoveryNetwork, type Network } from "../../core/math/learning/recovery-network.ts";
-import { bodyKey } from "../../core/bodies/spec/body.ts";
 import { checkedLayout, type PunchLayout } from "./learned-punch.ts";
 import { dataOf } from "../../core/data/store.ts";
 import { heldBy, type Held } from "../../core/bodies/items/held.ts";
@@ -35,7 +34,7 @@ export const SWINGS = deepFreeze({
 type SwingKind = keyof typeof SWINGS;
 
 /**
- * **A swing's record for one body** (`dataOf(<kind>)`, by `bodyKey`): its settings, whole, and
+ * **A swing's record for one body** (`dataOf(<kind>)`, by model): its settings, whole, and
  * where its kind has a layout, the network that steers it where one was trained (its layout's
  * inputs in, its outputs out, `recoveryNetwork`), or none.
  */
@@ -87,7 +86,7 @@ function swingPart<K extends SwingKind>(kind: K): ExecutorPart<Config<K>> {
       const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};
       for (const hand of SIDES) { const face = swingFace(spec, `hand.${hand}`, kind); if (face) faces[hand] = face; }
       const layout: PunchLayout | undefined = "layout" in swing ? swing.layout : undefined;
-      const network = layout && config.tuning === undefined ? dataOf(kind)[bodyKey(spec)]?.network : null;
+      const network = layout && config.tuning === undefined ? dataOf(kind)[spec.model]?.network : null;
       return swingExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf(kind), spec, config), aimedPoint(aim), faces,
         { ...(layout ? { layout } : {}), ...(network ? { policy: recoveryNetwork(network) } : {}) });
     },

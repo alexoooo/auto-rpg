@@ -83,7 +83,7 @@ records and arrays.
 A `BodySpec` (`src/core/bodies/spec/body.ts`) is a body in its reference pose (metres, +y up, +z forward,
 soles on y = 0): segments with mass, inertia, shapes and stiffness; a joint tree, each freedom with
 its axis, range and muscle; effectors (a named point on a segment and the ancestor `base` whose
-chain moves it); bearing ends; wounds; the down rule (`DownSpec`); and anything held. `bodyKey`
+chain moves it); bearing ends; wounds; the down rule (`DownSpec`); and anything held. Its `model`
 names a body for everything measured on it.
 
 Segments declare named collision `configurations`, their initial configuration and any attachment
@@ -209,7 +209,7 @@ driven points, a stance goal) into muscle commands.
 - **Balance** is a part of role `balance` (`BALANCES`); the game's is the stance
   (`stance-balance.ts`): the centre of mass kept inside the support by forces the ground can give,
   steps placed from the capture point, a body without box soles refused. What a body was measured
-  to hold is its envelope, read by `bodyKey` from its implementation in `assets/skills/locomotion/`.
+  to hold is its envelope, read by model from its implementation in `assets/skills/locomotion/`.
   Each balance supplies its calibration through its motor; command-layer wiring reads that result.
 - **The assist** (`Assist`, `assist.ts`) is a force at the root and a moment that no muscle gives:
   asked by the mind, shortened to the body's ceiling, applied through the solver step, metered. The
@@ -247,7 +247,7 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   predicate. Skill assembly constructs configured aims once and roots their memory in `Skills.state`.
 - **Tuned per body**: a skill that reads a record (`Part.reads`: the blows, step up's and the
   sit-back's poses and timings, the righting's recipe) has its settings as its body's record (`SkillRecord`),
-  read as mind data by `bodyKey` from its implementation in `assets/skills/` (`dataOf`). A body with no record
+  read as mind data by model from its implementation in `assets/skills/` (`dataOf`). A body with no record
   does not use the skill. Step up's record may adjust the recovery poses and timings by loadout.
   Implementations register loaders in `data/registration.ts`; an entrant adds its loaders to its
   manifest's `data`. The catalog supplies those loaders to the store (`DataKey`, `keyof DataOf`)
@@ -842,7 +842,7 @@ any page.
 
 `src/app/browser/` is Vite's browser root. Its `index.html` holds the app shell; `app.ts` mounts each
 screen's HTML from beside its UI code, selected by `?play=` (`src/game/route.ts`). The shell disposes
-the last screen explicitly and keeps setup choices for the tab. The Character Workshop and Physics
+the last screen explicitly and keeps setup choices for the tab. The Character Lab and Physics
 Bench have their own `index.html` beside their modules. Every entry document is in `vite.config.ts`'s
 `rollupOptions.input`.
 

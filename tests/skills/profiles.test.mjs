@@ -50,7 +50,7 @@ test("a strike's record counts its own limb's tries its executor gave up on", ()
 test("a skill's identity includes the selected aim's declared data", async () => {
   const { loadData } = await import("../../src/core/data/store.ts");
   await loadData(["aim-audit-a", "aim-audit-b"], { "aim-audit-a": async () => ({ value: 1 }), "aim-audit-b": async () => ({ value: 2 }) });
-  const spec = resolveCharacter({ model: "workshop-fighter" }).spec;
+  const spec = resolveCharacter({ model: "man" }).spec;
   const action = Object.freeze({ name: "audit", executor: "audit", effectors: ["hand.right"], aim: { kind: "audit-aim" } });
   const executors = [Object.freeze({ name: "audit", kind: "audit-executor" })];
   const lookup = key => ({ of(role) { return role === "aim" ? { reads: () => [key] } : {}; } });
@@ -59,7 +59,7 @@ test("a skill's identity includes the selected aim's declared data", async () =>
 
 test("a zero-length failed profile trial has a finite failed rate", async () => {
   const { profileReading } = await import("../../src/skills/framework/profile.ts");
-  const spec = resolveCharacter({ model: "workshop-fighter" }).spec;
+  const spec = resolveCharacter({ model: "man" }).spec;
   const start = { phase: "clear", range: 1 };
   const reading = profileReading({ target: null, trials: [{ start, done: false, dealt: 0, taken: 0, seconds: 0, recovers: null, down: false }] }, spec);
   assert.equal(reading.rate(start, spec), 0);

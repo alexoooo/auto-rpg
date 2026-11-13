@@ -10,7 +10,7 @@ import { servoAsk } from "../../../../../src/control/servo.ts";
 import { Vector3 } from "../../../../../src/core/math/vector.ts";
 
 test("bearing posture accelerations use the joint turning map, including damping and transfer", async () => {
-  const stand = await coreStand(modelSpec("workshop-fighter"), { gravity: false, ground: false, posture: {
+  const stand = await coreStand(modelSpec("man"), { gravity: false, ground: false, posture: {
     "shoulder.left flexion": .6, "shoulder.left abduction": .8, "shoulder.left internal rotation": .4,
     "hip.left flexion": 1, "hip.left abduction": .4, "hip.left internal rotation": .4,
   } });

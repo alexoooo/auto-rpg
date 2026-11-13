@@ -60,7 +60,7 @@ async function down() {
 
 async function fall() {
   await GAME.loadData(GAME.dataKeys);
-  const job = risingJobs({ target: true }).find((one) => one.model === "crypt-skeleton");
+  const job = risingJobs({ target: true }).find((one) => one.model === "skeleton");
   const built = await buildFall({ ...job, mind: risingMind(job.techniques) }, DEFAULT_ENGINE);
   if (isRefused(built)) throw new Error(built.refused);
   const steps = 240, step = () => { built.world.step(); built.afterStep(); };

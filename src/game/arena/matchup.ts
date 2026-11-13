@@ -33,7 +33,7 @@ export function arenaAttributes(search: string): Readonly<Record<Side, Attribute
 }
 
 /** The Warrior against the Rogue unless a link or a person picks another pair. */
-const DEFAULT_MATCHUP: Matchup = Object.freeze({ left: "workshop-fighter", right: "workshop-rogue" });
+const DEFAULT_MATCHUP: Matchup = Object.freeze({ left: "man", right: "woman" });
 
 /** What each model is called on the page. */
 

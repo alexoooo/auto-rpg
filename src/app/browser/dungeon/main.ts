@@ -137,7 +137,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   };
   for (const hero of HEROES) {
     const label = document.createElement("label"), input = document.createElement("input"), name = document.createElement("span");
-    input.type = "radio"; input.name = "hero"; input.value = hero.model; input.checked = hero.model === (setupQuery.get("hero") ?? "workshop-fighter");
+    input.type = "radio"; input.name = "hero"; input.value = hero.model; input.checked = hero.model === (setupQuery.get("hero") ?? "man");
     name.textContent = hero.label;
     label.append(input, name); heroChoices.append(label);
   }
@@ -294,7 +294,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       meter,
       abort, signal: abort.signal,
       party: null,
-      selectedHero: "workshop-fighter", mind: () => null, attributes: () => ({}), loadout: () => null, companions: [], clothing: { boots: true, armour: true },
+      selectedHero: "man", mind: () => null, attributes: () => ({}), loadout: () => null, companions: [], clothing: { boots: true, armour: true },
       selectedScenario: "generated", selectedQuality: "high", reference: false, commanders: { party: { kind: "party" }, enemies: { kind: "mob" } },
       seed: 0, cryptPlan: undefined, scene: null, run: null, camera: null, rig: null, subjects: new Map(), lighting: null, referenceLook: null,
       drawn: [], soundTorches: [], routes: null,

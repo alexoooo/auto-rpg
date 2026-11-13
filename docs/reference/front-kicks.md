@@ -1,7 +1,7 @@
 # The stomp's settings
 
 The stomp's executor (`stompExecutor`, `src/skills/strikes/stomp.ts`) takes its settings
-from its body's record (`assets/skills/strikes/stomp/stomp.json`, by `bodyKey`), and each record is whole: it holds
+from its body's record (`assets/skills/strikes/stomp/stomp.json`, by model), and each record is whole: it holds
 every key `STOMP_PATH` names (`research/skills/skill-records.mjs` writes no other). A body with no record
 throws no stomp (`recordFault`, `src/skills/framework/records.ts`), unless an experiment's
 research `tuning` is whole in its place (`wholeStomp`, `stomp-part.ts`); a research `tuning` sets

@@ -5,8 +5,8 @@
   "layout": "assets/skills/strikes/straight-punch/learned-punch.layout.json",
   "subject": {"mind": {"preset": "option-drill", "skill": "straight-punch", "steered": true}, "skill": "straight-punch"},
   "places": [
-    {"protocol": "still-twin", "where": {"model": "workshop-fighter"}},
-    {"protocol": "walk-twin", "where": {"model": "workshop-fighter"}}
+    {"protocol": "still-twin", "where": {"model": "man"}},
+    {"protocol": "walk-twin", "where": {"model": "man"}}
   ],
   "rates": [120],
   "pool": 4,

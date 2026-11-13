@@ -21,7 +21,7 @@ const network = (seed, { inputs, actions }) => ({ actions, layers: [{
 }] });
 
 test("a travel answer acts over exactly its own decision interval", async () => {
-  const spec = modelSpec("workshop-fighter"), guard = guardPosture(spec);
+  const spec = modelSpec("man"), guard = guardPosture(spec);
   const stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard });
   let host;
   try {
@@ -64,7 +64,7 @@ test("restoring a moving start preserves the curriculum's stop and pace orders",
   }] });
   mkdirSync(resolve(".tmp"), { recursive: true });
   const directory = mkdtempSync(join(resolve(".tmp"), "travel-orders-")), settings = join(directory, "settings.json");
-  writeFileSync(settings, JSON.stringify({ envelope: stanceEnvelope(modelSpec("workshop-fighter")), learned: {
+  writeFileSync(settings, JSON.stringify({ envelope: stanceEnvelope(modelSpec("man")), learned: {
     travel: zero(TRAVEL_LAYOUT.inputs.length, TRAVEL_LAYOUT.outputs.length), reference: zero(49, 12),
     velocityScale: 0, referenceScale: 0, interval: 1 / 30, entry: "landing", trim: "continuous", stanceScale: { height: 0, heading: 0 },
   } }));

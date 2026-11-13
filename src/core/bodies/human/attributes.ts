@@ -1,7 +1,7 @@
 import type { AttributeSpec, BodySpec } from "../spec/body.ts";
 import { sourced, type Quantity } from "../../quantity.ts";
 import type { HumanFigure } from "./figure.ts";
-import type { WorkshopModel } from "./rig.ts";
+import type { HumanModel } from "./rig.ts";
 import { attributeError } from "../character-attributes.ts";
 import type { Exertion } from "./tables/joint-torques.ts";
 
@@ -36,21 +36,21 @@ export function hasteOver(spec: BodySpec): number {
   return 1 + spec.attributes.haste.value / 100;
 }
 
-/** A workshop model's balance, per cent of its weight: 0, no assist. */
-export function workshopBalance(model: WorkshopModel): Quantity<number> {
+/** A human model's balance, per cent of its weight: 0, no assist. */
+export function humanBalance(model: HumanModel): Quantity<number> {
   switch (model) {
-    case "workshop-fighter": return sourced(0, "%", "owner-balance", "Warrior 0");
-    case "workshop-rogue": return sourced(0, "%", "owner-balance", "Rogue 0");
+    case "man": return sourced(0, "%", "owner-balance", "Warrior 0");
+    case "woman": return sourced(0, "%", "owner-balance", "Rogue 0");
     default: { const never: never = model; throw new Error(`no balance for ${String(never)}`); }
   }
 }
 
 /**
- * **Each workshop model's factors on named exertions** (`HumanFigure.exertions`), set for a
+ * **Each human model's factors on named exertions** (`HumanFigure.exertions`), set for a
  * result in play (`owner-rogue-arms`): the Rogue's elbow extension doubled, so her elbows
  * straighten under her on hands and knees.
  */
-export const WORKSHOP_EXERTIONS: Readonly<Record<WorkshopModel, Readonly<Partial<Record<Exertion, Quantity<number>>>> | undefined>> = Object.freeze({
-  "workshop-fighter": undefined,
-  "workshop-rogue": Object.freeze({ elbowExtension: sourced(2, "1", "owner-rogue-arms", "the Rogue's elbow extension over its measured peak") }),
+export const HUMAN_EXERTIONS: Readonly<Record<HumanModel, Readonly<Partial<Record<Exertion, Quantity<number>>>> | undefined>> = Object.freeze({
+  man: undefined,
+  woman: Object.freeze({ elbowExtension: sourced(2, "1", "owner-rogue-arms", "the Rogue's elbow extension over its measured peak") }),
 });

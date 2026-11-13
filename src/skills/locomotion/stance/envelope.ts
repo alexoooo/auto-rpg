@@ -1,5 +1,5 @@
 import measured from "../../../../assets/skills/locomotion/stance/stance-envelope.json" with { type: "json" };
-import { bodyKey, type BodySpec } from "../../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { StanceEnvelope } from "../../../control/stance/stance-envelope.ts";
 import { envelopeIn } from "../envelope-table.ts";
 
@@ -24,10 +24,10 @@ import { envelopeIn } from "../envelope-table.ts";
  * turn ceiling (`turnLimit`), never a higher one.
  */
 
-/** The measured envelope of `spec`'s body (`bodyKey`), walking by the stance's own walk (`stance-walk`). */
+/** The measured envelope of `spec`'s model, walking by the stance's own walk (`stance-walk`). */
 export function stanceEnvelope(spec: BodySpec): StanceEnvelope {
   return envelopeIn(measured, "core-stance-envelope", spec, "the stance");
 }
 
 /** The measured envelope of `spec`'s body (`stanceEnvelope`), or null where the stance's envelope was not measured on it. */
-export const stanceEnvelopeOf = (spec: BodySpec): StanceEnvelope | null => Object.hasOwn(measured.models, bodyKey(spec)) ? stanceEnvelope(spec) : null;
+export const stanceEnvelopeOf = (spec: BodySpec): StanceEnvelope | null => Object.hasOwn(measured.models, spec.model) ? stanceEnvelope(spec) : null;

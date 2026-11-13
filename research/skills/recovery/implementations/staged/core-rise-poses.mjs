@@ -6,7 +6,7 @@
  * heights of its centre of mass and of its pelvis's, its upper trunk's and its head's, m, and the
  * freedoms furthest from the stage's posture, each angle less the posture's, rad.
  *
- *   node research/skills/recovery/implementations/staged/core-rise-poses.mjs [--model workshop-fighter] [--lie front|back|left|right]
+ *   node research/skills/recovery/implementations/staged/core-rise-poses.mjs [--model man] [--lie front|back|left|right]
  *     [--held empty] [--stages '<PoseStage[] JSON>'] [--degrees <about up>]
  *
  * `--lie` is the shove's way: forward, backward, or to that side; `--degrees`, if given, is the
@@ -64,7 +64,7 @@ export async function posed({ model, held = "empty", lie, degrees = SHOVE[lie], 
 if (import.meta.url === `file:///${process.argv[1]?.replaceAll("\\", "/")}` || import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   const option = (name, otherwise) => { const at = args.indexOf(`--${name}`); return at < 0 ? otherwise : args[at + 1]; };
-  const model = option("model", "workshop-fighter"), lie = option("lie", "front"), held = option("held", "empty");
+  const model = option("model", "man"), lie = option("lie", "front"), held = option("held", "empty");
   if (!(lie in SHOVE)) throw new Error(`--lie is one of ${Object.keys(SHOVE).join(", ")}`);
   const given = option("stages", null), stages = given === null ? RISE.rise : JSON.parse(given);
   const degrees = Number(option("degrees", SHOVE[lie]));

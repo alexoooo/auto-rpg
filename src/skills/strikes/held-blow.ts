@@ -2,7 +2,6 @@ import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import thrustMeta from "../../../assets/skills/strikes/sword-thrust/sword-thrust.meta.json" with { type: "json" };
 import thrustLayout from "../../../assets/skills/strikes/sword-thrust/sword-thrust.layout.json" with { type: "json" };
 import { recoveryNetwork, type Network } from "../../core/math/learning/recovery-network.ts";
-import { bodyKey } from "../../core/bodies/spec/body.ts";
 import { checkedLayout, type PunchLayout } from "./learned-punch.ts";
 import { dataOf } from "../../core/data/store.ts";
 import { heldBy, type Held } from "../../core/bodies/items/held.ts";
@@ -31,7 +30,7 @@ type HeldBlowKind = keyof typeof HELD_BLOWS;
 
 /**
  * **A held blow's record for one body** (`dataOf(<kind>)`, `assets/skills/strikes/<kind>/<kind>.json`, by
- * `bodyKey`): its settings, whole, and the network that steers it where it was trained (its
+ * model): its settings, whole, and the network that steers it where it was trained (its
  * layout's inputs in, its outputs out, `recoveryNetwork`), or null.
  */
 export interface HeldBlowRecord extends SkillRecord<StraightPunch> {
@@ -110,7 +109,7 @@ function heldBlowPart<K extends HeldBlowKind>(kind: K): ExecutorPart<Config<K>> 
     make({ body, guard, aim }, config, actions) {
       const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};
       for (const hand of SIDES) { const face = blowFace(spec, `hand.${hand}`, kind); if (face) faces[hand] = face; }
-      const network = config.tuning === undefined ? dataOf(kind)[bodyKey(spec)]?.network : null;
+      const network = config.tuning === undefined ? dataOf(kind)[spec.model]?.network : null;
       return straightPunchExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf(kind), spec, config), aimedPoint(aim),
         { faces, layout: blow.layout, ...(network ? { policy: recoveryNetwork(network) } : {}) });
     },

@@ -23,7 +23,7 @@ try {
   await writeFile(file, source.replace(/from "(\.[^"]+)"/g, (_, relative) =>
     `from ${JSON.stringify(pathToFileURL(resolve(root, "src/core/physics", relative)).href)}`));
   const previous = (await import(pathToFileURL(file).href)).createRapierPhysics, R = await rapierModule();
-  const recipe = { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 12 };
+  const recipe = { left: "man", right: "woman", capSeconds: 12 };
   const play = async (factory) => {
     const bout = await buildBout(recipe, { physicsEngine: { name: "rapier", revision: "adapter-cost", createPhysics: (o) => factory(R, o) } });
     try {

@@ -42,7 +42,7 @@ new PerformanceObserver((list) => { for (const e of list.getEntries()) collectio
 const { values } = parseArgs({ options: { seeds: { type: "string", default: "1,2,3,4" }, seconds: { type: "string", default: "120" }, companions: { type: "string", default: "0" }, listen: { type: "boolean", default: false }, mind: { type: "string" }, runs: { type: "string", default: "1" }, minds: { type: "string" } } });
 const mind = values.mind === undefined ? undefined : MINDS[values.mind]?.config;
 if (values.mind !== undefined && !mind) throw new Error(`no mind preset ${values.mind}`);
-const seconds = Number(values.seconds), companions = Array.from({ length: Number(values.companions) }, () => "workshop-fighter");
+const seconds = Number(values.seconds), companions = Array.from({ length: Number(values.companions) }, () => "man");
 
 /** A run of `seed`, heard or not, and the wall time its steps have taken: all of them, and its slowest second's. */
 async function begun(seed, heard) {

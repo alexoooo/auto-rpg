@@ -12,5 +12,5 @@ import { playBout } from "./bout.mjs";
 
 const args = process.argv.slice(2), at = args.indexOf("--mind");
 const mind = at < 0 ? null : JSON.parse(args.splice(at, 2)[1]);
-const [left = "workshop-fighter", right = "workshop-rogue", seconds = "30"] = args;
+const [left = "man", right = "woman", seconds = "30"] = args;
 console.log(JSON.stringify(await playBout(mind ? { left, right, minds: { left: mind, right: mind } } : { left, right }, Number(seconds))));

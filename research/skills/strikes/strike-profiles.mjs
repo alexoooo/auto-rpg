@@ -48,7 +48,6 @@ import { partIn, partLookup } from "../../../src/app/catalog.ts";
 import { limbAction } from "../../../src/minds/option/kinds.ts";
 import { measuredOn, skillDigest, specDigest } from "../../../src/skills/framework/profile.ts";
 import { everyOf } from "../../../src/minds/decider.ts";
-import { bodyKey } from "../../../src/core/bodies/spec/body.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 import { profileKeys } from "../../../tests/harness/profile-keys.mjs";
 import { lifeFactor } from "../../../src/combat/pool.ts";
@@ -120,7 +119,7 @@ for (const path of paths) {
     const limbed = limbAction(action, drill.effector), marks = marksOf(action);
     if (marks && !marks.includes(row.condition.mark)) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
-    const struck = specOf(recipe, "right"), target = { body: bodyKey(struck), spec: specDigest(struck) };
+    const struck = specOf(recipe, "right"), target = { body: struck.model, spec: specDigest(struck) };
     const measured = measuredOn(spec, skillDigest(partLookup, spec, executors, limbed), hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
     const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector} on ${struck.model}`, effectors: limbed.effectors, limbs: new Set(), trials: [] };
     profiles.set(key, profile);

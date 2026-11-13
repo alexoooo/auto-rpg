@@ -6,8 +6,8 @@
  * run's handover state; with `--rows`, each step's centre of mass, its velocity and whether the body
  * is down. `--list` prints the trials' names.
  *
- *   node research/skills/locomotion/travel-case.mjs --out .tmp/<task>/case.json --trial '<name>' [--body workshop-fighter] [--loadout empty,empty] [--cell] [--settings walk-run.json] [--rows]
- *   node research/skills/locomotion/travel-case.mjs --list [--body workshop-rogue] [--cell]
+ *   node research/skills/locomotion/travel-case.mjs --out .tmp/<task>/case.json --trial '<name>' [--body man] [--loadout empty,empty] [--cell] [--settings walk-run.json] [--rows]
+ *   node research/skills/locomotion/travel-case.mjs --list [--body woman] [--cell]
  *
  * `--settings` is the run gait's research tuning (`walk`, `run`, `braking`, `stride`, `learned`).
  */
@@ -25,7 +25,7 @@ import { drillTrials, subjectOf } from '../../drill-trials.mjs';
 import { moveRow, moveValue } from './move-drill.mjs';
 
 const { values: o } = parseArgs({ options: {
-  out: { type: 'string' }, trial: { type: 'string' }, body: { type: 'string', default: 'workshop-fighter' }, loadout: { type: 'string' },
+  out: { type: 'string' }, trial: { type: 'string' }, body: { type: 'string', default: 'man' }, loadout: { type: 'string' },
   cell: { type: 'boolean' }, settings: { type: 'string' }, list: { type: 'boolean' }, rows: { type: 'boolean' },
 } });
 const trials = moveRow({ body: o.body, skill: 'run', ...(o.loadout ? { loadout: o.loadout } : {}) }).cells.flatMap(cell => drillTrials(cell, o.cell ? 'cell' : 'twin'));

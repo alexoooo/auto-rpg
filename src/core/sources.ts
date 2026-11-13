@@ -86,51 +86,51 @@ const SOURCES = Object.freeze({
       + "segment densities from Dempster 1955 via Miller & Nelson 1973 and Plagenhoef 1971).",
     link: "https://courses.grainger.illinois.edu/me481/sp2021/Anthro-Winter.pdf",
   },
-  "workshop-envelope": {
+  "clothed-envelope": {
     kind: "tuned",
-    for: "Each foot's extents from the workshop models' clothed envelope, as "
-      + "scripts/humanoid/workshop-envelope.mjs prints them.",
+    for: "Each foot's extents from the human models' clothed envelope, as "
+      + "scripts/humanoid/clothed-envelope.mjs prints them.",
   },
-  "workshop-fighter-rig": {
-    kind: "asset", file: "assets/humanoid/workshop-fighter.json",
+  "man-rig": {
+    kind: "asset", file: "assets/humanoid/man.json",
     what: "The Warrior's rig: bone heads and tails, Blender's frame, metres at the authored size, "
-      + "exported from the model's Blender file by scripts/humanoid/export-workshop.py.",
+      + "exported from the model's Blender file by scripts/humanoid/export-rig.py.",
   },
-  "workshop-rogue-rig": {
-    kind: "asset", file: "assets/humanoid/workshop-rogue.json",
+  "woman-rig": {
+    kind: "asset", file: "assets/humanoid/woman.json",
     what: "The Rogue's rig, as the Warrior's.",
   },
-  "workshop-fighter-trunk-hull": {
-    kind: "asset", file: "assets/humanoid/workshop-fighter-trunk-hull.json",
+  "man-trunk-hull": {
+    kind: "asset", file: "assets/humanoid/man-trunk-hull.json",
     what: "The Warrior's trunk segments' surfaces: the convex hull corners of the clothed envelope's "
       + "vertices the trunk's bones weigh most on, body frame, authored size, rounded to 0.1 mm; written "
-      + "by scripts/humanoid/workshop-envelope.mjs --write.",
+      + "by scripts/humanoid/clothed-envelope.mjs --write.",
   },
-  "workshop-rogue-trunk-hull": {
-    kind: "asset", file: "assets/humanoid/workshop-rogue-trunk-hull.json",
+  "woman-trunk-hull": {
+    kind: "asset", file: "assets/humanoid/woman-trunk-hull.json",
     what: "The Rogue's trunk segments' surfaces, as the Warrior's.",
   },
-  "workshop-fighter-bounds": {
+  "man-bounds": {
     kind: "asset", file: "assets/humanoid/skin-bounds.json",
     what: "The Warrior's exact skin top at the authored size, with the lossless source's hash and accessor.",
   },
-  "workshop-rogue-bounds": {
+  "woman-bounds": {
     kind: "asset", file: "assets/humanoid/skin-bounds.json",
     what: "The Rogue's exact skin top at the authored size, with the lossless source's hash and accessor.",
   },
-  "workshop-fighter-hands": {
-    kind: "asset", file: "assets/humanoid/workshop-fighter-hands.json",
+  "man-hands": {
+    kind: "asset", file: "assets/humanoid/man-hands.json",
     what: "The Warrior's hands from its bare skin: each open hand's convex hull with its palm patch and "
       + "the patch's centre, and each fist's convex hull, middle knuckle and strike point; body frame, "
       + "authored size, rounded to 0.1 mm; written by scripts/humanoid/hand-envelope.mjs --write.",
   },
-  "workshop-rogue-hands": {
-    kind: "asset", file: "assets/humanoid/workshop-rogue-hands.json",
+  "woman-hands": {
+    kind: "asset", file: "assets/humanoid/woman-hands.json",
     what: "The Rogue's hands from its bare skin, as the Warrior's.",
   },
   "man-contact-geometry": {
     kind: "asset", file: "assets/humanoid/man-contact-geometry.json",
-    what: "Man's contact surfaces from the Warrior's skin: each open hand's and fist's convex hull with "
+    what: "The man's contact surfaces from the Warrior's skin: each open hand's and fist's convex hull with "
       + "its palm patch, and each bare foot cut at the ball into a foot and a toe piece with their "
       + "hinge, sole and toe pad; body frame, authored size, rounded to 0.1 mm; written by "
       + "scripts/humanoid/man-envelope.mjs --write.",
@@ -281,9 +281,9 @@ const SOURCES = Object.freeze({
     kind: "tuned",
     for: "Physics and control run at 120 Hz.",
   },
-  "workshop-volumes": {
+  "human-volumes": {
     kind: "tuned",
-    for: "Each workshop model's skin, feet and clothes closed by voxel flood fill in the bind pose and "
+    for: "Each human model's skin, feet and clothes closed by voxel flood fill in the bind pose and "
       + "extrapolated to a zero voxel, at the authored size.",
   },
   "moromizato-2016": {

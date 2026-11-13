@@ -19,7 +19,7 @@ const review = resolve('.tmp/character-lab'); await mkdir(review, { recursive: t
 try {
  await page.goto(process.argv[2] ?? 'http://127.0.0.1:5182/character-lab/');
  await page.waitForFunction(()=>window.__characterLab?.ready);
- for(const id of ['fighter','rogue']) for(const weapon of ['shield','bow']) for(const pose of ['inspection','ready','raised','crouched']) for(const armour of [false,true]) {
+ for(const id of ['man','woman']) for(const weapon of ['shield','bow']) for(const pose of ['inspection','ready','raised','crouched']) for(const armour of [false,true]) {
   await page.locator(`[data-character=${id}]`).click(); await page.selectOption('#weapon',weapon);
   if(pose==='raised'||pose==='crouched') await page.locator('summary').click();
   await page.locator(`[data-pose=${pose}]`).click();

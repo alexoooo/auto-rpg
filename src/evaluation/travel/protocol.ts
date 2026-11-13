@@ -17,7 +17,7 @@ export const TRAVEL = Object.freeze({ start: 1, forward: 4, directional: 1, entr
   reverseGuide: .5, stepClear: .05, walked: 3, leg: 24, aside: 12, ahead: 40, moved: 6, near: ARRIVAL.point });
 
 export type TravelMode = "forward" | "heading" | "facing" | "circle" | "corner" | "reverse" | "walking" | "route" | "moved";
-export type TravelCondition = { readonly model: "workshop-fighter"; readonly mode: TravelMode;
+export type TravelCondition = { readonly model: "man"; readonly mode: TravelMode;
   readonly way: number; readonly sense: 1 | -1; readonly pace: number; readonly heading: number;
   readonly loadout: Loadout; readonly seed: number; readonly gusts: boolean };
 

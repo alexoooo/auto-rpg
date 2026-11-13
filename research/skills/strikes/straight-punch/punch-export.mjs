@@ -5,14 +5,14 @@
  * and the rest), and, with `--policy`, the steer's trained network (`research/run-train.py`'s
  * `policy.json`), written as the core reads them (`PunchRecord`,
  * `src/skills/strikes/straight-punch/data/records.ts`) into `<out>.json` (`assets/skills/strikes/straight-punch/straight-punch` where not
- * given), each by its body's key (`bodyKey`: `workshop-fighter+toes`) beside the records already
+ * given), each by its model (`man`) beside the records already
  * there, and the bodies with one into `<out>.meta.json`. With `--halts`, the punch stops a walk at
  * once as it commits (`StraightPunch.halts`), as it was trained. A held blow's schedule (one searched
  * with `--skill thrust`) is written as its blow's record (`HeldBlowRecord`, `assets/skills/strikes/<kind>/<kind>`
  * where `--out` is not given), its network read by its blow's layout. A body is written over the
  * record it has: one with none has no table cell, so no search on its drill.
  *
- *   node research/skills/strikes/straight-punch/punch-export.mjs [--policy <policy.json>] --made "<how it was made>" [--halts] [--out <path>] <bodyKey>=<search.json> [...]
+ *   node research/skills/strikes/straight-punch/punch-export.mjs [--policy <policy.json>] --made "<how it was made>" [--halts] [--out <path>] <model>=<search.json> [...]
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
@@ -25,7 +25,7 @@ const networkOf = ({ actions, layers, normalization, actionLimit }) =>
   ({ actions, layers, ...(normalization ? { normalization } : {}), ...(actionLimit === undefined ? {} : { actionLimit }) });
 
 const { values, positionals } = parseArgs({ options: { policy: { type: 'string' }, made: { type: 'string' }, halts: { type: 'boolean' }, out: { type: 'string' } }, allowPositionals: true });
-if (!values.made || !positionals.length) throw new Error('usage: [--policy <policy.json>] --made <text> <bodyKey>=<search.json> ...');
+if (!values.made || !positionals.length) throw new Error('usage: [--policy <policy.json>] --made <text> <model>=<search.json> ...');
 const skills = new Set(positionals.map((pair) => SKILLS[JSON.parse(readFileSync(pair.split('=')[1], 'utf8')).cell.skill]));
 if (skills.size !== 1 || skills.has(undefined)) throw new Error(`one skill's records at a time, each a search of punch-drill.mjs, not ${[...skills].join(', ')}`);
 const skill = [...skills][0], blow = skill === 'straight-punch' ? null : skill, out = values.out ?? `assets/skills/strikes/${skill}/${skill}`;

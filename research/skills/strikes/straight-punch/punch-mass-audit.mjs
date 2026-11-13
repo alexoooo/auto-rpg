@@ -12,7 +12,7 @@ import {standingSkills} from "../../../../src/app/standing-skills.ts";
 import {standIntent} from "../../../../src/skills/framework/intent.ts";
 import {DEFAULT_ENGINE} from "../../../../src/core/physics/engines.ts";
 async function pulse(mode,hand,impulse,hz){
- const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,gravity:mode==='grounded',ground:mode==='grounded'});
+ const s=await coreStand(modelSpec('man'),{engine:DEFAULT_ENGINE,hz,gravity:mode==='grounded',ground:mode==='grounded'});
  const body=stockBody(s.built,s.world,{servoSeconds:SERVO_SECONDS}),skills=standingSkills(body);
  body.drive((view,dt)=>mode==='grounded'?{...skills.command(view,standIntent(),dt),configurations:{'hand.left':'fist','hand.right':'fist'}}:
   {posture:{},pushes:[],stance:null,configurations:{'hand.left':'fist','hand.right':'fist'}});

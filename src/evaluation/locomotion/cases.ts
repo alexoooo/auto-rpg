@@ -93,7 +93,7 @@ type Held = { readonly loadout?: Loadout; readonly gusts?: true; readonly seed?:
 
 /** The screen: each body, the walk four ways at a slow and a brisk pace, a run, a turn each way, shoves eight ways at three sizes, and a shove four ways after a walk. */
 const SCREEN = deepFreeze({
-  models: ["workshop-fighter", "workshop-rogue"] as BodyModel[],
+  models: ["man", "woman"] as BodyModel[],
   ways: [0, 90, 180, 270], paces: [.3, .7], turns: [90, 270],
   shoves: { ways: [0, 45, 90, 135, 180, 225, 270, 315], impulses: [30, 45, 60] },
   walked: { ways: [0, 90, 180, 270], impulse: 20, pace: .3 },
@@ -107,7 +107,7 @@ type Protocol = typeof SCREEN & { readonly fastest?: true };
  * the diagonals among them, each way's walks up to the fastest the body holds that way
  * (`fastest`), and its walks again in the lab's gusts.
  */
-const EVERY = deepFreeze({ ...SCREEN, models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[], ways: [0, 45, 90, 135, 180, 225, 270, 315],
+const EVERY = deepFreeze({ ...SCREEN, models: ["man", "woman", "skeleton"] as BodyModel[], ways: [0, 45, 90, 135, 180, 225, 270, 315],
   fastest: true as const, loadouts: REPRESENTATIVE as Loadout[], gusts: true });
 
 /**
@@ -120,7 +120,7 @@ const EVERY_TWIN = deepFreeze({ ...EVERY, ways: turned(EVERY.ways), paces: betwe
   shoves: { ways: turned(EVERY.shoves.ways), impulses: between(EVERY.shoves.impulses) }, walked: { ...EVERY.walked, ways: turned(EVERY.walked.ways) }, seed: 2 });
 
 /** The run's bar on the Warrior and the Rogue in every rated loadout: each run trial in calm air and the lab's gusts, seeds 1 to 4. */
-const RUN_BAR = deepFreeze({ models: ["workshop-fighter", "workshop-rogue"] as BodyModel[], loadouts: REPRESENTATIVE as Loadout[], seeds: [1, 2, 3, 4], airs: [false, true] });
+const RUN_BAR = deepFreeze({ models: ["man", "woman"] as BodyModel[], loadouts: REPRESENTATIVE as Loadout[], seeds: [1, 2, 3, 4], airs: [false, true] });
 
 /** **The run's bar's training twin**: its trials on the next seeds (`later`), research's to tune on. */
 const RUN_TWIN = deepFreeze({ ...RUN_BAR, seeds: later(RUN_BAR.seeds) });
@@ -184,7 +184,7 @@ export const TURNING = 2 * Math.PI / TURN_RATE;
  * Warrior's is `impulse` itself.
  */
 const shoveOf = (model: BodyModel, impulse: number): number =>
-  impulse * (modelSpec(model).mass.value / modelSpec("workshop-fighter").mass.value);
+  impulse * (modelSpec(model).mass.value / modelSpec("man").mass.value);
 
 /**
  * **The paces `protocol` walks `model` holding `loadout` the way `way` degrees from forward**, m/s:

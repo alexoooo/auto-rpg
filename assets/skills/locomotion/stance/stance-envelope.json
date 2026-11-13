@@ -19,7 +19,7 @@
   ],
   "afters": [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1, 1.125, 1.25, 1.375, 1.5, 3],
   "models": {
-    "workshop-fighter+toes": {
+    "man": {
       "byWay": [2, 0.7, 1.4, 0.7],
       "wayTrials": 4,
       "wayHeld": [
@@ -141,7 +141,7 @@
         }
       }
     },
-    "workshop-rogue+toes": {
+    "woman": {
       "byWay": [1.4, 0.7, 1, 0.7],
       "wayTrials": 4,
       "wayHeld": [
@@ -253,7 +253,7 @@
         }
       }
     },
-    "crypt-skeleton+toes": {
+    "skeleton": {
       "byWay": [1.5, 0.7, 0.7, 0.7],
       "wayTrials": 4,
       "wayHeld": [

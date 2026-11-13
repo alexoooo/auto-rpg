@@ -1,5 +1,5 @@
 {
-  "crypt-skeleton+toes": {
+  "skeleton": {
     "made": "Searched on its own target falls (Node stand, Rapier, 120 Hz, Balance 0): eight shove directions offset from the target's, empty and with the club, a fall's score its verified standing and how soon. Its roll's side and poses found by CMA-ES on its body (research/cma.mjs).",
     "settings": {
       "settle": {
@@ -176,7 +176,7 @@
       }
     }
   },
-  "workshop-fighter+toes": {
+  "man": {
     "made": "Recovery timings, loadout poses and joint coordination searched for unassisted recovery within 10 s.",
     "settings": {
       "settle": {
@@ -558,7 +558,7 @@
       }
     }
   },
-  "workshop-rogue+toes": {
+  "woman": {
     "made": "Searched on its own target falls (Node stand, Rapier, 120 Hz, Balance 0): eight shove directions offset from the target's, empty and with the club, a fall's score its verified standing and how soon. It rolls over its left side, so its right hand, which holds the club, comes over rather than under.",
     "settings": {
       "settle": {

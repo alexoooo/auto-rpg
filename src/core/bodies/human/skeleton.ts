@@ -10,7 +10,7 @@ import type { BodySpec, ForceVelocitySpec, MuscleSpec } from "../spec/body.ts";
 import { type Side, SIDES } from "../bilateral.ts";
 
 /**
- * **The crypt skeleton as a human figure, fitted to its bones.** Its art is Blender Studio's
+ * **The skeleton as a human figure, fitted to its bones.** Its art is Blender Studio's
  * realistic human skeleton (`docs/art/skeleton.md#source-and-licence`), whose pieces ride the parts whose
  * places `assets/skeleton/bind.json` holds (the fist build: each part's position and turn, body
  * frame at x1, and its box in its own frame). Its reference pose is that bind: standing, the
@@ -42,7 +42,7 @@ import { type Side, SIDES } from "../bilateral.ts";
  * freedom's own zero (`DofSpec.bind`; a rise's stages, `src/skills/recovery/implementations/staged/stages.ts`) is the same
  * shape on both.
  */
-export const SKELETON_MODEL = "crypt-skeleton";
+export const SKELETON_MODEL = "skeleton";
 
 interface BindPart {
   readonly build: string;
@@ -173,7 +173,7 @@ function limb(side: Side, feet: Extents): LimbFigure {
   };
 }
 
-/** **The crypt skeleton's figure**, at x1: the bind and the bones are authored at the game's size. */
+/** **The skeleton's figure**, at x1: the bind and the bones are authored at the game's size. */
 export function skeletonFigure(): HumanFigure {
   const neck = part("head.neck"), head = part("head.head");
   const CERV = end(neck, -1, "CERV"), VERT = end(head, 1, "VERT");

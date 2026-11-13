@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "../../math/vector.ts";
-import type { WorkshopModel } from "./rig.ts";
+import type { HumanModel } from "./rig.ts";
 import { deepFreeze } from "../../state.ts";
 
 /**
@@ -56,8 +56,8 @@ export interface FistPose {
  * the index and middle fingers. The fit leaves no part deeper in another than 2 mm or than the
  * relaxed hand already is, except the thumb's first phalanx in the ball of the thumb.
  */
-export const FIST: Readonly<Record<WorkshopModel, FistPose>> = deepFreeze({
-  "workshop-fighter": {
+export const FIST: Readonly<Record<HumanModel, FistPose>> = deepFreeze({
+  man: {
     fingers: {
       index: { mcp: 65, pip: 85, dip: 55.3 },
       middle: { mcp: 65, pip: 95, dip: 61.8 },
@@ -70,7 +70,7 @@ export const FIST: Readonly<Record<WorkshopModel, FistPose>> = deepFreeze({
       { forward: 0.688, palmar: 0.007, radial: -0.726 },
     ],
   },
-  "workshop-rogue": {
+  woman: {
     fingers: {
       index: { mcp: 65, pip: 80, dip: 52 },
       middle: { mcp: 65, pip: 95, dip: 61.8 },

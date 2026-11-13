@@ -17,7 +17,7 @@ import { rulebook } from "../src/combat/rulebook.ts";
  * and names a state or physics difference without failing, since a change may reshape what a
  * bout keeps and still play it to the bit. The engine is `CORE_ENGINE`'s (`tests/harness/core-stand.mjs`).
  *
- * `--character` prints instead what the character workshop's checks measure on its two models: the
+ * `--character` prints instead what the Character Lab's checks measure on its two models: the
  * lines a change to `scripts/character-lab/validation.mjs` or `contact.mjs` must leave as they were.
  *
  * One line a case, each ending in the first 16 hex digits of a SHA-256. A pose hash is `traceOf`'s
@@ -259,7 +259,7 @@ const SPANS = [["hand_l", "hand_r"], ["foot_l", "head"], ["foot_r", "upperarm_l"
 const CLEAR = new Vector3(3, 0, 0);
 
 /**
- * What the workshop's checks measure on the model `id` (`scripts/character-lab/validation.mjs`, `contact.mjs`):
+ * What the Character Lab's checks measure on the model `id` (`scripts/character-lab/validation.mjs`, `contact.mjs`):
  * the regions of its skin at rest, and, at `CHARACTER_FRAMES` of every clip of the catalogue, each wrist's area and
  * each forearm's girth against rest, how each pad of the holding hand lies on each grip the clip carries, and what
  * the surface index answers for a short segment through triangles of the head and for long ones across the body
@@ -372,12 +372,12 @@ const both = (held) => ({ left: rightHand(held), right: rightHand(held) });
 /** Whether the run plays the mind `id`: a game mind, or any where `--experimental` asks (`Part.stage`); a worker is handed the run's arguments. */
 const played = (id) => process.argv.includes("--experimental") || partOf(MINDS[id].config).stage === "game";
 /** The Rogue's mind against the Warrior's `control` holding `held`: the same where the Rogue is offered it, else its own (`defaultControl`). */
-const rogueControl = (control, held) => controlsFor("workshop-rogue", rightHand(held)).includes(control) ? control : defaultControl("workshop-rogue", rightHand(held));
+const rogueControl = (control, held) => controlsFor("woman", rightHand(held)).includes(control) ? control : defaultControl("woman", rightHand(held));
 /** What a fighter's right hand holds in the cases below, the left empty. */
 const HELDS = Object.freeze(["sword", "club", "empty"]);
 /** The minds the Warrior is offered (`controlsFor`) that the run plays, with each loadout it is offered with: each a case below. */
-const warriorMinds = () => [...new Set(HELDS.flatMap((held) => controlsFor("workshop-fighter", rightHand(held))))].filter(played)
-  .map((control) => [control, HELDS.filter((held) => controlsFor("workshop-fighter", rightHand(held)).includes(control))]);
+const warriorMinds = () => [...new Set(HELDS.flatMap((held) => controlsFor("man", rightHand(held))))].filter(played)
+  .map((control) => [control, HELDS.filter((held) => controlsFor("man", rightHand(held)).includes(control))]);
 /**
  * A case for each mind a person may pick for a fight (`MINDS`, an entrant's among them) that the
  * run plays, the Warrior is not offered and no case above plays: itself on
@@ -393,31 +393,31 @@ const elsewhere = () => Object.entries(MINDS).filter(([id]) => played(id) && war
 });
 /**
  * A case for each part that reads mind data, so that a change to how the data is loaded or stored is
- * read by a case that plays it: the straight punch's records, Option Mind throwing it alone at the chest on both sides of a bout of toed Warriors, the body it has a record for.
+ * read by a case that plays it: the straight punch's records, Option Mind throwing it alone at the chest on both sides of a bout of Warriors, the body it has a record for.
  */
 const DATA_CASES = [
   { name: "data: straight-punch", run: () => {
     const option = MINDS.option.config, mind = { ...option,
       options: option.options.filter((one) => !one.kind.startsWith("strike-") || one.kind === "strike-straight-punch") };
-    return arena({ left: "workshop-fighter", right: "workshop-fighter", loadouts: both("empty"), minds: { left: mind, right: mind } });
+    return arena({ left: "man", right: "man", loadouts: both("empty"), minds: { left: mind, right: mind } });
   } },
 ];
 /** The cases in the order they print, the long ones first so that the lanes stay full. */
 const CASES = [
-  ...[["workshop-fighter", "workshop-rogue"], ["crypt-skeleton", "workshop-fighter"], ["workshop-rogue", "crypt-skeleton"]]
+  ...[["man", "woman"], ["skeleton", "man"], ["woman", "skeleton"]]
     .map(([left, right]) => ({ name: `arena ${left} v ${right}`, run: () => arena({ left, right }) })),
   ...warriorMinds().flatMap(([control, helds]) =>
-    helds.map((held) => controlled("workshop-fighter", "workshop-rogue", `${control},${rogueControl(control, held)}`, both(held)))),
-  controlled("crypt-skeleton", "workshop-rogue", "option,option", both("sword")),
+    helds.map((held) => controlled("man", "woman", `${control},${rogueControl(control, held)}`, both(held)))),
+  controlled("skeleton", "woman", "option,option", both("sword")),
   controlled("reptile", "reptile", "option,option", both("empty")),
-  controlled("reptile", "workshop-fighter", "option,option", { left: rightHand("empty"), right: rightHand("sword") }),
+  controlled("reptile", "man", "option,option", { left: rightHand("empty"), right: rightHand("sword") }),
   ...elsewhere(),
   ...DATA_CASES,
   { name: "bare: seeded nonzero network", run: () => arena(seededBareRecipe()) },
   ...entrantRecipes().map(({ name, recipe }) => ({ name, run: () => arena(recipe) })),
   ...[...HUMANOID_MODELS, "reptile"].map((model) => ({ name: `stand ${model}`, run: () => stand(model) })),
   ...[1, 2].map((seed) => ({ name: `crypt fight, seed ${seed}`, run: () => cryptFight(seed) })),
-  ...["workshop-fighter", "workshop-rogue"].flatMap((model) => [
+  ...["man", "woman"].flatMap((model) => [
     { name: `lab run, circle, ${model}`, run: () => labRun(model) },
   ]),
   { name: "crypts, seeds 0-99 and 2124530852", run: () => crypts([...range(100), 2124530852]) },
@@ -425,7 +425,7 @@ const CASES = [
   ...range(8).map((i) => i + 1).map((seed) => ({ name: `sight, crypt ${seed}`, run: () => sight(seed) })),
   { name: "weathering, crypts 1-3", run: () => weathering([1, 2, 3]) },
   { name: "cut-away, the chamber and crypts 1-3", run: () => cutaway([1, 2, 3]) },
-  ...Object.keys(CHARACTERS).map((id) => ({ name: `character ${id}`, workshop: true, run: () => character(id) })),
+  ...Object.keys(CHARACTERS).map((id) => ({ name: `character ${id}`, character: true, run: () => character(id) })),
 ];
 
 if (isMainThread) {
@@ -433,7 +433,7 @@ if (isMainThread) {
     workers: { type: "string" }, character: { type: "boolean" }, experimental: { type: "boolean" }, only: { type: "string" }, json: { type: "string" }, compare: { type: "string" },
   } });
   const only = values.only === undefined ? null : new RegExp(values.only);
-  const chosen = CASES.keys().filter((id) => !!CASES[id].workshop === !!values.character && (!only || only.test(CASES[id].name))).toArray();
+  const chosen = CASES.keys().filter((id) => !!CASES[id].character === !!values.character && (!only || only.test(CASES[id].name))).toArray();
   console.log(`engine ${CORE_ENGINE}, ${chosen.length} cases`);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
   const lines = new Array(CASES.length);

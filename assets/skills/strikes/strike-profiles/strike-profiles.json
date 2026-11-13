@@ -5,17 +5,17 @@
   "profiles": [
     {
       "measured": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31",
-        "skill": "a4ef69c14b590047",
+        "body": "man",
+        "spec": "7091f24e8a393878",
+        "skill": "ee615a22fbb5cdcc",
         "hz": 120,
         "reaction": 0.15,
         "rate": 60,
         "delay": 1
       },
       "target": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31"
+        "body": "man",
+        "spec": "7091f24e8a393878"
       },
       "limbs": [
         "foot.left"
@@ -88,17 +88,17 @@
     },
     {
       "measured": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31",
-        "skill": "a4ef69c14b590047",
+        "body": "man",
+        "spec": "7091f24e8a393878",
+        "skill": "ee615a22fbb5cdcc",
         "hz": 120,
         "reaction": 0.15,
         "rate": 60,
         "delay": 1
       },
       "target": {
-        "body": "crypt-skeleton+toes",
-        "spec": "c8ef7504c2bcbed6"
+        "body": "skeleton",
+        "spec": "0b7440abc6ebd71d"
       },
       "limbs": [
         "foot.left"
@@ -165,17 +165,17 @@
     },
     {
       "measured": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31",
-        "skill": "dfebb71e782fd80c",
+        "body": "man",
+        "spec": "7091f24e8a393878",
+        "skill": "aaabc6cdfbc97da7",
         "hz": 120,
         "reaction": 0.15,
         "rate": 60,
         "delay": 1
       },
       "target": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31"
+        "body": "man",
+        "spec": "7091f24e8a393878"
       },
       "limbs": [
         "foot.right"
@@ -228,17 +228,17 @@
     },
     {
       "measured": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31",
-        "skill": "dfebb71e782fd80c",
+        "body": "man",
+        "spec": "7091f24e8a393878",
+        "skill": "aaabc6cdfbc97da7",
         "hz": 120,
         "reaction": 0.15,
         "rate": 60,
         "delay": 1
       },
       "target": {
-        "body": "crypt-skeleton+toes",
-        "spec": "c8ef7504c2bcbed6"
+        "body": "skeleton",
+        "spec": "0b7440abc6ebd71d"
       },
       "limbs": [
         "foot.right"
@@ -286,17 +286,17 @@
     },
     {
       "measured": {
-        "body": "workshop-rogue+toes",
-        "spec": "74fcfe6993a0c3cf",
-        "skill": "03d2f267ccab0d35",
+        "body": "woman",
+        "spec": "d52b9b792e16232b",
+        "skill": "19b3ff5f14310549",
         "hz": 120,
         "reaction": 0.15,
         "rate": 60,
         "delay": 1
       },
       "target": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31"
+        "body": "man",
+        "spec": "7091f24e8a393878"
       },
       "limbs": [
         "hand.left"
@@ -743,17 +743,17 @@
     },
     {
       "measured": {
-        "body": "workshop-rogue+toes",
-        "spec": "74fcfe6993a0c3cf",
-        "skill": "099f1a1427323622",
+        "body": "woman",
+        "spec": "d52b9b792e16232b",
+        "skill": "413b46348cec833e",
         "hz": 120,
         "reaction": 0.15,
         "rate": 60,
         "delay": 1
       },
       "target": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31"
+        "body": "man",
+        "spec": "7091f24e8a393878"
       },
       "limbs": [
         "hand.right"
@@ -1200,17 +1200,17 @@
     },
     {
       "measured": {
-        "body": "crypt-skeleton+toes",
-        "spec": "c8ef7504c2bcbed6",
-        "skill": "1a25512af79f508c",
+        "body": "skeleton",
+        "spec": "0b7440abc6ebd71d",
+        "skill": "05d87e402eb2fafa",
         "hz": 120,
         "reaction": 0.15,
         "rate": 60,
         "delay": 1
       },
       "target": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31"
+        "body": "man",
+        "spec": "7091f24e8a393878"
       },
       "limbs": [
         "hand.left"
@@ -1460,17 +1460,17 @@
     },
     {
       "measured": {
-        "body": "crypt-skeleton+toes",
-        "spec": "c8ef7504c2bcbed6",
-        "skill": "a53884b1c01d38b3",
+        "body": "skeleton",
+        "spec": "0b7440abc6ebd71d",
+        "skill": "a68793cb8bee71dd",
         "hz": 120,
         "reaction": 0.15,
         "rate": 60,
         "delay": 1
       },
       "target": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31"
+        "body": "man",
+        "spec": "7091f24e8a393878"
       },
       "limbs": [
         "hand.right"
@@ -1720,8 +1720,8 @@
     },
     {
       "measured": {
-        "body": "workshop-fighter+toes",
-        "spec": "72a88eea618ef2bc",
+        "body": "man",
+        "spec": "893b518d83d1516b",
         "skill": "03a4dc75fafba1ef",
         "hz": 120,
         "reaction": 0.15,
@@ -1729,8 +1729,8 @@
         "delay": 1
       },
       "target": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31"
+        "body": "man",
+        "spec": "7091f24e8a393878"
       },
       "limbs": [
         "hand.right"
@@ -1993,17 +1993,17 @@
     },
     {
       "measured": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31",
-        "skill": "c364e26161150ef7",
+        "body": "man",
+        "spec": "7091f24e8a393878",
+        "skill": "bd27b450855be7ae",
         "hz": 120,
         "reaction": 0.15,
         "rate": 60,
         "delay": 1
       },
       "target": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31"
+        "body": "man",
+        "spec": "7091f24e8a393878"
       },
       "limbs": [
         "hand.left"
@@ -2956,17 +2956,17 @@
     },
     {
       "measured": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31",
-        "skill": "109f6f32db79a378",
+        "body": "man",
+        "spec": "7091f24e8a393878",
+        "skill": "5dace0cf509fbb6d",
         "hz": 120,
         "reaction": 0.15,
         "rate": 60,
         "delay": 1
       },
       "target": {
-        "body": "workshop-fighter+toes",
-        "spec": "e853e5fbd782db31"
+        "body": "man",
+        "spec": "7091f24e8a393878"
       },
       "limbs": [
         "hand.right"

@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "model": "workshop-rogue",
+  "model": "woman",
   "source": {
-    "path": "assets/character-lab/rogue.blend",
+    "path": "assets/character-lab/woman.blend",
     "sha256": "94fbc0319ea6565ab286a868044e775c005290a71b755b4ed01805f5e50a6ed8",
-    "anatomy": "MakeHuman/MPFB CC0; workshop-authored clothing, equipment and fitting"
+    "anatomy": "MakeHuman/MPFB CC0; authored clothing, equipment and fitting"
   },
   "upperLength": 0.2549786316109852,
   "foreLength": 0.23485035176683797,

@@ -8,7 +8,7 @@ import type { Side } from "../../../core/bodies/bilateral.ts";
  * it grips, open else. Every skill set closes a bare hand for its blow (`closesToStrike`), so the
  * fingers follow the body and no presentation of its own; a body without a hand's pose relaxes it.
  */
-export function fighterHands(fighter: { readonly minded: Pick<Minded, "body"> }) {
+export function manHands(fighter: { readonly minded: Pick<Minded, "body"> }) {
   return handsOf(fighter.minded.body.built.configurations.state);
 }
 

@@ -12,7 +12,7 @@ The game lets a player choose and unlock skills and their variations for a chara
 
 ```json
 {
-  "model": "workshop-fighter",
+  "model": "man",
   "attributes": { "size": 1, "strength": 1 },
   "items": { "left": "empty", "right": "sword" },
   "skills": { "straight-punch": "drive", "sword-thrust": "drive", "stomp": "stomp" }
@@ -27,7 +27,7 @@ The game lets a player choose and unlock skills and their variations for a chara
 
 ```
 src/skills/strikes/straight-punch/drive/                 the code
-assets/skills/strikes/straight-punch/drive.json          { "workshop-fighter": { settings, network } }
+assets/skills/strikes/straight-punch/drive.json          { "man": { settings, network } }
 ```
 
 A model with no settings in the file cannot use the variation, and a character naming it is
@@ -47,13 +47,7 @@ are a variation's.
 ## Where it stands
 
 - **A skill's per-body variation is data only**: settings and a network per body
-  (`SkillRecord`, `src/skills/framework/records.ts`), looked up by `bodyKey`
-  (`src/core/bodies/spec/body.ts`).
-- **The record key carries labels that tell nothing apart.** `bodyKey` adds `+toes` where a body's
-  feet have toes and `+<variant>` where its spec names one. Every human is built with toes
-  (`shapedSpec`, `src/core/bodies/human/spec.ts`) and no body names a variant, so every human key
-  ends in `+toes`. 92 files under `assets/`, `src/`, `research/`, `scripts/` and `tests/` hold such
-  keys, most of them saved research runs.
+  (`SkillRecord`, `src/skills/framework/records.ts`), looked up by the body's model.
 - **Two executors run more than one skill:**
 
   | Executor | Skills it runs |
@@ -74,19 +68,17 @@ are a variation's.
 Each step plays the game as before: `node scripts/fingerprint.mjs --compare` identical,
 `npm run check`, `npm test`, `npm run build`.
 
-1. **Record keys are model names**: `bodyKey` drops `+toes` and `BodySpec.variant`; every record
-   under `assets/` and every tool that writes or reads one uses the model name.
-2. **Variations**: `straight-punch.ts` into shared code, `straight-punch/drive/` and
+1. **Variations**: `straight-punch.ts` into shared code, `straight-punch/drive/` and
    `sword-thrust/drive/`; `swing.ts` into shared code, `club-blow/swing/` and `bonk/swing/`; the
    stomp and the bite one variation each. Each skill's settings file becomes its variation's.
-3. **Characters choose skills**: `CharacterConfig` gains `skills`; the three characters' skills as
+2. **Characters choose skills**: `CharacterConfig` gains `skills`; the three characters' skills as
    data, each the variation it runs now; the bout recipe carries each side's character;
    Option Mind offers only the character's skills, each run by its variation. The Arena sets each
    side's variations, by its panel and its link.
-4. **The checks**: the import rule in `scripts/source-boundary.mjs`; the fingerprint records the
+3. **The checks**: the import rule in `scripts/source-boundary.mjs`; the fingerprint records the
    variations each case runs, and `--compare` given a changed variation fails on a moved case
    that does not run it.
-5. **The documents**: the skill recipe's "No body is named in control code", the architecture's
+4. **The documents**: the skill recipe's "No body is named in control code", the architecture's
    "Tuned per body" and its source boundaries, and rule 7 of [AGENTS.md](../../AGENTS.md#the-rules),
    each saying that shared code is general and a character's specialisation is a variation it
    chooses.
@@ -95,9 +87,7 @@ Each step plays the game as before: `node scripts/fingerprint.mjs --compare` ide
 
 - **Evaluation's cache**: a case's code is the import closure of what it plays (`caseCoder`,
   `scripts/build-identity.mjs`), so moving files re-keys every strike case and evaluate plays them
-  again instead of replaying them. Saved readings stay as read. The price is said before step 2.
-- **Saved research runs** under `research/runs/` hold `+toes` keys as they were written; whether a
-  tool reads them again decides whether step 1 touches them.
+  again instead of replaying them. Saved readings stay as read. The price is said before step 1.
 - **Attributes**: a variation is tuned and measured at its model's default attributes, and a
   character with other attributes runs those settings untuned. A variation covering a range of
   attributes is a stage of its own.

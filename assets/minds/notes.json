@@ -9,7 +9,7 @@
       "empty,empty": "1092 2026-10-21"
     },
     "bodies": {
-      "workshop-fighter": {
+      "man": {
         "note": "1641 2026-10-21",
         "loadouts": {
           "buckler,sword": "1909 2026-10-21",
@@ -19,7 +19,7 @@
           "empty,empty": "1196 2026-10-21"
         }
       },
-      "crypt-skeleton": {
+      "skeleton": {
         "note": "1586 2026-10-21",
         "loadouts": {
           "buckler,club": "1878 2026-10-21",
@@ -29,7 +29,7 @@
           "empty,empty": "1148 2026-10-21"
         }
       },
-      "workshop-rogue": {
+      "woman": {
         "note": "1536 2026-10-21",
         "loadouts": {
           "buckler,club": "1790 2026-10-21",
@@ -51,7 +51,7 @@
       "empty,empty": "1113 2026-10-21"
     },
     "bodies": {
-      "crypt-skeleton": {
+      "skeleton": {
         "note": "1577 2026-10-21",
         "loadouts": {
           "buckler,club": "1796 2026-10-21",
@@ -61,7 +61,7 @@
           "empty,empty": "1259 2026-10-21"
         }
       },
-      "workshop-fighter": {
+      "man": {
         "note": "1492 2026-10-21",
         "loadouts": {
           "buckler,sword": "1768 2026-10-21",
@@ -71,7 +71,7 @@
           "empty,empty": "1133 2026-10-21"
         }
       },
-      "workshop-rogue": {
+      "woman": {
         "note": "1396 2026-10-21",
         "loadouts": {
           "buckler,sword": "1686 2026-10-21",
@@ -107,7 +107,7 @@
       "empty,empty": "1115 2026-10-21"
     },
     "bodies": {
-      "workshop-rogue": {
+      "woman": {
         "note": "1456 2026-10-21",
         "loadouts": {
           "buckler,sword": "1730 2026-10-21",
@@ -117,7 +117,7 @@
           "empty,empty": "947 2026-10-21"
         }
       },
-      "workshop-fighter": {
+      "man": {
         "note": "1496 2026-10-21",
         "loadouts": {
           "buckler,sword": "1701 2026-10-21",
@@ -127,7 +127,7 @@
           "empty,empty": "1173 2026-10-21"
         }
       },
-      "crypt-skeleton": {
+      "skeleton": {
         "note": "1477 2026-10-21",
         "loadouts": {
           "buckler,club": "1658 2026-10-21",
@@ -149,7 +149,7 @@
       "empty,club": "1417 2026-10-21"
     },
     "bodies": {
-      "crypt-skeleton": {
+      "skeleton": {
         "note": "1577 2026-10-21",
         "loadouts": {
           "buckler,sword": "1674 2026-10-21",
@@ -159,7 +159,7 @@
           "buckler,club": "1447 2026-10-21"
         }
       },
-      "workshop-rogue": {
+      "woman": {
         "note": "1478 2026-10-21",
         "loadouts": {
           "buckler,sword": "1651 2026-10-21",
@@ -169,7 +169,7 @@
           "empty,empty": "1236 2026-10-21"
         }
       },
-      "workshop-fighter": {
+      "man": {
         "note": "1471 2026-10-21",
         "loadouts": {
           "buckler,sword": "1607 2026-10-21",
@@ -189,7 +189,7 @@
       "empty,empty": "1499 2026-10-21"
     },
     "bodies": {
-      "crypt-skeleton": {
+      "skeleton": {
         "note": "1573 2026-10-21",
         "loadouts": {
           "empty,sword": "1600 2026-10-21",
@@ -197,7 +197,7 @@
           "empty,empty": "1549 2026-10-21"
         }
       },
-      "workshop-rogue": {
+      "woman": {
         "note": "1481 2026-10-21",
         "loadouts": {
           "empty,sword": "1532 2026-10-21",
@@ -205,7 +205,7 @@
           "empty,empty": "1428 2026-10-21"
         }
       },
-      "workshop-fighter": {
+      "man": {
         "note": "1474 2026-10-21",
         "loadouts": {
           "empty,empty": "1520 2026-10-21",
@@ -223,7 +223,7 @@
       "empty,sword": "1440 2026-10-21"
     },
     "bodies": {
-      "crypt-skeleton": {
+      "skeleton": {
         "note": "1545 2026-10-21",
         "loadouts": {
           "empty,empty": "1549 2026-10-21",
@@ -231,7 +231,7 @@
           "empty,sword": "1541 2026-10-21"
         }
       },
-      "workshop-fighter": {
+      "man": {
         "note": "1417 2026-10-21",
         "loadouts": {
           "empty,empty": "1545 2026-10-21",
@@ -239,7 +239,7 @@
           "empty,club": "1340 2026-10-21"
         }
       },
-      "workshop-rogue": {
+      "woman": {
         "note": "1380 2026-10-21",
         "loadouts": {
           "empty,sword": "1412 2026-10-21",

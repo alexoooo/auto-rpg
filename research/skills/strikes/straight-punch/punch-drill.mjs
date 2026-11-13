@@ -19,7 +19,7 @@
  * with `--fire`, `--brake` and `--chamber`, the drive's fire, brake and chamber are searched too;
  * with `--tune`, only a schedule's time scale and shift and its aim and posture, over `--from`'s.
  *
- *   node research/skills/strikes/straight-punch/punch-drill.mjs --body workshop-fighter --skill punch|thrust --out <file.json> [--loadout <left,right>] [--hand right]
+ *   node research/skills/strikes/straight-punch/punch-drill.mjs --body man --skill punch|thrust --out <file.json> [--loadout <left,right>] [--hand right]
  *     [--tune] [--without <channel,...>] [--fire] [--brake] [--free] [--chamber [--chamber-range <m,m>]] [--workers N] [--lambda 16] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
  *   node research/skills/strikes/straight-punch/punch-drill.mjs --confirm <file.json> [--workers N]
  *

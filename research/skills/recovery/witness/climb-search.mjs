@@ -7,7 +7,7 @@
  * (`research/skills/recovery/witness/rise-witness.mjs`, `assets/skills/recovery/witness/`). Node stand, core world, Rapier,
  * 120 Hz, calm, no assist.
  *
- *   node research/skills/recovery/witness/climb-search.mjs [--model workshop-fighter] [--held empty] [--only squat|witness] [--generations 40] [--workers 16]
+ *   node research/skills/recovery/witness/climb-search.mjs [--model man] [--held empty] [--only squat|witness] [--generations 40] [--workers 16]
  *   node research/skills/recovery/witness/climb-search.mjs --score '<variant json>' [--only squat|witness]
  */
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
@@ -72,7 +72,7 @@ if (!isMainThread && workerData.harness === "climb-search") {
 } else if (process.argv[1]?.endsWith("climb-search.mjs")) {
   const { values } = parseArgs({ options: { model: { type: "string" }, held: { type: "string" }, generations: { type: "string" }, workers: { type: "string" },
     score: { type: "string" }, sigma: { type: "string" }, only: { type: "string" } } });
-  const model = values.model ?? "workshop-fighter", held = values.held ?? "empty", list = (await starts(model, held)).filter(s => !values.only || s.kind === values.only);
+  const model = values.model ?? "man", held = values.held ?? "empty", list = (await starts(model, held)).filter(s => !values.only || s.kind === values.only);
   const label = s => s.kind === "squat" ? `squat ${s.seed}` : `${s.name} ${s.seed}`, fmt = t => t >= FAIL ? "-" : t.toFixed(2);
   if (values.score) {
     const variant = JSON.parse(values.score), ts = [];

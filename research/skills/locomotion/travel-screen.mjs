@@ -9,7 +9,7 @@
  *
  *   node research/skills/locomotion/travel-screen.mjs --manifest <manifest.json> --out .tmp/<task>/screen [--cell] [--workers 14]
  *
- * A manifest: `{ "body"?: "workshop-fighter", "loadout"?: "empty,empty", "settings"?: <record settings file>,
+ * A manifest: `{ "body"?: "man", "loadout"?: "empty,empty", "settings"?: <record settings file>,
  * "candidates": [{ "id", "settings"?, "policy"?: <policy.json>, "native"?: true, "reference"?: false }] }`.
  * A candidate's settings are its own file's, else the manifest's, else the body's record's
  * (`walk-run.json`); `policy` is its travel actor (`learned.travel`); `native` leaves the actor
@@ -26,7 +26,7 @@ import { moveRow, valuesWith, walkRunRecord } from './move-drill.mjs';
 const read = path => JSON.parse(readFileSync(path, 'utf8'));
 const { values: o } = parseArgs({ options: { manifest: { type: 'string' }, out: { type: 'string' }, cell: { type: 'boolean' }, workers: { type: 'string' } } });
 if (!o.manifest || !o.out) throw Error('Name the candidate manifest and disposable output folder');
-const manifest = read(o.manifest), body = manifest.body ?? 'workshop-fighter';
+const manifest = read(o.manifest), body = manifest.body ?? 'man';
 const { cells, trials } = moveRow({ body, skill: 'run', ...(manifest.loadout ? { loadout: manifest.loadout } : {}) });
 
 /** A candidate's run gait tuning: its record's settings, its travel actor in them, its reference silenced or its actor left unanswered where it says. */

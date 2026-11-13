@@ -72,7 +72,7 @@ const FLOOR = 200;
  * (`actor.ts`) has the ceiling its balance buys (`loadoutBalance`), named by the clock. Its mind (`labMind`, `scenarios.ts`)
  * carries out game orders, the scenario's script or stands, and throws no strike the address bars; what it decides
  * is logged (`mind-log.ts`), and the Thinking section shows the log up to the time shown. It is drawn in one
- * of two views: World, the workshop model's skin (`skin.ts`), wearing the loadout's clothing, or
+ * of two views: World, the human model's skin (`skin.ts`), wearing the loadout's clothing, or
  * Tactical, the collision shapes themselves (`src/app/browser/render/body-shapes.ts`); what a hand holds is drawn as its shapes
  * in both. A Free, an Isometric or a Chase camera follows it (`camera.ts`).
  *

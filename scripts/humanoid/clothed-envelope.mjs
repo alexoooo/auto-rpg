@@ -1,5 +1,5 @@
 /**
- * **The workshop models' clothed envelope**, measured from their GLBs: what the core's human spec
+ * **The human models' clothed envelope**, measured from their GLBs: what the core's human spec
  * takes where the rig gives a joint but no surface.
  *
  * - The trunk: the corners of the convex hull (`src/core/bodies/spec/hull.ts`) of the vertices the trunk's
@@ -11,9 +11,9 @@
  * not the body. Everything is in the body frame (`src/core/bodies/spec/body.ts`) at the authored size,
  * rounded to 0.1 mm.
  *
- * `node scripts/humanoid/workshop-envelope.mjs` prints the feet `src/core/bodies/human/envelope.ts` states and
+ * `node scripts/humanoid/clothed-envelope.mjs` prints the feet `src/core/bodies/human/envelope.ts` states and
  * how many corners each trunk hull has; with `--write` it writes the hulls to
- * `assets/humanoid/workshop-*-trunk-hull.json`.
+ * `assets/humanoid/*-trunk-hull.json`.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -93,7 +93,7 @@ export const transcribed = (metres) => Math.round(metres * 1e4) / 1e4 + 0; // + 
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const show = (what, e) => console.log(what, e.vertices, ["x", "y", "z"].map((a) => `${a} ${transcribed(e[a].min)} ${transcribed(e[a].max)}`).join("  "));
-  for (const model of ["workshop-fighter", "workshop-rogue"]) {
+  for (const model of ["man", "woman"]) {
     const hulls = trunkHulls(model);
     for (const [segment, corners] of Object.entries(hulls)) console.log(`${model} ${segment} trunk: ${corners.length} corners`);
     for (const side of SIDES) show(`${model} ${side} foot`, footprint(model, side));
@@ -101,7 +101,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       fs.writeFileSync(trunkHullFile(model), `${JSON.stringify({
         about: `${model}'s trunk segments' surfaces: the convex hull corners of the clothed envelope's trunk vertices, `
           + "body frame (+x right, +y up, +z front), metres at the authored size, rounded to 0.1 mm. "
-          + "Written by scripts/humanoid/workshop-envelope.mjs --write.",
+          + "Written by scripts/humanoid/clothed-envelope.mjs --write.",
         ...hulls,
       })}
 `);

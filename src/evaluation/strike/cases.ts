@@ -85,7 +85,7 @@ export function striker({ mind, skill }: StrikeSubject, effector: string, mark: 
  * by the bar a person's punch sets, scaled to the striker's body (`barOf`, `read.ts`). A change here is a new protocol.
  */
 const STILL = deepFreeze({
-  models: ["workshop-fighter", "workshop-rogue"] as BodyModel[],
+  models: ["man", "woman"] as BodyModel[],
   gaps: [6, 7, 8, 9, 10, 11, 12, 13].map((tenths) => tenths / 10),
   across: [0, .2],
   toward: "hand",
@@ -99,13 +99,13 @@ const STILL = deepFreeze({
  * game puts a striker against, the Warrior, the Rogue (the Arena's) and the Skeleton (the Crypt's),
  * each with empty hands (`atEveryFoe`).
  */
-const FOES: readonly BodyModel[] = Object.freeze(["workshop-fighter", "workshop-rogue", "crypt-skeleton"]);
+const FOES: readonly BodyModel[] = Object.freeze(["man", "woman", "skeleton"]);
 
 /** `rung` at each of the game's foes (`FOES`), its trials otherwise the same. */
 const atEveryFoe = <P extends object>(rung: P): P & { readonly targets: readonly BodyModel[] } => deepFreeze({ ...rung, targets: FOES });
 
 /** A small held-swing observation: physical travel and guard settling through and after executor ownership. */
-const SWING_MOTION = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyModel[], gaps: [1.2], across: [0],
+const SWING_MOTION = deepFreeze({ ...STILL, models: ["man"] as BodyModel[], gaps: [1.2], across: [0],
   marks: ["middle"] as Mark[], hands: ["right"] as Hand[], motion: true as const, settle: 2 });
 
 /**
@@ -118,7 +118,7 @@ const SWING_MOTION = deepFreeze({ ...STILL, models: ["workshop-fighter"] as Body
  * ready, then walks into its window and strikes the first step it is ready there: where it began
  * and how it moved then are what the trial records (`StrikeReading.foeAt`).
  */
-const SAMPLED = deepFreeze({ ...STILL, models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[],
+const SAMPLED = deepFreeze({ ...STILL, models: ["man", "woman", "skeleton"] as BodyModel[],
   marks: ["middle"] as Mark[], trials: 96, seed: 1, gaps: [.6, 1.4], closer: [1.2, 2.2], across: [0, .2], speeds: [.3, 1], times: [.3, 1] });
 
 /** **How a sampled start moves** (`SAMPLED`), degrees off the line to the target: still, stepping in, backing off, sideways to the right and to the left. */
@@ -132,7 +132,7 @@ const APPROACHES = Object.freeze([null, 0, 180, 90, -90] as const);
  * are read alike from the first step the drill is ready (`StrikeReading.ready`).
  */
 const WALK = deepFreeze({ ...STILL,
-  models: ["workshop-fighter"] as BodyModel[],
+  models: ["man"] as BodyModel[],
   gaps: [16, 18, 20, 22, 24, 26, 28, 30].map((tenths) => tenths / 10),
   marks: ["high", "middle"] as Mark[],
   starts: ["settled", "walking"] as Start[],
@@ -143,7 +143,7 @@ const WALK = deepFreeze({ ...STILL,
  * of its gaps, at an opponent stepping in and out (`drill-step`), covering a threat with its hands
  * (`drill-guard`) or closing to punch on a rhythm (`drill-punch`).
  */
-const OPPONENT = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyModel[], gaps: [8, 10, 12].map((tenths) => tenths / 10), across: [0] });
+const OPPONENT = deepFreeze({ ...STILL, models: ["man"] as BodyModel[], gaps: [8, 10, 12].map((tenths) => tenths / 10), across: [0] });
 
 /**
  * The target's mind (`opponentOf`), where a protocol names one: `drill-stand` where it does not,
@@ -157,7 +157,7 @@ const STEPPING = deepFreeze({ ...OPPONENT, opponent: "drill-step" });
  * The bonk, a club's overhead blow at the head (`Bar.overhead`): the still rung's places on the
  * Warrior with the right hand at the high mark.
  */
-const BONK = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyModel[], marks: ["high"] as Mark[], hands: ["right"] as Hand[] });
+const BONK = deepFreeze({ ...STILL, models: ["man"] as BodyModel[], marks: ["high"] as Mark[], hands: ["right"] as Hand[] });
 
 const GUARDING = deepFreeze({ ...OPPONENT, opponent: "drill-guard" });
 
@@ -201,8 +201,8 @@ const STOMPING = deepFreeze({ ...OPPONENT, hands: [] as Hand[], feet: [...SIDES]
  * it settles at its window's middle first: where in its window it began is what the trial records
  * (`StrikeReading.inWindow`).
  */
-const STOMPING_SAMPLED = deepFreeze({ ...STOMPING, models: ["workshop-fighter", "workshop-rogue"] as BodyModel[],
-  targets: ["workshop-fighter"] as BodyModel[], trials: 80, seed: 1, gaps: [.8, 1.2], closer: [1.2, 1.8], across: [-.2, .2], speeds: [.3, 1], times: [.3, 1] });
+const STOMPING_SAMPLED = deepFreeze({ ...STOMPING, models: ["man", "woman"] as BodyModel[],
+  targets: ["man"] as BodyModel[], trials: 80, seed: 1, gaps: [.8, 1.2], closer: [1.2, 1.8], across: [-.2, .2], speeds: [.3, 1], times: [.3, 1] });
 
 /**
  * Rung 1, a moving target: the opponent rungs' trials at a pad on a rail (`Rail`, `src/game/arena/rail.ts`),
@@ -231,7 +231,7 @@ type Start = "settled" | "walking";
  * runs on once the action has ended, s.
  */
 const FIGHT = deepFreeze({
-  models: ["workshop-fighter"] as BodyModel[],
+  models: ["man"] as BodyModel[],
   foes: ["option"],
   moments: [1, 2, 3, 4],
   marks: ["high", "middle"] as Mark[],
@@ -297,8 +297,8 @@ function sampledConditions(protocol: typeof SAMPLED & { readonly feet?: readonly
   return conditions;
 }
 
-/** Every body a strike may be thrown by: the toed Warrior, the Rogue and the Skeleton. */
-const STRIKERS: readonly BodyModel[] = Object.freeze(["workshop-fighter", "workshop-rogue", "crypt-skeleton"]);
+/** Every body a strike may be thrown by: the Warrior, the Rogue and the Skeleton. */
+const STRIKERS: readonly BodyModel[] = Object.freeze(["man", "woman", "skeleton"]);
 
 /** `rung` thrown by the strikers its own trials leave out (`STRIKERS`), its trials otherwise the same: its `-bodies` protocol. */
 const onOtherBodies = <P extends { readonly models: readonly BodyModel[] }>(rung: P): P =>
@@ -405,7 +405,7 @@ export function createStrikeCases(context: GameContext) {
           walking: start === "walking" || carried !== null || approach !== undefined, ...(approach === undefined ? {} : { approach }), ...(letGo === undefined ? {} : { letGo }) }), opponentOf(protocol.opponent ?? STANDING)!);
         return { kind: "bout", engine, tape: [], ...protocol.timing === undefined ? {} : { timing: protocol.timing },
         // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
-        recipe: { left: model, right: target ?? "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
+        recipe: { left: model, right: target ?? "man", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
           ...(protocol.motion ? { balance: { left: 0, right: 0 } } : {}),
           ...loadoutsOf(value as unknown as StrikeSubject),
           // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
@@ -414,7 +414,7 @@ export function createStrikeCases(context: GameContext) {
           ...(carried ? { rail: carried.rail } : {}),
           // Facing -x, its back is toward +x: 90 degrees from +z.
           ...(protocol.laid ? { shove: { side: "right", segment: protocol.laid.segment, degrees: 90, at: 0,
-            impulse: protocol.laid.speed * modelSpec(target ?? "workshop-fighter").mass.value } } : {}) } };
+            impulse: protocol.laid.speed * modelSpec(target ?? "man").mass.value } } : {}) } };
       },
       read: (built, condition) => readStrike(built, condition, protocol),
     };
@@ -434,7 +434,7 @@ export function createStrikeCases(context: GameContext) {
         const { model, foe, mark, moment, gap } = condition as FightCondition;
         // A fight on the open stage from its spawns (its gap's, where the rung names one), nothing ending it but the reader.
         return { kind: "bout", engine, tape: [],
-          recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
+          recipe: { left: model, right: "man", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
             ...sideAttributes({ left: character, right: MINDS[foe]!.character }), ...loadoutsOf(value as unknown as StrikeSubject),
             ...opposed(striker(value as unknown as StrikeSubject, effectorOf(condition as FightCondition), mark, { after: 0, pace: protocol.pace, walking: true, moment }), opponentOf(foe)!),
             ...(gap === undefined ? {} : { gap }) } };

@@ -24,7 +24,7 @@ import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
  */
 const MATCH = Object.freeze({
   levels: Object.freeze([Object.freeze({ level: "open" as ArenaLevel, gaps: Object.freeze([3, 4, 5]) })]),
-  bodies: Object.freeze(["workshop-fighter", "workshop-rogue"] as BodyModel[]),
+  bodies: Object.freeze(["man", "woman"] as BodyModel[]),
   loadouts: REPRESENTATIVE,
   capSeconds: CAP_SECONDS,
 });

@@ -5,7 +5,7 @@ what is worked next is the run's brief ([AGENTS.md](../../AGENTS.md#the-rules)),
 
 ## Goal
 
-Raise the value of the Warrior's punch: the table's `punch` row on `workshop-fighter`, its cells
+Raise the value of the Warrior's punch: the table's `punch` row on `man`, its cells
 the loadouts with an empty hand (`empty,empty`, `empty,club`, `empty,sword`). The value is the
 life a punch trades a second ([the table](../reference/the-table.md)). The punch is the straight
 punch at the trunk with an empty hand; no other blow is part of this goal.
@@ -17,8 +17,8 @@ arms lowered (`drill-stand`). Each asks the straight punch at the trunk, with ea
 against the Warrior, the Rogue and the Skeleton. Read the saved results, playing nothing:
 
 ```powershell
-npm run evaluate -- table --body workshop-fighter --skill punch
-npm run evaluate -- table --body workshop-fighter --skill punch --loadout empty,empty --by gap
+npm run evaluate -- table --body man --skill punch
+npm run evaluate -- table --body man --skill punch --loadout empty,empty --by gap
 ```
 
 Values are hp traded a second; counts are begun / on the mark / trials. The cell's mark compares
@@ -191,7 +191,7 @@ Skeleton causes; held items; Option Mind’s own punch choice and combat footwor
 The commitment comparison reads the installed punch in Node, `rapier-coordinate`, 120 Hz,
 each command one step late, with empty hands. All 20 selected `fights` trials reproduce their
 saved outcome labels. Of the 414 `still`, `walk`, `still-twin` and `walk-twin` trials
-from `drillTrials(cellOf({ body: "workshop-fighter", skill: "punch" }), "cell")` and its `"twin"`,
+from `drillTrials(cellOf({ body: "man", skill: "punch" }), "cell")` and its `"twin"`,
 414 begin an action and 414 supply a first committed drive.
 The reference is every such commitment, including failed drill punches. Each fight commitment
 has at least one input outside that reference's component ranges; this identifies missing
@@ -356,7 +356,7 @@ remains open.
   `npm run evaluate -- strike option/straight-punch --protocol still`; with `--write` it becomes
   the newest result the table reads. Price it from its first trials.
 - **The row, played again on the code now**:
-  `npm run evaluate -- table --body workshop-fighter --skill punch --fresh --workers <logical processors>`.
+  `npm run evaluate -- table --body man --skill punch --fresh --workers <logical processors>`.
   Each reading has its baseline, so the lines then say better, worse or within noise.
 - Work goes under `.tmp/warrior-punch/`.
 

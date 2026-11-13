@@ -1,4 +1,4 @@
-import type { WorkshopModel } from "../../../core/bodies/human/rig.ts";
+import type { HumanModel } from "../../../core/bodies/human/rig.ts";
 import type { FistPose } from "../../../core/bodies/human/fist.ts";
 
 /**
@@ -13,8 +13,8 @@ import type { FistPose } from "../../../core/bodies/human/fist.ts";
  * reads the haft's radius and place. The skin is a costume; the hand's collision shape and the
  * club's are the core's, whatever the fingers show.
  */
-export const CLUB_GRIP: Readonly<Record<WorkshopModel, FistPose>> = {
-  "workshop-fighter": {
+export const CLUB_GRIP: Readonly<Record<HumanModel, FistPose>> = {
+  man: {
     fingers: {
       index: { mcp: 25, pip: 55, dip: 35.8 },
       middle: { mcp: 45, pip: 50, dip: 32.5 },
@@ -27,7 +27,7 @@ export const CLUB_GRIP: Readonly<Record<WorkshopModel, FistPose>> = {
       { forward: 0.083, palmar: 0.539, radial: -0.838 },
     ],
   },
-  "workshop-rogue": {
+  woman: {
     fingers: {
       index: { mcp: 35, pip: 30, dip: 19.5 },
       middle: { mcp: 35, pip: 60, dip: 39 },

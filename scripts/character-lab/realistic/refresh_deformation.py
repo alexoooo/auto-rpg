@@ -7,9 +7,9 @@ import build
 from rig import prepare,distribute_twist
 from morph_export import add_morph_animation
 
-for kind in (sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else ['fighter','rogue']):
+for kind in (sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else ['man','woman']):
  bpy.ops.wm.open_mainfile(filepath=str(build.SOURCE/(kind+'.blend')))
- rig=bpy.data.objects['WorkshopRig']
+ rig,=[o for o in bpy.data.objects if o.type=='ARMATURE']
  prepare(rig)
  names=[f'forearm_twist_{i}_{s}' for s in ['l','r'] for i in [1,2]]+[f'upperarm_{label}_{s}' for s in ['l','r'] for label in ['swing','twist']]
  modifiers=[(m,m.show_viewport) for o in bpy.context.scene.objects if o.type=='MESH' for m in o.modifiers]

@@ -9,7 +9,7 @@
  * Node core world, Rapier, 120 Hz, the drills' Option Mind (`option-drill`), no assists; trials
  * played on the drill's trial pool (`trialPool`, `scoreOn`, `research/drill-trials.mjs`).
  *
- * node research/skills/recovery/implementations/staged/rise-search.mjs --model workshop-fighter --loadout empty,club --generations 8 --lambda 8 --workers 8 --out .tmp/rise-search/best.json
+ * node research/skills/recovery/implementations/staged/rise-search.mjs --model man --loadout empty,club --generations 8 --lambda 8 --workers 8 --out .tmp/rise-search/best.json
  * --resume <checkpoint.json> continues a search. --confirm <out.json> plays the search's best and
  * the body's records on the cells' own falls at 120 and 480 Hz, the worse counting (`confirmRow`).
  * Scored candidates are kept beside --out as .trials.jsonl on the same build.
@@ -47,7 +47,7 @@ const WAYS = [...RECORD_WAYS['step-up'], ...RECORD_WAYS['sit-back']];
 /** A trial's subject value with every staged way up on `tuning`. */
 const valueOn = (tuning) => (one) => stagedValue(subjectOf(one).value, tuning);
 
-const {values}=parseArgs({options:{model:{type:'string',default:'workshop-fighter'},loadout:{type:'string',default:'empty,empty'},
+const {values}=parseArgs({options:{model:{type:'string',default:'man'},loadout:{type:'string',default:'empty,empty'},
   generations:{type:'string',default:'8'},lambda:{type:'string',default:'8'},workers:{type:'string',default:'8'},
   out:{type:'string'},sigma:{type:'string',default:'.13'},resume:{type:'string'},confirm:{type:'string'}}});
 const [left,right]=values.loadout.split(','), record=structuredClone(stepUpTuning(modelHolding(values.model,{left,right})));

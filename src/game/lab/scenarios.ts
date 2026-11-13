@@ -52,13 +52,13 @@ export const MODELS: readonly { readonly id: HumanoidModel; readonly name: strin
 export const LAB_HANDS = ["right", "left"] as const, LAB_WORN = ["boots", "armour"] as const;
 
 /**
- * What each body wears unless the address says: the character workshop's own default loadout for
+ * What each body wears unless the address says: the Character Lab's own default loadout for
  * the humans, the Warrior armoured and the Rogue not; the skeleton wears nothing.
  */
 const WORN: Readonly<Record<HumanoidModel, { readonly boots: boolean; readonly armour: boolean }>> = {
-  "workshop-fighter": CHARACTERS.fighter.defaults,
-  "workshop-rogue": CHARACTERS.rogue.defaults,
-  "crypt-skeleton": { boots: false, armour: false },
+  man: CHARACTERS.man.defaults,
+  woman: CHARACTERS.woman.defaults,
+  skeleton: { boots: false, armour: false },
 };
 
 /**

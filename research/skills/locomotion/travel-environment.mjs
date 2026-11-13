@@ -24,7 +24,7 @@ import { decide, untilAsked } from '../../learner-adapter.mjs';
 const tanh = value => { const t = exp(-2 * Math.abs(value)); return (value < 0 ? -1 : 1) * (1 - t) / (1 + t); };
 
 export async function travelEnvironment(configuration) {
-  const o = { model: 'workshop-fighter', seed: 1, heading: 0, warmPaces: [1, 2, 3, 4, 4.5],
+  const o = { model: 'man', seed: 1, heading: 0, warmPaces: [1, 2, 3, 4, 4.5],
     starts: [2, 3, 4, 5, 5.25, 5.5, 5.75, 7, 7.25, 7.5, 7.75, 9],
     restTimes: [1],
     reserve: .3, overspeedCost: .1, uprightCredit: .15, sideCost: .1, corridorCost: .05, effortCost: .005,

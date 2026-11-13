@@ -5,7 +5,6 @@ import { BODY_MODELS, modelHolds, resolveCharacter } from "../../src/core/bodies
 import { LOADOUTS, loadoutFaults, withLoadout } from "../../src/core/bodies/items/held.ts";
 import { limbAction } from "../../src/minds/option/kinds.ts";
 import { skillDigest, specDigest, techniqueDigest } from "../../src/skills/framework/profile.ts";
-import { bodyKey } from "../../src/core/bodies/spec/body.ts";
 
 /**
  * **What a measured profile can be of now**, as `<body> <spec digest> <skill digest>`: the bodies
@@ -19,7 +18,7 @@ export function profileKeys() {
     if (loadoutFaults(loadout).length || !modelHolds(model) && (loadout.left !== "empty" || loadout.right !== "empty")) continue;
     bodies.push({ model, spec: withLoadout(resolveCharacter({ model }).spec, loadout) });
   }
-  const on = (spec, skill) => `${bodyKey(spec)} ${specDigest(spec)} ${skill}`;
+  const on = (spec, skill) => `${spec.model} ${specDigest(spec)} ${skill}`;
   const keys = { strike: new Set(), edge: new Set() };
   const techniques = Object.entries(allParts()).filter(([, part]) => part.role === "technique").map(([kind]) => ({ kind }));
   for (const preset of Object.values(MINDS)) {

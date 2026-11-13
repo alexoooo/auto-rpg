@@ -46,7 +46,7 @@ type Situation = (typeof SITUATIONS)[number];
  * here is a new protocol.
  */
 const CROWD = deepFreeze({
-  model: "workshop-fighter" as BodyModel,
+  model: "man" as BodyModel,
   seeds: { reversal: [1, 2, 4, 5], lone: [1, 2, 3, 4], following: [1, 2, 3, 4], crossing: [1, 2, 3, 4], passage: [1, 2, 3, 4], fallen: [1, 2, 3, 4] } as Record<Situation, number[]>,
   room: { width: 16, depth: 12 }, gap: 1.3, settle: 3, most: 60,
 });

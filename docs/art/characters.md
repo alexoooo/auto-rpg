@@ -1,34 +1,34 @@
 # The characters' art
 
-The game's two humans are the character workshop's models: the fighter, who plays the Warrior,
-and the rogue, who plays the Rogue. The male fighter and female rogue use customized
+The game's two humans are the Character Lab's models: the man, who plays the Warrior,
+and the woman, who plays the Rogue. Both use customized
 MakeHuman/MPFB CC0 anatomy, skin textures, hair, eyes and rig weights; their clothing, armour,
 boots, weapons, equipment fitting and preview motion are this project's work. They reach the game
-through shared generated geometry and textures. The workshop descriptor adds authored preview
+through shared generated geometry and textures. The animated descriptor adds authored preview
 motion; gameplay moves the same rig through physics. The [asset pipeline](assets.md) owns web
 delivery. The reptile and the rat are drawn from their own sources: [the reptile](reptile.md), [the rat](rat.md).
 
 The shared Blender export (`scripts/art/blender.py`) fits each boot's toe box to the bare foot's
 toe, stretching only vertices ahead of the ball. The heel, ankle, cuff and skin weights keep their
-authored fit. World views and the character workshop use that same exported geometry.
+authored fit. World views and the Character Lab use that same exported geometry.
 
 ## Where each file comes from
 
 | File | Made by | Read by |
 |---|---|---|
-| `assets/character-lab/fighter.blend`, `rogue.blend` | the authoring generator and refresh scripts | `npm run assets`, the measurement export below |
+| `assets/character-lab/man.blend`, `woman.blend` | the authoring generator and refresh scripts | `npm run assets`, the measurement export below |
 | `assets/art/textures/` | the authoring scripts, original bytes named by SHA-256 | both masters and the web encoder |
-| `public/assets/generated/` | `npm run assets` | the workshop and gameplay skins through the generated manifest |
+| `public/assets/generated/` | `npm run assets` | the Character Lab's and gameplay skins through the generated manifest |
 | lossless cached GLBs | `npm run assets` | inspection and measurement scripts, `node scripts/fingerprint.mjs --character` |
 | `assets/humanoid/skin-bounds.json` | exact skin tops transcribed from the lossless source accessors | `src/core/bodies/human/model.ts` |
-| `assets/humanoid/workshop-fighter.json`, `workshop-rogue.json` | `scripts/humanoid/export-workshop.py` | the core's rig (`src/core/bodies/human/rig.ts`), the skins |
-| `assets/humanoid/workshop-*-trunk-hull.json` | `node scripts/humanoid/workshop-envelope.mjs --write`, from the lossless cached GLBs (`losslessModelPath`, `scripts/art/paths.mjs`) | the core's envelope (`src/core/bodies/human/envelope.ts`) |
-| `assets/humanoid/workshop-*-hands.json` | `node scripts/humanoid/hand-envelope.mjs --write` | the core's hands (`src/core/bodies/human/hands.ts`) |
+| `assets/humanoid/man.json`, `woman.json` | `scripts/humanoid/export-rig.py` | the core's rig (`src/core/bodies/human/rig.ts`), the skins |
+| `assets/humanoid/*-trunk-hull.json` | `node scripts/humanoid/clothed-envelope.mjs --write`, from the lossless cached GLBs (`losslessModelPath`, `scripts/art/paths.mjs`) | the core's envelope (`src/core/bodies/human/envelope.ts`) |
+| `assets/humanoid/*-hands.json` | `node scripts/humanoid/hand-envelope.mjs --write` | the core's hands (`src/core/bodies/human/hands.ts`) |
 
 The rig JSON, skin bounds, trunk hulls and hands are `SOURCES` entries (`src/core/sources.ts`).
 The core reads this exact metadata; compressed web assets never supply anatomical measurements.
 
-## Building the workshop models
+## Building the human models
 
 The generator is `scripts/character-lab/realistic/build.py`, run in Blender through its wrapper
 (`-Blender` defaults to `blender` on the path):
@@ -66,16 +66,16 @@ The build's helpers, beside it:
 
 `npm run assets` builds the shared runtime descriptors and lossless inspection exports without
 saving over the sources or changing physics metadata. An explicit anatomy update uses
-`scripts/humanoid/export-workshop.py`, which writes a lossless measurement GLB under
+`scripts/humanoid/export-rig.py`, which writes a lossless measurement GLB under
 `.tmp/art-measurements/` and updates the rig JSON:
 
 ```powershell
-blender --background --disable-autoexec assets/character-lab/fighter.blend --python scripts/humanoid/export-workshop.py
-blender --background --disable-autoexec assets/character-lab/rogue.blend --python scripts/humanoid/export-workshop.py -- rogue
+blender --background --disable-autoexec assets/character-lab/man.blend --python scripts/humanoid/export-rig.py
+blender --background --disable-autoexec assets/character-lab/woman.blend --python scripts/humanoid/export-rig.py -- woman
 ```
 
 The GLB keeps the source's mesh, UVs, materials, embedded textures and rest transforms, and drops
-the preview animation, authoring helpers and (for the fighter) the bow. The JSON holds the source's
+the preview animation, authoring helpers and (for the man) the bow. The JSON holds the source's
 SHA-256, the anatomy's lengths, bone frames, the palm, grip frames, equipment geometry and the
 authored finger poses.
 
@@ -95,7 +95,7 @@ The checks find their regions on the skin in the rest pose (`skinRegions`,
 
 | Field | Value |
 |---|---|
-| `hand` | 0.1209 m, the fighter's wrist to middle knuckle (the rogue's is 0.09919 m). The generator authors the grips on this hand and scales them to each model's (`handScale`, `scripts/character-lab/realistic/motion.py`); the checks scale their lengths along the hand the same way |
+| `hand` | 0.1209 m, the man's wrist to middle knuckle (the woman's is 0.09919 m). The generator authors the grips on this hand and scales them to each model's (`handScale`, `scripts/character-lab/realistic/motion.py`); the checks scale their lengths along the hand the same way |
 | `palm` | the skin bound to the hand by more than 0.6, from 0.055 to 0.115 m along the hand from the wrist, whose normal has a cosine above 0.25 with the palm's. A grip's line crosses the palm 0.095 m from the wrist, with a radius of 0.018 m (`point(s, x, .095, .046)` in `motion.py`) |
 | `pad` | a digit's pad is the skin bound to its two outer bones by more than 0.65, whose normal has a cosine above 0.05 with the palm's |
 | `wrist` | the skin from 0.72 to 1.02 of the way from the elbow to the wrist, within 0.07 m of the forearm's axis. Its area is read at 0.77, 0.84, 0.91 and 0.98, over the skin within 0.027 of each |

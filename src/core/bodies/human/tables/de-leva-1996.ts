@@ -11,7 +11,7 @@ import { sourced, type Quantity } from "../../../quantity.ts";
  * - Each radius of gyration is a percentage of the segment's length, about the segment's sagittal
  *   (antero-posterior), transverse (medio-lateral) and longitudinal axes.
  *
- * The rows are those whose landmarks the workshop rigs have as joint centres; where the main row
+ * The rows are those whose landmarks the human rigs have as joint centres; where the main row
  * ends on a landmark the rig lacks, the paper's alternative row is taken, and the row's name says
  * so. Rows marked * in the paper ("not adjusted values") are the head (VERT-CERV), the upper trunk
  * (CERV-XYPH), the middle trunk and the foot.
