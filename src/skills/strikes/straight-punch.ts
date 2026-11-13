@@ -392,14 +392,6 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
 /** A stopped approach must establish its local stroke within this many seconds. */
 const PUNCH_PREPARE_LIMIT = 6;
 
-/** The arm's largest prepare-posture error, rad, and channel speed, rad/s, before its drive. */
-const PUNCH_PREPARED_ANGLE = 0.05, PUNCH_PREPARED_SPEED = 0.2;
-
-/** Whether every striking-arm channel is near its requested prepare angle and moving slowly. */
-export const punchArmPrepared = (body: Body, view: BodyView, channels: readonly string[], posture: Pose): boolean =>
-  channels.every(channel => Math.abs((view.angles[channel] ?? 0) - (posture[channel] ?? 0)) <= PUNCH_PREPARED_ANGLE
-    && Math.abs(body.muscles.speed(body.muscles.channel(channel))) <= PUNCH_PREPARED_SPEED);
-
 /**
  * Whether `hand`'s straight punch at `at` (`technique`'s, with `settings`) can be thrown from where
  * the body stands, facing `heading`: blocked out of the arm's height band; else ready within its
@@ -437,19 +429,6 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
   const ahead = bodyAhead(body.built.spec);
   const alignerOf = (hand: Side) => faces?.[hand] ? faceAligner(body.built.spec, hand, faces[hand]!) : null;
   const aligners = { left: alignerOf("left"), right: alignerOf("right") }, aimed = new Vector3(), toward = new Float64Array(3);
-  const armChannels = Object.fromEntries(bodyEffectors(body.built).map(e => [e.segment.spec.name, e.model.channels]));
-  /** Apply the face's wrist request to the same posture used by preparation and the drive. */
-  const align = (view: BodyView, hand: Side, posture: Pose, pushes: MusclePush[]): Pose => {
-    const aligner = aligners[hand], at = faces?.[hand] && view.effectors[`hand.${hand}`]?.points[faces[hand]!.point];
-    if (!aligner || !at) return posture;
-    intoFrameToRef(view.root, motion.target, aimed);
-    toward[0] = aimed.x - at.x; toward[1] = aimed.y - at.y; toward[2] = aimed.z - at.z;
-    const aligned = { ...posture };
-    for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
-    aligner.ask(view, toward, aligned, pushes);
-    return aligned;
-  };
-  const preparePosture = (view: BodyView, hand: Side): Pose => align(view, hand, technique.chamber(view, hand) ?? guard, []);
   const sides = { left: [segmentResource("hand.left"), TRUNK_RESOURCE, LEG_RESOURCE], right: [segmentResource("hand.right"), TRUNK_RESOURCE, LEG_RESOURCE] } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
@@ -508,7 +487,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
         const quiet = quietToStrike(view);
         live.quiet = quiet ? live.quiet + dt : 0;
         if (live.time >= PUNCH_PREPARE_LIMIT) release({ kind: "stalled", reason: "settling deadline" });
-        else if (quiet && live.quiet >= settings.settle && punchArmPrepared(body, view, armChannels[live.request.effector]!, preparePosture(view, live.hand))) {
+        else if (quiet && live.quiet >= settings.settle) {
           live.phase = "commit"; live.stage = "swing"; live.time = 0; technique.enter("swing");
           motion.began = view.time; motion.touched = null; motion.face = atan2(motion.target[0] - view.head.x, motion.target[2] - view.head.z);
           motion.touching = (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0;
@@ -530,7 +509,15 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       const pushes: MusclePush[] = [];
       let posture = live.phase === "commit" ? technique.drive(view, live.hand, live.time, pushes, policy)
         : live.phase === "prepare" ? technique.chamber(view, live.hand) ?? guard : guard;
-      if (live.phase !== "release") posture = align(view, live.hand, posture, pushes);
+      const aligner = aligners[live.hand], at = faces?.[live.hand] && view.effectors[`hand.${live.hand}`]?.points[faces[live.hand]!.point];
+      if (aligner && at && live.phase !== "release") {
+        // The face's way to the target, from where it stands, body frame.
+        intoFrameToRef(view.root, motion.target, aimed);
+        toward[0] = aimed.x - at.x; toward[1] = aimed.y - at.y; toward[2] = aimed.z - at.z;
+        posture = { ...posture };
+        for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
+        aligner.ask(view, toward, posture as Record<string, number>, pushes);
+      }
       const sense = technique.sense[live.hand], shift: [number, number] = [0, 0];
       const turn = live.phase === "commit" ? stanceAsks(technique.steeredChannels[live.hand], motion.learner.outputs, motion.face, sense, shift) : 0;
       // The hips turned from the legs' heading, and the weight moved from the middle of the soles the stance stands on.
