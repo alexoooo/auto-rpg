@@ -42,7 +42,7 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 38%, #9e181852 75%, #dc352ba6 100%);
+  background: radial-gradient(ellipse at center, transparent 38%, #9e181829 75%, #dc352b59 100%);
   opacity: var(--drain-opacity, 1);
 }
 

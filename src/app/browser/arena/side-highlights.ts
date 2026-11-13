@@ -14,7 +14,7 @@ export const ARENA_SIDES = Object.freeze({
 /** The stencil silhouette survives the post-processing pass and leaves character materials intact. */
 export function sideHighlights(scene: Scene) {
   const layer = new HighlightLayer("arena.sides", scene,
-    { mainTextureRatio: 1, blurTextureSizeRatio: 1, blurHorizontalSize: 3, blurVerticalSize: 3 });
+    { mainTextureRatio: 1, blurTextureSizeRatio: 1, blurHorizontalSize: 1.5, blurVerticalSize: 1.5 });
   layer.innerGlow = false;
   return {
     add(side: Side, meshes: readonly Mesh[]): void {
