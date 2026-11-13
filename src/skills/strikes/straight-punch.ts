@@ -427,7 +427,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
   const technique = straightTechnique(body, guard, settings, faces ?? {}, layout, { trained: policy !== undefined }), motion = technique.state;
   technique.read(body.view);
   const ahead = bodyAhead(body.built.spec);
-  const alignerOf = (hand: Side) => faces?.[hand] ? faceAligner(body.built.spec, hand, faces[hand]!, { either: false }) : null;
+  const alignerOf = (hand: Side) => faces?.[hand] ? faceAligner(body.built.spec, hand, faces[hand]!) : null;
   const aligners = { left: alignerOf("left"), right: alignerOf("right") }, aimed = new Vector3(), toward = new Float64Array(3);
   const sides = { left: [segmentResource("hand.left"), TRUNK_RESOURCE, LEG_RESOURCE], right: [segmentResource("hand.right"), TRUNK_RESOURCE, LEG_RESOURCE] } as const;
   const sideOf = (effector: string): Side => {

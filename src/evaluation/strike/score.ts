@@ -51,7 +51,7 @@ export function releasedScore(reading: StrikeReading): number {
  * less 0.5 where its action did not end; -1 nothing on the mark; -3 a fall. A foot's blow, which the
  * bar tests by its speed (`Bar.foot`, `StrikeHit.foot`), scores alike: landed, 9 and up to 1 more as
  * the speed goes from the bar to 1.5 times it; else up to 8 by its share of the bar. A held item's blow,
- * which the bar tests by its energy, a point's by its closing speed, an edge's by its far end's speed, and its face (`Bar.held`,
+ * which the bar tests by its energy, a point's by its closing speed, and its face (`Bar.held`,
  * `StrikeHit.held`, `StrikeHit.faced`), scores a landed action as 8 plus its share of the
  * bar, capped at 2; else up to 8, half by its share of the bar and half for meeting with its face. A bonk's scores
  * by its own tests (`overheadScore`). The bar is the reading's, its striker's

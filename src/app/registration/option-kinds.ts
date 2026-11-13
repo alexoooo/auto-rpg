@@ -1,4 +1,4 @@
-import { BITE_OPTION, BONK_OPTION, CLUB_BLOW_OPTION, COVER_OPTION, CUT_OPTION, GUARD_OPTION, HOLD_AT_OPTION, HOLD_OPTION, ORDERS_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION,
+import { BITE_OPTION, BONK_OPTION, CLUB_BLOW_OPTION, COVER_OPTION, GUARD_OPTION, HOLD_AT_OPTION, HOLD_OPTION, ORDERS_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION,
   SWORD_THRUST_OPTION, WALK_OPTION } from "../../minds/option/kinds.ts";
 import { BRACE_OPTION, BRACE_TUMBLING_OPTION, FLATTEN_OPTION, LAND_OPTION, REPOSITION_OPTION, STEADY_OPTION, WAY_UP_OPTION } from "../../minds/option/rise.ts";
 
@@ -8,7 +8,7 @@ import { BRACE_OPTION, BRACE_TUMBLING_OPTION, FLATTEN_OPTION, LAND_OPTION, REPOS
  * reads it as where each kind's own code begins (`caseCoder`, `scripts/build-identity.mjs`).
  */
 export const OPTION_KINDS = {
-  orders: ORDERS_OPTION, "strike-straight-punch": STRAIGHT_PUNCH_OPTION, "strike-club-blow": CLUB_BLOW_OPTION, "strike-cut": CUT_OPTION, "strike-sword-thrust": SWORD_THRUST_OPTION,
+  orders: ORDERS_OPTION, "strike-straight-punch": STRAIGHT_PUNCH_OPTION, "strike-club-blow": CLUB_BLOW_OPTION, "strike-sword-thrust": SWORD_THRUST_OPTION,
   "strike-bonk": BONK_OPTION,
   "strike-stomp": STOMP_OPTION, "strike-jaw-bite": BITE_OPTION,
   walk: WALK_OPTION,

@@ -311,9 +311,9 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   interval its layout names, adds to the trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
   (`PunchRecord`), trained by `research/run-train.py` and exported by `research/skills/strikes/straight-punch/punch-export.mjs`.
 - **Held blows** strike with what the hand holds (`StrikingFace`), naming the mechanism they meet
-  with (`ExecutorPart.meets`). The thrust is the punch's drive with the blade's point; a swing winds
-  up to its record's angles, pushes on its `TimedPush` schedule and returns to guard; through
-  either, `faceAligner` servos the wrist onto the face's line.
+  with (`ExecutorPart.meets`). The thrust is the punch's drive with the blade's point, through which
+  `faceAligner` servos the wrist onto the line to the target; a swing (the club's) winds up to its
+  record's angles, pushes on its `TimedPush` schedule and returns to guard.
 - **The stomp** (`stomp.ts`) is a strike cycle down from a high chamber onto a body lying ahead. A
   strike's window (`strikeWindow`) keeps the two bodies clear.
 - **The bite** (`jaw-bite`, `src/skills/strikes/bite/index.ts`) is a strike cycle of the jaw on a crawl:
@@ -599,7 +599,7 @@ The profile model supplies these components:
   The editor retains inactive entries in the configuration when the body or equipment changes.
   A config names a limb's role (`limbsOf`).
 - **The strikes**: each blow is its own kind of option naming its skill (`StrikeKindPart`,
-  `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-bonk`, `strike-cut`,
+  `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-bonk`,
   `strike-sword-thrust`, `strike-stomp`, `strike-jaw-bite`), a strike (`strike`) of the action it asks of its
   executor on its body (`strikeAction`), one Option a limb (`limbAction`): a punch on empty hands
   is two Options, each priced by its limb's profile. An action is named as its skill; where a mind

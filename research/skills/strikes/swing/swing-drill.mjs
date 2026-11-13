@@ -1,6 +1,6 @@
 /**
- * **A swing searched on its drill's twin**: a body's swung blow of `--skill <cell>` (`cut`, `bonk`:
- * a table cell's skill, `SWINGS`' kind). Each of the swung channels (`swingChannels`: the trunk's
+ * **A swing searched on its drill's twin**: a body's swung blow of `--skill <cell>` (`bonk`: a
+ * table cell's skill, `SWINGS`' kind). Each of the swung channels (`swingChannels`: the trunk's
  * turn and bends, the striking arm and its wrist) has a windup angle, a fraction of its range
  * (`Swing.wound`), and a push: a level, a start and a length into the swing (`Swing.timed`); then
  * where it stands to swing (`reach`, the head from the target across the ground), how long the wound
@@ -16,7 +16,7 @@
  * drill). `--confirm` plays a search's best and the record the body plays now on the row's cells'
  * own cases at 120 and 480 Hz, the worse counting (`confirmRow`).
  *
- *   node research/skills/strikes/swing/swing-drill.mjs --body workshop-fighter --skill cut|bonk --out <file.json> [--loadout <left,right>] [--hand right]
+ *   node research/skills/strikes/swing/swing-drill.mjs --body workshop-fighter --skill bonk --out <file.json> [--loadout <left,right>] [--hand right]
  *     [--footing <behind,right,behind,right>] [--workers N] [--lambda 16] [--generations 60] [--seed 1] [--from <file.json>] [--sigma 0.15]
  *   node research/skills/strikes/swing/swing-drill.mjs --confirm <file.json> [--workers N]
  *   node research/skills/strikes/swing/swing-drill.mjs --settings <file.json>   the found swing's settings, whole, for `skill-records.mjs`
@@ -59,7 +59,7 @@ const BEHIND = [0.4, 1.3], RIGHT = [-0.5, 0.5];
 const QUIET = 0.05;
 
 /** The table's swung blows this searches: a cell's skill, its swing's kind (`SWINGS`). */
-const SKILLS = Object.freeze({ cut: "cut", bonk: "bonk" });
+const SKILLS = Object.freeze({ bonk: "bonk" });
 
 /** Each of `channels`' range on `model`, rad: its least and most angle. */
 function rangesOf(model, channels) {

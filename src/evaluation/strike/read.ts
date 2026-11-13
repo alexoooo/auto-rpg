@@ -54,8 +54,8 @@ type Bar = {
   readonly speed: { readonly right: number; readonly left: number };
   readonly mass: { readonly right: number; readonly left: number };
   readonly run: number; readonly cone: number; readonly within: number; readonly along: number; readonly bend: number; readonly lean: number;
-  /** A held item's blow: its energy, J; a point's, its closing speed at the contact, m/s; an edge's, the item's far end's speed into the contact, m/s. */
-  readonly held: { readonly energy: number; readonly point: number; readonly edge: number };
+  /** A held item's blow: its energy, J; a point's, its closing speed at the contact, m/s. */
+  readonly held: { readonly energy: number; readonly point: number };
   /** A foot's blow, a stomp's: the foot's speed into the contact over its last `run` m, m/s. */
   readonly foot: number;
   /**
@@ -89,12 +89,8 @@ type Bar = {
  * [human strike reference](../../../docs/reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling));
  * a point's blow by its `point` instead, its closing speed into the contact, m/s: the fencers'
  * underarm thrust less one SD (Horsfall 1999, men 6.0 ± 1.4 m/s; [section 3a](../../../docs/reference/human-strike-reference.md#3a-one-handed-thrust-a-persons-stab));
- * an edge's by its `edge`, the speed of the item's far end (its point farthest from the grip, where
- * the source measured a rod's) over its last `run` m into the contact: the lay men's one-handed rod
- * less one SD (Muggenthaler 2018, 23.9 m/s at the tip, the SD derived from Trinh 2018's range;
- * [section 3](../../../docs/reference/human-strike-reference.md#3-one-handed-sword-cut));
  * and met with what its action strikes with, as the rules read the contact (`ExecutorPart.meets`:
- * the club blunt, the sword's cut with its edge, its thrust with its point). Its time is reported, not
+ * the club blunt, the sword's thrust with its point). Its time is reported, not
  * tested: the fist's `within` is engineering.
  *
  * A club's blow at the head, a bonk, is judged by `overhead` instead (`Overhead`): its energy, a
@@ -115,7 +111,7 @@ export const BAR: Bar = Object.freeze({
   speed: Object.freeze({ right: 6.8, left: 5.3 }),
   mass: Object.freeze({ right: 2.12, left: 2.34 }),
   run: .1, cone: 20, within: .5, along: 45, bend: 30, lean: 30,
-  held: Object.freeze({ energy: 64.8, point: 4.6, edge: 18.5 }),
+  held: Object.freeze({ energy: 64.8, point: 4.6 }),
   foot: 3,
   overhead: Object.freeze({ energy: 86.3, hand: 0, rise: .25, sweep: Object.freeze([45, 150] as const), reversal: 10, descent: 45 }),
 });
@@ -166,7 +162,7 @@ function barOf(spec: BodySpec): Bar {
   const bar: Bar = strength === 1 && mass === 1 ? BAR : Object.freeze({ ...BAR,
     speed: Object.freeze({ right: BAR.speed.right * speed, left: BAR.speed.left * speed }),
     mass: Object.freeze({ right: BAR.mass.right * mass, left: BAR.mass.left * mass }),
-    held: Object.freeze({ energy: BAR.held.energy * strength, point: BAR.held.point * speed, edge: BAR.held.edge * speed }), foot: BAR.foot * speed,
+    held: Object.freeze({ energy: BAR.held.energy * strength, point: BAR.held.point * speed }), foot: BAR.foot * speed,
     overhead: Object.freeze({ ...BAR.overhead, energy: BAR.overhead.energy * strength }) });
   BARS.set(spec, bar);
   return bar;
@@ -222,7 +218,7 @@ type StrikeHit = StrikeContact & {
   /** Which of the bar's tests it met; null for a test the bar does not set the limb. */
   readonly fast: boolean | null; readonly heavy: boolean | null; readonly square: boolean | null; readonly soon: boolean | null;
   readonly lined: boolean | null; readonly extended: boolean | null; readonly upright: boolean | null;
-  /** A held item's blow: what its bar reads (`Bar.held`: a point's closing speed or an edge's far end's speed, m/s, else the energy, J) and that bar; null for a limb that holds nothing. */
+  /** A held item's blow: what its bar reads (`Bar.held`: a point's closing speed, m/s, else the energy, J) and that bar; null for a limb that holds nothing. */
   readonly held: { readonly value: number; readonly bar: number } | null;
   /** Whether a held item's blow met its bar (`held`); null for a limb that holds nothing. */
   readonly hard: boolean | null;
@@ -394,17 +390,6 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   let meets: Mechanism = "blunt";
   /** The strike point: a hand's fist, or the face of what it holds its action meets with (`faceOf`), its item's aim where it has none such; a foot's own. */
   let aim = points.get(hand === null ? effectorAim(spec, effector) : aimOf(spec, hand))!.value;
-  /** What an edge's speed is read at (`Bar.held`): the held item's point farthest from its grip; the strike point where the hand holds nothing. */
-  const far = (() => {
-    const item = hand === null ? undefined : spec.held?.find((one) => one.segment === effector)?.item;
-    if (!item) return aim;
-    let best: string | null = null, reach = -1;
-    for (const [name, at] of Object.entries(item.points)) {
-      const [x, y, z] = at.value, out = x * x + y * y + z * z;
-      if (out > reach) { reach = out; best = name; }
-    }
-    return best === null ? aim : points.get(best)!.value;
-  })(), farAt = new Vector3();
   const chest = left.built.segments.get("upperTrunk");
   if (!chest) throw new Error("the striker has no chest to read its limb against");
   /** A hand's arm, what a punch's form is read by: its shoulder, its elbow and the elbow's straight end; null for a foot. */
@@ -435,9 +420,9 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
     pointOfToRef(limb, aim, point); pointOfToRef(chest, ORIGIN, chestAt); turnOfToRef(chest, turn);
     return point.subtractToRef(chestAt, out).applyRotationQuaternionToRef(Quaternion.InverseToRef(turn, turn), out);
   };
-  /** The strike point's path, world, a step at a time: time, the strike point's x, y, z, and a hand's shoulder's x, y, z (0 for a foot), its elbow's bend and the chest's lean, rad (0 for a foot), and the far point's x, y, z (`far`). */
+  /** The strike point's path, world, a step at a time: time, the strike point's x, y, z, and a hand's shoulder's x, y, z (0 for a foot), its elbow's bend and the chest's lean, rad (0 for a foot). */
   const path: number[] = [];
-  const STRIDE = 12;
+  const STRIDE = 9;
   const times = { began: null as number | null, committed: null as number | null, released: null as number | null, ended: null as number | null };
   const coneCosine = cos(bar.cone * Math.PI / 180), alongCosine = cos(bar.along * Math.PI / 180), bend = bar.bend * Math.PI / 180, lean = bar.lean * Math.PI / 180;
   let id: number | null = null, phase: DrillPhase = "lost", reason = "", down = false, handed: number | null = null, fought = false, ready: number | null = null;
@@ -506,8 +491,9 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
     while (end >= 0 && path[end]! >= time) end -= STRIDE;
     return end;
   };
-  /** The strike point's travel over its last `bar.run` m before `time` (the far point's, from `of` 9): its speed and its direction, or null where it travelled less. */
-  const approach = (time: number, of = 1): { speed: number; direction: [number, number, number] } | null => {
+  /** The strike point's travel over its last `bar.run` m before `time`: its speed and its direction, or null where it travelled less. */
+  const approach = (time: number): { speed: number; direction: [number, number, number] } | null => {
+    const of = 1;
     const end = stepBefore(time);
     if (end < 0) return null;
     const ex = path[end + of]!, ey = path[end + of + 1]!, ez = path[end + of + 2]!;
@@ -597,15 +583,14 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
         reason = drill.reason;
       }
       if (id !== null && times.ended === null) {
-        pointOfToRef(limb, far, farAt);
         pointOfToRef(limb, aim, point);
         if (arm) {
           pointOfToRef(arm.upperArm, arm.shoulderJoint.centre.value, shoulder);
           up.set(0, 1, 0).applyRotationQuaternionToRef(turnOfToRef(chest, turn), up);
           path.push(world.time, point.x, point.y, point.z, shoulder.x, shoulder.y, shoulder.z,
-            jointAngles(arm.elbow, angles)[0]! - arm.straight, acos(Math.max(-1, Math.min(1, up.y))), farAt.x, farAt.y, farAt.z);
+            jointAngles(arm.elbow, angles)[0]! - arm.straight, acos(Math.max(-1, Math.min(1, up.y))));
         } else {
-          path.push(world.time, point.x, point.y, point.z, 0, 0, 0, 0, 0, farAt.x, farAt.y, farAt.z);
+          path.push(world.time, point.x, point.y, point.z, 0, 0, 0, 0, 0);
         }
         if (bonked) {
           pointOfToRef(limb, limb.frame.origin, grip); pointOfToRef(headOf!, crown!, top);
@@ -661,7 +646,6 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
         const bent = at < 0 ? Math.PI : path[at + 7]!, leaning = at < 0 ? Math.PI : path[at + 8]!;
         if (armed) {
           const judged = meets === "point" ? { value: contact.closing, bar: bar.held.point }
-            : meets === "edge" ? { value: approach(contact.time, 9)?.speed ?? 0, bar: bar.held.edge }
             : { value: contact.energy, bar: (bonked ? bar.overhead.energy : bar.held.energy) * pairShare(contact.kg, contact.struck, target) };
           return { ...contact, speed: travel?.speed ?? null, straight, along, bend: bent, lean: leaning, foot: null, held: judged,
             fast: null, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: judged.value >= judged.bar,

@@ -1,7 +1,7 @@
 import { STOMP_PART } from "../../skills/strikes/stomp-part.ts";
 import { PUNCH_PART } from "../../skills/strikes/punch-part.ts";
 import { SWORD_THRUST_PART } from "../../skills/strikes/held-blow.ts";
-import { BONK_PART, CLUB_BLOW_PART, CUT_PART } from "../../skills/strikes/swing-part.ts";
+import { BONK_PART, CLUB_BLOW_PART } from "../../skills/strikes/swing-part.ts";
 
 /**
  * **Every executor, by its kind** (`ExecutorPart`), in the order a picker offers them: what a
@@ -11,4 +11,4 @@ import { BONK_PART, CLUB_BLOW_PART, CUT_PART } from "../../skills/strikes/swing-
  */
 export const EXECUTORS = { "stomp": STOMP_PART,
   "straight-punch": PUNCH_PART,
-  "club-blow": CLUB_BLOW_PART, bonk: BONK_PART, "cut": CUT_PART, "sword-thrust": SWORD_THRUST_PART };
+  "club-blow": CLUB_BLOW_PART, bonk: BONK_PART, "sword-thrust": SWORD_THRUST_PART };

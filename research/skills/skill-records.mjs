@@ -35,7 +35,7 @@ export const SKILLS = Object.freeze({
   "walk-run": (s) => s !== null && typeof s === "object" && "walk" in s && "run" in s
     && Object.keys(s).every((key) => WALK_RUN_PART.tuning.includes(key)) && WALK_RUN_PART.faults({ kind: "walk-run", tuning: s }).length === 0,
   "sword-thrust": (s) => s !== null && typeof s === "object" && validStraightPunch(s) && faceFault(s) === null,
-  ...Object.fromEntries(["club-blow", "cut", "bonk"].map((kind) => [kind, (s) => s !== null && typeof s === "object" && validSwing(s)])),
+  ...Object.fromEntries(["club-blow", "bonk"].map((kind) => [kind, (s) => s !== null && typeof s === "object" && validSwing(s)])),
 });
 
 const pathOf = (skill) => {

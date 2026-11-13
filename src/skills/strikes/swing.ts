@@ -17,7 +17,6 @@ import { type BearingEnd, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { footOn } from "../../control/support.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../framework/action.ts";
 import { placedHeightFits } from "../reach/arm-reach.ts";
-import { faceAligner } from "./face-aligner.ts";
 import type { StrikingFace } from "./straight-punch.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { bodyAhead } from "../locomotion/navigation/held-clearance.ts";
@@ -111,12 +110,9 @@ const WOUND_WITHIN = 0.1, WOUND_STILL = 0.5;
 /** The most a component of the target's velocity counts in what a steer reads, m/s: a foe's lunge is under it, an aim's jump from one opening to another is cut to it. */
 const AIM_SPEED = 4;
 
-/** The least speed of the face through which its path is read and its facing turned onto it (`faceAligner`), m/s. */
-const ALIGN_SPEED = 1;
-
 /**
  * **A swing**: a held item's blow thrown on an arc that meets the target with the item's face
- * first (`StrikingFace`: the sword's edge, the club's head). Admitted where its window says
+ * first (`StrikingFace`: the club's head). Admitted where its window says
  * (`strikeWindow`), it winds the trunk and the striking arm up to its record's angles and, each
  * there or still (`WOUND_WITHIN`), stands quiet there `settle` s; then its schedule pushes each
  * channel it names flat out over its window (`timedPushes`), the arc's speed coming from the windup's range, the face meeting the target
@@ -124,9 +120,7 @@ const ALIGN_SPEED = 1;
  * target before it settles, so the arc starts from the same stance wherever the walk left it.
  * After the swing it brings the arm back to the guard. An attack given up
  * before the swing is dropped; a swing begun is thrown to its end. It has the hand, the trunk and
- * the legs from its windup to its return, and the hand grips throughout. With `align`, through the
- * swing, once the face moves faster than `ALIGN_SPEED`, the wrist turns it onto its path, either
- * way leading (`faceAligner`), its scheduled pushes dropped. With a `layout` (`PunchLayout`), a
+ * the legs from its windup to its return, and the hand grips throughout. With a `layout` (`PunchLayout`), a
  * `steered` swing's learner runs from its start to its release: it reads itself once as it begins
  * (one decision over the windup, which no steer moves), then every decision interval of its layout
  * through the swing (`punchFeatures`: the target from the striking shoulder, the face from the
@@ -134,11 +128,9 @@ const ALIGN_SPEED = 1;
  * `policy`'s or its trainer's, to its pushes (`steerPushes`).
  */
 export function swingExecutor(body: Body, guard: Pose, actions: readonly string[], settings: Swing, resolve: TargetResolver,
-  faces: Partial<Record<Side, StrikingFace>>, { align = false, layout, policy }: { readonly align?: boolean; readonly layout?: PunchLayout;
+  faces: Partial<Record<Side, StrikingFace>>, { layout, policy }: { readonly layout?: PunchLayout;
     readonly policy?: (inputs: readonly number[]) => readonly number[] } = {}): Executor {
   const spec = body.built.spec, ahead = bodyAhead(spec), steering = layout ? steeringOf(body, faces, layout) : null;
-  const alignerOf = (hand: Side) => align && faces[hand] ? faceAligner(spec, hand, faces[hand]!, { either: true }) : null;
-  const aligners = { left: alignerOf("left"), right: alignerOf("right") };
   const sides = { left: [segmentResource("hand.left"), TRUNK_RESOURCE, LEG_RESOURCE], right: [segmentResource("hand.right"), TRUNK_RESOURCE, LEG_RESOURCE] } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
@@ -156,8 +148,6 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       heading: number;
       /** Each wound channel's angle last step, rad, by name: how fast it still turns toward its windup. */
       last: Record<string, number>;
-      /** The face's place last step, whether it has been read, and its velocity over that step, root frame (`faceAligner`). */
-      was: [number, number, number]; read: boolean; path: [number, number, number];
       /** Where the target is sensed, world, and how fast it moved over the last step, m/s, each axis within `AIM_SPEED`: what a steer reads. */
       sensed: [number, number, number]; aimed: [number, number, number];
       /** Whether a steered swing has read itself before its swing (its one decision over the windup). */
@@ -206,7 +196,7 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       };
       state.live = { request: { ...request }, hand, phase: "prepare", stage: "admitting", time: 0, step: 0, quiet: 0, lower: around.lower, withdrawn: false,
         ending: { kind: "completed" }, target: [at[0], at[1], at[2]], face, touched: null, touching: false,
-        footing: places ? { [footOn(spec, "left")]: placed("left"), [footOn(spec, "right")]: placed("right") } : null, heading: face, last: {}, was: [0, 0, 0], read: false, path: [0, 0, 0],
+        footing: places ? { [footOn(spec, "left")]: placed("left"), [footOn(spec, "right")]: placed("right") } : null, heading: face, last: {},
         sensed: [at[0], at[1], at[2]], aimed: [0, 0, 0], opened: false };
       if (settings.steered && state.learner) start(state.learner);
     },
@@ -229,12 +219,6 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
         live.sensed[i] = at[i]!;
       }
       live.time += dt; live.step = dt;
-      const facePoint = faces[live.hand] && view.effectors[`hand.${live.hand}`]?.points[faces[live.hand]!.point];
-      if (facePoint && aligners[live.hand]) {
-        const { x, y, z } = facePoint;
-        if (live.read && dt > 0) { live.path[0] = (x - live.was[0]) / dt; live.path[1] = (y - live.was[1]) / dt; live.path[2] = (z - live.was[2]) / dt; }
-        live.was[0] = x; live.was[1] = y; live.was[2] = z; live.read = true;
-      }
       if (live.phase === "prepare") {
         // The feet are placed before the stance settles; the legs say so a step after they were asked.
         const set = live.footing === null || live.stage !== "admitting" && (live.stage === "settle" || around.placed === true);
@@ -266,14 +250,9 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
     command(view, id) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`a swing has no instance ${id}`);
-      const pushes: MusclePush[] = [], aligner = aligners[live.hand];
+      const pushes: MusclePush[] = [];
       if (live.phase === "commit") timedPushes(settings.timed[live.hand], live.time, live.step, pushes);
       const posture = live.phase === "release" ? guarded(live.hand) : wound(live.hand);
-      if (aligner && live.phase === "commit") {
-        const [x, y, z] = live.path;
-        for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
-        if (x * x + y * y + z * z >= ALIGN_SPEED * ALIGN_SPEED) aligner.ask(view, live.path, posture, pushes);
-      }
       const learner = state.learner;
       if (steering && learner?.running && live.phase !== "release") {
         const steer = act(learner, policy);

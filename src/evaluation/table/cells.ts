@@ -35,10 +35,9 @@ export type Judge = "way-up" | "orders" | "strike" | "cover";
 /**
  * **What a strike's figure reads of its hit** (`StrikeHit`), beside its value: a fist's speed over
  * its last run in (`fist`), a foot's (`foot`), a held blow's energy (`energy`), a point's closing
- * speed (`point`), an edge's far end's speed (`edge`); the person's figure for each is `BAR`'s
- * (`personOf`).
+ * speed (`point`); the person's figure for each is `BAR`'s (`personOf`).
  */
-export type HitFigure = "fist" | "foot" | "energy" | "point" | "edge";
+export type HitFigure = "fist" | "foot" | "energy" | "point";
 
 /**
  * **One drill reading of a cell**: the evaluation, its protocol and the subject it reads, how its
@@ -136,8 +135,6 @@ export function createTableCells(context: GameContext) {
     { name: "bonk", has: struck("bonk"),
       readings: (body, loadout) => ["bonk", "walk"].map((rung) => strikeRung(rung, "energy", "bonk", body, loadout)),
       value: `${BLOW}; the blow's energy on the head beside it` },
-    { name: "cut", has: struck("cut"), readings: (body, loadout) => blowRungs("cut", "edge", body, loadout),
-      value: `${BLOW}; the blade's far end's speed into the contact beside it` },
     { name: "thrust", has: struck("sword-thrust"), readings: (body, loadout) => blowRungs("sword-thrust", "point", body, loadout),
       value: `${BLOW}; the point's closing speed at the contact beside it` },
     { name: "buckler-cover", has: (_body, loadout) => holds(loadout, "buckler"),

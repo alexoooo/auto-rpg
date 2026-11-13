@@ -1,6 +1,6 @@
 import type { MindPreset } from "../../minds/index.ts";
 import type { OptionMindConfig } from "../../minds/option/index.ts";
-import { BASE_OPTIONS as OPTIONS, BITE_OPTION, BONK_OPTION, CUT_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../minds/option/index.ts";
+import { BASE_OPTIONS as OPTIONS, BITE_OPTION, BONK_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../minds/option/index.ts";
 import type { ConfigFor } from "../../parts/index.ts";
 import { deepFreeze } from "../../core/state.ts";
 
@@ -15,12 +15,10 @@ const STRAIGHT_PUNCH: StrikeConfig = deepFreeze({ ...STRAIGHT_PUNCH_OPTION.defau
   aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } }, support: SUPPORT });
 
 /**
- * **The held blows**, each as its body's record has it (`assets/skills/strikes/<kind>/<kind>.json`): the
- * sword's cut and its thrust, each with the hand that holds its item, aimed at the trunk's opening as
- * the straight punch is.
+ * **The sword's thrust**, as its body's record has it (`assets/skills/strikes/sword-thrust/sword-thrust.json`):
+ * with the hand that holds the sword, aimed at the trunk's opening as the straight punch is.
  */
-const HELD_BLOWS: readonly StrikeConfig[] = deepFreeze([CUT_OPTION, SWORD_THRUST_OPTION].map((part) =>
-  ({ ...part.defaults, aim: STRAIGHT_PUNCH.aim, support: SUPPORT })));
+const THRUST: StrikeConfig = deepFreeze({ ...SWORD_THRUST_OPTION.defaults, aim: STRAIGHT_PUNCH.aim, support: SUPPORT });
 
 /** **The bonk**: the club swung overhead at the head, with the hand that holds the club, as its Option's defaults have it. */
 const BONK: StrikeConfig = BONK_OPTION.defaults;
@@ -37,12 +35,12 @@ const BITE: StrikeConfig = deepFreeze({ ...BITE_OPTION.defaults, regions: [{ kin
 
 /**
  * Its Option configuration starts with every blow (the straight punch, the
- * held blows, the bonk, the stomp and the bite) after following orders, then the standard options (`OPTIONS`). A body
+ * thrust, the bonk, the stomp and the bite) after following orders, then the standard options (`OPTIONS`). A body
  * offers those whose skill it fits, with the limbs it has (`skillsOf`). It decides at 60 Hz, every
  * other control step (`OptionMindConfig.rate`), where its strike and gait profiles are measured.
  */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "tree" },
-  options: [OPTIONS[0]!, STRAIGHT_PUNCH, ...HELD_BLOWS, BONK, STOMP, BITE, ...OPTIONS.slice(1)], rate: 60 });
+  options: [OPTIONS[0]!, STRAIGHT_PUNCH, THRUST, BONK, STOMP, BITE, ...OPTIONS.slice(1)], rate: 60 });
 
 /**
  * Its config, on any body it fits, for fights and for measuring its profiles; the same config on its

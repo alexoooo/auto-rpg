@@ -26,12 +26,13 @@ What is in work now, what is next, and what is open. What is built is in the
 
 ## Now
 
-**Every cell of the table has its baseline**, read on the drills as they are at `82e2c881`: 116
-cells, 47 readings, none faulted. The ways up take 1.6 to 6 s an attempt on the Warrior, 3 to 10 s
+**Every cell of the table has its baseline**, read on the drills as they are at `82e2c881`: 114
+cells, 43 readings, none faulted. The ways up take 1.6 to 6 s an attempt on the Warrior, 3 to 10 s
 on the Rogue and 5 to 16 s on the Skeleton, worst holding a club; the walk loses 2.1 to 3.1 s
 against its orders, the runs 6.3 to 7.3 s; the blows trade at most 0.28 hp a second, the
 Skeleton's punch 0 and the stomp under 0.02, most of those not begun outside their window; the
-buckler's cover loses 0.12 to 1.05 hp a trial.
+buckler's cover loses 0.12 to 1.05 hp a trial. Its sword cells were read against a sword that cut
+and thrust; the sword now only thrusts, so they stand to be played again.
 
 **Stand-up on the Rogue and the Skeleton**, a goal driven unattended
 ([driven](recipes/documents.md)): their ways up are read on the table's way-up cells, a cell per
@@ -58,7 +59,7 @@ In order; each is a row of the table or one question, taken up on the owner's re
    and the bonk.
 3. **The Warrior's bonk with the buckler**, which never meets the head
    ([its plan](plans/2026-11-05-warrior-bonk.md)).
-4. **The Warrior's cut and thrust**: the grip and the edge's alignment before another search
+4. **The Warrior's thrust**: the grip's geometry before another search
    ([the approaches](approaches.md#weapon-strikes)).
 5. **The Warrior's start from a stand**: a controller that places feet by balance under the run
    ([its plan](plans/2026-11-05-warrior-travel.md)).
