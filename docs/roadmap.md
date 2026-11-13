@@ -34,6 +34,10 @@ Skeleton's punch 0 and the stomp under 0.02, most of those not begun outside the
 buckler's cover loses 0.12 to 1.05 hp a trial. Its sword cells' readings are of a sword that cut
 and thrust, kept as they are.
 
+**Skill implementations** ([the plan](plans/2026-11-13-skill-implementations.md)): a body's
+record selects its skill's implementation, so a change for one body or one skill moves no other.
+The straight punch and the sword thrust share one executor, the club blow and the bonk another.
+
 **The Warrior's punch into fights**, a goal driven unattended ([driven](recipes/documents.md)):
 the straight punch begun from close in the Strike drill, then landing in the Arena's fights by
 Option Mind's footwork; met when the `punch` row on `workshop-fighter` reads better than its
