@@ -22,6 +22,8 @@ import { fallenSolids } from "../src/skills/locomotion/navigation/crowd.ts";
 import { walkTerms } from "../src/minds/option/places.ts";
 import { walker } from "../src/minds/option/walk.ts";
 import { locomotion } from "../src/skills/locomotion/locomotion.ts";
+import { orderedIntent } from "../src/minds/ordered.ts";
+import { facesTravel } from "../src/skills/framework/intent.ts";
 
 test("physics refuses different gravity and rate before changing the destination", async () => {
   const engine = await freshEngine();
@@ -214,4 +216,20 @@ test("walking preserves requested world velocity while facing turns", () => {
   assert.ok(legs.heading > 0, "fixture must turn its facing during a moving step");
   assert.deepEqual(result, { kind: "stance", goal: { feet: ["foot.left", "foot.right"], centre: null,
     height: 1, heading: dt, walk: [0, 1] } });
+});
+
+test("ordered facing keeps route facing on a long trip and takes over before stopping", () => {
+  const sight = { report: { legs: { heading: 0 } } }, face = { x: 0, z: 1 };
+  for (const move of [{ kind: "place", points: [{ x: 0, z: -10 }], near: .04 },
+    { kind: "range", focus: "foe", near: 1, far: 2 }]) {
+    const intent = orderedIntent(sight, { move, face }, {});
+    assert.equal(intent.face, 0);
+    assert.equal(facesTravel(intent.travelFacing, 10), true, "a long trip must still face forward so the run can run");
+    assert.equal(facesTravel(intent.travelFacing, .354), false, "the observed short backing correction must keep facing its target");
+    assert.equal(facesTravel(intent.travelFacing, 0), false, "arrival must retain the ordered facing");
+    const unasked = orderedIntent(sight, { move, face: null }, {});
+    assert.equal(facesTravel(unasked.travelFacing, .354), true, "with no facing ordered, short travel still faces its route");
+  }
+  const direct = orderedIntent(sight, { move: { kind: "direct", direction: { x: 0, z: -1 } }, face }, {});
+  assert.equal(facesTravel(direct.travelFacing), false, "an explicit facing on a direction walk remains explicit");
 });

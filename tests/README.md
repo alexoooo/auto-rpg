@@ -227,6 +227,7 @@ or exact saved-state compatibility.
 | `pacing detects changed orders from a provider reusing its object` | Aliased remembered orders hid a provider's pace change and delayed the next decision. |
 | `walk pricing refuses zero pace and bounds tiny-pace pressure sampling` | Valid zero pace hung the pressure loop; tiny positive pace made its work unbounded. |
 | `walking preserves requested world velocity while facing turns` | Updating the facing before converting the moving-frame velocity rotated a fixed world order. Compare the complete stance command during the observed simultaneous walk and turn; movement drills hide the small per-step rotation. |
+| `ordered facing keeps route facing on a long trip and takes over before stopping` | A short backing correction faced its route and stopped facing away; preserving explicit facing for an entire trip also prevented the forward-only run from running to a distant place. Punch drills cover the short correction but never the long trip's route-facing policy. |
 | `fallen footprints retain observed elevation through navigation memory` | A fixed world height made an elevated fallen body disappear from navigation at its supporting level. |
 | `a changed destination retains a planned route while locomotion is unavailable` | Reproduce a dragged destination clearing the navigation report during an unavailable movement step. Check the updated route around a wall and suppressed movement together; skill drills do not check paths reported between movement steps. |
 

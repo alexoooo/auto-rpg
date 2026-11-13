@@ -3,7 +3,7 @@ import type { Clearance } from "./navigation.ts";
 import type { GaitLimits, Locomotion } from "./locomotion-part.ts";
 import { kitOf, menuOf, type SpotFinder } from "./menu.ts";
 import { aimsState, keepingNothing, type Aims } from "./aim-part.ts";
-import type { Intent } from "./intent.ts";
+import { facesTravel, type Intent } from "./intent.ts";
 import type { Body, BodyCommand, BodyView } from "../../control/body.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import type { EffectorGoal, FreedomPath, MusclePush, PointTask } from "../../control/motor.ts";
@@ -392,7 +392,7 @@ function navigated(navigation: Navigator | null, sight: NavigationSight, legs: P
     requested.walk && envelope ? envelope.ways.forward.value : Infinity);
   const result = navigation?.step(sight, request, legs, ceiling, dt, available) ?? null;
   if (requested.movement && result) return { ...requested, move: result.move,
-    face: requested.travelFacing ? result.face ?? requested.face : requested.face,
+    face: facesTravel(requested.travelFacing, result.destination) ? result.face ?? requested.face : requested.face,
     ...(result.destination === undefined ? {} : { destination: result.destination }), ...(result.rest === undefined ? {} : { rest: result.rest }) };
   if (navigation && view.senses.solids?.length && velocity) return { ...requested, move: navigation.steer(view, h, velocity) };
   return requested;
