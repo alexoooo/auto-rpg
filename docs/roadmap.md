@@ -41,8 +41,12 @@ baseline and the punch lands more often in the Strike drill's fights (`fight`) t
 the goal began. The empty-handed cell reads 0.256 hp a second traded, better than its baseline;
 every Warrior punch trial begins across the three loadouts. The drill keeps its ordered facing
 on the final approach and positions an unbegun strike again when admission is lost
-([its notes](plans/2026-11-10-warrior-punch.md#why-the-close-trials-do-not-begin)). The fight part
-of the goal remains unread.
+([its notes](plans/2026-11-10-warrior-punch.md#why-the-close-trials-do-not-begin)). The punch lands
+2 of 8 reached `fight` trials, the same count as at the goal’s start; in `fights`, 13 of 42,
+against 12 of 42 at the start, with six moments unreached in both. The traces identify punch
+delivery and balance, guard and blow interceptions, moving foes and failed drill positioning
+([the diagnosis](plans/2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)); the
+required gain on `fight` remains open.
 
 **Stand-up on the Rogue and the Skeleton**, a goal driven unattended
 ([driven](recipes/documents.md)): their ways up are read on the table's way-up cells, a cell per
