@@ -38,8 +38,11 @@ and thrust, kept as they are.
 the straight punch begun from close in the Strike drill, then landing in the Arena's fights by
 Option Mind's footwork; met when the `punch` row on `workshop-fighter` reads better than its
 baseline and the punch lands more often in the Strike drill's fights (`fight`) than it did when
-the goal began. The close trials not begun are the drill's footwork, not the punch
-([its notes](plans/2026-11-10-warrior-punch.md#why-the-close-trials-do-not-begin)).
+the goal began. The empty-handed cell reads 0.256 hp a second traded, better than its baseline;
+every Warrior punch trial begins across the three loadouts. The drill keeps its ordered facing
+on the final approach and positions an unbegun strike again when admission is lost
+([its notes](plans/2026-11-10-warrior-punch.md#why-the-close-trials-do-not-begin)). The fight part
+of the goal remains unread.
 
 **Stand-up on the Rogue and the Skeleton**, a goal driven unattended
 ([driven](recipes/documents.md)): their ways up are read on the table's way-up cells, a cell per
