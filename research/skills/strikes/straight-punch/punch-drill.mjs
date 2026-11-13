@@ -1,7 +1,7 @@
 /**
  * **A timed blow searched on its drill's twin**: a body's straight punch (`--skill punch`) or a held
  * blow driven straight (`--skill thrust`: the sword thrust), its drive on a schedule
- * (`StraightPunch.timed`): each of the pushed channels (`ceilingChannels`: the trunk, both legs and
+ * (`StraightDrive.timed`): each of the pushed channels (`ceilingChannels`: the trunk, both legs and
  * the striking arm, a held blow's wrist beside it) a level, a start and a length into the drive,
  * searched for `--hand` and mirrored to the other hand (`mirrored`), the arm's aim and the posture
  * beneath. A candidate is those settings as the skill's research tuning over the body's record
@@ -47,16 +47,16 @@ export function ceilingChannels(hand, wrist = false) {
 /**
  * The searched ranges: each channel's level, start and length, s; then when the arm's aim begins,
  * s, and how far past the target it aims, m; then the posture beneath, the hips' turn, the chest's
- * and the trunk's lean, rad (`StraightPunch`).
+ * and the trunk's lean, rad (`StraightDrive`).
  */
 const WINDOW = 0.45, LEAD = [0, 0.45], THROUGH = [0, 0.3], HIPS = [0, 0.6], TURN = [0, 0.43], LEAN = [0, 0.5];
 /** With `--free`, a channel whose level is under this leaves the schedule, pushed toward its goal as the punch pushes a channel it does not schedule. */
 const FREE = 0.25;
-/** With `--fire`, how near the fist comes to the target before the arm's drive begins, arm lengths (`StraightPunch.fire`). */
+/** With `--fire`, how near the fist comes to the target before the arm's drive begins, arm lengths (`StraightDrive.fire`). */
 const FIRE = [0, 1.2];
-/** With `--chamber`, where the striking point is set before the drive, m from the shoulder on its line to the target (behind the shoulder where negative, a held blow drawn back), and how long it stands there, s (`StraightPunch.chamber`, `settle`). */
+/** With `--chamber`, where the striking point is set before the drive, m from the shoulder on its line to the target (behind the shoulder where negative, a held blow drawn back), and how long it stands there, s (`StraightDrive.chamber`, `settle`). */
 const CHAMBER = [-0.4, 1.2], SETTLE = [0, 0.8];
-/** With `--brake`, how near its goal a channel pushed toward one is held instead, rad (`StraightPunch.brake`). */
+/** With `--brake`, how near its goal a channel pushed toward one is held instead, rad (`StraightDrive.brake`). */
 const BRAKE = [0, 0.3];
 
 /** The cell's skill as the table names it, and the executor its subject drills. */

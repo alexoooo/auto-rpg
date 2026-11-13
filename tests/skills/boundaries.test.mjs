@@ -9,7 +9,7 @@ import { derive } from "../../src/core/quantity.ts";
 import { validRunCycle, RUN_CYCLE } from "../../src/skills/locomotion/cycle-run.ts";
 import { WALK_RUN_PART } from "../../src/skills/locomotion/walk-run-part.ts";
 import { validStepUp } from "../../src/skills/recovery/implementations/staged/records.ts";
-import { validStraightPunchPart } from "../../src/skills/strikes/straight-punch/drive/drive.ts";
+import { validStraightDrivePart } from "../../src/skills/strikes/shared/straight-drive.ts";
 import { surfaceContains } from "../../src/skills/perception/openings.ts";
 import { actionResources } from "../../src/skills/framework/action-resources.ts";
 import { profileReading, skillDigest } from "../../src/skills/framework/profile.ts";
@@ -26,7 +26,7 @@ test("invalid authored settings return refusals before the implementation consum
   const [key] = Object.keys(renamed);
   renamed.invented = renamed[key]; delete renamed[key];
   assert.equal(validRunCycle(renamed), false, "a same-size object must contain the actual settings");
-  assert.equal(validStraightPunchPart(null), false);
+  assert.equal(validStraightDrivePart(null), false);
   assert.equal(validStepUp({ settle: { speed: .1, seconds: .2 }, climb: 1, stages: { stage: { scale: 1, progress: { near: .1 } } } }), true);
   assert.equal(validStepUp({ settle: { speed: .1, seconds: .2 }, climb: 1, stages: {}, roll: {} }), false);
   const joints = stock.joints.map(joint => joint.name === "hip.left" ? { ...joint, name: "hip.port" } : joint);

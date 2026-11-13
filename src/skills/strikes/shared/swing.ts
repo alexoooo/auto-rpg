@@ -1,23 +1,23 @@
-import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../../framework/action.ts";
-import { supportHeight } from "../../../../control/support-reference.ts";
-import { handConfiguration } from "../../../reach/hand.ts";
-import type { Body } from "../../../../control/body.ts";
-import type { MusclePush } from "../../../../control/motor.ts";
-import { atan2, cos, sin } from "../../../../core/math/real.ts";
-import { act, ask, learnerOf, restart, start, stop } from "../../../../core/math/learning/learner.ts";
-import { steerPushes, type SteerLayout } from "../../shared/steer.ts";
-import type { Pose } from "../../../../core/bodies/spec/pose.ts";
-import { type BearingEnd, type BodySpec } from "../../../../core/bodies/spec/body.ts";
-import { footOn } from "../../../../control/support.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../../../framework/action.ts";
-import { placedHeightFits } from "../../../reach/arm-reach.ts";
-import type { StrikingFace } from "../../shared/held-face.ts";
-import { faceSteering } from "../../shared/face-steering.ts";
-import { clearAhead, quietToStrike, strikeWindow } from "../../shared/strike-window.ts";
-import { bodyAhead } from "../../../locomotion/navigation/held-clearance.ts";
-import { sensedActionTarget } from "../../../framework/action-aim.ts";
-import { timedPushes, validPush, type TimedPush } from "../../shared/timed-push.ts";
-import { otherSide, type Side, SIDES } from "../../../../core/bodies/bilateral.ts";
+import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../framework/action.ts";
+import { supportHeight } from "../../../control/support-reference.ts";
+import { handConfiguration } from "../../reach/hand.ts";
+import type { Body } from "../../../control/body.ts";
+import type { MusclePush } from "../../../control/motor.ts";
+import { atan2, cos, sin } from "../../../core/math/real.ts";
+import { act, ask, learnerOf, restart, start, stop } from "../../../core/math/learning/learner.ts";
+import { steerPushes, type SteerLayout } from "./steer.ts";
+import type { Pose } from "../../../core/bodies/spec/pose.ts";
+import { type BearingEnd, type BodySpec } from "../../../core/bodies/spec/body.ts";
+import { footOn } from "../../../control/support.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../../framework/action.ts";
+import { placedHeightFits } from "../../reach/arm-reach.ts";
+import type { StrikingFace } from "./held-face.ts";
+import { faceSteering } from "./face-steering.ts";
+import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
+import { bodyAhead } from "../../locomotion/navigation/held-clearance.ts";
+import { sensedActionTarget } from "../../framework/action-aim.ts";
+import { timedPushes, validPush, type TimedPush } from "./timed-push.ts";
+import { otherSide, type Side, SIDES } from "../../../core/bodies/bilateral.ts";
 
 /**
  * **A swing's settings.** It is admitted with the body moving no faster than `pace` m/s, facing

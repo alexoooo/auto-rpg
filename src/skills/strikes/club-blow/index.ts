@@ -9,7 +9,7 @@ import type { ActionConfig } from "../../config.ts";
 import { variationFault, variationMaker } from "../../framework/variations.ts";
 import { recordFault, tunedSettings, type SkillRecord } from "../../framework/records.ts";
 import { heldFace, type StrikingFace } from "../shared/held-face.ts";
-import { swingChannelFault, swingExecutor, SWING_KEYS, validSwing, validSwingPart, type Swing } from "./swing/swing.ts";
+import { swingChannelFault, swingExecutor, SWING_KEYS, validSwing, validSwingPart, type Swing } from "../shared/swing.ts";
 import { SIDES, type Side } from "../../../core/bodies/bilateral.ts";
 
 /** The club blow swings the club at the trunk and meets the target with its head. */

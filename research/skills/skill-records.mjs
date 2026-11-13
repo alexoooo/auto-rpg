@@ -17,9 +17,8 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { validSitBack, validStepUp } from "../../src/skills/recovery/implementations/staged/records.ts";
 import { STOMP_PATH, validStompTuning } from "../../src/skills/strikes/stomp/stomp/stomp.ts";
-import { validSwordThrust } from "../../src/skills/strikes/sword-thrust/drive/drive.ts";
-import { validSwing as validClubBlow } from "../../src/skills/strikes/club-blow/swing/swing.ts";
-import { validSwing as validBonk } from "../../src/skills/strikes/bonk/swing/swing.ts";
+import { validSwordThrust } from "../../src/skills/strikes/sword-thrust/index.ts";
+import { validSwing } from "../../src/skills/strikes/shared/swing.ts";
 import { WALK_RUN_PART } from "../../src/skills/locomotion/walk-run-part.ts";
 import { wholeRecipe } from "../../src/skills/recovery/righting/righting.ts";
 import { wholeBite } from "../../src/skills/strikes/bite/bite/bite.ts";
@@ -37,11 +36,11 @@ export const SKILLS = Object.freeze({
   "walk-run": (s) => s !== null && typeof s === "object" && "walk" in s && "run" in s
     && Object.keys(s).every((key) => WALK_RUN_PART.tuning.includes(key)) && WALK_RUN_PART.faults({ kind: "walk-run", tuning: s }).length === 0,
   "sword-thrust": (s) => s !== null && typeof s === "object" && validSwordThrust(s),
-  "club-blow": (s) => s !== null && typeof s === "object" && validClubBlow(s),
-  bonk: (s) => s !== null && typeof s === "object" && validBonk(s),
+  "club-blow": (s) => s !== null && typeof s === "object" && validSwing(s),
+  bonk: (s) => s !== null && typeof s === "object" && validSwing(s),
 });
 
-/** Each strike's variation whose records these are: its folder of code and its file of settings. */
+/** Each strike's variation whose records these are: its file of settings. */
 const VARIATIONS = Object.freeze({ stomp: "stomp", bite: "bite", "sword-thrust": "drive", "club-blow": "swing", bonk: "swing" });
 
 const pathOf = (skill) => {

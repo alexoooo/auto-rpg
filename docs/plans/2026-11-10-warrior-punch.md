@@ -115,7 +115,7 @@ The foe moves 0.071 m during the action. Removing only foe travel still misses; 
 learned arm pushes still misses. Across P’s 12 missed trials, closest fist-to-aim distances are
 0.106–0.442 m; the other two P trials hit the head while aimed at the trunk (4 m, right moment 3,
 left moment 4). The drive and its corrections are in `straightTechnique.drive` and
-`straightPunchExecutor.command` (`src/skills/strikes/straight-punch/drive/drive.ts`, `steerPushes`). The trace
+`straightDriveExecutor.command` (`src/skills/strikes/shared/straight-drive.ts`, `steerPushes`). The trace
 establishes the missing or misplaced delivery; these ablations do not isolate its native and
 learned contributions. Removing learned pushes changes 3 m right moment 7 from missed to guarded
 and left moment 2 from missed to elsewhere: their later obstruction or misplaced contact is secondary.
@@ -126,7 +126,7 @@ only the learned heading and centre requests changes `fell` to `landed`. The sam
 the falls at 3 m left moments 4 and 5, and 5 m right moment 5; those become missed. The right-hand
 case first waits for the original left punch, whose stance requests destabilize the body before
 the requested right can begin. The later foe blow is secondary. The source is `stanceAsks`
-and the `heading`/`centre` legs goals in `straightPunchExecutor.command`.
+and the `heading`/`centre` legs goals in `straightDriveExecutor.command`.
 
 **Learned arm (A), confirmed.** At 5 m, right, moment 6 ([fights Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)),
 the fist misses before the foe contacts the head at 22.783 s. Suppressing only learned arm pushes
@@ -310,10 +310,10 @@ At 5-left-5 ([fights Ratings](http://localhost:5180/?play=ratings&evaluation=str
 
 The input mapping is `steerChannels` and `steerFeatures`
 (`src/skills/strikes/shared/steer.ts`); the first drive and its learned correction are
-`straightTechnique.drive`, with `stanceAsks` applied by `straightPunchExecutor.command`
-(`src/skills/strikes/straight-punch/drive/drive.ts`). Target velocity is the aim's finite difference,
+`straightTechnique.drive`, with `stanceAsks` applied by `straightDriveExecutor.command`
+(`src/skills/strikes/shared/straight-drive.ts`). Target velocity is the aim's finite difference,
 clipped per world component by `AIM_SPEED` in `aimAt`, rather than the foe's centre velocity.
-Admission is `punchReadiness` in `straight-punch.ts`, then `strikeWindow` and `quietToStrike`
+Admission is `driveReadiness` in `shared/straight-drive.ts`, then `strikeWindow` and `quietToStrike`
 (`src/skills/strikes/shared/strike-window.ts`), with facing read by `windowHolds`
 (`src/skills/intent/action-window.ts`). The range table describes those code paths' inputs;
 it does not identify a defect in them.
@@ -337,7 +337,7 @@ remains open.
 
 ## To pick it up
 
-- **The skill**: the executor `src/skills/strikes/straight-punch/drive/drive.ts`, its part `straight-punch/index.ts`,
+- **The skill**: the executor `src/skills/strikes/shared/straight-drive.ts`, its part `straight-punch/index.ts`,
   what its network reads `shared/steer.ts`, its window `shared/strike-window.ts`; its record and the
   network's layout in `assets/skills/strikes/straight-punch/`.
 - **The Option**: `strikeKind` and `STRAIGHT_PUNCH_OPTION` in `src/minds/option/kinds.ts`; the

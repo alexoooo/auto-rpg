@@ -124,8 +124,10 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
 - **No body is named in control code**: shared code (the framework, `src/skills/strikes/shared/`)
   is general, every body through the same code. A skill specializes by Option first, then by
   variation: logic of a character's own is a variation of the skill that it chooses
-  (`BodySpec.skills`), a folder of code only that skill's part imports
-  (`src/skills/strikes/<skill>/<variation>/`, `scripts/source-boundary.mjs`). A variation's
+  (`BodySpec.skills`), its own code in a folder only that skill's part imports
+  (`src/skills/strikes/<skill>/<variation>/`, `scripts/source-boundary.mjs`). What variations do
+  alike is shared, never copied: one implementation in `shared/` that each calls with its own
+  settings and options, the variation's folder holding only what is its own. A variation's
   settings are a record per body (`SkillRecord`, `recordFault`), with entries per loadout where a
   loadout needs its own; a controller is never made per loadout. A change to one variation moves
   only the fingerprint cases that run it (`node scripts/fingerprint.mjs --compare <file>

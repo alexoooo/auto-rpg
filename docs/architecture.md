@@ -314,22 +314,24 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   control step after its request until the next answer, so native play and training step alike.
   The learned run, the punch and the bare entrant decide this way; every training environment
   steps from one request to the next through `research/learner-adapter.mjs`.
-- **Strikes** live in `src/skills/strikes/`, a folder a skill, each holding its variation's code
-  (`straight-punch/drive/`) beside the skill's part (`straight-punch/index.ts`); the mechanics
-  variations share are in `shared/`. A variation's settings are
+- **Strikes** live in `src/skills/strikes/`, a folder a skill: the skill's part
+  (`straight-punch/index.ts`) names its variations, and a variation with code of its own keeps it
+  in its own folder (`stomp/stomp/`). What two variations do alike is one implementation in
+  `shared/`, which names no skill, each variation calling it with its own settings and options.
+  A variation's settings are
   `assets/skills/strikes/<skill>/<variation>.json`, by model, its data `dataOf("<skill>/<variation>")`.
   A skill's part fits only a body whose character has the skill and runs the variation it chose
   (`variationFault`, `variationMaker`, `src/skills/framework/variations.ts`), so the Option Mind
   offers only the character's skills; a strike's digest names its variation (`skillDigest`).
-- **The straight punch** (`straight-punch/drive/`) drives the arm flat out at a contact pose solved
+- **The straight punch** (`straight-punch/index.ts`, its drive `shared/straight-drive.ts`) drives the arm flat out at a contact pose solved
   each step, on a timed schedule (`TimedPush`). Steered, a network (`shared/steer.ts`), deciding every
   interval its layout names, adds to the trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
   (`PunchRecord`), trained by `research/run-train.py` and exported by `research/skills/strikes/straight-punch/punch-export.mjs`.
 - **Held blows** strike with what the hand holds (`StrikingFace`), naming the mechanism they meet
-  with (`ExecutorPart.meets`). The sword thrust (`sword-thrust/drive/`) is a drive of its own with
+  with (`ExecutorPart.meets`). The sword thrust (`sword-thrust/index.ts`) is the same straight drive with
   the blade's point, through which `faceAligner` servos the wrist onto the line to the target; the
-  club blow and the bonk (`club-blow/swing/`, `bonk/swing/`) each wind up to their record's angles,
-  push on their `TimedPush` schedule and return to guard.
+  club blow and the bonk (`club-blow/index.ts`, `bonk/index.ts`) are one swing (`shared/swing.ts`), each winding up to its record's angles,
+  pushing on its `TimedPush` schedule and returning to guard.
 - **The stomp** (`stomp/stomp/`) is a strike cycle down from a high chamber onto a body lying ahead. A
   strike's window (`strikeWindow`) keeps the two bodies clear.
 - **The bite** (`bite`, `src/skills/strikes/bite/bite/`) is a strike cycle of the jaw on a crawl:

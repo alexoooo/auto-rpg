@@ -48,7 +48,7 @@ by contact.
   training twins of the body's bonk row's cells by
   `research/skills/strikes/swing/swing-drill.mjs --body man --skill bonk`, scored by
   the cell's value graded (`searchScore`), and confirmed on the cells' own cases (`--confirm`).
-- **The straight punch** (`src/skills/strikes/straight-punch/drive/drive.ts`, `shared/steer.ts`) is the
+- **The straight punch** (`src/skills/strikes/shared/straight-drive.ts`, `shared/steer.ts`) is the
   worked example of every step below: a graded bar, a searched push schedule, a learned actor
   correcting it.
 

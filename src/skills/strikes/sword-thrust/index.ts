@@ -9,13 +9,30 @@ import type { ActionConfig } from "../../config.ts";
 import { recordFault, tunedSettings, type SkillRecord } from "../../framework/records.ts";
 import { variationFault, variationMaker } from "../../framework/variations.ts";
 import { heldFace, type StrikingFace } from "../shared/held-face.ts";
-import { SWORD_THRUST_KEYS, swordThrustExecutor, swordThrustFits, timedChannelFault, validSwordThrust, validSwordThrustPart,
-  type SwordThrust } from "./drive/drive.ts";
+import { STRAIGHT_DRIVE_KEYS, straightDriveExecutor, straightDriveFits, timedChannelFault, validStraightDrive, validStraightDrivePart,
+  type StraightDrive } from "../shared/straight-drive.ts";
+import { checkedLayout, type SteerLayout } from "../shared/steer.ts";
+import layoutFile from "../../../../assets/skills/strikes/sword-thrust/drive.layout.json" with { type: "json" };
 import { type Side, SIDES } from "../../../core/bodies/bilateral.ts";
 import { handConfigurationRefusal } from "../../reach/hand.ts";
 
 /** The sword thrust drives the sword and meets the target with its point. */
 const ITEM = "sword", MECHANISM = "point";
+
+/** **A sword thrust's settings**: a straight drive's (`StraightDrive`) but `fire`, which reads the fist a held face does not strike with. */
+export type SwordThrust = Omit<StraightDrive, "fire">;
+
+/** Every setting a sword thrust may name. */
+const SWORD_THRUST_KEYS: readonly (keyof SwordThrust)[] = deepFreeze(STRAIGHT_DRIVE_KEYS.filter((key): key is keyof SwordThrust => key !== "fire"));
+
+/** Whether `settings`, some of a sword thrust's, are each valid, and name no `fire`. */
+const validSwordThrustPart = (settings: Partial<SwordThrust>): boolean => validStraightDrivePart(settings) && !("fire" in settings);
+
+/** Whether `settings` are a sword thrust's, whole (`validStraightDrive`), with no `fire`. */
+export const validSwordThrust = (settings: Partial<SwordThrust>): settings is SwordThrust => validSwordThrustPart(settings) && validStraightDrive(settings);
+
+/** How the sword thrust's steer reads and pushes: its networks' inputs and outputs (`assets/skills/strikes/sword-thrust/drive.layout.json`). */
+export const SWORD_THRUST_LAYOUT: SteerLayout = deepFreeze(checkedLayout(layoutFile as SteerLayout));
 
 /**
  * **A sword thrust's record for one body** (`dataOf("sword-thrust/drive")`,
@@ -43,19 +60,19 @@ interface Config {
   readonly tuning?: Partial<SwordThrust>;
 }
 
-/** The sword thrust's variations: the drive (`drive/`). */
+/** The sword thrust's variations: the drive, the straight drive with the sword's point as its record has it. */
 const VARIATIONS = {
   drive({ body, guard, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[]) {
     const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};
     for (const hand of SIDES) { const face = heldFace(spec, `hand.${hand}`, ITEM, MECHANISM); if (face) faces[hand] = face; }
     const network = config.tuning === undefined ? dataOf("sword-thrust/drive")[spec.model]?.network : null;
-    return swordThrustExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf("sword-thrust/drive"), spec, config), aimedPoint(aim), faces,
-      network ? { policy: recoveryNetwork(network) } : {});
+    return straightDriveExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf("sword-thrust/drive"), spec, config), aimedPoint(aim),
+      { label: "sword thrust", layout: SWORD_THRUST_LAYOUT, faces, ...(network ? { policy: recoveryNetwork(network) } : {}) });
   },
 };
 
 /**
- * **The sword thrust** (`swordThrustExecutor`): a whole-body drive thrown with the sword's point
+ * **The sword thrust** (`straightDriveExecutor`): a whole-body drive thrown with the sword's point
  * (`heldFace`), its settings its body's record of the thrust (`SkillRecord`,
  * `assets/skills/strikes/sword-thrust/drive.json`): a schedule of the trunk's, legs' and arm's
  * pushes, the arm held at its contact pose, the point along the line from the shoulder to the
@@ -67,7 +84,7 @@ export const SWORD_THRUST_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Sword thrust", stage: "game", defaults: { kind: "sword-thrust" },
   keys: { kind: true, tuning: true }, tuning: SWORD_THRUST_KEYS,
   fields: [], slots: [],
-  fits: fitsAll(variationFault("sword-thrust", "sword thrust", VARIATIONS), strikesWithOneOf("hand.left", "hand.right"), fitsWhen(swordThrustFits, "needs both arms on the upper trunk and a thoracic joint"),
+  fits: fitsAll(variationFault("sword-thrust", "sword thrust", VARIATIONS), strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightDriveFits, "needs both arms on the upper trunk and a thoracic joint"),
     (spec) => handConfigurationRefusal(spec, (spec.held ?? []).map(held => held.segment), "grip"),
     recordFault("sword thrust", deepFreeze(meta.bodies), validSwordThrust),
     (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),

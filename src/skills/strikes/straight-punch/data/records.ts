@@ -2,17 +2,17 @@ import meta from "../../../../../assets/skills/strikes/straight-punch/drive.meta
 import type { Network } from "../../../../core/math/learning/recovery-network.ts";
 import { deepFreeze } from "../../../../core/state.ts";
 import type { SkillRecord } from "../../../framework/records.ts";
-import type { StraightPunch } from "../drive/drive.ts";
+import type { StraightDrive } from "../../shared/straight-drive.ts";
 
 /**
  * **A straight punch's record for one body** (`dataOf("straight-punch/drive")`,
  * `assets/skills/strikes/straight-punch/drive.json`, by model): the settings it was tuned to on that body,
  * whole, and the network that steers it where it was trained (`steerFeatures` in, its steer out,
- * as `PUNCH_LAYOUT` lays them out and `recoveryNetwork` evaluates it), or null; `made` says how
+ * as `PUNCH_LAYOUT` (`straight-punch/index.ts`) lays them out and `recoveryNetwork` evaluates it), or null; `made` says how
  * (`research/skills/strikes/straight-punch/punch-export.mjs` writes it). A body throws the straight punch by its own record or
  * not at all: settings tuned on one body and thrown by another throw a different punch.
  */
-export interface PunchRecord extends SkillRecord<StraightPunch> {
+export interface PunchRecord extends SkillRecord<StraightDrive> {
   readonly network: Network | null;
 }
 

@@ -7,7 +7,7 @@
  * `src/skills/strikes/straight-punch/data/records.ts`) into `<out>.json` (`assets/skills/strikes/straight-punch/drive` where not
  * given), each by its model (`man`) beside the records already
  * there, and the bodies with one into `<out>.meta.json`. With `--halts`, the punch stops a walk at
- * once as it commits (`StraightPunch.halts`), as it was trained. A held blow's schedule (one searched
+ * once as it commits (`StraightDrive.halts`), as it was trained. A held blow's schedule (one searched
  * with `--skill thrust`) is written as its blow's record (`SwordThrustRecord`, `assets/skills/strikes/sword-thrust/drive`
  * where `--out` is not given), its network read by its drive's layout. A body is written over the
  * record it has: one with none has no table cell, so no search on its drill.
@@ -16,8 +16,8 @@
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
-import { PUNCH_LAYOUT } from "../../../../src/skills/strikes/straight-punch/drive/drive.ts";
-import { SWORD_THRUST_LAYOUT } from "../../../../src/skills/strikes/sword-thrust/drive/drive.ts";
+import { PUNCH_LAYOUT } from "../../../../src/skills/strikes/straight-punch/index.ts";
+import { SWORD_THRUST_LAYOUT } from "../../../../src/skills/strikes/sword-thrust/index.ts";
 import { SKILLS, settingsOf } from './punch-drill.mjs';
 
 /** The network as the core reads it (`Network`): the actor, with training's observation transform and action clamp where it has them. */

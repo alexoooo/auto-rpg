@@ -4,7 +4,8 @@ import type { Executor } from "./action.ts";
 import type { ExecutorMaking } from "./executor-part.ts";
 
 /**
- * **A skill's variations**, by name: each one's maker, its own code (`src/skills/strikes/<skill>/<variation>/`).
+ * **A skill's variations**, by name: each one's maker, its own code where it has any (`src/skills/strikes/<skill>/<variation>/`),
+ * calling what variations do alike in `src/skills/strikes/shared/`.
  * A body runs the one its character chose (`BodySpec.skills`).
  */
 export type Variations<C> = Readonly<Record<string, (making: ExecutorMaking, config: C, actions: readonly ActionConfig[]) => Executor>>;
