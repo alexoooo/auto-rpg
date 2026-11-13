@@ -197,6 +197,11 @@ ordinary capability drills use impulse joints and rigid contacts, so cannot expo
 
 ## Layer contract regressions
 
+[skills/strike-prepare.test.mjs](skills/strike-prepare.test.mjs): `a held face prepares with
+reachable wrist goals under the damped servo` reproduces a sword chamber whose undamped wrist
+pushes keep it moving until preparation expires. Check wrist command ownership and bounded
+requests; strike outcomes do not establish that preparation retains servo damping.
+
 [skills/guard-posture.test.mjs](skills/guard-posture.test.mjs): `the guard requests reachable
 angles on empty and equipped arms` reproduces the Skeleton guard asking for shoulder adduction
 and elbow flexion beyond its stops. Construction clamps those angles while the command retains

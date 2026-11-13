@@ -516,7 +516,12 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
         toward[0] = aimed.x - at.x; toward[1] = aimed.y - at.y; toward[2] = aimed.z - at.z;
         posture = { ...posture };
         for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
-        aligner.ask(view, toward, posture as Record<string, number>, pushes);
+        // Preparation settles under the damped servo; the drive pushes the face onto its line.
+        aligner.ask(view, toward, posture as Record<string, number>, live.phase === "prepare" ? [] : pushes);
+        if (live.phase === "prepare") for (const channel of aligner.channels) {
+          const dof = body.muscles.channels[body.muscles.channel(channel)]!.dof.spec;
+          (posture as Record<string, number>)[channel] = Math.max(dof.min.value, Math.min(dof.max.value, posture[channel]!));
+        }
       }
       const sense = technique.sense[live.hand], shift: [number, number] = [0, 0];
       const turn = live.phase === "commit" ? stanceAsks(technique.steeredChannels[live.hand], motion.learner.outputs, motion.face, sense, shift) : 0;
