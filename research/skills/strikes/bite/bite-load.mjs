@@ -1,4 +1,4 @@
-import { mouthOf } from "../../../../src/skills/strikes/bite/jaw.ts";
+import { mouthOf } from "../../../../src/skills/strikes/shared/jaw.ts";
 import { pawReader } from "../../../../src/control/quadruped/paws.ts";
 import { lifeTaken } from "../../../../src/combat/blows.ts";
 import { channelName } from "../../../../src/core/bodies/muscle/driver.ts";

@@ -327,12 +327,25 @@ test("source imports follow responsibility, runtime and package ownership", () =
     ["src/skills/alone.ts", `import fs from "fs";`],
     ["src/entrants/one/private.ts", `import { privateMind } from "../../minds/mind.ts";`],
     ["src/unknown/alone.ts", ""],
+    ["src/skills/strikes/bonk/swing/swing.ts", `import { swing } from "../../club-blow/swing/swing.ts";`],
+    ["src/skills/strikes/bonk/swing/steer.ts", `import { BONK_PART } from "../index.ts";`],
+    ["src/skills/strikes/shared/reads.ts", `import { STOMP_PART } from "../stomp/index.ts";`],
+    ["src/skills/strikes/stomp/index.ts", `import { drive } from "../straight-punch/drive/drive.ts";`],
+    ["src/skills/strikes/straight-punch/index.ts", `import { drive } from "./drive/drive.ts"; import { face } from "../shared/held-face.ts";`],
+    ["src/skills/strikes/straight-punch/drive/drive.ts", `import { steer } from "../../shared/steer.ts"; import { push } from "./push.ts";`],
   ]);
   assert.deepEqual(probe.unplaced, ["src/unknown/alone.ts"]);
   assert.deepEqual(probe.layers, ["src/core/physics/hosted.ts -> src/core/bodies/body.ts", "src/game/alone.ts -> src/app/browser/draw.ts", "src/game/reads.ts -> src/evaluation/read.ts", "src/skills/private.ts -> src/minds/private.ts", "src/skills/type-import.ts -> src/minds/private.ts"]);
   assert.deepEqual(probe.runtimes, ["src/app/browser/alone.ts -> node:fs", "src/core/bodies/alone.ts: browser name document", "src/game/alone.ts -> src/app/browser/draw.ts", "src/skills/alone.ts -> fs"]);
   assert.ok(probe.ownership.includes("src/entrants/one/mind.ts -> src/entrants/two/mind.ts"));
   assert.ok(probe.ownership.includes("src/entrants/one/private.ts -> src/minds/mind.ts"));
+  // A variation reads its own folder and the shared mechanics, and only its skill reads it.
+  assert.deepEqual(probe.ownership.filter((crossing) => crossing.startsWith("src/skills/strikes/")), [
+    "src/skills/strikes/bonk/swing/steer.ts -> src/skills/strikes/bonk/index.ts",
+    "src/skills/strikes/bonk/swing/swing.ts -> src/skills/strikes/club-blow/swing/swing.ts",
+    "src/skills/strikes/shared/reads.ts -> src/skills/strikes/stomp/index.ts",
+    "src/skills/strikes/stomp/index.ts -> src/skills/strikes/straight-punch/drive/drive.ts",
+  ]);
 });
 
 /** The game's list of entrants and its catalog: the only modules that import every entrant. */

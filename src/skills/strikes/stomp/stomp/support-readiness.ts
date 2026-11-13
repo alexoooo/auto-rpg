@@ -1,6 +1,6 @@
-import { Vector3 } from "../../../core/math/vector.ts";
-import { footStatesOf, groundContact, readSupport, withinSupport } from "../../../control/support.ts";
-import type { ReadBody } from "../../../core/bodies/read-body.ts";
+import { Vector3 } from "../../../../core/math/vector.ts";
+import { footStatesOf, groundContact, readSupport, withinSupport } from "../../../../control/support.ts";
+import type { ReadBody } from "../../../../core/bodies/read-body.ts";
 
 /**
  * A strike's support gates, independent of anatomy: a contact bears as ground where its normal's

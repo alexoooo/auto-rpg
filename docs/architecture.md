@@ -51,7 +51,9 @@ registered technique set. Gameplay and evaluations receive it as an argument.
 runtime paths and public entry points across source modules. Shared libraries never import entrants;
 application composition imports their public manifests. Entrants import published library APIs
 and themselves. Recovery's shared wiring never imports implementations; each implementation owns
-its algorithms, tuning, data and caches. Motor, balance, support, locomotion, gait, move-rule,
+its algorithms, tuning, data and caches. A strike's variation (`src/skills/strikes/<skill>/<variation>/`)
+imports its own folder, the strikes' shared mechanics (`shared/`) and code outside the strikes, never
+another variation; only its own skill's code imports it, and the shared mechanics import no skill's. Motor, balance, support, locomotion, gait, move-rule,
 navigation, guard, aim, executor, recovery technique and leg adapter registrations, the parts of a
 body on paws, Option component lists and the Commander registry live in `src/app/registration/`.
 Commander lookup receives that registry; reusable implementations live in `src/minds/command/`.
@@ -253,7 +255,8 @@ given the same groups in what it sees (`Sight`, `sightOf`).
 - **Tuned per body**: a skill that reads a record (`Part.reads`: the blows, step up's and the
   sit-back's poses and timings, the righting's recipe) has its settings as its body's record (`SkillRecord`),
   read as mind data by model from its implementation in `assets/skills/` (`dataOf`). A body with no record
-  does not use the skill. Step up's record may adjust the recovery poses and timings by loadout.
+  does not use the skill. Logic of a character's own is never a branch on its body in shared code but
+  a variation it chooses (**Strikes**, below). Step up's record may adjust the recovery poses and timings by loadout.
   Implementations register loaders in `data/registration.ts`; an entrant adds its loaders to its
   manifest's `data`. The catalog supplies those loaders to the store (`DataKey`, `keyof DataOf`)
   through `Catalog.loadData`, with the same registrations in Node and the page. A loader declares

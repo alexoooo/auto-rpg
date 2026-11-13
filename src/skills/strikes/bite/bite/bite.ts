@@ -18,7 +18,7 @@ import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Window } f
 import type { ExecutorMaking } from "../../../framework/executor-part.ts";
 import type { LegsGoal } from "../../../framework/skill.ts";
 import type { Vec3 } from "../../../../core/quantity.ts";
-import { gapePoints, jawOf, mouthOf, mouthToRef, fitsJaw } from "../jaw.ts";
+import { gapePoints, jawOf, mouthOf, mouthToRef, fitsJaw } from "../../shared/jaw.ts";
 import { pawReader } from "../../../../control/quadruped/paws.ts";
 import meta from "../../../../../assets/skills/strikes/bite/bite.meta.json" with { type: "json" };
 import { dataOf } from "../../../../core/data/store.ts";

@@ -56,7 +56,8 @@ Ten rules bind every change. A kind of work has its own, in its own document
    pre-existing.
 7. **A rule is general.** The simplest rule that works covers every skill, body and approach. A
    rule that fails a new case is changed, never given an exception, and changed in every place it
-   lives, documents and code.
+   lives, documents and code. Shared code is general; what is one character's own is a variation
+   of a skill that the character chooses.
 8. **What works and what is saved is kept.** A capability goes only after a reading on the game's
    cases shows what replaces it does as well. Saved results are read again, never replayed
    wholesale: a score that moves because a rule changed is recomputed from them. A change that

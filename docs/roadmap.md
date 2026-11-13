@@ -34,10 +34,6 @@ Skeleton's punch 0 and the stomp under 0.02, most of those not begun outside the
 buckler's cover loses 0.12 to 1.05 hp a trial. Its sword cells' readings are of a sword that cut
 and thrust, kept as they are.
 
-**Skill variations** ([the plan](plans/2026-11-13-skill-variations.md)): a character chooses its
-skills and a variation of each, each variation its own code, so a change to one moves no other.
-The straight punch and the sword thrust share one executor, the club blow and the bonk another.
-
 **The Warrior's punch into fights**, a goal driven unattended ([driven](recipes/documents.md)):
 the straight punch begun from close in the Strike drill, then landing in the Arena's fights by
 Option Mind's footwork; met when the `punch` row on `man` reads better than its
@@ -119,6 +115,7 @@ Each holds its goal, where it stands and the questions open
 - The reptile and the rat on the game's Option Mind against a Warrior and a Reptile: the trot,
   the bite, righting; the Walker in the Lab (`&scenario=reach`).
 - The Crypt's commands (H, X, Q, E, right click), the level-clearer (`&party=clearer`) and the mob.
+- The Arena's Skills panel: each side's skills and the variation of each (`left.skills=`).
 
 ## Open, by layer
 
@@ -154,6 +151,12 @@ here.
 - The compiler checks no caller of `src/` under `scripts/`, `research/` or `tests/`.
 - Ratings when asked: items, characters and attributes; ablations beside a battery; live runs on
   the screen.
+- A character holds one variation of each skill (`BodySpec.skills`); two of one skill at once is a
+  list in its place.
+- A variation is tuned and read at its model's default attributes; a character with others runs
+  those settings untuned.
+- The bite's aim (`first-exposed`, `src/skills/strikes/bite/jaw-aim.ts`) reads the `bite`
+  variation's settings whichever variation of the bite its character runs.
 
 ### Body and motor control
 
@@ -176,6 +179,9 @@ here.
 - Grit, a rising assist, has no mechanism; movement and attack-and-defence assists are not built.
 - The reach solver runs to its cap on a cover the joints' ranges keep out of reach.
 - A way up reads no solid before it begins: it lets go once stuck against one (`STUCK`).
+- The Skeleton's guard asks for angles past its joint limits (`guardPosture`,
+  `src/skills/guard/guard.ts`: shoulder abduction -0.2 rad below its 0 minimum, elbow flexion
+  1.3 rad past its 0.84 maximum); every skill reads the guard.
 - A body on paws righted does not stand: the rat's recipe ends propped on folded legs, not its
   paws, and any drive of its legs from there rolls it onto its back; the reptile's routes turn it
   over while placing a paw, or hold a swept leg short of the hip's yaw limit.
@@ -184,6 +190,8 @@ here.
 
 - Not built: a part's own tolerance, the face apart from the head, armour, edges and points.
 - Striking a body that is down waits on faster rises.
+- The Warrior's punch from its guard, the blow committing only with the arm at its prepare
+  posture: a variation of the straight punch the Warrior would choose.
 
 ### The AI
 

@@ -121,10 +121,15 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
   used (a club is swung; a sword cuts and thrusts). No Option switches between acts by a setting
   or bundles acts (walking over and striking): sequencing is the chooser's. What Options share is
   code they call, never a kind of Option that makes one of each.
-- **No body is named in control code**: a skill specializes by Option first, then by body.
-  Settings are a record per body (`SkillRecord`, `recordFault`), with entries per loadout where a
-  loadout needs its own; other logic for a body is a skill only that body fits, and a controller
-  is never made per loadout.
+- **No body is named in control code**: shared code (the framework, `src/skills/strikes/shared/`)
+  is general, every body through the same code. A skill specializes by Option first, then by
+  variation: logic of a character's own is a variation of the skill that it chooses
+  (`BodySpec.skills`), a folder of code only that skill's part imports
+  (`src/skills/strikes/<skill>/<variation>/`, `scripts/source-boundary.mjs`). A variation's
+  settings are a record per body (`SkillRecord`, `recordFault`), with entries per loadout where a
+  loadout needs its own; a controller is never made per loadout. A change to one variation moves
+  only the fingerprint cases that run it (`node scripts/fingerprint.mjs --compare <file>
+  --variation <skill/variation>`).
 
 ## The steps
 

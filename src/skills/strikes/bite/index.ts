@@ -4,7 +4,7 @@ import type { ActionConfig } from "../../config.ts";
 import { fitsAll } from "../../../parts/parts.ts";
 import { variationFault, variationMaker } from "../../framework/variations.ts";
 import { biteExecutor, biteSettings, BITE_SETTINGS, fitsBite, validBite, type BiteTuning } from "./bite/bite.ts";
-import { jawOf } from "./jaw.ts";
+import { jawOf } from "../shared/jaw.ts";
 
 /** **The bite**'s config: its kind, and an experiment's research `tuning` over its body's record, which a link does not carry. */
 interface Config {

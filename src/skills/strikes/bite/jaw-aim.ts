@@ -10,7 +10,7 @@ import { surfaceContains, surfaceEntry } from "../../perception/openings.ts";
 import type { Aim, AimAsking, AimPart } from "../../framework/aim-part.ts";
 import type { Vec3 } from "../../../core/quantity.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { headFrameToRef, jawOf, mouthToRef } from "./jaw.ts";
+import { headFrameToRef, jawOf, mouthToRef } from "../shared/jaw.ts";
 import { biteSettings, fitsBite } from "./bite/bite.ts";
 
 /** **The first exposed surface**'s config. */

@@ -72,6 +72,33 @@ function runtimeNames(file, source) {
 const runtime = (file) => file.split("/").includes("node") ? "node" : file.split("/").includes("browser") ? "browser" : "neutral";
 const entrant = (file) => /^src\/entrants\/([^/]+)\//.exec(file)?.[1] ?? null;
 
+/** The strikes' shared mechanics: code every variation may read, naming no skill. */
+const SHARED = "src/skills/strikes/shared/";
+/** The folders in a skill's folder that are its own code, not a variation: its records' loaders. */
+const SKILL_FOLDERS = new Set(["data"]);
+/**
+ * **The variation `file` is in** (`src/skills/strikes/<skill>/<variation>/`), its folder and its
+ * skill's, or null: a skill's folder holds its part, its variations' folders and its `data/`.
+ */
+function variationOf(file) {
+  const found = /^(src\/skills\/strikes\/[^/]+\/)([^/]+)\//.exec(file);
+  if (!found || found[1] === SHARED || SKILL_FOLDERS.has(found[2])) return null;
+  return { folder: `${found[1]}${found[2]}/`, skill: found[1] };
+}
+
+/**
+ * Whether the import of `to` by `from` crosses a variation's bounds: a variation reads only its own
+ * folder, the shared mechanics and code outside the strikes, never another variation; only its own
+ * skill's code reads it; and the shared mechanics read no skill's.
+ */
+function crossesVariation(from, to) {
+  if (!to.startsWith("src/skills/strikes/")) return false;
+  const own = variationOf(from), other = variationOf(to);
+  return from.startsWith(SHARED) && !to.startsWith(SHARED)
+    || own !== null && !to.startsWith(own.folder) && !to.startsWith(SHARED)
+    || other !== null && !from.startsWith(other.skill);
+}
+
 /** Every direct edge is checked, so transitive dependencies obey the same runtime and ownership rules. */
 export function sourceCrossings(files) {
   const layers = new Set(), runtimes = new Set(), ownership = new Set(), unplaced = new Set();
@@ -90,6 +117,7 @@ export function sourceCrossings(files) {
         const other = entrant(to);
         if (other !== null && other !== own && !(from.startsWith("src/app/") && to === `src/entrants/${other}/index.ts`)) ownership.add(`${from} -> ${to}`);
         if (own !== null && other !== own && !PUBLISHED.has(to)) ownership.add(`${from} -> ${to}`);
+        if (crossesVariation(from, to)) ownership.add(`${from} -> ${to}`);
         const implementation = /^(src\/skills\/([^/]+)\/implementations\/[^/]+)\//.exec(to);
         if (implementation && !from.startsWith(implementation[1] + "/")) {
           if (from.startsWith(`src/skills/${implementation[2]}/`) || !to.endsWith("/index.ts") && !to.endsWith("/data/registration.ts")) ownership.add(`${from} -> ${to}`);

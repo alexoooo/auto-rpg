@@ -9,13 +9,16 @@ import { rulebook } from "../src/combat/rulebook.ts";
  * change and compare after, on the same machine. It is not a test: a change that means to change
  * how a fight plays changes its lines, and says so.
  *
- *   node scripts/fingerprint.mjs [--workers 12] [--character] [--experimental] [--only <regex>] [--json <file>] [--compare <file>]
+ *   node scripts/fingerprint.mjs [--workers 12] [--character] [--experimental] [--only <regex>] [--json <file>] [--compare <file> [--variation <skill/variation>]...]
  *
  * The minds it plays are the game's (`Part.stage`); `--experimental` plays every mind a person may
  * pick, research ones too. `--only` runs the cases whose names match. `--json` writes each case's record as well, and
  * `--compare` reads such a file and names every case whose record differs: it fails on a pose,
  * and names a state or physics difference without failing, since a change may reshape what a
- * bout keeps and still play it to the bit. The engine is `CORE_ENGINE`'s (`tests/harness/core-stand.mjs`).
+ * bout keeps and still play it to the bit. A fight's record names the variations its bodies run
+ * (`variationsOf`); given `--variation`, a change to those variations' code, `--compare` lets a case
+ * that runs one of them move and fails on any other that moves, so a change to one variation is
+ * shown to move only the cases that run it. The engine is `CORE_ENGINE`'s (`tests/harness/core-stand.mjs`).
  *
  * `--character` prints instead what the Character Lab's checks measure on its two models: the
  * lines a change to `scripts/character-lab/validation.mjs` or `contact.mjs` must leave as they were.
@@ -78,6 +81,12 @@ import { losslessModelPath } from "./art/paths.mjs";
 Logger.LogLevels = Logger.NoneLogLevel;
 
 const digestOf = (hash) => hash.digest("hex").slice(0, 16);
+/**
+ * The skill variations `combatants` run, each `skill/variation`, sorted: every skill of a body's
+ * kit (`KitEntry.kind`, what its mind made) by the variation its character chose (`BodySpec.skills`).
+ */
+const variationsOf = (combatants) => [...new Set(combatants.flatMap(({ built, minded }) => (minded.report?.kit ?? [])
+  .flatMap(({ kind }) => Object.hasOwn(built.spec.skills ?? {}, kind) ? [`${kind}/${built.spec.skills[kind]}`] : [])))].sort();
 /**
  * A vector's or a quaternion's numbers, by its class's name, whichever library made it; anything
  * else, undefined.
@@ -154,9 +163,10 @@ async function arena(recipe, { watch } = {}) {
     for (let i = 0; i < 2 * world.hz; i++) step();
     const later = taken();
     const down = meter ? { down: `${watch} ${meter.reading()}` } : {};
+    const variations = variationsOf(SIDES.map((side) => duel.duelists[side]));
     return {
       line: `${verdict}, blows ${blows}, ${down.down ? `${down.down}, ` : ""}pose ${then.pose}, 2 s on ${later.pose}`,
-      record: { pose: `${then.pose} ${later.pose}`, state: `${then.state} ${later.state}`, physics: `${then.physics} ${later.physics}`, verdict, blows, ...down },
+      record: { pose: `${then.pose} ${later.pose}`, state: `${then.state} ${later.state}`, physics: `${then.physics} ${later.physics}`, verdict, blows, ...down, variations },
     };
   } finally { dispose(); }
 }
@@ -167,13 +177,14 @@ async function arena(recipe, { watch } = {}) {
  */
 async function stand(model) {
   const stand = await coreStand(modelSpec(model));
-  const body = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS.option.config, { rules: rulebook("arena"), name: "stand", orders: () => null }).body : stockBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  const minded = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS.option.config, { rules: rulebook("arena"), name: "stand", orders: () => null }) : null;
+  const body = minded?.body ?? stockBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   try {
-    if (model !== "reptile") driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills(body));
+    if (!minded) driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills(body));
     const trace = traceOf([stand.built]);
     for (let i = 0; i < stand.seconds(11); i++) { stand.step(); trace.take(); }
     const pose = trace.digest();
-    return { line: `pose ${pose}`, record: { pose } };
+    return { line: `pose ${pose}`, record: { pose, variations: minded ? variationsOf([{ built: stand.built, minded }]) : [] } };
   } finally { body.dispose(); stand.dispose(); }
 }
 
@@ -193,8 +204,9 @@ async function cryptFight(seed) {
   try {
     const trace = traceOf({ *[Symbol.iterator]() { for (const actor of run.actors) if (actor.fighter) yield actor.fighter.built; } });
     for (let i = 0; i < 12 * run.world.hz && run.status === "playing"; i++) { run.step(); trace.take(); }
-    const built = run.actors.filter((actor) => actor.fighter).length, pose = trace.digest();
-    return { line: `${run.status} at step ${run.world.steps}, bodies ${built}, blows ${run.blows.length}, pose ${pose}`, record: { pose, blows: run.blows.length } };
+    const fighters = run.actors.flatMap((actor) => actor.fighter ? [actor.fighter] : []), pose = trace.digest();
+    return { line: `${run.status} at step ${run.world.steps}, bodies ${fighters.length}, blows ${run.blows.length}, pose ${pose}`,
+      record: { pose, blows: run.blows.length, variations: variationsOf(fighters) } };
   } finally { run.dispose(); }
 }
 
@@ -431,6 +443,7 @@ const CASES = [
 if (isMainThread) {
   const { values } = parseArgs({ options: {
     workers: { type: "string" }, character: { type: "boolean" }, experimental: { type: "boolean" }, only: { type: "string" }, json: { type: "string" }, compare: { type: "string" },
+    variation: { type: "string", multiple: true },
   } });
   const only = values.only === undefined ? null : new RegExp(values.only);
   const chosen = CASES.keys().filter((id) => !!CASES[id].character === !!values.character && (!only || only.test(CASES[id].name))).toArray();
@@ -446,16 +459,21 @@ if (isMainThread) {
   if (values.compare) {
     const before = JSON.parse(await readFile(values.compare, "utf8"));
     if (before.engine !== CORE_ENGINE) throw new Error(`${values.compare} was taken on ${before.engine}, this on ${CORE_ENGINE}`);
-    let moved = 0;
+    // The variations changed; a case runs one where its record says so before or after.
+    const changed = new Set(values.variation ?? []);
+    const runs = (...records) => records.flatMap((record) => record?.variations ?? []).filter((one) => changed.has(one));
+    let moved = 0, expected = 0;
     for (const [name, record] of Object.entries(cases)) {
       const was = before.cases[name];
       if (!was) { console.log(`new: ${name}`); continue; }
       const differs = Object.keys({ ...was, ...record }).filter((key) => JSON.stringify(was[key]) !== JSON.stringify(record[key]));
-      if (differs.includes("pose")) moved++;
-      if (differs.length) console.log(`${differs.includes("pose") ? "MOVED" : "reshaped"}: ${name} (${differs.join(", ")})`);
+      const running = [...new Set(runs(was, record))];
+      if (differs.includes("pose")) { if (running.length) expected++; else moved++; }
+      if (differs.length) console.log(`${!differs.includes("pose") ? "reshaped" : running.length ? `moved, runs ${running.join(" ")}` : "MOVED"}: ${name} (${differs.join(", ")})`);
     }
     for (const name of Object.keys(before.cases)) if (!(name in cases) && (!only || only.test(name))) console.log(`gone: ${name}`);
-    console.log(moved ? `${moved} cases moved` : "no pose moved");
+    if (expected) console.log(`${expected} cases that run ${[...changed].join(" ")} moved`);
+    console.log(moved ? `${moved} cases moved${changed.size ? " that run none of the changed variations" : ""}` : changed.size ? "no other pose moved" : "no pose moved");
     if (moved) process.exitCode = 1;
   }
 } else {
