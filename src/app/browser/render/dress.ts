@@ -51,7 +51,7 @@ export function dresserFor(model: BodyModel, scene: Scene,
       skin = art(model, scene, options);
       break;
     }
-    case "industrial": case "relic": case "duelist":
+    case "industrial": case "steampunk": case "futuristic":
       skin = Promise.resolve((built, instance) => dressRobot(built, scene, appearance, instance));
       break;
     default: { const never: never = appearance; throw new Error(`unknown appearance ${never}`); }
