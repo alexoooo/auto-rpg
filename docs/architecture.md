@@ -95,7 +95,12 @@ effector segment (`BodyView.pointMotion`).
 - **Models** (`BODY_MODELS`, `modelSpec`, `src/core/bodies/models.ts`): the humans are built in
   `src/core/bodies/human/spec.ts`, the quadrupeds in `src/core/bodies/quadruped/spec.ts`.
 - **A character** (`CharacterConfig`, `resolveCharacter`) is a model plus its attributes
-  (`CharacterAttributes`). The physical keys and validation live in the body domain; editor labels,
+  (`CharacterAttributes`) and its skills (`SkillChoices`, carried on its spec as `BodySpec.skills`):
+  each skill it has by the variation of it it runs, its model's character's
+  (`assets/characters/characters.json`: the Warrior's, the Rogue's, the Skeleton's, the rat's and the
+  reptile's) where it names none. A bout's recipe carries each side's (`DuelRecipe.skills`), and the
+  Arena sets them by its panel and its link (`left.skills=straight-punch:drive,stomp:stomp`,
+  `src/game/skill-link.ts`). The physical keys and validation live in the body domain; editor labels,
   increments and help live in `src/app/browser/ui/character-attribute-info.ts`.
   A physique (`physiqueFigure`, `src/core/bodies/human/physique.ts`) scales one
   thing a factor: size every length at the same density, weight the mass alone, strength every peak
@@ -310,6 +315,9 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   (`straight-punch/drive/`) beside the skill's part (`straight-punch/index.ts`); the mechanics
   variations share are in `shared/`. A variation's settings are
   `assets/skills/strikes/<skill>/<variation>.json`, by model, its data `dataOf("<skill>/<variation>")`.
+  A skill's part fits only a body whose character has the skill and runs the variation it chose
+  (`variationFault`, `variationMaker`, `src/skills/framework/variations.ts`), so the Option Mind
+  offers only the character's skills; a strike's digest names its variation (`skillDigest`).
 - **The straight punch** (`straight-punch/drive/`) drives the arm flat out at a contact pose solved
   each step, on a timed schedule (`TimedPush`). Steered, a network (`shared/steer.ts`), deciding every
   interval its layout names, adds to the trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
@@ -321,7 +329,7 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   push on their `TimedPush` schedule and return to guard.
 - **The stomp** (`stomp/stomp/`) is a strike cycle down from a high chamber onto a body lying ahead. A
   strike's window (`strikeWindow`) keeps the two bodies clear.
-- **The bite** (`jaw-bite`, `src/skills/strikes/bite/bite/`) is a strike cycle of the jaw on a crawl:
+- **The bite** (`bite`, `src/skills/strikes/bite/bite/`) is a strike cycle of the jaw on a crawl:
   the head driven to the mouth's goal, the jaw opened and closed on its path, aimed by the first
   exposed surface along the jaw's arc (`first-exposed`, `jaw-aim.ts`), its tooth carried with the
   aim (`Aimed.with`).
@@ -605,7 +613,7 @@ The profile model supplies these components:
   A config names a limb's role (`limbsOf`).
 - **The strikes**: each blow is its own kind of option naming its skill (`StrikeKindPart`,
   `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-bonk`,
-  `strike-sword-thrust`, `strike-stomp`, `strike-jaw-bite`), a strike (`strike`) of the action it asks of its
+  `strike-sword-thrust`, `strike-stomp`, `strike-bite`), a strike (`strike`) of the action it asks of its
   executor on its body (`strikeAction`), one Option a limb (`limbAction`): a punch on empty hands
   is two Options, each priced by its limb's profile. An action is named as its skill; where a mind
   uses one skill in two ways (a club's bonk at the head and its swipe at the trunk), each is its

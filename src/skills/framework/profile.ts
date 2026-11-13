@@ -535,17 +535,19 @@ const SPEC_DIGESTS = new WeakMap<BodySpec, string>();
 
 /**
  * **A body's spec's digest** (`digestOf`): what a profile measured on it names. Its wounds are
- * left out: they are how the rules read a blow on it (`src/combat/pool.ts`), not how it moves.
+ * left out: they are how the rules read a blow on it (`src/combat/pool.ts`), not how it moves; and
+ * its skills: a strike's digest names the variation it runs (`skillDigest`).
  */
 export const specDigest = (spec: BodySpec): string => {
   let digest = SPEC_DIGESTS.get(spec);
-  if (digest === undefined) SPEC_DIGESTS.set(spec, digest = digestOf({ ...spec, wounds: undefined }));
+  if (digest === undefined) SPEC_DIGESTS.set(spec, digest = digestOf({ ...spec, wounds: undefined, skills: undefined }));
   return digest;
 };
 
 /**
  * **A strike's digest** on a body of `spec`: what it does, not what it is called: its action's
- * config and its executor's (the one the action names), each without its name, and the body's own
+ * config and its executor's (the one the action names), each without its name, the variation of
+ * the executor's skill the body's character runs (`BodySpec.skills`), and the body's own
  * row of each record the executor reads (`Part.reads`: an executor's data is its skills' records by
  * model, `SkillRecord`), as the mind holds them, so another body's row moves no digest.
  */
@@ -575,8 +577,8 @@ function readSkillDigest(parts: PartLookup, part: ReturnType<typeof executorPart
   const aim = action.aim ? parts.of("aim", action.aim) : null;
   const keys = [...new Set([...(executor && part ? part.reads?.(executor) ?? [] : []), ...(action.aim ? aim?.reads?.(action.aim) ?? [] : [])])];
   const data = keys.map(key => digestOf(dataIdentity(key, body)));
-  const { name: _action, executor: _executor, ...does } = action;
-  return digestOf({ action: does, executor: executor && (({ name: _, ...rest }) => rest)(executor), data });
+  const { name: _action, executor: _executor, ...does } = action, variation = executor ? spec.skills?.[executor.kind] : undefined;
+  return digestOf({ action: does, executor: executor && (({ name: _, ...rest }) => rest)(executor), ...(variation === undefined ? {} : { variation }), data });
 }
 
 /** A ground technique's digest: its config and the body's records its part reads. */

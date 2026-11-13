@@ -1,0 +1,7 @@
+{
+  "man": { "skills": { "straight-punch": "drive", "sword-thrust": "drive", "bonk": "swing", "club-blow": "swing", "stomp": "stomp" } },
+  "woman": { "skills": { "straight-punch": "drive", "stomp": "stomp" } },
+  "skeleton": { "skills": { "straight-punch": "drive" } },
+  "rat": { "skills": { "bite": "bite" } },
+  "reptile": { "skills": { "bite": "bite" } }
+}

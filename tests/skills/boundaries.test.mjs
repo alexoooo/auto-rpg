@@ -292,7 +292,7 @@ import { STAGED_DOWN } from "../../src/skills/recovery/implementations/staged/te
 import { stepUpTuning } from "../../src/skills/recovery/implementations/staged/records.ts";
 import { TROT_PART } from "../../src/skills/locomotion/quadruped/trot.ts";
 import { CRAWL_PART } from "../../src/skills/locomotion/quadruped/crawl.ts";
-import { JAW_BITE } from "../../src/skills/strikes/bite/bite/bite.ts";
+import { BITE_PART } from "../../src/skills/strikes/bite/index.ts";
 import { ROLL_POSES } from "../../src/skills/recovery/implementations/staged/stages.ts";
 import { makeSkills } from "../../src/skills/assembly/assembly.ts";
 import { LEG_RESOURCE, TRUNK_RESOURCE, poseResource, hasResource } from "../../src/skills/framework/action.ts";
@@ -342,7 +342,7 @@ test("admission resolves guard, staged channels and timed strike and gait settin
   assert.match(STAGED_DOWN.fits(stock, { kind: "staged-down", tuning }, partLookup), /unknown channel/);
   assert.match(STOMP_PART.fits(stock, { kind: "stomp", tuning: { swingSeconds: 0 } }, partLookup), /invalid stomp/);
   const reptile = modelSpec("reptile");
-  for (const [part, tuning] of [[TROT_PART, { speed: 0 }], [CRAWL_PART, { settle: 0, shift: 0, swing: 0, plant: 0 }], [JAW_BITE, { prepare: 0 }], [JAW_BITE, { snap: 0 }]]) {
+  for (const [part, tuning] of [[TROT_PART, { speed: 0 }], [CRAWL_PART, { settle: 0, shift: 0, swing: 0, plant: 0 }], [BITE_PART, { prepare: 0 }], [BITE_PART, { snap: 0 }]]) {
     const config = { ...part.defaults, tuning };
     assert.match(part.fits(reptile, config, partLookup), /invalid .*settings/);
     assert.notDeepEqual(part.faults(config, partLookup), []);

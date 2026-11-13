@@ -4,8 +4,10 @@ import { recoveryNetwork, type Network } from "../../../core/math/learning/recov
 import { dataOf } from "../../../core/data/store.ts";
 import { fitsAll, fitsWhen, strikesWithOneOf } from "../../../parts/parts.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { aimedPoint, type ExecutorPart } from "../../framework/executor-part.ts";
+import { aimedPoint, type ExecutorMaking, type ExecutorPart } from "../../framework/executor-part.ts";
+import type { ActionConfig } from "../../config.ts";
 import { recordFault, tunedSettings, type SkillRecord } from "../../framework/records.ts";
+import { variationFault, variationMaker } from "../../framework/variations.ts";
 import { heldFace, type StrikingFace } from "../shared/held-face.ts";
 import { SWORD_THRUST_KEYS, swordThrustExecutor, swordThrustFits, timedChannelFault, validSwordThrust, validSwordThrustPart,
   type SwordThrust } from "./drive/drive.ts";
@@ -41,6 +43,17 @@ interface Config {
   readonly tuning?: Partial<SwordThrust>;
 }
 
+/** The sword thrust's variations: the drive (`drive/`). */
+const VARIATIONS = {
+  drive({ body, guard, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[]) {
+    const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};
+    for (const hand of SIDES) { const face = heldFace(spec, `hand.${hand}`, ITEM, MECHANISM); if (face) faces[hand] = face; }
+    const network = config.tuning === undefined ? dataOf("sword-thrust/drive")[spec.model]?.network : null;
+    return swordThrustExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf("sword-thrust/drive"), spec, config), aimedPoint(aim), faces,
+      network ? { policy: recoveryNetwork(network) } : {});
+  },
+};
+
 /**
  * **The sword thrust** (`swordThrustExecutor`): a whole-body drive thrown with the sword's point
  * (`heldFace`), its settings its body's record of the thrust (`SkillRecord`,
@@ -54,20 +67,15 @@ export const SWORD_THRUST_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Sword thrust", stage: "game", defaults: { kind: "sword-thrust" },
   keys: { kind: true, tuning: true }, tuning: SWORD_THRUST_KEYS,
   fields: [], slots: [],
-  fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(swordThrustFits, "needs both arms on the upper trunk and a thoracic joint"),
+  fits: fitsAll(variationFault("sword-thrust", "sword thrust", VARIATIONS), strikesWithOneOf("hand.left", "hand.right"), fitsWhen(swordThrustFits, "needs both arms on the upper trunk and a thoracic joint"),
     (spec) => handConfigurationRefusal(spec, (spec.held ?? []).map(held => held.segment), "grip"),
     recordFault("sword thrust", deepFreeze(meta.bodies), validSwordThrust),
     (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),
   faults: (config) => config.tuning === undefined || validSwordThrustPart(config.tuning) ? [] : ["invalid sword thrust tuning"],
   reads: () => ["sword-thrust/drive"], effectors: ["hand.left", "hand.right"], aims: true, meets: MECHANISM,
   strikesWith: (spec, _config, effector) => heldFace(spec, effector, ITEM, MECHANISM) !== null,
-  make({ body, guard, aim }, config, actions) {
-    const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};
-    for (const hand of SIDES) { const face = heldFace(spec, `hand.${hand}`, ITEM, MECHANISM); if (face) faces[hand] = face; }
-    const network = config.tuning === undefined ? dataOf("sword-thrust/drive")[spec.model]?.network : null;
-    return swordThrustExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf("sword-thrust/drive"), spec, config), aimedPoint(aim), faces,
-      network ? { policy: recoveryNetwork(network) } : {});
-  },
+  make: variationMaker("sword-thrust", VARIATIONS),
+  variations: Object.keys(VARIATIONS),
 };
 
 declare module "../../config.ts" {

@@ -5,6 +5,7 @@
  * is a reel of one. The Arena plays each case's recipe and tape as this build's code builds them
  * (`reel.ts`); the address the case gives the pickers only shows its choices.
  */
+import { writeSkills } from "../../../game/skill-link.ts";
 import { MINDS } from "../../catalog.ts";
 import { recordingKey } from "../../../core/world/recording.ts";
 import { writeAttributes } from "../../../game/attribute-link.ts";
@@ -68,6 +69,7 @@ export function caseSearch(recipe: DuelRecipe): string {
     const loadout = recipe.loadouts?.[side];
     if (loadout) query.set(`${side}.loadout`, `${loadout.left},${loadout.right}`);
     if (recipe.attributes) writeAttributes(query, side, recipe.attributes[side]);
+    writeSkills(query, side, recipe.skills?.[side]);
   }
   const controls = SIDES.map((side) => {
     const mind = recipe.minds?.[side], loadout = recipe.loadouts?.[side];

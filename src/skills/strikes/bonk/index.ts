@@ -7,7 +7,9 @@ import { checkedLayout, type SteerLayout } from "../shared/steer.ts";
 import { dataOf } from "../../../core/data/store.ts";
 import { fitsAll, strikesWithOneOf } from "../../../parts/parts.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { aimedPoint, type ExecutorPart } from "../../framework/executor-part.ts";
+import { aimedPoint, type ExecutorMaking, type ExecutorPart } from "../../framework/executor-part.ts";
+import type { ActionConfig } from "../../config.ts";
+import { variationFault, variationMaker } from "../../framework/variations.ts";
 import { recordFault, tunedSettings, type SkillRecord } from "../../framework/records.ts";
 import { heldFace, type StrikingFace } from "../shared/held-face.ts";
 import { swingChannelFault, swingExecutor, SWING_KEYS, validSwing, validSwingPart, type Swing } from "./swing/swing.ts";
@@ -41,6 +43,17 @@ interface Config {
   readonly tuning?: Partial<Swing>;
 }
 
+/** The bonk's variations: the swing (`swing/`). */
+const VARIATIONS = {
+  swing({ body, guard, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[]) {
+    const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};
+    for (const hand of SIDES) { const face = heldFace(spec, `hand.${hand}`, ITEM, MECHANISM); if (face) faces[hand] = face; }
+    const network = config.tuning === undefined ? dataOf("bonk/swing")[spec.model]?.network : null;
+    return swingExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf("bonk/swing"), spec, config), aimedPoint(aim), faces,
+      { layout: BONK_LAYOUT, ...(network ? { policy: recoveryNetwork(network) } : {}) });
+  },
+};
+
 /**
  * **The bonk** (`swingExecutor`): the club swung overhead on an arc that meets the target with its
  * head, its settings its body's record of the swing (`assets/skills/strikes/bonk/swing.json`): the
@@ -53,18 +66,13 @@ export const BONK_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Bonk", stage: "game", defaults: { kind: "bonk" },
   keys: { kind: true, tuning: true }, tuning: SWING_KEYS,
   fields: [], slots: [],
-  fits: fitsAll((spec) => handConfigurationRefusal(spec, (spec.held ?? []).map(held => held.segment), "grip"), strikesWithOneOf("hand.left", "hand.right"),
+  fits: fitsAll(variationFault("bonk", "bonk", VARIATIONS), (spec) => handConfigurationRefusal(spec, (spec.held ?? []).map(held => held.segment), "grip"), strikesWithOneOf("hand.left", "hand.right"),
     recordFault("bonk", deepFreeze(meta.bodies), validSwing), (spec, config) => config.tuning ? swingChannelFault(spec, config.tuning) : null),
   faults: (config) => config.tuning === undefined || validSwingPart(config.tuning) ? [] : ["invalid bonk tuning"],
   reads: () => ["bonk/swing"], effectors: ["hand.left", "hand.right"], aims: true, meets: MECHANISM,
   strikesWith: (spec, _config, effector) => heldFace(spec, effector, ITEM, MECHANISM) !== null,
-  make({ body, guard, aim }, config, actions) {
-    const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};
-    for (const hand of SIDES) { const face = heldFace(spec, `hand.${hand}`, ITEM, MECHANISM); if (face) faces[hand] = face; }
-    const network = config.tuning === undefined ? dataOf("bonk/swing")[spec.model]?.network : null;
-    return swingExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf("bonk/swing"), spec, config), aimedPoint(aim), faces,
-      { layout: BONK_LAYOUT, ...(network ? { policy: recoveryNetwork(network) } : {}) });
-  },
+  make: variationMaker("bonk", VARIATIONS),
+  variations: Object.keys(VARIATIONS),
 };
 
 declare module "../../config.ts" {

@@ -102,6 +102,11 @@ export interface BodySpec {
   readonly substance: Substance;
   /** Items held rigidly in a segment, such as a club in a hand; absent, nothing. */
   readonly held?: readonly HeldSpec[];
+  /**
+   * The skills its character has chosen (`SkillChoices`): each skill it has, by name, and the
+   * variation of it it runs. A skill it does not name, it does not have; absent, none.
+   */
+  readonly skills?: SkillChoices;
   /** When the body is down: the rule every fight, page and mind reads it by (`uprightness`, `src/control/ground.ts`). */
   readonly down: DownSpec;
   /** Where another body aims at it. */
@@ -158,6 +163,13 @@ interface EffectorSpec {
 export const pawsOf = (spec: BodySpec): readonly PawLimb[] => (spec.ends ?? []).filter((end): end is PawLimb => end.kind === "paw");
 
 /** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
+/**
+ * **A character's skills**: each skill it has, by name (an executor's kind, such as
+ * `straight-punch`), and the variation of it it runs (`drive`: its own folder of code and file of
+ * settings, `src/skills/strikes/<skill>/<variation>/`).
+ */
+export type SkillChoices = Readonly<Record<string, string>>;
+
 export type Substance = "flesh" | "bone" | "wood" | "metal" | "stone";
 
 /**

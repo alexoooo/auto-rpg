@@ -22,8 +22,11 @@ import { need as find } from "../dom.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { isRefused } from "../../../core/refusal.ts";
 import { BODY_MODELS, modelHolding, modelHolds, resolveCharacterChecked, type BodyModel } from "../../../core/bodies/models.ts";
+import type { SkillChoices } from "../../../core/bodies/spec/body.ts";
 import { modelLoadout } from "../../../game/model-loadouts.ts";
 import { attributeEditor } from "../ui/attribute-editor.ts";
+import { skillEditor, type SkillOffer } from "../ui/skill-editor.ts";
+import { writeSkills } from "../../../game/skill-link.ts";
 import { writeAttributes } from "../../../game/attribute-link.ts";
 import { HELD, heldName, withLoadout, type Loadout } from "../../../core/bodies/items/held.ts";
 import { HUMAN_HASTE, hasteText } from "../../../core/bodies/human/attributes.ts";
@@ -41,10 +44,10 @@ import { trialOverlay } from "./trial-overlay.ts";
 import { endingText, endRuleOf, GAME_ENDS } from "../../../game/arena/end-rule.ts";
 import { caseSearch, readReel, reelHash, unshown } from "./case-link.ts";
 import { reelTrials, type Trial } from "./reel.ts";
-import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, readLoadouts, readMatchup, readYou, youSearch, type Matchup } from "../../../game/arena/matchup.ts";
+import { MATCHUP_PARAM, arenaAttributes, arenaSkills, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, readLoadouts, readMatchup, readYou, youSearch, type Matchup } from "../../../game/arena/matchup.ts";
 import { CONTROLS, controllerLabel, controlCharacter, controlName, controlsFor, defaultControl, readControls, recipeOf, linkedMind, mindsSearch, unreadMinds } from "../setup.ts";
 import { offered } from "../../../minds/catalog/controller.ts";
-import { partOf, treeObeys, MINDS, defaultMind } from "../../catalog.ts";
+import { allParts, partOf, treeObeys, MINDS, defaultMind } from "../../catalog.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
 import { notesOf, type NoteLevel } from "../ui/mind-notes.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -174,6 +177,15 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
   const attributeEditors = {} as Record<Side, ReturnType<typeof attributeEditor>>;
   const attributes = { ...arenaAttributes(location.search) };
+  // Each side's skills as its panel holds them: undefined, its model's character's (`characterSkills`).
+  const skills: Partial<Record<Side, SkillChoices>> = { ...arenaSkills(location.search) };
+  const skillEditors = {} as Record<Side, ReturnType<typeof skillEditor>>;
+  /** Each skill a character may choose and its variations, as the catalog's executors offer them (`ExecutorPart.variations`). */
+  const skillOffers: readonly SkillOffer[] = Object.entries(allParts()).flatMap(([skill, part]) =>
+    part.role === "executor" && "variations" in part && Array.isArray(part.variations) ? [{ skill, label: part.label, variations: part.variations }] : []);
+  /** `side`'s character config: its model, its attributes over its mind's character's, and its skills where its panel chose them. */
+  const characterOf = (side: Side, model: BodyModel, control: string) =>
+    ({ model, attributes: controlCharacter(control, attributes[side]), ...(skills[side] ? { skills: skills[side] } : {}) });
   const previewLoads: Promise<void>[] = [];
   for (const side of SIDES) {
     const panel = document.createElement("section");
@@ -214,6 +226,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       },
     });
     choices.append(attributePanel.element);
+    const skillPanel = skillEditors[side] = skillEditor(matchup[side], skills[side], skillOffers, {
+      change: (next) => { if (next === undefined) delete skills[side]; else skills[side] = next; refreshChoices[side]?.(); },
+    });
+    choices.append(skillPanel.element);
     const controller = document.createElement("label"), control = document.createElement("select");
     controller.className = "field"; controller.textContent = "Controller";
     control.setAttribute("aria-label", `${side} controller`);
@@ -252,7 +268,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     };
     const editorSpec = () => {
       const model = select.value as BodyModel;
-      const resolved = resolveCharacterChecked({ model, attributes: controlCharacter(control.value, attributes[side]) });
+      const resolved = resolveCharacterChecked(characterOf(side, model, control.value));
       return isRefused(resolved) ? modelHolding(model, loadout()) : withLoadout(resolved.spec, loadout());
     };
     // The minds are checked by the entry rule of the bout the page opens with: a trial's own, or a fight's.
@@ -317,6 +333,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       select.addEventListener("change", () => {
         appearances = { ...appearances, [side]: "default" };
         attributePanel.set({ model: select.value as BodyModel, attributes: attributes[side] });
+        // Another model is another character: its own skills.
+        delete skills[side]; skillPanel.set(select.value as BodyModel, undefined);
         refresh();
         select.blur();
         if (attributePanel.read() !== null) void view.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, attributes[side]) }).catch(previewFailed);
@@ -354,6 +372,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     for (const side of SIDES) {
       const draft = attributeEditors[side].read();
       if (draft) writeAttributes(query, side, draft);
+      writeSkills(query, side, skills[side]);
       query.set(`${side}.loadout`, SIDES.map(hand => loadoutPickers[side][hand].value).join(","));
     }
     const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
@@ -529,6 +548,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       pickers[side].value = matchup[side];
       refreshChoices[side]();
       attributeEditors[side].set({ model: matchup[side], attributes: attributes[side] });
+      skillEditors[side].set(matchup[side], skills[side]);
       const drafted = attributeEditors[side].read() !== null;
       if (drafted) void previews[side].setCharacter(0, { model: matchup[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) }, appearances[side]).catch(previewFailed);
     }
@@ -541,7 +561,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         const draft = attributeEditors[side].read();
         if (!draft) return;
         attributes[side] = draft;
-        const resolved = resolveCharacterChecked({ model: next[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) });
+        const resolved = resolveCharacterChecked(characterOf(side, next[side], controlPickers[side].value));
         if (isRefused(resolved)) { need("boot-note").textContent = resolved.refused; return; }
       }
       // A mind with a fault is not played, nor another in its place.
@@ -557,7 +577,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         else {
           const query = new URLSearchParams(location.search);
           query.delete("balance"); query.delete("haste");
-          for (const side of SIDES) writeAttributes(query, side, attributes[side]);
+          for (const side of SIDES) { writeAttributes(query, side, attributes[side]); writeSkills(query, side, skills[side]); }
           query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
           query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
           query.delete("held");

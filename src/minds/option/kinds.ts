@@ -208,8 +208,8 @@ export const SWORD_THRUST_OPTION = strikeKind("sword-thrust", "Sword thrust", "h
 /** **The stomp** (`stomp`), with either foot. */
 export const STOMP_OPTION = strikeKind("stomp", "Stomp", "either-foot");
 
-/** **The bite** (`jaw-bite`), with the jaw. */
-export const BITE_OPTION = strikeKind("jaw-bite", "Bite", "jaw");
+/** **The bite** (`bite`), with the jaw. */
+export const BITE_OPTION = strikeKind("bite", "Bite", "jaw");
 
 /** **A walk's config**: the gait of its body's legs it goes by (`Gait.name`), every one where it names none, and the navigation that plans its way (Visibility routes unless it names one). */
 export interface WalkConfig {
@@ -283,7 +283,7 @@ declare module "./parts.ts" {
     readonly "strike-bonk": StrikeConfig<"bonk">;
     readonly "strike-sword-thrust": StrikeConfig<"sword-thrust">;
     readonly "strike-stomp": StrikeConfig<"stomp">;
-    readonly "strike-jaw-bite": StrikeConfig<"jaw-bite">;
+    readonly "strike-bite": StrikeConfig<"bite">;
     readonly walk: WalkConfig;
     readonly "hold-at-place": PlaceConfig;
     readonly covers: { readonly kind: "covers" };

@@ -11,6 +11,8 @@ import { appearanceFor, type Appearance } from "../appearance/appearance.ts";
 
 import { mindLinks, type LinkedMind } from "../../minds/catalog/config-link.ts";
 import { readAttributes } from "../attribute-link.ts";
+import { readSkills } from "../skill-link.ts";
+import type { SkillChoices } from "../../core/bodies/spec/body.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { gapFits, LEVELS, type ArenaLevel } from "./levels.ts";
 import type { ArenaSeat as Side } from "./seat.ts";
@@ -30,6 +32,13 @@ export type Matchup = Readonly<Record<Side, BodyModel>>;
 export function arenaAttributes(search: string): Readonly<Record<Side, AttributeOverrides>> {
   const query = new URLSearchParams(search);
   return { left: readAttributes(query, "left"), right: readAttributes(query, "right") };
+}
+
+/** Each contender's skills where its link names them (`left.skills=`, `right.skills=`, `readSkills`); a side it does not name, its model's character's. */
+export function arenaSkills(search: string): Readonly<Partial<Record<Side, SkillChoices>>> {
+  const query = new URLSearchParams(search), skills: Partial<Record<Side, SkillChoices>> = {};
+  for (const side of SIDES) { const read = readSkills(query, side); if (read !== undefined) skills[side] = read; }
+  return Object.freeze(skills);
 }
 
 /** The Warrior against the Rogue unless a link or a person picks another pair. */
@@ -235,12 +244,12 @@ export function createMatchup(context: GameContext) {
   /** The bout `search` asks for on `level`, each side's attributes as the page holds them over its mind's character (`controlCharacter`). */
   function recipeOf(search: string, attributes: Readonly<Record<Side, AttributeOverrides>>, level: ArenaLevel): DuelRecipe {
     const matchup = readMatchup(search), gap = readGap(search, level), capSeconds = readCap(search), controls = readControls(search);
-    const senseDelay = readSenseDelay(search), seed = readSeed(search);
+    const senseDelay = readSenseDelay(search), seed = readSeed(search), skills = arenaSkills(search);
     return {
       left: matchup.left, right: matchup.right, level, minds: readMinds(search),
       attributes: { left: controlCharacter(controls.left, attributes.left), right: controlCharacter(controls.right, attributes.right) },
       ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), loadouts: loadoutsOf(search),
-      ...(senseDelay !== undefined ? { senseDelay } : {}), ...(seed !== undefined ? { seed } : {}),
+      ...(senseDelay !== undefined ? { senseDelay } : {}), ...(seed !== undefined ? { seed } : {}), ...(Object.keys(skills).length ? { skills } : {}),
     };
   }
   return { CONTROLS, readControls, controlCharacter, controlsFor, defaultControl, linkedMind, unreadMinds, readMinds, mindsSearch, controlName, controllerLabel, recipeOf };

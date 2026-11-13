@@ -4,7 +4,9 @@ import meta from "../../../../assets/skills/strikes/club-blow/swing.meta.json" w
 import { dataOf } from "../../../core/data/store.ts";
 import { fitsAll, strikesWithOneOf } from "../../../parts/parts.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { aimedPoint, type ExecutorPart } from "../../framework/executor-part.ts";
+import { aimedPoint, type ExecutorMaking, type ExecutorPart } from "../../framework/executor-part.ts";
+import type { ActionConfig } from "../../config.ts";
+import { variationFault, variationMaker } from "../../framework/variations.ts";
 import { recordFault, tunedSettings, type SkillRecord } from "../../framework/records.ts";
 import { heldFace, type StrikingFace } from "../shared/held-face.ts";
 import { swingChannelFault, swingExecutor, SWING_KEYS, validSwing, validSwingPart, type Swing } from "./swing/swing.ts";
@@ -26,6 +28,15 @@ interface Config {
   readonly tuning?: Partial<Swing>;
 }
 
+/** The club blow's variations: the swing (`swing/`). */
+const VARIATIONS = {
+  swing({ body, guard, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[]) {
+    const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};
+    for (const hand of SIDES) { const face = heldFace(spec, `hand.${hand}`, ITEM, MECHANISM); if (face) faces[hand] = face; }
+    return swingExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf("club-blow/swing"), spec, config), aimedPoint(aim), faces);
+  },
+};
+
 /**
  * **The club blow** (`swingExecutor`): the club swung on an arc that meets the target with its
  * head, its settings its body's record of the swing (`assets/skills/strikes/club-blow/swing.json`):
@@ -37,16 +48,13 @@ export const CLUB_BLOW_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Club blow", stage: "experimental", defaults: { kind: "club-blow" },
   keys: { kind: true, tuning: true }, tuning: SWING_KEYS,
   fields: [], slots: [],
-  fits: fitsAll((spec) => handConfigurationRefusal(spec, (spec.held ?? []).map(held => held.segment), "grip"), strikesWithOneOf("hand.left", "hand.right"),
+  fits: fitsAll(variationFault("club-blow", "club blow", VARIATIONS), (spec) => handConfigurationRefusal(spec, (spec.held ?? []).map(held => held.segment), "grip"), strikesWithOneOf("hand.left", "hand.right"),
     recordFault("club blow", deepFreeze(meta.bodies), validSwing), (spec, config) => config.tuning ? swingChannelFault(spec, config.tuning) : null),
   faults: (config) => config.tuning === undefined || validSwingPart(config.tuning) ? [] : ["invalid club blow tuning"],
   reads: () => ["club-blow/swing"], effectors: ["hand.left", "hand.right"], aims: true, meets: MECHANISM,
   strikesWith: (spec, _config, effector) => heldFace(spec, effector, ITEM, MECHANISM) !== null,
-  make({ body, guard, aim }, config, actions) {
-    const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};
-    for (const hand of SIDES) { const face = heldFace(spec, `hand.${hand}`, ITEM, MECHANISM); if (face) faces[hand] = face; }
-    return swingExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf("club-blow/swing"), spec, config), aimedPoint(aim), faces);
-  },
+  make: variationMaker("club-blow", VARIATIONS),
+  variations: Object.keys(VARIATIONS),
 };
 
 declare module "../../config.ts" {

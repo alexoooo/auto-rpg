@@ -1,5 +1,4 @@
 import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../../framework/action.ts";
-import { SUPPORT_REFERENCE } from "../../../../control/support-reference.ts";
 import { supportHeight } from "../../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
 import type { Body, BodyView } from "../../../../control/body.ts";
@@ -16,7 +15,7 @@ import { motionAtToRef, pointOfToRef, turnOfToRef } from "../../../../core/bodie
 import type { BodyRef, ReadSegment } from "../../../../core/bodies/read-body.ts";
 import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState } from "../../shared/strike-cycle.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Window } from "../../../framework/action.ts";
-import type { ExecutorPart, ExecutorMaking } from "../../../framework/executor-part.ts";
+import type { ExecutorMaking } from "../../../framework/executor-part.ts";
 import type { LegsGoal } from "../../../framework/skill.ts";
 import type { Vec3 } from "../../../../core/quantity.ts";
 import { gapePoints, jawOf, mouthOf, mouthToRef, fitsJaw } from "../jaw.ts";
@@ -32,12 +31,12 @@ import { deepFreeze } from "../../../../core/state.ts";
 const WITHDRAW_SPEED = 1.15;
 
 /** The bite's settings, by name: `docs/reference/reptile.md#controller-settings`. */
-const BITE_SETTINGS = Object.freeze(["prepare", "snap", "release", "open", "jawError", "jawClosed", "biteTimeout", "biteEntry", "bitePrepareNear",
+export const BITE_SETTINGS = Object.freeze(["prepare", "snap", "release", "open", "jawError", "jawClosed", "biteTimeout", "biteEntry", "bitePrepareNear",
   "biteElevation", "biteNear", "biteSlow", "biteHold", "biteReturnLimit", "contactAt", "closeRate", "biteResponse", "biteAlign", "biteShift",
   "contactSeconds", "biteSamples", "biteLead", "neckRetract"] as const);
 
 /** **The bite's settings** (`BITE_SETTINGS`): the jaw's path, its reach and the strike cycle's limits, a body's record (`dataOf("bite/bite")`). */
-type BiteTuning = { readonly [K in (typeof BITE_SETTINGS)[number]]: number };
+export type BiteTuning = { readonly [K in (typeof BITE_SETTINGS)[number]]: number };
 
 declare module "../../../../core/data/store.ts" {
   interface DataOf {
@@ -47,7 +46,7 @@ declare module "../../../../core/data/store.ts" {
 }
 
 /** Whether each setting `tuning` names is a known one, finite and nonnegative. */
-const validBite = (tuning: Partial<BiteTuning>): boolean =>
+export const validBite = (tuning: Partial<BiteTuning>): boolean =>
   !!tuning && typeof tuning === "object" && !Array.isArray(tuning) && Object.entries(tuning).every(([key, value]) => (BITE_SETTINGS as readonly string[]).includes(key) && Number.isFinite(value) && value! >= 0
     && (key !== "prepare" && key !== "snap" || value! > 0));
 
@@ -106,7 +105,7 @@ interface Live {
  * down or the stroke lost its support; lost where the target is no longer aimed at before the
  * stroke; cancelled where its request is withdrawn before it.
  */
-function biteExecutor(body: Body, actions: readonly string[], T: BiteTuning, aim: ExecutorMaking["aim"]): Executor {
+export function biteExecutor(body: Body, actions: readonly string[], T: BiteTuning, aim: ExecutorMaking["aim"]): Executor {
   if (!wholeBite(T)) throw new Error("invalid bite settings");
   const built = body.built, muscles = body.muscles, jaw = jawOf(built.spec), { lower, hinge, head, neck, teeth } = mouthOf(built);
   const effector = jaw.head.name, footprint = Object.freeze([segmentResource(effector), LEG_RESOURCE, TRUNK_RESOURCE]);
@@ -267,29 +266,4 @@ function biteExecutor(body: Body, actions: readonly string[], T: BiteTuning, aim
       return { posture: { [jawName]: sample[0], [neckName]: live.neck }, paths: { [jawName]: path }, effectors: { [effector]: goal }, legs };
     },
   };
-}
-
-/** **The bite**'s config: its kind, and an experiment's research `tuning` over its body's record, which a link does not carry. */
-interface JawBiteConfig {
-  readonly kind: "jaw-bite";
-  readonly tuning?: Partial<BiteTuning>;
-}
-
-/**
- * **The bite** (`biteExecutor`): a stroke of the jaw of a body with one (`fitsJaw`), struck with its
- * head, which carries it, at a point its aim gives; its teeth pierce (`meets` "point").
- */
-export const JAW_BITE: ExecutorPart<JawBiteConfig> = {
-  role: "executor", requires: [SUPPORT_REFERENCE], label: "Bite", stage: "game", defaults: { kind: "jaw-bite" }, keys: { kind: true, tuning: true }, fields: [], slots: [],
-  tuning: [...BITE_SETTINGS], fits: fitsBite, fitReads: ["bite/bite"], reads: () => ["bite/bite"],
-  faults: (config) => config.tuning === undefined || validBite(config.tuning) ? [] : ["invalid bite tuning"],
-  effectors: ["head"], aims: true, meets: "point",
-  strikesWith: (spec, _config, effector) => jawOf(spec).head.name === effector,
-  make: ({ body, aim }, config, actions) => biteExecutor(body, actions.map((action) => action.name), biteSettings(body.built.spec, config), aim),
-};
-
-declare module "../../../config.ts" {
-  interface ExecutorConfigs {
-    readonly "jaw-bite": JawBiteConfig;
-  }
 }

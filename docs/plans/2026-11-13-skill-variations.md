@@ -52,11 +52,15 @@ are a variation's.
   `club-blow/swing/`, `bonk/swing/`, `stomp/stomp/` and `bite/bite/` in `src/skills/strikes/`, each
   skill's part (`index.ts`) running its one variation, the mechanics they share in `shared/`. A
   variation's settings are `assets/skills/strikes/<skill>/<variation>.json`, its data
-  `dataOf("<skill>/<variation>")`. The bite's executor kind is `jaw-bite`, not its skill's name.
-- **A character is a model and its attributes** (`CharacterConfig`, `src/core/bodies/models.ts`);
-  its items are the bout's loadouts (`DuelRecipe.loadouts`); its skills are its mind's Options
-  (`OPTION_DEFAULTS`, `src/entrants/option/mind.ts`), the same list for every character, each
-  offered where the body fits its skill.
+  `dataOf("<skill>/<variation>")`.
+- **A character is a model, its attributes and its skills** (`CharacterConfig`,
+  `src/core/bodies/models.ts`): its skills each by the variation it runs (`SkillChoices`, on its spec
+  as `BodySpec.skills`), its model's character's (`assets/characters/characters.json`) where it
+  names none. Its items are the bout's loadouts (`DuelRecipe.loadouts`), not yet the character's.
+- **The Option Mind offers only the character's skills**: a skill's part fits only a body whose
+  character has it, and runs the variation it chose (`src/skills/framework/variations.ts`). A
+  strike's digest names its variation. The Arena sets each side's skills by its panel and its link
+  (`left.skills=`).
 - **The fingerprint names the cases that moved** (`node scripts/fingerprint.mjs --compare`), not the
   variations each case ran.
 
@@ -65,15 +69,10 @@ are a variation's.
 Each step plays the game as before: `node scripts/fingerprint.mjs --compare` identical,
 `npm run check`, `npm test`, `npm run build`.
 
-1. **Characters choose skills**: `CharacterConfig` gains `skills`; the three characters' skills as
-   data, each the variation it runs now; the bout recipe carries each side's character;
-   Option Mind offers only the character's skills, each run by its variation. The Arena sets each
-   side's variations, by its panel and its link. A strike's digest names its variation, and the
-   bite's executor kind becomes `bite`, so the saved profiles are re-keyed to the new digests.
-2. **The checks**: the import rule in `scripts/source-boundary.mjs`; the fingerprint records the
+1. **The checks**: the import rule in `scripts/source-boundary.mjs`; the fingerprint records the
    variations each case runs, and `--compare` given a changed variation fails on a moved case
    that does not run it.
-3. **The documents**: the skill recipe's "No body is named in control code", the architecture's
+2. **The documents**: the skill recipe's "No body is named in control code", the architecture's
    "Tuned per body" and its source boundaries, and rule 7 of [AGENTS.md](../../AGENTS.md#the-rules),
    each saying that shared code is general and a character's specialisation is a variation it
    chooses.
@@ -84,7 +83,7 @@ Each step plays the game as before: `node scripts/fingerprint.mjs --compare` ide
   `scripts/build-identity.mjs`), so the variations' files re-key every strike case and evaluate plays
   them again instead of replaying them. Saved readings stay as read.
 - **A skill's aim reading its variation**: the bite's aim (`first-exposed`, `bite/jaw-aim.ts`)
-  imports the bite variation's settings, so the import rule of step 2 meets it.
+  imports the bite variation's settings, so the import rule of step 1 meets it.
 - **Attributes**: a variation is tuned and measured at its model's default attributes, and a
   character with other attributes runs those settings untuned. A variation covering a range of
   attributes is a stage of its own.

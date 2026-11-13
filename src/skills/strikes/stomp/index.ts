@@ -5,7 +5,9 @@ import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import meta from "../../../../assets/skills/strikes/stomp/stomp.meta.json" with { type: "json" };
 import { dataOf } from "../../../core/data/store.ts";
 import { fitsAll } from "../../../parts/parts.ts";
-import { aimedPoint, type ExecutorPart } from "../../framework/executor-part.ts";
+import { aimedPoint, type ExecutorMaking, type ExecutorPart } from "../../framework/executor-part.ts";
+import type { ActionConfig } from "../../config.ts";
+import { variationFault, variationMaker } from "../../framework/variations.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../../framework/records.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { stompExecutor, STOMP_PATH, validStompTuning, type StompTuning } from "./stomp/stomp.ts";
@@ -43,6 +45,12 @@ function stompRefusal(spec: BodySpec): string | null {
   return null;
 }
 
+/** The stomp's variations: the stomp (`stomp/`). */
+const VARIATIONS = {
+  stomp: ({ body, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[]) =>
+    stompExecutor(body, actions.map(a => a.name), tunedSettings(dataOf("stomp/stomp"), body.built.spec, config), aimedPoint(aim)),
+};
+
 /**
  * **The stomp** (`stompExecutor`): a stroke of either foot down from a high chamber on a body lying
  * ahead, its settings its body's record (`assets/skills/strikes/stomp/stomp.json`, `dataOf("stomp/stomp")`; the Warrior's,
@@ -53,11 +61,12 @@ function stompRefusal(spec: BodySpec): string | null {
 export const STOMP_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Stomp", stage: "experimental", defaults: { kind: "stomp" },
   keys: { kind: true, tuning: true }, fields: [], slots: [], tuning: Object.keys(STOMP_PATH),
-  fits: fitsAll(stompRefusal, recordFault("stomp", deepFreeze(meta.bodies), wholeStomp),
+  fits: fitsAll(variationFault("stomp", "stomp", VARIATIONS), stompRefusal, recordFault("stomp", deepFreeze(meta.bodies), wholeStomp),
     (spec, config) => validStompTuning(tunedSettings(dataOf("stomp/stomp"), spec, config)) ? null : "invalid stomp executor settings"),
   faults: (config) => config.tuning === undefined || validStompPart(config.tuning) ? [] : ["invalid stomp tuning"],
   fitReads: ["stomp/stomp"], reads: () => ["stomp/stomp"], effectors: ["foot.left", "foot.right"], aims: true,
-  make: ({ body, aim }, config, actions) => stompExecutor(body, actions.map(a => a.name), tunedSettings(dataOf("stomp/stomp"), body.built.spec, config), aimedPoint(aim)),
+  make: variationMaker("stomp", VARIATIONS),
+  variations: Object.keys(VARIATIONS),
 };
 
 declare module "../../config.ts" {
