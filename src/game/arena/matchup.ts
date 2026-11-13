@@ -10,7 +10,7 @@ import { EMPTY_LOADOUT, readLoadout, type Loadout } from "../../core/bodies/item
 import { appearanceFor, type Appearance } from "../appearance/appearance.ts";
 
 import { mindLinks, type LinkedMind } from "../../minds/catalog/config-link.ts";
-import { legacyAttributes, readAttributes } from "../attribute-link.ts";
+import { readAttributes } from "../attribute-link.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { gapFits, LEVELS, type ArenaLevel } from "./levels.ts";
 import type { ArenaSeat as Side } from "./seat.ts";
@@ -26,10 +26,10 @@ export const MATCHUP_PARAM = "matchup";
 
 export type Matchup = Readonly<Record<Side, BodyModel>>;
 
-/** Each contender's attributes: its side's own parameters, over the flat `balance=` and `haste=` (`legacyAttributes`). */
+/** Each contender's attributes: its side's own parameters (`left.<attribute>=`, `right.<attribute>=`). */
 export function arenaAttributes(search: string): Readonly<Record<Side, AttributeOverrides>> {
   const query = new URLSearchParams(search);
-  return { left: readAttributes(query, "left", legacyAttributes(query, 0)), right: readAttributes(query, "right", legacyAttributes(query, 1)) };
+  return { left: readAttributes(query, "left"), right: readAttributes(query, "right") };
 }
 
 /** The Warrior against the Rogue unless a link or a person picks another pair. */

@@ -20,12 +20,6 @@ export function hastedFigure(figure: HumanFigure, haste?: number): HumanFigure {
   return { ...figure, haste: sourced(haste, "%", "owner-haste", "a bout's haste") };
 }
 
-/** The haste `text` writes, a per cent over a person's with an optional sign; null for anything else. */
-export function hasteFrom(text: string): number | null {
-  const haste = /^[+-]?\d+(\.\d+)?$/.test(text.trim()) ? Number(text) : NaN;
-  return attributeError("haste", haste) === null ? haste : null;
-}
-
 /** A haste written for a reader, signed: `+50`, `-20`, `0`. */
 export function hasteText(haste: number): string {
   return haste > 0 ? `+${haste}` : String(haste);

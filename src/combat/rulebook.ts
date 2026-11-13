@@ -206,12 +206,6 @@ export function isBalance(balance: number): boolean {
   return Number.isFinite(balance) && balance >= 0;
 }
 
-/** The balance `text` writes, per cent: plain decimal digits with nothing about them but spaces; null for anything else. */
-export function balanceFrom(text: string): number | null {
-  const balance = /^\d+(\.\d+)?$/.test(text.trim()) ? Number(text) : NaN;
-  return isBalance(balance) ? balance : null;
-}
-
 /** The most an assist gives a body whose balance is `balance` per cent of its weight, each per cent being `percent`. */
 export function balanceCeiling(balance: number, percent: AssistCeiling): AssistCeiling {
   if (!isBalance(balance)) throw new Error(`a balance is a finite per cent >= 0, not ${balance}`);

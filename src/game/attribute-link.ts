@@ -1,24 +1,10 @@
-import { ATTRIBUTE_NAMES, type AttributeName, type AttributeOverrides } from "../core/bodies/character-attributes.ts";
-import { balanceFrom } from "../combat/rulebook.ts";
-import { hasteFrom } from "../core/bodies/human/attributes.ts";
-
-/** The flat `balance=` and `haste=` parameters of an Arena or Lab link: one value for both sides, or `left,right`. */
-export function legacyAttributes(query: URLSearchParams, side = 0): AttributeOverrides {
-  const values: Partial<Record<AttributeName, number>> = {};
-  for (const name of ["balance", "haste"] as const) {
-    const text = query.get(name);
-    if (text === null) continue;
-    const parts = text.split(","), part = parts[Math.min(side, parts.length - 1)]!;
-    values[name] = parts.length > 2 ? NaN : (name === "balance" ? balanceFrom(part) : hasteFrom(part)) ?? NaN;
-  }
-  return values;
-}
+import { ATTRIBUTE_NAMES, type AttributeOverrides } from "../core/bodies/character-attributes.ts";
 
 /**
  * A scoped character's overrides from a setup link, each a number as written. Invalid supplied values remain visible errors (`attributeError`).
  */
-export function readAttributes(query: URLSearchParams, scope: string, legacy: AttributeOverrides = {}): AttributeOverrides {
-  const values: Record<string, unknown> = { ...legacy };
+export function readAttributes(query: URLSearchParams, scope: string): AttributeOverrides {
+  const values: Record<string, unknown> = {};
   for (const name of ATTRIBUTE_NAMES) {
     const text = query.get(`${scope}.${name}`);
     if (text === null) continue;

@@ -4,8 +4,6 @@ import { playHref } from "../route.ts";
 import { CHARACTERS } from "../appearance/characters.ts";
 import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../../core/bodies/models.ts";
 import { MODEL_DISPLAY } from "../appearance/models.ts";
-import { balanceFrom } from "../../combat/rulebook.ts";
-import { hasteFrom } from "../../core/bodies/human/attributes.ts";
 import { HELD, type Loadout } from "../../core/bodies/items/held.ts";
 import type { GameContext } from "../arena/context.ts";
 import { offered, presetFitsModel, type MindPreset } from "../../minds/catalog/controller.ts";
@@ -13,7 +11,7 @@ import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { mindLinks, type Staging } from "../../minds/catalog/config-link.ts";
 import { isWayUp, type TechniqueName } from "../../skills/recovery/technique.ts";
-import { readAttributes, writeAttributes, legacyAttributes } from "../attribute-link.ts";
+import { readAttributes, writeAttributes } from "../attribute-link.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { loadoutAttributes, loadoutSpec } from "./loadout.ts";
 import { GROUND_LEVELS, type GroundLevel } from "./ground-environment.ts";
@@ -137,7 +135,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "crippled", "cut", "mind", "hz", "view", "camera", "projection", "targets", "targetPart", "seed"] as const;
+const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "scenario", "model", "appearance", "right", "left", "boots", "armour", "crippled", "cut", "mind", "hz", "view", "camera", "projection", "targets", "targetPart", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -217,7 +215,7 @@ export function createLabScenarios(context: GameContext) {
   /** Read the lab's address; anything missing or unknown is the default. */
   function labAddress(search: string): LabAddress {
     const query = new URLSearchParams(search);
-    const attributes = readAttributes(query, "body", legacyAttributes(query));
+    const attributes = readAttributes(query, "body");
     const model = MODELS.find((m) => m.id === query.get("model"))?.id ?? MODELS[0].id;
     const worn = WORN[model];
     const bounded = (key: string, lo: number, hi: number, fallback: number): number => {
@@ -245,8 +243,8 @@ export function createLabScenarios(context: GameContext) {
       left: HELD.find((h) => h === query.get("left")) ?? "empty",
       boots: flag(query.get("boots"), worn.boots),
       armour: flag(query.get("armour"), worn.armour),
-      balance: query.has("body.balance") ? attributes.balance ?? null : balanceFrom(query.get("balance") ?? ""),
-      haste: query.has("body.haste") ? attributes.haste ?? null : hasteFrom(query.get("haste") ?? ""),
+      balance: attributes.balance ?? null,
+      haste: attributes.haste ?? null,
       crippled: modelSpec(model).wounds.limbs.find((limb) => limb.name === query.get("crippled"))?.name ?? null,
       cut: modelSpec(model).wounds.limbs.find((limb) => limb.name === query.get("cut"))?.name ?? null,
       mind,
