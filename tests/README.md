@@ -197,6 +197,11 @@ ordinary capability drills use impulse joints and rigid contacts, so cannot expo
 
 ## Layer contract regressions
 
+[skills/guard-posture.test.mjs](skills/guard-posture.test.mjs): `the guard requests reachable
+angles on empty and equipped arms` reproduces the Skeleton guard asking for shoulder adduction
+and elbow flexion beyond its stops. Construction clamps those angles while the command retains
+them; a completed strike does not establish that its guard requests an attainable posture.
+
 [skills/locomotion/cycle-run.test.mjs](skills/locomotion/cycle-run.test.mjs) checks the running reference through its published knee-channel requests.
 
 | Case | Concrete justification |
