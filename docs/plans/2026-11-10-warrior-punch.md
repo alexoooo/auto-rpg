@@ -12,34 +12,98 @@ punch at the trunk with an empty hand; no other blow is part of this goal.
 
 ## Where it stands
 
-The row's cells are not read. Each reads two protocols of the Strike drill: a still target
-(`still`) and a target walked to (`walk`), each asking the punch
-where it is offered: the middle mark (the trunk), with each empty hand, at each of the game's
-foes (the Warrior, the Rogue, the Skeleton). The still and walked-to
-target stands with its arms lowered (`drill-stand`), and no reading against it is played yet:
+The row reads a still target (`still`) and a target walked to (`walk`), each standing with its
+arms lowered (`drill-stand`). Each asks the straight punch at the trunk, with each empty hand,
+against the Warrior, the Rogue and the Skeleton. Read the saved results, playing nothing:
 
 ```powershell
-npm run evaluate -- table --body workshop-fighter --skill punch --play --baseline --workers <logical processors>
-npm run evaluate -- table --body workshop-fighter --skill punch --by hand
+npm run evaluate -- table --body workshop-fighter --skill punch
+npm run evaluate -- table --body workshop-fighter --skill punch --loadout empty,empty --by gap
 ```
 
-The first plays the row and names its baselines; the second reads it again, playing nothing.
+Values are hp traded a second; counts are begun / on the mark / trials. Every cell is within
+noise of its baseline, which names the same saved reading.
 
-What is known of the installed punch, from trials against a target standing in guard, which
-stopped 2 of 96 of them:
+| Loadout | Cell | Still: value; counts | Walk: value; counts |
+| --- | --- | --- | --- |
+| `empty,empty` | 0.165 | 0.107; 52 / 33 / 96 | 0.194; 188 / 137 / 192 |
+| `empty,club` | 0.176 | 0.067; 28 / 13 / 48 | 0.231; 96 / 64 / 96 |
+| `empty,sword` | 0.225 | 0.126; 29 / 16 / 48 | 0.274; 95 / 71 / 96 |
 
-- **Where it lands, the blow is strong**: the fist meets the mark at a median 7.3 m/s, above a
-  person's rear hand.
-- **It landed about three in four, still or walked to**: 23 of 32 and 46 of 64 with empty hands.
-  The window reaches 0.06 m past the punch's stand-off (`band`), and the steer is trained on that
-  window; the rest were refused (5 and 7), missed or began outside it.
-- **In a fight it lands three of eight** (`fight`), which is no part of the row: what the punch
-  brings in a fight is its profile's. The punch's window is not where fighters
-  stand ([the approaches](../approaches.md#unarmed-strikes)): footwork and openings, the Mind's
-  and not the punch's ([Blows in fights](../roadmap.md#next)).
+The empty-handed still reading has 44 not begun: 37 `outside`, six `unbegun`, one `refused`.
+Its median fist speed on the mark is 7.13 m/s; the walk's is 6.91 m/s (the person's rear hand
+6.8 m/s, lead 5.3 m/s). The club and sword still readings have 20 and 19 not begun, including
+20 and 18 `outside`, respectively. Their causes are not diagnosed here.
 
 What is not checked: no fresh agent has checked the installed steer
 ([the claim](../recipes/skill.md#the-claim)).
+
+### Why the close trials do not begin
+
+All 42 empty-handed still trials not begun at gaps 0.6–0.9 m reproduce their saved outcome in
+Node, on `rapier-coordinate`, at 120 Hz with one command step of delay. Each is traced on every
+step, then confirmed on its own condition with only run-local footwork changes. Every confirmation
+begins with the installed punch settings and network unchanged. These are causes of failure to
+begin, not a reading of a better installed skill.
+
+| Gap, m | Footwork: travel facing (`outside`) | Footwork: strike order not retried (`unbegun`) | Total footwork |
+| --- | --- | --- | --- |
+| 0.6 | 12 | 0 | 12 |
+| 0.7 | 12 | 0 | 12 |
+| 0.8 | 8 | 4 | 12 |
+| 0.9 | 4 | 2 | 6 |
+
+Punch, mixed punch-and-footwork, neither and unresolved each count zero.
+
+**Travel facing, 36 trials.** The drill orders a `place` at `straightSpot` with a facing toward
+the target (`src/minds/command/drill.ts`). `orderedIntent` (`src/minds/ordered.ts`) sets
+`travelFacing` when `facing === null || request.kind !== "direct"`: the navigator's direction
+overrides the ordered facing while travelling (`navigated`,
+`src/skills/framework/arbiter.ts`). From close, that turns the body away as it walks out.
+The stance's heading turns only while it walks (`walking`, `src/skills/locomotion/locomotion.ts`),
+so a stop near the right place can leave it facing away and outside the window. In 35 trials the
+menu never becomes ready; the remaining trial, `ffa5de93` (Warrior, right hand, across 0.2 m,
+gap 0.9 m), turns back and approaches again, entering the geometry only at 8.383 s, still swinging,
+before patience ends it at 8.5 s.
+
+Representative `68042329`: Warrior target, left hand, across 0, gap 0.6 m
+([Ratings](https://alexoooo.github.io/auto-rpg/?play=ratings&evaluation=strike&protocol=still&subject=option-drill%2Fstraight-punch)).
+At the step ending 0.508 s, the target is 0.385 m ahead of the stance against a window of
+0.702–0.812 m; the head is another 0.010 m forward. The drill orders a place 0.354 m away,
+facing 1.345 rad. By 5 s the body stands within 0.003 m of the window's computed spot but its
+heading is 5.168 rad against the spot's 2.068 rad. It never receives a strike order. At 8.5 s it
+stands at 0.002 m/s, the target 0.842 m behind it against a window 0.778–0.888 m ahead.
+Changing only the copied `orderedIntent` predicate to `facing === null` preserves the explicit
+facing while walking: this trial begins at 5.275 s. Immediately before admission the body stands
+at 0.032 m/s with the target 0.738 m ahead, inside 0.705–0.815 m. The same isolated change
+makes each of the 36 trials begin, at 3.792–7.100 s.
+
+**Strike order not retried, six trials.** The drill sees readiness near the window's inner edge,
+orders a strike, and enters `striking`. Its `if (!begun) return decided(member,
+strike(state.struck!, state.set))` keeps ordering a stand and strike after readiness becomes
+`position`, without walking back into the window. All six stay quiet outside it until 8.5 s.
+
+Representative `3d8b5e1d`: Rogue target, left hand, across 0, gap 0.9 m
+([Ratings](https://alexoooo.github.io/auto-rpg/?play=ratings&evaluation=strike&protocol=still&subject=option-drill%2Fstraight-punch)).
+At 0.508 s the strike is ordered with the target 0.669507 m ahead against a near edge
+0.668568 m; the head is 0.009899 m forward of the stance. At 0.517 s the target is
+0.668354 m ahead against 0.668528 m: outside by 0.000174 m while the body stands at
+0.058 m/s. The order remains latched. At 8.5 s the target is 0.622 m ahead against a near
+edge 0.663 m and the body stands below 0.001 m/s. A copied drill that resumes positioning
+when an unbegun strike's readiness becomes `position` removes that latch; on its own it
+encounters the travel-facing failure and still does not begin. With that change and the copied
+facing predicate above, the trial begins at 3.367 s, standing at 0.032 m/s with the target
+0.675 m ahead inside 0.660–0.770 m. Each of the six begins with these two footwork changes,
+at 3.292–3.817 s; one misses afterward. Trace times name the step just completed; the body's
+view used for readiness is one physics step earlier.
+
+The window is attainable and quiet enough for admission on every diagnosed condition. These
+42 failures support correcting the drill's footwork; they supply no reason to choose a dedicated
+close punch over a punch spanning close and far ranges. Whether either delivers a useful blow
+without backing out remains open. No diagnostic change is installed, and the saved readings
+remain unchanged. Unchecked: the two not begun at 1.1 m, the club and sword cells' causes,
+the Rogue's and Skeleton's own punches, the walk rung, 480 Hz, fights, Option Mind's combat
+footwork and every reel.
 
 ## Open questions
 
