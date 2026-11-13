@@ -197,6 +197,11 @@ ordinary capability drills use impulse joints and rigid contacts, so cannot expo
 
 ## Layer contract regressions
 
+`the punch from guard does not begin its drive with its striking arm away from its guard or still moving`
+in [skills/boundaries.test.mjs](skills/boundaries.test.mjs) reproduces a fight punch committing
+while its elbow is displaced and moving. It checks every striking-arm freedom on each hand,
+then lets the arm at its guard begin; strike outcomes alone do not establish when it begins.
+
 [skills/locomotion/cycle-run.test.mjs](skills/locomotion/cycle-run.test.mjs) checks the running reference through its published knee-channel requests.
 
 | Case | Concrete justification |

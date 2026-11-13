@@ -6,13 +6,14 @@ import { strikesWithOneOf, fitsAll, fitsWhen } from "../../../parts/parts.ts";
 import { aimedPoint, type ExecutorMaking, type ExecutorPart } from "../../framework/executor-part.ts";
 import type { ActionConfig } from "../../config.ts";
 import { STRAIGHT_DRIVE_KEYS, timedChannelFault, straightDriveExecutor, straightDriveFits, validStraightDrive, validStraightDrivePart,
-  type StraightDrive } from "../shared/straight-drive.ts";
+  type StraightDrive, type StraightDriveOptions } from "../shared/straight-drive.ts";
 import { checkedLayout, type SteerLayout } from "../shared/steer.ts";
 import layoutFile from "../../../../assets/skills/strikes/straight-punch/drive.layout.json" with { type: "json" };
 import { handConfigurationRefusal, holdsNothing } from "../../reach/hand.ts";
 import { PUNCH_BODIES } from "./data/records.ts";
 import { recordFault } from "../../framework/records.ts";
-import { variationFault, variationMaker } from "../../framework/variations.ts";
+import { variationFault, variationMaker, type Variations } from "../../framework/variations.ts";
+import { fromGuard } from "./from-guard/from-guard.ts";
 
 /** How the straight punch's steer reads and pushes: its networks' inputs and outputs (`assets/skills/strikes/straight-punch/drive.layout.json`). */
 export const PUNCH_LAYOUT: SteerLayout = deepFreeze(checkedLayout(layoutFile as SteerLayout));
@@ -30,14 +31,24 @@ interface Config {
   readonly tuning?: Partial<StraightDrive>;
 }
 
-/** The straight punch's variations: the drive, the straight drive as its record has it. */
-const VARIATIONS = {
-  drive({ body, guard, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[]) {
-    const record = dataOf("straight-punch/drive")[body.built.spec.model], settings = { ...record?.settings, ...config.tuning } as StraightDrive;
-    const network = config.tuning === undefined ? record?.network : null;
-    return straightDriveExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim),
-      { label: "straight punch", layout: PUNCH_LAYOUT, ...(network ? { policy: recoveryNetwork(network) } : {}) });
-  },
+/**
+ * A straight punch on `making`'s body: the straight drive with its fist, as the body's record has it
+ * (`dataOf("straight-punch/drive")`, each variation's), its drive begun when `ready` says where given.
+ */
+function punch({ body, guard, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[], ready?: StraightDriveOptions["ready"]) {
+  const record = dataOf("straight-punch/drive")[body.built.spec.model], settings = { ...record?.settings, ...config.tuning } as StraightDrive;
+  const network = config.tuning === undefined ? record?.network : null;
+  return straightDriveExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim),
+    { label: "straight punch", layout: PUNCH_LAYOUT, ...(network ? { policy: recoveryNetwork(network) } : {}), ...(ready ? { ready } : {}) });
+}
+
+/**
+ * The straight punch's variations: the drive, begun once the stance is quiet and settled; and
+ * from its guard (`from-guard/`), begun only once the striking arm is also at its guard and still.
+ */
+const VARIATIONS: Variations<Config> = {
+  drive: (making, config, actions) => punch(making, config, actions),
+  "from-guard": (making, config, actions) => punch(making, config, actions, fromGuard(making.body)),
 };
 
 /** A straight punch owns its body fit; its settings are its body's, its variation its character's. */

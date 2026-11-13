@@ -327,6 +327,8 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   each step, on a timed schedule (`TimedPush`). Steered, a network (`shared/steer.ts`), deciding every
   interval its layout names, adds to the trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
   (`PunchRecord`), trained by `research/run-train.py` and exported by `research/skills/strikes/straight-punch/punch-export.mjs`.
+  Its `drive` variation begins once the stance is quiet and settled; `from-guard` (`straight-punch/from-guard/`)
+  also waits for the striking arm at its guard and still (`StraightDriveOptions.ready`), with the same record.
 - **Held blows** strike with what the hand holds (`StrikingFace`), naming the mechanism they meet
   with (`ExecutorPart.meets`). The sword thrust (`sword-thrust/index.ts`) is the same straight drive with
   the blade's point, through which `faceAligner` servos the wrist onto the line to the target; the

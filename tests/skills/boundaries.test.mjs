@@ -9,7 +9,11 @@ import { derive } from "../../src/core/quantity.ts";
 import { validRunCycle, RUN_CYCLE } from "../../src/skills/locomotion/cycle-run.ts";
 import { WALK_RUN_PART } from "../../src/skills/locomotion/walk-run-part.ts";
 import { validStepUp } from "../../src/skills/recovery/implementations/staged/records.ts";
-import { validStraightDrivePart } from "../../src/skills/strikes/shared/straight-drive.ts";
+import { validStraightDrivePart, straightDriveExecutor } from "../../src/skills/strikes/shared/straight-drive.ts";
+import { fromGuard } from "../../src/skills/strikes/straight-punch/from-guard/from-guard.ts";
+import { PUNCH_LAYOUT } from "../../src/skills/strikes/straight-punch/index.ts";
+import { bodyEffectors } from "../../src/control/effectors.ts";
+import { guardPosture } from "../../src/skills/guard/guard.ts";
 import { surfaceContains } from "../../src/skills/perception/openings.ts";
 import { actionResources } from "../../src/skills/framework/action-resources.ts";
 import { profileReading, skillDigest } from "../../src/skills/framework/profile.ts";
@@ -20,6 +24,36 @@ import { withLoadout, LOADOUTS } from "../../src/core/bodies/items/held.ts";
 import { coreStand } from "../harness/core-stand.mjs";
 
 const stock = modelSpec("man");
+
+test("the punch from guard does not begin its drive with its striking arm away from its guard or still moving", async () => {
+  const guard = guardPosture(stock), stand = await coreStand(stock, { posture: guard });
+  const host = stockBody(stand.built, stand.world, { servoSeconds: .1 });
+  try {
+    const speeds = {}, body = { ...host, muscles: { ...host.muscles, speed: index => speeds[index] ?? 0 } }, around = { heading: 0, lower: 0 };
+    const settings = { pace: 1, reach: 1, band: .2, settle: 0, through: .1, hips: 0, turn: 0, lean: 0, chamber: 0, lead: 0, elbow: 0, brake: .05, follow: .1, longest: .5, recover: .3 };
+    const ready = fromGuard(body);
+    for (const hand of ["left", "right"]) {
+      const effector = `hand.${hand}`, channels = bodyEffectors(stand.built).find(e => e.segment.spec.name === effector).model.channels;
+      const at = [0, host.view.head.y, 1], request = { id: 1, action: "punch", effector, target: { kind: "point", at } };
+      const executor = straightDriveExecutor(body, guard, ["punch"], settings, () => at, { label: "straight punch", layout: PUNCH_LAYOUT, ready });
+      const view = { ...host.view, down: false, angles: { ...host.view.angles, ...Object.fromEntries(channels.map(channel => [channel, guard[channel] ?? 0])) },
+        stance: { ...host.view.stance, phase: "stand" } };
+      executor.start(view, request, around);
+      for (const channel of channels) {
+        const prepared = view.angles[channel];
+        // A fight's observed elbow excursion and speed; every freedom of the arm is tried, so none is left out of the rule.
+        view.angles[channel] = prepared - 1.7;
+        assert.equal(executor.update(view, [request], around, .01)[0].phase, "prepare", channel);
+        view.angles[channel] = prepared;
+        speeds[body.muscles.channel(channel)] = 8.3;
+        assert.equal(executor.update(view, [request], around, .01)[0].phase, "prepare", channel);
+        speeds[body.muscles.channel(channel)] = 0;
+      }
+      assert.equal(ready(view, hand, executor.command(view, 1, around).posture), true);
+      assert.equal(executor.update(view, [request], around, .01)[0].phase, "commit");
+    }
+  } finally { host.dispose(); stand.dispose(); }
+});
 
 test("invalid authored settings return refusals before the implementation consumes them", () => {
   const renamed = { ...RUN_CYCLE };

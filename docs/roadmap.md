@@ -190,8 +190,10 @@ here.
 
 - Not built: a part's own tolerance, the face apart from the head, armour, edges and points.
 - Striking a body that is down waits on faster rises.
-- The Warrior's punch from its guard, the blow committing only with the arm at its prepare
-  posture: a variation of the straight punch the Warrior would choose.
+- The Warrior's punch from its guard: the straight punch's `from-guard` variation
+  (`straight-punch/from-guard/`) commits only with the arm at its guard and still, and any
+  character may choose it (`left.skills=straight-punch:from-guard`). The man still runs `drive`:
+  his two measured punch profiles are the drive's, and choosing it for him waits on measuring them on it.
 
 ### The AI
 
