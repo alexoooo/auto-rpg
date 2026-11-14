@@ -167,10 +167,10 @@ network reaches, and a search scores the punch itself.
   starts (`bar`, `punch-sparring.mjs`). Beside it, it prints how many starts each side lands.
 - **At 240 starts it does not tell a fifth better from a fifth worse**: a candidate that reads
   1.08 times the drive has an interval of 0.79 to 1.47.
-- **Landings paired by start tell more on the same starts.** The drive lands 125 of them and
-  `from-guard` 116; of the starts where only one lands, 13 are the drive's and 4 `from-guard`'s
-  (exact two-sided sign test p 0.049;
-  [the punch's notes](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)).
+- **Landings paired by start tell more at the same count of starts.** A reading of the drive
+  beside `from-guard` on 240 sparring starts has 125 landings against 116, and of the starts
+  where only one lands, 13 the drive's against 4 `from-guard`'s (exact two-sided sign test
+  p 0.049; [the punch's notes](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)).
 - **A landing is not value**: held up by the assist the punch lands more and its value does not
   move ([what the assist does to the punch](#part-2-a-strike-made-by-search-apart-from-the-legs)).
 - **`sparring-drawn` holds ten times sparring's starts** for a trainer to draw from; the rung and
