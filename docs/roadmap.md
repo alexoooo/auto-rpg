@@ -86,8 +86,8 @@ Each holds its goal, where it stands and the questions open
 | [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | an overhead club strike at the head with either hand, with and without the buckler: the buckler cell, then a learned steer |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
-| [Many skills, faster](plans/2026-11-14-many-skills.md) | variations that stand alone, a strike made by search, a layer under the skills that carries balance, and a pipeline that reads fights first |
-| [What a saved result is keyed by](plans/2026-11-14-saved-results.md) | one rule for profiles, readings, saves and records: valid while what each read is the same, told by a sample of its own trials and never by a commit |
+| [Many skills, faster](plans/2026-11-14-many-skills.md) | two readings that say which part pays; a strike made by search; a layer under the skills that carries balance; a pipeline that reads fights first |
+| [What a saved result is keyed by](plans/2026-11-14-saved-results.md) | one key for every saved result, what it ran and never the commit: played rows play again where it moved, the rest is used and marked; a character's numbers are conditions of a trial |
 
 ## Waiting on the owner
 
