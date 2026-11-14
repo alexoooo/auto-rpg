@@ -84,6 +84,11 @@ reading's.
   so another variation's saved rows are its rows on the code now. Where that is in doubt, the
   fingerprint shows which cases a change moved (`node scripts/fingerprint.mjs --compare <file>
   --variation <skill/variation>`).
+- **A change to code a counterpart runs is the reason to play it again**: the stance, the solve
+  or shared strike code, under both sides of a comparison. Its saved rows are then another
+  code's, and the differences a judge reads are small beside its interval: a search's best reads
+  1.08 times the drive's damage a second, 95 % 0.79 to 1.47, on 240 starts
+  (`punch-sparring.mjs --bar`).
 - **A profile is measured again by its own tool, asked.** A change to a skill is read by playing
   that skill's cases fresh, which its brief names.
 
@@ -115,6 +120,20 @@ played rows.
 - A retrained network or a tuned setting keeps its profile until it is measured again.
 - A save and a recording load across commits.
 
+## What a skill's try needs of it
+
+Two pieces of the design are on the path of a skill's try
+([where the time goes](2026-11-14-many-skills.md#where-the-time-goes)), and neither waits on the
+rest of it:
+
+- **Played rows kept whether or not the work is committed, and found across commits.**
+- **A research judge's counterpart found**: the installed drive's rows on the starts a candidate
+  is read on.
+
+They take time off every try; the days of a try are its training run and its measure, which the
+skills' notes hold. Profiles, a character's numbers, saves and recordings serve the game and its
+other tools, and no try of a skill waits on them.
+
 ## What it would cost what is saved
 
 Nothing is played.
@@ -127,6 +146,8 @@ Nothing is played.
 
 ## Open
 
+- **What the two pieces a try needs save it**: the time of a `--bar`, the drive's side of it
+  every start played once more, and of a row's play.
 - **How far a level read at the nearest measured is true.** Against a Balance at which both minds
   lose their profiles, sparring the Warrior's punch at 5, 10 and 25 per cent landed 18, 25 and 29
   more of 240, and moved neither the table's value nor the life dealt detectably. Haste and the

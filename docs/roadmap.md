@@ -86,8 +86,8 @@ Each holds its goal, where it stands and the questions open
 | [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | an overhead club strike at the head with either hand, with and without the buckler: the buckler cell, then a learned steer |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
-| [Many skills, faster](plans/2026-11-14-many-skills.md) | each variation its own implementation; a strike apart from standing and footwork, a reading sizing what it needs; a strike made by search and a linear correction, with no training run |
-| [What a saved result is keyed by](plans/2026-11-14-saved-results.md) | a saved result is found by the question it answers, its commit kept as where it came from; what is under work plays and everything else is found; a character's numbers are conditions of a trial |
+| [Many skills, faster](plans/2026-11-14-many-skills.md) | the readings that come first: what the punch's stance asks, its leg inputs and a linear correction carry sparring, and whether sparring covers the fights; then each variation its own implementation, a strike made by search with no training run, and a strike apart from standing and footwork |
+| [What a saved result is keyed by](plans/2026-11-14-saved-results.md) | a saved result is found by the question it answers, its commit kept as where it came from; what is under work plays and everything else is found, the two pieces a skill's try needs first (rows kept uncommitted and across commits, a judge's counterpart found); a character's numbers are conditions of a trial |
 
 ## Waiting on the owner
 
