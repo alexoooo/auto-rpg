@@ -1,6 +1,8 @@
-import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { parseSource, visitSyntax } from "./syntax.mjs";
+import { BUILD_IDENTITY_FORM } from "../src/core/world/recording.ts";
 import { dirname, resolve, relative, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,17 +29,7 @@ function contentOf(root, file) {
   return TEXT.has(extname(file)) ? Buffer.from(bytes.toString("utf8").replace(/\r\n/g, "\n")) : bytes;
 }
 
-/** Canonical input bytes include untracked source; checkout line endings do not distinguish builds. */
-export function hashBuildInputs(root, files) {
-  const hash = createHash("sha256").update("auto-rpg-build/1\0");
-  for (const file of [...files].sort()) {
-    const content = contentOf(root, file);
-    hash.update(file.replaceAll("\\", "/") + "\0" + content.length + "\0").update(content);
-  }
-  return `sha256:${hash.digest("hex")}`;
-}
-
-/** What identifies a build, by path: runtime code, input assets, dependency lock and the installed solver. */
+/** The build inputs, by path: runtime code, input assets, dependency lock and the installed solver. */
 function buildInputs() {
   const files = ["package.json", "package-lock.json", "vite.config.ts", "tsconfig.json"];
   for (const entry of readdirSync(ROOT, { withFileTypes: true })) if (entry.isFile() && entry.name.endsWith(".html")) files.push(entry.name);
@@ -59,12 +51,34 @@ function buildInputs() {
   return files.map(file => relative(ROOT, resolve(ROOT, file)).replaceAll("\\", "/")).filter(isBuildInput);
 }
 
-/** Runtime code, input assets, dependency lock and the actual installed solver identify a build. */
-export const currentBuildIdentity = () => hashBuildInputs(ROOT, buildInputs());
+/** The commit checked out, or null outside a repository. */
+function commitOf() {
+  try { return execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return null; }
+}
 
-/** Test workers inherit one fingerprint of their parent's source snapshot, avoiding repeated asset reads. */
-export const BUILD_IDENTITY = /^sha256:[0-9a-f]{64}$/.test(process.env.AUTO_RPG_BUILD_IDENTITY ?? "")
+/** The build inputs (`isBuildInput`) that differ from the commit or are untracked, each as `git status` names it. */
+export function uncommittedInputs() {
+  const status = execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: ROOT, encoding: "utf8" });
+  return status.split("\n").filter((line) => line.length > 3 && isBuildInput(line.slice(3).split(" -> ").at(-1).replace(/^"|"$/g, "")));
+}
+
+/**
+ * **A build's identity**: the commit checked out (`git:<commit>`), where no build input differs
+ * from it. Where one does, or outside a repository, the commit (or `unversioned`) with a mark made
+ * now (`+uncommitted:<uuid>`), so what is kept under it is found again by nothing but this build.
+ */
+export function currentBuildIdentity() {
+  const commit = commitOf(), base = commit ? `git:${commit}` : "unversioned";
+  return commit && uncommittedInputs().length === 0 ? base : `${base}+uncommitted:${randomUUID()}`;
+}
+
+/**
+ * This process's build identity: its parent's where it has one (`AUTO_RPG_BUILD_IDENTITY`), and
+ * set there for the workers and processes it starts, so all of them are one build.
+ */
+export const BUILD_IDENTITY = BUILD_IDENTITY_FORM.test(process.env.AUTO_RPG_BUILD_IDENTITY ?? "")
   ? process.env.AUTO_RPG_BUILD_IDENTITY : currentBuildIdentity();
+process.env.AUTO_RPG_BUILD_IDENTITY = BUILD_IDENTITY;
 
 /** The modules whose imports the walk reads. */
 const CODE = new Set([".ts", ".mts", ".mjs", ".js"]);

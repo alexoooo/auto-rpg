@@ -54,7 +54,7 @@ import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf
 import { batteryComparison, panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
 import { scheduleName } from "../src/evaluation/schedule.ts";
 import { ratedNotes } from "../src/evaluation/tournament/notes.ts";
-import { BUILD_IDENTITY, isBuildInput } from "./build-identity.mjs";
+import { BUILD_IDENTITY, uncommittedInputs } from "./build-identity.mjs";
 import { resultsOf, writeResults } from "./evaluation-results.mjs";
 import { belongsTo, resolveSubjects, subjectOf } from "./evaluation-subjects.mjs";
 
@@ -73,12 +73,6 @@ const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8"
 /** The commit checked out, or null outside a repository. */
 function commitOf() {
   try { return git("rev-parse", "HEAD"); } catch { return null; }
-}
-
-/** The build inputs (`isBuildInput`) that differ from the commit or are untracked, each as `git status` names it. */
-function uncommitted() {
-  const status = execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: ROOT, encoding: "utf8" });
-  return status.split("\n").filter((line) => line.length > 3 && isBuildInput(line.slice(3).split(" -> ").at(-1).replace(/^"|"$/g, "")));
 }
 
 const NOTES = join(ROOT, "assets/minds/notes.json");
@@ -220,7 +214,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   const slots = slotsOf(units, counterpart, schedule.panel ?? []), order = playOrder(slots, headToHead, [...units, ...headToHead]);
   const defined = new Map([...units, ...headToHead].map((unit, k) => [unit[0].key, k]));
   // Rows are kept under the commit they are played on, and only where it is the code they play.
-  const commit = commitOf(), changed = commit ? uncommitted() : [];
+  const commit = commitOf(), changed = commit ? uncommittedInputs() : [];
   const working = commit && changed.length === 0 ? join(ROOT, ".tmp/evaluations", id, commit.slice(0, 12)) : null;
   if (!working) console.log(`${commit ? `${changed.length} build inputs differ from the commit` : "no commit"}: no row is kept or found, and every case plays`);
   const rows = indexRows((working ? filesIn(working) : []).map(({ name, text }) => ({ name, rows: text.split("\n").filter(Boolean).map((line) => JSON.parse(line)) })));
@@ -299,7 +293,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   if (values.write) {
     if (!commit) throw new Error("a result needs a commit");
     if (lines.length === 0) throw new Error("a result needs a complete unit");
-    const differ = [...new Set([...changed, ...uncommitted()])];
+    const differ = [...new Set([...changed, ...uncommittedInputs()])];
     if (differ.length > 0) throw new Error(`a result's code is its commit's: these build inputs differ or are untracked:\n${differ.join("\n")}`);
     const read = { commit: commit.slice(0, 8), date, harness };
     let results = resultsOf(id);

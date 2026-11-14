@@ -4,15 +4,21 @@ import { currentBuildIdentity } from "./scripts/build-identity.mjs";
 const sourcePath = (file: string): string => decodeURIComponent(new URL(file, import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, "$1");
 const identityModules = ["./src/app/node/build-identity.ts", "./src/app/browser/build-identity.ts"].map(sourcePath);
 
-/** The build's identity in its module, as Node reads it: the page's bundle and the world worker's each load it. */
+/** The build's identity as this config last read it; the page's plugin and the workers' share it. */
+let current: string | null = null;
+
+/**
+ * The build's identity in its module, as Node reads it (`currentBuildIdentity`): one value for the
+ * page's bundle and the world worker's, read again once a file changes.
+ */
 const identity = (): Plugin => ({ name: "recording-build-identity", enforce: "pre",
   load(id) {
-    // The identity as Node reads it.
-    if (identityModules.includes(id.replaceAll("\\", "/"))) return `export const BUILD_IDENTITY = ${JSON.stringify(currentBuildIdentity())};\n`;
+    if (identityModules.includes(id.replaceAll("\\", "/"))) return `export const BUILD_IDENTITY = ${JSON.stringify(current ??= currentBuildIdentity())};\n`;
   },
   handleHotUpdate(context) {
+    current = null;
     for (const module of context.server.moduleGraph.idToModuleMap.values()) if (module.file && identityModules.includes(module.file.replaceAll("\\", "/"))) context.server.moduleGraph.invalidateModule(module);
-    // A running world and its recordings belong to one immutable source snapshot.
+    // A running world and its recordings belong to one build.
     context.server.ws.send({ type: "full-reload" });
     return [];
   },

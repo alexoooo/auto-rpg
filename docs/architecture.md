@@ -775,7 +775,9 @@ the bit in Node and in the page (`buildBout`, `src/evaluation/bout.ts`).
 - **Tape** (`Duel.tape`): every order with its step; recipe and tape are the whole bout
   (`Duel.play`). **Order sheets** (`SheetLog`) replay a bout with no mind (`replayedBody`).
 - **Save** (`Duel.save`, `Duel.load`) loads only into a bout of the same recipe and build
-  (`RecordingIdentity`).
+  (`RecordingIdentity`). A build is the commit it was built from (`BUILD_IDENTITY_FORM`); with a
+  build input not committed, a mark no other build shares, made once a process and handed to its
+  workers.
 
 ## Evaluations
 

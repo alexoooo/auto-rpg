@@ -1,19 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { resolve, join } from "node:path";
 import { changeOf } from "../scripts/entrant-check.mjs";
-import { hashBuildInputs } from "../scripts/build-identity.mjs";
 import { learningWorker } from "../research/learning-worker.mjs";
 import { workerJobPool, workerJobs } from "../research/worker-jobs.mjs";
 import { Worker } from "node:worker_threads";
-
-const temporary = run => {
-  const base = resolve(".tmp/layer-boundaries/tooling"); mkdirSync(base, { recursive: true });
-  const folder = mkdtempSync(join(base, "test-"));
-  try { return run(folder); } finally { rmSync(folder, { recursive: true }); }
-};
+import { execFileSync } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { BUILD_IDENTITY_FORM } from "../src/core/world/recording.ts";
 
 test("one entrant cannot remove another through the shared registry line", () => {
   const before = 'import { OPTION } from "../entrants/option/index.ts";\nimport { WALKER } from "../entrants/walker/index.ts";\nexport const ENTRANTS = [OPTION, WALKER];';
@@ -22,15 +16,24 @@ test("one entrant cannot remove another through the shared registry line", () =>
   assert.equal(changeOf(paths, { before, after: before.replace("[OPTION, WALKER]", "[WALKER]") }).kind, "entrant");
 });
 
-test("build source identity canonicalizes included authoring text but preserves binary bytes", () => temporary(folder => {
-  for (const suffix of ["py", "ps1", "md", "ts", "gltf"]) {
-    const file = `source.${suffix}`; writeFileSync(join(folder, file), "one\ntwo\n");
-    const before = hashBuildInputs(folder, [file]); writeFileSync(join(folder, file), "one\r\ntwo\r\n");
-    assert.equal(hashBuildInputs(folder, [file]), before, suffix);
-  }
-  writeFileSync(join(folder, "data.bin"), "one\ntwo\n"); const before = hashBuildInputs(folder, ["data.bin"]);
-  writeFileSync(join(folder, "data.bin"), "one\r\ntwo\r\n"); assert.notEqual(hashBuildInputs(folder, ["data.bin"]), before);
-}));
+test("a build's identity is one for the process, its worker threads and the processes it starts", () => {
+  // A process with no identity of its parent's makes one; with a build input not committed, each make differs.
+  const module = JSON.stringify(pathToFileURL(fileURLToPath(new URL("../scripts/build-identity.mjs", import.meta.url))).href);
+  const script = `
+    import { BUILD_IDENTITY } from ${module};
+    import { Worker } from "node:worker_threads";
+    import { execFileSync } from "node:child_process";
+    const thread = await new Promise((done, fail) => {
+      const worker = new Worker('import { parentPort } from "node:worker_threads"; import { BUILD_IDENTITY } from ${module}; parentPort.postMessage(BUILD_IDENTITY);', { eval: true });
+      worker.once("message", (value) => { void worker.terminate(); done(value); }); worker.once("error", fail);
+    });
+    const child = execFileSync(process.execPath, ["--input-type=module", "-e", 'import { BUILD_IDENTITY } from ${module}; console.log(BUILD_IDENTITY)'], { encoding: "utf8" }).trim();
+    console.log(JSON.stringify({ main: BUILD_IDENTITY, thread, child }));`;
+  const env = { ...process.env }; delete env.AUTO_RPG_BUILD_IDENTITY;
+  const { main, thread, child } = JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8", env }).trim().split("\n").at(-1));
+  assert.match(main, BUILD_IDENTITY_FORM);
+  assert.deepEqual({ thread, child }, { thread: main, child: main });
+});
 
 test("idle learning-worker errors survive until the next protocol request", async () => {
   const worker = new EventEmitter(); let posted = false; worker.postMessage = () => { posted = true; };
