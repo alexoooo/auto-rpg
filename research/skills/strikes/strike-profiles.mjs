@@ -42,8 +42,7 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  * are not kept beside these.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { EMPTY_LOADOUT, withLoadout } from "../../../src/core/bodies/items/held.ts";
-import { resolveCharacter } from "../../../src/core/bodies/models.ts";
+import { duelSpec } from "../../../src/game/arena/duel.ts";
 import { partIn, partLookup } from "../../../src/app/catalog.ts";
 import { limbAction } from "../../../src/minds/option/kinds.ts";
 import { measuredOn, skillDigest, specDigest } from "../../../src/skills/framework/profile.ts";
@@ -68,12 +67,12 @@ const read = (path) => {
 const round = (x) => Number(x.toFixed(4));
 const median = (xs) => { const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length ? s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 : null; };
 
-/** Each side's body's spec, by its recipe's model, attributes and loadout: as the bout resolves it (no surfaces, haste or balance in a drill's recipe). */
+/** Each side's body's spec as the bout builds it (`duelSpec`): its character, the variations it holds, its attributes and its loadout; by what of the recipe it reads. */
 const specs = new Map();
 function specOf(recipe, side = "left") {
-  for (const key of ["surfaces", "haste", "balance"]) if (recipe[key] !== undefined) throw new Error(`a drill recipe with ${key} is not read here`);
-  const loadout = recipe.loadouts?.[side] ?? EMPTY_LOADOUT, key = JSON.stringify([recipe[side], recipe.attributes?.[side] ?? {}, loadout]);
-  if (!specs.has(key)) specs.set(key, withLoadout(resolveCharacter({ model: recipe[side], attributes: recipe.attributes?.[side] ?? {} }).spec, loadout));
+  const key = JSON.stringify([recipe[side], recipe.characters?.[side], recipe.attributes?.[side], recipe.balance?.[side], recipe.haste?.[side],
+    recipe.skills?.[side], recipe.surfaces, recipe.loadouts?.[side]]);
+  if (!specs.has(key)) specs.set(key, duelSpec(recipe, side));
   return specs.get(key);
 }
 
