@@ -1,16 +1,16 @@
 # What a saved result is keyed by
 
 Notes on how the game and its tools find what they saved: an evaluation's played rows, a research
-tool's cache, a profile, a bout's save. The aim is development speed. Computing is slow, so a
-saved result is reused across changes, and computed again only where there is strong reason to
-believe that doing so speeds the work. They describe a design under consideration; nothing in it
-is built.
+tool's cache, a profile, a bout's save. The aim is development speed: a try of an idea plays what
+it changed, and every other result is found. They describe a design under consideration; nothing
+in it is built.
 
 ## Goal
 
 - **A saved result is found by the question it answers**, never by the code it was computed on.
-- **Nothing is computed again routinely.** A result made on older code is used. It is computed
-  again when a person, or an agent's brief, has reason to believe it misleads a decision.
+- **What is under work plays; everything else is found.** A result made on older code is used.
+  It is computed again when a person, or an agent's brief, has reason to believe it misleads a
+  decision.
 - **A result says where it came from**, so a reader can judge it.
 
 ## Where it stands
@@ -35,6 +35,11 @@ it, and uncommitted work keeps nothing from one run to the next.
 | An evaluation's played rows | `.tmp/evaluations/<id>/<commit>/` (`scripts/evaluate.mjs`) | every case plays again; with a build input uncommitted no row is kept or found |
 | A research tool's cache rows | `research/skills/recovery/edge-profiles.mjs`, `research/skills/recovery/implementations/staged/rise-search.mjs`, `research/empty-hand-league.mjs` | every row plays again |
 
+**Not kept at all.** A strike's research judge plays every held-out start by its candidate and
+by the installed drive, each time it is asked
+(`research/skills/strikes/straight-punch/punch-sparring.mjs --bar`). So each try of an idea
+plays again what it is compared with, which the try did not change.
+
 **Keyed by an exact digest.** A strike's profile is found by a digest of the body's whole spec but
 its wounds and skills (`specDigest`), of the skill's config and the body's row of each record it
 reads (`skillDigest`), and by the rate, the reaction time, the mind's rate and the command delay
@@ -47,8 +52,8 @@ A profile not found is not read. The body's own mind prices its strike by a prio
 or by hand (`foeModel`, `src/minds/option/percepts.ts`). Sparring the Warrior's punch at a
 Balance of 0.01 per cent, where the assist gives under 0.1 N, takes 3.6 times the life it takes
 at 0 on the same 240 starts, and holds less than half the table's value
-([the skills' notes](2026-11-14-many-skills.md#part-2-a-layer-under-the-skills)). The profile
-measured at 0 is a far better guess there than the prior.
+([the skills' notes](2026-11-14-many-skills.md#part-2-a-strike-apart-from-standing-and-footwork)).
+The profile measured at 0 is a far better guess there than the prior.
 
 ## The design
 
@@ -61,9 +66,26 @@ measured at 0 is a far better guess there than the prior.
 | A saved reading, a record, the stance's envelope | as now |
 | A bout's save and its tape | its recipe |
 
+Rows are kept whether or not the work is committed.
+
 **Where it came from is kept on it and gates nothing**: the commit, whether build inputs differed
 from it, and the date. A reader that shows a result shows its commit, as the table shows a
 reading's.
+
+**What is under work plays; everything else is found.**
+
+- **The subject a run names fresh plays**: `npm run evaluate -- table ... --fresh` already plays
+  one cell or row again on the code now, and a research tool's candidate is its subject.
+- **Its counterparts are found**: an evaluation's `--previous` and `--against`, and the installed
+  drive a research judge reads a candidate beside, from their saved rows. A comparison pairs them
+  by case as now; a counterpart's rows carry their commit, which the report shows.
+- **A variation of its own moves no other**
+  ([the skills' notes](2026-11-14-many-skills.md#part-1-each-variation-its-own-implementation)),
+  so another variation's saved rows are its rows on the code now. Where that is in doubt, the
+  fingerprint shows which cases a change moved (`node scripts/fingerprint.mjs --compare <file>
+  --variation <skill/variation>`).
+- **A profile is measured again by its own tool, asked.** A change to a skill is read by playing
+  that skill's cases fresh, which its brief names.
 
 **A number a character sets is a condition of a trial.** A profile's trial records where it
 began: the range, the closing and across velocities and the place in a window (`Start`,
@@ -77,21 +99,18 @@ read at its nearest measured edge (`within`).
 - **A sparring run that draws each trial's levels from a range measures them with the same
   trials**, where a decision needs it.
 
-**Computing again is asked for by name.** A tool plays a case only where no row answers it, or
-where it is named: `npm run evaluate -- table ... --fresh` already plays one cell or row again on
-the code now. A profile is measured again by its own tool, asked. A change to a skill is read by
-playing that skill's cases fresh, which its brief names.
-
 **A profile never measured is priced by its prior**, as now, and the mind's report says so.
 
 **A save loads what fits.** A save restores the bodies and the minds' memory. Where a body's parts
 or a mind's memory no longer have the shape saved, that part cannot load: the bodies refuse with
 the part named, and a mind starts fresh. A tape played on other code plays what that code does,
-and says the commit it was recorded on.
+and says the commit it was recorded on. No skill's try reads a save or a tape; every try reads
+played rows.
 
 **What it would bring.**
 
-- A commit, documents and code alike, plays nothing again, and uncommitted work keeps its rows.
+- A try of an idea plays its own variation and nothing else; uncommitted work keeps its rows.
+- A commit, documents and code alike, plays nothing again.
 - A character's Balance, haste or scale keeps its profiles, and its foe models it as measured.
 - A retrained network or a tuned setting keeps its profile until it is measured again.
 - A save and a recording load across commits.
@@ -121,13 +140,14 @@ Nothing is played.
 ## To pick it up
 
 - **The build's identity**: `scripts/build-identity.mjs`, `src/core/world/recording.ts`.
-- **Saves and recordings**: `src/game/arena/duel.ts`, `src/game/combatant.ts`,
-  `src/minds/seat/replay.ts`.
 - **Played rows and saved readings**: `scripts/evaluate.mjs`, `src/evaluation/results.ts`,
-  `scripts/table.mjs`, `src/evaluation/play.ts`.
+  `scripts/table.mjs`, `src/evaluation/play.ts`; a research judge,
+  `research/skills/strikes/straight-punch/punch-sparring.mjs`.
 - **Profiles**: `src/skills/framework/profile.ts`, `src/minds/option/strike.ts`,
   `src/minds/option/percepts.ts`, `research/skills/strikes/strike-profiles.mjs`,
   `research/skills/recovery/edge-profiles.mjs`, `tests/skills/profiles.test.mjs`.
+- **Saves and recordings**: `src/game/arena/duel.ts`, `src/game/combatant.ts`,
+  `src/minds/seat/replay.ts`.
 
 ## Completion
 
