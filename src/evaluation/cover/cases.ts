@@ -9,9 +9,8 @@
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
-import { modelHolding } from "../../core/bodies/models.ts";
 import { deepFreeze } from "../../core/state.ts";
-import { mindOf, sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
+import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readCover, type CoverReading } from "./read.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { between } from "../twin.ts";
@@ -67,7 +66,7 @@ export function createCoverCases(context: GameContext) {
     if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
     if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
     if (!treeObeys(mindOf(value))) return [`a ${kind} mind carries out no orders, so no drill leads it`];
-    return mindFaults(mindOf(value), modelHolding(model, loadout, subject?.character), { entry: [] }).map((fault) => `${model}, ${loadoutKey(loadout)}: ${fault}`);
+    return mindFaults(mindOf(value), seatBody(model, loadout, subject), { entry: [] }).map((fault) => `${model}, ${loadoutKey(loadout)}: ${fault}`);
   }
 
   function coverCases(protocol: Rung): Cases<CoverCondition, CoverReading> {
@@ -80,11 +79,11 @@ export function createCoverCases(context: GameContext) {
       conditions,
       seconds: protocol.seconds,
       faults: (value, condition, subject) => faultsOf(value, condition.model, loadoutOf(condition), subject),
-      world: ([value], condition, engine, [character]) => {
+      world: ([value], condition, engine, [seat]) => {
         const { model, across, gap } = condition;
         return { kind: "bout", engine, tape: [],
           // A drill, not a fight: nothing ends it but its reader.
-          recipe: { left: model, right: "man", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
+          recipe: { left: model, right: "man", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideCharacters({ left: model, right: "man" }, { left: seat }),
             loadouts: { left: loadoutOf(condition), right: protocol.foe },
             // Along +x, as the open stage's spawns are.
             start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, across], heading: -Math.PI / 2 } },

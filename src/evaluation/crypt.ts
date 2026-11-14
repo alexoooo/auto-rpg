@@ -14,7 +14,8 @@ import type { CommanderConfig } from "../minds/command/kind.ts";
 import type { Command } from "../minds/command/commands.ts";
 import { loadEngine, type EngineName } from "../core/physics/engines.ts";
 import type { MindConfig } from "../minds/catalog/config.ts";
-import type { BodyModel } from "../core/bodies/models.ts";
+import { characterSkills, type BodyModel } from "../core/bodies/models.ts";
+import type { SkillChoices } from "../core/bodies/spec/body.ts";
 import type { World } from "../core/world/world.ts";
 import { distance, type Door, type DungeonMap, type DungeonObstacle, type Point } from "../game/dungeon/map.ts";
 import { DungeonRun, prepareDungeonCharacters } from "../game/dungeon/run.ts";
@@ -74,6 +75,8 @@ export interface CryptCase {
   readonly party: readonly { readonly model: BodyModel; readonly at: Point | null }[];
   readonly mind?: MindConfig;
   readonly character?: AttributeOverrides;
+  /** The variations the party's characters hold in place of their own of the same skills (`withVariations`); none for their own. */
+  readonly variations?: SkillChoices;
   readonly script: readonly CryptLeg[];
   readonly commanders?: { readonly party?: CommanderConfig; readonly enemies?: CommanderConfig };
 }
@@ -129,7 +132,8 @@ export function createCrypt(context: GameContext) {
     const map = cryptMap(crypt.layout), [hero, ...companions] = crypt.party;
     if (!hero || !hero.at || distance(hero.at, map.start) > 1e-9) return { refused: "the hero stands at the start" };
     const options = { seed: 0, layout: map, hero: hero.model, companions: companions.map((member) => member.model),
-      attributes: (participant: { side: string }) => participant.side === "party" ? crypt.character ?? null : null };
+      attributes: (participant: { side: string }) => participant.side === "party" ? crypt.character ?? null : null,
+      skills: (participant: { side: string; model: BodyModel }) => participant.side === "party" ? characterSkills(participant.model, crypt.variations) ?? null : null };
     const prepared = prepareDungeonCharacters(map, options);
     if (isRefused(prepared)) return prepared;
     companions.forEach((member, i) => { if (member.at) prepared.homes.set(`ally-${i}`, { ...member.at }); });

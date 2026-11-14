@@ -14,6 +14,9 @@ import type { BuiltLone, LoneCase } from "./lone.ts";
 import type { BuiltTechnique, TechniqueCase } from "./technique.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
+import { characterSkills, modelHolding, type BodyModel } from "../core/bodies/models.ts";
+import { withVariations, type BodySpec, type SkillChoices } from "../core/bodies/spec/body.ts";
+import type { Loadout } from "../core/bodies/items/held.ts";
 import type { MindConfig } from "../minds/catalog/config.ts";
 import type { Minded } from "../minds/seat/create-mind.ts";
 import type { ArenaSeat as Side } from "../game/arena/seat.ts";
@@ -29,8 +32,20 @@ export interface Subject {
   readonly models?: readonly string[];
   /** The attributes its bodies take (`MindPreset.character`); absent for none. */
   readonly character?: AttributeOverrides;
+  /**
+   * The variations its bodies' characters hold in place of their own of the same skills
+   * (`skill/variation`, `withVariations`), as its name chooses them (`variedSubjects`); absent for none.
+   */
+  readonly variations?: SkillChoices;
   readonly value: Json;
 }
+
+/** **A seated subject's character** (`Subject`), a preset's alike: the attributes its bodies take and the variations they hold. */
+export type Seat = Pick<Subject, "character" | "variations">;
+
+/** The body of `model` for `seat`, carrying `loadout`: its character taking the seat's attributes and holding its variations (`modelHolding`). */
+export const seatBody = (model: BodyModel, loadout: Loadout, seat?: Seat): BodySpec =>
+  modelHolding(model, loadout, seat?.character, characterSkills(model, seat?.variations));
 
 /** A mind's config as the plain data it is: what a subject's value holds of it. */
 export const mindJson = (config: MindConfig): Json => config as unknown as Json;
@@ -38,23 +53,80 @@ export const mindJson = (config: MindConfig): Json => config as unknown as Json;
 /** A subject's value as the mind's config it holds. What is wrong with it is the case's to find (`mindFaults`). */
 export const mindOf = (value: Json | undefined): MindConfig => value as unknown as MindConfig;
 
-/** A mind as a subject: its id, the label shown, its config whole (or a subject's value given whole), and a preset's named calibration and character. */
-export function mindSubject(id: string, label: string, mind: MindConfig | Json, preset: Pick<Subject, "models" | "character"> = {}): Subject {
-  const given = mind as Json, wrapped = given as { readonly mind?: Json; readonly models?: readonly string[]; readonly character?: AttributeOverrides } | null;
+/** A mind as a subject: its id, the label shown, its config whole (or a subject's value given whole), and a preset's named calibration, character and variations. */
+export function mindSubject(id: string, label: string, mind: MindConfig | Json, preset: Pick<Subject, "models" | "character" | "variations"> = {}): Subject {
+  const given = mind as Json, wrapped = given as { readonly mind?: Json; readonly models?: readonly string[]; readonly character?: AttributeOverrides; readonly variations?: SkillChoices } | null;
   const value = wrapped && typeof wrapped === "object" && !Array.isArray(wrapped) && wrapped.mind !== undefined ? wrapped.mind : given;
   const models = preset.models ?? (value !== given ? wrapped?.models : undefined);
   const character = preset.character ?? (value !== given ? wrapped?.character : undefined);
-  return { id, label, value, ...(models === undefined ? {} : { models }), ...(character === undefined ? {} : { character }) };
+  const variations = preset.variations ?? (value !== given ? wrapped?.variations : undefined);
+  return { id, label, value, ...(models === undefined ? {} : { models }), ...(character === undefined ? {} : { character }),
+    ...(variations === undefined ? {} : { variations }) };
+}
+
+/** Why `variations` are no choice of the skills `offered` (each skill's variations, `Part.variations`), or null: each a `skill/variation` it offers, none twice. */
+function variationsFault(variations: readonly string[], offered: Readonly<Record<string, readonly string[]>>): string | null {
+  for (const [at, name] of variations.entries()) {
+    const slash = name.indexOf("/"), skill = name.slice(0, slash), variation = name.slice(slash + 1);
+    if (slash < 0) return `${name} is not skill/variation`;
+    if (!Object.hasOwn(offered, skill)) return `no skill ${skill} has variations: ${Object.keys(offered).join(", ")}`;
+    if (!offered[skill]!.includes(variation)) return `the ${skill} has no variation ${variation}: ${offered[skill]!.join(", ")}`;
+    if (variations.indexOf(name) !== at) return `${name} twice`;
+  }
+  return null;
 }
 
 /**
- * A bout recipe's `attributes` for each side's character, or none where neither side has one, so
- * a case on the bodies' own characters keeps its world.
+ * **`evaluation` with its subjects' variations chosen by name**: a name ending in one or more
+ * `+<skill>/<variation>` (`option/straight-punch+straight-punch/from-guard`) is each subject the
+ * name before them gives, its bodies' characters holding those variations in place of their own of
+ * the same skills (`Subject.variations`), its id the name's and its label saying so. A skill
+ * `offered` lists no variation of is refused, as is a variation it does not offer.
  */
-export const sideAttributes = (sides: Readonly<Partial<Record<Side, AttributeOverrides>>>): { readonly attributes?: Readonly<Record<Side, AttributeOverrides>> } => {
-  const left = sides.left ?? {}, right = sides.right ?? {};
-  return Object.keys(left).length + Object.keys(right).length === 0 ? {} : { attributes: { left, right } };
-};
+export function variedSubjects<E extends Pick<Evaluation, "subjects">>(evaluation: E, offered: () => Readonly<Record<string, readonly string[]>>): E {
+  const subjects = evaluation.subjects;
+  /** Each choice's name and the variations it ends with, none for a value given whole. */
+  const split = (one: SubjectChoice[number]): { readonly one: SubjectChoice[number]; readonly variations: readonly string[] } => {
+    if (typeof one !== "string" || !one.includes("+")) return { one, variations: [] };
+    const [base, ...variations] = one.split("+"), fault = variationsFault(variations, offered());
+    if (fault) throw new Error(`${one}: ${fault}`);
+    return { one: base!, variations };
+  };
+  const varied = (subject: Subject, variations: readonly string[]): Subject => variations.length === 0 ? subject
+    : { ...subject, id: `${subject.id}+${variations.join("+")}`, label: `${subject.label}, holding ${variations.join(", ")}`,
+      variations: withVariations(subject.variations ?? [], variations) };
+  return { ...evaluation, subjects: (choice: SubjectChoice) => {
+    const named = choice.map(split);
+    if (named.every(({ variations }) => variations.length === 0)) return subjects(choice);
+    // Names resolved together, as an evaluation that reads its choice whole (a match's two minds) asks; one that gives a name several subjects (the tournament's entrants), each alone.
+    const together = subjects(named.map(({ one }) => one));
+    return together.length === named.length ? together.map((subject, at) => varied(subject, named[at]!.variations))
+      : named.flatMap(({ one, variations }) => subjects([one]).map((subject) => varied(subject, variations)));
+  } };
+}
+
+/**
+ * A one-body case's `character` and `skills` for `seat` on `model` (`LoneCase`, `FallCase`): none
+ * where it has no attributes or variations, so a case on the body's own character keeps its world.
+ */
+export function seatCharacter(model: BodyModel, seat: Seat | undefined): { readonly character?: AttributeOverrides; readonly skills?: SkillChoices } {
+  const character = seat?.character, skills = characterSkills(model, seat?.variations);
+  return { ...(character && Object.keys(character).length > 0 ? { character } : {}), ...(skills ? { skills } : {}) };
+}
+
+/**
+ * A bout recipe's `attributes` and `skills` for each side's seat on its model (`Seat`): none where
+ * neither side has attributes or variations, so a case on the bodies' own characters keeps its world.
+ */
+export function sideCharacters(models: Readonly<Record<Side, BodyModel>>, seats: Readonly<Partial<Record<Side, Seat>>>): Pick<DuelRecipe, "attributes" | "skills"> {
+  const left = seats.left?.character ?? {}, right = seats.right?.character ?? {};
+  const skills = Object.fromEntries((["left", "right"] as const).flatMap((side) => {
+    const held = characterSkills(models[side], seats[side]?.variations);
+    return held ? [[side, held]] : [];
+  }));
+  return { ...(Object.keys(left).length + Object.keys(right).length === 0 ? {} : { attributes: { left, right } }),
+    ...(Object.keys(skills).length === 0 ? {} : { skills }) };
+}
 
 /** A bout's native physics rate, Hz, and command delay, whole steps. */
 export type BoutTiming = { readonly hz: number; readonly delay: number };
@@ -127,8 +199,8 @@ export interface Cases<C extends Json = Json, R extends Json = Json, B extends B
   readonly twin?: string;
   /** Why a subject cannot play `condition`; its scheduling metadata is available where admission needs it. */
   faults?(value: Json, condition: C, subject?: Subject): readonly string[];
-  /** `characters` each seated subject's (`Subject.character`), `{}` for none. */
-  world(values: readonly Json[], condition: C, engine: EngineName, characters: readonly AttributeOverrides[]): CaseWorld | Refused;
+  /** `seats` each seated subject's character (`Seat`): the attributes its bodies take and the variations they hold. */
+  world(values: readonly Json[], condition: C, engine: EngineName, seats: readonly Seat[]): CaseWorld | Refused;
   read(built: B, condition: C): Reader<R>;
 }
 
@@ -145,7 +217,7 @@ export interface Figure<R extends Json = Json> {
 }
 
 /** The subjects asked for, in order: each a name a catalogue resolves, or a value given whole (a mind's JSON). */
-export type SubjectChoice = readonly (string | { readonly id: string; readonly label: string; readonly value: Json; readonly models?: readonly string[]; readonly character?: AttributeOverrides })[];
+export type SubjectChoice = readonly (string | { readonly id: string; readonly label: string; readonly value: Json; readonly models?: readonly string[]; readonly character?: AttributeOverrides; readonly variations?: SkillChoices })[];
 
 /** A contest's reading carries the left's score (1, a half, 0) and margin. */
 export type ContestReading = {

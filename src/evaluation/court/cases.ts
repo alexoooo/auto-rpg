@@ -11,11 +11,11 @@ import type { OrdersEntry } from "../../game/arena/duel.ts";
 import { loadoutKey } from "../../core/bodies/items/held.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
-import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
+import type { BodyModel } from "../../core/bodies/models.ts";
 
 import { deepFreeze } from "../../core/state.ts";
 import { PHYSICS_HZ } from "../../core/world/world.ts";
-import { mindOf, sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
+import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject } from "../evaluation.ts";
 
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { createDrillOpponents } from "../drill-opponents.ts";
@@ -55,7 +55,7 @@ export function createCourtCases(context: GameContext) {
     if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
     if (!presetFitsModel(subject ?? {}, model))
       return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
-    return mindFaults(mindOf(value), modelHolding(model, HELD, subject?.character), { entry: FIGHT_ENTRY }).map((fault) => `${model} carrying ${loadoutKey(HELD)}: ${fault}`);
+    return mindFaults(mindOf(value), seatBody(model, HELD, subject), { entry: FIGHT_ENTRY }).map((fault) => `${model} carrying ${loadoutKey(HELD)}: ${fault}`);
   }
 
   function courtCases(protocol: typeof COURT): Cases<CourtCondition, CourtReading> {
@@ -70,11 +70,11 @@ export function createCourtCases(context: GameContext) {
       conditions,
       seconds: protocol.seconds,
       faults: (value, { model }, subject) => faultsOf(value, model, subject),
-      world: ([mind], { model, gap, side, target }, engine, [character]) => {
-        const foe = otherSide(side);
+      world: ([mind], { model, gap, side, target }, engine, [seat]) => {
+        const foe = otherSide(side), models = { [side]: model, [foe]: "man" } as Record<Side, BodyModel>;
         return { kind: "bout", engine, tape: target === "moving" ? walks(foe) : [],
           // A task, not a fight: the target throws nothing, so the bout asks no attack of either side (`EntryRule`); the subject's own is asked in `faultsOf`.
-          recipe: { level: "obstacle-court", ...{ [side]: model, [foe]: "man" } as Record<Side, BodyModel>, gap, capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ...sideAttributes({ [side]: character }),
+          recipe: { level: "obstacle-court", ...models, gap, capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ...sideCharacters(models, { [side]: seat }),
             loadouts: { [side]: HELD, [foe]: { left: "empty", right: "empty" } } as Record<Side, typeof HELD>,
             minds: { [side]: mindOf(mind), [foe]: target === "moving" ? MOVES : STANDS } as Record<Side, MindConfig> } };
       },

@@ -8,7 +8,7 @@ import { type Loadout } from "../../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import { readBout, type BoutReading } from "../contest.ts";
-import { mindOf, sideAttributes, type Cases, type Json } from "../evaluation.ts";
+import { mindOf, sideCharacters, type Cases, type Json } from "../evaluation.ts";
 
 /**
  * How a pair meets: once on each side at each gap, m, to the Arena's time limit, with no limit on
@@ -31,12 +31,12 @@ function tournamentCases(protocol: typeof TOURNAMENT): Cases<TournamentCondition
     play: protocol as unknown as Json,
     conditions: protocol.gaps.map((gap) => ({ gap })),
     seconds: protocol.capSeconds,
-    world: (values, { gap }, engine, characters) => {
+    world: (values, { gap }, engine, seats) => {
       const [left, right] = values as unknown as readonly Entrant[];
       return { kind: "bout", engine, tape: [], recipe: {
         level: protocol.level, left: left.model, right: right.model, gap, loadouts: { left: left.loadout, right: right.loadout },
         minds: { left: mindOf(left.mind), right: mindOf(right.mind) },
-        capSeconds: protocol.capSeconds, ...sideAttributes({ left: characters[0], right: characters[1] }),
+        capSeconds: protocol.capSeconds, ...sideCharacters({ left: left.model, right: right.model }, { left: seats[0], right: seats[1] }),
       } };
     },
     read: readBout,

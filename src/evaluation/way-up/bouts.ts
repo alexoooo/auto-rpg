@@ -16,13 +16,12 @@ import { deepFreeze } from "../../core/state.ts";
 import { HUMANOID_MODELS } from "../../core/bodies/models.ts";
 import { standCheck } from "../../game/lab/ground-mode.ts";
 import { STAND_ORDERS } from "../../minds/orders.ts";
-import { mindOf, sideAttributes, type CaseWorld, type Json, type Reader } from "../evaluation.ts";
+import { mindOf, sideCharacters, type CaseWorld, type Json, type Reader, type Seat } from "../evaluation.ts";
 import type { BuiltBout } from "../bout.ts";
 import { FALL_AFTER, FALL_CAP, groundLedger, type FallReading } from "../fall.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import { between } from "../twin.ts";
 import type { EngineName } from "../../core/physics/engines.ts";
-import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 
 /** One bout of the drill: a body holding a loadout against its copy, `gap` m apart, the right side `across` m off the line. */
 export type WayUpBoutCondition = {
@@ -46,13 +45,13 @@ export const boutFalls = (places: { readonly gaps: readonly number[]; readonly a
 /** The twin's places: halfway between the drill's (`between`). */
 export const TWIN_PLACES = deepFreeze({ gaps: between(BOUT_PLACES.gaps), across: between(BOUT_PLACES.across) });
 
-/** The bout world of `condition`: `mind` on both sides, each with `character`, the bout ended by the reader alone. */
-export function boutFallWorld(mind: Json, condition: WayUpBoutCondition, engine: EngineName, character: AttributeOverrides): CaseWorld {
+/** The bout world of `condition`: `mind` on both sides, each `seat`'s character, the bout ended by the reader alone. */
+export function boutFallWorld(mind: Json, condition: WayUpBoutCondition, engine: EngineName, seat: Seat): CaseWorld {
   const { model, loadout, gap, across } = condition, config = mindOf(mind);
   return { kind: "bout", engine, tape: [],
     recipe: { left: model, right: model, gap, start: { right: { at: [gap / 2, across] } }, capSeconds: BOUT_SECONDS + 1, recoverySeconds: null, entry: [], ends: [],
       balance: { left: 0, right: 0 }, loadouts: { left: loadout, right: loadout }, minds: { left: config, right: config },
-      ...sideAttributes({ left: character, right: character }) } };
+      ...sideCharacters({ left: model, right: model }, { left: seat, right: seat }) } };
 }
 
 /**

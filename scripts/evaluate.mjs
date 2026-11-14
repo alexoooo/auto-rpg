@@ -13,7 +13,9 @@ import "../tests/harness/preload-data.mjs";
  *   npm run evaluate -- table [...]: the table of every body, loadout and skill (`scripts/table.mjs`)
  *
  * A subject is a name the evaluation's catalogue resolves (a mind's id or kind), a JSON file, or
- * JSON; `--mind` names a file to put first. `--against` plays each subject against a panel (the
+ * JSON; `--mind` names a file to put first. A name ending in `+<skill>/<variation>`, one or more, is
+ * that subject with its bodies holding those variations in place of their characters' own of the
+ * same skills (`variedSubjects`): `strike option/straight-punch+straight-punch/from-guard`. `--against` plays each subject against a panel (the
  * evaluation's own, `default`, or the ids given, one per flag) and not the panel among itself; an evaluation
  * whose schedule is a panel is played no other way. Rows are kept as they come in
  * `.tmp/evaluations/<evaluation>/<commit>/` (every file there is read, so machines on one commit

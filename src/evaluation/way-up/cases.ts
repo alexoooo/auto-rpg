@@ -11,12 +11,12 @@
  * loadout, is refused.
  */
 import type { Loadout } from "../../core/bodies/items/held.ts";
-import { modelHolding, type HumanoidModel } from "../../core/bodies/models.ts";
+import type { HumanoidModel } from "../../core/bodies/models.ts";
 import { isRefused } from "../../core/refusal.ts";
 import type { GroundLevel } from "../../game/lab/ground-environment.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
 import type { TechniqueName } from "../../skills/recovery/shared/technique.ts";
-import { mindOf, type Cases, type Json, type Subject } from "../evaluation.ts";
+import { mindOf, seatBody, seatCharacter, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { FALL_AFTER, FALL_CAP, fallCases, readFall, type BuiltFall, type FallReading } from "../fall.ts";
 import { declaredWaysUp } from "../../minds/option/rise.ts";
 import type { OptionMindConfig } from "../../minds/option/config.ts";
@@ -52,7 +52,7 @@ export function createWayUpCases(context: GameContext) {
   /** Why a way-up subject cannot rise on `condition`'s body holding its loadout: its way up does not fit it, or its mind does not. */
   function riserFaults(value: Json, condition: Pick<WayUpCase, "model" | "loadout">, subject?: Subject): readonly string[] {
     const { mind, way } = value as WayUpValue;
-    const spec = modelHolding(condition.model, condition.loadout, subject?.character), technique = parts.find("technique", { kind: way });
+    const spec = seatBody(condition.model, condition.loadout, subject), technique = parts.find("technique", { kind: way });
     const unfit = technique ? technique.fits(spec, technique.defaults, parts) : `no way up ${way}`;
     if (unfit) return [`${way} does not fit ${condition.model}: ${unfit}`];
     return mindFaults(mindOf(mind), spec, { entry: [] });
@@ -69,10 +69,10 @@ export function createWayUpCases(context: GameContext) {
         const bed = inner.faults?.((value as WayUpValue).mind, condition, subject) ?? [];
         return bed.length ? bed : riserFaults(value, condition, subject);
       },
-      world: (values, condition, engine, characters) => {
-        const world = inner.world(values.map((value) => (value as WayUpValue).mind), condition, engine, characters), character = characters[0];
+      world: (values, condition, engine, seats) => {
+        const world = inner.world(values.map((value) => (value as WayUpValue).mind), condition, engine, seats);
         if (isRefused(world)) return world;
-        return world.kind === "fall" && character && Object.keys(character).length > 0 ? { ...world, fall: { ...world.fall, character } } : world;
+        return world.kind === "fall" ? { ...world, fall: { ...world.fall, ...seatCharacter(world.fall.model, seats[0]) } } : world;
       },
       read: (built) => {
         const fall = readFall(built), way = wayOf(built.combatant?.mind);
@@ -85,7 +85,7 @@ export function createWayUpCases(context: GameContext) {
     return { arity: 1, play, conditions, seconds: BOUT_SECONDS,
       faults: (value, condition, subject) => typeof value !== "object" || value === null || Array.isArray(value) ? ["a riser is a way-up subject's value"]
         : riserFaults(value, condition, subject),
-      world: ([value], condition, engine, [character]) => boutFallWorld((value as WayUpValue).mind, condition, engine, character ?? {}),
+      world: ([value], condition, engine, [seat]) => boutFallWorld((value as WayUpValue).mind, condition, engine, seat ?? {}),
       read: (built) => {
         const fall = readBoutFall(context.techniques, built);
         return { afterStep: () => fall.afterStep(), get ended() { return fall.ended; },

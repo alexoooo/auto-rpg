@@ -24,7 +24,7 @@ import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { readBout } from "../contest.ts";
 import type { BuiltCase, Cases, Json, Reader, Subject } from "../evaluation.ts";
-import { mindOf, sideAttributes } from "../evaluation.ts";
+import { mindOf, seatBody, sideCharacters, type Seat } from "../evaluation.ts";
 import { readFall, type FallReading } from "../fall.ts";
 import type { LocomotionReading } from "../locomotion/read.ts";
 import type { StrikeReading } from "../strike/read.ts";
@@ -92,7 +92,7 @@ export function createBaselineCases(context: GameContext) {
       arity: 1, play: { walk: inner.play }, seconds: inner.seconds,
       conditions: inner.conditions.filter((one) => one.model === BODY) as unknown as Json[],
       faults: (value, condition, subject) => inner.faults?.(value, condition as LocomotionCondition, subject) ?? [],
-      world: (values, condition, engine, characters) => inner.world(values, condition as LocomotionCondition, engine, characters),
+      world: (values, condition, engine, seats) => inner.world(values, condition as LocomotionCondition, engine, seats),
       read: (built, condition) => tagged("walk", inner.read(built as never, condition as LocomotionCondition)),
     };
   };
@@ -107,7 +107,7 @@ export function createBaselineCases(context: GameContext) {
         const striking = strikeSubject(value), { inner, condition: own } = rungOf(condition);
         return striking ? inner.faults?.(striking as unknown as Json, own, subject) ?? [] : ["a mind with no action to punch with"];
       },
-      world: ([value], condition, engine, characters) => { const { inner, condition: own } = rungOf(condition); return inner.world([strikeSubject(value!) as unknown as Json], own, engine, characters); },
+      world: ([value], condition, engine, seats) => { const { inner, condition: own } = rungOf(condition); return inner.world([strikeSubject(value!) as unknown as Json], own, engine, seats); },
       read: (built, condition) => { const { inner, condition: own } = rungOf(condition); return tagged("punch", inner.read(built as BuiltBout, own)); },
     };
   };
@@ -118,15 +118,15 @@ export function createBaselineCases(context: GameContext) {
       arity: 1, play: { "stand-up": inner.play, riser: "the whole mind" }, seconds: inner.seconds,
       conditions: inner.conditions.filter((one) => one.model === BODY) as unknown as Json[],
       faults: (value, condition, subject) => inner.faults!(value, condition as TargetCondition, subject),
-      world: (values, condition, engine, characters) => inner.world(values, condition as TargetCondition, engine, characters),
+      world: (values, condition, engine, seats) => inner.world(values, condition as TargetCondition, engine, seats),
       read: (built) => tagged("stand-up", readFall(built as never)),
     };
   };
 
   /** Why the mind of `value` (the subject's, or the preset `foe`'s) cannot fight on the Warrior carrying `loadout`. */
-  function fighterFaults(mind: MindConfig, loadout: Loadout, who: Pick<Subject, "models" | "character">): readonly string[] {
+  function fighterFaults(mind: MindConfig, loadout: Loadout, who: Pick<Subject, "models"> & Seat): readonly string[] {
     if (!presetFitsModel(who, BODY)) return [`named calibration allows ${who.models?.join(", ") || "no bodies"}; ${BODY} is unavailable`];
-    return mindFaults(mind, modelHolding(BODY, loadout, who.character), { entry: FIGHT_ENTRY }).map((fault) => `carrying ${loadoutKey(loadout)}: ${fault}`);
+    return mindFaults(mind, seatBody(BODY, loadout, who), { entry: FIGHT_ENTRY }).map((fault) => `carrying ${loadoutKey(loadout)}: ${fault}`);
   }
 
   const fightCases = (): Cases<Json, BaselineReading, BuiltCase> => {
@@ -138,11 +138,11 @@ export function createBaselineCases(context: GameContext) {
         const { foe, loadout } = condition as BaselineFight, other = MINDS[foe]!;
         return [...fighterFaults(mindOf(value), loadout, subject ?? {}), ...fighterFaults(other.config, loadout, other).map((fault) => `${foe}: ${fault}`)];
       },
-      world: ([value], condition, engine, [character]) => {
+      world: ([value], condition, engine, [seat]) => {
         const { foe, side, loadout, gap } = condition as BaselineFight, other = MINDS[foe]!, foeSide: Side = otherSide(side);
         return { kind: "bout", engine, tape: [], recipe: { level: "open", left: BODY, right: BODY, gap, loadouts: { left: loadout, right: loadout },
           minds: { [side]: mindOf(value), [foeSide]: other.config } as Record<Side, MindConfig>, capSeconds: FIGHTS.capSeconds,
-          ...sideAttributes({ [side]: character, [foeSide]: other.character }) } };
+          ...sideCharacters({ left: BODY, right: BODY }, { [side]: seat, [foeSide]: other }) } };
       },
       read: (built, condition) => {
         const bout = readBout(built as BuiltBout), { side } = condition as BaselineFight, mine = side === "left";

@@ -1,4 +1,4 @@
-import { mindOf } from "../evaluation.ts";
+import { mindOf, seatBody } from "../evaluation.ts";
 import { isRefused, type Refused } from "../../core/refusal.ts";
 /**
  * **The crowd task's cases**: a party of Warriors in the Crypt under the person's orders, every
@@ -23,7 +23,7 @@ import { hypot } from "../../core/math/real.ts";
 import { randomStream } from "../../core/math/random.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
-import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
+import type { BodyModel } from "../../core/bodies/models.ts";
 import { modelInfo } from "../../game/model-loadouts.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { generateLevel } from "../../game/dungeon/level.ts";
@@ -189,7 +189,7 @@ export function createCrowdCases(context: GameContext) {
     if (!presetFitsModel(subject ?? {}, CROWD.model))
       return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${CROWD.model} is unavailable`];
     const held = modelInfo(CROWD.model).held;
-    return mindFaults(mindOf(value), modelHolding(CROWD.model, { left: "empty", right: held }, subject?.character), { entry: FIGHT_ENTRY }).map((fault) => `${CROWD.model} holding ${held}: ${fault}`);
+    return mindFaults(mindOf(value), seatBody(CROWD.model, { left: "empty", right: held }, subject), { entry: FIGHT_ENTRY }).map((fault) => `${CROWD.model} holding ${held}: ${fault}`);
   }
 
   function crowdCases(protocol: typeof CROWD): Cases<CrowdCondition, CryptReading, BuiltCrypt> {
@@ -199,9 +199,9 @@ export function createCrowdCases(context: GameContext) {
       conditions: SITUATIONS.flatMap((situation) => protocol.seeds[situation].map((seed) => ({ situation, seed }))),
       seconds: CRYPT_CAP,
       faults: (value, _condition, subject) => faultsOf(value, subject),
-      world: ([mind], { situation, seed }, engine, [character]) => {
-        const crypt = crowdCase(situation, seed, mindOf(mind));
-        return isRefused(crypt) ? crypt : { kind: "crypt", engine, crypt: { ...crypt, ...(character ? { character } : {}) } };
+      world: ([mind], { situation, seed }, engine, [seat]) => {
+        const crypt = crowdCase(situation, seed, mindOf(mind)), character = seat?.character, variations = seat?.variations;
+        return isRefused(crypt) ? crypt : { kind: "crypt", engine, crypt: { ...crypt, ...(character ? { character } : {}), ...(variations?.length ? { variations } : {}) } };
       },
       read: (built) => readCrypt(built),
     };

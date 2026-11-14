@@ -77,7 +77,7 @@ export function casesOf(evaluation: Evaluation, protocol: string, subjects: read
   const cases = evaluation.protocols[protocol];
   if (!cases) return { refused: `${evaluation.id} has no protocol ${protocol}: ${Object.keys(evaluation.protocols).join(", ")}` };
   const make = (seated: readonly Subject[], condition: Json): Case | Refused => {
-    const made = cases.world(seated.map((subject) => subject.value), condition, engine, seated.map((subject) => subject.character ?? {}));
+    const made = cases.world(seated.map((subject) => subject.value), condition, engine, seated);
     if (isRefused(made)) return made;
     if (cases.timing && (made.kind !== "bout" || made.timing?.hz !== cases.timing.hz || made.timing.delay !== cases.timing.delay))
       return { refused: "a case's timing must match its protocol" };

@@ -1,4 +1,4 @@
-import type { Evaluation } from "./evaluation.ts";
+import { variedSubjects, type Evaluation } from "./evaluation.ts";
 import { createBaselineIndex } from "./baseline/index.ts";
 import { createCourtIndex } from "./court/index.ts";
 import { createCrowdIndex } from "./crowd/index.ts";
@@ -33,8 +33,11 @@ export function createEvaluations(context: GameContext) {
   const { UNSEEN } = createUnseenIndex(context);
   const { WAY_UP } = createWayUpIndex(context);
 
-  /** **Every evaluation**, by its id: the one catalogue, its protocols the case modules a worker plays. */
-  const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze({
+  /** Each skill a character may choose and its variations, as the catalog's parts offer them (`Part.variations`). */
+  const offered = () => Object.fromEntries(Object.entries(context.catalog.allParts()).flatMap(([skill, part]) => part.variations ? [[skill, part.variations]] : []));
+
+  /** **Every evaluation**, by its id: the one catalogue, its protocols the case modules a worker plays, its subjects' variations chosen by name (`variedSubjects`). */
+  const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze(Object.fromEntries(Object.entries({
     baseline: BASELINE as unknown as Evaluation,
     match: MATCH as unknown as Evaluation,
     tournament: TOURNAMENT as unknown as Evaluation,
@@ -50,7 +53,7 @@ export function createEvaluations(context: GameContext) {
     travel: TRAVEL_DRILL as unknown as Evaluation,
     rise: RISE as unknown as Evaluation,
     "way-up": WAY_UP as unknown as Evaluation,
-  });
+  }).map(([id, evaluation]) => [id, variedSubjects(evaluation, offered)])));
 
   return { EVALUATIONS };
 }

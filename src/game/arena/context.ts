@@ -5,7 +5,7 @@ import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import type { Catalog, EntryRule } from "../../minds/catalog/catalog.ts";
 import type { TechniquePart } from "../../skills/recovery/shared/technique.ts";
-import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import type { BodySpec, SkillChoices } from "../../core/bodies/spec/body.ts";
 
 /** The immutable application choices supplied to gameplay and evaluation. */
 export interface GameContext {
@@ -14,7 +14,7 @@ export interface GameContext {
   readonly build: string;
   readonly techniques: Readonly<Record<string, TechniquePart>>;
   defaultMind(model: BodyModel): MindConfig;
-  modelRefusal(model: BodyModel, mind: MindConfig, loadout: Loadout, entry: readonly EntryRule[], attributes?: AttributeOverrides): string | null;
+  modelRefusal(model: BodyModel, mind: MindConfig, loadout: Loadout, entry: readonly EntryRule[], attributes?: AttributeOverrides, skills?: SkillChoices): string | null;
 }
 
 /** Why a mind cannot run on this body or satisfy the scenario's entry rules. */
