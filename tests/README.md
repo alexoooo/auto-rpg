@@ -279,7 +279,6 @@ completed bouts do not exercise:
 
 | Case | Concrete justification |
 | --- | --- |
-| [evaluation/technique-code.test.mjs](evaluation/technique-code.test.mjs) | Rise reused every cached front-sit-back case after the Rogue's sit-back record changed because technique worlds named their code but omitted their data. Verify scheduled keys change for each installed record read, while an unread record leaves them alone; a played recovery outcome cannot establish cache invalidation. |
 | [evaluation/rising-target.test.mjs](evaluation/rising-target.test.mjs) | The Warrior club-and-buckler fresh fixture (`evaluation/fixtures/warrior-club-buckler-falls.jsonl`) contains an unproduced fall that was counted against recovery; verify its exclusion from the counts and the mean time to stand. The same observed shove, held once, must produce a fall with escalating retries. Drills do not establish fixture coverage or report arithmetic. |
 
 | [skills/boundaries.test.mjs](skills/boundaries.test.mjs): `idle foot placement survives its own weight-shift tracking error and yields to a catch` | A wide placed Warrior cancels its own weight shift when tracking lags, repeating planted-foot attempts. Preserve the lift request through that observed lag and release it for a real catch; a recovery drill does not isolate cancellation ownership. |

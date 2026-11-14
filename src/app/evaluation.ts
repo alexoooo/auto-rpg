@@ -1,7 +1,6 @@
 import { createBaselineCases } from "../evaluation/baseline/cases.ts";
 import { createBaselineIndex } from "../evaluation/baseline/index.ts";
 import { createBout } from "../evaluation/bout.ts";
-import { createCode } from "../evaluation/code.ts";
 import { createCourtCases } from "../evaluation/court/cases.ts";
 import { createCourtIndex } from "../evaluation/court/index.ts";
 import { createCoverCases } from "../evaluation/cover/cases.ts";
@@ -46,7 +45,6 @@ export function evaluationApplication(context: GameContext) {
     ...createBaselineCases(context),
     ...createBaselineIndex(context),
     ...createBout(context),
-    ...createCode(context),
     ...createCourtCases(context),
     ...createCourtIndex(context),
     ...createCoverCases(context),

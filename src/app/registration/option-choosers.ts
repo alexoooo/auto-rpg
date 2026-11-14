@@ -2,7 +2,6 @@ import { RANKED_CHOOSER, TREE_CHOOSER, VALUED_CHOOSER } from "../../minds/option
 
 /**
  * **Every chooser, by its kind** (`ChooserPart`), in the order a picker offers them: a line here
- * registers one. This module holds its imports and this list and nothing else: a case's code
- * reads it as where each kind's own code begins (`caseCoder`, `scripts/build-identity.mjs`).
+ * registers one.
  */
 export const CHOOSERS = { valued: VALUED_CHOOSER, tree: TREE_CHOOSER, ranked: RANKED_CHOOSER };

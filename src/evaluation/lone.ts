@@ -125,7 +125,6 @@ export function createLone(context: GameContext) {
     build: (world, options) => buildLone(world.lone, world.engine, options?.hz === undefined ? {} : { hz: options.hz }),
     traced: (built) => [built.body.built],
     clock: (built) => built.world.time,
-    minds: (world) => [world.lone.mind],
     hosted: (built) => [built.body.minded],
     save: built => ({ physics: built.world.physics.save(), state: saveState(built.state) }),
     load: (built, saved) => {

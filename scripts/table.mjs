@@ -66,9 +66,9 @@ function evidenceOf(readings) {
     const evaluation = EVALUATIONS[reading.drill], cases = evaluation.protocols[reading.protocol];
     let fault = null, required = [];
     try {
-      // The table reads each case's condition, never its key, so it names no code.
+      // The table reads each case's condition, never its key.
       const scheduled = casesOf(evaluation, reading.protocol, evaluation.subjects([reading.subject]), { engine: cases.engine ?? DEFAULT_ENGINE,
-        code: () => "", schedule: { kind: "all" } });
+        schedule: { kind: "all" } });
       if (isRefused(scheduled)) throw new Error(scheduled.refused);
       required = scheduled.units.flat();
     } catch (error) { fault = error instanceof Error ? error.message : String(error); }

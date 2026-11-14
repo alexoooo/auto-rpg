@@ -226,14 +226,11 @@ export function createTechnique(context: GameContext) {
     } finally { if (!complete) scope.dispose(); }
   }
 
-  /** The technique world kind: built by `buildTechnique`, its one body traced, played by the world's clock; its techniques are its parts. */
+  /** The technique world kind: built by `buildTechnique`, its one body traced, played by the world's clock. */
   const TECHNIQUE_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "technique" }>, BuiltTechnique> = {
     build: (world) => buildTechnique(world.technique, world.engine),
     traced: (built) => [built.body],
     clock: (built) => built.world.time,
-    minds: () => [],
-    parts: (world) => [...new Set(world.technique.chain)],
-    data: (world) => [...new Set(world.technique.chain.flatMap((name) => context.catalog.treeData(world.technique.configs?.[name] ?? TECHNIQUES[name].defaults)))],
   };
 
   return { buildTechnique, TECHNIQUE_WORLD };

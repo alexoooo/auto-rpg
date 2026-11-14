@@ -1,7 +1,6 @@
 import { Duel, SIDES, type DuelRecipe } from "../game/arena/duel.ts";
 import { TeamBout, type TeamRecipe } from "../game/arena/team-bout.ts";
 import { validBoutTiming, type CaseWorld, type WorldKind } from "./evaluation.ts";
-import { GAME_ENDS } from "../game/arena/end-rule.ts";
 import { addArenaSolids, arenaSolids } from "../game/arena/solids.ts";
 import type { PhysicsEngine } from "../core/physics/engine.ts";
 import { DEFAULT_ENGINE, loadEngine, type EngineName } from "../core/physics/engines.ts";
@@ -35,8 +34,6 @@ export interface BuiltBout {
 }
 
 export function createBout(context: GameContext) {
-  const { defaultMind } = context;
-
   /** A world with the arena's solids and `recipe`'s bout in it. */
   async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, delay, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
     const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, actuation, ...(delay === undefined ? {} : { delay }), ...(minds ? { minds } : {}) });
@@ -58,8 +55,6 @@ export function createBout(context: GameContext) {
     start: (built, world) => built.duel.play(world.tape),
     traced: (built) => SIDES.map((side) => built.duel.duelists[side].built),
     clock: (built) => built.duel.clock,
-    minds: (world) => SIDES.map((side) => world.recipe.minds?.[side] ?? defaultMind(world.recipe[side])),
-    parts: (world) => [...(world.recipe.ends ?? GAME_ENDS).map((end) => end.kind), ...SIDES.flatMap((side) => world.recipe.commanders?.[side]?.kind ?? [])],
     hosted: (built) => SIDES.map((side) => built.duel.duelists[side].minded),
     save: (built) => built.duel.save(),
     load: (built, saved) => built.duel.load(saved as ReturnType<Duel["save"]>),

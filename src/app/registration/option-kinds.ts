@@ -4,8 +4,7 @@ import { BRACE_OPTION, BRACE_TUMBLING_OPTION, FLATTEN_OPTION, LAND_OPTION, REPOS
 
 /**
  * **Every kind of option, by its kind** (`OptionPart`), in the order a picker offers them: a line here
- * registers one. This module holds its imports and this list and nothing else: a case's code
- * reads it as where each kind's own code begins (`caseCoder`, `scripts/build-identity.mjs`).
+ * registers one.
  */
 export const OPTION_KINDS = {
   orders: ORDERS_OPTION, "strike-straight-punch": STRAIGHT_PUNCH_OPTION, "strike-club-blow": CLUB_BLOW_OPTION, "strike-sword-thrust": SWORD_THRUST_OPTION,
