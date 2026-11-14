@@ -41,7 +41,8 @@ export function optionMind(assembly: OptionAssembly) {
       ...whenEmpty(slots, config, { predictions: assembly.predictions }),
       ...(config.options ? [] : assembly.options).map((option) => ({ role: "option" as const, config: option })),
       { role: "navigation" as const, config: assembly.navigation },
-      ...[...Object.values(FILLED), "leg-adapter" as const].flatMap((role) => parts.game(role).map((one) => ({ role, config: one }))),
+      ...Object.values(FILLED).flatMap((role) => parts.candidates(role).map((one) => ({ role, config: one }))),
+      ...parts.game("leg-adapter").map((one) => ({ role: "leg-adapter" as const, config: one })),
     ],
     faults: (config, parts) => optionMindFaults(resolveConfig(config, assembly), parts),
     fits: (spec, config, parts) => {

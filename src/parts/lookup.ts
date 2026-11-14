@@ -38,10 +38,13 @@ export interface PartLookup {
   find<R extends Role>(role: R, value: unknown): RoleParts[R] | null;
   /**
    * **The part that fills `role` on a body of `spec`**, as its config (its defaults): the one game
-   * part of the role (`Part.stage`, the toolkit's) that fits the body; why none does, or which two
-   * do, a sentence, where not one does: two fitting one body is a fault of the build, never a pick.
+   * part of the role that fits, or, where none fits, an experimental skill the character holds
+   * (`Part.variations`). Only toolkit parts participate. None or several at the preferred stage
+   * returns a refusal: two fitting one body is a fault of the build, never a pick.
    */
   fitting<R extends Role & keyof RoleConfigs>(role: R, spec: BodySpec): ConfigFor<R> | string;
-  /** **Every game part of `role`** (the toolkit's), as its config: what a role filled by fit (`fitting`) may be. */
+  /** All toolkit parts `fitting` can select: game parts and experimental skills a character may enable. */
+  candidates<R extends Role & keyof RoleConfigs>(role: R): readonly ConfigFor<R>[];
+  /** **Every game part of `role`** (the toolkit's), as its config. */
   game<R extends Role & keyof RoleConfigs>(role: R): readonly ConfigFor<R>[];
 }

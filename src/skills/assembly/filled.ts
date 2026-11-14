@@ -20,7 +20,7 @@ export type Filled = { readonly [K in keyof typeof FILLED]?: ConfigFor<typeof FI
 
 /**
  * **The part under `spec`'s skills in `filled`'s place** (`FILLED`): the one `given` passes in,
- * else the one game part of its role that fits the body (`PartLookup.fitting`). A body no single
+ * else the part of its role fitted to the body's enabled skills (`PartLookup.fitting`). A body no single
  * part fits is no body a mind is made on: its mind's fit refused it (`Part.fits`).
  */
 export function filledOf<F extends keyof typeof FILLED>(parts: PartLookup, spec: BodySpec, filled: F, given: Filled = {}): ConfigFor<typeof FILLED[F]> {

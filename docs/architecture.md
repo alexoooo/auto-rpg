@@ -254,7 +254,8 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   module owning its config's keys, defaults, faults, fit and maker. A body builds only the skills
   it fits (`Slot.skills`). What lies under every skill (the motor,
   the legs, the guard) is the one game part of its role that fits the body (`PartLookup.fitting`,
-  `filledOf`); two fitting is a fault of the build, and an experiment passes another in
+  `filledOf`), or an enabled experimental skill where no game part fits. Several fitting at the
+  preferred stage is a fault of the build; an experiment can pass a part in explicitly
   (`OptionMindConfig.tuning`).
   Admission resolves stock settings plus overrides through the implementation's execution
   predicate. Skill assembly constructs configured aims once and roots their memory in `Skills.state`.

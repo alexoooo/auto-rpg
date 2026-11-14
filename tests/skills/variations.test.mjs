@@ -8,9 +8,24 @@ import { skillsOf } from "../../src/minds/option/skills.ts";
 import { limbAction } from "../../src/minds/option/kinds.ts";
 import { skillDigest } from "../../src/skills/framework/profile.ts";
 import { readSkills, writeSkills } from "../../src/game/skill-link.ts";
-import { allParts, partLookup } from "../../src/app/catalog.ts";
+import { allParts, partLookup, GAME } from "../../src/app/catalog.ts";
 import { BODY_MODELS, modelHolds } from "../../src/core/bodies/models.ts";
 import { LOADOUTS, loadoutFaults, withLoadout } from "../../src/core/bodies/items/held.ts";
+import { motorAndGuardOf } from "../../src/skills/assembly/filled.ts";
+
+test("a character without cover can start with its enabled lowered arms", () => {
+  for (const model of ["man", "woman", "skeleton"]) {
+    const base = withLoadout(resolveCharacter({ model }).spec, { left: "empty", right: "empty" });
+    const spec = { ...base, skills: base.skills.filter(name => !name.startsWith("cover-guard/")) };
+    assert.deepEqual(partLookup.fitting("guard", spec), { kind: "lowered" }, `${model}: the enabled open guard is fitted`);
+    assert.equal(GAME.stageRefusal(spec, config, ["attacks", "uses-held"]), null, `${model}: Fight admits the selected skills`);
+    const guard = partLookup.of("guard", { kind: "lowered" });
+    assert.deepEqual(motorAndGuardOf(parts, spec).posture, guard.posture(spec, guard.defaults), "the mind's restricted lookup constructs the admitted guard");
+    assert.deepEqual(partLookup.fitting("guard", base), { kind: "cover-guard" }, "the regular guard remains the default when enabled");
+    const without = { ...spec, skills: spec.skills.filter(name => !name.startsWith("lowered/")) };
+    assert.match(partLookup.fitting("guard", without), /no guard part fits/, "disabled skills are not supplied instead");
+  }
+});
 
 const config = MINDS.option.config, parts = treeLookup(config);
 const punches = (skills) => {
