@@ -111,9 +111,25 @@ tells a change that moves code from one that changes what it computes by these d
 
 The commit and the date stay on a result as where it came from. They gate nothing.
 
-**A miss is said.** A reader that finds no valid result names what it wanted, why what it found
-is not it, and what it does in its place. The gate reads the bodies a person can make as well as
-the defaults.
+**A miss is one of two kinds, and each has one answer.** The lookups tell them apart as they
+are: a skill no fight measured finds nothing, and one measured on something else is found with
+why it is stale (`profileFor`, `profilesOn`, `src/skills/framework/profile.ts`).
+
+| Miss | Where it arises | What its reader does |
+| --- | --- | --- |
+| Never measured | a strike's first fights; a limb no measured strike throws; a body with no profile, where the profiles are of the man, the woman and the skeleton | fights by its prior, and says so in what it reports |
+| Measured on something else | a body, a skill or a rate that has moved under a profile | an evaluation, a tool and the gate refuse, naming what was wanted and why what was found is not it |
+
+- **A reading played on a stale profile is no reading of the skill**, so nothing that reads a
+  skill plays on one.
+- **The measuring tool asks for the prior by name.** A skill whose profile is stale is measured
+  again by fights played on its prior, and no other reader may ask.
+- **The gate reads the bodies a person can make** as well as the defaults, so a stale profile
+  reaches no player. A fight in the game that meets one all the same plays by the prior and
+  shows a mark: the last resort, and never a fight refused.
+- **A level between two measured is no miss.** A character at a Balance between levels reads
+  from those measured, so a refusal comes only of a change to a body, a skill or the code under
+  them, which the command above names before it lands.
 
 **What it would bring.**
 
@@ -130,6 +146,8 @@ the defaults.
 
 - **The strike and technique profiles are re-keyed in place with no play**, where they were
   measured at their bodies' defaults: the new key is made from the same spec and records.
+- **A case or a fight that plays on a stale profile refuses until it is measured.** How many do
+  is not counted.
 - **Samples are played once.** No saved reading or profile holds a trace digest
   (`assets/evaluations/`, `assets/skills/strikes/strike-profiles/`), so each kind's first sample
   is a few trials played on the code it is kept on.
@@ -144,8 +162,6 @@ the defaults.
   digests. Read by taking changes known to move a result and counting the samples that miss them.
 - **Where the check runs**: on a command before a change lands, or in the gate, and what it may
   cost there.
-- **What a mind does on a miss**: whether a foe modelled by hand is a fight to play at all, or a
-  refusal.
 - **What of a body's spec is identity and what a level**, for each attribute: the approaches
   record a controller tuned at one strength or speed not using more.
 - **Whether a level is read at the nearest measured or between two.** Sparring at Balance 5, 10
