@@ -46,7 +46,8 @@ import { reelTrials, type Trial } from "./reel.ts";
 import { MATCHUP_PARAM, arenaAttributes, arenaSkills, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, readLoadouts, readMatchup, readYou, youSearch, matchupModels, type Matchup } from "../../../game/arena/matchup.ts";
 import { CONTROLS, controllerLabel, controlCharacter, controlName, controlsFor, defaultControl, readControls, recipeOf, linkedMind, mindsSearch, unreadMinds } from "../setup.ts";
 import { offered } from "../../../minds/catalog/controller.ts";
-import { allParts, partOf, treeObeys, MINDS, defaultMind } from "../../catalog.ts";
+import { LIMB_ROLES, limbsOf } from "../../../minds/option/limbs.ts";
+import { allParts, partOf, partLookup, treeObeys, MINDS, defaultMind } from "../../catalog.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
 import { notesOf, type NoteLevel } from "../ui/mind-notes.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -182,6 +183,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   /** Each skill a character may choose and its variations, as the catalog's parts offer them (`Part.variations`). */
   const skillOffers: readonly SkillOffer[] = Object.entries(allParts()).flatMap(([skill, part]) =>
     part.variations ? [{ skill, label: part.label, variations: part.variations }] : []);
+  const offeredSkills = skillOffers.flatMap(offer => offer.variations.map(variation => `${offer.skill}/${variation}`));
   /** `side`'s character config: the character `character`, its attributes over its mind's character's, and its skills where its panel chose them. */
   const characterOf = (side: Side, character: string, control: string) => ({ model: characterNamed(character).model, character,
     attributes: controlCharacter(control, attributes[side]), ...(skills[side] ? { skills: skills[side] } : {}) });
@@ -228,10 +230,6 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       },
     });
     choices.append(attributePanel.element);
-    const skillPanel = skillEditors[side] = skillEditor(matchup[side], skills[side], skillOffers, {
-      change: (next) => { if (next === undefined) delete skills[side]; else skills[side] = next; refreshChoices[side]?.(); },
-    });
-    choices.append(skillPanel.element);
     const controller = document.createElement("label"), control = document.createElement("select");
     controller.className = "field"; controller.textContent = "Controller";
     control.setAttribute("aria-label", `${side} controller`);
@@ -273,6 +271,22 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const resolved = resolveCharacterChecked(characterOf(side, select.value, control.value));
       return isRefused(resolved) ? modelHolding(model, loadout()) : withLoadout(resolved.spec, loadout());
     };
+    const skillPanel = skillEditors[side] = skillEditor(matchup[side], skills[side], () => {
+      // Test what the body could choose, including variations it has not selected.
+      const spec = { ...editorSpec(), skills: offeredSkills };
+      return skillOffers.flatMap(offer => {
+        const part = partOf({ kind: offer.skill });
+        const variations = offer.variations.filter(variation => {
+          const config = { ...part.defaults, variation };
+          return part.fits(spec, config, partLookup) === null
+            && (part.role !== "executor" || LIMB_ROLES.some(([role]) => limbsOf(partLookup, spec, role, config).length > 0));
+        });
+        return variations.length ? [{ ...offer, variations }] : [];
+      });
+    }, {
+      change: (next) => { if (next === undefined) delete skills[side]; else skills[side] = next; refreshChoices[side]?.(); },
+    });
+    attributePanel.element.after(skillPanel.element);
     // The minds are checked by the entry rule of the bout the page opens with: a trial's own, or a fight's.
     const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), entry: entryRules(trials?.[at]!.world.recipe), onFault: "the bout is not played until it is fixed", onChange: () => nameControl() });
     settings.append(summary, editor.element); choices.append(notes, settings);
@@ -287,6 +301,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     };
     const showSettings = (config: MindConfig) => {
       based();
+      skillPanel.refresh();
       editor.set(config, editorSpec());
       settings.hidden = partOf(config).fields.length === 0 && partOf(config).slots.length === 0;
       nameControl();
@@ -336,8 +351,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         appearances = { ...appearances, [side]: "default" };
         attributePanel.set({ model: bodyOf(), attributes: attributes[side] });
         // Another character: its own skills.
-        delete skills[side]; skillPanel.set(select.value, undefined);
+        delete skills[side];
         refresh();
+        skillPanel.set(select.value, undefined);
         select.blur();
         if (attributePanel.read() !== null) void view.setCharacter(0, { model: bodyOf(), attributes: controlCharacter(control.value, attributes[side]) }).catch(previewFailed);
       }, { signal: lifetime.signal });
