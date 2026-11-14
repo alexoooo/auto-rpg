@@ -12,7 +12,7 @@ consideration; nothing in it is built.
 - **The cheapest method that works makes a skill**: a search and a fit before a training run.
 - **A skill learns no balance.** The layer under it holds the body up, so a change to the legs
   leaves the skill as it is.
-- **A change plays again only what depends on it**
+- **Nothing is computed again routinely**: a saved result is reused across changes
   ([what a saved result is keyed by](2026-11-14-saved-results.md)).
 - **A variation declares what it uses**: its record, its layout, what it needs of the body.
   Sharing with another is its author's choice.
@@ -208,10 +208,9 @@ sparring, and it is read in fights last ([the steps](../recipes/skill.md#the-ste
 - **Physics saved, memory rebuilt.** A load restores the bodies and starts the minds and skills
   fresh, as when a body comes back from another mind. States are saved with both feet bearing and
   no action under way, since a stance loaded mid-step loses its plan.
-- **The library is built again when what it holds changes**: the bodies, the engine, the rate or
-  the bout's recipe. Its key is a saved result's
-  ([what a saved result is keyed by](2026-11-14-saved-results.md#the-design)), and a strike's
-  code, settings and network and the minds' pricing are outside it.
+- **The library is kept across changes** and built again when asked, as every saved result is
+  ([what a saved result is keyed by](2026-11-14-saved-results.md#the-design)). A state whose
+  bodies no longer have the parts saved cannot load.
 - **Readings with no physics.** Each state loaded and the strike's entry asked gives the share of
   fight moments the strike can begin from. The chooser asked there gives whether the mind would
   pick it under a new profile.
@@ -220,7 +219,6 @@ sparring, and it is read in fights last ([the steps](../recipes/skill.md#the-ste
 
 **Open.**
 
-- How long the library takes to build. Where it is minutes, it is built again rather than kept.
 - How much a physics-only load disturbs the first moments after it.
 - Whether one sparring run gives the skill's reading as well as its profile. The claim is a
   still-target cell so that how a body throws a move is read apart from what the move brings in a
@@ -262,12 +260,9 @@ installed skills:
 - **A change to how the stance answers an ask it already takes, or to what shared strike code
   does.** Either moves every skill on it.
 - **A character given Balance in the game.** It lands more and deals no more, as sparring reads
-  the punch. While a profile is keyed by the spec, both minds lose that character's profiles;
-  read as a condition of a trial, they keep them
+  the punch. While a profile is found by the spec's digest, both minds lose that character's
+  profiles; read as a condition of a trial, they keep them
   ([what a saved result is keyed by](2026-11-14-saved-results.md#the-design)).
-
-A strike profile's key covers its action, its variation, the records it reads and the body's
-spec (`skillDigest`), so a variation that names the record it names now keeps its profile.
 
 ## How the parts depend
 
@@ -276,8 +271,8 @@ spec (`skillDigest`), so a variation that names the record it names now keeps it
   variation holding its own record.
 - Part 2's contract comes before its ways are compared, and the assisted way tests the contract at
   the least cost.
-- Part 3's stand-in needs nothing. Its library waits on the key of
-  [what a saved result is keyed by](2026-11-14-saved-results.md).
+- Part 3's stand-in needs nothing. Its library waits on a save that loads across commits
+  ([what a saved result is keyed by](2026-11-14-saved-results.md)).
 
 ## To pick it up
 

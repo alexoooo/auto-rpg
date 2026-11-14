@@ -87,7 +87,7 @@ Each holds its goal, where it stands and the questions open
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
 | [Many skills, faster](plans/2026-11-14-many-skills.md) | two readings that say which part pays; a strike made by search; a layer under the skills that carries balance; a pipeline that reads fights first |
-| [What a saved result is keyed by](plans/2026-11-14-saved-results.md) | one key for every saved result, what it ran and never the commit: a trial plays again only where code it ran moved, until the answer is clear; the rest is used and marked; a character's numbers are conditions of a trial |
+| [What a saved result is keyed by](plans/2026-11-14-saved-results.md) | a saved result is found by the question it answers and reused across changes, its commit kept as where it came from; computed again only when asked; a character's numbers are conditions of a trial |
 
 ## Waiting on the owner
 
