@@ -15,10 +15,11 @@ document holds.
   reads it, the questions open and how to pick it up, each reading with the command that reads it
   again. It proposes no step and names no skill the owner did not ask for: what is worked next is
   the run's brief. A reading taken on the way goes in its commit message.
-- **A brief is a file the owner reads** (`docs/briefs/`): the run's first message as
-  [AGENTS.md](../../AGENTS.md#the-rules) shapes it, the request in the owner's words, the one
-  document that quotes them. It is never left in `.tmp/` or only in a conversation.
-- **A brief is read through before it is approved**, by a fresh agent of the kind that
+- **A longer or unattended run's brief is a file** (`docs/briefs/`): its session's whole first
+  message as [AGENTS.md](../../AGENTS.md#the-rules) shapes it, the request in the owner's words,
+  the one document that quotes them. It is never left in `.tmp/`. A short run the agent watches is
+  briefed in the conversation and has no file.
+- **A brief file is read through before it is approved**, by a fresh agent of the kind that
   will run it, in a session that runs nothing:
   `codex exec -s read-only --ephemeral -C . -o .tmp/brief-read/<round>.md - < .tmp/brief-read/ask.md`,
   where `ask.md` holds the text below with the brief's path. What a round misreads or finds
