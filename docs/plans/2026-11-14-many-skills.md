@@ -159,6 +159,10 @@ ground cannot give of the root's aim (`shortfall`, `solve.ts`), and the stance c
 before it steps (`assistReach`, `stance/gait.ts`). The installed punch was searched and trained
 at a ceiling of 0, so it throws no harder with an assist on.
 
+Three things carry the name. The stance is the one registered balance (`BALANCES`), and every
+standing and walking body runs it. Balance the attribute is the assist's ceiling, and it is what
+stands unused. The ways below are ways for the layer to hold a blow.
+
 Balance and motor each have one registered kind (`BALANCES`, `MOTORS`,
 `src/app/registration/`). They are slots of a mind's config, so a skill's variation chooses
 neither.
@@ -177,14 +181,19 @@ neither.
   shoulder's frame and velocity. No leg joint.
 - **Inside the layer**: whether to lean, widen, step, keep walking or ask the assist.
 
-Three implementations, each a balance kind behind the same contract and so playable side by side,
-in the order of their cost:
+Three ways to carry it out behind the same contract, in the order of their cost. The first two
+are the stance as it is registered; only the third is a second registered balance.
 
-| Kind | What it is | Its cost |
+| Way | What it is | Its cost |
 | --- | --- | --- |
 | Assisted | the stance with the assist's ceiling raised | the least work; a skill tuned with an assist is read again without it before it is called unassisted |
 | Feed-forward | the stance keeps the capture point inside the soles by the declared impulse's shift, along its line, before the blow | a margin and a lean in the stance; untested |
 | Learned base | one actor over the stance, trained once against random pushes on the upper body, following pelvis commands | the dearest: a training run of the learned run's size, on an engine whose scarce thing is decisions |
+
+A registered balance is a slot of the mind, so a second one carries everything the legs are asked
+(`LegsGoal`): the walk, the turn, the footing, the stomp's support. On it every schedule, actor,
+way up and envelope made on the stance is unproven. It comes after the first two are read and
+found short.
 
 Provenance: forces at the root added to a controller's actions (Yuan & Kitani, "Residual Force
 Control for Agile Human Behavior Imitation and Extended Motion Synthesis", NeurIPS 2020);
@@ -210,8 +219,46 @@ legs alone runs beside a walk: the mind runs together Options whose resources do
 - A change to how the stance answers an existing ask moves every trained actor on it. A new
   optional ask that no installed variation sends moves none, which the fingerprint shows.
 
+**Balance is a number, and a profile is keyed by it.** A profile's key holds a digest of the
+whole spec (`specDigest`, `measuredOn`, `src/skills/framework/profile.ts`), and the spec holds
+Balance, haste and the physique's scales as numbers. So a profile measured at one Balance is
+stale at any other, on the body it was measured on and on the body it was measured against.
+
+Balance acts in two places, and each grows smoothly with the number:
+
+- The solve fills what the ground cannot give, up to the ceiling.
+- The stance lets the capture point travel further before it steps: 1.3 cm for each per cent
+  with the centre of mass at 1 m (`assistReach`, `Rulebook.balance`). The 9 cm of a punch's
+  impulse is about 7 per cent, by the same arithmetic.
+
+Three ways to hold a number in a key:
+
+| Way | What it is | Its cost |
+| --- | --- | --- |
+| Tiers | the game offers a few levels, each measured; keys stay exact | a sparring run a level |
+| A measured level | Balance leaves the spec's digest and is the level a profile was measured at; a profile is read between its levels and is stale only outside their range | the same runs, and a reader between levels |
+| A one-way bound | a profile measured at less is trusted at more | none, if an assist never makes a skill worse; the stance steps later with one |
+
+The stance's envelope is a table of the second form for what a body is asked: a speed and a
+heading, read between its measured points (`heldPace`, `src/control/stance/stance-envelope.ts`),
+which the mind's walk plans by. It is measured at one Balance, the character's, so reading
+between an attribute's levels is untried.
+
+A skill made at 0 is expected to hold at more, which is read; one made with an assist is read
+again without it.
+
 **Open.**
 
+- Whether a strike's outcomes move with Balance, smoothly and one way. Read by one subject
+  sparred at two or three levels, side by side; the same reading says whether a profile at less
+  holds at more. A bout's recipe sets a side's Balance (`DuelRecipe.balance`) and the profile
+  tool keys a spec by it (`research/skills/strikes/strike-profiles.mjs`); the evaluation's
+  sparring cases play each side at its character's.
+- Whether a trial plays the same at any Balance where the ground gave everything and the capture
+  point stayed over the soles. Expected from the two places Balance acts; read by a trace's
+  digest (`traceOf`, `src/evaluation/trace.ts`).
+- Whether haste and the physique's scales take the same form. A controller tuned at one strength
+  or speed does not use more ([the approaches](../approaches.md#every-skill)).
 - Whether skills are built with an assist first, the unassisted skill a later tier. The roadmap's
   order is competencies first, without assistance
   ([where the project is going](../roadmap.md#where-the-project-is-going)).
@@ -310,6 +357,24 @@ Each is an idea, untested here.
 - **More decisions a second**: many bodies simulated at once on a graphics processor. Rapier in
   Node does not do it, and another engine voids every record on every body.
 
+## What reaches what is installed
+
+Each part is built beside what is installed: a refactor the fingerprint shows
+(`node scripts/fingerprint.mjs --compare <file> --variation <skill/variation>`), a new variation,
+research code or an optional ask. Three choices reach installed skills:
+
+- **A character given Balance in the game.** While a profile is keyed by the spec, every profile
+  on or against that body is measured again. Every installed skill on it is read again, and a
+  trained actor that reads worse is a seed to retrain.
+- **A second registered balance in the game**, as Part 3 says.
+- **A change to how the stance answers an ask it already takes, or to what shared strike code
+  does.** Either moves every skill on it.
+
+A strike profile's key covers its action, its variation, the records it reads and the body's
+spec, and no code (`skillDigest`). So Part 1 leaves every key as it is while each variation names
+the record it names now. Part 4's keying leaves the cached rows of `.tmp/evaluations/` to be
+played again and gives a technique's profiles new keys.
+
 ## How the parts depend
 
 - Part 1 stands alone. A variation with a network of its own waits on it.
@@ -317,8 +382,9 @@ Each is an idea, untested here.
   layout of a variation's own, and waits on Part 1.
 - Part 3's readings come before its contract: the zeroed outputs, the assist's meter and the
   paired search say whether balance is what a strike's making is spent on. The contract comes
-  before a second balance kind is compared with the stance, and the assisted kind tests its form
-  at the least cost.
+  before its ways are compared with each other, and the assisted way tests its form at the least
+  cost. Balance as a measured level waits on its first reading, and comes before a character is
+  given Balance in the game.
 - Part 4's library stands alone and waits on a save keyed by its dependencies.
 
 ## To pick it up
