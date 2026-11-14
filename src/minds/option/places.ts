@@ -4,6 +4,7 @@ import { hypot } from "../../core/math/real.ts";
 import { approachSpot, atSpot } from "../../skills/intent/action-window.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { PROFILE_RANGE_SPAN, startVelocity } from "../../skills/framework/profile.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
 import { blocked, LEGS, READY, standing, still, type Option, type Sites, type Situation } from "./option.ts";
@@ -20,7 +21,11 @@ interface GaitOf {
 }
 
 /** **The gaits `legs` go by** (`LocomotionPart.gaits`); none for legs that go by no gait by name. */
-export const gaitsOf = (parts: PartLookup, legs: PartConfig): readonly GaitOf[] => parts.of("locomotion", legs).gaits?.(legs) ?? [];
+export const gaitsOf = (parts: PartLookup, legs: PartConfig, spec: BodySpec): readonly GaitOf[] =>
+  (parts.of("locomotion", legs).gaits?.(legs, spec, parts) ?? []).filter(gait => {
+    const part = parts.any(gait.legs);
+    return part !== null && part.fits(spec, gait.legs, parts) === null;
+  });
 
 /**
  * How far apart a walk's way is read within the focus's reach, m: half the span over which a

@@ -1,4 +1,4 @@
-import { choice, number, type PartField } from "../../../../parts/fields.ts";
+import { choice, number, type PartField } from "../../../parts/fields.ts";
 
 /** Shared conditions read detached facts of the fight. */
 type ConditionConfig = { readonly kind: "always" | "when-standing" | "target-down" }

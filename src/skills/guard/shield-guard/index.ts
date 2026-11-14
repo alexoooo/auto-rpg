@@ -14,6 +14,7 @@ type ShieldGuardConfig = CoveringConfig<"shield-guard">;
 const VARIATIONS = { "shield-guard": { posture: (spec: BodySpec) => guardPosture(spec), make: (built: ReadBody, config: ShieldGuardConfig) => coveringSkill(built, config, true) } };
 
 export const SHIELD_GUARD: GuardPart<ShieldGuardConfig> = {
+  covering: true,
   role: "guard", label: "Guard faces and lines", stage: "game", fields: [], slots: [], defaults: { kind: "shield-guard" }, keys: { kind: true, variation: true, tuning: true },
   tuning: COVERING_TUNING, fits: fitsAll(variationFault("shield-guard", "shield guard", VARIATIONS), coveringFit, coversWithHands, soleRefusal,
     fitsWhen(wardsWithFace, "holds no item with a face to ward with")), faults: coveringFaults,

@@ -98,9 +98,9 @@ function guard(hands: readonly string[], shields: readonly string[] = []): Optio
 }
 
 /** **The guard of `spec`'s hands** (`guard`): over its hands (`sidesWith`), those holding a covering face its shields (`shieldHands`); none for a body without. */
-export const guardOf = (spec: BodySpec): readonly Option[] => {
+export const guardOf = (spec: BodySpec, options: { readonly covering?: boolean } = {}): readonly Option[] => {
   const hands = sidesWith(spec, "hand").map((side) => pairedSegment("hand", side));
-  return hands.length ? [guard(hands, shieldHands(spec).filter((hand) => hands.includes(hand)))] : [];
+  return hands.length ? [guard(hands, options.covering === false ? [] : shieldHands(spec).filter((hand) => hands.includes(hand)))] : [];
 };
 
 /** A brace's target: none; the body acts on itself. */

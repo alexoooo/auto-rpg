@@ -8,7 +8,7 @@ import type { LocomotionPart } from "../../framework/locomotion-part.ts";
 import { slotList, type PartConfig } from "../../../parts/parts.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { gaitNamed, STOCK_GAITS, type Gait } from "./gaits.ts";
-import { move, type MoveGait } from "./move/move.ts";
+import { move, type MoveGait } from "../shared/move.ts";
 import { GAIT_CHOICES, type MoveRuleConfig } from "./move-rule-part.ts";
 
 /**
@@ -58,13 +58,13 @@ function gaitFaults(config: MoveConfig): readonly string[] {
 /** Move's variations: move. */
 const VARIATIONS = {
   move(body: Body, config: MoveConfig, legs: Legs): Locomotion {
-    const walked = gaitsOf(config), names = walked.map((gait) => gait.name), built = new Map<string, Locomotion>();
+    const walked = gaitsOf(config).filter(gait => legs.parts.of("gait", gait.legs).fits(body.built.spec, gait.legs, legs.parts) === null), names = walked.map((gait) => gait.name), built = new Map<string, Locomotion>();
     const gaits = walked.map((gait): MoveGait => {
       const of: PartConfig = gait.legs, key = JSON.stringify(of);
       if (!built.has(key)) built.set(key, legs.make(body, of));
       return { name: gait.name, legs: built.get(key)! };
     });
-    return move(gaits, config.rules.map((r) => legs.parts.of("move-rule", r).make(r, names.indexOf(r.gait))), names.indexOf(config.otherwise));
+    return move(gaits, config.rules.filter(rule => names.includes(rule.gait)).map(r => legs.parts.of("move-rule", r).make(r, names.indexOf(r.gait))), Math.max(0, names.indexOf(config.otherwise)));
   },
 };
 
@@ -83,11 +83,7 @@ export const MOVE_PART = deepFreeze<LocomotionPart<MoveConfig>>({
   fits: (spec, config, parts) => {
     const unheld = variationFault("move", "move", VARIATIONS)(spec, config);
     if (unheld) return unheld;
-    for (const gait of gaitsOf(config)) {
-      const refusal = parts.of("gait", gait.legs).fits(spec, gait.legs, parts);
-      if (refusal) return `${gait.name}: ${refusal}`;
-    }
-    return null;
+    return gaitsOf(config).some(gait => parts.of("gait", gait.legs).fits(spec, gait.legs, parts) === null) ? null : "has no enabled gait to move by";
   },
   faults: gaitFaults, gaits: gaitsOfMove,
   make: variedMake("move", VARIATIONS, (body, config) => [body.built.spec, config]),

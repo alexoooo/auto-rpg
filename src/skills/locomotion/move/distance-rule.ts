@@ -1,7 +1,7 @@
 import type { GaitName } from "../../framework/skill.ts";
-import { CONDITIONS } from "./move/conditions.ts";
+import { CONDITIONS } from "../shared/move-conditions.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { distanceRule } from "./move/move.ts";
+import { distanceRule } from "../shared/move.ts";
 import { moveRulePart, withGait } from "./move-rule-part.ts";
 
 /**

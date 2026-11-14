@@ -2,7 +2,7 @@ import type { GaitName } from "../../skills/framework/skill.ts";
 import type { ActionConfig, ExecutorConfigs, ExecutorEntry } from "../../skills/config.ts";
 import type { Region } from "../../skills/framework/action.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
-import { optionApplies, type OptionBody, type OptionPart } from "./parts.ts";
+import { optionApplies, type OptionPart } from "./parts.ts";
 import { choice, json, optionalChoice } from "../../parts/fields.ts";
 import { anyBody, slotOne, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
 import { GAIT_CHOICES } from "../../skills/locomotion/move/move-rule-part.ts";
@@ -16,9 +16,10 @@ import { followOrders } from "./orders.ts";
 import { gaitsOf, walkBy } from "./places.ts";
 import { PROFILE_MODEL, type ProfileOptionContext } from "./profile-contract.ts";
 import type { NamedSkills } from "./skills.ts";
-import type { Varied } from "../../skills/framework/variations.ts";
+import { chosenVariation, type Varied } from "../../skills/framework/variations.ts";
 import { guardOf, hold, holdAt } from "./rest.ts";
 import { strike, strikeMeasure } from "./strike.ts";
+import { choosingSkill } from "./selection.ts";
 
 /** An Option kind whose constructor consumes the declared profile-model context. */
 export type ProfileOptionPart<C extends PartConfig = PartConfig> = OptionPart<C, ProfileOptionContext, Option> & {
@@ -38,7 +39,8 @@ function kind<K extends string>(kind: K, label: string, make: (given: ProfileOpt
 
 /** **Following the orders** a person gives (`followOrders`), by the gaits its body's legs go by (`gaitsOf`). */
 export const ORDERS_OPTION = deepFreeze({ ...kind("orders", "Follow orders",
-  (given) => [followOrders(gaitsOf(given.parts, given.legs).map((gait) => gait.name), given.walk)]), obeys: true });
+  given => given.parts.selected("navigation", given.spec).map(config => choosingSkill(
+    followOrders(gaitsOf(given.parts, given.legs, given.spec).map(gait => gait.name), given.walk), config, given.parts.of("navigation", config).label, "navigationSkill"))), obeys: true });
 
 /**
  * **A strike's config**: the executor it strikes by (`skill`, of its kind's skill), the limbs it
@@ -147,7 +149,7 @@ function strikeAction(parts: PartLookup, spec: BodySpec, config: StrikeConfig, e
  * its variation too where the body holds several; none for a variation the body does not fit.
  */
 function strikeSkills(parts: PartLookup, spec: BodySpec, config: StrikeConfig, options: readonly PartConfig[]): readonly { readonly executor: ExecutorEntry; readonly action: ActionConfig }[] {
-  const variations = strikeVariations(parts, spec, config), several = variations.length > 1, name = strikeName(config, strikesIn(parts, options));
+  const variations = strikeVariations(parts, spec, config), several = heldVariations(spec, config.skill.kind).length > 1, name = strikeName(config, strikesIn(parts, options));
   return variations.flatMap((variation) => {
     const executor = executorEntry(config.skill, variation, several);
     const action = strikeAction(parts, spec, config, executor, several && variation !== null ? `${executor.name}${name.slice(config.skill.kind.length)}` : name);
@@ -201,13 +203,15 @@ function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, li
       const executors = [executor], blows = given.parts.of("executor", executor).blows?.(executor) ?? 1;
       return action.effectors.map((limb) => {
         const one = limbAction(action, limb);
-        return strike(one, given.walk, blows, strikeMeasure(given.parts, given.spec, executors, one, given.hz, given.tables.strikes, given.rate ?? given.hz, given.delay), `${action.name} ${limb}`);
+        const option = strike(one, given.walk, blows, strikeMeasure(given.parts, given.spec, executors, one, given.hz, given.tables.strikes, given.rate ?? given.hz, given.delay), `${action.name} ${limb}`);
+        const support = config.support && given.parts.of("support", config.support).fits(given.spec, config.support, given.parts) === null ? config.support : null;
+        return support ? choosingSkill(option, { ...support, variation: chosenVariation(given.spec, support.kind, support) }, given.parts.of("support", support).label, "supportSkill") : option;
       });
     });
   return deepFreeze<StrikeKindPart<K>>({
     role: "option", model: PROFILE_MODEL, label, stage: "game", skill,
     fields: [choice<StrikeConfig<K>, "limbs">("limbs", "Limbs", LIMB_ROLES), json<StrikeConfig<K>, "regions">("regions", "Target regions", "target-regions")],
-    slots: [slotSkill("skill", "Skill", "executor"), slotOne("support", "Low support", "support", true), slotOne("aim", "Aim", "aim", true)],
+    slots: [slotSkill("skill", "Skill", "executor"), { ...slotSkill("support", "Low support", "support"), optional: true }, slotOne("aim", "Aim", "aim", true)],
     defaults: { kind: `strike-${skill}`, skill: { kind: skill }, limbs, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "centre", lead: 0 } } as StrikeConfig<K>,
     keys: { kind: true, skill: true, limbs: true, regions: true, aim: true, support: true } as KeysOf<StrikeConfig<K>>,
     fits: anyBody,
@@ -216,7 +220,8 @@ function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, li
     strikes: (spec: BodySpec, config: StrikeConfig<K>, parts: PartLookup) => strikeLimbs(parts, spec, config),
     skills(config: StrikeConfig<K>, spec: BodySpec, parts: PartLookup, options: readonly PartConfig[]): NamedSkills | null {
       const made = strikeSkills(parts, spec, config, options);
-      return made.length ? { executors: made.map((one) => one.executor), actions: made.map((one) => one.action), ...config.support ? { support: config.support } : {} } : null;
+      const support = config.support && parts.of("support", config.support).fits(spec, config.support, parts) === null ? config.support : null;
+      return made.length ? { executors: made.map((one) => one.executor), actions: made.map((one) => one.action), ...support ? { support } : {} } : null;
     },
     make: of,
   });
@@ -226,10 +231,31 @@ function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, li
 export const strikesIn = (parts: PartLookup, options: readonly PartConfig[]): readonly StrikeConfig[] =>
   options.filter((option): option is PartConfig & StrikeConfig => "skill" in (parts.of("option", option) as ProfileOptionPart));
 
+/** Every toolkit strike template, including experimental skills, for dependency declarations. */
+export const strikeDefaults = (parts: PartLookup): readonly StrikeConfig[] => parts.candidates("option").flatMap(config => {
+  const part = parts.of("option", config);
+  return isProfileOption(part) && "skill" in part ? [part.defaults as StrikeConfig] : [];
+});
+
+/** Selected strike variations omitted by a preset remain available through their skill's default use. */
+export function selectedOptions(parts: PartLookup, spec: BodySpec, options: readonly ConfigFor<"option">[]): readonly ConfigFor<"option">[] {
+  const configured = strikesIn(parts, options), missing: StrikeConfig[] = [];
+  for (const template of strikeDefaults(parts)) {
+    const held = heldVariations(spec, template.skill.kind);
+    for (const variation of held) {
+      if (configured.some(config => config.skill.kind === template.skill.kind
+        && ((config.skill as Varied).variation === undefined || (config.skill as Varied).variation === variation))) continue;
+      const config = { ...template, skill: { ...template.skill, variation } };
+      if (strikeSkills(parts, spec, config, [...options, ...missing]).length) missing.push(config);
+    }
+  }
+  return missing.length ? [...options, ...missing] : options;
+}
+
 /** **The straight punch** (`straight-punch`), with either hand. */
 export const STRAIGHT_PUNCH_OPTION = strikeKind("straight-punch", "Straight punch", "either-hand");
 
-/** **The club's blow** (`club-blow`), with the hand that holds the club: a drill opponent's, not offered in the game. */
+/** **The club's blow** (`club-blow`), with the hand that holds the club. */
 export const CLUB_BLOW_OPTION = deepFreeze({ ...strikeKind("club-blow", "Club blow", "holding-hand"), stage: "experimental" as const });
 
 const BONK_KIND = strikeKind("bonk", "Bonk", "holding-hand");
@@ -246,7 +272,7 @@ export const STOMP_OPTION = strikeKind("stomp", "Stomp", "either-foot");
 /** **The bite** (`bite`), with the jaw. */
 export const BITE_OPTION = strikeKind("bite", "Bite", "jaw");
 
-/** **A walk's config**: the gait of its body's legs it goes by (`Gait.name`), every one where it names none, and the navigation that plans its way (Visibility routes unless it names one). */
+/** A walk's gait and planner; omitted, every enabled gait and navigation is available to the chooser. */
 export interface WalkConfig {
   readonly kind: "walk";
   readonly gait?: GaitName;
@@ -262,10 +288,12 @@ export const WALK_OPTION = deepFreeze<ProfileOptionPart<WalkConfig>>({
   role: "option", model: PROFILE_MODEL, label: "Walk to a site", stage: "game", fields: [optionalChoice<WalkConfig, "gait">("gait", "Gait", "Every gait", GAIT_CHOICES)],
   slots: [slotOne("navigation", "Navigation", "navigation", true)], defaults: { kind: "walk" },
   keys: { kind: true, gait: true, navigation: true }, fits: anyBody, faults: () => [],
-  applicable: (config: WalkConfig, { parts, legs }) => legs === null || gaitsOf(parts, legs).some(gait => config.gait === undefined || gait.name === config.gait),
+  applicable: (config: WalkConfig, { parts, legs, spec }) => legs === null || gaitsOf(parts, legs, spec).some(gait => config.gait === undefined || gait.name === config.gait),
   skills: (config: WalkConfig) => config.navigation ? { navigation: config.navigation } : {},
-  make: (config: WalkConfig, given: ProfileOptionContext) => gaitsOf(given.parts, given.legs).filter((gait) => config.gait === undefined || gait.name === config.gait)
-    .map((gait) => walkBy(gait, given.sites, given.walk)),
+  make: (config: WalkConfig, given: ProfileOptionContext) => given.parts.selected("navigation", given.spec)
+    .filter(navigation => !config.navigation || config.navigation.kind === navigation.kind)
+    .flatMap(navigation => gaitsOf(given.parts, given.legs, given.spec).filter(gait => config.gait === undefined || gait.name === config.gait)
+      .map(gait => choosingSkill(walkBy(gait, given.sites, given.walk), navigation, given.parts.of("navigation", navigation).label, "navigationSkill"))),
 });
 
 /** **A place on the ground** to hold at: where it is, m, and how near its centre the body holds there. */
@@ -284,15 +312,22 @@ export const HOLD_AT_OPTION = deepFreeze<ProfileOptionPart<PlaceConfig>>({
 });
 
 /** **The cover** of the head by the hand on the side a blow closes from (`covers`). */
-export const COVER_OPTION = deepFreeze({ ...kind("covers", "Cover", (given) => covers(given.spec)),
-  applicable: (_config: { readonly kind: "covers" }, { spec }: OptionBody) => covers(spec).length > 0 });
+export const COVER_OPTION = kind("covers", "Cover", given => (given.guards ?? given.parts.selected("guard", given.spec)).flatMap(config => {
+  const part = given.parts.of("guard", config);
+  return part.covering ? covers(given.spec).map(option => choosingSkill(option, config, part.label, "guardSkill")) : [];
+}));
 
 /** **Hold the position** (`hold`), a rest option. */
 export const HOLD_OPTION = kind("hold-position", "Hold the position", (given) => [hold(given.walk)]);
 
-/** **The hands at their guard** (`guard`), a rest option over the body's hands, none for a body without. */
-export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at guard", (given) => guardOf(given.spec)), phases: { guard: "Guarding" },
-  applicable: (_config: { readonly kind: "hands-at-guard" }, { spec }: OptionBody) => guardOf(spec).length > 0 });
+/** Each enabled guard as its own rest option, explicitly selected by the mind. */
+export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at guard", given => (given.guards ?? given.parts.selected("guard", given.spec)).flatMap(config => {
+  const part = given.parts.of("guard", config);
+  const options = [...guardOf(given.spec, { covering: part.covering === true })];
+  // A guard without hands is still an enabled posture the mind can choose.
+  if (!options.length) options.push({ ...hold(given.walk), name: "guard", claims: [] });
+  return options.map(option => choosingSkill(option, config, part.label, "guardSkill"));
+})), phases: { guard: "Guarding" } });
 
 /**
  * The options `configs` name, each kind's as `of` finds it, made from `given`, in their order; then

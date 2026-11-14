@@ -10,8 +10,10 @@ import type { SkillParts } from "../config.ts";
 import { configuredAims, configuredExecutors } from "./action-config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
-import { navigatorOf } from "../framework/navigation.ts";
 import { legsOf, motorOf } from "./filled.ts";
+import { guardRepertoire } from "./guards.ts";
+import { navigationRepertoire } from "./navigations.ts";
+import { supportRepertoire } from "./supports.ts";
 
 /** The options of the command layers (`commandLayers`) a body's skills run on: all action instances share its effectors' touch (`LayerOptions.feedback`) and body-local ledger; its motor `motor`, as `parts` finds it. */
 export function motorLayerOptions(motor: PartConfig, parts: PartLookup): LayerOptions {
@@ -29,15 +31,15 @@ const NO_MORE: MoreSkills = Object.freeze({ executors: Object.freeze([]), action
 
 /** The skills `config` names, each part the one `parts` finds, a mind's own included, and `more` beside them; action aims are `aims` (the body's one, `configuredAims`) and read these skills' ledger of actions ended. */
 export function makeSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillParts, more: MoreSkills = NO_MORE, aims?: Aims): Skills {
-  const guard = parts.of("guard", config.guard).make(made.built, config.guard);
+  const guard = guardRepertoire(parts, made.built, config.guards);
   const legs = legsOf(parts, made, config.legs);
-  const navigation = navigatorOf(parts, made.built.spec, config.navigation);
+  const navigation = navigationRepertoire(parts, made.built.spec, config.navigations);
   const configured = aims ?? configuredAims(parts, made.built.spec, config.actions);
   // Read each time an action aims, which is after the skills are made.
   const ledger = (): readonly Ended[] => skills.report.ledger;
   const skills: Skills = skillSet(made, {
     legs, navigation, clearance: navigation, guard, spot: windowSpotFinder,
-    support: config.support ? parts.of("support", config.support).make(made, config.support) : null,
+    support: config.supports.length ? supportRepertoire(parts, made, config.supports) : null,
     aims: configured,
     executors: [...configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger, configured), ...more.executors],
     actions: [...config.actions, ...more.actions],

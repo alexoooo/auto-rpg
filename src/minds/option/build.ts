@@ -13,6 +13,7 @@ import type { MindReport } from "../report.ts";
 import { commandedMind } from "../sub-mind.ts";
 import type { ResolvedConfig } from "./config.ts";
 import { skillsOf } from "./skills.ts";
+import { guardConfigs } from "../../skills/assembly/guards.ts";
 
 /**
  * **A running Option Mind**: what `buildOptionMind` gives the fight of the mind it makes on one
@@ -44,12 +45,12 @@ export function buildOptionMind(host: BodyHost, config: ResolvedConfig): OptionM
   const tuned = config.tuning?.parts;
   const motor = filledOf(parts, spec, "motor", tuned);
   const legs = filledOf(parts, spec, "legs", tuned);
-  const guard = filledOf(parts, spec, "guard", tuned);
+  const guard = guardConfigs(parts, spec, tuned?.guard);
 
   // What its Options name of the body's skills, and with the parts above, what its skills are made from.
   const named = skillsOf(parts, spec, config.options);
-  const navigation = named.navigation ?? config.navigation;
-  const skillParts: SkillParts = { legs, guard, navigation, executors: named.executors, actions: named.actions, support: named.support };
+  const navigation = named.navigations;
+  const skillParts: SkillParts = { legs, guards: guard, navigations: navigation, executors: named.executors, actions: named.actions, supports: named.supports };
 
   // The body, taken once from its host under command layers on its motor. Taking it hooks the mind to the world's step (`embody`).
   const layerOptions = { ...motorLayerOptions(motor, parts), ...host.experiment };
@@ -66,7 +67,7 @@ export function buildOptionMind(host: BodyHost, config: ResolvedConfig): OptionM
   const orders = (sight: Sight): Orders | null => host.orders(sight.view.senses);
   const evaluation = parts.of("predictions", config.predictions).make(config.predictions);
   const decider = evaluation.build({ spec, parts, rules: host.rules, seed: host.seed, phase: host.phase, hz, rate: hz / every, delay: body.delay,
-    legs, options: config.options, chooser: config.chooser, techniques: named.techniques, orders });
+    legs, guards: guard, options: config.options, chooser: config.chooser, techniques: named.techniques, orders });
 
   // The decider becomes the body's driver (`Body.drive`): it decides at its pace, and the skills carry each decision out.
   const driven = driveBy(body, decider, skills, { every, phase: host.phase, orders }, aimsState(aims));

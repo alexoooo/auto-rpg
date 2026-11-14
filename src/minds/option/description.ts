@@ -8,6 +8,8 @@ import type { ComponentDescription, MindDescription } from "../catalog/descripti
 import type { OptionMindConfig, ResolvedConfig } from "./config.ts";
 import { waysUpIn, withWaysUp } from "./rise.ts";
 import { skillsOf } from "./skills.ts";
+import { guardConfigs } from "../../skills/assembly/guards.ts";
+import { skillName } from "../../skills/framework/variations.ts";
 
 /**
  * Where `root`'s tree (a mind's config) configures the part `target` of role `wanted`, found by
@@ -42,7 +44,7 @@ export function describeOptionMind(spec: BodySpec, config: OptionMindConfig, res
 
   // Each Option, and what it names of the body's skills.
   const actions = resolved.options.flatMap((option, i) => {
-    const path = config.options == null ? null : ["options", i] as const;
+    const path = config.options == null || i >= config.options.length ? null : ["options", i] as const;
     const declaration = parts.of("option", option).skills?.(option, spec, parts, resolved.options);
     components.push({ config: option, role: "option", owner: `option:${i}`, path });
     for (const executor of declaration?.executors ?? []) {
@@ -50,18 +52,21 @@ export function describeOptionMind(spec: BodySpec, config: OptionMindConfig, res
       component(name, "executor", settings, path);
     }
     if (declaration?.technique) component(declaration.technique.kind, "technique", declaration.technique, path);
-    if (declaration?.support) component("support", "support", declaration.support, path);
-    if (declaration?.navigation) component("navigation", "navigation", declaration.navigation, path);
     return (declaration?.actions ?? []).map((action) => ({ action, path }));
   });
 
   // What lies under its skills (`FILLED`), then the navigation its walks go by.
   for (const place of Object.keys(FILLED) as (keyof typeof FILLED)[]) {
+    if (place === "guard") {
+      for (const guard of guardConfigs(parts, spec, config.tuning?.parts?.guard)) component(skillName(guard), "guard", guard);
+      continue;
+    }
     const selected = filledOf(parts, spec, place, config.tuning?.parts);
     component(place === "legs" ? "locomotion" : place, FILLED[place], selected,
       config.tuning?.parts?.[place] ? ["tuning", "parts", place] : null);
   }
-  component("navigation", "navigation", named.navigation ?? resolved.navigation);
+  for (const navigation of named.navigations) component(skillName(navigation), "navigation", navigation);
+  for (const support of named.supports) component(skillName(support), "support", support);
 
   const waysUp = waysUpIn(parts, spec, resolved.options);
   const recovery = { techniques: waysUp, replace: (next: readonly ConfigFor<"technique">[]) => ({ ...config, options: withWaysUp(parts, resolved.options, next) }) };

@@ -3,6 +3,7 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import { recordingKey } from "../../core/world/recording.ts";
+import { skillName, type Varied } from "../../skills/framework/variations.ts";
 
 /**
  * **What an Option's config names of its body's skills** (`OptionPart.skills`), where the body
@@ -22,21 +23,31 @@ export interface OptionSkills {
   readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
   readonly techniques: readonly ConfigFor<"technique">[];
-  readonly support: ConfigFor<"support"> | null;
-  readonly navigation: ConfigFor<"navigation"> | null;
+  readonly supports: readonly ConfigFor<"support">[];
+  readonly navigations: readonly ConfigFor<"navigation">[];
   readonly faults: readonly string[];
 }
 
 /**
  * **The skills a body of `spec` builds of `options`**: what each names of them on that body
  * (`OptionPart.skills`), each executor, action and technique once by its name or kind, in the
- * Options' order, and the low support and navigation the first that names one names (a mind's
- * Options name one of each, `optionMindFaults`). An Option whose skills the body does not fit names none.
+ * Options' order, and every enabled low support and navigation. Explicit settings configure the
+ * matching selected variation; conflicting settings are faults. An Option whose skills the body
+ * does not fit names none.
  */
 export function skillsOf(parts: PartLookup, spec: BodySpec, options: readonly PartConfig[]): OptionSkills {
   const executors: ExecutorEntry[] = [], actions: ActionConfig[] = [], techniques: ConfigFor<"technique">[] = [];
-  let support: ConfigFor<"support"> | null = null, navigation: ConfigFor<"navigation"> | null = null;
+  const supports = [...parts.selected("support", spec)];
+  const navigations = [...parts.selected("navigation", spec)], overridden = new Map<string, string>();
   const faults: string[] = [];
+  const configure = <T extends PartConfig>(configs: T[], selected: T & Varied): void => {
+    for (const [i, config] of configs.entries()) {
+      if (selected.kind !== config.kind || selected.variation !== undefined && selected.variation !== (config as Varied).variation) continue;
+      const next = { ...config, ...selected }, name = skillName(next), key = recordingKey(next);
+      if (overridden.has(name) && overridden.get(name) !== key) faults.push(`options: conflicting skill ${name}`);
+      else { configs[i] = next; overridden.set(name, key); }
+    }
+  };
   const add = <T extends { readonly name?: string; readonly kind?: string }>(values: T[], next: T, key: string, label: string): void => {
     const had = values.find(value => (value.name ?? value.kind) === key);
     if (had && recordingKey(had) !== recordingKey(next)) faults.push(`options: conflicting ${label} ${key}`);
@@ -48,10 +59,8 @@ export function skillsOf(parts: PartLookup, spec: BodySpec, options: readonly Pa
     for (const executor of named.executors ?? []) add(executors, executor, executor.name, "executor");
     for (const action of named.actions ?? []) add(actions, action, action.name, "action");
     if (named.technique) add(techniques, named.technique, named.technique.kind, "technique");
-    if (support && named.support && recordingKey(support) !== recordingKey(named.support)) faults.push("options: conflicting low supports");
-    if (navigation && named.navigation && recordingKey(navigation) !== recordingKey(named.navigation)) faults.push("options: conflicting navigations");
-    support ??= named.support ?? null;
-    navigation ??= named.navigation ?? null;
+    if (named.support) configure(supports, named.support);
+    if (named.navigation) configure(navigations, named.navigation);
   }
-  return { executors, actions, techniques, support, navigation, faults };
+  return { executors, actions, techniques, supports, navigations, faults };
 }

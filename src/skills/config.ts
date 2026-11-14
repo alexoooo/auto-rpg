@@ -50,10 +50,10 @@ declare module "../parts/lookup.ts" {
 /** **What a body's skills are made from** (`makeSkills`): its legs, its navigation, its guard, its executors and the actions they carry out, and its low support, each any part of its role. */
 export interface SkillParts {
   readonly legs: ConfigFor<"locomotion">;
-  readonly navigation: ConfigFor<"navigation">;
-  readonly guard: ConfigFor<"guard">;
+  readonly navigations: readonly ConfigFor<"navigation">[];
+  readonly guards: readonly ConfigFor<"guard">[];
   readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
-  /** Its low support (`LowSupportPart`), or none. */
-  readonly support: ConfigFor<"support"> | null;
+  /** Every enabled low support (`LowSupportPart`). */
+  readonly supports: readonly ConfigFor<"support">[];
 }

@@ -54,7 +54,7 @@ export function emptyRuns(parts: PartLookup, part: Part, config: PartConfig, slo
  * tree it is in.
  */
 export function leftOut(parts: PartLookup, part: Part, config: PartConfig, spec: BodySpec): boolean {
-  return heldBy(part, config).some(({ slot, parts: held }) => slot.skills === true && held.some((child) => {
+  return heldBy(part, config).some(({ slot, parts: held }) => slot.skills === true && !slot.optional && held.some((child) => {
     const skill: Part | null = parts.find(slot.role, child);
     return skill !== null && skill.fits(spec, child as PartConfig, parts) !== null;
   }));
@@ -69,6 +69,8 @@ export function partOf(parts: PartLookup, config: PartConfig): Part {
 
 /** **A part a walk has come to** (`eachPart`). */
 export interface PartAt {
+  /** The slot holding this part, absent for the root and implicit supplies. */
+  readonly slot?: Slot;
   readonly part: Part;
   readonly config: PartConfig;
   /** Where it is in the root's config; null where the config does not say it: a part supplies it (`Part.supplies`), or something above it. */
@@ -88,15 +90,15 @@ export type Walk = void | "skip" | "stop";
  * of the slot's role is passed over: the tree's faults say so (`treeFaults`).
  */
 export function eachPart(parts: PartLookup, config: PartConfig, visit: (at: PartAt) => Walk): void {
-  const walk = (part: Part, config: PartConfig, path: ConfigPath | null, at: string): boolean => {
-    const said = visit({ part, config, path, at });
+  const walk = (part: Part, config: PartConfig, path: ConfigPath | null, at: string, slot?: Slot): boolean => {
+    const said = visit({ part, config, path, at, slot });
     if (said === "stop") return true;
     if (said === "skip") return false;
     for (const { slot, path: place, parts: held } of heldBy(part, config)) {
       const below = at ? `${at}.${slot.key}` : slot.key, under = path === null ? null : [...path, ...place];
       for (const [i, child] of held.entries()) {
         const found: Part | null = parts.find(slot.role, child);
-        if (found && walk(found, child as PartConfig, under && slot.many ? [...under, i] : under, slot.many ? `${below}.${i}` : below)) return true;
+        if (found && walk(found, child as PartConfig, under && slot.many ? [...under, i] : under, slot.many ? `${below}.${i}` : below, slot)) return true;
       }
     }
     for (const one of part.supplies?.(config, parts) ?? []) {
@@ -116,8 +118,8 @@ export function eachPart(parts: PartLookup, config: PartConfig, visit: (at: Part
  */
 export function partRequirements(parts: PartLookup, config: PartConfig, spec: BodySpec): readonly Requirement[] {
   const found = new Set<Requirement>();
-  eachPart(parts, config, ({ part, config, path }) => {
-    if (leftOut(parts, part, config, spec) || path === null && part.fits(spec, config, parts) !== null) return "skip";
+  eachPart(parts, config, ({ part, config, path, slot }) => {
+    if (leftOut(parts, part, config, spec) || (path === null || slot?.skills && slot.optional) && part.fits(spec, config, parts) !== null) return "skip";
     for (const requirement of part.requires ?? []) found.add(requirement);
     return undefined;
   });
@@ -181,9 +183,10 @@ export function treeValidation(parts: PartLookup, config: PartConfig, at: string
  */
 export function fitRefusal(parts: PartLookup, spec: BodySpec, config: PartConfig, at = ""): string | null {
   let refusal: string | null = null;
-  eachPart(parts, config, ({ part, config: one, path, at: below }) => {
+  eachPart(parts, config, ({ part, config: one, path, at: below, slot }) => {
     if (path === null) return "skip";
     const own = part.fits(spec, one, parts), where = at && below ? `${at}.${below}` : at || below;
+    if (slot?.skills && slot.optional && own !== null) return "skip";
     if (own !== null) { refusal = where ? `${where}: ${own}` : own; return "stop"; }
     return leftOut(parts, part, one, spec) ? "skip" : undefined;
   });

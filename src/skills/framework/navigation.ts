@@ -73,6 +73,8 @@ export interface Clearance {
  * (`src/core/state.ts`); its `report` reads it.
  */
 export interface Navigator extends Clearance {
+  /** Select an enabled navigation variation for subsequent movement requests. */
+  select?(name: string | undefined): void;
   readonly state: object;
   readonly report: NavigationReport;
   /**

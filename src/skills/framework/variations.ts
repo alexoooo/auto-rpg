@@ -2,6 +2,10 @@ import { heldVariations, type BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ActionConfig } from "../config.ts";
 import type { Executor } from "./action.ts";
 import type { ExecutorMaking } from "./executor-part.ts";
+import type { PartConfig } from "../../parts/parts.ts";
+
+/** The name a decision uses for one held variation, also used in combat reports. */
+export const skillName = (config: PartConfig): string => `${config.kind}/${(config as Varied).variation ?? ""}`;
 
 /**
  * **A skill's variations**, by name (`Part.variations`): each what its part makes of it, `V`, by

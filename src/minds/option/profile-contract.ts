@@ -27,6 +27,7 @@ export interface ProfileOptionContext {
   readonly delay: number;
   readonly parts: PartLookup;
   readonly legs: PartConfig;
+  readonly guards?: readonly PartConfig[];
   /** Its mind's Options, as its config names them, in rank order. */
   readonly options: readonly PartConfig[];
   readonly tables: ProfileTables;

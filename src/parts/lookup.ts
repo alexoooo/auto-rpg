@@ -37,14 +37,15 @@ export interface PartLookup {
   /** The part `value` names where it is the config of a part of `role`; null where it is not, as a tree with a fault may hold (`eachPart`). */
   find<R extends Role>(role: R, value: unknown): RoleParts[R] | null;
   /**
-   * **The part that fills `role` on a body of `spec`**, as its config (its defaults): the one game
-   * part of the role that fits, or, where none fits, an experimental skill the character holds
-   * (`Part.variations`). Only toolkit parts participate. None or several at the preferred stage
-   * returns a refusal: two fitting one body is a fault of the build, never a pick.
+   * **A single service fitted to a body**: enabled skill variations and game infrastructure that
+   * fit `spec`, without preference between skill stages. None or several returns a refusal;
+   * repertoires with several choices use `selected` instead.
    */
   fitting<R extends Role & keyof RoleConfigs>(role: R, spec: BodySpec): ConfigFor<R> | string;
-  /** All toolkit parts `fitting` can select: game parts and experimental skills a character may enable. */
+  /** Every toolkit part of `role`, so a mind can declare its possible dependencies. */
   candidates<R extends Role & keyof RoleConfigs>(role: R): readonly ConfigFor<R>[];
+  /** Every held variation of `role` that fits the body, without stage or registration-order preferences. */
+  selected<R extends Role & keyof RoleConfigs>(role: R, spec: BodySpec): readonly ConfigFor<R>[];
   /** **Every game part of `role`** (the toolkit's), as its config. */
   game<R extends Role & keyof RoleConfigs>(role: R): readonly ConfigFor<R>[];
 }

@@ -16,6 +16,10 @@ export interface GuardSkill extends Skill {
   readonly state?: object;
   /** The reference posture of channels left free by discrete actions. */
   readonly posture: Pose;
+  /** All channels this service can write, for guards selected during combat. */
+  readonly channels?: readonly string[];
+  /** Select an enabled guard by its `skill/variation` name; absent, this is one fixed guard. */
+  select?(name: string | undefined, view: BodyView): void;
   /** A point task for a free effector, or null to retain the reference posture. */
   readonly hold: ((effector: string) => PointTask | null) | null;
   /** The configuration requested for a free segment; absent or null retains its previous request. */
@@ -32,6 +36,8 @@ export interface GuardSkill extends Skill {
 export interface GuardPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "guard";
   readonly keys: KeysOf<C>;
+  /** This guard can actively cover an incoming blow. */
+  readonly covering?: true;
   /** The segments of `spec` whose held item it covers with: a declared use of what they hold (`Controller.supportedEquipment`). */
   supportedEquipment?(spec: BodySpec, config: C): readonly string[];
   /** The arms' rest a body of `spec` holds under `config`, before any skill is made: what it is built in. */

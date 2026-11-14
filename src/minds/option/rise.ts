@@ -205,18 +205,9 @@ function groundKind<K extends string>(kind: K, label: string, technique: Techniq
 /** **A way up** (`attempt`): its technique's edges, priced by its profile, else by hand. */
 export const WAY_UP_OPTION = groundKind("way-up", "Way up", "staged-roll", { purpose: "ascent" }, (given, config, part) => [wayUp(given, config, part, part.edges)]);
 
-/**
- * **A reposition**: a way up from a posture none of its mind's ways up (`WAY_UP_OPTION`) that fit
- * the body begins from, as the game's Stand up repositions only where no way up stands the body:
- * the body it leaves is not one the ways up were made from.
- */
-export const REPOSITION_OPTION = groundKind("reposition", "Reposition", "roll", { purpose: "fallback" }, (given, config, part) => {
-  const begun = new Set(waysUpIn(given.parts, given.spec, given.options).flatMap((skill) => {
-    const way = given.parts.of("technique", skill);
-    return way.fits(given.spec, skill, given.parts) === null ? way.edges.map((edge) => edge.from) : [];
-  }));
-  return [wayUp(given, config, part, part.edges.filter((edge) => !begun.has(edge.from)))];
-});
+/** Every enabled reposition's own transitions, competing with ascent choices through the chooser. */
+export const REPOSITION_OPTION = groundKind("reposition", "Reposition", "roll", { purpose: "fallback" },
+  (given, config, part) => [wayUp(given, config, part, part.edges)]);
 
 /** **Flatten** (`attempt`): the body laid flat on the side it lies on, priced as a way up to that lie: by its profile where one is measured, by hand else (`groundWay`, `WAY_PRIOR`). */
 export const FLATTEN_OPTION = groundKind("flattening", "Flatten", "flatten", null, (given, config, part) => {

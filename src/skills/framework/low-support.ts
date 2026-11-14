@@ -11,6 +11,7 @@ export interface LowSupportReport {
 
 /** A service that carries eligible legs goals through its supported transition. */
 export interface LowSupportSkill extends Skill {
+  select?(name: string | undefined, view: BodyView): void;
   readonly state: object;
   readonly report: LowSupportReport;
   /** Whether this service carries the goal's requested support. */

@@ -76,7 +76,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const on = attachment(body.built);
   const instances = actionInstances(executors, actions, resources, { attached: (effector) => on(body.built.segments.get(effector)!) }), guarding = guard.posture;
   // The guard's posture is a constant: its channels are read once, not every step. So are the slots of the guard's hands and of each effector's chain.
-  const guardChannels = Object.keys(guarding), guardSlots = guardChannels.map((channel) => resources.channel.get(channel) ?? -1);
+  const guardChannels = guard.channels ?? Object.keys(guarding), guardSlots = guardChannels.map((channel) => resources.channel.get(channel) ?? -1);
   const guardEffectors = guard.effectors.map((hand) => resources.effector.get(hand) ?? -1), guardPoses = guard.effectors.map((hand) => resources.pose.get(hand) ?? -1);
   const modelEffectors = models.map((model) => resources.effector.get(model.segment) ?? -1);
   const modelChannels = models.map((model) => model.channels.map((channel) => resources.channel.get(channel) ?? -1));
@@ -100,7 +100,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const open = new Uint8Array(count);
   const contacts: ActionContact[] = [];
   const around: ActionAround = { get heading() { return legs.heading; }, get placed() { return legs.placed ?? false; },
-    support: support?.report ?? null, walk: null, get lower() { return legs.lower; } };
+    get support() { return support?.report ?? null; }, walk: null, get lower() { return legs.lower; } };
   const context = (intent: Intent): ActionAround => ({ ...around, walk: intent.move, lower: intent.lower ?? legs.lower });
   /** Whether the defaults write `slot` this step (`open`); a slot the body has not (-1) no action holds. */
   const available = (slot: number): boolean => slot < 0 || open[slot] === 1;
@@ -184,6 +184,9 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       state.unstanced = false;
     },
     command(view: BodyView, requested: Intent, dt: number): BodyCommand {
+      guard.select?.(requested.guardSkill, view);
+      navigation?.select?.(requested.navigationSkill);
+      support?.select?.(requested.supportSkill, view);
       if (!navigation && requested.movement) throw new Error("a movement request to a skill set with no navigation");
       const intent = navigated(navigation, { view, report }, legs, body.envelope, requested, dt, state.walkable && (!support || support.walks()));
       const near = context(intent);
@@ -213,7 +216,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       state.defaultOwners.fill(MOTOR);
       for (let i = 0; i < guardChannels.length; i++) {
         const channel = guardChannels[i]!, slot = guardSlots[i]!;
-        if (available(slot)) { posture[channel] = guarding[channel]!; owned(slot, GUARD); }
+        if (guarding[channel] !== undefined && available(slot)) { posture[channel] = guarding[channel]!; owned(slot, GUARD); }
       }
       const covers = guard.command(view, intent.guard);
       state.covering.length = 0;

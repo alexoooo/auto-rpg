@@ -8,7 +8,8 @@
  * - `standing-array`: the same, with one `new Array(4096)` made first in every step.
  * - `down`: the Warrior lying on its back, 240 steps read from 3 s, with the ground reader active.
  * - `fall`: the Skeleton's first fall of the stand-up target on the fall bed (`buildFall`), its
- *   stand verified as the evaluation verifies it (`standCheck`), 240 steps read from 3 s, as it rises.
+ *   stand verified as the evaluation verifies it (`standCheck`), 240 steps read from 3 s or its
+ *   first later takeover, as it rises.
  * - `mind`: the mind `id` (`MINDS`) on both sides of a bout of `model`s 3 m apart, each holding
  *   `held` in its right hand under its preset's character, 240 steps read from 2 s.
  */
@@ -66,7 +67,8 @@ async function fall() {
   const steps = 240, step = () => { built.world.step(); built.afterStep(); };
   try {
     for (let i = 0; i < 3 * built.world.hz; i++) step();
-    if (built.state.check.takeover === null) throw new Error("the allocation fixture is not down by 3 s");
+    while (built.state.check.takeover === null && !built.ended) step();
+    if (built.state.check.takeover === null) throw new Error("the allocation fixture never fell before its bed ended");
     const { bytes } = await allocatedIn(() => { for (let i = 0; i < steps; i++) step(); });
     if (built.ended || built.state.check.verified !== null) throw new Error("the fall was verified inside the steps read");
     return bytes / steps / 1024;

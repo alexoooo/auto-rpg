@@ -10,7 +10,7 @@ import { deepFreeze } from "../../../core/state.ts";
 import { fitsPaws } from "../../../control/quadruped/fit.ts";
 import { type Gait } from "../shared/quadruped/parts.ts";
 import { pawEndpoints, pawReader } from "../../../control/quadruped/paws.ts";
-import { GAIT_NAMES, pawLegs, type PawGaitName } from "./paw-move/paw-legs.ts";
+import { GAIT_NAMES, pawLegs, type PawGaitName } from "../shared/quadruped/paw-legs.ts";
 
 /** **The paw legs**' config: the gait it travels by and the one it crawls by (`PawGaitPart`), the stock ones where it names none. */
 interface PawMoveConfig extends Varied { readonly kind: "paw-move"; readonly trot?: ConfigFor<"paw-gait">; readonly crawl?: ConfigFor<"paw-gait"> }
@@ -22,18 +22,20 @@ const STOCK = deepFreeze({ trot: { kind: "paw-trot" }, crawl: { kind: "paw-crawl
 const LABELS: Readonly<Record<PawGaitName, string>> = Object.freeze({ trot: "Trot", crawl: "Crawl" });
 
 /** The paw legs' slots: a gait part for the trot and one for the crawl, each the stock one (`STOCK`) where empty. */
-const PAW_SLOTS = Object.freeze([slotOne("trot", "Trot", "paw-gait", true), slotOne("crawl", "Crawl", "paw-gait", true)]);
+const PAW_SLOTS = Object.freeze([slotOne("trot", "Trot", "paw-gait", true), slotOne("crawl", "Crawl", "paw-gait", true)].map(slot => ({ ...slot, skills: true })));
 
 /** The paw legs' variations: the paw legs. */
 const VARIATIONS = {
   "paw-move"(body: Body, config: PawMoveConfig, legs: Legs): Locomotion {
     const built = body.built, root = body.muscles.dynamics.root.segment, reading = pawReader(built).state, names = pawEndpoints(built).map((paw) => paw.segment);
     const reads = { centre: reading.centre, velocity: reading.velocity, feet: reading.endpoints };
-    const gait = (name: PawGaitName): Gait => {
+    const gaits: Partial<Record<PawGaitName, Gait>> = {};
+    for (const name of GAIT_NAMES) {
       const given = config[name] ?? STOCK[name];
-      return legs.parts.of("paw-gait", given).make(built, root, reads, names, given);
-    };
-    return pawLegs(body, gait("trot"), gait("crawl"));
+      const part = legs.parts.of("paw-gait", given);
+      if (part.fits(built.spec, given, legs.parts) === null) gaits[name] = part.make(built, root, reads, names, given);
+    }
+    return pawLegs(body, gaits);
   },
 };
 
@@ -41,7 +43,11 @@ const VARIATIONS = {
 export const PAW_MOVE = deepFreeze<LocomotionPart<PawMoveConfig>>({
   role: "locomotion", requires: [SUPPORT_REFERENCE], label: "Paw gaits", stage: "game", fields: [], defaults: { kind: "paw-move" }, keys: { kind: true, variation: true, trot: true, crawl: true },
   slots: PAW_SLOTS, supplies: (config) => whenEmpty(PAW_SLOTS, config, STOCK),
-  fits: fitsAll(variationFault("paw-move", "paw gaits", VARIATIONS), fitsPaws), faults: () => [],
+  fits: fitsAll<PawMoveConfig>(variationFault("paw-move", "paw gaits", VARIATIONS), fitsPaws,
+    (spec, config, parts) => GAIT_NAMES.some(name => {
+      const gait = config[name] ?? STOCK[name];
+      return parts.of("paw-gait", gait).fits(spec, gait, parts) === null;
+    }) ? null : "has no enabled paw gait"), faults: () => [],
   gaits: (config) => GAIT_NAMES.map((name) => ({ name, label: LABELS[name], legs: config[name] ?? STOCK[name] })),
   make: variedMake("paw-move", VARIATIONS, (body, config) => [body.built.spec, config]),
   skillGroup: "Travel", variations: Object.keys(VARIATIONS),

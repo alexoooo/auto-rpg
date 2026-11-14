@@ -12,10 +12,10 @@ import type { LegsAsked } from "../../../framework/skill.ts";
 import { derive } from "../../../../core/quantity.ts";
 import { deepFreeze } from "../../../../core/state.ts";
 import { soleGoal } from "../../../../control/quadruped/motion.ts";
-import { STAND_TRAVEL, type TravelOrders } from "../../shared/quadruped/travel.ts";
-import { type Gait, type GaitReach } from "../../shared/quadruped/parts.ts";
+import { STAND_TRAVEL, type TravelOrders } from "./travel.ts";
+import { type Gait, type GaitReach } from "./parts.ts";
 import { pawEndpoints, pawReader, pawView } from "../../../../control/quadruped/paws.ts";
-import { REPTILE_CRAWL, REPTILE_TROT } from "../../shared/quadruped/tuning.ts";
+import { REPTILE_CRAWL, REPTILE_TROT } from "./tuning.ts";
 import { pawsOf } from "../../../../core/bodies/spec/body.ts";
 
 /** The gaits the paw legs go by, by name (`LegsGoal.gait`), in the order a walk offers them. */
@@ -53,25 +53,26 @@ function envelopeOf(name: PawGaitName, reach: GaitReach): StanceEnvelope {
  * once asked to slow, and it has placed its paws once its gait has settled and it is not finding
  * its footing. Its memory is its gaits', the gait it goes by, its footing and each paw's path.
  */
-export function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
+export function pawLegs(body: Body, gaits: Readonly<Partial<Record<PawGaitName, Gait>>>): Locomotion {
   const { built, view } = body, paws = pawEndpoints(built), reading = pawReader(built).state, seen = pawView(built, view);
-  const root = body.muscles.dynamics.root.segment, gaits: Readonly<Record<PawGaitName, Gait>> = { trot, crawl: creep };
-  const envelopes: Readonly<Record<PawGaitName, StanceEnvelope>> = { trot: envelopeOf("trot", trot.reach), crawl: envelopeOf("crawl", creep.reach) };
-  const limits: Readonly<Record<PawGaitName, GaitLimits>> = Object.freeze({ trot: Object.freeze({ envelope: envelopes.trot, stopping: trot.travel.stopping, lag: 0 }),
-    crawl: Object.freeze({ envelope: envelopes.crawl, stopping: creep.travel.stopping, lag: 0 }) });
+  const root = body.muscles.dynamics.root.segment, names = GAIT_NAMES.filter(name => gaits[name] !== undefined), creep = gaits.crawl;
+  if (!names.length) throw new Error("paw legs need an enabled gait");
+  const envelopes = Object.fromEntries(names.map(name => [name, envelopeOf(name, gaits[name]!.reach)]));
+  const limits: Readonly<Record<string, GaitLimits>> = Object.freeze(Object.fromEntries(names.map(name =>
+    [name, Object.freeze({ envelope: envelopes[name]!, stopping: gaits[name]!.travel.stopping, lag: 0 })])));
   const state = {
-    kind: "trot" as PawGaitName, reacquire: false, homeAt: 0, stable: 0, pace: 0,
+    kind: names[0]!, reacquire: false, homeAt: 0, stable: 0, pace: 0,
     /** The support's count (`SupportGoal.sequence`): a gait changed or the footing sought afresh. */
     support: 0,
     // Where each paw's travel path began, on the ground, and which path that was (its gait's sequence, twice, and whether it bears).
     swing: { key: paws.map(() => -1), start: paws.map(() => [0, 0, 0] as [number, number, number]) },
-    trot: trot.state, crawl: creep.state,
+    trot: gaits.trot?.state ?? null, crawl: creep?.state ?? null,
   };
   const frame = { position: new Vector3(), rotation: new Quaternion() }, target = new Vector3(), inverse = new Quaternion(), desired = new Quaternion();
   const flat = new Quaternion(), lift = new Vector3(), descending = new Vector3(), still = new Vector3(), carried = new Vector3(), spin = new Vector3();
   const origin = new Vector3(), drift = new Vector3(), grounded = { origin, drift, firm: false, response: 0 };
   const support = paws.map(() => ({ corners: [new Vector3()] })), loaded: typeof support = [];
-  const resumeGaits = (): void => { trot.resume(seen); creep.resume(seen); state.support++; };
+  const resumeGaits = (): void => { for (const name of names) gaits[name]!.resume(seen); state.support++; };
   /** The orders `goal` asks of a gait: its walk a share of that gait's travel, world, and its facing. */
   const ordersOf = (goal: LegsAsked, heading: number, speed: number): TravelOrders => {
     const walk = goal.walk, s = sin(heading), c = cos(heading);
@@ -79,25 +80,25 @@ export function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
       face: { x: sin(goal.face), z: cos(goal.face) } };
   };
   const goalOf = (view: BodyView, goal: LegsAsked, dt: number): SupportGoal => {
-    const placing = creep.state.placed < state.homeAt;
-    if (state.reacquire && !placing && creep.state.phase === "settle") {
+    const placing = !!creep && creep.state.placed < state.homeAt;
+    if (state.reacquire && creep && !placing && creep.state.phase === "settle") {
       const stable = seen.feet.every((foot) => foot.contact && foot.flat) && seen.velocity.lengthSquared() < REPTILE_TROT.resumeSpeed * REPTILE_TROT.resumeSpeed;
       state.stable = stable ? state.stable + dt : 0;
       if (state.stable >= REPTILE_TROT.resumeHold) state.reacquire = false;
     }
-    const named = goal.gait === "trot" || goal.gait === "crawl" ? goal.gait : null;
-    const wanted: PawGaitName = state.reacquire ? "crawl" : named ?? (goal.walk ? "trot" : state.kind);
-    const asked = ordersOf(goal, view.stance.facing, gaits[wanted].travel.speed);
+    const named = names.find(name => name === goal.gait);
+    const wanted: PawGaitName = state.reacquire ? "crawl" : named ?? (goal.walk && gaits.trot ? "trot" : state.kind);
+    const asked = ordersOf(goal, view.stance.facing, gaits[wanted]!.travel.speed);
     const movement: TravelOrders = state.reacquire ? placing ? { move: { x: 0, z: 0 }, face: asked.face } : STAND_TRAVEL : asked;
-    let active = gaits[state.kind];
+    let active = gaits[state.kind]!;
     if (wanted !== state.kind && active.state.phase === "settle") {
-      state.kind = wanted; active = gaits[wanted];
+      state.kind = wanted; active = gaits[wanted]!;
       active.resume(seen); state.support++;
     }
     const T = active.settings, walking = wanted !== state.kind ? STAND_TRAVEL : movement;
     state.pace = walking.move ? hypot(walking.move.x, walking.move.z) * active.travel.speed : 0;
-    const command = state.kind === "crawl" ? creep.command(seen, walking, dt, goal.height === undefined ? creep.settings.crawlHeight : goal.height / supportHeight(view))
-      : trot.command(seen, walking, dt);
+    const command = active.command(seen, walking, dt, state.kind === "crawl"
+      ? goal.height === undefined ? active.settings.crawlHeight : goal.height / supportHeight(view) : undefined);
     const centre: [number, number, number] = [command.centre[0], command.centre[1], command.centre[2]];
     if (goal.centre) {
       let bearing = 0;
@@ -139,17 +140,17 @@ export function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
     supports: Object.freeze(pawsOf(built.spec).map(paw => paw.name)),
     lower: 0,
     get heading() { return view.stance.facing; },
-    get stopping() { return gaits[state.kind].travel.stopping; },
+    get stopping() { return gaits[state.kind]!.travel.stopping; },
     lag: 0,
     get pace() { return state.pace; },
-    get placed() { return !state.reacquire && gaits[state.kind].state.phase === "settle"; },
+    get placed() { return !state.reacquire && gaits[state.kind]!.state.phase === "settle"; },
     get gait() { return state.kind; },
     get envelope() { return envelopes[state.kind]; },
-    gaits: GAIT_NAMES,
-    limitsOf: (name) => name === "trot" || name === "crawl" ? limits[name] : null,
+    gaits: names,
+    limitsOf: name => limits[name] ?? null,
     resume() {
       resumeGaits();
-      state.kind = "crawl"; state.reacquire = true; state.homeAt = creep.state.placed + paws.length; state.stable = 0;
+      state.kind = creep ? "crawl" : names[0]!; state.reacquire = !!creep; state.homeAt = (creep?.state.placed ?? 0) + paws.length; state.stable = 0;
     },
     goal(view: BodyView, goal: LegsAsked, dt: number): LegsDrive {
       return { kind: "support", goal: goalOf(view, goal, dt) };

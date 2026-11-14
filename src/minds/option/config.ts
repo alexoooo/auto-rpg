@@ -5,8 +5,9 @@ import { FILLED, type Filled } from "../../skills/assembly/filled.ts";
 /**
  * **An Option Mind's config**: the selected chooser, decision provider, options and decision rate.
  * Omitted or null options and predictions use the values supplied by the calling assembly
- * (`OptionAssembly`, `resolveConfig`); an explicit empty option list stays empty. Research tuning
- * replaces the configured continuous services by their declared place.
+ * (`OptionAssembly`, `resolveConfig`). The profile model also offers a default use of any selected
+ * strike variation the configured list omits. Research tuning replaces the configured continuous
+ * services by their declared place.
  */
 export interface OptionMindConfig {
   readonly kind: "option";
@@ -22,20 +23,19 @@ export interface OptionMindConfig {
 /** `config` on the legs `legs` (role `locomotion`) in place of those its body fits: an experiment's (`OptionMindConfig.tuning`). */
 export const withLegs = (config: OptionMindConfig, legs: ConfigFor<"locomotion">): OptionMindConfig => ({ ...config, tuning: { ...config.tuning, parts: { ...config.tuning?.parts, legs } } });
 
-/** The defaults the calling composition supplies: the Options, chooser and predictions a config that names none takes, and the navigation its walks go by where no Option names one. */
+/** The Options, chooser and predictions supplied where a config names none. */
 export interface OptionAssembly {
   readonly options: readonly ConfigFor<"option">[];
   readonly chooser: ConfigFor<"chooser">;
   readonly predictions: ConfigFor<"predictions">;
-  readonly navigation: ConfigFor<"navigation">;
 }
 
 /** **A config with its assembly's defaults filled in** (`resolveConfig`): what the checks, the description and the build read. */
-export type ResolvedConfig = OptionMindConfig & { readonly options: readonly ConfigFor<"option">[]; readonly predictions: ConfigFor<"predictions">; readonly navigation: ConfigFor<"navigation"> };
+export type ResolvedConfig = OptionMindConfig & { readonly options: readonly ConfigFor<"option">[]; readonly predictions: ConfigFor<"predictions"> };
 
-/** `config` with `assembly`'s options and predictions where it names none, and `assembly`'s navigation. */
+/** `config` with `assembly`'s options and predictions where it names none. */
 export const resolveConfig = (config: OptionMindConfig, assembly: OptionAssembly): ResolvedConfig => ({ ...config, options: config.options ?? assembly.options,
-  predictions: config.predictions ?? assembly.predictions, navigation: assembly.navigation });
+  predictions: config.predictions ?? assembly.predictions });
 
 /** Whether `value` is a record of settings: an object that is no array. */
 export const isSettings = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);

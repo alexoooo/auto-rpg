@@ -3,7 +3,7 @@ import type { GaitName, Skill, LegsAsked, LegsUnmet } from "./skill.ts";
 import type { Body, BodyView, BodyCommand } from "../../control/body.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
-import type { BearingEnd } from "../../core/bodies/spec/body.ts";
+import type { BearingEnd, BodySpec } from "../../core/bodies/spec/body.ts";
 import type { StanceEnvelope } from "../../control/stance/stance-envelope.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import type { SupportGoal } from "../../control/supported-motor.ts";
@@ -30,7 +30,7 @@ export interface LocomotionPart<C extends PartConfig = PartConfig> extends Part<
   /** The legs' skill of `config` for `body`; `legs` makes its gaits' legs. */
   make(body: Body, config: C, legs: Legs): Locomotion;
   /** The gaits legs of `config` go by, by name (`LegsGoal.gait`), which a walk names; none for legs that go by no gait by name. */
-  gaits?(config: C): readonly { readonly name: GaitName; readonly label: string; readonly legs: PartConfig }[];
+  gaits?(config: C, spec: BodySpec, parts: PartLookup): readonly { readonly name: GaitName; readonly label: string; readonly legs: PartConfig }[];
 }
 
 /**

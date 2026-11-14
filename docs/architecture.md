@@ -253,10 +253,18 @@ given the same groups in what it sees (`Sight`, `sightOf`).
 - **Parts.** Each kind is a line of its role's list (`EXECUTORS`, `GUARDS` and the like), its
   module owning its config's keys, defaults, faults, fit and maker. A body builds only the skills
   it fits (`Slot.skills`). What lies under every skill (the motor,
-  the legs, the guard) is the one game part of its role that fits the body (`PartLookup.fitting`,
-  `filledOf`), or an enabled experimental skill where no game part fits. Several fitting at the
-  preferred stage is a fault of the build; an experiment can pass a part in explicitly
-  (`OptionMindConfig.tuning`).
+  the motor and the automatic locomotion policy) is fitted to the body (`PartLookup.fitting`,
+  `filledOf`). Every enabled variation of a skill is available without a stage preference
+  (`PartLookup.selected`). Guards, navigations and low supports are repertoires: each controller
+  is built once, with its own memory, and the mind's intent names the one to use. The chooser
+  offers each enabled guard, each planner with each enabled gait, and each selected strike,
+  including experimental blows. Selected strike variations omitted by a preset use their skill's
+  default strike template (`selectedOptions`); configured uses retain their own settings. A shared
+  guard resource prevents simultaneous conflicting guard
+  choices. Controller choices and memories are saved together. Several guards start in the body's
+  reference pose until the mind chooses. Without an automatic movement policy, selected native
+  gaits remain available through `gait-choice`; without a selected gait it supplies no locomotion
+  command. An experiment can pass explicit parts in (`OptionMindConfig.tuning`).
   Admission resolves stock settings plus overrides through the implementation's execution
   predicate. Skill assembly constructs configured aims once and roots their memory in `Skills.state`.
 - **Tuned per body**: a skill that reads a record (`Part.reads`: the blows, step up's and the
@@ -373,8 +381,8 @@ failed try, and the staged roll's next try rolls over its other side. A posture 
 stance stands on it stands, on its trunk it lies (named by the side up), and between it is named by
 the ends that bear it. A way up names the postures it begins from and reaches (its `edges`), begun
 `moving` or `still`, handing the body on at the first cut read slow enough (`CUTS`, `HAND_OVER`);
-the Lab's ways up (`STAND_UP`, `src/app/browser/lab/ground-scenario.ts`) reach standing from the back and
-the front (`standUpFaults`). The
+the Lab's ways up (`STAND_UP`, `src/app/browser/lab/ground-scenario.ts`) describe the routes to standing.
+The
 Option Mind prices each way up, flatten and a brace that waits for one by their profiles from
 where each was begun (`assets/skills/recovery/edge-profiles.json`, `research/skills/recovery/edge-profiles.mjs`: its own tries
 in falls the stand-up target does not play, each until its next choice), as every Option is
@@ -655,13 +663,13 @@ The profile model supplies these components:
   A way up is priced by its profile from where it is begun (seconds, chance, where its failures
   rest), and where it ends by the search; lying is priced by the brace and the ways up that begin
   there; a brace while tumbling is also on offer where a way up begins but none admits the body yet,
-  priced as the wait until one does; a reposition is on offer only from a posture none of its
-  mind's ways up that fit the body begins from. Every Option's tries in the bout are kept in one
+  priced as the wait until one does; each enabled reposition retains its own transitions and
+  competes with the ascents through the chooser. Every Option's tries in the bout are kept in one
   record (`OptionRecord`), each priced by its profile, else by hand (`Prior`), until its tries move
   it (`recorded`). The
   reader keeps what the rise needs of them (`riseMemory`: whether it runs, the seconds braced
-  tumbling, the steady's try). A config whose ways up leave no route to standing from the back or
-  from the front is a fault (`standUpFaults`).
+  tumbling, the steady's try). A character may enter with a partial recovery repertoire; the mind
+  chooses among the techniques that character holds.
 
 **The game's default presets use the Option Mind.** They serve the humanoids and the bodies on
 paws alike: what lies under the skills is the part of its role that fits the body, and a body

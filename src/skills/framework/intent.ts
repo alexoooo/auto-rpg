@@ -33,6 +33,12 @@ export interface Intent {
    * guarded (`src/skills/guard/shared/guard.ts`); a hand an attack has does not guard.
    */
   readonly guard: Readonly<Partial<Record<string, Cover | null>>>;
+  /** The enabled guard variation chosen by the mind. */
+  readonly guardSkill?: string;
+  /** The enabled navigation variation chosen by the mind. */
+  readonly navigationSkill?: string;
+  /** The enabled low support chosen by the Option using it. */
+  readonly supportSkill?: string;
   /** How far under its standing height to hold the centre of mass, m; `STANCE_LOWER` when not given. */
   readonly lower?: number;
   /** Discrete commitments requested on this control step. */
@@ -93,13 +99,20 @@ const claimsLegs = (claims: readonly Resource[]): boolean => hasResource(claims,
  */
 export function intentOfSet(set: readonly SelectedAsk[], idle: () => Omit<Intent, "guard" | "actions">): Intent {
   let legs: SelectedAsk["asked"] | null = null;
+  const services: Partial<Record<"guardSkill" | "supportSkill", string>> = {};
   const actions: ActionRequest[] = [], held: Resource[] = [], guard: Record<string, Cover> = {};
   for (const { claims, holds, asked } of set) {
     for (const action of asked.actions) actions.push(action);
     for (const resource of holds) if (!hasResource(held, resource)) held.push(resource);
     if (asked.guard) Object.assign(guard, asked.guard);
+    for (const field of SERVICE_CHOICES) if (asked[field] !== undefined) {
+      if (services[field] !== undefined && services[field] !== asked[field]) throw new Error(`two ${field} choices on the same step`);
+      services[field] = asked[field];
+    }
     if (legs === null && claimsLegs(claims)) legs = asked;
   }
   for (const hand of Object.keys(guard)) if (hasResource(held, segmentResource(hand))) delete guard[hand];
-  return { ...(legs ?? idle()), actions, guard: { ...NO_COVER, ...guard } };
+  return { ...(legs ?? idle()), actions, guard: { ...NO_COVER, ...guard }, ...services };
 }
+
+const SERVICE_CHOICES = ["guardSkill", "supportSkill"] as const;

@@ -217,7 +217,7 @@ test("replacement paw gaits normalize both travel axes and supply their own brak
   try {
     const gaits = { customTrot: gait("trot", 2, .7), customCrawl: gait("crawl", 4, 1.1) };
     const legs = PAW_MOVE.make(body.commanded, { kind: "paw-move", trot: { kind: "customTrot" }, crawl: { kind: "customCrawl" } },
-      { parts: { of: (_role, config) => ({ make: () => gaits[config.kind] }) } });
+      { parts: { of: (_role, config) => ({ fits: () => null, make: () => gaits[config.kind] }) } });
     legs.goal(body.view, { walk: [1, .5], face: 0, gait: "trot" }, body.commanded.dt);
     assert.deepEqual(seen.trot, { move: { x: .25, z: .5 }, face: { x: 0, z: 1 } });
     assert.equal(legs.stopping, .7);
@@ -356,8 +356,8 @@ test("Option skills assemble with physical feet alone and an effector named assi
     const stand = await coreStand(spec), actor = stockBody(stand.built, stand.world, { servoSeconds: .1 });
     let skills;
     try {
-      skills = makeSkills(actor.commanded, stand.world.clock, partLookup, { legs: partLookup.fitting("locomotion", spec), guard: partLookup.fitting("guard", spec), navigation: partLookup.game("navigation")[0],
-        actions: [], executors: [], support: null });
+      skills = makeSkills(actor.commanded, stand.world.clock, partLookup, { legs: partLookup.fitting("locomotion", spec), guards: partLookup.selected("guard", spec), navigations: [partLookup.game("navigation")[0]],
+        actions: [], executors: [], supports: [] });
       actor.drive((view, dt) => skills.command(view, standIntent(0), dt));
       stand.step(120);
       assert.equal(actor.view.down, false, "the assembled services hold the altered body standing");
@@ -405,8 +405,8 @@ test("default skill assembly roots the one configured memoryful aim", async () =
   const navigation = partLookup.game("navigation")[0];
   let skills;
   try {
-    skills = makeSkills(body.commanded, stand.world.clock, custom, { legs: partLookup.fitting("locomotion", stock), guard: partLookup.fitting("guard", stock), navigation,
-      support: null, executors: [{ kind: "read-aim", name: "reader" }], actions: [{ name: "remember", executor: "reader", effectors: [], aim: { kind: "remember-aim" } }] });
+    skills = makeSkills(body.commanded, stand.world.clock, custom, { legs: partLookup.fitting("locomotion", stock), guards: partLookup.selected("guard", stock), navigations: [navigation],
+      supports: [], executors: [{ kind: "read-aim", name: "reader" }], actions: [{ name: "remember", executor: "reader", effectors: [], aim: { kind: "remember-aim" } }] });
     assert.equal(made, 1);
     const target = { kind: "point", at: [0, 0, 0] };
     aim(body.view, target, "remember", "hand.left");

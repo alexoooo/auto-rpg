@@ -19,12 +19,13 @@ export type TargetResolver = (view: BodyView, target: TargetRef, action: string,
 
 /** Physical identifiers stay separate from continuous services and configuration channels. */
 export type Resource = { readonly kind: "segment" | "pose"; readonly name: string }
-  | { readonly kind: "service"; readonly name: "legs" | "trunk" | "assist" | "*" };
+  | { readonly kind: "service"; readonly name: "legs" | "trunk" | "guard" | "assist" | "*" };
 
 export const segmentResource = (name: string): Resource => Object.freeze({ kind: "segment", name });
 export const poseResource = (name: string): Resource => Object.freeze({ kind: "pose", name });
 export const LEG_RESOURCE: Resource = Object.freeze({ kind: "service", name: "legs" });
 export const TRUNK_RESOURCE: Resource = Object.freeze({ kind: "service", name: "trunk" });
+export const GUARD_RESOURCE: Resource = Object.freeze({ kind: "service", name: "guard" });
 export const ASSIST_RESOURCE: Resource = Object.freeze({ kind: "service", name: "assist" });
 export const BODY_RESOURCE: Resource = Object.freeze({ kind: "service", name: "*" });
 

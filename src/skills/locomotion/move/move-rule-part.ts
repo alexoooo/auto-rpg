@@ -3,7 +3,7 @@ import { choice, type PartField } from "../../../parts/fields.ts";
 import type { ConfigFor } from "../../../parts/lookup.ts";
 import { anyBody, type KeysOf, type Part, type PartConfig } from "../../../parts/parts.ts";
 import { STOCK_GAITS } from "./gaits.ts";
-import type { MoveRule } from "./move/move.ts";
+import type { MoveRule } from "../shared/move.ts";
 
 /** The stock gaits (`STOCK_GAITS`) as a choice offers them; a gait a config adds is named in its config. */
 export const GAIT_CHOICES = STOCK_GAITS.map((gait): [GaitName, string] => [gait.name, gait.label]);

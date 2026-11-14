@@ -3,7 +3,7 @@ import type { MindConfig } from "./config.ts";
 import type { Controller, MindPreset } from "./controller.ts";
 import { heldVariations, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { scopeOf, type Entrant } from "./entrant.ts";
-import type { PartLookup, RoleParts } from "../../parts/lookup.ts";
+import type { PartLookup, RoleParts, RoleConfigs } from "../../parts/lookup.ts";
 import type { Part, PartConfig, Role } from "../../parts/parts.ts";
 import { eachPart, fitRefusal, partOf, replacedAt, treeValidation, withoutTuning } from "../../parts/tree.ts";
 import type { MindDescription } from "./description.ts";
@@ -184,14 +184,18 @@ function lookupOf(kinds: () => Readonly<Record<string, Part>>): PartLookup {
     return typeof kind === "string" && Object.hasOwn(kinds(), kind) ? kinds()[kind]! : null;
   };
   const candidates = (role: Role): readonly PartConfig[] => Object.entries(kinds())
-    .filter(([kind, part]) => part.role === role && scopeOf(kind) === null && (part.stage === "game" || part.variations !== undefined))
+    .filter(([kind, part]) => part.role === role && scopeOf(kind) === null)
     .map(([, part]) => part.defaults);
   const game = (role: Role): readonly PartConfig[] => candidates(role).filter(config => partOf(lookup, config).stage === "game");
+  const held = (role: Role, spec: BodySpec): readonly PartConfig[] => candidates(role).flatMap(config => {
+    const part = partOf(lookup, config);
+    return part.variations === undefined ? [] : heldVariations(spec, config.kind).map(variation => ({ ...config, variation }));
+  });
+  const selected = (role: Role, spec: BodySpec): readonly PartConfig[] => held(role, spec).filter(config => partOf(lookup, config).fits(spec, config, lookup) === null);
   const fitting = (role: Role, spec: BodySpec): PartConfig | string => {
-    const enabled = candidates(role).filter(config => partOf(lookup, config).stage === "game" || heldVariations(spec, config.kind).length > 0);
+    const enabled = [...game(role).filter(config => partOf(lookup, config).variations === undefined), ...held(role, spec)];
     const refusals = enabled.map((config) => ({ config, refused: partOf(lookup, config).fits(spec, config, lookup) }));
-    const admitted = refusals.filter(({ refused }) => refused === null), regular = admitted.filter(({ config }) => partOf(lookup, config).stage === "game");
-    const fit = regular.length > 0 ? regular : admitted;
+    const fit = refusals.filter(({ refused }) => refused === null);
     if (fit.length === 1) return fit[0]!.config;
     return fit.length === 0 ? `no ${role} part fits ${spec.model}: ${refusals.map(({ config, refused }) => `${partOf(lookup, config).label} ${refused}`).join("; ")}`
       : `${fit.map(({ config }) => config.kind).join(" and ")} both fit ${spec.model} as its ${role}: one of a role fits a body`;
@@ -209,6 +213,7 @@ function lookupOf(kinds: () => Readonly<Record<string, Part>>): PartLookup {
     },
     fitting: fitting as PartLookup["fitting"],
     candidates: candidates as PartLookup["candidates"],
+    selected: selected as PartLookup["selected"],
     game: game as PartLookup["game"],
   });
   return lookup;
@@ -257,8 +262,9 @@ function treeLookup(parts: PartLookup, config: PartConfig): PartLookup {
       return found && !named.has((value as PartConfig).kind) ? refuse((value as PartConfig).kind) : found;
     },
     fitting: parts.fitting,
-    candidates: parts.candidates,
-    game: parts.game,
+    candidates: ((role: Role & keyof RoleConfigs) => parts.candidates(role).filter(config => named.has(config.kind))) as PartLookup["candidates"],
+    selected: ((role: Role & keyof RoleConfigs, spec: BodySpec) => parts.selected(role, spec).filter(config => named.has(config.kind))) as PartLookup["selected"],
+    game: ((role: Role & keyof RoleConfigs) => parts.game(role).filter(config => named.has(config.kind))) as PartLookup["game"],
   });
 }
 

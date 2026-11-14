@@ -7,6 +7,7 @@ import type { Legs } from "../framework/locomotion-part.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import { adaptLegs } from "../framework/leg-adapter.ts";
+import { guardConfigs, guardRepertoire, initialGuardPosture } from "./guards.ts";
 
 /**
  * **What lies under every skill of a body**, by the name an experiment passes it in by: what turns
@@ -32,6 +33,7 @@ export function filledOf<F extends keyof typeof FILLED>(parts: PartLookup, spec:
 /** Why a selected or automatically fitted part under the body's skills cannot serve `spec`; null where every filled place fits. */
 export function filledRefusal(parts: PartLookup, spec: BodySpec, given: Filled = {}): string | null {
   for (const filled of Object.keys(FILLED) as (keyof typeof FILLED)[]) {
+    if (filled === "guard" && given.guard === undefined) continue;
     const part = given[filled] ?? parts.fitting(FILLED[filled], spec);
     if (typeof part === "string") return part;
     const refused = parts.of(FILLED[filled], part).fits(spec, part, parts);
@@ -59,8 +61,8 @@ export function legsOf(parts: PartLookup, body: Body, config: PartConfig): Locom
 }
 
 
-/** **The motor and guard of a body of `spec`**, made: each the one `given` passes in, else the one the body fits (`filledOf`), as `parts` finds it. */
+/** The fitted motor and enabled guard repertoire, or an experiment's explicit replacements. */
 export function motorAndGuardOf(parts: PartLookup, spec: BodySpec, given: Filled = {}): MotorAndGuard {
-  const guarding = filledOf(parts, spec, "guard", given), guard = parts.of("guard", guarding);
-  return { motor: motorOf(parts, filledOf(parts, spec, "motor", given)), posture: guard.posture(spec, guarding), guard: (built) => guard.make(built, guarding), parts };
+  const guards = guardConfigs(parts, spec, given.guard);
+  return { motor: motorOf(parts, filledOf(parts, spec, "motor", given)), posture: initialGuardPosture(parts, spec, guards), guard: built => guardRepertoire(parts, built, guards), parts };
 }

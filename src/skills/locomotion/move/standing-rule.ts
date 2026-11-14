@@ -1,7 +1,7 @@
 import type { GaitName } from "../../framework/skill.ts";
-import { CONDITIONS } from "./move/conditions.ts";
+import { CONDITIONS } from "../shared/move-conditions.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { standingRule } from "./move/move.ts";
+import { standingRule } from "../shared/move.ts";
 import { moveRulePart, withGait } from "./move-rule-part.ts";
 
 /** A rule of Move: while the body is asked to stand, `gait`. */

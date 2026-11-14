@@ -14,6 +14,7 @@ export interface OptionEvaluationInput {
   readonly rules: Rulebook;
   readonly parts: PartLookup;
   readonly legs: PartConfig;
+  readonly guards?: readonly PartConfig[];
   readonly options: readonly PartConfig[];
   readonly chooser: PartConfig;
   readonly seed: number;

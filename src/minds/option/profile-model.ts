@@ -23,7 +23,7 @@ export function profileModel(tables: ProfileTables): OptionEvaluation {
       if (!isProfileOption(part)) throw new Error(`${config.kind} does not implement ${PROFILE_MODEL}`);
       return part;
     }, input.options,
-      { spec, hz, rate, delay, parts, walk, legs, tables, record });
+      { spec, hz, rate, delay, parts, walk, legs, guards: input.guards, tables, record });
     const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap(option => option.modelled ? [option.modelled] : []), measured: tables.strikes,
       ordersOf: input.orders, record, parts, techniques });
     const chosen = chooserOf(parts, input.chooser, options, input.seed, input.phase);
