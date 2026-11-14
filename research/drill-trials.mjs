@@ -126,12 +126,12 @@ export async function confirmRow(cells, valueOf, options = {}) {
 /**
  * **A subject's value with its skill so set**: a drill subject's mind with the Option of the skill
  * it drills (`value.skill`) given `tuning`, its research tuning over the body's record (the
- * record's network then unread), everything else the cell's: its other Options, its window's
+ * record's network then unread unless `also` keeps it), and `also`'s fields, everything else the cell's: its other Options, its window's
  * settings where `tuning` names none, what it holds.
  */
-export function withTuning(value, tuning) {
+export function withTuning(value, tuning, also = {}) {
   let found = 0;
-  const options = value.mind.options.map((option) => option.skill?.kind !== value.skill ? option : (found++, { ...option, skill: { ...option.skill, tuning } }));
+  const options = value.mind.options.map((option) => option.skill?.kind !== value.skill ? option : (found++, { ...option, skill: { ...option.skill, ...also, tuning } }));
   if (found !== 1) throw new Error(`the subject's mind has ${found} Options of ${value.skill}, not one`);
   return { ...value, mind: { ...value.mind, options } };
 }

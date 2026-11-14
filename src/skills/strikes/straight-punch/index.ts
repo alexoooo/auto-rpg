@@ -24,11 +24,13 @@ export const PUNCH_LAYOUT: SteerLayout = deepFreeze(checkedLayout(layoutFile as 
  * steered by its network where it has one. A body with no record does not throw it. A research
  * `tuning`, which a link does not carry, sets settings over the record's (a search's or a
  * trainer's subject: all of them where the body has none), and then no network steers it: its
- * trainer does, where it is `steered`.
+ * trainer does, where it is `steered`; with `keepsNetwork`, the record's network still steers it
+ * (a search over the settings beside a trained steer).
  */
 interface Config extends Varied {
   readonly kind: "straight-punch";
   readonly tuning?: Partial<StraightDrive>;
+  readonly keepsNetwork?: true;
 }
 
 /**
@@ -37,7 +39,7 @@ interface Config extends Varied {
  */
 function punch({ body, guard, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[], ready?: StraightDriveOptions["ready"]) {
   const record = dataOf("straight-punch/drive")[body.built.spec.model], settings = { ...record?.settings, ...config.tuning } as StraightDrive;
-  const network = config.tuning === undefined ? record?.network : null;
+  const network = config.tuning === undefined || config.keepsNetwork ? record?.network : null;
   return straightDriveExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim),
     { label: "straight punch", layout: PUNCH_LAYOUT, ...(network ? { policy: recoveryNetwork(network) } : {}), ...(ready ? { ready } : {}) });
 }
@@ -54,11 +56,12 @@ const VARIATIONS: ExecutorVariations<Config> = {
 /** A straight punch owns its body fit; its settings are its body's, its variation its character's. */
 export const PUNCH_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Straight punch", stage: "game", defaults: { kind: "straight-punch" },
-  keys: { kind: true, variation: true, tuning: true }, tuning: STRAIGHT_DRIVE_KEYS,
+  keys: { kind: true, variation: true, tuning: true, keepsNetwork: true }, tuning: STRAIGHT_DRIVE_KEYS,
   fields: [], slots: [], fits: fitsAll(variationFault("straight-punch", "straight punch", VARIATIONS), strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightDriveFits, "needs both arms on the upper trunk, each with a fist, and a thoracic joint"),
     (spec) => handConfigurationRefusal(spec, ["hand.left", "hand.right"], "fist"),
     recordFault("straight punch", PUNCH_BODIES, validStraightDrive), (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),
-  faults: (config) => config.tuning === undefined || validStraightDrivePart(config.tuning) ? [] : ["invalid straight punch tuning"],
+  faults: (config) => [...config.tuning === undefined || validStraightDrivePart(config.tuning) ? [] : ["invalid straight punch tuning"],
+    ...config.keepsNetwork === undefined || config.keepsNetwork === true && config.tuning !== undefined ? [] : ["keepsNetwork: true, beside a tuning"]],
   reads: () => ["straight-punch/drive"], effectors: ["hand.left", "hand.right"], aims: true,
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),

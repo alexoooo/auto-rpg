@@ -332,6 +332,9 @@ const SPARRING_FOE = "option";
  */
 const SPARRING = deepFreeze({ ...SAMPLED, marks: ["high", "middle"] as Mark[], targets: FOES, trials: 480, opponent: SPARRING_FOE });
 
+/** Sparring's training twin, `sparring-twin`: its starts drawn from another stream (`seed`), for research to tune on while `sparring` stays held out. */
+const SPARRING_TWIN = deepFreeze({ ...SPARRING, seed: 2 });
+
 /**
  * **Sparring at a foe laid down**, the `sparring-laid` rung: the stomping rung's sampled starts
  * (`STOMPING_SAMPLED`), with each foot, at each of the game's foes laid down and fighting back
@@ -480,7 +483,8 @@ export function createStrikeCases(context: GameContext) {
 
   /** Every protocol the Strike drill may be played on, by name: its rungs. */
   const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ ...twinned("still", atEveryFoe(STILL)), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
-    sparring: stillCases(SPARRING, sampledConditions(SPARRING)), "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
+    sparring: { ...stillCases(SPARRING, sampledConditions(SPARRING)), twin: "sparring-twin" }, "sparring-twin": stillCases(SPARRING_TWIN, sampledConditions(SPARRING_TWIN)),
+    "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
     "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT), fights: fightCases(FIGHTS),
