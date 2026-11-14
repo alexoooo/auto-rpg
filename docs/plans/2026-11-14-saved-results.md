@@ -150,8 +150,6 @@ fingerprint where shared code moved.
 - **How much of the Warrior's fall from 0 to 0.01 is the minds' pricing.** With its profiles read it
   takes under a third of the life it takes where neither mind reads them. Read by the same starts with each profile
   read as at 0.
-- **Whether a trace's digest is the same on another machine.** It decides whether the fingerprint
-  of one machine clears rows played on another.
 
 ## To pick it up
 
