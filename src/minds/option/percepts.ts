@@ -198,7 +198,7 @@ function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySp
 }
 
 /**
- * **The strikes a foe of `foe` is modelled by**: those fights measured on its body (`profilesOn`),
+ * **The strikes a foe of `foe` is modelled by**: those measured on its body (`profilesOn`),
  * else this body's own measured (`Seen.strikes`), each fresh at the senses' reaction time and
  * this mind's rate (`Seen.rate`: a foe's mind is taken for one like it) and thrown with the limbs it names (`Profile.limbs`); and each other limb the foe strikes with
  * (`defaultStrikeLimbs`), by its prior. A foe's strikes are not sensed, so its limbs stand for them: a limb

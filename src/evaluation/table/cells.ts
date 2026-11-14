@@ -112,8 +112,8 @@ export function createTableCells(context: GameContext) {
 
   /**
    * A blow's rungs: the Strike drill's still and walk, a target that lets the blow happen. A cell
-   * reads a skill on its own merit; what a blow brings in a fight is its profile's, read in fights
-   * (`fights`) and never in a cell.
+   * reads a skill on its own merit; what a blow brings against a foe fighting back is its
+   * profile's, read sparring (`sparring`) and never in a cell.
    */
   const blowRungs = (action: string, hit: HitFigure, body: HumanoidModel, loadout: Loadout): readonly Reading[] =>
     ["still", "walk"].map((rung) => strikeRung(rung, hit, action, body, loadout));

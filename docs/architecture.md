@@ -575,7 +575,7 @@ The profile model supplies these components:
   measured profiles (`Profile`, `src/skills/framework/profile.ts`),
   a stale one unread and a model with none priced by its prior. A measured predictor may receive
   immutable ground profiles (`edges`) for the skill settings an experiment runs. A profile is a sample of
-  trials, a strike's thrown in fights (the Strike drill's `fights`) and a ground Option's tried
+  trials, a strike's thrown against a foe fighting back (the Strike drill's `sparring` rungs) and a ground Option's tried
   in falls, each keeping what it brought and where it began (the range, the foe's phase,
   both postures, the velocity in its target's frame, `startVelocity`, and, for a skill begun from
   a window, where in it the body stood, `placeInWindow`); a reading takes the trials nearest the
@@ -811,13 +811,16 @@ the swell's collider first on the head, the arm straight, its energy, and the re
 A drill's struck target stands with its arms lowered (`drill-stand`, `STANDS` in
 `src/evaluation/drill-opponents.ts`), so its marks are open and a failed trial is the striker's;
 a target guards only on the rung that tests the guard (`guarding`, `drill-guard`). Those rungs
-read how well a body throws a strike. What the strike brings in a fight is read in fights, a bout
-of Option Mind against Option Mind in which the drill throws the strike in place of the blow the
-Mind was about to begin, and only what follows that moment is the trial's: `fight` (the
-Warrior's first four such moments) and `fights` (every striker's body, starting gaps of 3, 4 and
-5 m, the first eight), from which alone the strikes' profiles are built
-(`research/skills/strikes/strike-profiles.mjs`). No table cell reads a fight: a cell is its skill
-on its own merit, and a profile prices the skill where the Mind uses it.
+read how well a body throws a strike. What the strike brings against a foe fighting back is read
+sparring: from starts drawn at random, as `sampled` draws them, at each of the game's foes under
+Option Mind fighting from the start (`sparring`, with each hand at each mark; `sparring-laid`, with
+each foot at a foe laid down), from which alone the strikes' profiles are built
+(`research/skills/strikes/strike-profiles.mjs`): the starts are drawn, so a strike the Mind
+seldom chooses is measured as often as one it favours. A fight is read in fights, a bout of
+Option Mind against Option Mind in which the drill throws the strike in place of the blow the Mind
+was about to begin, and only what follows that moment is the trial's: `fight` (the Warrior's
+first four such moments) and `fights` (every striker's body, starting gaps of 3, 4 and 5 m, the
+first eight). No table cell reads either: a cell is its skill on its own merit.
 
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)

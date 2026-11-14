@@ -1,8 +1,8 @@
 /**
  * **A skill's profile**: what the skill was measured to bring from where it began, so that a
- * chooser prices it on measured numbers rather than a hand-built model: a strike's where it is
- * used, in fights against a foe fighting back (the Strike drill's `fights`), never at a drill's
- * target, which reads how well the body throws it and nothing of what it brings; a ground edge's,
+ * chooser prices it on measured numbers rather than a hand-built model: a strike's against a foe
+ * fighting back, from starts drawn at random (the Strike drill's `sparring` and `sparring-laid`),
+ * never at a drill's still target, which reads how well the body throws it and nothing of what it brings; a ground edge's,
  * which has no foe, in its own tries. A profile is a sample of
  * trials (`Trial`), each keeping what it brought and where it began (`Start`): the range to the
  * foe, centre to centre across the ground, m; the foe's phase as the striker sensed it (the `phase`

@@ -72,7 +72,7 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * and, its blow under way, while they allow that blow's limb at its region. A mind fighting by
  * itself has no firm orders, and weighs it.
  *
- * Its model, where fights measured it as it is read now (its profile among its measure's,
+ * Its model, where it was measured as it is read now (its profile among its measure's,
  * found by `measure`, read at the senses' reaction time): what the profile expects at the range
  * (to its reach), the start's velocity (`startOf`) and the focus's phase (`readProfile`): the focus's life its blows took, how long
  * it ran until its limb was back (`Expected.recovers`), and its chance of ending down; through the blow coming, and the focus's pressure while it

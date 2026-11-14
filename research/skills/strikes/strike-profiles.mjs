@@ -1,16 +1,17 @@
 import { skillsOf } from "../../../src/minds/option/skills.ts";
 /**
  * **The strikes' profiles** (`src/skills/framework/profile.ts`, `assets/skills/strikes/strike-profiles/strike-profiles.json`): from
- * fights, the Strike drill's `fights` rung (`npm run evaluate -- strike <subject> --protocol fights --json <run.json>`),
- * where each strike is thrown at the moments of fights against Option Mind fighting back. A profile
- * says what a strike brings where it is used, so no trial at a drill's target makes one: how well
- * a body throws a strike there is another question, and a run of another rung is refused. Each
+ * the Strike drill's sparring rungs (`npm run evaluate -- strike <subject> --protocol sparring --json <run.json>`,
+ * and `sparring-laid` for a strike at a body lying), where each strike is thrown from starts drawn
+ * at random against Option Mind fighting back. A profile says what a strike brings against a foe
+ * that fights back, so no trial at a drill's still target makes one: how well a body throws a
+ * strike there is another question, and a run of another rung is refused. Each
  * strike's trials are those on a mark its action aims at, with a limb
  * that throws it with what it holds (`strikesOf`). A profile a skill on a body against a target: its measured-on read
  * from each row's world (the left body's spec as the bout builds it, the skill's digest as the mind
  * holds it, the harness's rate and command delay (`harnessRule`), the recipe's sense delay, the rate
  * its mind decides at), its target the right body's; its trials those whose strike began (a trial
- * whose action never began measures the fight, not the strike). A strike no fight began has no
+ * whose action never began measures the fight, not the strike). A strike no trial began has no
  * profile, and its mind prices it by hand.
  *
  * A trial's start (`Start`) is where the striker sensed the target as it began (the reading's
@@ -38,7 +39,7 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  * `--write` puts the runs' profiles in the asset, each in place of the one measured on the same
  * body, skill and target; the asset's others stay while a preset still throws their skill on a body
  * the game builds (`profileKeys`), so one skill is measured again without the rest. The asset names
- * the rung its profiles were measured on (`source.protocol`): those of an asset that names another
+ * the rungs its profiles were measured on (`source.protocols`): those of an asset that names others
  * are not kept beside these.
  */
 import { readFileSync, writeFileSync } from "node:fs";
@@ -53,11 +54,11 @@ import { lifeFactor } from "../../../src/combat/pool.ts";
 import { rulebook } from "../../../src/combat/rulebook.ts";
 
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
-/** The Strike drill's rung a profile is measured on: a strike thrown at the moments of fights (`FIGHTS`, `src/evaluation/strike/cases.ts`). */
-const PROTOCOL = "fights";
+/** The Strike drill's rungs a profile is measured on: a strike thrown from drawn starts at a foe fighting back (`SPARRING`, `SPARRING_LAID`, `src/evaluation/strike/cases.ts`). */
+const PROTOCOLS = Object.freeze(["sparring", "sparring-laid"]);
 const write = process.argv.includes("--write");
 const paths = process.argv.slice(2).filter((arg) => arg !== "--write");
-if (!paths.length) throw new Error(`name a run of the Strike drill's fights: npm run evaluate -- strike <subject> --protocol ${PROTOCOL} --json <run.json>`);
+if (!paths.length) throw new Error(`name a run of the Strike drill's sparring: npm run evaluate -- strike <subject> --protocol ${PROTOCOLS.join("|")} --json <run.json>`);
 
 /** A run's header and rows (`npm run evaluate -- ... --json`). */
 const read = (path) => {
@@ -99,8 +100,8 @@ const marksOf = (action) => (action.regions ?? []).every((region) => region.kind
 const profiles = new Map();
 for (const path of paths) {
   const [header, ...rows] = read(path);
-  if (header.evaluation !== "strike" || header.protocol !== PROTOCOL)
-    throw new Error(`${path} is a run of ${header.evaluation} ${header.protocol}: a profile is measured in fights, the Strike drill's ${PROTOCOL} rung`);
+  if (header.evaluation !== "strike" || !PROTOCOLS.includes(header.protocol))
+    throw new Error(`${path} is a run of ${header.evaluation} ${header.protocol}: a profile is measured on the Strike drill's sparring rungs, ${PROTOCOLS.join(" and ")}`);
   const rule = harnessRule(header.harness);
   if (!rule) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
   const { hz, delay } = rule;
@@ -171,9 +172,10 @@ if (write) {
   // Each of the asset's profiles keeps its place; one a run made again is replaced there, and the new follow.
   const keyOf = (profile) => JSON.stringify([profile.measured, profile.target]), current = profileKeys().strike;
   const remade = new Map(made.map((profile) => [keyOf(profile), profile])), kept = [], asset = JSON.parse(readFileSync(OUT, "utf8"));
-  // An asset measured on another rung holds no profile to keep beside these.
-  const others = asset.source?.protocol === PROTOCOL ? asset.profiles : [];
-  if (others.length < asset.profiles.length) console.log(`dropped: the asset's ${asset.profiles.length} profiles, measured on ${asset.source?.protocol ?? "a drill's targets"}, not in ${PROTOCOL}`);
+  // An asset measured on other rungs holds no profile to keep beside these.
+  const measuredOnRungs = JSON.stringify(asset.source?.protocols ?? null) === JSON.stringify(PROTOCOLS);
+  const others = measuredOnRungs ? asset.profiles : [];
+  if (others.length < asset.profiles.length) console.log(`dropped: the asset's ${asset.profiles.length} profiles, measured on ${asset.source?.protocols?.join(" and ") ?? "a drill's targets"}, not on ${PROTOCOLS.join(" and ")}`);
   for (const profile of others) {
     const again = remade.get(keyOf(profile));
     remade.delete(keyOf(profile));
@@ -181,5 +183,5 @@ if (write) {
     else if (current.has(`${profile.measured.body} ${profile.measured.spec} ${profile.measured.skill}`)) kept.push(profile);
     else console.log(`dropped: ${profile.measured.body} (spec ${profile.measured.spec}), skill ${profile.measured.skill}, which no preset throws now`);
   }
-  writeFileSync(OUT, `${JSON.stringify({ source: { script: SCRIPT, protocol: PROTOCOL }, profiles: [...kept, ...remade.values()] }, null, 2)}\n`);
+  writeFileSync(OUT, `${JSON.stringify({ source: { script: SCRIPT, protocols: PROTOCOLS }, profiles: [...kept, ...remade.values()] }, null, 2)}\n`);
 }

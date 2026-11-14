@@ -66,11 +66,11 @@ In order; each is a row of the table or one question, taken up on the owner's re
 
 1. **The Warrior's punch**: the table's `punch` row on `man`
    ([its notes](plans/2026-11-10-warrior-punch.md)): the straight punch at the trunk.
-2. **The strikes' profiles from fights**: a strike's profile is built only from the Strike drill's
-   fights (`fights`, [the evaluations](architecture.md#evaluations)). The asset still holds the
-   ones measured at a drill's target, and no fight is played for them yet. The first build
-   replaces every strike's profile, so it plays every strike that has one: the punch, the stomp
-   and the bonk.
+2. **The strikes' profiles from sparring**: a strike's profile is built only from the Strike
+   drill's sparring rungs (`sparring`, `sparring-laid`, [the evaluations](architecture.md#evaluations)).
+   The asset still holds the ones measured at a drill's target, and no sparring is played for them
+   yet. The first build replaces every strike's profile, so it plays every strike that has one: the
+   punch, the stomp and the bonk.
 3. **The Warrior's bonk with the buckler**, which never meets the head
    ([its plan](plans/2026-11-05-warrior-bonk.md)).
 4. **The Warrior's thrust**: the grip's geometry before another search
