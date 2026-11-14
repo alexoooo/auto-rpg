@@ -197,6 +197,14 @@ test’s p 0.75, so no gain is shown. The counts are the `man` rows of the trial
 npm run evaluate -- strike option/straight-punch+straight-punch/from-guard --previous option/straight-punch --protocol fights --workers 30 --budget 45
 ```
 
+Fewer reached moments are the mind's, not the punch's. A strike's profile is keyed by its digest,
+which names its variation (`skillDigest`), and `strike-profiles.json` holds none for `from-guard`,
+so Option Mind prices it by hand (`modelOf`) and throws it at other rates: before the drill's
+moment, the Warrior begins 2 to 4 punches a fight with `from-guard` and 6 to 8 with the drive, the
+Rogue 1 to 3 against none, the Skeleton none against 0 to 3. No `from-guard` punch on any body
+reaches the drive's 6 s settling deadline (`PREPARE_LIMIT`); its arm wait before the drive is
+about 0.1 s a punch. The comparison above is of a measured punch against one priced by hand.
+
 ## What a fight asks that the drill does not
 
 The commitment comparison reads the installed punch in Node, `rapier-coordinate`, 120 Hz,
