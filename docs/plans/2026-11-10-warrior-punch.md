@@ -64,9 +64,16 @@ remaining not-begun conditions on the Rogue and Skeleton, other strikes, walk an
 
 ### Why the punch does not land in fights
 
-The empty-handed Warrior lands 2 of 8 reached trials in `fight`, and 13 of 42 reached trials in
-`fights`; six further `fights` moments are unreached. Each reading is whole and fault-free. The
-harness is Node, `rapier-coordinate`, 120 Hz, with each command one step late. The subject is
+With every strike priced from sparring, the empty-handed Warrior reaches its moment in 10 of the
+48 `fights` trials and lands 2: four miss, three end outside the window, one is refused and 38
+are unreached. That is the saved `fights` reading, the one its Ratings page shows; `fight` is not
+read so.
+
+The diagnosis below is of fights with each strike priced by its standing-target profile, as the
+saved `fight` reading is. In them the empty-handed Warrior lands 2 of 8 reached trials in
+`fight`, and 13 of 42 reached trials in `fights`; six further `fights` moments are unreached.
+Each reading is whole and fault-free. The harness is Node, `rapier-coordinate`, 120 Hz, with
+each command one step late. The subject is
 `option/straight-punch`, both hands at the trunk, against Option Mind on the Warrior.
 `fight` takes moments 1–4 from the open stage’s 4 m gap; `fights` takes moments 1–8 from gaps
 3, 4 and 5 m. The drill takes over at that body-directed action, carries it on when it matches
@@ -75,9 +82,12 @@ The `fight` readings match the corresponding gap-4 `fights` readings in full.
 
 Read the kept outcomes on [fight Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fight&subject=option%2Fstraight-punch) and
 [fights Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch). These links use the local game’s address; use the same
-query on a preview served at another address. Each row there opens its condition’s reel.
+query on a preview served at another address. Each row there opens its condition’s reel. The
+`fights` page shows the reading priced from sparring, so a `fights` trial named below reads
+there as that reading has it.
 
-Every Warrior condition replays to its complete saved reading: 8 `fight` and 48 `fights` trials.
+The diagnosis replays every Warrior condition to its complete reading: 8 `fight` and 48 `fights`
+trials.
 The trace wraps the evaluation’s own reader and records every step’s readiness, window, body
 positions, orders, actions and blows. The classifications below name the first identified cause;
 a prior action on the other hand and later failures are named where they matter.
@@ -215,7 +225,8 @@ npm run evaluate -- strike option/straight-punch+straight-punch/from-guard --pre
 
 The commitment comparison reads the installed punch in Node, `rapier-coordinate`, 120 Hz,
 each command one step late, with empty hands. All 20 selected `fights` trials reproduce their
-saved outcome labels. Of the 414 `still`, `walk`, `still-twin` and `walk-twin` trials
+outcome labels in [the diagnosis](#why-the-punch-does-not-land-in-fights), each strike priced by
+its standing-target profile. Of the 414 `still`, `walk`, `still-twin` and `walk-twin` trials
 from `drillTrials(cellOf({ body: "man", skill: "punch" }), "cell")` and its `"twin"`,
 414 begin an action and 414 supply a first committed drive.
 The reference is every such commitment, including failed drill punches. Each fight commitment

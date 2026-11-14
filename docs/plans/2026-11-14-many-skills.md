@@ -33,10 +33,11 @@ half days a run. A run is one try.
 
 **Days: a measure that does not say what a fight does.** The Warrior's empty-handed punch is on
 the mark in 78 of 96 trials at a still target
-([the punch's notes](2026-11-10-warrior-punch.md#where-it-stands)) and lands 13 of the 42
-`fights` trials it reaches
-([why](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)). Each fight commitment
-holds an input outside every range the drill plays
+([the punch's notes](2026-11-10-warrior-punch.md#where-it-stands)). In `fights` it lands 2 of
+the 10 trials it reaches, 38 of the 48 moments unreached; with each strike priced by its
+standing-target profile it lands 13 of the 42 it reaches
+([why](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)). Each of those fights'
+commitments that is read holds an input outside every range the drill plays
 ([the comparison](2026-11-10-warrior-punch.md#what-a-fight-asks-that-the-drill-does-not)).
 Tracing it is 59 controlled replays and 73 physical probes, in those notes. Sparring is the
 drill's rung at a foe that fights back, from starts drawn at random (`sparring`,
@@ -88,7 +89,8 @@ They say whether Part 2 holds, and they wait on no part.
   the network kept read 1.08 times the drive's damage a second, 95 % 0.79 to 1.47
   (`punch-sparring.mjs --search --keeps-network --out <file>`, then `--bar <file>`). A gain of
   that size is inside the judge's interval at 240 starts.
-- **In fights the punch fails mostly in its delivery**: of the 48 `fights` trials, 14 are a fist
+- **In fights the punch fails mostly in its delivery**: of the 48 `fights` trials the punch's
+  notes diagnose, each strike priced by its standing-target profile, 14 are a fist
   that misses or lands elsewhere, 0.11 to 0.44 m from its moving aim in the misses; four are
   falls from the network's heading and centre asks, which end where those asks are suppressed;
   two are from its arm pushes
