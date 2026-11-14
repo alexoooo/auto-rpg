@@ -917,6 +917,10 @@ Bench have their own `index.html` beside their modules. Every entry document is 
   the collision shapes are drawn; art comes through the asset pipeline ([assets](art/assets.md)).
   Arena and Dungeon share flame volumes (`fire.ts`), navigation paths (`movement-routes.ts`) and
   pointer-coordinate conversion (`picking.ts`).
+  Contact wounds become worker damage cues (`damage-cues.ts`) whenever a blow takes life. Arena,
+  crowd fights and Crypt draw the same brief contact burst (`damage-flashes.ts`), refreshing each
+  struck part's flash on repeated damage and fading on the displayed frame clock. Crypt sends
+  cues only for contacts in sight.
   While the Arena's end rules drain life, red screen edges pulse on the bout's clock, both health
   bars glow; the cue clears at the verdict or when leaving the bout.
 - **Player input** (`src/app/browser/ui/player-controls.ts`): Arena and Dungeon share click and held-pointer

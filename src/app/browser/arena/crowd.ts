@@ -22,6 +22,7 @@ import { endingText } from "../../../game/arena/end-rule.ts";
 import { teamSpec } from "../../../game/arena/team-bout.ts";
 import { crowdFight } from "../game.ts";
 import type { ArenaSeat as Side } from "../../../game/arena/seat.ts";
+import { damageFlashes } from "../render/damage-flashes.ts";
 
 /** How long the bodies go on moving once the verdict is given, s. */
 const AFTERMATH_SECONDS = 3;
@@ -48,6 +49,8 @@ export async function bootCrowd(context: ScreenContext): Promise<void> {
   const arena = await buildArena(engine, "open", context.signal);
   const { scene, camera, shadows } = arena;
   context.own(() => scene.dispose());
+  const flashes = damageFlashes(scene);
+  context.own(flashes.dispose);
   const dress = await dresserFor("man", scene);
   const link = await opening;
   context.signal.throwIfAborted();
@@ -88,7 +91,8 @@ export async function bootCrowd(context: ScreenContext): Promise<void> {
   hud.append(meter.element);
 
   link.listen({
-    news: ({ verdict }) => {
+    news: ({ verdict, hits }) => {
+      flashes.add(hits ?? []);
       if (!verdict) return;
       const { winner, ending } = verdict;
       note.textContent = winner ? `${ARENA_SIDES[winner].label} wins ${ending === "time" ? "at the bell" : endingText(ending)}` : "A draw";
@@ -97,12 +101,15 @@ export async function bootCrowd(context: ScreenContext): Promise<void> {
   });
 
   /** Pose every body between `at`'s frames, with its bar. */
-  const pose = (at: Between) => bodies.forEach((body, k) => {
-    posePuppet(body.puppet, body.offset, at);
-    const { life, out } = bodyBetween(body.offset, at, body.centre);
-    body.life = life; body.out = out;
-    bars[k]!.style.width = `${(100 * life).toFixed(1)}%`;
-  });
+  const pose = (at: Between) => {
+    bodies.forEach((body, k) => {
+      posePuppet(body.puppet, body.offset, at);
+      const { life, out } = bodyBetween(body.offset, at, body.centre);
+      body.life = life; body.out = out;
+      bars[k]!.style.width = `${(100 * life).toFixed(1)}%`;
+    });
+    flashes.update(at.from[0]! + (at.to[0]! - at.from[0]!) * at.share);
+  };
 
   // The world runs while the screen is idle and shown; a hidden tab draws nothing, so it holds.
   let running = false, warm = false;

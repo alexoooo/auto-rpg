@@ -20,6 +20,7 @@ import { DungeonRun, prepareDungeonCharacters, runMap, runParticipants, type Par
 import type { Inspected } from "./inspection.ts";
 import { frameLayout, packFrame, type FramedBody } from "./frame.ts";
 import type { Stage, StageRuntime } from "./stage.ts";
+import { damageCues } from "./damage-cues.ts";
 
 /**
  * **A Crypt run as its page starts it** (`cryptStage`), plain data: the run's options, each
@@ -180,6 +181,7 @@ export async function cryptStage(context: GameContext, start: CryptStart, runtim
   const building = await buildCryptRun(context, start, { ...runtime, cues });
   if (isRefused(building)) return building;
   const { run, prepared, apply } = scope.own(building);
+  const hits = damageCues(() => run.blows);
   const hearing = scope.own(hearRun(run, (cue) => { cues.push(cue); }));
   const tape: CryptTapeEntry[] = [];
   const roster = run.actors.map((actor) => ({ id: actor.id,
@@ -239,7 +241,7 @@ export async function cryptStage(context: GameContext, start: CryptStart, runtim
     hz: run.world.hz, roster,
     step: () => run.step(),
     frame: () => packFrame(bodies, length, run.world.time, run.world.steps),
-    news: () => ({ crypt: news() }),
+    news: () => ({ crypt: news(), hits: hits().filter(cue => run.visible.has(cellKey(run.map, { x: cue.point[0], z: cue.point[2] }))) }),
     over: () => run.status !== "playing",
     input(input) {
       if (input.kind === "look") { looked = input.id; lookedNow = true; return; }

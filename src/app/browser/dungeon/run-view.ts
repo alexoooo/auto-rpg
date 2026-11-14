@@ -16,6 +16,7 @@ import { cellKey, type DungeonMap, type Point } from "../../../game/dungeon/map.
 import { actorName, type RunStatus } from "../../../game/dungeon/run.ts";
 import type { DungeonSurfaces } from "./stone.ts";
 import { buildDungeonWorld } from "./world.ts";
+import { damageFlashes } from "../render/damage-flashes.ts";
 
 /** A body of a run as its page draws it: who it is, its spec and mind as the worker built it, its puppet once built, and the latest news of it. */
 export interface ViewActor {
@@ -93,6 +94,7 @@ export class RunView {
   private readonly scene: Scene;
   private readonly built: (actor: ViewActor) => void;
   private readonly heard: (cue: SoundCue) => void;
+  private readonly flashes: ReturnType<typeof damageFlashes>;
 
   /**
    * The run `link` steps, on `map` drawn with `visuals`, its bodies' specs from `specs` (`PreparedDungeonCharacters.specs`) and
@@ -105,6 +107,7 @@ export class RunView {
     readonly built: (actor: ViewActor) => void; readonly heard: (cue: SoundCue) => void;
   }) {
     this.scene = scene; this.link = link; this.built = options.built; this.heard = options.heard;
+    this.flashes = damageFlashes(scene);
     this.map = options.map;
     this.level = buildDungeonWorld(scene, this.map, options.visuals);
     this.lead = options.lead;
@@ -124,7 +127,11 @@ export class RunView {
     this.hero = this.actors.find((actor) => actor.id === "hero")!;
     this.party = [this.hero, ...this.actors.filter((actor) => actor.side === "party" && actor !== this.hero)];
     this.enemies = this.actors.filter((actor) => actor.side === "enemy");
-    link.listen({ news: (news) => { if (news.crypt) this.hear(news.crypt); },
+    link.listen({ news: (news) => {
+      if (this.disposed) return;
+      this.flashes.add(news.hits ?? []);
+      if (news.crypt) this.hear(news.crypt);
+    },
       fault: (message) => { this.fault = message; console.error(`The crypt's world failed: ${message}`); } });
   }
 
@@ -163,6 +170,7 @@ export class RunView {
 
   /** Pose every body built between `at`'s two frames; one built after either is posed as the newest frame has it. */
   pose(at: Between): void {
+    this.flashes.update(at.from[0]! + (at.to[0]! - at.from[0]!) * at.share);
     const newest = this.link.newest;
     for (const actor of this.actors) {
       if (!actor.puppet) continue;
@@ -242,6 +250,7 @@ export class RunView {
   dispose(): void {
     this.disposed = true;
     this.link.dispose();
+    this.flashes.dispose();
     for (const actor of this.actors) actor.puppet?.dispose();
     this.level.dispose();
   }

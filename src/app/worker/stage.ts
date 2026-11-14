@@ -13,9 +13,12 @@ import type { TapeEntry } from "./protocol.ts";
 import { frameLayout, packFrame, type FramedBody, type RosterBody } from "./frame.ts";
 import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
 import { constructionScope } from "../../core/construction.ts";
+import { damageCues, type DamageCue } from "./damage-cues.ts";
 
 /** What a stage tells the page beside its frames. */
 export interface StageNews {
+  /** Contact wounds since the last news, on the frame clock. */
+  readonly hits?: readonly DamageCue[];
   /** The bout's verdict, once given. */
   readonly verdict?: Verdict;
   /** The stage holds here: the world runs no more until the page runs it again. */
@@ -69,6 +72,7 @@ export async function teamStage(context: GameContext, recipe: TeamRecipe, afterm
   try {
   const minds = scope.own(await makeMinds?.()), built = scope.own(await buildTeamBout(recipe, { ...engine === undefined ? {} : { engine }, ...minds ? { minds } : {} }));
   const { world, bout } = built, dispose = scope.dispose;
+  const hits = damageCues(() => bout.blows);
   const roster = bout.members.map((member) => ({ id: member.id, segments: [...member.built.segments.keys()], card: { side: member.side } }));
   const { length } = frameLayout(roster);
   const bodies: FramedBody[] = bout.members.map((member) => {
@@ -83,9 +87,10 @@ export async function teamStage(context: GameContext, recipe: TeamRecipe, afterm
     step: () => world.step(),
     frame: () => packFrame(bodies, length, world.time, world.steps),
     news() {
-      if (told || !bout.verdict) return null;
+      const wounds = hits();
+      if (told || !bout.verdict) return wounds.length ? { hits: wounds } : null;
       told = true;
-      return { verdict: bout.verdict };
+      return { verdict: bout.verdict, hits: wounds };
     },
     over: () => bout.verdict !== null && bout.clock >= bout.verdict.time + aftermath,
     input() { throw new Error("a team bout takes no input"); },

@@ -23,6 +23,9 @@ its kind or running those tools.
   per render id. Turn a vector with `applyRotationQuaternionToRef`, never `rotateByQuaternionToRef`.
 - **Materials belong to the scene**: a body part disposes with `dispose(false, false)`.
 - **Observers are removed asynchronously**: count the active ones, not the calls to remove.
+- **A transparent overlay drawing over geometry keeps stencil masks read-only**
+  (`material.stencil.enabled = true`, `mask = 0`); otherwise a HighlightLayer can fill its quad
+  with a character's silhouette.
 
 ## Pointers
 

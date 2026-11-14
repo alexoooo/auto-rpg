@@ -66,6 +66,7 @@ import { ARENA_SIDES, sideHighlights } from "./side-highlights.ts";
 import { fighterHud } from "./fighter-hud.ts";
 import { choicePanel } from "../ui/choices.ts";
 import type { ArenaSeat as Side } from "../../../game/arena/seat.ts";
+import { damageFlashes } from "../render/damage-flashes.ts";
 
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
@@ -156,6 +157,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   context.own(() => scene.dispose());
   const routes = movementRoutes(scene);
   context.own(routes.dispose);
+  const flashes = damageFlashes(scene);
+  context.own(flashes.dispose);
   context.signal.throwIfAborted();
 
   // Setup: a contender panel on each side, each with its character.
@@ -477,6 +480,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   document.addEventListener("visibilitychange", sync, { signal: context.signal });
   const end = () => {
     routes.update([]);
+    flashes.clear();
     context.root.classList.remove("is-draining");
     choosing = false;
     for (const row of rows) row.choices.reset();
@@ -618,6 +622,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           news: (news) => {
             if (bout !== current || !news.duel) return;
             current.news = news.duel;
+            flashes.add(news.hits ?? []);
             for (const cue of news.duel.cues) audio.cue(cue);
             if (news.duel.trace) overlay?.add(news.duel.trace);
             if (news.held) setPaused(true, "choice");
@@ -774,6 +779,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       body.life = bodyBetween(body.offset, at, body.centre).life;
     }
     shownTime = at.from[0]! + (at.to[0]! - at.from[0]!) * at.share;
+    flashes.update(shownTime);
   };
   const readout = () => {
     const news = bout?.news;

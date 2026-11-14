@@ -25,6 +25,7 @@ import type { Inspected } from "./inspection.ts";
 import { frameLayout, packFrame, type FramedBody } from "./frame.ts";
 import type { Stage } from "./stage.ts";
 import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
+import { damageCues } from "./damage-cues.ts";
 
 /** **A duel as the Arena plays it** (`duelStage`): a drill's trial, or a bout a person may lead a side of. */
 export interface DuelStart {
@@ -145,6 +146,7 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
   const main = scope.own(await played(context, start, { onBlow: (blow) => { cues.push(...debrisCues(blow)); } }));
   scope.own(main.playback);
   const { world, duel, playback } = main;
+  const hits = damageCues(() => duel.blows, world.time);
   const sides = SIDES.map((side) => ({ id: side, built: duel.duelists[side].built }));
   scope.own(hearTouches(world, sides, (cue) => { cues.push(cue); }));
   const airs = SIDES.map((side) => ({ side, air: airOf(duel.duelists[side].built) })), airAt = new Vector3();
@@ -227,7 +229,7 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
         trace: trace?.take() ?? null };
       const held = state.choosing;
       state.choosing = false;
-      return { ...duel.verdict ? { verdict: duel.verdict } : {}, ...held ? { held } : {}, duel: news };
+      return { ...duel.verdict ? { verdict: duel.verdict } : {}, ...held ? { held } : {}, duel: news, hits: hits() };
     },
     over: () => playback.done,
     input(input) {
