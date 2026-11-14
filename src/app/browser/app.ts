@@ -3,6 +3,7 @@ import "./app.css";
 import "./menu.css";
 import "./ui/mind.css";
 import "./ui/attributes.css";
+import "./ui/skills.css";
 import { MENU_HREF, playHref, routeFor, type Route } from "../../game/route.ts";
 import { need } from "./dom.ts";
 import { isolatePage } from "./isolate.ts";

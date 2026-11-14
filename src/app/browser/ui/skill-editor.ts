@@ -26,9 +26,9 @@ export function skillEditor(character: string, skills: SkillChoices | undefined,
   options: { change?: (skills: SkillChoices | undefined) => void } = {}): SkillEditor {
   let shown = character, chosen = skills;
   const element = document.createElement("details"), summary = document.createElement("summary");
-  element.className = "attribute-editor skill-editor"; summary.textContent = "Skills"; element.append(summary);
+  element.className = "skill-editor"; summary.textContent = "Skills"; element.append(summary);
   const fields = document.createElement("div");
-  fields.className = "attribute-fields";
+  fields.className = "skill-fields";
   const boxes = new Map<string, HTMLInputElement>();
   const current = (): SkillChoices => chosen ?? characterNamed(shown).skills;
   const refresh = () => {
@@ -37,8 +37,10 @@ export function skillEditor(character: string, skills: SkillChoices | undefined,
     reset.disabled = chosen === undefined;
   };
   for (const offer of offers) {
-    const row = document.createElement("div"), text = document.createElement("span");
-    row.className = "attribute-field"; text.textContent = offer.label; row.append(text);
+    const row = document.createElement("div"), text = document.createElement("span"), variations = document.createElement("div");
+    row.className = "skill-field"; text.className = "skill-name"; text.textContent = offer.label;
+    row.setAttribute("role", "group"); row.setAttribute("aria-label", offer.label);
+    variations.className = "skill-variations"; row.append(text, variations);
     for (const variation of offer.variations) {
       const name = `${offer.skill}/${variation}`, label = document.createElement("label"), box = document.createElement("input");
       box.type = "checkbox"; box.setAttribute("aria-label", `${offer.label}: ${variation}`);
@@ -46,11 +48,13 @@ export function skillEditor(character: string, skills: SkillChoices | undefined,
         const next = current().filter((one) => one !== name);
         chosen = Object.freeze(box.checked ? [...next, name] : next); refresh(); options.change?.(chosen);
       });
-      label.append(box, ` ${variation}`); row.append(label); boxes.set(name, box);
+      const nameText = document.createElement("span"); nameText.textContent = variation;
+      label.append(box, nameText); variations.append(label); boxes.set(name, box);
     }
     fields.append(row);
   }
   const reset = button("Reset all", () => { chosen = undefined; refresh(); options.change?.(chosen); });
+  reset.className = "skill-reset";
   element.append(fields, reset);
   refresh();
   return {
