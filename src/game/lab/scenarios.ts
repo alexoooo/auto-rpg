@@ -2,8 +2,7 @@ import { readViewSettings, viewSearch, type ViewSettings } from "../appearance/v
 import { appearanceFor, type Appearance } from "../appearance/appearance.ts";
 import { playHref } from "../route.ts";
 import { CHARACTERS } from "../appearance/characters.ts";
-import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../../core/bodies/models.ts";
-import { MODEL_DISPLAY } from "../appearance/models.ts";
+import { HUMANOID_MODELS, modelLabel, modelSpec, type HumanoidModel } from "../../core/bodies/models.ts";
 import { HELD, type Loadout } from "../../core/bodies/items/held.ts";
 import type { GameContext } from "../arena/context.ts";
 import { offered, presetFitsModel, type MindPreset } from "../../minds/catalog/controller.ts";
@@ -45,7 +44,7 @@ export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "reach", name: "Reach a place" },
 ];
 
-export const MODELS: readonly { readonly id: HumanoidModel; readonly name: string }[] = HUMANOID_MODELS.map((id) => ({ id, name: MODEL_DISPLAY[id].label }));
+export const MODELS: readonly { readonly id: HumanoidModel; readonly name: string }[] = HUMANOID_MODELS.map((id) => ({ id, name: modelLabel(id) }));
 /** The hands that hold, and the clothing worn or not, as the loadout names them. */
 export const LAB_HANDS = ["right", "left"] as const, LAB_WORN = ["boots", "armour"] as const;
 

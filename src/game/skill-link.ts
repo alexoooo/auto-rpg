@@ -3,7 +3,7 @@ import type { SkillChoices } from "../core/bodies/spec/body.ts";
 /**
  * **A scoped character's skills from a setup link** (`<scope>.skills=straight-punch/drive,stomp/stomp`):
  * each `skill/variation` it holds, none for an empty value; undefined where the link names none,
- * so its character's (`characterSkills`). A malformed name is kept as written, for the
+ * so its character's (`Character.skills`). A malformed name is kept as written, for the
  * character's resolution to refuse with its reason (`resolveCharacterChecked`).
  */
 export function readSkills(query: URLSearchParams, scope: string): SkillChoices | undefined {

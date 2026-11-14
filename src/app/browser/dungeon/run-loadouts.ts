@@ -1,6 +1,5 @@
 import { HELD, heldName, loadoutKey, readLoadout, type Held, type Loadout } from "../../../core/bodies/items/held.ts";
-import { modelHolds, type BodyModel } from "../../../core/bodies/models.ts";
-import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
+import { modelHolds, modelLabel, type BodyModel } from "../../../core/bodies/models.ts";
 import { modelLoadout } from "../../../game/model-loadouts.ts";
 import type { Participant } from "../../../game/dungeon/run.ts";
 
@@ -33,7 +32,7 @@ export function runLoadouts(holder: HTMLElement, search: string) {
         const row = document.createElement("div"), name = document.createElement("span"), holds = modelHolds(model);
         row.className = "loadout-row";
         name.className = "loadout-who";
-        name.textContent = `${i === 0 ? "Hero" : `Companion ${i}`} · ${MODEL_DISPLAY[model].label}`;
+        name.textContent = `${i === 0 ? "Hero" : `Companion ${i}`} · ${modelLabel(model)}`;
         row.append(name);
         for (const hand of ["left", "right"] as const) {
           const field = document.createElement("label"), picker = document.createElement("select");

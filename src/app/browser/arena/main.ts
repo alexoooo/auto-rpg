@@ -21,7 +21,7 @@ import type { ScreenContext } from "../ui/screen.ts";
 import { need as find } from "../dom.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { isRefused } from "../../../core/refusal.ts";
-import { BODY_MODELS, modelHolding, modelHolds, resolveCharacterChecked, type BodyModel } from "../../../core/bodies/models.ts";
+import { CHARACTERS, characterNamed, modelHolding, modelHolds, modelLabel, resolveCharacterChecked, type BodyModel } from "../../../core/bodies/models.ts";
 import type { SkillChoices } from "../../../core/bodies/spec/body.ts";
 import { modelLoadout } from "../../../game/model-loadouts.ts";
 import { attributeEditor } from "../ui/attribute-editor.ts";
@@ -30,7 +30,6 @@ import { writeSkills } from "../../../game/skill-link.ts";
 import { writeAttributes } from "../../../game/attribute-link.ts";
 import { HELD, heldName, withLoadout, type Loadout } from "../../../core/bodies/items/held.ts";
 import { HUMAN_HASTE, hasteText } from "../../../core/bodies/human/attributes.ts";
-import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
 import type { SkinView } from "../render/skin-view.ts";
 import { loadSkeletonArt } from "../render/skeleton-skin.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
@@ -44,7 +43,7 @@ import { trialOverlay } from "./trial-overlay.ts";
 import { endingText, endRuleOf, GAME_ENDS } from "../../../game/arena/end-rule.ts";
 import { caseSearch, readReel, reelHash, unshown } from "./case-link.ts";
 import { reelTrials, type Trial } from "./reel.ts";
-import { MATCHUP_PARAM, arenaAttributes, arenaSkills, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, readLoadouts, readMatchup, readYou, youSearch, type Matchup } from "../../../game/arena/matchup.ts";
+import { MATCHUP_PARAM, arenaAttributes, arenaSkills, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, readLoadouts, readMatchup, readYou, youSearch, matchupModels, type Matchup } from "../../../game/arena/matchup.ts";
 import { CONTROLS, controllerLabel, controlCharacter, controlName, controlsFor, defaultControl, readControls, recipeOf, linkedMind, mindsSearch, unreadMinds } from "../setup.ts";
 import { offered } from "../../../minds/catalog/controller.ts";
 import { allParts, partOf, treeObeys, MINDS, defaultMind } from "../../catalog.ts";
@@ -100,8 +99,8 @@ const loadoutName = (loadout: Loadout): string => `Left: ${heldName(loadout.left
 /** A note's level as a person reads it, for a character and loadout. */
 const levelName = (level: NoteLevel, model: BodyModel, loadout: Loadout): string => {
   switch (level) {
-    case "body-loadout": return `${MODEL_DISPLAY[model].label}, ${loadoutName(loadout).toLowerCase()}`;
-    case "body": return MODEL_DISPLAY[model].label;
+    case "body-loadout": return `${modelLabel(model)}, ${loadoutName(loadout).toLowerCase()}`;
+    case "body": return modelLabel(model);
     case "loadout": return loadoutName(loadout);
     case "mind": return "Any";
     default: { const never: never = level; throw new Error(`unknown note level ${never}`); }
@@ -158,7 +157,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   context.own(routes.dispose);
   context.signal.throwIfAborted();
 
-  // Setup: a contender panel on each side, each with its model.
+  // Setup: a contender panel on each side, each with its character.
   let matchup: Matchup = readMatchup(location.search), you: Side | null = readYou(location.search);
   let appearances = readAppearances(location.search, matchup);
   let view = readArenaView(location.search, you);
@@ -177,15 +176,16 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
   const attributeEditors = {} as Record<Side, ReturnType<typeof attributeEditor>>;
   const attributes = { ...arenaAttributes(location.search) };
-  // Each side's skills as its panel holds them: undefined, its model's character's (`characterSkills`).
+  // Each side's skills as its panel holds them: undefined, its character's own (`Character.skills`).
   const skills: Partial<Record<Side, SkillChoices>> = { ...arenaSkills(location.search) };
   const skillEditors = {} as Record<Side, ReturnType<typeof skillEditor>>;
   /** Each skill a character may choose and its variations, as the catalog's executors offer them (`ExecutorPart.variations`). */
   const skillOffers: readonly SkillOffer[] = Object.entries(allParts()).flatMap(([skill, part]) =>
     part.role === "executor" && "variations" in part && Array.isArray(part.variations) ? [{ skill, label: part.label, variations: part.variations }] : []);
-  /** `side`'s character config: its model, its attributes over its mind's character's, and its skills where its panel chose them. */
-  const characterOf = (side: Side, model: BodyModel, control: string) =>
-    ({ model, attributes: controlCharacter(control, attributes[side]), ...(skills[side] ? { skills: skills[side] } : {}) });
+  /** `side`'s character config: the character `character`, its attributes over its mind's character's, and its skills where its panel chose them. */
+  const characterOf = (side: Side, character: string, control: string) => ({ model: characterNamed(character).model, character,
+    attributes: controlCharacter(control, attributes[side]), ...(skills[side] ? { skills: skills[side] } : {}) });
+  const matchupLabel = (side: Side): string => characterNamed(matchup[side]).label;
   const previewLoads: Promise<void>[] = [];
   for (const side of SIDES) {
     const panel = document.createElement("section");
@@ -195,10 +195,12 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     panel.style.setProperty("--side-colour", ARENA_SIDES[side].colour);
     const field = document.createElement("label"), name = document.createElement("span"), select = document.createElement("select");
     field.className = "field"; name.className = "field-name"; name.textContent = "Character";
-    for (const model of BODY_MODELS) {
-      const option = document.createElement("option"); option.value = model; option.textContent = MODEL_DISPLAY[model].label; select.append(option);
+    for (const character of CHARACTERS) {
+      const option = document.createElement("option"); option.value = character; option.textContent = characterNamed(character).label; select.append(option);
     }
     select.value = matchup[side]; select.disabled = true;
+    /** The body of the character the picker shows. */
+    const bodyOf = (): BodyModel => characterNamed(select.value).model;
     select.setAttribute("aria-label", `${side === "left" ? "Left" : "Right"} character`);
     const preview = document.createElement("canvas");
     preview.className = "contender-preview"; preview.setAttribute("aria-hidden", "true");
@@ -207,7 +209,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     appearancePicker.setAttribute("aria-label", `${side === "left" ? "Left" : "Right"} appearance`);
     appearancePicker.disabled = true;
     const refreshAppearance = () => {
-      const model = select.value as BodyModel, choices = appearancesFor(model);
+      const model = bodyOf(), choices = appearancesFor(model);
       appearancePicker.replaceChildren(...choices.map(row => Object.assign(document.createElement("option"), { value: row.id, textContent: row.name })));
       appearancePicker.value = appearanceFor(model, appearances[side]);
       appearanceField.hidden = choices.length < 2;
@@ -216,12 +218,12 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     appearanceField.append(appearanceName, appearancePicker);
     const choices = document.createElement("div"); choices.className = "contender-choices";
     field.append(name, select); choices.append(field, appearanceField); panel.append(head, preview, choices);
-    const attributePanel = attributeEditors[side] = attributeEditor({ model: matchup[side], attributes: attributes[side] }, {
+    const attributePanel = attributeEditors[side] = attributeEditor({ model: matchupModels(matchup)[side], attributes: attributes[side] }, {
       change: (draft, resolved) => {
         attributes[side] = draft;
         if (resolved) {
           refreshChoices[side]?.();
-          void previews[side]?.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, draft) }, appearances[side]);
+          void previews[side]?.setCharacter(0, { model: bodyOf(), attributes: controlCharacter(control.value, draft) }, appearances[side]);
         }
       },
     });
@@ -242,7 +244,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       field.className = "field"; field.textContent = `${hand === "left" ? "Left" : "Right"} hand`;
       picker.setAttribute("aria-label", `${side} fighter's ${hand} hand`);
       for (const value of HELD) picker.append(Object.assign(document.createElement("option"), { value, textContent: heldName(value) }));
-      picker.value = loadoutChoices?.[side][hand] ?? modelLoadout(matchup[side])[hand];
+      picker.value = loadoutChoices?.[side][hand] ?? modelLoadout(matchupModels(matchup)[side])[hand];
       field.append(picker); controller.before(field); equipment.push(field); hands[hand] = picker;
     }
     loadoutPickers[side] = hands;
@@ -256,7 +258,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     // is followed by its most particular note, and the chosen one's notes are listed under the picker.
     // A side the person leads under a mind that takes no orders (`treeObeys`) is said to: its mind plays it as its own.
     const nameControl = renameControl[side] = () => {
-      const model = select.value as BodyModel, holds = loadout();
+      const model = bodyOf(), holds = loadout();
       for (const option of control.options) {
         const note = notesOf(option.value, model, holds)[0]?.note;
         option.textContent = `${option.value === control.value ? controlName(option.value, editor.config) : CONTROLS[option.value]!}${note ? ` · ${note}` : ""}`;
@@ -267,8 +269,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       notes.hidden = all.length === 0;
     };
     const editorSpec = () => {
-      const model = select.value as BodyModel;
-      const resolved = resolveCharacterChecked(characterOf(side, model, control.value));
+      const model = bodyOf();
+      const resolved = resolveCharacterChecked(characterOf(side, select.value, control.value));
       return isRefused(resolved) ? modelHolding(model, loadout()) : withLoadout(resolved.spec, loadout());
     };
     // The minds are checked by the entry rule of the bout the page opens with: a trial's own, or a fight's.
@@ -281,7 +283,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       if (key === shownBase) return;
       shownBase = key; attributePanel.setBase(base);
       const drafted = attributePanel.read() !== null;
-      if (drafted) void previews[side]?.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, attributes[side]) }, appearances[side]).catch(previewFailed);
+      if (drafted) void previews[side]?.setCharacter(0, { model: bodyOf(), attributes: controlCharacter(control.value, attributes[side]) }, appearances[side]).catch(previewFailed);
     };
     const showSettings = (config: MindConfig) => {
       based();
@@ -299,7 +301,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     let fromLink = true;
     const refresh = refreshChoices[side] = () => {
       refreshAppearance();
-      const model = select.value as BodyModel, hands = modelHolds(model);
+      const model = bodyOf(), hands = modelHolds(model);
       for (const field of equipment) field.hidden = !hands;
       for (const hand of SIDES) {
         const picker = loadoutPickers[side][hand];
@@ -325,22 +327,22 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     refresh();
     need("matchup").append(panel);
     pickers[side] = select;
-    previewLoads.push(showHeroLineup(preview, [matchup[side]], lifetime.signal, [appearances[side]]).then(async view => {
+    previewLoads.push(showHeroLineup(preview, [matchupModels(matchup)[side]], lifetime.signal, [appearances[side]]).then(async view => {
       context.signal.throwIfAborted();
       previews[side] = view; select.disabled = false; appearancePicker.disabled = false;
       const drafted = attributePanel.read() !== null;
-      if (drafted) await view.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, attributes[side]) }, appearances[side]).catch(previewFailed);
+      if (drafted) await view.setCharacter(0, { model: bodyOf(), attributes: controlCharacter(control.value, attributes[side]) }, appearances[side]).catch(previewFailed);
       select.addEventListener("change", () => {
         appearances = { ...appearances, [side]: "default" };
-        attributePanel.set({ model: select.value as BodyModel, attributes: attributes[side] });
-        // Another model is another character: its own skills.
-        delete skills[side]; skillPanel.set(select.value as BodyModel, undefined);
+        attributePanel.set({ model: bodyOf(), attributes: attributes[side] });
+        // Another character: its own skills.
+        delete skills[side]; skillPanel.set(select.value, undefined);
         refresh();
         select.blur();
-        if (attributePanel.read() !== null) void view.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, attributes[side]) }).catch(previewFailed);
+        if (attributePanel.read() !== null) void view.setCharacter(0, { model: bodyOf(), attributes: controlCharacter(control.value, attributes[side]) }).catch(previewFailed);
       }, { signal: lifetime.signal });
       appearancePicker.addEventListener("change", () => {
-        const appearance = appearanceFor(select.value as BodyModel, appearancePicker.value);
+        const appearance = appearanceFor(bodyOf(), appearancePicker.value);
         appearances = { ...appearances, [side]: appearance };
         appearancePicker.blur();
         void view.setAppearance(0, appearance).catch(previewFailed);
@@ -364,7 +366,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   levelField.append(levelPicker); need("matchup").after(levelField);
 
   function setupAddress(): string {
-    const models = { left: pickers.left.value as BodyModel, right: pickers.right.value as BodyModel };
+    const models: Matchup = { left: pickers.left.value, right: pickers.right.value };
     const query = new URLSearchParams(location.search);
     query.delete("balance"); query.delete("haste"); query.delete("held");
     query.set("control", SIDES.map(side => controlPickers[side].value).join(","));
@@ -493,7 +495,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   });
   const showControl = () => {
     choiceLabel.hidden = bout?.person == null;
-    for (const row of rows) row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === bout?.person ? " (you)" : ""}`;
+    for (const row of rows) row.label.textContent = `${ARENA_SIDES[row.side].label} · ${matchupLabel(row.side)}${row.side === bout?.person ? " (you)" : ""}`;
   };
   const clockColumn = document.createElement("div"), clock = document.createElement("span"), pauseButton = document.createElement("button");
   const drainNotice = document.createElement("p");
@@ -547,10 +549,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     for (const side of SIDES) {
       pickers[side].value = matchup[side];
       refreshChoices[side]();
-      attributeEditors[side].set({ model: matchup[side], attributes: attributes[side] });
+      attributeEditors[side].set({ model: matchupModels(matchup)[side], attributes: attributes[side] });
       skillEditors[side].set(matchup[side], skills[side]);
       const drafted = attributeEditors[side].read() !== null;
-      if (drafted) void previews[side].setCharacter(0, { model: matchup[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) }, appearances[side]).catch(previewFailed);
+      if (drafted) void previews[side].setCharacter(0, { model: matchupModels(matchup)[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) }, appearances[side]).catch(previewFailed);
     }
   };
   /** Begins a bout of `next`: the reel's trial `given`, or the one the pickers make. */
@@ -571,7 +573,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     beginButton.disabled = true;
     try {
       await context.loading("Preparing fighters", async stage => {
-        appearances = { left: appearanceFor(next.left, appearances.left), right: appearanceFor(next.right, appearances.right) };
+        const nextBodies = matchupModels(next);
+        appearances = { left: appearanceFor(nextBodies.left, appearances.left), right: appearanceFor(nextBodies.right, appearances.right) };
         matchup = next;
         if (given) context.replace(arenaViewSearch(appearanceSearch(caseSearch(given.world.recipe), matchup, appearances), view) + reelAt());
         else {
@@ -588,7 +591,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         }
         // The bout: the trial's recipe, or the one the address and the pickers make.
         const recipe = given?.world.recipe ?? recipeOf(location.search, attributes, level);
-        const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
+        const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchupModels(matchup)[side], appearances[side])] as const)));
         context.signal.throwIfAborted();
         end();
         trial = given;
@@ -659,8 +662,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       need("boot-note").textContent = error instanceof Error ? error.message : String(error);
     } finally { beginButton.disabled = false; }
   };
-  const redrawn = (): Matchup => ({ ...matchup, right: BODY_MODELS[Math.floor(Math.random() * BODY_MODELS.length)] });
-  const fromPickers = (): Matchup => ({ left: pickers.left.value as BodyModel, right: pickers.right.value as BodyModel });
+  const redrawn = (): Matchup => ({ ...matchup, right: CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)]! });
+  const fromPickers = (): Matchup => ({ left: pickers.left.value, right: pickers.right.value });
 
   const beginButton = need<HTMLButtonElement>("begin");
   beginButton.addEventListener("click", () => {
@@ -807,7 +810,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const last = at + 1 >= trials!.length, { verdict } = news;
       need("bout-end").style.setProperty("--side-colour", verdict?.winner ? ARENA_SIDES[verdict.winner].colour : "var(--hot)");
       need("bout-verdict").textContent = `Trial ${at + 1} of ${trials!.length}${trial.outcome === null ? "" : `: ${trial.outcome}`}${last ? " · the reel is played" : ""}`;
-      const decided = verdict ? `${verdict.winner ? `${MODEL_DISPLAY[matchup[verdict.winner]].label} ` : ""}${endingText(verdict.ending)} · ` : "";
+      const decided = verdict ? `${verdict.winner ? `${matchupLabel(verdict.winner)} ` : ""}${endingText(verdict.ending)} · ` : "";
       need("bout-ending").textContent = `${trial.condition} · ${decided}${news.clock.toFixed(1)} s`;
       show("bout-end", true); audio.setActive(false); pauseButton.hidden = true;
       if (auto && !last) nextTimer = setTimeout(() => playTrial(at + 1), TRIAL_BEAT_MS);
@@ -819,7 +822,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const how = endingText(ending);
       need("bout-end").style.setProperty("--side-colour", winner ? ARENA_SIDES[winner].colour : "var(--hot)");
       need("bout-verdict").textContent = winner ? `${ARENA_SIDES[winner].label} wins${winner === you ? " (you)" : ""}` : "Draw";
-      need("bout-ending").textContent = `${winner ? `${MODEL_DISPLAY[matchup[winner]].label} ` : ""}${how} · ${time.toFixed(1)} s`;
+      need("bout-ending").textContent = `${winner ? `${matchupLabel(winner)} ` : ""}${how} · ${time.toFixed(1)} s`;
       show("bout-end", true); audio.setActive(false);
     }
   };

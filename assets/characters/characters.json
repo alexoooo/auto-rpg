@@ -1,7 +1,10 @@
 {
-  "man": { "skills": ["straight-punch/drive", "sword-thrust/drive", "bonk/swing", "club-blow/swing", "stomp/stomp"] },
-  "woman": { "skills": ["straight-punch/drive", "stomp/stomp"] },
-  "skeleton": { "skills": ["straight-punch/drive"] },
-  "rat": { "skills": ["bite/bite"] },
-  "reptile": { "skills": ["bite/bite"] }
+  "characters": {
+    "warrior": { "model": "man", "label": "Warrior", "skills": ["straight-punch/drive", "sword-thrust/drive", "bonk/swing", "club-blow/swing", "stomp/stomp"] },
+    "rogue": { "model": "woman", "label": "Rogue", "skills": ["straight-punch/drive", "stomp/stomp"] },
+    "skeleton": { "model": "skeleton", "label": "Skeleton", "skills": ["straight-punch/drive"] },
+    "rat": { "model": "rat", "label": "Rat", "skills": ["bite/bite"] },
+    "reptile": { "model": "reptile", "label": "Reptile", "skills": ["bite/bite"] }
+  },
+  "models": { "man": "warrior", "woman": "rogue", "skeleton": "skeleton", "rat": "rat", "reptile": "reptile" }
 }

@@ -6,12 +6,11 @@ import { buildBody } from "../../core/bodies/build/build-body.ts";
 import { builtAngles, createMind, warmApart } from "../../minds/seat/create-mind.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { withLoadoutChecked, type Loadout } from "../../core/bodies/items/held.ts";
-import { resolveCharacterChecked, type BodyModel, type ResolvedCharacter } from "../../core/bodies/models.ts";
+import { modelLabel, resolveCharacterChecked, type BodyModel, type ResolvedCharacter } from "../../core/bodies/models.ts";
 import { modelLoadout } from "../model-loadouts.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { configuredSpawn } from "./attribute-placement.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
-import { MODEL_DISPLAY } from "../appearance/models.ts";
 import { createSenses, type SensesHub } from "../../core/world/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../../combat/blows.ts";
 import { levelsOf, stirs, type LevelAsk, type LevelRule } from "../levels.ts";
@@ -95,7 +94,7 @@ export function runModels(map: DungeonMap, options: Pick<DungeonRunOptions, "her
 }
 
 /** Who stands for each model in the party list and the target panel. */
-export const actorName = (model: BodyModel): string => MODEL_DISPLAY[model].label.toLowerCase();
+export const actorName = (model: BodyModel): string => modelLabel(model).toLowerCase();
 
 /** Who a body of the run is, by which its mind is chosen (`DungeonRunOptions.mind`): its id, its side and its model. */
 export type Participant = Pick<DungeonActor, "id" | "side" | "model">;

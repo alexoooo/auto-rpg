@@ -1,8 +1,7 @@
 import { attributeEditor } from "../ui/attribute-editor.ts";
 import { readAttributes, writeAttributes } from "../../../game/attribute-link.ts";
 import type { AttributeOverrides } from "../../../core/bodies/character-attributes.ts";
-import type { BodyModel } from "../../../core/bodies/models.ts";
-import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
+import { modelLabel, type BodyModel } from "../../../core/bodies/models.ts";
 import type { Participant } from "../../../game/dungeon/run.ts";
 import { ENCOUNTER_MODELS } from "../../../game/dungeon/encounters.ts";
 
@@ -26,7 +25,7 @@ export function runAttributes(holder: HTMLElement, search: string) {
       editors.clear();
       holder.replaceChildren(...rows.map(row => {
         const section = document.createElement("section"), heading = document.createElement("h3");
-        heading.textContent = `${row.label} · ${MODEL_DISPLAY[row.model].label}`;
+        heading.textContent = `${row.label} · ${modelLabel(row.model)}`;
         const editor = attributeEditor({ model: row.model, attributes: drafts.get(row.scope) }, {
           change: values => drafts.set(row.scope, values),
         });

@@ -1,5 +1,5 @@
 import { buttonInput as button } from "./inputs.ts";
-import { characterSkills, type BodyModel } from "../../../core/bodies/models.ts";
+import { characterNamed } from "../../../core/bodies/models.ts";
 import type { SkillChoices } from "../../../core/bodies/spec/body.ts";
 import type { Control } from "./controls.ts";
 
@@ -11,26 +11,26 @@ export interface SkillOffer {
 }
 
 interface SkillEditor extends Control {
-  /** The skills held, each `skill/variation`; undefined where they are the model's character's (`characterSkills`). */
+  /** The skills held, each `skill/variation`; undefined where they are the character's own (`Character.skills`). */
   read(): SkillChoices | undefined;
-  /** Show `model`'s character with `skills` in place of its own, or its own where undefined. */
-  set(model: BodyModel, skills: SkillChoices | undefined): void;
+  /** Show the character `character` (`CHARACTERS`) with `skills` in place of its own, or its own where undefined. */
+  set(character: string, skills: SkillChoices | undefined): void;
 }
 
 /**
  * **Which skills a character holds** (`BodySpec.skills`): a box for each variation of each skill
- * of `offers`, as many of one skill as it likes, starting from the model's character's. Reset gives
- * back the character's own.
+ * of `offers`, as many of one skill as it likes, starting from the character's own. Reset gives
+ * them back.
  */
-export function skillEditor(model: BodyModel, skills: SkillChoices | undefined, offers: readonly SkillOffer[],
+export function skillEditor(character: string, skills: SkillChoices | undefined, offers: readonly SkillOffer[],
   options: { change?: (skills: SkillChoices | undefined) => void } = {}): SkillEditor {
-  let shown = model, chosen = skills;
+  let shown = character, chosen = skills;
   const element = document.createElement("details"), summary = document.createElement("summary");
   element.className = "attribute-editor skill-editor"; summary.textContent = "Skills"; element.append(summary);
   const fields = document.createElement("div");
   fields.className = "attribute-fields";
   const boxes = new Map<string, HTMLInputElement>();
-  const current = (): SkillChoices => chosen ?? characterSkills(shown);
+  const current = (): SkillChoices => chosen ?? characterNamed(shown).skills;
   const refresh = () => {
     const now = new Set(current());
     for (const [name, box] of boxes) box.checked = now.has(name);
@@ -57,6 +57,6 @@ export function skillEditor(model: BodyModel, skills: SkillChoices | undefined, 
     element,
     refresh,
     read: () => chosen,
-    set(model, skills) { shown = model; chosen = skills; refresh(); },
+    set(character, skills) { shown = character; chosen = skills; refresh(); },
   };
 }

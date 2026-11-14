@@ -1,11 +1,10 @@
 import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { offered } from "../../../minds/catalog/controller.ts";
-import { modelHolding, type BodyModel } from "../../../core/bodies/models.ts";
+import { modelHolding, modelLabel, type BodyModel } from "../../../core/bodies/models.ts";
 import { modelLoadout } from "../../../game/model-loadouts.ts";
 import type { Loadout } from "../../../core/bodies/items/held.ts";
 import { FIGHT_ENTRY, MINDS, modelRefusal, defaultMind } from "../../catalog.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
-import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
 import { mindFaults, mindText, readMind } from "../setup.ts";
 import type { Participant } from "../../../game/dungeon/run.ts";
@@ -44,7 +43,7 @@ export function runMinds(holder: HTMLElement, rows: readonly Row[], search: stri
   holder.replaceChildren(...rows.map((row) => {
     const presets = presetsFor(row.model), key = mindKey(row);
     shown.set(key, readMind(query.get(key), presets) ?? presets[OWN]!.config);
-    const label = `${MODEL_DISPLAY[row.model].label}${row.side === "enemy" ? " (enemy)" : ""}`;
+    const label = `${modelLabel(row.model)}${row.side === "enemy" ? " (enemy)" : ""}`;
     const section = document.createElement("section"), name = document.createElement("h3"), select = document.createElement("select");
     section.className = "party-mind"; name.textContent = label;
     select.setAttribute("aria-label", `${label}'s mind`);

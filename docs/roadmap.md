@@ -111,11 +111,13 @@ Each holds its goal, where it stands and the questions open
 - Standing up in the Lab, the Arena and the Crypt, and whether the rise looks human.
 - The reaction time, 0.15 s, beside a bout at `&senseDelay=0`.
 - The crowd fight and the Crypt with minds on workers (`npm run preview`): smooth, no slow motion.
-- The Skeleton in play (`?play=arena&matchup=skeleton,man`).
+- The Skeleton in play (`?play=arena&matchup=skeleton,warrior`).
 - The reptile and the rat on the game's Option Mind against a Warrior and a Reptile: the trot,
   the bite, righting; the Walker in the Lab (`&scenario=reach`).
 - The Crypt's commands (H, X, Q, E, right click), the level-clearer (`&party=clearer`) and the mob.
 - The Arena's Skills panel: each side's skills, any number of variations of each (`left.skills=`).
+- The Arena's character picker: each character by name (`matchup=warrior,rogue`), a model's name
+  standing for its own character.
 
 ## Open, by layer
 

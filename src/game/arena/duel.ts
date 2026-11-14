@@ -109,7 +109,9 @@ export interface DuelRecipe {
   readonly right: BodyModel;
   /** Each character's attributes; a stored recipe carries their resolved values. */
   readonly attributes?: Readonly<Record<Side, AttributeOverrides>>;
-  /** Each character's skills, each by the variation it runs (`SkillChoices`), in place of its model's character's. */
+  /** Each side's character (`CHARACTERS`) where it is not its model's own (`modelCharacter`). */
+  readonly characters?: Readonly<Partial<Record<Side, string>>>;
+  /** Each character's skills, each by the variation it runs (`SkillChoices`), in place of its character's. */
   readonly skills?: Readonly<Partial<Record<Side, SkillChoices>>>;
   /** Physical stage and its spawn policy; the open stage unless given. */
   readonly level?: ArenaLevel;
@@ -179,8 +181,8 @@ const recipeKey = (recipe: DuelRecipe): string => JSON.stringify(recipe, (_, val
   typeof value === "object" && value !== null && !Array.isArray(value)
     ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : value);
 
-/** `side`'s character in `recipe`: its model, with the recipe's balance, haste and attributes over the model's own, and its skills where the recipe names them. */
-const duelCharacter = (recipe: DuelRecipe, side: Side) => resolveCharacter({ model: recipe[side], attributes: {
+/** `side`'s character in `recipe`: the one it names, else its model's own, with the recipe's balance, haste and attributes over the model's own, and its skills where the recipe names them. */
+const duelCharacter = (recipe: DuelRecipe, side: Side) => resolveCharacter({ model: recipe[side], ...(recipe.characters?.[side] ? { character: recipe.characters[side] } : {}), attributes: {
   ...(recipe.balance?.[side] !== undefined ? { balance: recipe.balance[side] } : {}),
   ...(recipe.haste?.[side] !== undefined ? { haste: recipe.haste[side] } : {}), ...recipe.attributes?.[side],
 }, ...(recipe.skills?.[side] ? { skills: recipe.skills[side] } : {}) });
