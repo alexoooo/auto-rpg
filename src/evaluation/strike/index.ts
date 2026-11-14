@@ -4,7 +4,7 @@ import { isRefused } from "../../core/refusal.ts";
  * **The Strike drill**: does a strike skill, thrown once, land on
  * the mark it was asked, and come back without felling the striker? Each rung is a protocol (rung
  * 0, `still`: a still target, and `sampled`, its starts drawn at random, moving or still; rung 1, `moving`: a pad carried on a rail; rungs 2 to 4, `stepping`, `guarding`, `punching`: a drill opponent;
- * rung 5, `walk`: one walked to, asked settled or still walking; and a fight's moments, `fight`, over the fights a strike's profile is measured in, `fights`), its trials laid out by body, mark, hand, offset and range. The
+ * rung 5, `walk`: one walked to, asked settled or still walking; a fight's moments, `fight`, and over many fights, `fights`; and starts drawn at random at a foe fighting back, which a strike's profile is measured on, `sparring` and `sparring-laid`), its trials laid out by body, mark, hand, offset and range. The
  * subject is a mind and one of its skills (`option/straight-punch`), and what its striker holds where
  * it names a loadout (`option/bonk@buckler,club`, its left hand first); a drill Commander
  * (`DrillCommanderConfig`) orders the skill, so the skill, its executor's settings and the body's

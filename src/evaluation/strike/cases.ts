@@ -3,10 +3,11 @@
  * starts drawn at random, moving or still, `sampled`), at one lying (`stomping`, and from starts
  * drawn at random, `stomping-sampled`), a club's blow at one's head (`bonk`), at one
  * carried past on a rail (`moving`), at one walked to from farther (`walk`), at a drill opponent stepping in and out (`stepping`), guarding
- * (`guarding`) or punching back (`punching`), or in a fight's moment (`fight`, and over the fights
- * a strike's profile is measured in, `fights`). The rungs at a target ask how well the body throws
- * the strike; the fights ask what the strike brings where it is used, another question, and a
- * profile is that one's answer alone. The striker is the
+ * (`guarding`) or punching back (`punching`), in a fight's moment (`fight`, and over many fights,
+ * `fights`), or from starts drawn at random at a foe that fights back (`sparring`, and at one laid
+ * down, `sparring-laid`). The rungs at a target ask how well the body throws the strike; what the
+ * strike brings against a foe fighting back is another question, and a profile is that one's
+ * answer, measured on the sparring rungs. The striker is the
  * subject's mind as given, holding what its subject names (`StrikeSubject.held`), its side led by
  * the drill Commander (`DrillCommanderConfig`): it stands, walks the striker into its action's
  * window, and orders the one action at one mark with one limb, a hand or a foot, once; the mind
@@ -36,7 +37,7 @@ import type { BodyModel } from "../../core/bodies/models.ts";
 import { modelHolding, modelSpec } from "../../core/bodies/models.ts";
 import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { deepFreeze } from "../../core/state.ts";
-import { seatBody, sideCharacters, type BoutTiming, type Cases, type Json, type Subject } from "../evaluation.ts";
+import { seatBody, sideCharacters, type BoutTiming, type Cases, type Json, type Seat, type Subject } from "../evaluation.ts";
 import { effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
 import type { Rail } from "../../game/arena/rail.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
@@ -305,23 +306,60 @@ const onOtherBodies = <P extends { readonly models: readonly BodyModel[] }>(rung
   deepFreeze({ ...rung, models: STRIKERS.filter((model) => !rung.models.includes(model)) as BodyModel[] });
 
 /**
- * **The fights a strike's profile is measured in**, the `fights` rung: a fight's moments (`FIGHT`)
- * on every striker's body, with each hand and each foot, in the fight begun from each of the
- * standard match's gaps on the open stage, m (`gaps`), at each of the mind's first `moments`
- * actions aimed at a body. A profile says what a strike brings where it is used, in a fight
- * against a foe that fights back, so these trials alone make it
- * (`research/skills/strikes/strike-profiles.mjs`); how well the body throws the strike is the
- * other rungs' question, and no answer to this one. The strike is thrown at each moment whichever
- * the mind chose there, so one it seldom chooses is measured as often as one it favours. A moment
- * a fight never came to, and a strike not begun at its moment (a stomp while the foe stands), is
- * no trial of it.
+ * **Many fights' moments**, the `fights` rung: a fight's moments (`FIGHT`) on every striker's body,
+ * with each hand and each foot, in the fight begun from each of the standard match's gaps on the
+ * open stage, m (`gaps`), at each of the mind's first `moments` actions aimed at a body: what the
+ * strike brings from the starts the mind's own fight comes to. The strike is thrown at each moment
+ * whichever the mind chose there; a moment a fight never came to, and a strike not begun at its
+ * moment (a stomp while the foe stands), is no trial of it.
  */
 const FIGHTS = deepFreeze({ ...FIGHT, models: [...STRIKERS], feet: [...SIDES] as Hand[], gaps: [3, 4, 5], moments: [1, 2, 3, 4, 5, 6, 7, 8] });
+
+/**
+ * **The foe a strike's profile is measured against**: Option Mind as the game fights with it
+ * (`MINDS.option`), fighting from the start: it guards, steps and strikes as it would in a bout.
+ */
+const SPARRING_FOE = "option";
+
+/**
+ * **Sparring**, the `sparring` rung, which a strike's profile is measured on
+ * (`research/skills/strikes/strike-profiles.mjs`) with `sparring-laid`: the sampled rung's starts
+ * (`SAMPLED`), drawn so a profile covers the ranges, the approaches and the places in its window a
+ * chooser asks it at, with each hand at each mark, at each of the game's foes (`FOES`) under the
+ * foe that fights back (`SPARRING_FOE`), which fights from the start while the striker stands and
+ * moves, so the trials begin against a foe in each of its phases. The starts are drawn, never come
+ * to, so a strike the mind seldom chooses is measured as often as one it favours.
+ */
+const SPARRING = deepFreeze({ ...SAMPLED, marks: ["high", "middle"] as Mark[], targets: FOES, trials: 480, opponent: SPARRING_FOE });
+
+/** Sparring's training twin, `sparring-twin`: its starts drawn from another stream (`seed`), for research to tune on while `sparring` stays held out. */
+const SPARRING_TWIN = deepFreeze({ ...SPARRING, seed: 2 });
+
+/**
+ * **Sparring's training draws**, `sparring-drawn`: ten times its starts, on a stream of their own,
+ * for a trainer to draw from, so that no start recurs often enough to be learned for itself; the
+ * twin and the rung stay out of training, to rank and to judge by.
+ */
+const SPARRING_DRAWN = deepFreeze({ ...SPARRING, seed: 3, trials: SPARRING.trials * 10 });
+
+/**
+ * **Sparring at a foe laid down**, the `sparring-laid` rung: the stomping rung's sampled starts
+ * (`STOMPING_SAMPLED`), with each foot, at each of the game's foes laid down and fighting back
+ * (`SPARRING_FOE`), which rises as it would. A foe that keeps its balance is shoved four times as
+ * hard as a limp one (`speed`) to go down, and sits up before a striker standing longer than
+ * `settled` s reaches it from farther than `gaps` and `closer`; a stomp not begun before the foe
+ * is up is no trial of it.
+ */
+const SPARRING_LAID = deepFreeze({ ...STOMPING_SAMPLED, targets: FOES, trials: 240, opponent: SPARRING_FOE,
+  laid: { ...LAID, speed: 2 }, settled: .6, gaps: [.5, .8], closer: [.8, 1.2] });
 
 export function createStrikeCases(context: GameContext) {
   const { treeObeys, controllers: CONTROLLERS, minds: MINDS } = context.catalog;
   const mindFaults = contextMindFaults.bind(undefined, context);
-  const { opponentOf } = createDrillOpponents(context);
+  const { opponentOf, DRILL_OPPONENTS } = createDrillOpponents(context);
+
+  /** The right side's seat where its opponent is a preset a person may pick (`opponentOf`): its character as the preset gives it; none for a drill opponent. */
+  const foeSeat = (id: string): { readonly right?: Seat } => Object.hasOwn(DRILL_OPPONENTS, id) || !Object.hasOwn(MINDS, id) ? {} : { right: MINDS[id]! };
 
   /** Why `value` is no subject, or what keeps its mind from `model` holding what it names (`mindFaults`). */
   function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
@@ -405,7 +443,7 @@ export function createStrikeCases(context: GameContext) {
           walking: start === "walking" || carried !== null || approach !== undefined, ...(approach === undefined ? {} : { approach }), ...(letGo === undefined ? {} : { letGo }) }), opponentOf(protocol.opponent ?? STANDING)!);
         return { kind: "bout", engine, tape: [], ...protocol.timing === undefined ? {} : { timing: protocol.timing },
         // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
-        recipe: { left: model, right: target ?? "man", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideCharacters({ left: model, right: target ?? "man" }, { left: seat }),
+        recipe: { left: model, right: target ?? "man", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideCharacters({ left: model, right: target ?? "man" }, { left: seat, ...foeSeat(protocol.opponent ?? STANDING) }),
           ...(protocol.motion ? { balance: { left: 0, right: 0 } } : {}),
           ...loadoutsOf(value as unknown as StrikeSubject),
           // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
@@ -452,6 +490,9 @@ export function createStrikeCases(context: GameContext) {
 
   /** Every protocol the Strike drill may be played on, by name: its rungs. */
   const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ ...twinned("still", atEveryFoe(STILL)), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
+    sparring: { ...stillCases(SPARRING, sampledConditions(SPARRING)), twin: "sparring-twin" }, "sparring-twin": stillCases(SPARRING_TWIN, sampledConditions(SPARRING_TWIN)),
+    "sparring-drawn": stillCases(SPARRING_DRAWN, sampledConditions(SPARRING_DRAWN)),
+    "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
     "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT), fights: fightCases(FIGHTS),

@@ -101,7 +101,8 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
 - **An Option's profile measures its outcomes**, falls among them, so the Mind prices its risk.
   How well a body throws a move and what the move brings in a fight are two readings: a skill's
   own test reads the first, at a target that lets it happen; a profile is the second, read where
-  the Mind uses it. A strike's is built only from blows thrown in fights (`fights`).
+  the Mind uses it. A strike's is built only from blows thrown sparring (`sparring`,
+  `sparring-laid`): from starts drawn at random against a foe fighting back.
 - **Drills read no profile and search no tree**: a table cell, its drill opponents and every
   skill's search and training run the drills' Mind (`option-drill`: its priors, its options run
   in their order, `RANKED_CHOOSER`), fast and the same each time: a drill drives its skills, and
@@ -229,8 +230,8 @@ Follows [the training recipe](training.md). What is particular to a new skill:
   loadouts, approaches, moving targets, misses and cancellations. Each keeps the earlier cases in
   the mix.
 - Confirm once on the cells' cases at 120 and 480 Hz, on the chosen checkpoint or record.
-- Register it in Option Mind, install its record in the game and build its profiles from fights
-  (a strike's: the Strike drill's `fights` kept with `--json`, then
+- Register it in Option Mind, install its record in the game and build its profiles sparring
+  (a strike's: the Strike drill's `sparring` and `sparring-laid` kept with `--json`, then
   `research/skills/strikes/strike-profiles.mjs --write`); a drill Commander using it alone does
   not show the Mind uses it.
 - Play its table cells (`npm run evaluate -- table --body <model> --skill <name> --fresh`) and
