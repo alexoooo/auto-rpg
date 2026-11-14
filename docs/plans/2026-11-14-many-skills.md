@@ -14,6 +14,7 @@ describes a design under consideration; nothing in it is built.
   The structure never decides it: a variation's code, record, network and what it needs of the
   body are its own to declare.
 - **Approaches are developed side by side** and read against each other on the same cases.
+- **The cheapest method that works makes a skill**: a search and a fit before a training run.
 - **A change rebuilds only what depends on it.**
 
 ## Why a skill is slow
@@ -78,7 +79,69 @@ record take the variation they write (`punch-export.mjs` writes the drive's;
 - Whether a variation has a row of [the table](../reference/the-table.md) or is read as a subject
   against its skill's row.
 
-## Part 2: a layer under the skills
+## Part 2: a strike made by search
+
+**Where it stands.** The game holds two ways of making a strike.
+
+- **The punch**: a push schedule searched by CMA-ES, then an actor trained by PPO that adds to its
+  pushes and asks the stance at each decision. The schedule alone lands within about 2 cm of the
+  distance it was searched at. The actor reads 59 inputs and took 20 to 50 M decisions
+  ([the approaches](../approaches.md#unarmed-strikes)).
+- **The bonk**: one searched swing with no network in its record
+  (`assets/skills/strikes/bonk/swing.json`). Its footing steps the body to the place the swing was
+  searched for (`Swing.footing`, `reach`), and those steps are most of its time
+  ([the approaches](../approaches.md#weapon-strikes)).
+
+The approaches record what the alternatives cannot do:
+
+- **A blow that tracks a declared path is too slow**: 4 to 6 m/s against 6.8, and a tenth of a
+  swing's energy. The whole-body solve already is a solve of tasks in the body's accelerations,
+  so that route is spent.
+- **A schedule played open-loop works only from the start it was searched from**, and a moving
+  target needs a steer inside the stroke.
+
+So a strike needs a searched schedule and a correction inside the stroke. How large the
+correction has to be is open: the punch's is a network over 59 inputs, and nothing smaller has
+been read.
+
+**The design: a schedule, an aim and a small correction.**
+
+- **A schedule**, searched as now (`punch-drill.mjs`, `swing-drill.mjs`).
+- **An aim**: a map from the target's place (distance, height, side) to the schedule's settings,
+  fitted from searches at several places. The strike's Option is unchanged and its profile gains
+  those dimensions.
+- **A correction**: a linear function of a few inputs (the target from the fist, the shoulder's
+  velocity, the arm's angles), added to the pushes inside the stroke and fitted by regression
+  from plays of the schedule from perturbed starts.
+
+It reads no leg joint. Its cost is searches and a fit, so what a change to the body voids is made
+again with no training run.
+
+Provenance: schedules played open-loop with a linear feedback fitted to each by regression (Liu,
+van de Panne & Yin, "Guided Learning of Control Graphs for Physics-Based Characters", ACM
+Transactions on Graphics 2016); a few global parameters of one movement adjusted to a new target
+(Kober, Wilhelm, Oztop & Peters, "Reinforcement learning to adjust parametrized motor primitives
+to new situations", Autonomous Robots 2012; Mülling, Kober, Kroemer & Peters, "Learning to select
+and generalize striking movements in robot table tennis", International Journal of Robotics
+Research 2013); muscle-driven bipeds whose control parameters are optimised under a neural delay
+(Geijtenbeek, van de Panne & van der Stappen, "Flexible Muscle-Based Locomotion for Bipedal
+Creatures", SIGGRAPH Asia 2013).
+
+**What it would bring.** A strike on a new body or loadout is a search and a fit. One strike
+covers a range of places, where the learned punch's window is suspected of lying off where
+fighters stand ([the approaches](../approaches.md#unarmed-strikes)). The correction's inputs are
+few and none is a leg's, so a change to the stance leaves its layout as it is.
+
+**Open.**
+
+- Whether a linear correction over a few inputs holds what the open-loop schedule loses: 1.5 cm
+  of foot took a bonk from 96 to 63 J. Untested. Where it falls short, an actor over the same few
+  inputs is the next size.
+- Whether a correction this small follows a moving target inside the stroke.
+- How many searched places the aim's fit needs, and whether it reaches the 0.6 m fighters stand
+  at.
+
+## Part 3: a layer under the skills
 
 **Where it stands.** The control layer holds the pieces ([motor
 control](../architecture.md#motor-control)): the stance (`stance-balance.ts`), the whole-body
@@ -91,6 +154,11 @@ The layer carries out what each skill asks step by step (`LegsGoal`, `StanceGoal
 a blow's push only once the body moves. So a strike's network learns to place the centre of mass
 before the blow, and each strike learns it again.
 
+The assist is taken up with no skill asking for it. The whole-body solve asks it for what the
+ground cannot give of the root's aim (`shortfall`, `solve.ts`), and the stance counts its reach
+before it steps (`assistReach`, `stance/gait.ts`). The installed punch was searched and trained
+at a ceiling of 0, so it throws no harder with an assist on.
+
 Balance and motor each have one registered kind (`BALANCES`, `MOTORS`,
 `src/app/registration/`). They are slots of a mind's config, so a skill's variation chooses
 neither.
@@ -98,25 +166,36 @@ neither.
 **The design: a contract with more than one implementation.**
 
 - **Down, from the skill**: the limbs it takes; what it wants of the pelvis (a turn, a drive
-  forward); and the push it is about to make, declared before it makes it. A timed push schedule
-  is known ahead, so its reaction is measured once and kept as a small table per variation and
-  body.
+  forward); and the impulse it expects at contact, with its time, declared before the blow.
+  - Forces between the body's own parts do not move its centre of mass; the ground and the
+    contact do. So the impulse is what the stance has to hold, whatever the pushes that made it.
+  - An impulse J moves the capture point by J / (m ω), with ω = √(g / h) for a centre of mass at
+    height h. That is 9 cm for an untrained punch's 22.8 N s
+    ([the strike reference](../reference/human-strike-reference.md)) on an 80 kg body with its
+    centre at 1 m: arithmetic, not a reading.
 - **Up, to the skill**: whether the layer can brace this now and how soon if not, and the
   shoulder's frame and velocity. No leg joint.
 - **Inside the layer**: whether to lean, widen, step, keep walking or ask the assist.
 
-Three implementations, each a balance kind behind the same contract and so playable side by side:
+Three implementations, each a balance kind behind the same contract and so playable side by side,
+in the order of their cost:
 
 | Kind | What it is | Its cost |
 | --- | --- | --- |
 | Assisted | the stance with the assist's ceiling raised | the least work; a skill tuned with an assist is read again without it before it is called unassisted |
-| Feed-forward | the stance reads the declared push and leans before it | balance engineering of the kind the approaches record falling short |
-| Learned base | one actor over the stance, trained once against random pushes on the upper body, following pelvis commands | one training run of the learned run's size, shared by every strike |
+| Feed-forward | the stance keeps the capture point inside the soles by the declared impulse's shift, along its line, before the blow | a margin and a lean in the stance; untested |
+| Learned base | one actor over the stance, trained once against random pushes on the upper body, following pelvis commands | the dearest: a training run of the learned run's size, on an engine whose scarce thing is decisions |
 
 Provenance: forces at the root added to a controller's actions (Yuan & Kitani, "Residual Force
-Control for Agile Human Behavior Imitation and Extended Motion Synthesis", NeurIPS 2020); legs
-that follow a commanded velocity under whatever the upper body does (Cheng et al., "Expressive
-Whole-Body Control for Humanoid Robots", RSS 2024).
+Control for Agile Human Behavior Imitation and Extended Motion Synthesis", NeurIPS 2020);
+assisting forces relaxed step by step until the body moves without them (Yu, Turk & Liu,
+"Learning Symmetric and Low-Energy Locomotion", SIGGRAPH 2018); bounds on the jump an intended
+impact makes, kept so that the contacts and the balance hold (Wang, Tanguy, Gergondet & Kheddar,
+"Impact-aware humanoid robot motion generation with a quadratic optimization controller",
+Humanoids 2019); the legs and the arms of one body learned apart (Liu & Hodgins, "Learning
+Basketball Dribbling Skills Using Trajectory Optimization and Deep Reinforcement Learning",
+SIGGRAPH 2018); legs that follow a commanded velocity under whatever the upper body does (Cheng
+et al., "Expressive Whole-Body Control for Humanoid Robots", RSS 2024).
 
 **What it would bring.** A strike's network stops reading the legs, so a change to the stance or
 the legs leaves it valid. A new strike is braced without learning to be. A strike that leaves the
@@ -138,9 +217,21 @@ legs alone runs beside a walk: the mind runs together Options whose resources do
   ([where the project is going](../roadmap.md#where-the-project-is-going)).
 - How much of the punch's learning is in its stance outputs. Unmeasured; read by zeroing those
   four outputs of the installed network on the Strike drill.
-- The declared push's form, and the learned base's commands.
+- What those outputs are for. The impulse's shift is small beside the 0.15 m of centre the punch
+  may ask (`drive.layout.json`), so they are suspected of serving its reach and its hip turn more than
+  its bracing.
+- How much balance a punch costs. Unmeasured; read from the assist's meter over the blow with the
+  ceiling raised (`Assist.meter`, as `research/bout.mjs` reads a bout's): what the ground could
+  not give while it was thrown. That run's landed share reads nothing. The punch does not lean on
+  the assist, and the stance steps later with one, which puts the actor outside the states it
+  learned on.
+- Whether a strike is cheaper to make when it need not stay up. Read by the same search at the
+  same budget, once at a raised ceiling and once at 0, compared on how soon each lands. The
+  search tools play at their cell's balance; a ceiling is a recipe's (`DuelRecipe.balance`).
+- Whether a margin for the declared impulse is all the stance needs of a blow, and the learned
+  base's commands.
 
-## Part 3: the pipeline
+## Part 4: the pipeline
 
 **Where it stands.** A skill is searched and trained on its drill's twin, its profile is measured
 sparring, and it is read in fights last ([the steps](../recipes/skill.md#the-steps)).
@@ -203,15 +294,17 @@ reads would be replayed less often, and trusted on that hash in place of the who
 
 Each is an idea, untested here.
 
-- **One aimed strike for several narrow ones**: a strike takes its target point as an input
-  (distance, height, side). Its Option is unchanged and its profile gains those dimensions. The
-  learned punch's window is suspected of lying off where fighters stand
-  ([the approaches](../approaches.md#unarmed-strikes)).
 - **A strike as a clip under a learned tracker**, as the run is
   ([the approaches](../approaches.md#travel)). A network rewarded for matching a clip leads it,
   where a tracking controller lags (Peng et al., "DeepMimic: Example-Guided Deep Reinforcement
   Learning of Physics-Based Character Skills", SIGGRAPH 2018). Its cost is still tens of millions
   of decisions a clip.
+- **One tracker for every clip**, its commands masked to the parts a skill asks (He et al.,
+  "HOVER: Versatile Neural Whole-Body Controller for Humanoid Robots", ICRA 2025). Boxing and
+  fencing were learned on such a base, the skills by imitation and then the bout (Won, Gopinath &
+  Hodgins, "Control Strategies for Physically Simulated Characters Performing Two-player
+  Competitive Sports", SIGGRAPH 2021). It is trained on many bodies at once on a graphics
+  processor, as the last candidate here is.
 - **Weapons before fists**: a fist is a light mass on a short lever, and the club's blows came
   more readily than the punch.
 - **More decisions a second**: many bodies simulated at once on a graphics processor. Rapier in
@@ -220,9 +313,13 @@ Each is an idea, untested here.
 ## How the parts depend
 
 - Part 1 stands alone. A variation with a network of its own waits on it.
-- Part 2's contract comes before a second balance kind is compared with the stance. The assisted
-  kind tests the contract's form at the least cost.
-- Part 3's library stands alone and waits on a save keyed by its dependencies.
+- Part 2's search and aim stand on the search tools as they are. Its correction is a record and a
+  layout of a variation's own, and waits on Part 1.
+- Part 3's readings come before its contract: the zeroed outputs, the assist's meter and the
+  paired search say whether balance is what a strike's making is spent on. The contract comes
+  before a second balance kind is compared with the stance, and the assisted kind tests its form
+  at the least cost.
+- Part 4's library stands alone and waits on a save keyed by its dependencies.
 
 ## To pick it up
 
@@ -230,9 +327,14 @@ Each is an idea, untested here.
   `src/skills/strikes/straight-punch/index.ts`; its records `straight-punch/data/`; the boundary
   `scripts/source-boundary.mjs`; a variation read against another,
   `research/skills/strikes/straight-punch/punch-sparring.mjs`.
+- **A strike by search**: the searches `research/skills/strikes/straight-punch/punch-drill.mjs`
+  and `research/skills/strikes/swing/swing-drill.mjs` over `research/cma.mjs`; the schedule
+  `src/skills/strikes/shared/timed-push.ts`; the steer a correction adds through,
+  `src/skills/strikes/shared/steer.ts`; a strike read on held-out places,
+  `research/skills/strikes/straight-punch/punch-policy-check.mjs`.
 - **The layer**: `src/control/` (`stance/`, `solve.ts`, `bearing.ts`, `balance-part.ts`,
-  `motor-part.ts`); the assist `src/core/bodies/assist.ts` and its ceiling
-  `src/combat/rulebook.ts`; what a strike asks of the legs, `LegsGoal` in
+  `motor-part.ts`); the assist `src/core/bodies/assist.ts`, its ceiling
+  `src/combat/rulebook.ts` and its meter read over a bout, `research/bout.mjs`; what a strike asks of the legs, `LegsGoal` in
   `src/skills/framework/skill.ts` and `shared/steer.ts`; the registrations
   `src/app/registration/balances.ts` and `motors.ts`.
 - **The pipeline**: the Strike drill's rungs `src/evaluation/strike/cases.ts`; saving and loading
