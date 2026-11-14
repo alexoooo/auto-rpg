@@ -1,6 +1,6 @@
 import { HUMANOID_MODELS, humanoidSpec, humanoidSpecChecked, type HumanoidModel } from "./human/spec.ts";
 import type { Physique } from "./human/physique.ts";
-import type { BodySpec, SkillChoices } from "./spec/body.ts";
+import { withVariations, type BodySpec, type SkillChoices } from "./spec/body.ts";
 import characters from "../../../assets/characters/characters.json" with { type: "json" };
 import { reptileSpec } from "./quadruped/spec.ts";
 import reptileBody from "../../../assets/reptile/body.json" with { type: "json" };
@@ -116,6 +116,14 @@ export function modelCharacter(model: BodyModel): string {
   const name = Object.hasOwn(REGISTRY.models, model) ? REGISTRY.models[model] : undefined;
   if (name === undefined) throw new Error(`model ${String(model)} has no character`);
   return name;
+}
+
+/**
+ * **`model`'s own character's skills holding `variations`** in place of its variations of those
+ * skills (`withVariations`); undefined where none are named, so its character's own.
+ */
+export function characterSkills(model: BodyModel, variations: SkillChoices | undefined): SkillChoices | undefined {
+  return variations?.length ? withVariations(characterNamed(modelCharacter(model)).skills, variations) : undefined;
 }
 
 /** The character `text` names: a character's name, or a model's for its own character (`modelCharacter`); undefined for anything else. */
@@ -258,14 +266,15 @@ export const modelHolds = (model: BodyModel): boolean => canHold(specOf(model), 
 /** Each model's spec with each per-hand loadout, read once. */
 const holding = new Map<string, BodySpec>();
 /**
- * `model`'s spec carrying `loadout` (`withLoadout`), read once: the body a mind must fit.
+ * `model`'s spec carrying `loadout` (`withLoadout`), read once: the body a mind must fit, its
+ * character taking `attributes` and holding `skills` in place of its own where given.
  * A model that cannot hold an assigned item is refused.
  */
-export function modelHolding(model: BodyModel, loadout: Loadout, attributes?: AttributeOverrides): BodySpec {
+export function modelHolding(model: BodyModel, loadout: Loadout, attributes?: AttributeOverrides, skills?: SkillChoices): BodySpec {
   const faults = loadoutFaults(loadout);
   if (faults.length) throw new Error(faults.join("; "));
-  if (attributes && Object.keys(attributes).length) {
-    const own = resolveCharacter({ model, attributes }).spec;
+  if (attributes && Object.keys(attributes).length || skills) {
+    const own = resolveCharacter({ model, attributes: attributes ?? {}, ...(skills ? { skills } : {}) }).spec;
     return withLoadout(own, loadout);
   }
   if (loadout.left === "empty" && loadout.right === "empty") return specOf(model);
@@ -275,8 +284,8 @@ export function modelHolding(model: BodyModel, loadout: Loadout, attributes?: At
   return spec;
 }
 
-/** Resolve external character settings and equipment before any world or body is made. */
-export function modelHoldingChecked(model: BodyModel, loadout: Loadout, attributes?: AttributeOverrides): BodySpec | Refused {
-  const character = resolveCharacterChecked({ model, ...(attributes === undefined ? {} : { attributes }) });
+/** Resolve external character settings (`attributes`, `skills` in place of its own) and equipment before any world or body is made. */
+export function modelHoldingChecked(model: BodyModel, loadout: Loadout, attributes?: AttributeOverrides, skills?: SkillChoices): BodySpec | Refused {
+  const character = resolveCharacterChecked({ model, ...(attributes === undefined ? {} : { attributes }), ...(skills === undefined ? {} : { skills }) });
   return isRefused(character) ? character : withLoadoutChecked(character.spec, loadout);
 }

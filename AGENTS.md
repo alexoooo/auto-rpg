@@ -33,11 +33,13 @@ Ten rules bind every change. A kind of work has its own, in its own document
    code is touched. What the owner rejects is removed exactly, nothing wider.
 2. **Work that plays the game starts from a brief the owner approves**, or the agent the owner
    sets to drive a goal ([driven](docs/recipes/documents.md)): a drill, a search, a
-   training run, a table play. A run is a session of its own, and its first message is the brief,
-   written from the owner's request and never from a plan, in ten lines or fewer: the request in the owner's words; the one
-   question; what will be changed, naming anything the owner did not ask for; the one measure and
-   the command that reads it; the machine time it may take, or none where the work ends itself
-   once it stops improving; where it stops. Inside the brief the
+   training run, a table play. The brief is written from the owner's request and never from a
+   plan, in ten lines or fewer: the request in the owner's words; the one question; what will be
+   changed, naming anything the owner did not ask for; the one measure and the command that reads
+   it; the machine time it may take, or none where the work ends itself once it stops improving;
+   where it stops. A run of under half an hour that the agent watches is briefed in the
+   conversation and run there on the owner's request. A longer or unattended run is a session of
+   its own, its first message the brief, a file ([briefs](docs/recipes/documents.md)). Inside the brief the
    how is the agent's: a modelling choice (a curve, a range, a solver setting) is decided toward
    the goal, never put to the owner, and nothing waits for approval. Other work lands on its
    checks and plays nothing; a change that is something to see is looked at in a browser, briefly.
@@ -110,7 +112,7 @@ Ten rules bind every change. A kind of work has its own, in its own document
 | `docs/architecture.md` | the layers, their contracts, where each lives |
 | `docs/roadmap.md` | the one row or goal in work now, what is next in order, what is parked and what is open, a line each |
 | `docs/plans/` | notes on the work in hand and on the parked work the roadmap lists; deleted when it lands |
-| `docs/briefs/` | a run's brief, written for the owner to read and approve; deleted when its run reports |
+| `docs/briefs/` | a longer or unattended run's brief, its session's first message; deleted when its run reports |
 | `docs/analysis/` | the study behind a decision still open; deleted once decided |
 | `docs/diagrams/` | pages showing the current design, or a target a plan in flight names |
 | `docs/reference/` | only what code needs and a comment cannot hold |

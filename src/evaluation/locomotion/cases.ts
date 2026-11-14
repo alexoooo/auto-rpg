@@ -28,7 +28,7 @@
  * gusts (`gusts`, `labGusts`: the Warrior's, scaled by the body's mass) and the seed of its mind's chance and the gusts (`seed`). Calm
  * air, no balance unless its character has one. A change here is a new protocol.
  */
-import { mindOf } from "../evaluation.ts";
+import { mindOf, seatCharacter } from "../evaluation.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import type { Orders } from "../../minds/orders.ts";
 import { cos, sin } from "../../core/math/real.ts";
@@ -252,9 +252,9 @@ export function createLocomotionCases(context: GameContext) {
       conditions,
       seconds: longest(conditions),
       faults: (value, { model }, subject) => faultsOf(value, model, subject),
-      world: ([mind], condition, engine, [character]) => ({ kind: "lone", engine,
+      world: ([mind], condition, engine, [seat]) => ({ kind: "lone", engine,
         lone: { model: condition.model, mind: mindOf(mind), script: scriptOf(condition).cues, floorSize: OPEN_FLOOR,
-          ...(character && Object.keys(character).length > 0 ? { character } : {}),
+          ...seatCharacter(condition.model, seat),
           ...(condition.loadout && loadoutKey(condition.loadout) !== "empty,empty" ? { loadout: condition.loadout } : {}),
           ...(condition.gusts ? { gusts: true as const } : {}), ...(condition.seed !== undefined ? { seed: condition.seed } : {}) } }),
       read: (built, condition) => readLocomotion(built, condition),

@@ -3,6 +3,7 @@ import type { AttributeOverrides } from "../core/bodies/character-attributes.ts"
 import type { Loadout } from "../core/bodies/items/held.ts";
 import type { MindConfig } from "../minds/catalog/config.ts";
 import { modelHoldingChecked, type BodyModel } from "../core/bodies/models.ts";
+import type { SkillChoices } from "../core/bodies/spec/body.ts";
 import { catalogOf, type Catalog, type EntryRule } from "../minds/catalog/catalog.ts";
 import { toolkitLists } from "./toolkit.ts";
 import { ENTRANTS } from "./entrants.ts";
@@ -32,7 +33,7 @@ export const defaultMind = (model: BodyModel): MindConfig => MINDS[DEFAULT_MINDS
  * the mind must fit the body as it holds it and meet the rules (`stageRefusal`). A mind that works
  * only with one loadout says so in a part's `fits`, and is offered with no other.
  */
-export function modelRefusal(model: BodyModel, mind: MindConfig, loadout: Loadout, entry: readonly EntryRule[], attributes?: AttributeOverrides): string | null {
-  const spec = modelHoldingChecked(model, loadout, attributes);
+export function modelRefusal(model: BodyModel, mind: MindConfig, loadout: Loadout, entry: readonly EntryRule[], attributes?: AttributeOverrides, skills?: SkillChoices): string | null {
+  const spec = modelHoldingChecked(model, loadout, attributes, skills);
   return isRefused(spec) ? spec.refused : GAME.stageRefusal(spec, mind, entry);
 }

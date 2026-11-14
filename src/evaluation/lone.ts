@@ -18,6 +18,7 @@ import type { Orders } from "../minds/orders.ts";
 import { cos, sin } from "../core/math/real.ts";
 import { createSenses } from "../core/world/senses.ts";
 import { modelHoldingChecked, type BodyModel } from "../core/bodies/models.ts";
+import type { SkillChoices } from "../core/bodies/spec/body.ts";
 import { rulebook } from "../combat/rulebook.ts";
 import { createWorld, type World } from "../core/world/world.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
@@ -49,6 +50,8 @@ export interface LoneCase {
   readonly heading?: number;
   readonly model: BodyModel;
   readonly character?: AttributeOverrides;
+  /** Its character's skills in place of its own (`Character.skills`); none for its own. */
+  readonly skills?: SkillChoices;
   readonly loadout?: Loadout;
   readonly mind: MindConfig;
   readonly balance?: number;
@@ -81,7 +84,7 @@ export function createLone(context: GameContext) {
   async function buildLone(lone: LoneCase, engine: CaseWorld["engine"], { hz }: { readonly hz?: number } = {}): Promise<BuiltLone | Refused> {
     if (lone.heading !== undefined && !Number.isFinite(lone.heading)) return { refused: "a lone body's heading must be finite" };
     if (lone.floorSize !== undefined && (!Number.isFinite(lone.floorSize) || lone.floorSize <= 0)) return { refused: "an open floor needs a finite positive side" };
-    const spec = modelHoldingChecked(lone.model, lone.loadout ?? EMPTY_LOADOUT, lone.character);
+    const spec = modelHoldingChecked(lone.model, lone.loadout ?? EMPTY_LOADOUT, lone.character, lone.skills);
     if (isRefused(spec)) return spec;
     if ((lone.script ?? []).some(cue => cue.shove) && !spec.segments.some(segment => segment.name === "middleTrunk")) return { refused: "a shove needs a middle trunk" };
     const scope = constructionScope(); let complete = false;

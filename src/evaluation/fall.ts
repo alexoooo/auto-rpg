@@ -26,7 +26,7 @@ import type { MindReport } from "../minds/report.ts";
 import { isRefused, type Refused } from "../core/refusal.ts";
 import { constructionScope } from "../core/construction.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../combat/rulebook.ts";
-import type { BodySpec } from "../core/bodies/spec/body.ts";
+import type { BodySpec, SkillChoices } from "../core/bodies/spec/body.ts";
 import { createWorld, type World } from "../core/world/world.ts";
 import { labActor, type Actor } from "../game/lab/actor.ts";
 import { groundPlacement } from "../game/lab/ground-starts.ts";
@@ -51,6 +51,8 @@ export interface FallCase {
   readonly model: BodyModel;
   /** Its character's attributes but its balance, which the fall gives (`balance`); none for the body's own. */
   readonly character?: AttributeOverrides;
+  /** Its character's skills in place of its own (`Character.skills`); none for its own. */
+  readonly skills?: SkillChoices;
   readonly held?: Held;
   readonly loadout?: Loadout;
   readonly seed: number;
@@ -197,7 +199,7 @@ export function createFall(context: GameContext) {
     const refused = checkFall(fall);
     if (refused) return { refused };
     const defaults = labAddress("?scenario=ground"), balance = fall.balance ?? 0;
-    const address: LabAddress = { ...defaults, model: fall.model as HumanoidModel, ...(fall.character ? { attributes: characterOf(fall) } : {}), right: fall.loadout?.right ?? fall.held ?? "empty", left: fall.loadout?.left ?? "empty", balance, seed: fall.seed,
+    const address: LabAddress = { ...defaults, model: fall.model as HumanoidModel, ...(fall.character ? { attributes: characterOf(fall) } : {}), ...(fall.skills ? { skills: fall.skills } : {}), right: fall.loadout?.right ?? fall.held ?? "empty", left: fall.loadout?.left ?? "empty", balance, seed: fall.seed,
       ground: { ...defaults.ground, level: fall.level ?? "open", start: fall.start, posture: fall.posture ?? "back", degrees: fall.degrees ?? null,
         impulse: fall.impulse ?? null, gusts: fall.gusts ?? false } };
     const factor = fall.factor ?? 1;
@@ -291,7 +293,7 @@ export function createFall(context: GameContext) {
     if (!Number.isFinite(factor) || factor < 1 || factor > 2) return { refused: "research strength factor stays between 1 and 2" };
     const scope = constructionScope(); let complete = false;
     try {
-    const checked = modelHoldingChecked(fall.model, fall.loadout ?? { left: "empty", right: fall.held ?? "empty" }, characterOf(fall));
+    const checked = modelHoldingChecked(fall.model, fall.loadout ?? { left: "empty", right: fall.held ?? "empty" }, characterOf(fall), fall.skills);
     if (isRefused(checked)) return checked;
     const spec = strengthSpec(checked, factor);
     const world = scope.own(createWorld(await loadEngine(engine), hz === undefined ? {} : { hz }));

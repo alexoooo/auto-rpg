@@ -833,6 +833,14 @@ on its own merit, and a profile prices the skill where the Mind uses it.
   A reading is named by the commit it was read at; a table cell's baseline names its reading so.
   Subjects retain their body restrictions and character attributes through normalization and
   scheduling.
+- **A subject's variations**: any evaluation's subject name may end in one or more
+  `+<skill>/<variation>` (`option/straight-punch+straight-punch/from-guard`,
+  `option+straight-punch/drive+straight-punch/from-guard`); its bodies' characters then hold those
+  variations in place of their own of the same skills (`Subject.variations`, `withVariations`,
+  `variedSubjects` in `src/evaluation/evaluation.ts`), every world kind seating it so (a bout's
+  `DuelRecipe.skills`, a lone body's, a fall's and a Crypt party's), and its id names them. A skill
+  with no such variation is refused by name. Two variations of one skill are read against each
+  other as two subjects on the same cases, one the other's `--previous`.
   A run's rows are admitted whole, and two that read one case differently stop the run (`indexRows`).
 - **Contests**: `match` (two minds, each on each side, one digest), `tournament` (Bradley-Terry,
   `rating.ts`), `unseen`. The panel report (`compare.ts`, `settle.ts`) pairs a subject with its

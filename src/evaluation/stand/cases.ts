@@ -18,7 +18,7 @@
 import type { BodyModel } from "../../core/bodies/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Shove } from "../../game/arena/shove.ts";
-import { sideAttributes, type Cases, type Json } from "../evaluation.ts";
+import { sideCharacters, type Cases, type Json } from "../evaluation.ts";
 import type { Hand, Mark } from "../strike/read.ts";
 import { readStand, type StandReading } from "./read.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
@@ -106,14 +106,14 @@ export function createStandCases(context: GameContext) {
       conditions,
       seconds: rung.seconds,
       faults: (value, { model }, subject) => faultsOf(value, model, subject),
-      world: ([value], condition, engine, [character]) => {
+      world: ([value], condition, engine, [seat]) => {
         const subject = value as unknown as StrikeSubject, { model, hand } = condition;
         // The striker's own Commander: the stand, or the drill's, walking it in or striking.
         const led = rung.state === "guard" ? { mind: subject.mind, commander: STANDING }
           : striker(subject, `hand.${hand ?? "right"}`, rung.mark ?? "middle", { after: rung.after ?? 0, ...(rung.pace === undefined ? {} : { pace: rung.pace }) });
         return { kind: "bout", engine, tape: [],
           // A drill, not a fight: nothing ends it but its reader.
-          recipe: { left: model, right: "man", capSeconds: rung.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
+          recipe: { left: model, right: "man", capSeconds: rung.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideCharacters({ left: model, right: "man" }, { left: seat }),
             ...loadoutsOf(subject),
             // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
             start: { left: { at: [-rung.gap / 2, 0], heading: Math.PI / 2 }, right: { at: [rung.gap / 2, 0], heading: -Math.PI / 2 } },

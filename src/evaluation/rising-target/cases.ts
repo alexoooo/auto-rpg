@@ -1,4 +1,4 @@
-import { mindOf } from "../evaluation.ts";
+import { mindOf, seatBody, seatCharacter } from "../evaluation.ts";
 import { isRefused } from "../../core/refusal.ts";
 /**
  * **The stand-up target's falls**: every body in every rated loadout (`REPRESENTATIVE`), each
@@ -11,7 +11,7 @@ import { isRefused } from "../../core/refusal.ts";
  */
 import type { Loadout } from "../../core/bodies/items/held.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
-import { modelHolding, type HumanoidModel } from "../../core/bodies/models.ts";
+import type { HumanoidModel } from "../../core/bodies/models.ts";
 import { FALL_AFTER, FALL_CAP, fallCases, type BuiltFall, type FallReading } from "../fall.ts";
 import type { Cases, Json } from "../evaluation.ts";
 import { FRESH_OFFSET, risingJobs } from "../rising.ts";
@@ -38,12 +38,12 @@ export function createRisingTargetCases(context: GameContext) {
         const bed = inner.faults?.(value, condition, subject) ?? [];
         if (bed.length) return bed;
         if (!presetFitsModel(subject ?? {}, condition.model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${condition.model} is unavailable`];
-        return mindFaults(mindOf(value), modelHolding(condition.model, condition.loadout, subject?.character), { entry: [] });
+        return mindFaults(mindOf(value), seatBody(condition.model, condition.loadout, subject), { entry: [] });
       },
-      world: (values, condition, engine, characters) => {
-        const world = inner.world(values, condition, engine, characters), character = characters[0];
+      world: (values, condition, engine, seats) => {
+        const world = inner.world(values, condition, engine, seats);
         if (isRefused(world)) return world;
-        return world.kind === "fall" && character && Object.keys(character).length > 0 ? { ...world, fall: { ...world.fall, character } } : world;
+        return world.kind === "fall" ? { ...world, fall: { ...world.fall, ...seatCharacter(world.fall.model, seats[0]) } } : world;
       } };
   }
 

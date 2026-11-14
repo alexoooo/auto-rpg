@@ -36,7 +36,7 @@ import type { BodyModel } from "../../core/bodies/models.ts";
 import { modelHolding, modelSpec } from "../../core/bodies/models.ts";
 import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { deepFreeze } from "../../core/state.ts";
-import { sideAttributes, type BoutTiming, type Cases, type Json, type Subject } from "../evaluation.ts";
+import { seatBody, sideCharacters, type BoutTiming, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
 import type { Rail } from "../../game/arena/rail.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
@@ -336,7 +336,7 @@ export function createStrikeCases(context: GameContext) {
     if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
     if (!treeObeys(given.mind!)) return [`a ${kind} mind carries out no orders, so no drill leads it`];
     const held = given.held ?? EMPTY_LOADOUT;
-    return mindFaults(given.mind!, modelHolding(model, held, subject?.character), { entry: [] })
+    return mindFaults(given.mind!, seatBody(model, held, subject), { entry: [] })
       .map((fault) => `${model}${given.held === undefined ? "" : ` holding ${loadoutKey(held)}`}: ${fault}`);
   }
 
@@ -366,7 +366,7 @@ export function createStrikeCases(context: GameContext) {
     const faults = faultsOf(value, condition.model, subject);
     if (faults.length) return faults;
     const { mind, skill, held } = value as unknown as StrikeSubject;
-    const kit = kitOn(mind, modelHolding(condition.model, held ?? EMPTY_LOADOUT, subject?.character));
+    const kit = kitOn(mind, seatBody(condition.model, held ?? EMPTY_LOADOUT, subject));
     return kit === null || kitOffers(kit, skill, limbOf(condition), { kind: "mark", mark: condition.mark }) ? []
       : [`${skill} is not offered with ${limbOf(condition)} at the ${condition.mark} mark`];
   }
@@ -397,7 +397,7 @@ export function createStrikeCases(context: GameContext) {
       seconds: protocol.seconds,
       faults: (value, condition, subject) => [...caseFaults(value, condition, subject),
         ...protocol.motion && (value as unknown as StrikeSubject).held?.[handOf(condition)!] !== "club" ? ["swing motion observes the hand holding a club"] : []],
-      world: ([value], condition, engine, [character]) => {
+      world: ([value], condition, engine, [seat]) => {
         const { model, gap, across, mark, target, start, approach, letGo, direction, speed } = condition as StillCondition, hand = handOf(condition as StillCondition);
         const side = protocol.toward === "hand" && hand === "left" ? across : -across;
         const carried = moving && direction !== undefined && speed !== undefined ? railOf(moving, protocol.settled, direction, speed, gap, side) : null;
@@ -405,7 +405,7 @@ export function createStrikeCases(context: GameContext) {
           walking: start === "walking" || carried !== null || approach !== undefined, ...(approach === undefined ? {} : { approach }), ...(letGo === undefined ? {} : { letGo }) }), opponentOf(protocol.opponent ?? STANDING)!);
         return { kind: "bout", engine, tape: [], ...protocol.timing === undefined ? {} : { timing: protocol.timing },
         // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
-        recipe: { left: model, right: target ?? "man", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
+        recipe: { left: model, right: target ?? "man", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideCharacters({ left: model, right: target ?? "man" }, { left: seat }),
           ...(protocol.motion ? { balance: { left: 0, right: 0 } } : {}),
           ...loadoutsOf(value as unknown as StrikeSubject),
           // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
@@ -430,12 +430,12 @@ export function createStrikeCases(context: GameContext) {
       conditions,
       seconds: protocol.seconds,
       faults: caseFaults,
-      world: ([value], condition, engine, [character]) => {
+      world: ([value], condition, engine, [seat]) => {
         const { model, foe, mark, moment, gap } = condition as FightCondition;
         // A fight on the open stage from its spawns (its gap's, where the rung names one), nothing ending it but the reader.
         return { kind: "bout", engine, tape: [],
           recipe: { left: model, right: "man", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
-            ...sideAttributes({ left: character, right: MINDS[foe]!.character }), ...loadoutsOf(value as unknown as StrikeSubject),
+            ...sideCharacters({ left: model, right: "man" }, { left: seat, right: MINDS[foe]! }), ...loadoutsOf(value as unknown as StrikeSubject),
             ...opposed(striker(value as unknown as StrikeSubject, effectorOf(condition as FightCondition), mark, { after: 0, pace: protocol.pace, walking: true, moment }), opponentOf(foe)!),
             ...(gap === undefined ? {} : { gap }) } };
       },

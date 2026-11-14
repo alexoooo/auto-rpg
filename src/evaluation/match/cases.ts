@@ -8,10 +8,10 @@ import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
-import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
+import type { BodyModel } from "../../core/bodies/models.ts";
 
 import { readBout, type BoutReading } from "../contest.ts";
-import { mindOf, sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
+import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
 import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
@@ -51,7 +51,7 @@ export function createMatchCases(context: GameContext) {
     const { loadout } = condition;
     return [...new Set([condition.left, condition.right])].flatMap((body) => !presetFitsModel(subject ?? {}, body)
       ? [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${body} is unavailable`]
-      : mindFaults(mindOf(value), modelHolding(body, loadout, subject?.character), { entry: FIGHT_ENTRY }).map((fault) => `${body} carrying ${loadoutKey(loadout)}: ${fault}`));
+      : mindFaults(mindOf(value), seatBody(body, loadout, subject), { entry: FIGHT_ENTRY }).map((fault) => `${body} carrying ${loadoutKey(loadout)}: ${fault}`));
   }
 
   /** The match on `protocol`: its conditions in the order each left body, right body, loadout, level, gap. */
@@ -65,11 +65,11 @@ export function createMatchCases(context: GameContext) {
       conditions,
       seconds: protocol.capSeconds,
       faults: faultsOf,
-      world: (values, { left, right, loadout, level, gap }, engine, characters) => ({
+      world: (values, { left, right, loadout, level, gap }, engine, seats) => ({
         kind: "bout", engine, tape: [],
         recipe: { level, left, right, gap, loadouts: { left: loadout, right: loadout },
           minds: Object.fromEntries(SIDES.map((side, k) => [side, mindOf(values[k])])) as Record<Side, MindConfig>,
-          capSeconds: protocol.capSeconds, ...sideAttributes({ left: characters[0], right: characters[1] }) },
+          capSeconds: protocol.capSeconds, ...sideCharacters({ left, right }, { left: seats[0], right: seats[1] }) },
       }),
       read: readBout,
     };

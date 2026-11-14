@@ -174,6 +174,22 @@ export type SkillChoices = readonly string[];
 export const heldVariations = (spec: Pick<BodySpec, "skills">, skill: string): readonly string[] =>
   (spec.skills ?? []).flatMap((name) => name.startsWith(`${skill}/`) ? [name.slice(skill.length + 1)] : []);
 
+/** The skill a `skill/variation` names. */
+const skillOf = (name: string): string => name.slice(0, name.indexOf("/"));
+
+/**
+ * **`skills` holding `chosen` in place of their skills' variations**: each skill `chosen` names
+ * holds only the variations `chosen` names of it, where `skills` held its first; every other skill
+ * as `skills` has it; a skill `skills` holds none of, last.
+ */
+export function withVariations(skills: SkillChoices, chosen: SkillChoices): SkillChoices {
+  const named = new Set(chosen.map(skillOf)), placed = new Set<string>(), out: string[] = [];
+  const place = (skill: string) => { if (!placed.has(skill)) { placed.add(skill); out.push(...chosen.filter((name) => skillOf(name) === skill)); } };
+  for (const name of skills) if (named.has(skillOf(name))) place(skillOf(name)); else out.push(name);
+  for (const name of chosen) place(skillOf(name));
+  return Object.freeze(out);
+}
+
 export type Substance = "flesh" | "bone" | "wood" | "metal" | "stone";
 
 /**

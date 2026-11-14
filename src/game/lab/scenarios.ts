@@ -7,7 +7,7 @@ import { HELD, type Loadout } from "../../core/bodies/items/held.ts";
 import type { GameContext } from "../arena/context.ts";
 import { offered, presetFitsModel, type MindPreset } from "../../minds/catalog/controller.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
-import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import type { BodySpec, SkillChoices } from "../../core/bodies/spec/body.ts";
 import { mindLinks, type Staging } from "../../minds/catalog/config-link.ts";
 import { isWayUp, type TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { readAttributes, writeAttributes } from "../attribute-link.ts";
@@ -67,6 +67,8 @@ const WORN: Readonly<Record<HumanoidModel, { readonly boots: boolean; readonly a
 export type LabLoadout = {
   readonly model: HumanoidModel;
   readonly attributes?: AttributeOverrides;
+  /** Its character's skills in place of its own (`Character.skills`), an evaluation's fall's; none for its own. */
+  readonly skills?: SkillChoices;
   /** The body's haste, per cent over a person's speed in its legs, in place of its character's (`AttributeSpec.haste`); null is the character's. */
   readonly haste: number | null;
 }

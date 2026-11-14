@@ -4,7 +4,7 @@ import type { PhysicsEngine } from "../../core/physics/engine.ts";
 import { enlist, type Combatant } from "../combatant.ts";
 import { buildBody } from "../../core/bodies/build/build-body.ts";
 import { builtAngles, createMind, warmApart } from "../../minds/seat/create-mind.ts";
-import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import type { BodySpec, SkillChoices } from "../../core/bodies/spec/body.ts";
 import { withLoadoutChecked, type Loadout } from "../../core/bodies/items/held.ts";
 import { modelLabel, resolveCharacterChecked, type BodyModel, type ResolvedCharacter } from "../../core/bodies/models.ts";
 import { modelLoadout } from "../model-loadouts.ts";
@@ -167,6 +167,8 @@ export interface DungeonRunOptions {
   readonly prepared?: PreparedDungeonCharacters;
   /** Resolved before placement, including for enemies that wake later. */
   readonly attributes?: (participant: Participant) => AttributeOverrides | null;
+  /** Each participant's skills in place of its character's (`Character.skills`); its character's where this gives none. */
+  readonly skills?: (participant: Participant) => SkillChoices | null;
   /** What each participant holds in each hand; its model's (`modelLoadout`) where this gives none. */
   readonly loadout?: (participant: Participant) => Loadout | null;
   /** The level's seed (`generateLevel`), unless `layout` is given. */
@@ -201,10 +203,11 @@ export interface PreparedDungeonCharacters {
   readonly homes: Map<string, Point>;
 }
 
-export function prepareDungeonCharacters(map: DungeonMap, options: Pick<DungeonRunOptions, "hero" | "companions" | "enemy" | "attributes" | "loadout">): PreparedDungeonCharacters | Refused {
+export function prepareDungeonCharacters(map: DungeonMap, options: Pick<DungeonRunOptions, "hero" | "companions" | "enemy" | "attributes" | "skills" | "loadout">): PreparedDungeonCharacters | Refused {
   const characters = new Map<string, ResolvedCharacter>(), specs = new Map<string, BodySpec>();
   for (const participant of runParticipants(map, options)) {
-    const character = resolveCharacterChecked({ model: participant.model, attributes: options.attributes?.(participant) ?? {} });
+    const skills = options.skills?.(participant) ?? undefined;
+    const character = resolveCharacterChecked({ model: participant.model, attributes: options.attributes?.(participant) ?? {}, ...(skills ? { skills } : {}) });
     if (isRefused(character)) return character;
     const spec = withLoadoutChecked(character.spec, options.loadout?.(participant) ?? modelLoadout(participant.model));
     if (isRefused(spec)) return spec;

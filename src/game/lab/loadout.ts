@@ -16,7 +16,7 @@ export function loadoutAttributes(loadout: LabLoadout & { readonly balance?: num
 
 /** Construct the Lab's character through the shared resolver, then fit its equipment. */
 export function loadoutSpec(loadout: LabLoadout): BodySpec {
-  const own = resolveCharacter({ model: loadout.model, attributes: loadoutAttributes(loadout) }).spec;
+  const own = resolveCharacter({ model: loadout.model, attributes: loadoutAttributes(loadout), ...(loadout.skills ? { skills: loadout.skills } : {}) }).spec;
   return withLoadout(own, { left: loadout.left, right: loadout.right });
 }
 
@@ -27,5 +27,5 @@ export function loadoutBalance(balance: number | null, spec: BodySpec): number {
 
 /** Admit external Lab attributes and equipment without allocating a world. */
 export function loadoutSpecChecked(loadout: LabLoadout): BodySpec | Refused {
-  return modelHoldingChecked(loadout.model, { left: loadout.left, right: loadout.right }, loadoutAttributes(loadout));
+  return modelHoldingChecked(loadout.model, { left: loadout.left, right: loadout.right }, loadoutAttributes(loadout), loadout.skills);
 }

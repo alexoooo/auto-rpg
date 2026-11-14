@@ -5,10 +5,10 @@
 import { LOADOUTS, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
-import { BODY_MODELS, modelHolds, type BodyModel } from "../../core/bodies/models.ts";
+import { BODY_MODELS, characterSkills, modelHolds, type BodyModel } from "../../core/bodies/models.ts";
 
 import { readBout, type BoutReading } from "../contest.ts";
-import { mindOf, sideAttributes, type Cases, type Json, type Reader } from "../evaluation.ts";
+import { mindOf, sideCharacters, type Cases, type Json, type Reader } from "../evaluation.ts";
 import { TOURNAMENT } from "../tournament/cases.ts";
 
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
@@ -48,19 +48,19 @@ export function createUnseenCases(context: GameContext) {
         if (!isMind(value)) return ["no mind"];
         if (subject && !presetFitsModel(subject, model)) return [`named calibration does not allow ${model}`];
         if (!modelHolds(model) && (loadout.left !== "empty" || loadout.right !== "empty")) return [`${model} holds nothing`];
-        const refused = modelRefusal(model, mindOf(value), loadout, FIGHT_ENTRY, subject?.character),
+        const refused = modelRefusal(model, mindOf(value), loadout, FIGHT_ENTRY, subject?.character, characterSkills(model, subject?.variations)),
           opposed = modelRefusal(model, MINDS[OPPONENT.mind].config, OPPONENT.loadout, FIGHT_ENTRY, MINDS[OPPONENT.mind].character);
         if (refused !== null) return [`the mind cannot play ${model} carrying ${loadoutKey(loadout)}: ${refused}`];
         if (opposed !== null) return [`the opponent cannot play ${model}: ${opposed}`];
         return [];
       },
-      world: ([mind], { model, loadout, gap, side }, engine, [character]) => ({
+      world: ([mind], { model, loadout, gap, side }, engine, [seat]) => ({
         kind: "bout", engine, tape: [], recipe: {
           level: UNSEEN.level, left: model, right: model, gap,
           loadouts: { [side]: loadout, [otherSide(side)]: OPPONENT.loadout } as Record<Side, Loadout>,
           minds: { [side]: mindOf(mind), [otherSide(side)]: MINDS[OPPONENT.mind].config } as Record<Side, MindConfig>,
           capSeconds: UNSEEN.capSeconds,
-          ...sideAttributes({ [side]: character, [otherSide(side)]: MINDS[OPPONENT.mind].character }),
+          ...sideCharacters({ left: model, right: model }, { [side]: seat, [otherSide(side)]: MINDS[OPPONENT.mind] }),
         },
       }),
       read: (built, { side }): Reader<UnseenReading> => {

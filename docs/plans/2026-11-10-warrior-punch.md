@@ -186,6 +186,17 @@ Unchecked: the precise native/learned split in P and navigation/stance split in 
 Skeleton causes; held items; Option Mind’s own punch choice and combat footwork; profiles;
 480 Hz; every reel. This reading does not establish the goal’s required gain on `fight`.
 
+**The punch from its guard.** The straight punch’s `from-guard` variation
+(`src/skills/strikes/straight-punch/from-guard/`), which commits only with the striking arm at its
+guard and still, lands 6 of the Warrior’s 18 reached `fights` trials, against the drive’s 13 of
+42 on the same conditions. It changes which moments a fight reaches: 18 of 48 against 42. Of the
+18 both reach, 6 land with `from-guard` alone and 4 with the drive alone, an exact two-sided sign
+test’s p 0.75, so no gain is shown. The counts are the `man` rows of the trial table this prints for each subject:
+
+```powershell
+npm run evaluate -- strike option/straight-punch+straight-punch/from-guard --previous option/straight-punch --protocol fights --workers 30 --budget 45
+```
+
 ## What a fight asks that the drill does not
 
 The commitment comparison reads the installed punch in Node, `rapier-coordinate`, 120 Hz,

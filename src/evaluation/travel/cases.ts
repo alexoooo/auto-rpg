@@ -1,4 +1,4 @@
-import { mindOf } from "../evaluation.ts";
+import { mindOf, seatCharacter } from "../evaluation.ts";
 import type { Cases, Json } from "../evaluation.ts";
 import { OPEN_FLOOR, type BuiltLone } from "../lone.ts";
 import type { GameContext } from "../../game/arena/context.ts";
@@ -42,10 +42,10 @@ export function createTravelCases(context: GameContext) {
     return { arity: 1, engine: DEFAULT_ENGINE, play: { target: TRAVEL, confirmation, ...(twin ? { twin } : {}) } as unknown as Json,
       conditions: cases, seconds: Math.max(...cases.map(c => travelScript(c).end)),
       faults: (value, c, subject) => admission.faults?.(value, { kind: "run", model: c.model }, subject) ?? [],
-      world: ([mind], c, engine, [character]) => ({ kind: "lone", engine, lone: {
+      world: ([mind], c, engine, [seat]) => ({ kind: "lone", engine, lone: {
         model: c.model, mind: mindOf(mind), loadout: c.loadout, balance: 0, floorSize: OPEN_FLOOR,
         heading: c.heading, seed: c.seed, script: travelScript(c).cues,
-        ...(character && Object.keys(character).length ? { character } : {}), ...(c.gusts ? { gusts: true as const } : {}),
+        ...seatCharacter(c.model, seat), ...(c.gusts ? { gusts: true as const } : {}),
       } }), read: readTravel };
   };
   return { TRAVEL_CASES: deepFreeze({ minimum: protocol({ confirmation: false }), confirmation: { ...protocol({ confirmation: true }), twin: "confirmation-twin" },
