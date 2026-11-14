@@ -38,7 +38,7 @@ and the body's whole row of each record (`techniqueDigest`). So a retrained netw
 setting or a number a character sets (Balance, haste, the physique's scales) loses the profile.
 
 A profile not found is not read. The body's own mind prices its strike by a prior set by hand
-(`measuredProfile`, `src/minds/option/strike.ts`), and a foe's mind models it as its own strikes
+(`profilesFor`, `src/skills/framework/profile.ts`), and a foe's mind models it as its own strikes
 or by hand (`foeModel`, `src/minds/option/percepts.ts`). Sparring the Warrior's punch at a
 Balance of 0.01 per cent, where the assist gives under 0.1 N, takes 3.6 times the life it takes
 at 0 on the same 240 starts, and holds less than half the table's value

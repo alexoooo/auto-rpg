@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolveCharacter } from "../../src/core/bodies/models.ts";
-import { skillDigest } from "../../src/skills/framework/profile.ts";
+import { profileAgainst, profilesFor, skillDigest, specDigest } from "../../src/skills/framework/profile.ts";
 import { record } from "../../src/minds/option/value.ts";
 
 /**
@@ -25,6 +25,32 @@ test("every measured profile is of a current skill on a current body", () => {
       stale.push(`${kind}: ${measured.body} (spec ${measured.spec}), skill ${measured.skill}`);
   }
   assert.deepEqual(stale, [], "profiles keyed to no current skill on a current body: measure them again (research/<kind>-profiles.mjs)");
+});
+
+/**
+ * **A strike is read by its profile measured against the body it strikes**: a skill measured
+ * against several bodies has a profile for each (`profilesFor`), and the one read is the struck
+ * body's (`profileAgainst`), wherever it stands in the file. Read by the first, a Warrior priced
+ * its punch at a Warrior from its trials at a Rogue.
+ */
+test("a strike is read by its profile measured against the body it strikes", () => {
+  const { profiles } = JSON.parse(readFileSync(new URL("../../assets/skills/strikes/strike-profiles/strike-profiles.json", import.meta.url), "utf8"));
+  const specs = ["man", "woman", "skeleton"].map((model) => resolveCharacter({ model }).spec);
+  const skills = new Map(profiles.map(({ measured }) => [`${measured.body} ${measured.spec} ${measured.skill}`, measured]));
+  const wrong = [];
+  let read = 0;
+  for (const [key, measured] of skills) {
+    const found = profilesFor(profiles, { ...measured, reaction: null });
+    for (const struck of specs) {
+      const against = found.fresh.filter((profile) => profile.target.spec === specDigest(struck));
+      if (against.length === 0) continue;
+      read++;
+      const profile = profileAgainst(found.fresh, struck);
+      if (profile !== against[0]) wrong.push(`${key} at a ${struck.model}: read against ${profile?.target.body ?? "none"}`);
+    }
+  }
+  assert.ok(read > skills.size, `the stored profiles reached a skill measured against several bodies: ${read} readings of ${skills.size} skills`);
+  assert.deepEqual(wrong, [], "strikes read by a profile measured against another body than the one struck");
 });
 
 /**

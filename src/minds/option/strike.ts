@@ -5,7 +5,7 @@ import { heldBeside, placeInWindow, SIDES, windowHolds, windowSpot, type Side } 
 import { orderAllows, orderedTarget } from "../orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
-import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../../skills/framework/profile.ts";
+import { measuredOn, profileAgainst, profilesFor, readProfile, sameReaction, skillDigest, staleness, type Expected, type Measured, type Profile } from "../../skills/framework/profile.ts";
 import type { Sight } from "../decider.ts";
 import { along, asking, blocked, READY, standing, type Asked, type Option, type Site, type Situation } from "./option.ts";
 import { startOf, threatened } from "./percepts.ts";
@@ -34,18 +34,13 @@ interface StrikeMeasure {
 export const strikeMeasure = (parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig, hz: number, profiles: readonly Profile[], rate: number, delay: number): StrikeMeasure =>
   ({ spec, measured: measuredOn(spec, skillDigest(parts, spec, executors, action), hz, null, rate, delay), profiles });
 
-/** The profile of the strike `measure` names, where one is measured as its body reads it (its reaction time aside: the senses give it); null where none is. */
-function measuredProfile(measure: StrikeMeasure): Profile | null {
-  const found = profileFor(measure.profiles, measure.measured);
-  return found && found.stale === null ? found.profile : null;
-}
-
 /**
  * **A strike option** (`strike`): how its model is priced (`Option.priced`); its sites
  * (`Option.sites`), the spots in its window; what it deals a second (`Option.rate`), the most any
  * cell of its profile takes at the focus's phase from any start (`ProfileReading.peak`) where its
  * model reads its profile now, else its prior's (`priorOf`); and the strike its body is modelled by
- * (`Option.modelled`), its profile where one is measured as its body reads it (`measuredProfile`).
+ * (`Option.modelled`), its profiles measured as its body reads it (`profilesFor`), one a body it was
+ * measured against.
  */
 type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" | "modelled">>;
 
@@ -73,7 +68,8 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * itself has no firm orders, and weighs it.
  *
  * Its model, where it was measured as it is read now (its profile among its measure's,
- * found by `measure`, read at the senses' reaction time): what the profile expects at the range
+ * found by `measure`, the one measured against the focus's body where one was (`profileAgainst`),
+ * read at the senses' reaction time): what the profile expects at the range
  * (to its reach), the start's velocity (`startOf`) and the focus's phase (`readProfile`): the focus's life its blows took, how long
  * it ran until its limb was back (`Expected.recovers`), and its chance of ending down; through the blow coming, and the focus's pressure while it
  * runs, past the focus's latency (`threatened`, `graceAt`); and, its blow
@@ -100,15 +96,13 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     sides: SIDES.map(() => ({ beside: heldBeside(), time: NaN, focus: null as string | null, spot: null as Spot | null, place: null as [number, number] | null, stood: null as Stood | null })),
     // Where in its window its blow under way was asked (`placeInWindow`), null with none.
     place: null as [number, number] | null };
-  const { measured } = measure, found = profileFor(measure.profiles, measured);
-  /** Its profile, where it is read now: measured as the body reads it, its senses as late. */
-  // Whether its profile is fresh at a reaction time, as last read: `staleness` reads nothing else that changes.
-  let freshAt: { reaction: number | null; fresh: boolean } | null = null;
+  const { measured } = measure, found = profilesFor(measure.profiles, measured), fresh = found?.fresh ?? [];
+  /** Its profile against the body of `now`'s focus (`profileAgainst`), measured as the body reads it, its senses' reaction time aside; null where none is. */
+  const profileOf = (now: Situation): Profile | null => profileAgainst(fresh, now.focus?.spec ?? null);
+  /** Its profile, where it is read now: its senses as late as it was measured with (`sameReaction`; all else of it is fresh). */
   const profileNow = (now: Situation): Profile | null => {
-    if (!found) return null;
-    if (freshAt === null || !Object.is(freshAt.reaction, now.reaction))
-      freshAt = { reaction: now.reaction, fresh: staleness(found.profile, { ...measured, reaction: now.reaction }) === null };
-    return freshAt.fresh ? found.profile : null;
+    const profile = profileOf(now);
+    return profile && sameReaction(profile.measured.reaction, now.reaction, measured.hz) ? profile : null;
   };
   /**
    * What its profile expects begun where the body stands now, as it moves (`startOf`) and at
@@ -266,7 +260,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   };
   return {
     name, get claims() { return claimed.claims; }, state,
-    modelled: { name, limbs: action.effectors, profile: measuredProfile(measure) },
+    modelled: { name, limbs: action.effectors, profiles: fresh },
     entry, bound,
     status: (now) => { if (state.over) return "over"; const phase = live(now)?.phase; return phase === "release" ? "exit" : phase === "commit" ? "committed" : "yields"; },
     sites,
@@ -274,10 +268,10 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     end() { state.id = null; state.limb = null; state.target = null; state.began = null; state.place = null; },
     priced(now) {
       if (!found) return "by hand, no fight measured it";
-      const stale = staleness(found.profile, { ...measured, reaction: now.reaction });
-      if (stale !== null) return `by hand, ${stale}`;
+      const profile = profileOf(now), stale = profile ? staleness(profile, { ...measured, reaction: now.reaction }) : found.stale;
+      if (!profile || stale !== null) return `by hand, ${stale}`;
       if (!expected(now)) return "by hand, no trial of its profile reads here";
-      const scaled = readProfile(found.profile, measure.spec).scaled(now.focus?.spec ?? null);
+      const scaled = readProfile(profile, measure.spec).scaled(now.focus?.spec ?? null);
       return scaled === null ? "measured" : `measured, ${scaled}`;
     },
     model(at) {

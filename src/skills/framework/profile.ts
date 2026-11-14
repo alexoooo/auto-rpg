@@ -610,27 +610,46 @@ export function staleness(profile: Profile, now: Measured): string | null {
   return null;
 }
 
-/** A profile looked up for a skill (`profileFor`), and why it is stale where it is. */
+/** A skill's profiles looked up (`profilesFor`): those measured as it is read (`fresh`), one a body it was measured against; and, with none, why (`stale`). */
 interface Found {
-  readonly profile: Profile;
+  readonly fresh: readonly Profile[];
   readonly stale: string | null;
 }
 
 /**
- * **The profile of the skill `now` names** among `profiles`: the one measured as it is read, else
- * one on its body, else any of the skill's, with why it is stale; null where the skill was never
- * measured.
+ * **The profiles of the skill `now` names** among `profiles`: each measured as it is read, one a
+ * body it was measured against (`profileAgainst` reads the struck body's); with none, why one on
+ * its body, else any of the skill's, is stale; null where the skill was never measured.
  */
-export function profileFor(profiles: readonly Profile[], now: Measured): Found | null {
+export function profilesFor(profiles: readonly Profile[], now: Measured): Found | null {
+  const fresh: Profile[] = [];
   let body: Profile | null = null, any: Profile | null = null;
   for (const profile of profiles) {
     if (profile.measured.skill !== now.skill) continue;
-    if (staleness(profile, now) === null) return { profile, stale: null };
-    if (profile.measured.body === now.body) body ??= profile;
+    if (staleness(profile, now) === null) fresh.push(profile);
+    else if (profile.measured.body === now.body) body ??= profile;
     any ??= profile;
   }
+  if (fresh.length) return { fresh, stale: null };
   const found = body ?? any;
-  return found ? { profile: found, stale: staleness(found, now) } : null;
+  return found ? { fresh, stale: staleness(found, now) } : null;
+}
+
+/**
+ * **The profile among one skill's `profiles` that a body of `struck` is read by**: the one
+ * measured against it; else the first against another of its body, else the first of any, each
+ * read scaled (`ProfileReading.scaled`). A skill with no foe has one, read with none struck. Null
+ * with none.
+ */
+export function profileAgainst(profiles: readonly Profile[], struck: BodySpec | null): Profile | null {
+  if (!struck) return profiles[0] ?? null;
+  const body = struck.model, spec = specDigest(struck);
+  let another: Profile | null = null;
+  for (const profile of profiles) {
+    if (!profile.target || profile.target.body === body && profile.target.spec === spec) return profile;
+    if (profile.target.body === body) another ??= profile;
+  }
+  return another ?? profiles[0] ?? null;
 }
 
 /**

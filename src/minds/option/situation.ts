@@ -15,7 +15,7 @@ import { riseMemory } from "./rise-memory.ts";
 
 /**
  * What a situation reader reads with: the body's `spec`, the world's rate `hz`, the fight's `rules`
- * (`BodyHost.rules`), its own strikes (`strikes`, each with its profile, its options' `Option.modelled`) and every striker's
+ * (`BodyHost.rules`), its own strikes (`strikes`, each with its profiles, its options' `Option.modelled`) and every striker's
  * (`measured`, `dataOf("strike-profiles")`), its orders read
  * through `ordersOf`, its Options' record of their tries (`record`; absent, none), whose ending a try its rise memory
  * reads (`riseMemory`), and the lookup its percept and prediction parts are found by (`parts`).

@@ -67,7 +67,11 @@ remaining not-begun conditions on the Rogue and Skeleton, other strikes, walk an
 With every strike priced from sparring, the empty-handed Warrior reaches its moment in 10 of the
 48 `fights` trials and lands 2: four miss, three end outside the window, one is refused and 38
 are unreached. That is the saved `fights` reading, the one its Ratings page shows; `fight` is not
-read so.
+read so. It is of fights with the Warrior's punch priced from its sparring at a Rogue whatever
+body it struck: at a Warrior that reads 0.060 of its life a second for the left hand, where its
+sparring at a Warrior reads 0.111, and the mind held out of reach. A strike is priced from its
+sparring at the body it strikes (`profileAgainst`, `src/skills/framework/profile.ts`); neither
+rung is read so.
 
 The diagnosis below is of fights with each strike priced by its standing-target profile, as the
 saved `fight` reading is. In them the empty-handed Warrior lands 2 of 8 reached trials in

@@ -43,7 +43,9 @@ every Warrior punch trial begins across the three loadouts. The drill keeps its 
 on the final approach and positions an unbegun strike again when admission is lost
 ([its notes](plans/2026-11-10-warrior-punch.md#why-the-close-trials-do-not-begin)). With every
 strike priced from sparring, the punch lands 2 of the 10 `fights` trials it reaches, 38 of the 48
-moments unreached; `fight` is not read so. Its saved reading, 2 of 8 reached, the same count as
+moments unreached; `fight` is not read so. That reading is of fights with the punch priced from
+its sparring at a Rogue whatever body it struck; priced from its sparring at the body it strikes,
+no rung is read. Its saved reading, 2 of 8 reached, the same count as
 at the goal’s start, and 13 of 42 in `fights` against 12 at the start, are of fights with each
 strike priced by its standing-target profile. So are the traces, which identify punch delivery
 and balance, guard and blow interceptions, moving foes and failed drill positioning

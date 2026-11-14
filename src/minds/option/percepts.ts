@@ -13,7 +13,7 @@ import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs
 import { deepFreeze } from "../../core/state.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
 import { ordersAsked, type Orders } from "../orders.ts";
-import { measuredAt, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Measured, type Postures, type Profile, type ProfileReading } from "../../skills/framework/profile.ts";
+import { measuredAt, profileAgainst, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Measured, type Postures, type Profile, type ProfileReading } from "../../skills/framework/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../../skills/perception/threat.ts";
@@ -41,7 +41,7 @@ export interface Seen {
   readonly delay: number;
   /** The rules the fight is played by (`BodyHost.rules`), which price a blow built by hand (`blowLife`). */
   readonly rules: Rulebook;
-  /** The body's own strikes, each with its profile where one is measured as the body reads it (`ModelledStrike`). */
+  /** The body's own strikes, each with its profiles measured as the body reads it (`ModelledStrike`). */
   readonly strikes: readonly ModelledStrike[];
   /** Every striker's measured strikes (`dataOf("strike-profiles")`), which model a foe's (`foeModel`). */
   readonly measured: readonly Profile[];
@@ -60,15 +60,16 @@ type Threats = ReturnType<typeof threatReader>;
 
 /**
  * **A strike a body is modelled by**: its name, the limbs it is thrown with (effector segments,
- * `hand.right`), and its profile measured on that body as it is read, its senses' reaction time
- * aside (null where none is). One whose profile is not fresh at the senses' reaction time is read
- * by its limbs' prior (`modelOf`), so a strike left unmeasured is priced by hand while the others
- * are measured.
+ * `hand.right`), and its profiles measured on that body as it is read, its senses' reaction time
+ * aside, one a body it was measured against (none where none is). It is read by the one against
+ * the body it strikes (`profileAgainst`); one whose profile is not fresh at the senses' reaction
+ * time is read by its limbs' prior (`modelOf`), so a strike left unmeasured is priced by hand while
+ * the others are measured.
  */
 export interface ModelledStrike {
   readonly name: string;
   readonly limbs: readonly string[];
-  readonly profile: Profile | null;
+  readonly profiles: readonly Profile[];
 }
 
 /**
@@ -172,50 +173,62 @@ interface Model {
   readonly priced: string;
 }
 
-/** Why `strike` is priced by hand with the senses `reaction` s late, a sentence; null where its profile is fresh (`sameReaction`). */
-const byHand = (strike: ModelledStrike, reaction: number | null, hz: number): string | null =>
-  !strike.profile ? "no fight measured it as it is"
-    : sameReaction(strike.profile.measured.reaction, reaction, hz) ? null : `measured with senses ${strike.profile.measured.reaction} s late, read ${reaction} s late`;
+/** Why a strike of `profile` (null with none) is priced by hand with the senses `reaction` s late, a sentence; null where its profile is fresh (`sameReaction`). */
+const byHand = (profile: Profile | null, reaction: number | null, hz: number): string | null =>
+  !profile ? "no fight measured it as it is"
+    : sameReaction(profile.measured.reaction, reaction, hz) ? null : `measured with senses ${profile.measured.reaction} s late, read ${reaction} s late`;
 
-/** Why `strike` is priced by hand at `postures`, a sentence: stale (`byHand`), or measured fresh with the bodies standing otherwise (`measuredAt`); null where its profile reads them. */
-const byHandAt = (strike: ModelledStrike, reaction: number | null, hz: number, postures: Postures): string | null =>
-  byHand(strike, reaction, hz) ?? (measuredAt(strike.profile!, postures) ? null : `measured with no ${postures.own} striker at a ${postures.target} target`);
+/** Why a strike of `profile` is priced by hand at `postures`, a sentence: stale (`byHand`), or measured fresh with the bodies standing otherwise (`measuredAt`); null where its profile reads them. */
+const byHandAt = (profile: Profile | null, reaction: number | null, hz: number, postures: Postures): string | null =>
+  byHand(profile, reaction, hz) ?? (measuredAt(profile!, postures) ? null : `measured with no ${postures.own} striker at a ${postures.target} target`);
 
 /**
- * **The model** (`Model`) of `strikes` thrown by a body of `striker`, read at `postures`: each
- * whose profile is fresh at the senses' reaction time and measured at those postures read through
- * it, each other by the prior of every limb it is thrown with: a strike measured only on a body
- * standing says nothing of one lying (`measuredAt`).
+ * **The model** (`Model`) of `strikes` thrown by a body of `striker` at one of `struck`, read at
+ * `postures`: each by its profile against that body (`profileAgainst`) where it is fresh at the
+ * senses' reaction time and measured at those postures, each other by the prior of every limb it
+ * is thrown with: a strike measured only on a body standing says nothing of one lying
+ * (`measuredAt`).
  */
-function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySpec, postures: Postures): Model {
+function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySpec, struck: BodySpec, postures: Postures): Model {
   const reaction = reactionOf(seen), measured: Model["measured"][number][] = [], unmeasured = new Set<string>(), why: string[] = [];
   for (const strike of strikes) {
-    const stale = byHandAt(strike, reaction, seen.hz, postures);
-    if (stale === null) measured.push({ limbs: strike.limbs, reading: readProfile(strike.profile!, striker, postures) });
+    const profile = profileAgainst(strike.profiles, struck), stale = byHandAt(profile, reaction, seen.hz, postures);
+    if (stale === null) measured.push({ limbs: strike.limbs, reading: readProfile(profile!, striker, postures) });
     else { why.push(`${strike.name} by hand, ${stale}`); for (const limb of strike.limbs) unmeasured.add(limb); }
   }
   return { measured, unmeasured: [...unmeasured], priced: why.length ? why.join("; ") : strikes.length ? "measured" : "no strike to model" };
 }
 
 /**
- * **The strikes a foe of `foe` is modelled by**: those measured on its body (`profilesOn`),
- * else this body's own measured (`Seen.strikes`), each fresh at the senses' reaction time and
+ * **The strikes a foe of `foe` is modelled by**: those measured on its body (`profilesOn`, each
+ * skill's profiles one strike, `strikesOf`), else this body's own measured (`Seen.strikes`), each
+ * read by its profile against this body (`modelOf`), fresh at the senses' reaction time and
  * this mind's rate (`Seen.rate`: a foe's mind is taken for one like it) and thrown with the limbs it names (`Profile.limbs`); and each other limb the foe strikes with
  * (`defaultStrikeLimbs`), by its prior. A foe's strikes are not sensed, so its limbs stand for them: a limb
  * no measured strike throws is priced by hand while the others are measured.
  */
 function foeModel(seen: Seen, foe: BodySpec, postures: Postures = STANDING): Model {
   const reaction = reactionOf(seen), on = profilesOn(seen.measured, foe, seen.hz, reaction, seen.rate, seen.delay);
-  const strikes: readonly ModelledStrike[] = on.fresh.length ? on.fresh.map((profile) => ({ name: profile.measured.skill, limbs: profile.limbs ?? [], profile }))
-    : seen.strikes.filter((strike) => byHand(strike, reaction, seen.hz) === null);
+  const strikes: readonly ModelledStrike[] = on.fresh.length ? strikesOf(on.fresh)
+    : seen.strikes.filter((strike) => byHand(profileAgainst(strike.profiles, seen.spec), reaction, seen.hz) === null);
   const thrown = new Set(strikes.flatMap((strike) => strike.limbs)), limbs = defaultStrikeLimbs(foe).filter((limb) => !thrown.has(limb));
-  const model = modelOf(seen, [...strikes, ...limbs.map((limb) => ({ name: limb, limbs: [limb], profile: null }))], foe, postures);
+  const model = modelOf(seen, [...strikes, ...limbs.map((limb) => ({ name: limb, limbs: [limb], profiles: [] }))], foe, seen.spec, postures);
   const source = on.fresh.length ? "measured" : strikes.length ? `as its own strikes, ${on.stale}` : `by hand, ${on.stale}`;
   return { ...model, priced: limbs.length && strikes.length ? `${source}; by hand: ${limbs.join(", ")}` : source };
 }
 
-/** **This body's own strikes** (`Seen.strikes`), read at `postures` (`modelOf`). */
-const ownModel = (seen: Seen, postures: Postures = STANDING): Model => modelOf(seen, seen.strikes, seen.spec, postures);
+/** **The strikes `profiles` measure**, each skill's profiles one strike (`ModelledStrike`), named by its skill and thrown with the limbs its first names. */
+function strikesOf(profiles: readonly Profile[]): readonly ModelledStrike[] {
+  const bySkill = new Map<string, Profile[]>();
+  for (const profile of profiles) {
+    const of = bySkill.get(profile.measured.skill);
+    if (of) of.push(profile); else bySkill.set(profile.measured.skill, [profile]);
+  }
+  return [...bySkill].map(([name, of]) => ({ name, limbs: of[0]!.limbs ?? [], profiles: of }));
+}
+
+/** **This body's own strikes** (`Seen.strikes`) at a body of `struck`, read at `postures` (`modelOf`). */
+const ownModel = (seen: Seen, struck: BodySpec, postures: Postures): Model => modelOf(seen, seen.strikes, seen.spec, struck, postures);
 
 /** This body's phase as a foe's strike meets it (`FoePhase`'s): striking while a blow of its own is under way, else clear. */
 const ownPhase = ({ sight }: Seen): string => sight.report.actions.length > 0 ? "striking" : "clear";
@@ -287,7 +300,7 @@ function pressingOf(seen: Seen): Pressure {
   const { focus, spec } = seen;
   if (!focus) return NO_PRESSURE;
   const posture = sensedPosture(focus);
-  return pressureBy(seen, ownModel(seen, { own: "standing", target: posture }), foePhase(focus, seen.blow), spec, focus.spec, placingAt(posture));
+  return pressureBy(seen, ownModel(seen, focus.spec, { own: "standing", target: posture }), foePhase(focus, seen.blow), spec, focus.spec, placingAt(posture));
 }
 
 /**
