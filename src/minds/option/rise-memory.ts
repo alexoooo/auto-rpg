@@ -1,6 +1,6 @@
 import { standReady, tumbling, type GroundReading } from "../../control/ground-reading.ts";
 import type { Sight } from "../decider.ts";
-import type { TechniquePart } from "../../skills/recovery/technique.ts";
+import type { TechniquePart } from "../../skills/recovery/shared/technique.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { OptionRecord } from "./record.ts";

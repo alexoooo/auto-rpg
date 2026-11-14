@@ -1,8 +1,8 @@
 import type { Refused } from "../../core/refusal.ts";
 import type { MindConfig } from "../catalog/config.ts";
 import { withLegs, type OptionMindConfig } from "./config.ts";
-import { GOING } from "../../skills/locomotion/move-part.ts";
-import { STOCK_GAITS, type Gait } from "../../skills/locomotion/gaits.ts";
+import { GOING } from "../../skills/locomotion/move/index.ts";
+import { STOCK_GAITS, type Gait } from "../../skills/locomotion/move/gaits.ts";
 import type { ConfigFor } from "../../parts/lookup.ts";
 import type { StanceTuning } from "../../control/stance/stance-tuning.ts";
 

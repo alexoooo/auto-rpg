@@ -9,7 +9,7 @@ import { offered, presetFitsModel, type MindPreset } from "../../minds/catalog/c
 import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { mindLinks, type Staging } from "../../minds/catalog/config-link.ts";
-import { isWayUp, type TechniqueName } from "../../skills/recovery/technique.ts";
+import { isWayUp, type TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { readAttributes, writeAttributes } from "../attribute-link.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { loadoutAttributes, loadoutSpec } from "./loadout.ts";

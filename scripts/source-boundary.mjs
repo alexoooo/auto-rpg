@@ -13,7 +13,7 @@ const PUBLISHED = new Set([
   "src/core/bodies/index.ts", "src/core/math/index.ts", "src/core/state.ts",
   "src/core/data/store.ts", "src/parts/index.ts", "src/parts/lookup.ts",
   "src/minds/index.ts", "src/minds/option/index.ts", "src/skills/config.ts",
-  "src/skills/framework/navigation.ts", "src/skills/locomotion/move-rule-part.ts",
+  "src/skills/framework/navigation.ts", "src/skills/locomotion/move/move-rule-part.ts",
 ]);
 
 /**
@@ -72,31 +72,41 @@ function runtimeNames(file, source) {
 const runtime = (file) => file.split("/").includes("node") ? "node" : file.split("/").includes("browser") ? "browser" : "neutral";
 const entrant = (file) => /^src\/entrants\/([^/]+)\//.exec(file)?.[1] ?? null;
 
-/** The strikes' shared mechanics: code every variation may read, naming no skill. */
-const SHARED = "src/skills/strikes/shared/";
+/** The areas of skills (`src/skills/<area>/`): each a folder a skill, beside the area's `shared/` and `data/`. */
+const AREAS = new Set(["guard", "locomotion", "strikes", "recovery"]);
+/** The folders in an area that are no skill's: what its skills do alike, naming none of them, and the area's records' loaders. */
+const AREA_FOLDERS = new Set(["shared", "data"]);
 /** The folders in a skill's folder that are its own code, not a variation: its records' loaders. */
 const SKILL_FOLDERS = new Set(["data"]);
+
 /**
- * **The variation `file` is in** (`src/skills/strikes/<skill>/<variation>/`), its folder and its
- * skill's, or null: a skill's folder holds its part, its variations' folders and its `data/`.
+ * **Where `file` is among the skills**, or null outside every area: its area's shared folder where
+ * it is in it (`src/skills/<area>/shared/`), else the skill's folder it is in
+ * (`src/skills/<area>/<skill>/`) and the variation's (`<skill>/<variation>/`) where it is in one. A
+ * skill's folder holds its part, its variations' folders and its `data/`.
  */
-function variationOf(file) {
-  const found = /^(src\/skills\/strikes\/[^/]+\/)([^/]+)\//.exec(file);
-  if (!found || found[1] === SHARED || SKILL_FOLDERS.has(found[2])) return null;
-  return { folder: `${found[1]}${found[2]}/`, skill: found[1] };
+function placeOf(file) {
+  const found = /^src\/skills\/([^/]+)\/(?:([^/]+)\/(?:([^/]+)\/)?)?/.exec(file);
+  if (!found || !AREAS.has(found[1])) return null;
+  const area = `src/skills/${found[1]}/`;
+  if (found[2] === "shared") return { shared: `${area}shared/`, skill: null, variation: null };
+  if (found[2] === undefined || AREA_FOLDERS.has(found[2])) return { shared: null, skill: null, variation: null };
+  const skill = `${area}${found[2]}/`;
+  return { shared: null, skill, variation: found[3] === undefined || SKILL_FOLDERS.has(found[3]) ? null : `${skill}${found[3]}/` };
 }
 
 /**
- * Whether the import of `to` by `from` crosses a variation's bounds: a variation reads only its own
- * folder, the shared mechanics and code outside the strikes, never another variation; only its own
- * skill's code reads it; and the shared mechanics read no skill's.
+ * Whether the import of `to` by `from` crosses a variation's bounds, in every area: a variation
+ * reads only its own folder, the areas' shared code and code outside the areas, never another
+ * variation or skill; only its own skill's code reads it; and shared code reads no skill's.
  */
 function crossesVariation(from, to) {
-  if (!to.startsWith("src/skills/strikes/")) return false;
-  const own = variationOf(from), other = variationOf(to);
-  return from.startsWith(SHARED) && !to.startsWith(SHARED)
-    || own !== null && !to.startsWith(own.folder) && !to.startsWith(SHARED)
-    || other !== null && !from.startsWith(other.skill);
+  const there = placeOf(to);
+  if (there === null) return false;
+  const here = placeOf(from);
+  return here?.shared != null && there.skill !== null
+    || here?.variation != null && !to.startsWith(here.variation) && there.shared === null
+    || there.variation !== null && !from.startsWith(there.skill);
 }
 
 /** Every direct edge is checked, so transitive dependencies obey the same runtime and ownership rules. */
@@ -118,10 +128,6 @@ export function sourceCrossings(files) {
         if (other !== null && other !== own && !(from.startsWith("src/app/") && to === `src/entrants/${other}/index.ts`)) ownership.add(`${from} -> ${to}`);
         if (own !== null && other !== own && !PUBLISHED.has(to)) ownership.add(`${from} -> ${to}`);
         if (crossesVariation(from, to)) ownership.add(`${from} -> ${to}`);
-        const implementation = /^(src\/skills\/([^/]+)\/implementations\/[^/]+)\//.exec(to);
-        if (implementation && !from.startsWith(implementation[1] + "/")) {
-          if (from.startsWith(`src/skills/${implementation[2]}/`) || !to.endsWith("/index.ts") && !to.endsWith("/data/registration.ts")) ownership.add(`${from} -> ${to}`);
-        }
         if (fromRuntime === "neutral" && runtime(to) !== "neutral" || fromRuntime === "node" && runtime(to) === "browser" || fromRuntime === "browser" && runtime(to) === "node") {
           runtimes.add(`${from} -> ${to}`);
         }

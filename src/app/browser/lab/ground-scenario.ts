@@ -10,7 +10,7 @@ import { labAddress } from "../setup.ts";
 import { groundShove, ROUND_FALLS, startGround, STAND_CHECK } from "../../../game/lab/ground-mode.ts";
 import { groundPlacement, groundPostures } from "../../../game/lab/ground-starts.ts";
 import { TECHNIQUES } from "../../registration/techniques.ts";
-import { isWayUp, type TechniqueName, type TechniquePart } from "../../../skills/recovery/technique.ts";
+import { isWayUp, type TechniqueName, type TechniquePart } from "../../../skills/recovery/shared/technique.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { partLookup } from "../../catalog.ts";
 import { GAME } from "../../catalog.ts";

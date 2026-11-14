@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util';
 import { availableParallelism } from 'node:os';
 import assert from 'node:assert/strict';
 import { sourced } from '../../../src/core/quantity.ts';
-import { TRAVEL_LAYOUT } from '../../../src/skills/locomotion/learned-run.ts';
+import { TRAVEL_LAYOUT } from '../../../src/skills/locomotion/walk-run/walk-run/learned-run.ts';
 import { travelCurriculum } from './travel-curriculum.mjs';
 
 const { values: o } = parseArgs({ options: { seed: { type: 'string' }, out: { type: 'string' } } });

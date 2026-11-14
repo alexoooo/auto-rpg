@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { coreStand } from "../../../../harness/core-stand.mjs";
 import { modelSpec } from "../../../../../src/core/bodies/models.ts";
 import { stockBody } from "../../../../../src/app/stock-body.ts";
-import { riseLimbs } from "../../../../../src/skills/recovery/implementations/staged/limbs.ts";
-import { takesOf } from "../../../../../src/skills/recovery/implementations/staged/bearing-policy.ts";
+import { riseLimbs } from "../../../../../src/skills/recovery/shared/staged/limbs.ts";
+import { takesOf } from "../../../../../src/skills/recovery/shared/staged/bearing-policy.ts";
 import { servoAsk } from "../../../../../src/control/servo.ts";
 import { Vector3 } from "../../../../../src/core/math/vector.ts";
 

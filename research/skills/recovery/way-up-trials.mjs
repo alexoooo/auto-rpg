@@ -13,7 +13,7 @@
 import { tableCells } from "../../../src/app/node/evaluation.ts";
 import { loadoutKey } from "../../../src/core/bodies/items/held.ts";
 import { modelHolding } from "../../../src/core/bodies/models.ts";
-import { stepUpTuningWith } from "../../../src/skills/recovery/implementations/staged/records.ts";
+import { stepUpTuningWith } from "../../../src/skills/recovery/shared/staged/records.ts";
 
 /** The ways up each staged record drives: the step-up record the roll and the way down to hands and knees, the sit-back record both sit-backs. */
 export const RECORD_WAYS = Object.freeze({ "step-up": ["staged-roll", "staged-down"], "sit-back": ["sit-back", "front-sit-back"] });

@@ -3,7 +3,7 @@ import type { TargetRef } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { pairedSegment, sidesWith } from "../../core/bodies/bilateral.ts";
 import { deepFreeze } from "../../core/state.ts";
-import { legsReadiness } from "../../skills/locomotion/locomotion.ts";
+import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
 import { shieldHands } from "./cover-hand.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
 import { along, asking, blocked, LEGS, READY, standing, type Ask, type Option, type Site, type Situation } from "./option.ts";

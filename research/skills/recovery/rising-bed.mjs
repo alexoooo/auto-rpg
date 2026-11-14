@@ -9,7 +9,7 @@ import { writeFile, appendFile } from "node:fs/promises";
 import { loadoutKey } from "../../../src/core/bodies/items/held.ts";
 import { HUMANOID_MODELS, modelSpec } from "../../../src/core/bodies/models.ts";
 import { TECHNIQUES } from "../../../src/app/registration/techniques.ts";
-import { isWayUp } from "../../../src/skills/recovery/technique.ts";
+import { isWayUp } from "../../../src/skills/recovery/shared/technique.ts";
 import { partLookup } from "../../../src/app/catalog.ts";
 import { risingImplementation } from "./rising-provenance.mjs";
 import { risingJobs } from "../../../src/evaluation/rising.ts";

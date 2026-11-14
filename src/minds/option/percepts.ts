@@ -4,7 +4,7 @@ import type { Spot } from "../../skills/framework/menu.ts";
 import type { KeysOf, Part } from "../../parts/parts.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
 import { turnAt } from "../../control/stance/stance-envelope.ts";
-import { stanceEnvelopeOf } from "../../skills/locomotion/stance/envelope.ts";
+import { stanceEnvelopeOf } from "../../skills/locomotion/shared/stance/envelope.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
 import type { LegsUnmet } from "../../skills/framework/skill.ts";

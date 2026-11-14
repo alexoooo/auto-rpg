@@ -17,7 +17,7 @@ import { woodenClub } from "../../../src/core/bodies/items/club.ts";
 import { builtAngles, createMind } from "../../../src/minds/seat/create-mind.ts";
 import { STAND_ORDERS } from "../../../src/minds/orders.ts";
 import { lieOf } from "../../../src/control/ground-reading.ts";
-import { RISE } from "../../../src/skills/recovery/implementations/staged/stages.ts";
+import { RISE } from "../../../src/skills/recovery/shared/staged/stages.ts";
 import { createWorld } from "../../../src/core/world/world.ts";
 import { freshEngine } from "../../../tests/harness/core-stand.mjs";
 import { buildBout } from "../../../src/app/node/evaluation.ts";

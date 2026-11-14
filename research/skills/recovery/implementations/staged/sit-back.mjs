@@ -1,7 +1,7 @@
 import { footOn } from "../../../../../src/control/support.ts";
 /**
  * **The sit-back's reproduction**: the technique
- * (`sit-back`, `src/skills/recovery/implementations/staged/techniques.ts`) played alone from hands and knees at rest on
+ * (`sit-back`, `src/skills/recovery/shared/staged/techniques.ts`) played alone from hands and knees at rest on
  * toes, the start the toes' stand-up was measured from (`placement("push-off-bear")`,
  * `research/skills/recovery/witness/rise-witness.mjs`), and the body watched to verified standing (`STAND_CHECK`): quiet on
  * its feet `STAND_CHECK.quiet` s. A seed moves the start's joints; the technique runs in the motor part, as the game's ground actions do. Node stand, core world, Rapier,

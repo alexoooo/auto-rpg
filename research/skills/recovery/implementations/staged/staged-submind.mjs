@@ -1,4 +1,4 @@
-import { stagedRise } from "../../../../../src/skills/recovery/implementations/staged/staged.ts";
+import { stagedRise } from "../../../../../src/skills/recovery/shared/staged/staged.ts";
 import { pendingControl } from "../../../../minds/pending-control.mjs";
 
 /** A research sub-mind that plays the staged rise in its decision phase. */

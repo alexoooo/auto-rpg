@@ -9,7 +9,7 @@
  * other body and loadout a stand-up is read on (`OTHERS`), its trials otherwise the same. An edge's
  * cases are those on a body it fits.
  */
-import type { TechniqueName } from "../../skills/recovery/technique.ts";
+import type { TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../../core/bodies/models.ts";
 import { withLoadout } from "../../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";

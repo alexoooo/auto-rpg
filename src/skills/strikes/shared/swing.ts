@@ -14,7 +14,7 @@ import { placedHeightFits } from "../../reach/arm-reach.ts";
 import type { StrikingFace } from "./held-face.ts";
 import { faceSteering } from "./face-steering.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
-import { bodyAhead } from "../../locomotion/navigation/held-clearance.ts";
+import { bodyAhead } from "../../locomotion/shared/navigation/held-clearance.ts";
 import { sensedActionTarget } from "../../framework/action-aim.ts";
 import { timedPushes, validPush, type TimedPush } from "./timed-push.ts";
 import { otherSide, type Side, SIDES } from "../../../core/bodies/bilateral.ts";

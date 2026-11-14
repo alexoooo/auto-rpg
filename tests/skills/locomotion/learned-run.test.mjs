@@ -7,12 +7,12 @@ import { coreStand } from "../../harness/core-stand.mjs";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
 import { stockBody } from "../../../src/app/stock-body.ts";
 import { decisionSteps } from "../../../src/core/math/learning/learner.ts";
-import { guardPosture } from "../../../src/skills/guard/guard.ts";
-import { walkRun, WALK_RUN, WALK_RUN_CYCLE } from "../../../src/skills/locomotion/walk-run.ts";
-import { learnedRun, TRAVEL_LAYOUT } from "../../../src/skills/locomotion/learned-run.ts";
+import { guardPosture } from "../../../src/skills/guard/shared/guard.ts";
+import { walkRun, WALK_RUN, WALK_RUN_CYCLE } from "../../../src/skills/locomotion/walk-run/walk-run/walk-run.ts";
+import { learnedRun, TRAVEL_LAYOUT } from "../../../src/skills/locomotion/walk-run/walk-run/learned-run.ts";
 import { decide, untilAsked } from "../../../research/learner-adapter.mjs";
 import { travelEnvironment } from "../../../research/skills/locomotion/travel-environment.mjs";
-import { stanceEnvelope } from "../../../src/skills/locomotion/stance/envelope.ts";
+import { stanceEnvelope } from "../../../src/skills/locomotion/shared/stance/envelope.ts";
 
 /** A fixed network whose outputs differ by channel. */
 const network = (seed, { inputs, actions }) => ({ actions, layers: [{

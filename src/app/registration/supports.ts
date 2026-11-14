@@ -1,4 +1,4 @@
-import { SUPPORT_FOLD } from "../../skills/locomotion/support-part.ts";
+import { SUPPORT_FOLD } from "../../skills/locomotion/support-fold/index.ts";
 
 /**
  * **Every low support, by its kind** (`LowSupportPart`), in the order a picker offers them: a line

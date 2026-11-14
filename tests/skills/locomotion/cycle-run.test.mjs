@@ -5,10 +5,10 @@ import { coreStand } from "../../harness/core-stand.mjs";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
 import { stockBody } from "../../../src/app/stock-body.ts";
 import { Vector3 } from "../../../src/core/math/vector.ts";
-import { guardPosture } from "../../../src/skills/guard/guard.ts";
-import { runCycle } from "../../../src/skills/locomotion/cycle-run.ts";
-import { WALK_RUN_CYCLE } from "../../../src/skills/locomotion/walk-run.ts";
-import { legOf } from "../../../src/skills/locomotion/gait-scale.ts";
+import { guardPosture } from "../../../src/skills/guard/shared/guard.ts";
+import { runCycle } from "../../../src/skills/locomotion/walk-run/walk-run/cycle-run.ts";
+import { WALK_RUN_CYCLE } from "../../../src/skills/locomotion/walk-run/walk-run/walk-run.ts";
+import { legOf } from "../../../src/skills/locomotion/shared/leg.ts";
 
 test("run cadence scales clip feedforward with the reference phase", async () => {
   const spec = modelSpec("man");

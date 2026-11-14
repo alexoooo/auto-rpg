@@ -30,7 +30,7 @@ export interface Intent {
   /**
    * What each hand covers (`Cover`), by the hand's segment; a hand not named, or null, holds the
    * guard's pose. The guard skill puts what the hand covers with between the threat and the place
-   * guarded (`src/skills/guard/guard.ts`); a hand an attack has does not guard.
+   * guarded (`src/skills/guard/shared/guard.ts`); a hand an attack has does not guard.
    */
   readonly guard: Readonly<Partial<Record<string, Cover | null>>>;
   /** How far under its standing height to hold the centre of mass, m; `STANCE_LOWER` when not given. */

@@ -15,9 +15,9 @@ import { exp, sin, cos } from '../../../src/core/math/real.ts';
 import { pending } from '../../../src/core/math/learning/learner.ts';
 import { uprightness } from '../../../src/control/ground.ts';
 import { footStatesOf, groundContact } from '../../../src/control/support.ts';
-import { GOING } from '../../../src/skills/locomotion/move-part.ts';
-import { STOCK_GAITS } from '../../../src/skills/locomotion/gaits.ts';
-import { TRAVEL_LAYOUT } from '../../../src/skills/locomotion/learned-run.ts';
+import { GOING } from '../../../src/skills/locomotion/move/index.ts';
+import { STOCK_GAITS } from '../../../src/skills/locomotion/move/gaits.ts';
+import { TRAVEL_LAYOUT } from '../../../src/skills/locomotion/walk-run/walk-run/learned-run.ts';
 import { isOrders } from '../../../src/minds/orders.ts';
 import { decide, untilAsked } from '../../learner-adapter.mjs';
 

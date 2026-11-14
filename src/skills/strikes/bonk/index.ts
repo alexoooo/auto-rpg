@@ -43,7 +43,7 @@ interface Config extends Varied {
   readonly tuning?: Partial<Swing>;
 }
 
-/** The bonk's variations: the swing (`swing/`). */
+/** The bonk's variations: the swing (`shared/swing.ts`). */
 const VARIATIONS = {
   swing({ body, guard, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[]) {
     const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};

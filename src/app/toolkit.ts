@@ -1,4 +1,4 @@
-import { stanceCalibration } from "../skills/locomotion/stance/calibration.ts";
+import { stanceCalibration } from "../skills/locomotion/shared/stance/calibration.ts";
 import { BALANCES } from "./registration/balances.ts";
 import { MOTORS } from "./registration/motors.ts";
 import { AIMS } from "./registration/aims.ts";
@@ -21,9 +21,9 @@ import { REPTILE_PARTS } from "./registration/quadruped-parts.ts";
 import { MOVE_RULES } from "./registration/move-rules.ts";
 import { STRIKE_DATA } from "./data/registration.ts";
 import { WALK_RUN_DATA } from "../skills/locomotion/walk-run/data/registration.ts";
-import { STAGED_DATA } from "../skills/recovery/implementations/staged/data/registration.ts";
+import { STAGED_DATA } from "../skills/recovery/shared/staged/data/registration.ts";
 import { RECOVERY_DATA } from "../skills/recovery/data/registration.ts";
-import { RIGHTING_DATA } from "../skills/recovery/righting/data/registration.ts";
+import { RIGHTING_DATA } from "../skills/recovery/righting-recipe/data/registration.ts";
 import { BITE_DATA } from "../skills/strikes/bite/data/registration.ts";
 import { LEG_ADAPTERS } from "./registration/leg-adapters.ts";
 

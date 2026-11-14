@@ -180,7 +180,7 @@ here.
 - The reach solver runs to its cap on a cover the joints' ranges keep out of reach.
 - A way up reads no solid before it begins: it lets go once stuck against one (`STUCK`).
 - The Skeleton's guard asks for angles past its joint limits (`guardPosture`,
-  `src/skills/guard/guard.ts`: shoulder abduction -0.2 rad below its 0 minimum, elbow flexion
+  `src/skills/guard/shared/guard.ts`: shoulder abduction -0.2 rad below its 0 minimum, elbow flexion
   1.3 rad past its 0.84 maximum); every skill reads the guard.
 - A body on paws righted does not stand: the rat's recipe ends propped on folded legs, not its
   paws, and any drive of its legs from there rolls it onto its back; the reptile's routes turn it

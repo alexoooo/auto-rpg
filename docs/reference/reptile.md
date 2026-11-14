@@ -2,7 +2,7 @@
 
 The quadrupeds' anatomy (`assets/reptile/body.json`, `reptile-anatomy` in `SOURCES`;
 `assets/rat/body.json`, `rat-anatomy`; both read by `reptileSpec`, `src/core/bodies/quadruped/spec.ts`),
-their controller's settings (`src/skills/locomotion/quadruped/tuning.ts`) and their place in the Crypt's
+their controller's settings (`src/skills/locomotion/shared/quadruped/tuning.ts`) and their place in the Crypt's
 encounters. A tooth wounds by its press (`pointLoadDamage`, `src/combat/rulebook.ts`).
 
 ## Anatomical model
@@ -102,11 +102,11 @@ rat at twice the torque ceilings ([the rat](#the-rat)). The trot asks at most `s
 
 ### The trot at speed
 
-The trot (`trot`, `src/skills/locomotion/quadruped/trot.ts`) alternates diagonal pairs and carries the rat at
+The trot (`trot`, `src/skills/locomotion/paw-trot/index.ts`) alternates diagonal pairs and carries the rat at
 about 1 m/s, upright at every heading and through half turns. What holds it:
 
 - **A swinging paw tracks its path at .025 s** (`swingResponse`), driven firm
-  (`EffectorGoal.firm`), its path kept on the ground (`pawLegs`, `src/skills/locomotion/quadruped/paw-legs.ts`).
+  (`EffectorGoal.firm`), its path kept on the ground (`pawLegs`, `src/skills/locomotion/paw-move/index.ts`).
 - **A paw lands led by the step it took**: the travel through the last pair's swing and landing
   (`stride`), and half the time it then bears, no further than its room.
 - **Its room is its floor reach** (`stanceOf`): each pair's midpoint under the centre of mass, each
@@ -131,7 +131,7 @@ closing (`pointLoadDamage`).
 
 ### Righting
 
-A body on paws rights itself by two ways up (`src/skills/recovery/righting/righting.ts`), each a ground skill
+A body on paws rights itself by two ways up (`src/skills/recovery/righting-recipe/index.ts`), each a ground skill
 the rise runs (`way-up`), begun once the body lies settled:
 
 - **By recipe** (`righting-recipe`, `rightingByRecipe`), from lying on its back, a side or its
@@ -159,8 +159,8 @@ the body (`scripts/skills/recovery/righting/righting-forks.mjs`); the back's fro
 
 Controller choices live with their capabilities: `PAW_SUPPORT` and `PAW_TRAVEL` in
 `src/control/quadruped/tuning.ts`; `REPTILE_TROT` and `REPTILE_CRAWL` in
-`src/skills/locomotion/quadruped/tuning.ts`; `REPTILE_RECOVERY` in
-`src/skills/recovery/righting/tuning.ts`; each body's bite settings in
+`src/skills/locomotion/shared/quadruped/tuning.ts`; `REPTILE_RECOVERY` in
+`src/skills/recovery/righting-routes/righting-routes/tuning.ts`; each body's bite settings in
 `assets/skills/strikes/bite/bite.json`; and the righting recipes in
 `assets/skills/recovery/righting/righting.json`. They
 are not a measured optimum or evidence of a real animal's locomotion. Times are seconds, lengths

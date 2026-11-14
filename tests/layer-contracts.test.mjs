@@ -15,13 +15,13 @@ import { driveBy } from "../src/minds/decider.ts";
 import { stockMotor } from "../src/app/registration/stock-motor.ts";
 import { SERVO_SECONDS } from "../src/control/body.ts";
 import { fitsPaws } from "../src/control/quadruped/fit.ts";
-import { VISIBILITY_NAVIGATION } from "../src/skills/locomotion/navigation/visibility-navigation.ts";
-import { bodyClearance } from "../src/skills/locomotion/navigation/sensed-bounds.ts";
-import { clearStep } from "../src/skills/locomotion/navigation/clear-step.ts";
-import { fallenSolids } from "../src/skills/locomotion/navigation/crowd.ts";
+import { VISIBILITY_NAVIGATION } from "../src/skills/locomotion/visibility-navigation/index.ts";
+import { bodyClearance } from "../src/skills/locomotion/shared/navigation/sensed-bounds.ts";
+import { clearStep } from "../src/skills/locomotion/shared/navigation/clear-step.ts";
+import { fallenSolids } from "../src/skills/locomotion/shared/navigation/crowd.ts";
 import { walkTerms } from "../src/minds/option/places.ts";
 import { walker } from "../src/minds/option/walk.ts";
-import { locomotion } from "../src/skills/locomotion/locomotion.ts";
+import { locomotion } from "../src/skills/locomotion/shared/locomotion.ts";
 import { orderedIntent } from "../src/minds/ordered.ts";
 import { facesTravel } from "../src/skills/framework/intent.ts";
 

@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { decode, searchOn, startOf } from '../research/skills/skill-search.mjs';
 import { HUMANOID_MODELS, modelSpec } from '../src/core/bodies/models.ts';
-import { SIT_BACK, stageFaults } from '../src/skills/recovery/implementations/staged/stages.ts';
-import { stepUpRecipe, stepUpTuningWith } from '../src/skills/recovery/implementations/staged/records.ts';
+import { SIT_BACK, stageFaults } from '../src/skills/recovery/shared/staged/stages.ts';
+import { stepUpRecipe, stepUpTuningWith } from '../src/skills/recovery/shared/staged/records.ts';
 
 test('searched recovery angles remain inside the body ranges at both decoded endpoints', () => {
   for (const model of HUMANOID_MODELS) for (const skill of ['roll', 'sit-back']) {

@@ -1,11 +1,11 @@
-import {stanceFeetOf,stanceSegmentsOf} from "../../../../src/skills/locomotion/stance-feet.ts";
+import {stanceFeetOf,stanceSegmentsOf} from "../../../../src/skills/locomotion/shared/stance-feet.ts";
 import {coreStand} from '../../../../tests/harness/core-stand.mjs';
 import {modelSpec} from "../../../../src/core/bodies/models.ts";
 import {SERVO_SECONDS} from "../../../../src/control/body.ts";
 import {stockBody} from "../../../../src/app/stock-body.ts";
 import {DEFAULT_ENGINE} from "../../../../src/core/physics/engines.ts";
-import {locomotion,STANCE_LOWER,stanceOf} from "../../../../src/skills/locomotion/locomotion.ts";
-import {GUARD} from "../../../../src/skills/guard/guard.ts";
+import {locomotion,STANCE_LOWER,stanceOf} from "../../../../src/skills/locomotion/shared/locomotion.ts";
+import {GUARD} from "../../../../src/skills/guard/shared/guard.ts";
 import {balanceCeiling,balancePercent,rulebook} from "../../../../src/combat/rulebook.ts";
 
 /** A half-turn from rest or an established walk, through shared locomotion and ordinary muscles. */

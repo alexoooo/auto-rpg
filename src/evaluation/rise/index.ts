@@ -5,7 +5,7 @@
  * edge's profile: how often it is done and how long it takes, by how fast the body moved as it
  * was begun.
  */
-import type { TechniqueName } from "../../skills/recovery/technique.ts";
+import type { TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import type { BuiltTechnique, LinkReading, TechniqueReading } from "../technique.ts";
 import { medianOf } from "../stats.ts";

@@ -1,5 +1,5 @@
-import { WHEN_DISTANCE } from "../../skills/locomotion/distance-rule.ts";
-import { WHEN_STANDING } from "../../skills/locomotion/standing-rule.ts";
+import { WHEN_DISTANCE } from "../../skills/locomotion/move/distance-rule.ts";
+import { WHEN_STANDING } from "../../skills/locomotion/move/standing-rule.ts";
 
 /**
  * **Every rule of Move, by its kind** (`MoveRulePart`), in the order a picker offers them: what

@@ -333,14 +333,23 @@ test("source imports follow responsibility, runtime and package ownership", () =
     ["src/skills/strikes/stomp/index.ts", `import { drive } from "../straight-punch/drive/drive.ts";`],
     ["src/skills/strikes/straight-punch/index.ts", `import { drive } from "./drive/drive.ts"; import { face } from "../shared/held-face.ts";`],
     ["src/skills/strikes/straight-punch/drive/drive.ts", `import { steer } from "../../shared/steer.ts"; import { push } from "./push.ts";`],
+    ["src/skills/locomotion/shared/gaits.ts", `import { WALK_RUN_PART } from "../walk-run/index.ts"; import { STANCE_LOWER } from "./locomotion.ts";`],
+    ["src/skills/recovery/brace/brace/brace.ts", `import { steadying } from "../../steady/steady/steady.ts"; import { MODE } from "../../shared/modes.ts"; import { stanceOf } from "../../../locomotion/shared/locomotion.ts";`],
+    ["src/skills/recovery/roll/roll/roll.ts", `import { ROLL_BACK } from "../../roll-back/index.ts"; import { PROFILES } from "../../data/profiles.ts";`],
+    ["src/skills/guard/rest/index.ts", `import { covering } from "../cover-guard/cover-guard/cover.ts"; import { guardSkill } from "../shared/guard.ts";`],
   ]);
   assert.deepEqual(probe.unplaced, ["src/unknown/alone.ts"]);
   assert.deepEqual(probe.layers, ["src/core/physics/hosted.ts -> src/core/bodies/body.ts", "src/game/alone.ts -> src/app/browser/draw.ts", "src/game/reads.ts -> src/evaluation/read.ts", "src/skills/private.ts -> src/minds/private.ts", "src/skills/type-import.ts -> src/minds/private.ts"]);
   assert.deepEqual(probe.runtimes, ["src/app/browser/alone.ts -> node:fs", "src/core/bodies/alone.ts: browser name document", "src/game/alone.ts -> src/app/browser/draw.ts", "src/skills/alone.ts -> fs"]);
   assert.ok(probe.ownership.includes("src/entrants/one/mind.ts -> src/entrants/two/mind.ts"));
   assert.ok(probe.ownership.includes("src/entrants/one/private.ts -> src/minds/mind.ts"));
-  // A variation reads its own folder and the shared mechanics, and only its skill reads it.
-  assert.deepEqual(probe.ownership.filter((crossing) => crossing.startsWith("src/skills/strikes/")), [
+  // In every area of skills, a variation reads its own folder and shared code, and only its skill reads it; shared code reads no skill's.
+  assert.deepEqual(probe.ownership.filter((crossing) => crossing.startsWith("src/skills/")), [
+    "src/skills/guard/rest/index.ts -> src/skills/guard/cover-guard/cover-guard/cover.ts",
+    "src/skills/locomotion/shared/gaits.ts -> src/skills/locomotion/walk-run/index.ts",
+    "src/skills/recovery/brace/brace/brace.ts -> src/skills/recovery/steady/steady/steady.ts",
+    "src/skills/recovery/roll/roll/roll.ts -> src/skills/recovery/data/profiles.ts",
+    "src/skills/recovery/roll/roll/roll.ts -> src/skills/recovery/roll-back/index.ts",
     "src/skills/strikes/bonk/swing/steer.ts -> src/skills/strikes/bonk/index.ts",
     "src/skills/strikes/bonk/swing/swing.ts -> src/skills/strikes/club-blow/swing/swing.ts",
     "src/skills/strikes/shared/reads.ts -> src/skills/strikes/stomp/index.ts",

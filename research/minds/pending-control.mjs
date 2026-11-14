@@ -1,4 +1,4 @@
-import { heldCommand } from "../../src/skills/recovery/held-body.ts";
+import { heldCommand } from "../../src/skills/recovery/shared/held-body.ts";
 
 /** Saved outputs computed in a research decision and sent by its following action. */
 export function pendingControl(channels) {

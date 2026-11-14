@@ -8,13 +8,13 @@
 /** Each counted function: the module it is in, how its source is rewritten, under its count's name. */
 const COUNTED = [
   // A function declaration is a binding the module may assign: wrapped where it is declared.
-  { file: "/src/skills/locomotion/navigation/sensed-bounds.ts", name: "worldShapes", wrap: "calls" },
+  { file: "/src/skills/locomotion/shared/navigation/sensed-bounds.ts", name: "worldShapes", wrap: "calls" },
   { file: "/src/skills/framework/menu.ts", name: "menuOf", wrap: "calls" },
   // The selector is made once an action; its searches are the calls of what it returns.
   { file: "/src/skills/perception/openings.ts", name: "openingSelector", wrap: "searches", as: "opening searches" },
   { file: "/src/core/physics/rapier.ts", method: "contactsOf(segment, wanted) {", as: "contactsOf" },
   // A method whose signature carries types is found by its shape, typed or stripped.
-  { file: "/src/skills/locomotion/navigation/route-search.ts", pattern: /\broute\(goal\b[^)]*\)[^{]*\{/, as: "route searches" },
+  { file: "/src/skills/locomotion/shared/navigation/route-search.ts", pattern: /\broute\(goal\b[^)]*\)[^{]*\{/, as: "route searches" },
 ];
 
 /** The minified binding keeps its module's exports in one variable as it finishes loading. */

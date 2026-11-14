@@ -137,7 +137,7 @@ export function carried(turn: number, radius: number): number {
 
 /**
  * `envelope` for a gait `quick` times as quick as the one it was measured on (a hasted body's,
- * `quickness`, `src/skills/locomotion/gait-scale.ts`): every speed and turn it holds, and every pace it
+ * `quickness`, `src/skills/locomotion/walk-run/walk-run/gait-scale.ts`): every speed and turn it holds, and every pace it
  * tried, that many times as fast; `envelope` itself at 1.
  */
 export function quickened(envelope: StanceEnvelope, quick: number): StanceEnvelope {

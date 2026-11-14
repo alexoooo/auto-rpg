@@ -1,5 +1,5 @@
 /**
- * **The run's settings searched on its drill** (`RunCycleSettings`, `src/skills/locomotion/cycle-run.ts`,
+ * **The run's settings searched on its drill** (`RunCycleSettings`, `src/skills/locomotion/walk-run/walk-run/cycle-run.ts`,
  * through the walk and run that hands over to it, `walkRun`): CMA-ES in the unit cube of `DIMS`
  * (`research/cma.mjs`), each candidate the walk and run's research tuning over its body's record
  * (`move-drill.mjs`: `run`, and the walk's `at`, the pace past which it runs, `WalkRunSettings.run`,

@@ -3,7 +3,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { slotList, slotOne, type PartConfig, type Slot } from "../../parts/parts.ts";
 import { partRequirements, whenEmpty } from "../../parts/tree.ts";
 import { FILLED, filledOf, filledRefusal, motorOf } from "../../skills/assembly/filled.ts";
-import { standUpFaults } from "../../skills/recovery/stand-up.ts";
+import { standUpFaults } from "../../skills/recovery/shared/stand-up.ts";
 import { controller } from "../catalog/controller.ts";
 import { buildOptionMind, type OptionMind } from "./build.ts";
 import { isSettings, optionMindFaults, resolveConfig, type OptionAssembly, type OptionMindConfig } from "./config.ts";

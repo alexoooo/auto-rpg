@@ -22,7 +22,7 @@ import { dirname } from 'node:path';
 import { cmaSearch } from '../../../../cma.mjs';
 import { confirmRow, drillTrials, scoreOn, subjectOf, trialPool } from '../../../../drill-trials.mjs';
 import { RECORD_WAYS, stagedValue, wayCells } from '../../way-up-trials.mjs';
-import { stepUpTuning } from "../../../../../src/skills/recovery/implementations/staged/records.ts";
+import { stepUpTuning } from "../../../../../src/skills/recovery/shared/staged/records.ts";
 import { modelHolding } from "../../../../../src/core/bodies/models.ts";
 import { BUILD_IDENTITY } from '../../../../../scripts/build-identity.mjs';
 

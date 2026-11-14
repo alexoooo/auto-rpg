@@ -5,7 +5,7 @@ import type { BodyControl } from "../core/bodies/body-control.ts";
  * the ground, or to move free. `carryRoot` finds the root's acceleration its caller aims for and
  * the patches can give; `bearLimbs`, once the servo has solved the rest of the body around it, the
  * limbs' torques. It knows no foot: which segment a limb ends in, where its point is and what it
- * bears on are its caller's to say (the stance, `stance.ts`; a rise, `src/skills/recovery/implementations/staged/limbs.ts`).
+ * bears on are its caller's to say (the stance, `stance.ts`; a rise, `src/skills/recovery/shared/staged/limbs.ts`).
  *
  * A limb need not begin at the root: the freedoms between the root and its chain are its stem
  * (`Limb.stem`; the trunk's, for an arm), which limbs may share and none owns.

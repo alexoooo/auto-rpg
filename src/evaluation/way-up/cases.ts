@@ -15,7 +15,7 @@ import { modelHolding, type HumanoidModel } from "../../core/bodies/models.ts";
 import { isRefused } from "../../core/refusal.ts";
 import type { GroundLevel } from "../../game/lab/ground-environment.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
-import type { TechniqueName } from "../../skills/recovery/technique.ts";
+import type { TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { mindOf, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { FALL_AFTER, FALL_CAP, fallCases, readFall, type BuiltFall, type FallReading } from "../fall.ts";
 import { declaredWaysUp } from "../../minds/option/rise.ts";

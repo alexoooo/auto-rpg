@@ -4,7 +4,7 @@ import { motorLayerOptions, makeSkills } from "../../skills/assembly/assembly.ts
 import { filledOf, motorAndGuardOf } from "../../skills/assembly/filled.ts";
 import type { SkillParts } from "../../skills/config.ts";
 import type { Skills } from "../../skills/framework/skills.ts";
-import { groundSkills } from "../../skills/recovery/skills.ts";
+import { groundSkills } from "../../skills/recovery/shared/skills.ts";
 import type { MindMade } from "../catalog/controller.ts";
 import { driveBy, everyOf, type Driven, type Sight } from "../decider.ts";
 import type { BodyHost } from "../mind.ts";

@@ -1,7 +1,7 @@
-import { stanceFeetOf, stanceSegmentsOf } from "../../../../src/skills/locomotion/stance-feet.ts";
+import { stanceFeetOf, stanceSegmentsOf } from "../../../../src/skills/locomotion/shared/stance-feet.ts";
 import { footOn } from "../../../../src/control/support.ts";
 /**
- * **Stand up's steady, for research**: the steady as `standUp` runs it (`src/skills/recovery/stand-up.ts`:
+ * **Stand up's steady, for research**: the steady as `standUp` runs it (`src/skills/recovery/shared/stand-up.ts`:
  * its own motor, the locomotion resumed, the stance's goal), handed back once `standReady` holds
  * `READY` s, with the variants `research/skills/recovery/witness/crouch-steady.mjs` names. `research/skills/recovery/witness/crouch-steady.mjs` runs it
  * from the placed squat, `research/skills/recovery/witness/rise-witness.mjs` from a witness's hand-over.
@@ -9,7 +9,7 @@ import { footOn } from "../../../../src/control/support.ts";
 import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
 import { SERVO_SECONDS } from "../../../../src/control/body.ts";
 import { carrying } from "../../../../src/control/motor.ts";
-import { locomotion, stanceOf } from "../../../../src/skills/locomotion/locomotion.ts";
+import { locomotion, stanceOf } from "../../../../src/skills/locomotion/shared/locomotion.ts";
 import { motorAndGuardOf } from "../../../../src/skills/assembly/filled.ts";
 import { partLookup } from "../../../../src/app/catalog.ts";
 import { standReady } from "../../../../src/control/ground-reading.ts";

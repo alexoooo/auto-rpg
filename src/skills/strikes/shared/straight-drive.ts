@@ -13,14 +13,14 @@ import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../core/quantity.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetResolver } from "../../framework/action.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
-import { bodyAhead } from "../../locomotion/navigation/held-clearance.ts";
+import { bodyAhead } from "../../locomotion/shared/navigation/held-clearance.ts";
 import { sensedActionTarget } from "../../framework/action-aim.ts";
 import { stepShare, timedPushes, validPush, type TimedPush } from "./timed-push.ts";
 import { handConfiguration, closesToStrike } from "../../reach/hand.ts";
 import { keepsWalk, steerChannels, steerFeatures, stanceAsks, steerPushes, type SteerLayout } from "./steer.ts";
 import type { StrikingFace } from "./held-face.ts";
 import { act, ask, learnerOf, start, stop } from "../../../core/math/learning/learner.ts";
-import { legOf } from "../../locomotion/gait-scale.ts";
+import { legOf } from "../../locomotion/shared/leg.ts";
 
 import { fistOn } from "../../../core/bodies/human/endpoints.ts";
 import { heldFrame } from "../../../core/bodies/build/rigid.ts";

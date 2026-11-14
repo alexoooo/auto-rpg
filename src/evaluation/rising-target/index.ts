@@ -4,7 +4,7 @@
  * the drills' Option Mind getting up by its techniques (`risingMind`): the game's Stand up's (`STAND_UP`)
  * unless others are named. The summary is the bed's report (`risingReport`).
  */
-import { isWayUp, type TechniqueName } from "../../skills/recovery/technique.ts";
+import { isWayUp, type TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { mindSubject, type Evaluation, type Figure, type Json, type Subject, type SubjectChoice, type Table } from "../evaluation.ts";
 import { FALL_CAP, timeToStand, type BuiltFall, type FallReading } from "../fall.ts";
 import { createLocomotionIndex } from "../locomotion/index.ts";

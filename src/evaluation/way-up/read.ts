@@ -8,7 +8,7 @@ import type { WayUpReading } from "./cases.ts";
 /**
  * **What an attempt that does not reach where its way up goes costs**, s, however soon it failed:
  * the longest a staged way up runs before it times out (step up's whole attempt, `LIMIT` in
- * `src/skills/recovery/implementations/staged/records.ts`).
+ * `src/skills/recovery/shared/staged/records.ts`).
  */
 export const ATTEMPT_CAP = 16;
 

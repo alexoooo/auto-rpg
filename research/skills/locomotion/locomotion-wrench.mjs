@@ -310,7 +310,7 @@ const SETTLE = 1;
  */
 async function swaying(stand, hz) {
   const [{ motorControl }, { driveMuscles }, { standingHeight }, { STANCE_LOWER }, { readView }] = await Promise.all([import("../../../src/control/motor.ts"),
-    import("../../../src/core/bodies/muscle/driver.ts"), import("../../../src/control/support.ts"), import("../../../src/skills/locomotion/locomotion.ts"),
+    import("../../../src/core/bodies/muscle/driver.ts"), import("../../../src/control/support.ts"), import("../../../src/skills/locomotion/shared/locomotion.ts"),
     import("../../../src/core/bodies/build/read-view.ts")]);
   // Motor control reads the body's one view, as the driver's channels and dynamics do (`driveMuscles`).
   const motor = motorControl(readView(stand.built), 0.1, {}, undefined, null, STANCE_BALANCE.make(STANCE_BALANCE.defaults));

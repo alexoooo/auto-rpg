@@ -12,7 +12,7 @@ import { driveBy } from "../../src/minds/decider.ts";
 import { standingSkills } from "../../src/app/standing-skills.ts";
 import { createWorld } from "../../src/core/world/world.ts";
 import { freshEngine } from "./core-stand.mjs";
-import { GUARD } from "../../src/skills/guard/guard.ts";
+import { GUARD } from "../../src/skills/guard/shared/guard.ts";
 import { poseAngles } from "../../src/control/kinematics.ts";
 
 /**

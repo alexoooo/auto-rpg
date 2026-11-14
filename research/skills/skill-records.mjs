@@ -15,12 +15,12 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { validSitBack, validStepUp } from "../../src/skills/recovery/implementations/staged/records.ts";
+import { validSitBack, validStepUp } from "../../src/skills/recovery/shared/staged/records.ts";
 import { STOMP_PATH, validStompTuning } from "../../src/skills/strikes/stomp/stomp/stomp.ts";
 import { validSwordThrust } from "../../src/skills/strikes/sword-thrust/index.ts";
 import { validSwing } from "../../src/skills/strikes/shared/swing.ts";
-import { WALK_RUN_PART } from "../../src/skills/locomotion/walk-run-part.ts";
-import { wholeRecipe } from "../../src/skills/recovery/righting/righting.ts";
+import { WALK_RUN_PART } from "../../src/skills/locomotion/walk-run/index.ts";
+import { wholeRecipe } from "../../src/skills/recovery/righting-recipe/righting-recipe/recipe.ts";
 import { wholeBite } from "../../src/skills/strikes/bite/bite/bite.ts";
 
 /** Whether `settings` holds exactly `keys`. */

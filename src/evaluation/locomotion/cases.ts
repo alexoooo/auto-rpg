@@ -35,7 +35,7 @@ import { cos, sin } from "../../core/math/real.ts";
 import { modelHolding, modelSpec, type BodyModel } from "../../core/bodies/models.ts";
 import { EMPTY_LOADOUT, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { heldPace } from "../../control/stance/stance-envelope.ts";
-import { stanceEnvelopeOf } from "../../skills/locomotion/stance/envelope.ts";
+import { stanceEnvelopeOf } from "../../skills/locomotion/shared/stance/envelope.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Cases, Json, Subject } from "../evaluation.ts";

@@ -5,7 +5,7 @@ import { footOn } from "../../../../src/control/support.ts";
  * (`docs/reference/rising.md#the-owners-target`). Node stand, core world, Rapier, 120 Hz, calm, no assist.
  *
  * A candidate is a move's phases, each held for its duration, then the body steadied by the stance
- * as Stand up's steady steadies it (`standUp`, `src/skills/recovery/stand-up.ts`) and handed back
+ * as Stand up's steady steadies it (`standUp`, `src/skills/recovery/shared/stand-up.ts`) and handed back
  * once ready (`research/skills/recovery/witness/climb.mjs`). A phase is one of two kinds:
  *
  * - **pose**, open-loop: a posture the pose drive (`poseDrive`) holds at its rate and activation;
@@ -50,21 +50,21 @@ import { loadEngine } from "../../../../src/core/physics/engines.ts";
 import { humanSpec } from "../../../../src/core/bodies/human/spec.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { armedWith } from "../../../../src/core/bodies/items/held.ts";
-import { guardPosture } from "../../../../src/skills/guard/guard.ts";
+import { guardPosture } from "../../../../src/skills/guard/shared/guard.ts";
 import { createWorld } from "../../../../src/core/world/world.ts";
 import { groundPlacement, groundPostures } from "../../../../src/game/lab/ground-starts.ts";
 import { recoveryMeasurement } from "../../../../src/game/lab/recovery-measurement.ts";
 import { observeBody } from "../../../../src/control/observation.ts";
 import { clockSenses } from "../../../../src/core/world/senses.ts";
 import { groundReading } from "../../../../src/control/ground-reading.ts";
-import { poseDrive } from "../../../../src/skills/recovery/technique.ts";
+import { poseDrive } from "../../../../src/skills/recovery/shared/technique.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../../../../src/control/bearing.ts";
 import { uprightness } from "../../../../src/control/ground.ts";
 import { servoAsk, servoSolve } from "../../../../src/control/servo.ts";
 import { turnOfToRef } from "../../../../src/core/bodies/read-motion.ts";
 import { atan2 } from "../../../../src/core/math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../../../src/core/math/turn.ts";
-import { riseLimbs } from "../../../../src/skills/recovery/implementations/staged/limbs.ts";
+import { riseLimbs } from "../../../../src/skills/recovery/shared/staged/limbs.ts";
 import { STAND_CHECK } from "../../../../src/game/lab/ground-mode.ts";
 import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
 

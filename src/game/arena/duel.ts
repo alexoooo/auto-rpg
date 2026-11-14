@@ -27,7 +27,7 @@ import { derive, type Vec3 } from "../../core/quantity.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import { loadState, saveState, type Saved } from "../../core/state.ts";
 import type { World } from "../../core/world/world.ts";
-import { sensedBounds } from "../../skills/locomotion/navigation/sensed-bounds.ts";
+import { sensedBounds } from "../../skills/locomotion/shared/navigation/sensed-bounds.ts";
 import { arenaSolids } from "./solids.ts";
 import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
 import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-rule.ts";

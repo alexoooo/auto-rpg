@@ -8,7 +8,7 @@
 import { loadoutKey } from "../../core/bodies/items/held.ts";
 import { HUMANOID_MODELS, modelHolding } from "../../core/bodies/models.ts";
 import { type GameContext } from "../../game/arena/context.ts";
-import { isWayUp, type TechniqueName } from "../../skills/recovery/technique.ts";
+import { isWayUp, type TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { mindJson, type Evaluation, type Figure, type Json, type Subject, type SubjectChoice, type Table } from "../evaluation.ts";
 import type { BuiltFall } from "../fall.ts";
 import type { BuiltBout } from "../bout.ts";

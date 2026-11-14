@@ -5,7 +5,7 @@ import type { HostedBody } from "../../minds/seat/hosted-body.ts";
 import type { BuiltSegment } from "../../core/bodies/build/build-body.ts";
 import { NO_COVER, type Intent } from "../../skills/framework/intent.ts";
 import type { Script } from "../../minds/decider.ts";
-import { STANCE_LOWER } from "../../skills/locomotion/locomotion.ts";
+import { STANCE_LOWER } from "../../skills/locomotion/shared/locomotion.ts";
 import type { Actor } from "./actor.ts";
 import type { World } from "../../core/world/world.ts";
 import { cos, hypot, sin } from "../../core/math/real.ts";

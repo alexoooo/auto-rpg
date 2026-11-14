@@ -29,8 +29,8 @@ async function traceFall(job) {
   await import("../../../../../tests/harness/preload-data.mjs");
   const { buildFall } = await import("../../../../../src/app/node/evaluation.ts");
   const { DEFAULT_ENGINE } = await import("../../../../../src/core/physics/engines.ts");
-  const { stepUpRecipe, stepUpTuning } = await import("../../../../../src/skills/recovery/implementations/staged/records.ts");
-  const { SIT_BACK } = await import("../../../../../src/skills/recovery/implementations/staged/stages.ts");
+  const { stepUpRecipe, stepUpTuning } = await import("../../../../../src/skills/recovery/shared/staged/records.ts");
+  const { SIT_BACK } = await import("../../../../../src/skills/recovery/shared/staged/stages.ts");
   const { humanoidSpec } = await import("../../../../../src/core/bodies/human/spec.ts");
   const tuning = stepUpTuning(humanoidSpec(job.fall.model)), stepUp = stepUpRecipe(tuning).rise.map((one) => one.name), sitBack = stepUpRecipe(tuning, SIT_BACK).rise.map((one) => one.name);
   /** Each staged part's rise stage names from where it begins (`PARTS`, `staged-edges.ts`). */

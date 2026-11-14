@@ -6,20 +6,20 @@ import { modelSpec } from "../../src/core/bodies/models.ts";
 import { Vector3, Quaternion } from "../../src/core/math/vector.ts";
 import { frameOf } from "../../src/core/bodies/spec/body.ts";
 import { derive } from "../../src/core/quantity.ts";
-import { validRunCycle, RUN_CYCLE } from "../../src/skills/locomotion/cycle-run.ts";
-import { WALK_RUN_PART } from "../../src/skills/locomotion/walk-run-part.ts";
-import { validStepUp } from "../../src/skills/recovery/implementations/staged/records.ts";
+import { validRunCycle, RUN_CYCLE } from "../../src/skills/locomotion/walk-run/walk-run/cycle-run.ts";
+import { WALK_RUN_PART } from "../../src/skills/locomotion/walk-run/index.ts";
+import { validStepUp } from "../../src/skills/recovery/shared/staged/records.ts";
 import { validStraightDrivePart, straightDriveExecutor } from "../../src/skills/strikes/shared/straight-drive.ts";
 import { fromGuard } from "../../src/skills/strikes/straight-punch/from-guard/from-guard.ts";
 import { PUNCH_LAYOUT } from "../../src/skills/strikes/straight-punch/index.ts";
 import { bodyEffectors } from "../../src/control/effectors.ts";
-import { guardPosture } from "../../src/skills/guard/guard.ts";
+import { guardPosture } from "../../src/skills/guard/shared/guard.ts";
 import { surfaceContains } from "../../src/skills/perception/openings.ts";
 import { actionResources } from "../../src/skills/framework/action-resources.ts";
 import { profileReading, skillDigest } from "../../src/skills/framework/profile.ts";
 import { loadData, dataIdentity } from "../../src/core/data/store.ts";
 import { bodyRecords } from "../../src/skills/framework/records.ts";
-import { heldClearance } from "../../src/skills/locomotion/navigation/held-clearance.ts";
+import { heldClearance } from "../../src/skills/locomotion/shared/navigation/held-clearance.ts";
 import { withLoadout, LOADOUTS } from "../../src/core/bodies/items/held.ts";
 import { coreStand } from "../harness/core-stand.mjs";
 
@@ -118,10 +118,10 @@ test("a held rigid carrier can be observed without an effector actuator", async 
   } finally { stand.dispose(); }
 });
 import { stockBody } from "../../src/app/stock-body.ts";
-import { guardSkill } from "../../src/skills/guard/guard.ts";
-import { riseLimbs } from "../../src/skills/recovery/implementations/staged/limbs.ts";
-import { RISE } from "../../src/skills/recovery/implementations/staged/stages.ts";
-import { heldBody, heldCommand } from "../../src/skills/recovery/held-body.ts";
+import { guardSkill } from "../../src/skills/guard/shared/guard.ts";
+import { riseLimbs } from "../../src/skills/recovery/shared/staged/limbs.ts";
+import { RISE } from "../../src/skills/recovery/shared/staged/stages.ts";
+import { heldBody, heldCommand } from "../../src/skills/recovery/shared/held-body.ts";
 import { saveState, loadState } from "../../src/core/state.ts";
 
 test("takeover clears a paced ward and staged toe support restores into a fresh player", async () => {
@@ -171,7 +171,7 @@ test("cached support controllers refuse changing colliders and admit identical n
 import { crouchSteady } from "../../research/skills/recovery/witness/climb.mjs";
 import { pendingControl } from "../../research/minds/pending-control.mjs";
 
-import { steadying } from "../../src/skills/recovery/implementations/modes/steady.ts";
+import { steadying } from "../../src/skills/recovery/steady/steady/steady.ts";
 import { motorAndGuardOf } from "../../src/skills/assembly/filled.ts";
 for (const [name, makeSteady] of [["witness crouch", crouchSteady], ["steady mode", (own, view) => steadying(own, view, motorAndGuardOf(partLookup, own.spec))]]) {
 test(`${name} initializes its own stance when it is the first holder`, async () => {
@@ -197,7 +197,7 @@ test(`${name} initializes its own stance when it is the first holder`, async () 
   } finally { body.dispose(); stand.dispose(); }
 });}
 
-import { PAW_MOVE } from "../../src/skills/locomotion/quadruped/paw-legs.ts";
+import { PAW_MOVE } from "../../src/skills/locomotion/paw-move/index.ts";
 import { PAW_MOTOR } from "../../src/control/quadruped/paw-motor.ts";
 
 test("replacement paw gaits normalize both travel axes and supply their own braking", async () => {
@@ -227,8 +227,8 @@ test("replacement paw gaits normalize both travel axes and supply their own brak
   } finally { body.dispose(); stand.dispose(); }
 });
 import { standingFooting } from "../../src/control/support.ts";
-import { stanceFeetOf, stanceSegmentsOf } from "../../src/skills/locomotion/stance-feet.ts";
-import { locomotion } from "../../src/skills/locomotion/locomotion.ts";
+import { stanceFeetOf, stanceSegmentsOf } from "../../src/skills/locomotion/shared/stance-feet.ts";
+import { locomotion } from "../../src/skills/locomotion/shared/locomotion.ts";
 
 test("idle stance reads physical foot yaw without an effector actuator or matching end name", async () => {
   const spec = { ...stock, ends: stock.ends.map(end => end.kind === "foot" ? { ...end, name: end.name === "foot.left" ? "anchor.port" : "anchor.starboard" } : end),
@@ -299,8 +299,8 @@ test("Lab script memory, its order cache and a pending shove restore with their 
   } finally { shoving.dispose(); actor.dispose(); stand.dispose(); }
 });
 
-import { stockClearance } from "../../src/skills/locomotion/navigation/clear-step.ts";
-import { bodyClearance } from "../../src/skills/locomotion/navigation/sensed-bounds.ts";
+import { stockClearance } from "../../src/skills/locomotion/shared/navigation/clear-step.ts";
+import { bodyClearance } from "../../src/skills/locomotion/shared/navigation/sensed-bounds.ts";
 import { arenaSolids } from "../../src/game/arena/solids.ts";
 
 test("a low quadruped clears its supporting arena floor while retaining real parapet avoidance", async () => {
@@ -322,17 +322,17 @@ test("a low quadruped clears its supporting arena floor while retaining real par
   } finally { body.dispose(); stand.dispose(); }
 });
 
-import { COVER_GUARD } from "../../src/skills/guard/guard-part.ts";
+import { COVER_GUARD } from "../../src/skills/guard/cover-guard/index.ts";
 import { STOMP_PART } from "../../src/skills/strikes/stomp/index.ts";
-import { STAGED_DOWN } from "../../src/skills/recovery/implementations/staged/techniques.ts";
-import { stepUpTuning } from "../../src/skills/recovery/implementations/staged/records.ts";
-import { TROT_PART } from "../../src/skills/locomotion/quadruped/trot.ts";
-import { CRAWL_PART } from "../../src/skills/locomotion/quadruped/crawl.ts";
+import { STAGED_DOWN } from "../../src/skills/recovery/staged-down/index.ts";
+import { stepUpTuning } from "../../src/skills/recovery/shared/staged/records.ts";
+import { TROT_PART } from "../../src/skills/locomotion/paw-trot/index.ts";
+import { CRAWL_PART } from "../../src/skills/locomotion/paw-crawl/index.ts";
 import { BITE_PART } from "../../src/skills/strikes/bite/index.ts";
-import { ROLL_POSES } from "../../src/skills/recovery/implementations/staged/stages.ts";
+import { ROLL_POSES } from "../../src/skills/recovery/shared/staged/stages.ts";
 import { makeSkills } from "../../src/skills/assembly/assembly.ts";
 import { LEG_RESOURCE, TRUNK_RESOURCE, poseResource, hasResource } from "../../src/skills/framework/action.ts";
-import { MOVE_PART } from "../../src/skills/locomotion/move-part.ts";
+import { MOVE_PART } from "../../src/skills/locomotion/move/index.ts";
 
 test("resource compilation separates segment names from services and uses physical bearing chains", () => {
   const resources = actionResources(["hip flexion", "arm flexion"], [{ segment: "assist", channels: ["arm flexion"] }],

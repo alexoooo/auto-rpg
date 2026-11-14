@@ -1,6 +1,6 @@
 import { buttonInput } from "./inputs.ts";
 import type { Offered } from "../../catalog.ts";
-import type { TechniquePart } from "../../../skills/recovery/technique.ts";
+import type { TechniquePart } from "../../../skills/recovery/shared/technique.ts";
 import { partOffered } from "../../../parts/fields.ts";
 import type { PartConfig } from "../../../parts/parts.ts";
 

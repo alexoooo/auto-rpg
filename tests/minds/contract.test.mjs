@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "../../src/core/math/vector.ts";
 import { modelSpec } from "../../src/core/bodies/models.ts";
 import { poseAngles } from "../../src/control/kinematics.ts";
-import { GUARD } from "../../src/skills/guard/guard.ts";
+import { GUARD } from "../../src/skills/guard/shared/guard.ts";
 import { createWorld } from "../../src/core/world/world.ts";
 import { buildBody } from "../../src/core/bodies/build/build-body.ts";
 import { embody } from "../../src/minds/seat/embodiment.ts";
@@ -23,8 +23,8 @@ import { standingSkills } from "../../src/app/standing-skills.ts";
 import { standIntent } from "../../src/skills/framework/intent.ts";
 import { stockMotor } from "../../src/app/registration/stock-motor.ts";
 import { isOrdersEntry } from "../../src/game/arena/duel.ts";
-import { MOVE_PART } from "../../src/skills/locomotion/move-part.ts";
-import { PAW_MOVE } from "../../src/skills/locomotion/quadruped/paw-legs.ts";
+import { MOVE_PART } from "../../src/skills/locomotion/move/index.ts";
+import { PAW_MOVE } from "../../src/skills/locomotion/paw-move/index.ts";
 
 /** The command's delay a world is made with to show it: more than one step, so its ring is read through. */
 const SHOWN_DELAY = 2;

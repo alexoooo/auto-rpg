@@ -6,7 +6,7 @@ import { hypot } from "../../../core/math/real.ts";
 import { Vector3 } from "../../../core/math/vector.ts";
 import type { Vec3 } from "../../../core/quantity.ts";
 import type { Side } from "../../../core/bodies/bilateral.ts";
-import { legOf } from "../../locomotion/gait-scale.ts";
+import { legOf } from "../../locomotion/shared/leg.ts";
 import type { StrikingFace } from "./held-face.ts";
 import { steerChannels, steerFeatures, type SteerLayout } from "./steer.ts";
 

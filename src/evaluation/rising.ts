@@ -20,10 +20,10 @@ import type { MindConfig } from "../minds/catalog/config.ts";
 import { groundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";
 import { motorAndGuardOf } from "../skills/assembly/filled.ts";
-import { isWayUp, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/technique.ts";
+import { isWayUp, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/shared/technique.ts";
 import { declaredWaysUp, withWaysUp, withWayUpFirst } from "../minds/option/rise.ts";
 import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../core/bodies/models.ts";
-import { guardPosture } from "../skills/guard/guard.ts";
+import { guardPosture } from "../skills/guard/shared/guard.ts";
 
 import { deepFreeze } from "../core/state.ts";
 import { createWorld, type World } from "../core/world/world.ts";

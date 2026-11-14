@@ -10,7 +10,7 @@
 import { loadoutKey, type Held, type Loadout } from "../../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import { modelHolding, type HumanoidModel } from "../../core/bodies/models.ts";
-import type { TechniqueName } from "../../skills/recovery/technique.ts";
+import type { TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { createRising } from "../rising.ts";
 import { createStrikeCases } from "../strike/cases.ts";
 import { ATTEMPT_CAP } from "../way-up/read.ts";

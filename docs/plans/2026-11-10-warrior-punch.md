@@ -50,7 +50,7 @@ target throughout. Before that, navigation supplies the route's facing (`facesTr
 `src/skills/framework/intent.ts`, applied in `arbiter.ts`), allowing the forward-only run on a
 long trip. With no explicit facing, the route supplies it throughout. A direct walk keeps its
 explicit facing. Standing holds the stance's heading (`walking`,
-`src/skills/locomotion/locomotion.ts`), so the final facing is asked while the body still walks.
+`src/skills/locomotion/shared/locomotion.ts`), so the final facing is asked while the body still walks.
 
 **An unbegun strike is positioned again.** The drill (`src/minds/command/drill.ts`) reads the
 menu while its strike order has not begun. When readiness becomes `position`, it resumes its
@@ -141,7 +141,7 @@ Lowering only its guard after takeover changes `guarded` to `landed`. At 4 m rig
 the guard intercepts at 21.250 s before an incoming blow at 21.500 s; lowering it leaves a miss,
 so delivery remains secondary. At 4 m left moment 2 the held forearm is direct trace evidence;
 lowering the guard only after takeover does not clear it in time, and is not a confirming change.
-The guard’s pose and cover are `src/skills/guard/guard.ts`, applied by `arbiter.ts`.
+The guard’s pose and cover are `src/skills/guard/shared/guard.ts`, applied by `arbiter.ts`.
 
 **Foe blow (B), confirmed.** At 3 m, left, moment 3 ([fights Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)),
 the foe begins its right punch at 8.225 s; the two hands meet at 8.358 s, then fist meets forearm.

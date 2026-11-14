@@ -4,7 +4,7 @@ import type { Loadout } from "../../core/bodies/items/held.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import type { Catalog, EntryRule } from "../../minds/catalog/catalog.ts";
-import type { TechniquePart } from "../../skills/recovery/technique.ts";
+import type { TechniquePart } from "../../skills/recovery/shared/technique.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 
 /** The immutable application choices supplied to gameplay and evaluation. */

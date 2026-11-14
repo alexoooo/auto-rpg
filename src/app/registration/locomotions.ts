@@ -1,4 +1,4 @@
-import { MOVE_PART } from "../../skills/locomotion/move-part.ts";
+import { MOVE_PART } from "../../skills/locomotion/move/index.ts";
 
 /**
  * **Every locomotion, by its kind** (`LocomotionPart`), in the order a picker offers them: the legs

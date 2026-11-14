@@ -5,7 +5,7 @@ import { approachSpot, atSpot } from "../../skills/intent/action-window.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import { PROFILE_RANGE_SPAN, startVelocity } from "../../skills/framework/profile.ts";
-import { legsReadiness } from "../../skills/locomotion/locomotion.ts";
+import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
 import { blocked, LEGS, READY, standing, still, type Option, type Sites, type Situation } from "./option.ts";
 import type { Status } from "../choice.ts";
 import { bearingAround, dealtAt, edgeOf, graceAt } from "./percepts.ts";

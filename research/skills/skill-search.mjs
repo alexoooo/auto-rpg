@@ -68,7 +68,7 @@ import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../../tests/harness/preload-data.mjs";
 import { ATTEMPT_CAP } from "../../src/evaluation/way-up/read.ts";
 import { modelSpec } from "../../src/core/bodies/models.ts";
-import { ROLL_POSES, SIT_BACK } from "../../src/skills/recovery/implementations/staged/stages.ts";
+import { ROLL_POSES, SIT_BACK } from "../../src/skills/recovery/shared/staged/stages.ts";
 import { cmaSearch, workerPool } from "../cma.mjs";
 import { CONFIRM_RATES, drillTrials, playTrial, rowOf, searchScore, subjectOf, withTuning } from "../drill-trials.mjs";
 import { RECORD_WAYS, stagedValue, tuningOn, wayCells } from "./recovery/way-up-trials.mjs";

@@ -1,6 +1,6 @@
 // A quadruped's righting recipe, found by search: `node scripts/skills/recovery/righting/righting.mjs --model rat [--write]`.
 //
-// The recipe (`RightingRecipe`, src/skills/recovery/righting/righting.ts) is a few poses of the legs, neck and
+// The recipe (`RightingRecipe`, src/skills/recovery/righting-recipe/index.ts) is a few poses of the legs, neck and
 // tail, each held until the trunk is up to its mark or for its time; the search (CMA-ES, Hansen's
 // standard settings) chooses them for the body lying on its right side. Each candidate plays from
 // every start in --starts (lying:heading in degrees; a left start plays it mirrored), and from every

@@ -50,10 +50,10 @@ registered technique set. Gameplay and evaluations receive it as an argument.
 `tests/core-boundary.test.mjs` and `scripts/source-boundary.mjs` check declared import directions,
 runtime paths and public entry points across source modules. Shared libraries never import entrants;
 application composition imports their public manifests. Entrants import published library APIs
-and themselves. Recovery's shared wiring never imports implementations; each implementation owns
-its algorithms, tuning, data and caches. A strike's variation (`src/skills/strikes/<skill>/<variation>/`)
-imports its own folder, the strikes' shared mechanics (`shared/`) and code outside the strikes, never
-another variation; only its own skill's code imports it, and the shared mechanics import no skill's. Motor, balance, support, locomotion, gait, move-rule,
+and themselves. A skill's variation (`src/skills/<area>/<skill>/<variation>/`, in the guards, locomotion,
+the strikes and recovery) imports its own folder, the areas' shared code (`<area>/shared/`) and code
+outside the areas, never another variation or skill; only its own skill's code imports it, and shared
+code imports no skill's. Motor, balance, support, locomotion, gait, move-rule,
 navigation, guard, aim, executor, recovery technique and leg adapter registrations, the parts of a
 body on paws, Option component lists and the Commander registry live in `src/app/registration/`.
 Commander lookup receives that registry; reusable implementations live in `src/minds/command/`.
@@ -70,7 +70,7 @@ The public APIs for entrant authors are:
 | `src/minds/index.ts` | Mind construction, controllers and entrant manifests |
 | `src/minds/option/index.ts` | Option/chooser contracts and reusable components |
 | `src/skills/config.ts` | component-owned configuration maps |
-| `src/skills/framework/navigation.ts`, `src/skills/locomotion/move-rule-part.ts` | navigation and movement-rule extension contracts |
+| `src/skills/framework/navigation.ts`, `src/skills/locomotion/move/move-rule-part.ts` | navigation and movement-rule extension contracts |
 
 Role owners augment `RoleParts` and `RoleConfigs`; each part adds its config to its role's map by kind.
 `DataKey` is `keyof DataOf`. An implementation registers its owned loaders beside its components;
@@ -277,7 +277,7 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   its settings its body's record (`assets/skills/locomotion/walk-run/walk-run.json`) where it has one, else the defaults
   scaled to its leg (`scaledGait`); each is a gait part (role `gait`).
   A walk/run record can supply one travel actor beside a frozen reference
-  (`src/skills/locomotion/learned-run.ts`). The actor reads mirrored gait observations, requested
+  (`src/skills/locomotion/walk-run/walk-run/learned-run.ts`). The actor reads mirrored gait observations, requested
   velocity and facing every recorded `interval` seconds. It corrects running joint velocities
   and native stance height and heading within its record's bounds. A changed pace restarts
   its decision schedule; an answer acts from the next control step. Travel control continues
@@ -310,7 +310,7 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   Idle foot placement waits until the body has stood still `IDLE_SETTLE`, steps as a walk
   does, and approaches the new support centre gradually after landing. The placement remains
   active through the final centering motion.
-  A body on paws has `paw-move` (`src/skills/locomotion/quadruped/paw-legs.ts`): the trot and the crawl, the support goal
+  A body on paws has `paw-move` (`src/skills/locomotion/paw-move/index.ts`): the trot and the crawl, the support goal
   each step for its motor.
 - **Learned decisions** (`Learner`, `src/core/math/learning/learner.ts`): a learned controller
   calls `act` before its step's commands, taking the answer in force, and `ask` after them; `ask`
@@ -320,11 +320,13 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   control step after its request until the next answer, so native play and training step alike.
   The learned run, the punch and the bare entrant decide this way; every training environment
   steps from one request to the next through `research/learner-adapter.mjs`.
-- **Strikes** live in `src/skills/strikes/`, a folder a skill: the skill's part
-  (`straight-punch/index.ts`) names its variations, and a variation with code of its own keeps it
-  in its own folder (`stomp/stomp/`). What two variations do alike is one implementation in
-  `shared/`, which names no skill, each variation calling it with its own settings and options.
-  A variation's settings are
+- **Skills** live in an area of `src/skills/` (`guard/`, `locomotion/`, `strikes/`, `recovery/`), a
+  folder a skill: the skill's part (`straight-punch/index.ts`, `walk-run/index.ts`) names its
+  variations, and a variation with code of its own keeps it in its own folder (`stomp/stomp/`,
+  `walk-run/walk-run/`). What two skills or variations do alike is one implementation in the area's
+  `shared/`, which imports no skill's code, each calling it with its own settings and options
+  (`locomotion/shared/locomotion.ts`, the stance walk's and the walk and run's legs). A strike
+  variation's settings are
   `assets/skills/strikes/<skill>/<variation>.json`, by model, its data `dataOf("<skill>/<variation>")`.
   A skill's part fits only a body whose character has the skill and runs the variation it chose
   (`variationFault`, `heldVariation`, `src/skills/framework/variations.ts`), so the Option Mind
@@ -332,7 +334,7 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   Every skill part is a skill a character chooses so, whatever its role (`Part.variations`): the
   guards, Move and the paw gaits, the gaits, low support, the recovery techniques and the
   navigations as the strikes. Each but a strike has one variation, named as its skill
-  (`walk-run/walk-run`), made by its part's file (`variedMake`, a guard's `guardVariations`, a
+  (`walk-run/walk-run`), made by its part's `index.ts` (`variedMake`, a guard's `guardVariations`, a
   technique's `technique`); a body built without a character (`humanoidSpec`) holds none, so
   whatever runs skills is built from its model's character (`modelSpec`).
 - **The straight punch** (`straight-punch/index.ts`, its drive `shared/straight-drive.ts`) drives the arm flat out at a contact pose solved
@@ -376,13 +378,13 @@ Option Mind prices each way up, flatten and a brace that waits for one by their 
 where each was begun (`assets/skills/recovery/edge-profiles.json`, `research/skills/recovery/edge-profiles.mjs`: its own tries
 in falls the stand-up target does not play, each until its next choice), as every Option is
 priced. The staged riser (`stagedRise`) plays a `Recipe` of pose and bearing stages
-(`implementations/staged/stages.ts`); its bearing policy (`Recipe.takes`, `bearing-policy.ts`)
+(`shared/staged/stages.ts`); its bearing policy (`Recipe.takes`, `bearing-policy.ts`)
 selects the channels that prioritize a contact task over the posture. A pose's selected channels can follow other joints folding across an angle
 span (`PoseStage.follow`), keeping their entry pose until every leading joint enters that span.
-A body on paws rights itself (`src/skills/recovery/righting/righting.ts`) by its recipe of
-poses from lying (`righting-recipe`, its record `assets/skills/recovery/righting/righting.json`) and by routes that
-roll it, place each paw and rise on its motor (`righting-routes`). Each technique declares its
-physical segment bindings and opaque start tokens; bilateral implementations own their side adapter.
+A body on paws rights itself by its recipe of poses from lying (`righting-recipe/`, its record
+`assets/skills/recovery/righting/righting.json`) and by routes that roll it, place each paw and rise on
+its motor (`righting-routes/`). Each technique declares its physical segment bindings and opaque start
+tokens; bilateral techniques own their side adapter.
 
 ## Minds
 

@@ -10,10 +10,10 @@ import { armed } from "../../../../src/core/bodies/human/grip.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { woodenClub } from "../../../../src/core/bodies/items/club.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../../../../src/combat/rulebook.ts";
-import { GUARD, guardPosture } from "../../../../src/skills/guard/guard.ts";
-import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../../../../src/skills/locomotion/walk-run.ts";
-import { STANCE_WALK_PART } from "../../../../src/skills/locomotion/stance-walk-part.ts";
-import { WALK_RUN_PART } from "../../../../src/skills/locomotion/walk-run-part.ts";
+import { GUARD, guardPosture } from "../../../../src/skills/guard/shared/guard.ts";
+import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../../../../src/skills/locomotion/walk-run/walk-run/walk-run.ts";
+import { STANCE_WALK_PART } from "../../../../src/skills/locomotion/stance-walk/index.ts";
+import { WALK_RUN_PART } from "../../../../src/skills/locomotion/walk-run/index.ts";
 import "../../../../tests/harness/preload-data.mjs";
 import { startWind } from "../../../../src/game/lab/wind.ts";
 import { coreStand } from "../../../../tests/harness/core-stand.mjs";
@@ -179,7 +179,7 @@ function shoveTrunk(stand, impulse, way) {
 /** The learned run's policies read from their files, by path: each read once a thread. */
 /**
  * The locomotion skill `legs` names, driving `b`: null for the stance's own walk, which a trial asks
- * of the stance's goal itself; `"walk-run"` for the walk and run (`src/skills/locomotion/walk-run.ts`),
+ * of the stance's goal itself; `"walk-run"` for the walk and run (`src/skills/locomotion/walk-run/walk-run/walk-run.ts`),
  * free to run; `"braced"` for the braced gait's walk in the stance (`STANCE_WALK_PART`).
  */
 function skillOf(legs, b, stride) {

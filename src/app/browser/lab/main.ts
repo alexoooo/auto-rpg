@@ -15,7 +15,7 @@ import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../../../core/physics/engines.ts";
 import { buildBody, type BuiltBody } from "../../../core/bodies/build/build-body.ts";
 import { poseAngles } from "../../../control/kinematics.ts";
-import { guardPosture } from "../../../skills/guard/guard.ts";
+import { guardPosture } from "../../../skills/guard/shared/guard.ts";
 import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../../../combat/rulebook.ts";
 import { crippleLimb, cutOff } from "../../../combat/pool.ts";

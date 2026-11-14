@@ -3,7 +3,7 @@ import { withinActionWindow } from "../../intent/action-window.ts";
 import { hypot, sin, cos } from "../../../core/math/real.ts";
 import type { Readiness } from "../../framework/action.ts";
 import type { BodySense } from "../../../core/bodies/senses.ts";
-import { sensedNearest } from "../../locomotion/navigation/sensed-bounds.ts";
+import { sensedNearest } from "../../locomotion/shared/navigation/sensed-bounds.ts";
 
 /** How far nearer than its stand-off a foe may come before a strike backs out from it, m. */
 export const CROWDED = 0.05;

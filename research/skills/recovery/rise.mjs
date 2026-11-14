@@ -22,7 +22,7 @@ import { workerJobs } from "../../worker-jobs.mjs";
 import { Worker } from "node:worker_threads";
 import { HUMANOID_MODELS } from "../../../src/core/bodies/models.ts";
 import { defaultLanes } from "../../bout-pool.mjs";
-import { RISE } from "../../../src/skills/recovery/implementations/staged/stages.ts";
+import { RISE } from "../../../src/skills/recovery/shared/staged/stages.ts";
 import { LOADOUTS, RISE_HARNESS, UP_SECONDS, WATCH_SECONDS } from "./rise-trials.mjs";
 
 const args = process.argv.slice(2);

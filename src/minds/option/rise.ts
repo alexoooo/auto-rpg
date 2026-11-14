@@ -3,7 +3,7 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { tumbling, type GroundReading, type Position } from "../../control/ground-reading.ts";
-import { isWayUp, type TechniqueName, type TechniquePart } from "../../skills/recovery/technique.ts";
+import { isWayUp, type TechniqueName, type TechniquePart } from "../../skills/recovery/shared/technique.ts";
 import { edgeExpected } from "../../skills/recovery/data/profiles.ts";
 import { anyBody, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
 import { WHOLE, type Status } from "../choice.ts";

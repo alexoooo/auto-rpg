@@ -3,7 +3,7 @@ import type { CommanderConfig, CommanderEntry } from "./kind.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import { directMovement, placeMovement, type GroundPoint, type MovementRequest } from "../../skills/framework/movement.ts";
 import { STAND_ORDERS, type Orders } from "../orders.ts";
-import { travelSpeed } from "../../skills/locomotion/travel.ts";
+import { travelSpeed } from "../../skills/locomotion/shared/travel.ts";
 import type { Command, DrawnRoute, StrikeChoice, TeamOrder } from "./commands.ts";
 import { ARRIVAL, approach, arrived, direction, distance, lyingSince, reportOf, throughDoors, worthFighting, type Opening } from "./goals.ts";
 import type { Commander, MemberReport, MemberView, TeamDecision, TeamHost, TeamView } from "./team.ts";

@@ -18,7 +18,7 @@ import { chainTo, pointAtToRef, solveReach } from "../../../src/control/kinemati
 import { armed } from "../../../src/core/bodies/human/grip.ts";
 import { humanSpec } from "../../../src/core/bodies/human/spec.ts";
 import { woodenClub } from "../../../src/core/bodies/items/club.ts";
-import { GUARD } from "../../../src/skills/guard/guard.ts";
+import { GUARD } from "../../../src/skills/guard/shared/guard.ts";
 import { coreStand } from "../../../tests/harness/core-stand.mjs";
 const { values } = parseArgs({ options: {
   up: { type: "string", default: "0.4,0.6,0.8,1,1.2,1.4,1.6,1.8,2" }, ahead: { type: "string", default: "0.3,0.45,0.6,0.75,0.9,1.05" },
