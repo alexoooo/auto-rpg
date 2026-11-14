@@ -188,22 +188,17 @@ Skeleton causes; held items; Option Mind’s own punch choice and combat footwor
 
 **The punch from its guard.** The straight punch’s `from-guard` variation
 (`src/skills/strikes/straight-punch/from-guard/`), which commits only with the striking arm at its
-guard and still, lands 6 of the Warrior’s 18 reached `fights` trials, against the drive’s 13 of
-42 on the same conditions. It changes which moments a fight reaches: 18 of 48 against 42. Of the
-18 both reach, 6 land with `from-guard` alone and 4 with the drive alone, an exact two-sided sign
-test’s p 0.75, so no gain is shown. The counts are the `man` rows of the trial table this prints for each subject:
+guard and still, has a profile of its own: a strike's profile is keyed by its digest, which names
+its variation (`skillDigest`). Its arm waits about 0.1 s a punch before the drive begins on the
+Warrior and the Rogue.
+
+In `fights`, with every strike priced from sparring, Option Mind begins few punches: of the 144
+trials a subject, 132 never reach their moment with the drive and 130 with `from-guard`; the
+drive lands 2, `from-guard` 1. The trial table, each body's rows:
 
 ```powershell
 npm run evaluate -- strike option/straight-punch+straight-punch/from-guard --previous option/straight-punch --protocol fights --workers 30 --budget 45
 ```
-
-Fewer reached moments are the mind's, not the punch's. A strike's profile is keyed by its digest,
-which names its variation (`skillDigest`), and `strike-profiles.json` holds none for `from-guard`,
-so Option Mind prices it by hand (`modelOf`) and throws it at other rates: before the drill's
-moment, the Warrior begins 2 to 4 punches a fight with `from-guard` and 6 to 8 with the drive, the
-Rogue 1 to 3 against none, the Skeleton none against 0 to 3. No `from-guard` punch on any body
-reaches the drive's 6 s settling deadline (`PREPARE_LIMIT`); its arm wait before the drive is
-about 0.1 s a punch. The comparison above is of a measured punch against one priced by hand.
 
 On the same 240 `sparring` starts a body, where the drill throws the punch at Option Mind fighting
 back whatever the mind would price, the drive lands 125 of the Warrior's and `from-guard` 116; of
