@@ -23,6 +23,12 @@ export interface Varied {
   readonly variation?: string;
 }
 
+/** Whether a configured skill selects this kind and variation; an unnamed variation selects every held one. */
+export function selectsVariation(config: PartConfig, held: PartConfig): boolean {
+  const named = (config as Varied).variation;
+  return config.kind === held.kind && (named === undefined || named === (held as Varied).variation);
+}
+
 /**
  * **The variation of `skill` a config runs on a body of `spec`**: the one it names; where it names
  * none, the one variation of the skill the body holds; undefined where it holds none, or several.

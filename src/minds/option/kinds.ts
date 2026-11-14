@@ -16,7 +16,7 @@ import { followOrders } from "./orders.ts";
 import { gaitsOf, walkBy } from "./places.ts";
 import { PROFILE_MODEL, type ProfileOptionContext } from "./profile-contract.ts";
 import type { NamedSkills } from "./skills.ts";
-import { chosenVariation, type Varied } from "../../skills/framework/variations.ts";
+import { chosenVariation, selectsVariation, type Varied } from "../../skills/framework/variations.ts";
 import { guardOf, hold, holdAt } from "./rest.ts";
 import { strike, strikeMeasure } from "./strike.ts";
 import { choosingSkill } from "./selection.ts";
@@ -243,9 +243,8 @@ export function selectedOptions(parts: PartLookup, spec: BodySpec, options: read
   for (const template of strikeDefaults(parts)) {
     const held = heldVariations(spec, template.skill.kind);
     for (const variation of held) {
-      if (configured.some(config => config.skill.kind === template.skill.kind
-        && ((config.skill as Varied).variation === undefined || (config.skill as Varied).variation === variation))) continue;
       const config = { ...template, skill: { ...template.skill, variation } };
+      if (configured.some(known => selectsVariation(known.skill, config.skill))) continue;
       if (strikeSkills(parts, spec, config, [...options, ...missing]).length) missing.push(config);
     }
   }

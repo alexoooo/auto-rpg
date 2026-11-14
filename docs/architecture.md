@@ -252,11 +252,13 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   named for a report only when read (`SkillReport.holders`, `defaultOwners`).
 - **Parts.** Each kind is a line of its role's list (`EXECUTORS`, `GUARDS` and the like), its
   module owning its config's keys, defaults, faults, fit and maker. A body builds only the skills
-  it fits (`Slot.skills`). What lies under every skill (the motor,
-  the motor and the automatic locomotion policy) is fitted to the body (`PartLookup.fitting`,
+  it fits (`Slot.skills`). The motor and the automatic locomotion policy are fitted to the body (`PartLookup.fitting`,
   `filledOf`). Every enabled variation of a skill is available without a stage preference
   (`PartLookup.selected`). Guards, navigations and low supports are repertoires: each controller
-  is built once, with its own memory, and the mind's intent names the one to use. The chooser
+  is built once, with its own memory, and the mind's intent names the one to use. Their adapters
+  share name validation and switching (`controllerSelection`), keeping their own saved-state layout
+  and controller-specific reset behavior. Configured kind and variation matching is one predicate
+  (`selectsVariation`). The chooser
   offers each enabled guard, each planner with each enabled gait, and each selected strike,
   including experimental blows. Selected strike variations omitted by a preset use their skill's
   default strike template (`selectedOptions`); configured uses retain their own settings. A shared

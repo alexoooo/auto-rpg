@@ -3,7 +3,7 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import { recordingKey } from "../../core/world/recording.ts";
-import { skillName, type Varied } from "../../skills/framework/variations.ts";
+import { selectsVariation, skillName, type Varied } from "../../skills/framework/variations.ts";
 
 /**
  * **What an Option's config names of its body's skills** (`OptionPart.skills`), where the body
@@ -42,7 +42,7 @@ export function skillsOf(parts: PartLookup, spec: BodySpec, options: readonly Pa
   const faults: string[] = [];
   const configure = <T extends PartConfig>(configs: T[], selected: T & Varied): void => {
     for (const [i, config] of configs.entries()) {
-      if (selected.kind !== config.kind || selected.variation !== undefined && selected.variation !== (config as Varied).variation) continue;
+      if (!selectsVariation(selected, config)) continue;
       const next = { ...config, ...selected }, name = skillName(next), key = recordingKey(next);
       if (overridden.has(name) && overridden.get(name) !== key) faults.push(`options: conflicting skill ${name}`);
       else { configs[i] = next; overridden.set(name, key); }
