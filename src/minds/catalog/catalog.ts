@@ -177,15 +177,27 @@ function registryOf({ minds, parts: roles, entrants, data: dataLists = [] }: Cat
   return { data: Object.freeze(data), parts: Object.freeze(parts), controllers: Object.freeze(controllers), presets: Object.freeze(presets), entrantOf: Object.freeze(entrantOf), faults: Object.freeze(faults) };
 }
 
-/** **The lookup over the parts `kinds` gives by kind** (`PartLookup`), read at each lookup, so the lists behind them are read on first use. */
+/**
+ * **The lookup over the parts `kinds` gives by kind** (`PartLookup`), read at each lookup, so the
+ * lists behind them are read on first use. A role's candidates are kept for the record `kinds`
+ * gives: building a mind asks them for every part it fits, and they change only with the record.
+ */
 function lookupOf(kinds: () => Readonly<Record<string, Part>>): PartLookup {
+  const byRecord = new WeakMap<object, Map<Role, readonly PartConfig[]>>();
   const any = (value: unknown): Part | null => {
     const kind = typeof value === "object" && value !== null ? (value as { kind?: unknown }).kind : undefined;
     return typeof kind === "string" && Object.hasOwn(kinds(), kind) ? kinds()[kind]! : null;
   };
-  const candidates = (role: Role): readonly PartConfig[] => Object.entries(kinds())
-    .filter(([kind, part]) => part.role === role && scopeOf(kind) === null)
-    .map(([, part]) => part.defaults);
+  const candidates = (role: Role): readonly PartConfig[] => {
+    const record = kinds();
+    let roles = byRecord.get(record);
+    if (!roles) byRecord.set(record, roles = new Map());
+    let found = roles.get(role);
+    if (!found) roles.set(role, found = Object.freeze(Object.entries(record)
+      .filter(([kind, part]) => part.role === role && scopeOf(kind) === null)
+      .map(([, part]) => part.defaults)));
+    return found;
+  };
   const game = (role: Role): readonly PartConfig[] => candidates(role).filter(config => partOf(lookup, config).stage === "game");
   const held = (role: Role, spec: BodySpec): readonly PartConfig[] => candidates(role).flatMap(config => {
     const part = partOf(lookup, config);

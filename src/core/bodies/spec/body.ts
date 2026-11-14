@@ -170,9 +170,17 @@ export const pawsOf = (spec: BodySpec): readonly PawLimb[] => (spec.ends ?? []).
  */
 export type SkillChoices = readonly string[];
 
+/** Each spec's held variations by skill (`heldVariations`), found once a skill: a spec is immutable. */
+const HELD = new WeakMap<Pick<BodySpec, "skills">, Map<string, readonly string[]>>();
+
 /** **The variations of `skill` a body of `spec` holds** (`BodySpec.skills`), in its list's order. */
-export const heldVariations = (spec: Pick<BodySpec, "skills">, skill: string): readonly string[] =>
-  (spec.skills ?? []).flatMap((name) => name.startsWith(`${skill}/`) ? [name.slice(skill.length + 1)] : []);
+export function heldVariations(spec: Pick<BodySpec, "skills">, skill: string): readonly string[] {
+  let bySkill = HELD.get(spec);
+  if (!bySkill) HELD.set(spec, bySkill = new Map());
+  let held = bySkill.get(skill);
+  if (!held) bySkill.set(skill, held = Object.freeze((spec.skills ?? []).flatMap((name) => name.startsWith(`${skill}/`) ? [name.slice(skill.length + 1)] : [])));
+  return held;
+}
 
 /** The skill a `skill/variation` names. */
 const skillOf = (name: string): string => name.slice(0, name.indexOf("/"));

@@ -214,8 +214,18 @@ export function footOn(spec: BodySpec, side: Side): BearingEnd {
   return foot.end.name;
 }
 
+/** Each spec's sole refusal (`soleRefusal`), found once: a spec is immutable. */
+const SOLES = new WeakMap<BodySpec, string | null>();
+
 /** What a body of `spec` lacks for the stance to stand it, a sentence, or null where it has a left and a right foot (`stanceFeet`), each with a box sole. */
 export function soleRefusal(spec: BodySpec): string | null {
+  let refused = SOLES.get(spec);
+  if (refused === undefined) SOLES.set(spec, refused = soleRefusalOf(spec));
+  return refused;
+}
+
+/** `soleRefusal`, read anew. */
+function soleRefusalOf(spec: BodySpec): string | null {
   const feet = stanceFeet(spec);
   if (!(feet.length === 2 && feet[0]!.side === "left" && feet[1]!.side === "right" && feet.every(foot => segmentOf(spec, foot.end.segment)?.shape.kind === "box"))) return "needs a left and a right foot, each with a box sole";
   for (const { end } of feet) {

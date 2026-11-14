@@ -12,19 +12,19 @@ import { guardConfigs } from "../../skills/assembly/guards.ts";
 import { skillName } from "../../skills/framework/variations.ts";
 
 /**
- * Where `root`'s tree (a mind's config) configures the part `target` of role `wanted`, found by
- * value through each part's slots and declared children; null where the tree does not hold it.
+ * Where `root`'s tree (a mind's config) configures a part, by its role and its value, found through
+ * each part's slots and declared children in one walk: the first place of each; a part the tree
+ * does not hold, none.
  */
-function pathOf(parts: PartLookup, root: PartConfig, target: PartConfig, wanted: Role): ConfigPath | null {
-  const key = recordingKey(target);
-  let found: ConfigPath | null = null;
+function pathsOf(parts: PartLookup, root: PartConfig): (target: PartConfig, wanted: Role) => ConfigPath | null {
+  const found = new Map<string, ConfigPath>();
   eachPart(parts, root, ({ part, config, path }) => {
     if (path === null) return "skip";
-    if (part.role !== wanted || recordingKey(config) !== key) return undefined;
-    found = path;
-    return "stop";
+    const key = `${part.role} ${recordingKey(config)}`;
+    if (!found.has(key)) found.set(key, path);
+    return undefined;
   });
-  return found;
+  return (target, wanted) => found.get(`${wanted} ${recordingKey(target)}`) ?? null;
 }
 
 /**
@@ -36,10 +36,10 @@ function pathOf(parts: PartLookup, root: PartConfig, target: PartConfig, wanted:
  */
 export function describeOptionMind(spec: BodySpec, config: OptionMindConfig, resolved: ResolvedConfig, parts: PartLookup): MindDescription {
   const named = skillsOf(parts, spec, resolved.options);
-  const components: ComponentDescription[] = [];
+  const components: ComponentDescription[] = [], pathOf = pathsOf(parts, config);
   /** Adds the component `owner` commands, once: its path the one `selected` has in the config, else `fallback`. */
   const component = (owner: string, role: Role, selected: PartConfig, fallback: ConfigPath | null = null): void => {
-    if (!components.some(component => component.owner === owner)) components.push({ owner, role, config: selected, path: pathOf(parts, config, selected, role) ?? fallback });
+    if (!components.some(component => component.owner === owner)) components.push({ owner, role, config: selected, path: pathOf(selected, role) ?? fallback });
   };
 
   // Each Option, and what it names of the body's skills.
