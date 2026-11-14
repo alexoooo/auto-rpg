@@ -205,6 +205,17 @@ Rogue 1 to 3 against none, the Skeleton none against 0 to 3. No `from-guard` pun
 reaches the drive's 6 s settling deadline (`PREPARE_LIMIT`); its arm wait before the drive is
 about 0.1 s a punch. The comparison above is of a measured punch against one priced by hand.
 
+On the same 240 `sparring` starts a body, where the drill throws the punch at Option Mind fighting
+back whatever the mind would price, the drive lands 125 of the Warrior's and `from-guard` 116; of
+the starts where only one lands, 13 are the drive's and 4 `from-guard`'s (exact two-sided sign
+test p 0.049). The Rogue: 88 against 78, 18 against 8 (p 0.076). The Skeleton: 144 against none;
+111 of its `from-guard` punches stall at the settling deadline (`PREPARE_LIMIT`). Each reads
+again with:
+
+```powershell
+npm run evaluate -- strike option/straight-punch+straight-punch/from-guard --previous option/straight-punch --protocol sparring --workers 30
+```
+
 ## What a fight asks that the drill does not
 
 The commitment comparison reads the installed punch in Node, `rapier-coordinate`, 120 Hz,
