@@ -2,13 +2,16 @@
 
 Notes on making a new skill, or a new idea for one, quick to try: hours or days from its start
 to its sparring reading. They hold what a try costs, the readings that say whether the design
-holds, and the design's two parts. Each is taken up on the owner's request by a brief of its own.
+holds, the judge that reads a try, and the design's two parts. Each is taken up on the owner's
+request by a brief of its own.
 A part describes a design under consideration; nothing in it is built.
 
 ## Goal
 
 - **A new idea reaches its sparring reading in hours, a new skill in days.** The measure is the
   time from its start to that reading.
+- **A try's reading tells it from what it is read beside**: better, worse or the same, at a
+  margin its judge names.
 - **A new idea is a variation of its own**: trying it moves nothing installed, and nothing else is
   played again for it.
 - **A strike moves the arm and the trunk.** Standing and footwork are the layer under it, so a
@@ -41,6 +44,9 @@ drill's rung at a foe that fights back, from starts drawn at random (`sparring`,
 
 **Every try.**
 
+- **A try's reading does not tell it from the drive.** On the 240 held-out starts a candidate
+  that reads 1.08 times the drive's damage a second has a 95 % interval of 0.79 to 1.47, so a try
+  a fifth better and one a fifth worse read the same ([the judge](#the-judge-of-a-try)).
 - **A variation's record is its skill's.** Each variation is a maker of its own
   (`ExecutorVariations`, `src/skills/framework/variations.ts`), so one can run its own executor
   and layout. The straight punch's two both call one function (`punch`,
@@ -97,12 +103,20 @@ installed network is such a file (`man.network`,
 `assets/skills/strikes/straight-punch/drive.json`: 59 inputs, two layers of 256 units, 12
 outputs). So each is made from the installed network, in its layout.
 
-**Two files decide.**
+**The files, read together.** The control and the fit decide. The others are the installed
+network with weights edited: they say what a low fit lost, and two of them read the separation
+from the legs whatever the fit reads (the stance asks, and the legs and the stance). An edit
+needs no tool the control does not, so every file is read in one batch and none waits on
+another's reading.
 
 | Reading | The file | What it says |
 | --- | --- | --- |
-| The control | the installed network, unedited | about 1.00 where the tool steers as the game does; the fit's reading stands on it |
-| The fit | one layer, shaped as Part 2 leaves the punch | whether a correction of the size and the inputs Part 2 searches carries the punch |
+| The control | the installed network, unedited | about 1.00 where the tool steers as the game does; every other reading stands on it |
+| The fit | one layer, shaped as Part 2 leaves the punch, in three forms | whether a correction of the size and the inputs Part 2 searches carries the punch |
+| The stance asks | the last layer's heading and centre rows at zero | what the punch loses asking nothing of where it faces or where its centre is |
+| The walk | the last layer's walk row at zero weights, its bias held above 0, then below | an output of 0 halts the walk, so the ask is read held on and held off |
+| The legs and the stance | the first layer's 20 leg-joint columns and four stance columns at zero | each held at its training mean (the network's `normalization`): what the punch loses blind to them |
+| Every input but the fit's | the first layer's 43 other columns at zero | the two hidden layers on the fit's 16 inputs: what is lost from here to the fit is lost by one layer, and the next size is an actor over the same inputs |
 
 **The fit.** One layer is an affine map of the normalised inputs, squashed by tanh
 (`recoveryNetwork`, `src/core/math/learning/recovery-network.ts`).
@@ -116,24 +130,19 @@ outputs). So each is made from the installed network, in its layout.
 - **Its weights are fitted by least squares** to the installed network's outputs before the
   squash, as its `actionLimit` clamps them, on every decision of the twin's training half
   (`--on train`).
+- **It is read in three forms**, since one map of those 16 inputs reads no time and the schedule
+  it corrects is timed: the 16 inputs alone; with the drive's age a 17th (`drive age`); and a
+  layer for each of two or three spans of the drive's age, each fitted on its span's decisions
+  and chosen by that age as the punch plays. The last is the form of its provenance, a feedback
+  fitted to each fragment of a schedule (Liu, van de Panne & Yin, below).
 - **It is a mode of the tool.** `steeredTrial` holds each decision's inputs, and the tool runs
   its command line wherever it is imported. The mode plays the training half once, steered by the
   installed network, keeps each decision's inputs and solves in Node.
 
-Where the fit holds most of the steered landings, Part 2's layout and correction carry the punch,
-and its search starts from the fit. Where it lands near the unsteered 20, it is evidence against
-them, short of proof: a fit copies the network on the states the network reaches, and a search
-scores the punch itself.
-
-**On a low reading, what it lost.** Each is the installed network with weights edited, read the
-same way.
-
-| Reading | The file | What it says |
-| --- | --- | --- |
-| The stance asks | the last layer's heading and centre rows at zero | what the punch loses asking nothing of where it faces or where its centre is |
-| The walk | the last layer's walk row at zero weights, its bias held above 0, then below | an output of 0 halts the walk, so the ask is read held on and held off |
-| The legs and the stance | the first layer's 20 leg-joint columns and four stance columns at zero | each held at its training mean (the network's `normalization`): what the punch loses blind to them |
-| Every input but the fit's | the first layer's 43 other columns at zero | the two hidden layers on the fit's 16 inputs: what is lost from here to the fit is lost by one layer, and the next size is an actor over the same inputs |
+Where a form of the fit holds most of the steered landings, Part 2's layout and that form of
+correction carry the punch, and its search starts from it. Where each lands near the unsteered
+20, it is evidence against them, short of proof: a fit copies the network on the states the
+network reaches, and a search scores the punch itself.
 
 **Two readings that play no network file.**
 
@@ -144,7 +153,53 @@ same way.
   drill beside the fights'. A tool that reads a protocol's commitments makes it for sparring.
   Where sparring's do not cover the fights', a try's measure is the `fights` rung.
 - **What a try's comparison costs**: the time of a `--bar`. It sizes how many starts a try is
-  read on.
+  read on. A sparring trial plays at most 11 s (`seconds`, `STILL`,
+  `src/evaluation/strike/cases.ts`) at about 0.55 s of a core a simulated second
+  ([the punch's notes](2026-11-10-warrior-punch.md#sparring-settings-searched-the-steer-trained)),
+  so a side of 240 starts is at most 24 core-minutes, by arithmetic.
+
+## The judge of a try
+
+**Where it stands.**
+
+- **The judge reads damage dealt a second** against the drive's on the 240 held-out starts the
+  Warrior is admitted to, each start played by both, its interval a paired bootstrap over the
+  starts (`bar`, `punch-sparring.mjs`). Beside it, it prints how many starts each side lands.
+- **At 240 starts it does not tell a fifth better from a fifth worse**: a candidate that reads
+  1.08 times the drive has an interval of 0.79 to 1.47.
+- **Landings paired by start tell more on the same starts.** The drive lands 125 of them and
+  `from-guard` 116; of the starts where only one lands, 13 are the drive's and 4 `from-guard`'s
+  (exact two-sided sign test p 0.049;
+  [the punch's notes](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)).
+- **A landing is not value**: held up by the assist the punch lands more and its value does not
+  move ([what the assist does to the punch](#part-2-a-strike-made-by-search-apart-from-the-legs)).
+- **`sparring-drawn` holds ten times sparring's starts** for a trainer to draw from; the rung and
+  its twin stay out of training, to judge and to rank by (`SPARRING_DRAWN`,
+  `src/evaluation/strike/cases.ts`).
+
+**The design.**
+
+- **A try is screened on landings paired by start**: the starts where only the candidate lands
+  against those where only the drive does, by an exact sign test, beside the falls. `--bar`
+  prints them with its bar.
+- **A variation is accepted on value**, damage dealt a second, on a held-out draw of ten times
+  sparring's starts: a protocol on a stream of its own, drawn as `sparring-drawn` is, that no
+  search and no trainer plays. An interval narrows with the square root of its starts, to about a
+  third as wide, by arithmetic.
+- **The drive's side of that draw is played once and found after**
+  ([played rows kept and found](2026-11-14-saved-results.md#the-design)): it is half of each
+  comparison's play.
+
+**What it would cost.** Ten times the starts is ten times the play: at most about four
+core-hours a side, by the arithmetic of [a try's comparison](#the-readings-that-come-first).
+
+**Open.**
+
+- How many starts tell a variation made by search from the one it would replace, and at what
+  time a try.
+- What "as well" is as a margin: [the rules](../../AGENTS.md#the-rules) ask a reading that shows
+  a replacement does as well, and a reading has an interval.
+- Whether the paired landings rank tries as value does.
 
 ## Part 1: a variation declares its record
 
@@ -205,6 +260,10 @@ layout they run now, which the fingerprint shows.
 - **The search moves settings alone.** `punch-sparring.mjs --search` moves the 15 of `SEARCHED`
   and plays each candidate by its tuning. A network reaches a trial as a file's path, steering as
   a trainer does (`policyOf`, `steeredTrial`).
+- **The search scores the same starts in every generation**: every third twin start the Warrior
+  is admitted to (`--every`). A PPO run on the twin's 127 training starts learned them: it reads
+  1.84 times the drive on them and 0.77 on the half it never played
+  (`punch-sparring.mjs --bar <policy> --on train`, `--on dev`).
 
 **The design.**
 
@@ -216,10 +275,13 @@ layout they run now, which the fingerprint shows.
   a walk goes on. Standing is the stance's; getting into the window is the layer's and the
   mind's.
 - **A one-layer correction over those inputs**, added to the schedule's pushes inside the stroke.
-- **One search moves the schedule's settings and the correction's weights together**, on
-  sparring's training twin (`sparring-twin`, `src/evaluation/strike/cases.ts`), judged on the
-  held-out starts. A candidate's network goes to a trial with its settings. The search starts
-  from [the fit](#the-readings-that-come-first).
+- **One search moves the schedule's settings and the correction's weights together.** A
+  candidate's network goes to a trial with its settings. The search starts from
+  [the fit](#the-readings-that-come-first).
+- **Each generation is scored on starts drawn anew from `sparring-drawn`**, the same starts for
+  every candidate of the generation, so no start recurs often enough to be learned for itself.
+  The twin (`sparring-twin`, `src/evaluation/strike/cases.ts`) ranks a search's bests, and the
+  held-out starts judge them ([the judge](#the-judge-of-a-try)).
 - **The tool takes the skill, the body, the variation and what a candidate is read beside.** The
   settings it moves and their ranges are the executor's, so the punch on another body and the
   sword thrust are the same search.
@@ -251,9 +313,8 @@ generalize striking movements in robot table tennis", International Journal of R
 **What counts as made.** A variation made by search takes an installed one's place once a
 reading on the game's cases shows it does as well ([the rules](../../AGENTS.md#the-rules)). The
 judge's bar is that of a search for a better punch: damage dealt a second at least twice the
-drive's, the low end of its interval above 1.5 (`RATE`, `LOW`). At 240 starts a candidate that
-reads 1.08 times the drive has an interval of 0.79 to 1.47, so the held-out starts do not tell
-"as well" from a fifth worse. `sparring-drawn` holds ten times sparring's starts.
+drive's, the low end of its interval above 1.5 (`RATE`, `LOW`). What tells "as well" from a fifth
+worse is [the judge's](#the-judge-of-a-try).
 
 **What the assist does to the punch.** The Warrior's installed punch, searched and trained at a
 ceiling of 0, sparred on its 240 held-out starts with the striker's Balance set in the bout's
@@ -282,17 +343,13 @@ overlap ([Option Mind](../architecture.md#minds)).
 
 **Open.**
 
-- How many starts tell a variation made by search from the one it would replace, and at what
-  time a try ([the readings](#the-readings-that-come-first) give the time of a `--bar`).
 - Whether a linear correction holds what the open-loop schedule loses: 1.5 cm of foot took a bonk
   from 96 to 63 J. The fit reads it for the punch.
 - Whether the search reaches a good correction at a search's budget: 136 weights and biases for
-  16 inputs and 8 pushes, against the 15 settings it moves now.
-- Whether a search's gain shows on the starts it is scored on: the search scores every third
-  twin start (`--every`), fewer than the judge's.
-- Whether a search on the twin learns its starts. A PPO run on the twin's 127 training starts
-  reads 1.84 times the drive on them and 0.77 on the half it never played
-  (`punch-sparring.mjs --bar <policy> --on train`, `--on dev`).
+  16 inputs and 8 pushes, against the 15 settings it moves now, whose search ran 16 generations
+  of 16 candidates on 80 starts.
+- Whether a best found on starts drawn anew holds on the twin and the held-out starts, and how
+  many starts a generation needs: its score then differs between generations by the draw.
 - Whether a correction this small follows a moving target inside the stroke.
 - Whether the swing's strikes take a correction the same way: the bonk's executor is the swing's
   (`src/skills/strikes/shared/swing.ts`), and its record holds no network.
@@ -324,9 +381,9 @@ Each is an idea, untested here.
 
 ## What reaches what is installed
 
-The readings change no file of the game. Each part is built beside what is installed: a new
-variation, research code, or a refactor the fingerprint shows. Two choices reach installed
-skills:
+The readings change no file of the game. The judge's larger draw is a protocol added beside
+sparring's. Each part is built beside what is installed: a new variation, research code, or a
+refactor the fingerprint shows. Two choices reach installed skills:
 
 - **A change to how the stance answers an ask it already takes, or to what shared strike code
   does.** Either moves every skill on it.
@@ -335,9 +392,11 @@ skills:
 
 ## How the parts depend
 
-- **The readings wait on the fit's mode of the tool and on nothing else built.** Each `--bar` of
-  them plays the drive's side once more until the judge finds its rows
-  ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
+- **The readings wait on the tool's modes and on nothing else built**: the fit's, and a network
+  file's edit. Each `--bar` of them plays the drive's side once more until the judge finds its
+  rows ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
+- **The judge's paired landings wait on nothing.** Its larger draw is a protocol added beside
+  sparring's; with the played rows its drive's side is played once.
 - **Part 1 and the played rows wait on no reading**: every try after them plays only its own
   variation.
 - **Part 2's search waits on the fit**, its start, and on a candidate's network going to a trial
@@ -351,6 +410,8 @@ skills:
   `assets/skills/strikes/straight-punch/drive.json`, and its layout, `drive.layout.json`; what a
   layer computes, `src/core/math/learning/recovery-network.ts`; what an output asks,
   `src/skills/strikes/shared/steer.ts`.
+- **The judge**: `bar` in `punch-sparring.mjs`; sparring's draws (`SPARRING`, `SPARRING_TWIN`,
+  `SPARRING_DRAWN`) in `src/evaluation/strike/cases.ts`.
 - **Variations**: `src/skills/framework/variations.ts`; a skill's part, as
   `src/skills/strikes/straight-punch/index.ts`; its records `straight-punch/data/`; what loads
   and digests them, `src/minds/catalog/catalog.ts` and `src/skills/framework/profile.ts`; the
