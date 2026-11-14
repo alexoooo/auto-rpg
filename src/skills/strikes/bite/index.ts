@@ -29,7 +29,7 @@ export const BITE_PART: ExecutorPart<Config> = {
   effectors: ["head"], aims: true, meets: "point",
   strikesWith: (spec, _config, effector) => jawOf(spec).head.name === effector,
   make: variationMaker("bite", VARIATIONS),
-  variations: Object.keys(VARIATIONS),
+  skillGroup: "Strikes", variations: Object.keys(VARIATIONS),
 };
 
 declare module "../../config.ts" {

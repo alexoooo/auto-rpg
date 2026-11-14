@@ -3,10 +3,11 @@ import { characterNamed } from "../../../core/bodies/models.ts";
 import type { SkillChoices } from "../../../core/bodies/spec/body.ts";
 import type { Control } from "./controls.ts";
 
-/** **A skill a character may hold** (`Part.variations`): its name, what a page calls it, and its variations. */
+/** **A skill a character may hold** (`Part.variations`): its name, heading, label and variations. */
 export interface SkillOffer {
   readonly skill: string;
   readonly label: string;
+  readonly group: string;
   readonly variations: readonly string[];
 }
 
@@ -30,6 +31,7 @@ export function skillEditor(character: string, skills: SkillChoices | undefined,
   const fields = document.createElement("div");
   fields.className = "skill-fields";
   const boxes = new Map<string, HTMLInputElement>();
+  const groups = new Map<string, HTMLDetailsElement>();
   let drawn = "";
   const current = (): SkillChoices => chosen ?? characterNamed(shown).skills;
   const refresh = () => {
@@ -40,8 +42,17 @@ export function skillEditor(character: string, skills: SkillChoices | undefined,
     reset.disabled = chosen === undefined;
   };
   const draw = (available: readonly SkillOffer[]) => {
+    const expanded = new Set([...groups].filter(([, group]) => group.open).map(([name]) => name));
     boxes.clear(); fields.replaceChildren();
+    groups.clear();
     for (const offer of available) {
+      let group = groups.get(offer.group);
+      if (!group) {
+        group = document.createElement("details");
+        group.className = "skill-group"; group.open = expanded.has(offer.group);
+        const heading = document.createElement("summary"); heading.textContent = offer.group;
+        group.append(heading); groups.set(offer.group, group); fields.append(group);
+      }
       const row = document.createElement("div"), text = document.createElement("span"), variations = document.createElement("div");
       row.className = "skill-field"; text.className = "skill-name"; text.textContent = offer.label; text.title = offer.label;
       row.setAttribute("role", "group"); row.setAttribute("aria-label", offer.label);
@@ -56,7 +67,7 @@ export function skillEditor(character: string, skills: SkillChoices | undefined,
         const nameText = document.createElement("span"); nameText.textContent = variation;
         label.append(box, nameText); variations.append(label); boxes.set(name, box);
       }
-      fields.append(row);
+      group.append(row);
     }
   };
   const reset = button("Reset all", () => { chosen = undefined; refresh(); options.change?.(chosen); });

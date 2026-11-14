@@ -63,7 +63,7 @@ export const PUNCH_PART: ExecutorPart<Config> = {
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),
   make: variationMaker("straight-punch", VARIATIONS),
-  variations: Object.keys(VARIATIONS),
+  skillGroup: "Strikes", variations: Object.keys(VARIATIONS),
 };
 
 declare module "../../config.ts" {

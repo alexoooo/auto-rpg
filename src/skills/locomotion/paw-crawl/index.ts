@@ -29,7 +29,7 @@ export const CRAWL_PART = deepFreeze<PawGaitPart<CrawlConfig>>({
   faults: (config: CrawlConfig) => config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning)
     && validCrawl({ ...REPTILE_CRAWL, ...config.tuning }) ? [] : ["invalid crawl settings"],
   make: variedMake("paw-crawl", VARIATIONS, (built, _root, _reading, _paws, config) => [built.spec, config]),
-  variations: Object.keys(VARIATIONS),
+  skillGroup: "Travel", variations: Object.keys(VARIATIONS),
 });
 
 declare module "../shared/quadruped/parts.ts" {

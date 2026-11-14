@@ -19,7 +19,7 @@ const CLIMBING = "steady:climb";
  * a quiet crouch (`steadying`), its stage `steady`, or `steady:climb` while it climbs. Begun with no
  * ground skill carried over, its motor forgets what it had under way.
  */
-export const STEADY_MODE = technique("steady", { requires: [SUPPORT_REFERENCE, MOTOR_STANCE], mode: { kind: "steady", climbing: CLIMBING }, label: "Steady", stage: "game", sides: ONE_SIDE, edges: NO_EDGES,
+export const STEADY_MODE = technique("steady", { skillGroup: "Balance", requires: [SUPPORT_REFERENCE, MOTOR_STANCE], mode: { kind: "steady", climbing: CLIMBING }, label: "Steady", stage: "game", sides: ONE_SIDE, edges: NO_EDGES,
   make: (own, view, _clock, fitted): TechniqueRun => {
     const steady = steadying(own, view, fitted);
     return { ...MODE, state: steady.state, get phase() { return steady.state.climb.on ? CLIMBING : "steady"; },

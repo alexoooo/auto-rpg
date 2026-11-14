@@ -18,7 +18,7 @@ export const SHIELD_GUARD: GuardPart<ShieldGuardConfig> = {
   tuning: COVERING_TUNING, fits: fitsAll(variationFault("shield-guard", "shield guard", VARIATIONS), coveringFit, coversWithHands, soleRefusal,
     fitsWhen(wardsWithFace, "holds no item with a face to ward with")), faults: coveringFaults,
   supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined).map(({ segment }) => segment),
-  ...guardVariations("shield-guard", VARIATIONS),
+  skillGroup: "Guard", ...guardVariations("shield-guard", VARIATIONS),
 };
 
 declare module "../../config.ts" {

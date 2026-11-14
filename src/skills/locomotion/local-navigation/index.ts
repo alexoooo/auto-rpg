@@ -20,7 +20,7 @@ const VARIATIONS = {
 export const LOCAL_NAVIGATION = deepFreeze<NavigatorPart<LocalNavigationConfig>>({
   role: "navigation", label: "Local clearance", stage: "experimental", fields: [], slots: [], defaults: { kind: "local-navigation" }, keys: { kind: true, variation: true },
   fits: fitsAll(variationFault("local-navigation", "local clearance", VARIATIONS), anyBody), faults: () => [],
-  make: variedMake("local-navigation", VARIATIONS, (spec, config) => [spec, config]), variations: Object.keys(VARIATIONS),
+  make: variedMake("local-navigation", VARIATIONS, (spec, config) => [spec, config]), skillGroup: "Travel", variations: Object.keys(VARIATIONS),
 });
 
 declare module "../../framework/navigation.ts" {

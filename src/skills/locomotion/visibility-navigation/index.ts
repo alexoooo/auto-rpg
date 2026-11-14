@@ -17,7 +17,7 @@ const VARIATIONS = {
 export const VISIBILITY_NAVIGATION = deepFreeze<NavigatorPart<VisibilityNavigationConfig>>({
   role: "navigation", label: "Visibility routes", stage: "game", fields: [], slots: [], defaults: { kind: "visibility-navigation" }, keys: { kind: true, variation: true },
   fits: fitsAll(variationFault("visibility-navigation", "visibility routes", VARIATIONS), anyBody), faults: () => [],
-  make: variedMake("visibility-navigation", VARIATIONS, (spec, config) => [spec, config]), variations: Object.keys(VARIATIONS),
+  make: variedMake("visibility-navigation", VARIATIONS, (spec, config) => [spec, config]), skillGroup: "Travel", variations: Object.keys(VARIATIONS),
 });
 
 declare module "../../framework/navigation.ts" {

@@ -54,7 +54,7 @@ export const CLUB_BLOW_PART: ExecutorPart<Config> = {
   reads: () => ["club-blow/swing"], effectors: ["hand.left", "hand.right"], aims: true, meets: MECHANISM,
   strikesWith: (spec, _config, effector) => heldFace(spec, effector, ITEM, MECHANISM) !== null,
   make: variationMaker("club-blow", VARIATIONS),
-  variations: Object.keys(VARIATIONS),
+  skillGroup: "Strikes", variations: Object.keys(VARIATIONS),
 };
 
 declare module "../../config.ts" {

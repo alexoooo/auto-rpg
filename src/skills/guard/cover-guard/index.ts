@@ -17,7 +17,7 @@ export const COVER_GUARD: GuardPart<CoverGuardConfig> = {
   tuning: COVERING_TUNING, fits: fitsAll(variationFault("cover-guard", "guard and cover", VARIATIONS), coveringFit, coversWithHands,
     fitsWhen((spec: BodySpec) => !wardsWithFace(spec), "holds an item with a face, which the shield guard wards with")), faults: coveringFaults,
   supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined && item.coverNormal === undefined).map(({ segment }) => segment),
-  ...guardVariations("cover-guard", VARIATIONS),
+  skillGroup: "Guard", ...guardVariations("cover-guard", VARIATIONS),
 };
 
 declare module "../../config.ts" {

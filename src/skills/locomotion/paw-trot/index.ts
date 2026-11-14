@@ -28,7 +28,7 @@ export const TROT_PART = deepFreeze<PawGaitPart<TrotConfig>>({
   faults: (config: TrotConfig) => config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning)
     && validTrot({ ...REPTILE_TROT, ...config.tuning }) ? [] : ["invalid trot settings"],
   make: variedMake("paw-trot", VARIATIONS, (built, _root, _paws, _names, config) => [built.spec, config]),
-  variations: Object.keys(VARIATIONS),
+  skillGroup: "Travel", variations: Object.keys(VARIATIONS),
 });
 
 declare module "../shared/quadruped/parts.ts" {

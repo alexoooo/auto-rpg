@@ -27,7 +27,7 @@ export const LOWERED_GUARD: GuardPart<LoweredGuardConfig> = {
   fits: fitsAll(variationFault("lowered", "lowered arms", VARIATIONS),
     fitsWhen((spec: BodySpec) => Object.keys(LOWERED).every((channel) => spec.joints.some((joint) => joint.dofs.some((dof) => `${joint.name} ${dof.positive}` === channel))),
       "has no two arms to lower")), faults: () => [],
-  ...guardVariations("lowered", VARIATIONS),
+  skillGroup: "Guard", ...guardVariations("lowered", VARIATIONS),
 };
 
 declare module "../../config.ts" {

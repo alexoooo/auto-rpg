@@ -66,7 +66,7 @@ export const STOMP_PART: ExecutorPart<Config> = {
   faults: (config) => config.tuning === undefined || validStompPart(config.tuning) ? [] : ["invalid stomp tuning"],
   fitReads: ["stomp/stomp"], reads: () => ["stomp/stomp"], effectors: ["foot.left", "foot.right"], aims: true,
   make: variationMaker("stomp", VARIATIONS),
-  variations: Object.keys(VARIATIONS),
+  skillGroup: "Strikes", variations: Object.keys(VARIATIONS),
 };
 
 declare module "../../config.ts" {

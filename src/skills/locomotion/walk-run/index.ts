@@ -112,7 +112,7 @@ export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
   },
   reads: () => ["walk-run"],
   make: variedMake("walk-run", VARIATIONS, (body, config) => [body.built.spec, config]),
-  variations: Object.keys(VARIATIONS),
+  skillGroup: "Travel", variations: Object.keys(VARIATIONS),
 });
 
 declare module "../../config.ts" {

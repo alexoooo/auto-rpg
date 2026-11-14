@@ -75,6 +75,8 @@ export interface Part<C extends PartConfig = PartConfig> extends Edited<C> {
    * chooses (`BodySpec.skills`), and a body runs only those its character holds (`variationFault`).
    */
   readonly variations?: readonly string[];
+  /** The heading under which a skill is offered in the character editor. */
+  readonly skillGroup?: string;
 
   // The parts its config holds (`heldBy`).
   readonly slots: readonly Slot[];

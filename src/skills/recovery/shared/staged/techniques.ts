@@ -255,7 +255,7 @@ const fitsPart = (kind: StagedKind) => (spec: BodySpec, config: { readonly tunin
 /** An experiment may pass a whole immutable recipe tuning in place of the body's record. */
 export interface StagedConfig<K extends StagedKind> { readonly kind: K; readonly tuning?: StepUpTuning }
 
-export const routeTechnique = <K extends StagedKind>(kind: K, label: string): TechniquePart<StagedConfig<K>> => Object.freeze({ ...technique(kind, { label, stage: "experimental", moving: true,
+export const routeTechnique = <K extends StagedKind>(kind: K, label: string): TechniquePart<StagedConfig<K>> => Object.freeze({ ...technique(kind, { skillGroup: "Stand-up", label, stage: "experimental", moving: true,
   sides: Object.freeze(["left"] as const), edges: Object.freeze(PARTS[kind].from.map(from => Object.freeze({ from, to: PARTS[kind].to as Position }))),
   requires: PARTS[kind].first === null ? [] : [SUPPORT_REFERENCE, MOTOR_STANCE], reads: () => ["step-up", "sit-back"],
   make: (own, view, _clock: Clock, fitted, config) => routePart(own, view, fitted, kind, (config as StagedConfig<K>).tuning ?? stepUpTuning(own.spec)) }),

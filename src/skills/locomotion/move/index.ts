@@ -91,7 +91,7 @@ export const MOVE_PART = deepFreeze<LocomotionPart<MoveConfig>>({
   },
   faults: gaitFaults, gaits: gaitsOfMove,
   make: variedMake("move", VARIATIONS, (body, config) => [body.built.spec, config]),
-  variations: Object.keys(VARIATIONS),
+  skillGroup: "Travel", variations: Object.keys(VARIATIONS),
 });
 
 declare module "../../config.ts" {

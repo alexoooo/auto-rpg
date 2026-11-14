@@ -182,7 +182,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const skillEditors = {} as Record<Side, ReturnType<typeof skillEditor>>;
   /** Each skill a character may choose and its variations, as the catalog's parts offer them (`Part.variations`). */
   const skillOffers: readonly SkillOffer[] = Object.entries(allParts()).flatMap(([skill, part]) =>
-    part.variations ? [{ skill, label: part.label, variations: part.variations }] : []);
+    part.variations ? [{ skill, label: part.label, group: part.skillGroup ?? "Other", variations: part.variations }] : []);
   const offeredSkills = skillOffers.flatMap(offer => offer.variations.map(variation => `${offer.skill}/${variation}`));
   /** `side`'s character config: the character `character`, its attributes over its mind's character's, and its skills where its panel chose them. */
   const characterOf = (side: Side, character: string, control: string) => ({ model: characterNamed(character).model, character,

@@ -39,7 +39,7 @@ export const STANCE_WALK_PART = deepFreeze<GaitPart<StanceWalkConfig>>({
     ...(config.carriage === undefined || validCarriage(config.carriage) ? [] : ["a carriage needs a positive width or none, and a finite stagger and lowering"]),
   ],
   make: variedMake("stance-walk", VARIATIONS, (body, config) => [body.built.spec, config]),
-  variations: Object.keys(VARIATIONS),
+  skillGroup: "Travel", variations: Object.keys(VARIATIONS),
 });
 
 declare module "../../config.ts" {

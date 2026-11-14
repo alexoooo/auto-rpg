@@ -20,7 +20,7 @@ const VARIATIONS = { rest: { posture: () => NO_POSTURE, make: () => AT_REST } };
 export const REST_GUARD: GuardPart<RestGuardConfig> = {
   role: "guard", label: "At rest", stage: "game", fields: [], slots: [], defaults: { kind: "rest" }, keys: { kind: true, variation: true },
   fits: fitsAll(variationFault("rest", "rest", VARIATIONS), fitsWhen((spec: BodySpec) => handsOf(spec).length === 0, "has a hand that covers, which a cover guard guards with")), faults: () => [],
-  ...guardVariations("rest", VARIATIONS),
+  skillGroup: "Guard", ...guardVariations("rest", VARIATIONS),
 };
 
 declare module "../../config.ts" {

@@ -40,7 +40,7 @@ export const RIGHTING_RECIPE = deepFreeze<TechniquePart<RecipeConfig>>({
   faults: (config: RecipeConfig) => config.tuning === undefined || wholeRecipe(config.tuning) ? [] : ["invalid righting recipe"],
   reads: () => ["righting"],
   make: variedMake("righting-recipe", RECIPE_VARIATIONS, (own, _view, _clock, _fitted, config) => [own.spec, config]),
-  variations: Object.keys(RECIPE_VARIATIONS),
+  skillGroup: "Stand-up", variations: Object.keys(RECIPE_VARIATIONS),
 });
 
 declare module "../shared/technique.ts" {

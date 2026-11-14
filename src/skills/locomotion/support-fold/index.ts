@@ -18,7 +18,7 @@ const VARIATIONS = { "support-fold": (body: Body, _config: SupportFoldConfig) =>
 export const SUPPORT_FOLD: LowSupportPart<SupportFoldConfig> = {
   role: "support", requires: [SUPPORT_REFERENCE], label: "Fight from low support", stage: "experimental", fields: [], slots: [], defaults: { kind: "support-fold" }, keys: { kind: true, variation: true },
   fits: fitsAll(variationFault("support-fold", "low support", VARIATIONS), fitsSoles), faults: () => [],
-  make: variedMake("support-fold", VARIATIONS, (body, config) => [body.built.spec, config]), variations: Object.keys(VARIATIONS),
+  make: variedMake("support-fold", VARIATIONS, (body, config) => [body.built.spec, config]), skillGroup: "Balance", variations: Object.keys(VARIATIONS),
 };
 
 

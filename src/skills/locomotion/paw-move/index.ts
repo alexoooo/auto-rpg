@@ -44,7 +44,7 @@ export const PAW_MOVE = deepFreeze<LocomotionPart<PawMoveConfig>>({
   fits: fitsAll(variationFault("paw-move", "paw gaits", VARIATIONS), fitsPaws), faults: () => [],
   gaits: (config) => GAIT_NAMES.map((name) => ({ name, label: LABELS[name], legs: config[name] ?? STOCK[name] })),
   make: variedMake("paw-move", VARIATIONS, (body, config) => [body.built.spec, config]),
-  variations: Object.keys(VARIATIONS),
+  skillGroup: "Travel", variations: Object.keys(VARIATIONS),
 });
 
 declare module "../../config.ts" {

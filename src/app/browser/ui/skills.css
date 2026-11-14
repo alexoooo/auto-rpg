@@ -1,6 +1,10 @@
 .skill-editor { min-width: 0; }
 .skill-editor > summary { cursor: pointer; color: var(--dim); font: 12px/1.5 system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
 .skill-fields { display: grid; margin: 8px 0; padding: 0 10px; border: 1px solid var(--edge); border-radius: 3px; background: #141013bf; font: 12px/1.4 system-ui, sans-serif; }
+.skill-group { min-width: 0; }
+.skill-group + .skill-group { border-top: 1px solid var(--edge); }
+.skill-group > summary { padding: 6px 0; color: var(--dim); cursor: pointer; }
+.skill-group[open] > summary { color: var(--hot); }
 .skill-field { display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 27px; padding: 3px 0; }
 .skill-field + .skill-field { border-top: 1px solid var(--edge); }
 .skill-name { flex: 1; min-width: 0; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

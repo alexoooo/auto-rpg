@@ -44,6 +44,7 @@ const fitsStance = (spec: BodySpec): string | null => soleRefusal(spec);
 
 /** A technique part of `kind` with no settings of its own, fitted to a body the stance stands (`fitsStance`) and, where `fits` is given, that `fits` admits. */
 export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "edges" | "mode"> & {
+  readonly skillGroup: string;
   readonly sides: readonly Side[];
   readonly make: (...args: Parameters<TechniquePart["make"]>) => TechniqueRun<Side>;
   readonly requires?: TechniquePart["requires"];
