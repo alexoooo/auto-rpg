@@ -98,11 +98,13 @@ effector segment (`BodyView.pointMotion`).
   `src/core/bodies/human/spec.ts`, the quadrupeds in `src/core/bodies/quadruped/spec.ts`.
 - **A character** (`CharacterConfig`, `resolveCharacter`) is a model plus its attributes
   (`CharacterAttributes`) and its skills (`SkillChoices`, carried on its spec as `BodySpec.skills`):
-  each skill it has by the variation of it it runs, its model's character's
-  (`assets/characters/characters.json`: the Warrior's, the Rogue's, the Skeleton's, the rat's and the
-  reptile's) where it names none. A bout's recipe carries each side's (`DuelRecipe.skills`), and the
-  Arena sets them by its panel and its link (`left.skills=straight-punch:drive,stomp:stomp`,
-  `src/game/skill-link.ts`). The physical keys and validation live in the body domain; editor labels,
+  a list of each variation of a skill it holds, `skill/variation`, several of one skill if it likes,
+  its model's character's (`assets/characters/characters.json`: the Warrior's, the Rogue's, the
+  Skeleton's, the rat's and the reptile's) where it names none. Each variation held is a skill of
+  its own to its mind: its executor runs that variation (`Varied.variation`), named by the
+  variation too where the body holds several of the skill, and is measured as it is held alone
+  (`skillDigest`). A bout's recipe carries each side's (`DuelRecipe.skills`), and the Arena sets them by its panel and its link
+  (`left.skills=straight-punch/drive,straight-punch/from-guard,stomp/stomp`, `src/game/skill-link.ts`). The physical keys and validation live in the body domain; editor labels,
   increments and help live in `src/app/browser/ui/character-attribute-info.ts`.
   A physique (`physiqueFigure`, `src/core/bodies/human/physique.ts`) scales one
   thing a factor: size every length at the same density, weight the mass alone, strength every peak

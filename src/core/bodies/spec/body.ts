@@ -103,8 +103,8 @@ export interface BodySpec {
   /** Items held rigidly in a segment, such as a club in a hand; absent, nothing. */
   readonly held?: readonly HeldSpec[];
   /**
-   * The skills its character has chosen (`SkillChoices`): each skill it has, by name, and the
-   * variation of it it runs. A skill it does not name, it does not have; absent, none.
+   * The skills its character holds (`SkillChoices`): each variation of a skill it may use, as
+   * `skill/variation`. A skill none of whose variations it names, it does not have; absent, none.
    */
   readonly skills?: SkillChoices;
   /** When the body is down: the rule every fight, page and mind reads it by (`uprightness`, `src/control/ground.ts`). */
@@ -164,11 +164,15 @@ export const pawsOf = (spec: BodySpec): readonly PawLimb[] => (spec.ends ?? []).
 
 /** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
 /**
- * **A character's skills**: each skill it has, by name (an executor's kind, such as
- * `straight-punch`), and the variation of it it runs (`drive`: its own folder of code and file of
- * settings, `src/skills/strikes/<skill>/<variation>/`).
+ * **A character's skills**: each variation of a skill it holds, as `skill/variation`
+ * (`straight-punch/drive`: the skill a part's kind names, the variation one way of it). It may hold
+ * several variations of one skill; each is a skill of its own to its mind.
  */
-export type SkillChoices = Readonly<Record<string, string>>;
+export type SkillChoices = readonly string[];
+
+/** **The variations of `skill` a body of `spec` holds** (`BodySpec.skills`), in its list's order. */
+export const heldVariations = (spec: Pick<BodySpec, "skills">, skill: string): readonly string[] =>
+  (spec.skills ?? []).flatMap((name) => name.startsWith(`${skill}/`) ? [name.slice(skill.length + 1)] : []);
 
 export type Substance = "flesh" | "bone" | "wood" | "metal" | "stone";
 

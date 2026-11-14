@@ -9,7 +9,7 @@ import { fitsAll, strikesWithOneOf } from "../../../parts/parts.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { aimedPoint, type ExecutorMaking, type ExecutorPart } from "../../framework/executor-part.ts";
 import type { ActionConfig } from "../../config.ts";
-import { variationFault, variationMaker } from "../../framework/variations.ts";
+import { variationFault, variationMaker, type Varied } from "../../framework/variations.ts";
 import { recordFault, tunedSettings, type SkillRecord } from "../../framework/records.ts";
 import { heldFace, type StrikingFace } from "../shared/held-face.ts";
 import { swingChannelFault, swingExecutor, SWING_KEYS, validSwing, validSwingPart, type Swing } from "../shared/swing.ts";
@@ -38,7 +38,7 @@ declare module "../../../core/data/store.ts" {
 }
 
 /** The bonk's config: a research `tuning` over its body's record (all of its settings where the body has none). */
-interface Config {
+interface Config extends Varied {
   readonly kind: "bonk";
   readonly tuning?: Partial<Swing>;
 }
@@ -64,7 +64,7 @@ const VARIATIONS = {
  */
 export const BONK_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Bonk", stage: "game", defaults: { kind: "bonk" },
-  keys: { kind: true, tuning: true }, tuning: SWING_KEYS,
+  keys: { kind: true, variation: true, tuning: true }, tuning: SWING_KEYS,
   fields: [], slots: [],
   fits: fitsAll(variationFault("bonk", "bonk", VARIATIONS), (spec) => handConfigurationRefusal(spec, (spec.held ?? []).map(held => held.segment), "grip"), strikesWithOneOf("hand.left", "hand.right"),
     recordFault("bonk", deepFreeze(meta.bodies), validSwing), (spec, config) => config.tuning ? swingChannelFault(spec, config.tuning) : null),

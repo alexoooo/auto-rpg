@@ -83,10 +83,10 @@ Logger.LogLevels = Logger.NoneLogLevel;
 const digestOf = (hash) => hash.digest("hex").slice(0, 16);
 /**
  * The skill variations `combatants` run, each `skill/variation`, sorted: every skill of a body's
- * kit (`KitEntry.kind`, what its mind made) by the variation its character chose (`BodySpec.skills`).
+ * kit (`KitEntry`, what its mind made) that runs a variation, by that variation.
  */
-const variationsOf = (combatants) => [...new Set(combatants.flatMap(({ built, minded }) => (minded.report?.kit ?? [])
-  .flatMap(({ kind }) => Object.hasOwn(built.spec.skills ?? {}, kind) ? [`${kind}/${built.spec.skills[kind]}`] : [])))].sort();
+const variationsOf = (combatants) => [...new Set(combatants.flatMap(({ minded }) => (minded.report?.kit ?? [])
+  .flatMap(({ kind, variation }) => variation === undefined ? [] : [`${kind}/${variation}`])))].sort();
 /**
  * A vector's or a quaternion's numbers, by its class's name, whichever library made it; anything
  * else, undefined.

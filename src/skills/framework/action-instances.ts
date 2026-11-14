@@ -19,8 +19,8 @@ export const cleanMiss = (record: Ended): boolean => record.ending.kind === "com
 
 /** An action's named executor, permitted anatomical endpoints and the regions it aims at (none: it acts on the body itself). */
 export interface ActionBinding { readonly name: string; readonly executor: string; readonly effectors: readonly string[]; readonly regions?: readonly Region[] }
-/** An executor is registered once, even when several actions share it; its kind says what skill it is (`straight-punch`, `stomp`), alike across minds. */
-export interface ExecutorBinding { readonly name: string; readonly kind: string; readonly executor: Executor }
+/** An executor is registered once, even when several actions share it; its kind says what skill it is (`straight-punch`, `stomp`), alike across minds, and its variation which way of it it runs, where the skill has variations. */
+export interface ExecutorBinding { readonly name: string; readonly kind: string; readonly variation?: string; readonly executor: Executor }
 
 const counts = () => ({ target: 0, block: 0, incidental: 0, world: 0 });
 const summary = (): ActionStatus["contacts"] => ({ counts: { prepare: counts(), commit: counts(), release: counts() }, loadedInCommit: false, blockedSegments: [], lastTarget: null });

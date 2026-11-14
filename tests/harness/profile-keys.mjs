@@ -8,15 +8,17 @@ import { skillDigest, specDigest, techniqueDigest } from "../../src/skills/frame
 
 /**
  * **What a measured profile can be of now**, as `<body> <spec digest> <skill digest>`: the bodies
- * are each model at its defaults holding each loadout it can; a strike is one a preset's Options
- * name on a body it fits (`skillsOf`), with one limb (`limbAction`, `skillDigest`); an edge is a
- * technique by its kind (`techniqueDigest`). A profile on none of these is read by nothing.
+ * are each model at its defaults holding each loadout it can, and every variation of every skill a
+ * character may hold (`Part.variations`), since a person may give any of them to any character; a
+ * strike is one a preset's Options name on a body it fits (`skillsOf`), with one limb
+ * (`limbAction`, `skillDigest`); an edge is a technique by its kind (`techniqueDigest`). A profile
+ * on none of these is read by nothing.
  */
 export function profileKeys() {
-  const bodies = [];
+  const bodies = [], skills = Object.entries(allParts()).flatMap(([skill, part]) => Array.isArray(part.variations) ? part.variations.map((variation) => `${skill}/${variation}`) : []);
   for (const model of BODY_MODELS) for (const loadout of LOADOUTS) {
     if (loadoutFaults(loadout).length || !modelHolds(model) && (loadout.left !== "empty" || loadout.right !== "empty")) continue;
-    bodies.push({ model, spec: withLoadout(resolveCharacter({ model }).spec, loadout) });
+    bodies.push({ model, spec: withLoadout(resolveCharacter({ model, skills }).spec, loadout) });
   }
   const on = (spec, skill) => `${spec.model} ${specDigest(spec)} ${skill}`;
   const keys = { strike: new Set(), edge: new Set() };

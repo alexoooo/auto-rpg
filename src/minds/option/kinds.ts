@@ -6,7 +6,7 @@ import { optionApplies, type OptionBody, type OptionPart } from "./parts.ts";
 import { choice, json, optionalChoice } from "../../parts/fields.ts";
 import { anyBody, slotOne, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
 import { GAIT_CHOICES } from "../../skills/locomotion/move-rule-part.ts";
-import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import { heldVariations, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { covers } from "./cover.ts";
@@ -16,6 +16,7 @@ import { followOrders } from "./orders.ts";
 import { gaitsOf, walkBy } from "./places.ts";
 import { PROFILE_MODEL, type ProfileOptionContext } from "./profile-contract.ts";
 import type { NamedSkills } from "./skills.ts";
+import type { Varied } from "../../skills/framework/variations.ts";
 import { guardOf, hold, holdAt } from "./rest.ts";
 import { strike, strikeMeasure } from "./strike.ts";
 
@@ -56,14 +57,33 @@ export interface StrikeConfig<K extends string = keyof ExecutorConfigs> {
 /** **A kind of strike**: a kind of option (`ProfileOptionPart`) that strikes by one skill, the executor kind it names (`skill`). */
 export type StrikeKindPart<K extends string = keyof ExecutorConfigs> = ProfileOptionPart<StrikeConfig<K>> & { readonly skill: K };
 
-/** Each executor's config as its body's skills hold it (`ExecutorEntry`), named by its kind: a skill is one config a mind. */
-const ENTRIES = new WeakMap<ConfigFor<"executor">, ExecutorEntry>();
+/** Each executor's config as its body's skills hold it (`ExecutorEntry`), by its variation and whether it is named by it: a skill is one config a mind. */
+const ENTRIES = new WeakMap<ConfigFor<"executor">, Map<string, ExecutorEntry>>();
 
-/** **The executor `skill` as its body's skills hold it**, named by its kind, made once a config. */
-function executorEntry(skill: ConfigFor<"executor">): ExecutorEntry {
-  let entry = ENTRIES.get(skill);
-  if (!entry) ENTRIES.set(skill, entry = Object.freeze({ ...skill, name: skill.kind }));
+/**
+ * **The executor `skill` as its body's skills hold it**, running `variation` (none for a skill
+ * without variations), named by its kind, and by its variation too where the body holds `several`
+ * of its skill's; made once a config.
+ */
+function executorEntry(skill: ConfigFor<"executor">, variation: string | null, several: boolean): ExecutorEntry {
+  let byVariation = ENTRIES.get(skill);
+  if (!byVariation) ENTRIES.set(skill, byVariation = new Map());
+  const key = `${variation ?? ""}${several ? "/" : ""}`;
+  let entry = byVariation.get(key);
+  if (!entry) byVariation.set(key, entry = Object.freeze({ ...skill, ...variation === null ? {} : { variation },
+    name: several && variation !== null ? `${skill.kind}/${variation}` : skill.kind }));
   return entry;
+}
+
+/**
+ * **The variations a strike of `config` runs on a body of `spec`**: the one its skill names; else
+ * each its character holds of that skill (`heldVariations`); a skill without variations runs as
+ * itself (null).
+ */
+function strikeVariations(parts: PartLookup, spec: BodySpec, config: StrikeConfig): readonly (string | null)[] {
+  const named = (config.skill as Varied).variation;
+  if (named !== undefined) return [named];
+  return parts.of("executor", config.skill).variations === undefined ? [null] : heldVariations(spec, config.skill.kind);
 }
 
 /** A region as a strike's name says it: its mark, or its segment. */
@@ -93,30 +113,46 @@ function strikeName(config: StrikeConfig, strikes: readonly StrikeConfig[]): str
   return told.size === 0 ? config.skill.kind : `${config.skill.kind} (${[...told].sort((a, b) => a - b).map((k) => USES[k]!(config)).join(", ")})`;
 }
 
-/** The limbs a strike of `config` strikes with on a body of `spec`: those of its role its executor strikes with (`limbsOf`); none where the executor does not fit the body. */
-const strikeLimbs = (parts: PartLookup, spec: BodySpec, config: StrikeConfig): readonly string[] =>
-  parts.of("executor", config.skill).fits(spec, config.skill, parts) === null ? limbsOf(parts, spec, config.limbs, config.skill) : [];
+/** The limbs a strike of `config` strikes with on a body of `spec` by `executor` (its skill, as one variation): those of its role the executor strikes with (`limbsOf`); none where the executor does not fit the body. */
+const strikeLimbs = (parts: PartLookup, spec: BodySpec, config: StrikeConfig, executor: ConfigFor<"executor"> = config.skill): readonly string[] =>
+  parts.of("executor", executor).fits(spec, executor, parts) === null ? limbsOf(parts, spec, config.limbs, executor) : [];
 
-/** Each strike's action, by its config, its body's spec and its name (`strikeAction`): configs are data, so an action is made once and is the same config at every make. */
-const ACTIONS = new WeakMap<StrikeConfig, WeakMap<BodySpec, Map<string, ActionConfig | null>>>();
+/** Each strike's action, by its config, its body's spec, its executor and its name (`strikeAction`): configs are data, so an action is made once and is the same config at every make. */
+const ACTIONS = new WeakMap<StrikeConfig, WeakMap<BodySpec, WeakMap<ExecutorEntry, Map<string, ActionConfig | null>>>>();
 
 /**
- * **What a strike of `config` named `name` (`strikeName`) asks of its executor on a body of
+ * **What a strike of `config` named `name` (`strikeName`) asks of `executor` on a body of
  * `spec`**: an action of that name, struck with the body's limbs of its role that the executor
  * strikes with (`strikeLimbs`), at its regions by its aim; null where the executor does not fit the
  * body or it has no such limb.
  */
-function strikeAction(parts: PartLookup, spec: BodySpec, config: StrikeConfig, name: string): ActionConfig | null {
+function strikeAction(parts: PartLookup, spec: BodySpec, config: StrikeConfig, executor: ExecutorEntry, name: string): ActionConfig | null {
   let bySpec = ACTIONS.get(config);
   if (!bySpec) ACTIONS.set(config, bySpec = new WeakMap());
-  let byName = bySpec.get(spec);
-  if (!byName) bySpec.set(spec, byName = new Map());
+  let byExecutor = bySpec.get(spec);
+  if (!byExecutor) bySpec.set(spec, byExecutor = new WeakMap());
+  let byName = byExecutor.get(executor);
+  if (!byName) byExecutor.set(executor, byName = new Map());
   if (byName.has(name)) return byName.get(name)!;
-  const effectors = strikeLimbs(parts, spec, config);
-  const action: ActionConfig | null = effectors.length === 0 ? null : Object.freeze({ name, executor: config.skill.kind, effectors,
+  const effectors = strikeLimbs(parts, spec, config, executor);
+  const action: ActionConfig | null = effectors.length === 0 ? null : Object.freeze({ name, executor: executor.name, effectors,
     ...config.regions === undefined ? {} : { regions: config.regions }, ...config.aim === undefined ? {} : { aim: config.aim } });
   byName.set(name, action);
   return action;
+}
+
+/**
+ * **A strike of `config`'s executors and actions on a body of `spec`**, one of each a variation it
+ * runs (`strikeVariations`): the action named among its mind's strikes (`strikeName`), and by
+ * its variation too where the body holds several; none for a variation the body does not fit.
+ */
+function strikeSkills(parts: PartLookup, spec: BodySpec, config: StrikeConfig, options: readonly PartConfig[]): readonly { readonly executor: ExecutorEntry; readonly action: ActionConfig }[] {
+  const variations = strikeVariations(parts, spec, config), several = variations.length > 1, name = strikeName(config, strikesIn(parts, options));
+  return variations.flatMap((variation) => {
+    const executor = executorEntry(config.skill, variation, several);
+    const action = strikeAction(parts, spec, config, executor, several && variation !== null ? `${executor.name}${name.slice(config.skill.kind.length)}` : name);
+    return action ? [{ executor, action }] : [];
+  });
 }
 
 /** Each action struck with one of its limbs (`limbAction`), by its limb: configs are data, so a narrowing is made once and is the same config at every make. */
@@ -154,21 +190,20 @@ function aimingFaults(config: StrikeConfig, parts: PartLookup): readonly string[
 }
 
 /**
- * **The kind of strike by `skill`** (`strike-<skill>`): a strike (`strike`) of its action on its
- * body (`strikeAction`, named among its mind's strikes, `strikeName`) with each of its limbs, one Option a limb (`limbAction`, named by the action
+ * **The kind of strike by `skill`** (`strike-<skill>`): a strike (`strike`) of each of its actions on its
+ * body, one a variation the body holds (`strikeSkills`), with each of its limbs, one Option a limb (`limbAction`, named by the action
  * and the limb), each priced by its profile among the strikes' where one is measured as the body
  * reads it (`strikeMeasure`); none where the body does not fit its skill or has no limb of its role.
  */
 function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, limbs: LimbRole): StrikeKindPart<K> {
-  const of = (config: StrikeConfig<K>, given: ProfileOptionContext): readonly Option[] => {
-    const action = strikeAction(given.parts, given.spec, config, strikeName(config, strikesIn(given.parts, given.options)));
-    if (!action) return [];
-    const executors = [executorEntry(config.skill)], blows = given.parts.of("executor", config.skill).blows?.(config.skill) ?? 1;
-    return action.effectors.map((limb) => {
-      const one = limbAction(action, limb);
-      return strike(one, given.walk, blows, strikeMeasure(given.parts, given.spec, executors, one, given.hz, given.tables.strikes, given.rate ?? given.hz, given.delay), `${action.name} ${limb}`);
+  const of = (config: StrikeConfig<K>, given: ProfileOptionContext): readonly Option[] =>
+    strikeSkills(given.parts, given.spec, config, given.options).flatMap(({ executor, action }) => {
+      const executors = [executor], blows = given.parts.of("executor", executor).blows?.(executor) ?? 1;
+      return action.effectors.map((limb) => {
+        const one = limbAction(action, limb);
+        return strike(one, given.walk, blows, strikeMeasure(given.parts, given.spec, executors, one, given.hz, given.tables.strikes, given.rate ?? given.hz, given.delay), `${action.name} ${limb}`);
+      });
     });
-  };
   return deepFreeze<StrikeKindPart<K>>({
     role: "option", model: PROFILE_MODEL, label, stage: "game", skill,
     fields: [choice<StrikeConfig<K>, "limbs">("limbs", "Limbs", LIMB_ROLES), json<StrikeConfig<K>, "regions">("regions", "Target regions", "target-regions")],
@@ -180,8 +215,8 @@ function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, li
       : [...LIMB_ROLES.some(([role]) => role === config.limbs) ? [] : ["limbs: a limb role"], ...aimingFaults(config, parts)],
     strikes: (spec: BodySpec, config: StrikeConfig<K>, parts: PartLookup) => strikeLimbs(parts, spec, config),
     skills(config: StrikeConfig<K>, spec: BodySpec, parts: PartLookup, options: readonly PartConfig[]): NamedSkills | null {
-      const action = strikeAction(parts, spec, config, strikeName(config, strikesIn(parts, options)));
-      return action ? { executor: executorEntry(config.skill), action, ...config.support ? { support: config.support } : {} } : null;
+      const made = strikeSkills(parts, spec, config, options);
+      return made.length ? { executors: made.map((one) => one.executor), actions: made.map((one) => one.action), ...config.support ? { support: config.support } : {} } : null;
     },
     make: of,
   });

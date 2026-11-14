@@ -115,7 +115,7 @@ Each holds its goal, where it stands and the questions open
 - The reptile and the rat on the game's Option Mind against a Warrior and a Reptile: the trot,
   the bite, righting; the Walker in the Lab (`&scenario=reach`).
 - The Crypt's commands (H, X, Q, E, right click), the level-clearer (`&party=clearer`) and the mob.
-- The Arena's Skills panel: each side's skills and the variation of each (`left.skills=`).
+- The Arena's Skills panel: each side's skills, any number of variations of each (`left.skills=`).
 
 ## Open, by layer
 
@@ -151,8 +151,6 @@ here.
 - The compiler checks no caller of `src/` under `scripts/`, `research/` or `tests/`.
 - Ratings when asked: items, characters and attributes; ablations beside a battery; live runs on
   the screen.
-- A character holds one variation of each skill (`BodySpec.skills`); two of one skill at once is a
-  list in its place.
 - A variation is tuned and read at its model's default attributes; a character with others runs
   those settings untuned.
 - The bite's aim (`first-exposed`, `src/skills/strikes/bite/jaw-aim.ts`) reads the `bite`
@@ -192,8 +190,8 @@ here.
 - Striking a body that is down waits on faster rises.
 - The Warrior's punch from its guard: the straight punch's `from-guard` variation
   (`straight-punch/from-guard/`) commits only with the arm at its guard and still, and any
-  character may choose it (`left.skills=straight-punch:from-guard`). The man still runs `drive`:
-  his two measured punch profiles are the drive's, and choosing it for him waits on measuring them on it.
+  character may hold it beside `drive` (`left.skills=straight-punch/drive,straight-punch/from-guard`).
+  No character holds it yet; it has no measured profile, so its mind prices it by hand.
 
 ### The AI
 

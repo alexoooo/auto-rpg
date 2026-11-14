@@ -6,12 +6,12 @@ import { recordingKey } from "../../core/world/recording.ts";
 
 /**
  * **What an Option's config names of its body's skills** (`OptionPart.skills`), where the body
- * fits what it names: the executor it strikes by and what it asks of it (`ActionConfig`), the
+ * fits what it names: the executors it strikes by and what it asks of each (`ActionConfig`), the
  * ground technique it runs, the low support it strikes from and the navigation its walk goes by.
  */
 export interface NamedSkills {
-  readonly executor?: ExecutorEntry;
-  readonly action?: ActionConfig;
+  readonly executors?: readonly ExecutorEntry[];
+  readonly actions?: readonly ActionConfig[];
   readonly technique?: ConfigFor<"technique">;
   readonly support?: ConfigFor<"support">;
   readonly navigation?: ConfigFor<"navigation">;
@@ -45,8 +45,8 @@ export function skillsOf(parts: PartLookup, spec: BodySpec, options: readonly Pa
   for (const option of options) {
     const named = parts.of("option", option).skills?.(option, spec, parts, options);
     if (!named) continue;
-    if (named.executor) add(executors, named.executor, named.executor.name, "executor");
-    if (named.action) add(actions, named.action, named.action.name, "action");
+    for (const executor of named.executors ?? []) add(executors, executor, executor.name, "executor");
+    for (const action of named.actions ?? []) add(actions, action, action.name, "action");
     if (named.technique) add(techniques, named.technique, named.technique.kind, "technique");
     if (support && named.support && recordingKey(support) !== recordingKey(named.support)) faults.push("options: conflicting low supports");
     if (navigation && named.navigation && recordingKey(navigation) !== recordingKey(named.navigation)) faults.push("options: conflicting navigations");

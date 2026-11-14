@@ -7,7 +7,7 @@ import { deepFreeze } from "../../../core/state.ts";
 import { aimedPoint, type ExecutorMaking, type ExecutorPart } from "../../framework/executor-part.ts";
 import type { ActionConfig } from "../../config.ts";
 import { recordFault, tunedSettings, type SkillRecord } from "../../framework/records.ts";
-import { variationFault, variationMaker } from "../../framework/variations.ts";
+import { variationFault, variationMaker, type Varied } from "../../framework/variations.ts";
 import { heldFace, type StrikingFace } from "../shared/held-face.ts";
 import { STRAIGHT_DRIVE_KEYS, straightDriveExecutor, straightDriveFits, timedChannelFault, validStraightDrive, validStraightDrivePart,
   type StraightDrive } from "../shared/straight-drive.ts";
@@ -55,7 +55,7 @@ declare module "../../../core/data/store.ts" {
  * The sword thrust's config: a research `tuning` over its body's record, which a link does not
  * carry (all of its settings where the body has none).
  */
-interface Config {
+interface Config extends Varied {
   readonly kind: "sword-thrust";
   readonly tuning?: Partial<SwordThrust>;
 }
@@ -82,7 +82,7 @@ const VARIATIONS = {
  */
 export const SWORD_THRUST_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Sword thrust", stage: "game", defaults: { kind: "sword-thrust" },
-  keys: { kind: true, tuning: true }, tuning: SWORD_THRUST_KEYS,
+  keys: { kind: true, variation: true, tuning: true }, tuning: SWORD_THRUST_KEYS,
   fields: [], slots: [],
   fits: fitsAll(variationFault("sword-thrust", "sword thrust", VARIATIONS), strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightDriveFits, "needs both arms on the upper trunk and a thoracic joint"),
     (spec) => handConfigurationRefusal(spec, (spec.held ?? []).map(held => held.segment), "grip"),

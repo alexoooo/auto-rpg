@@ -25,6 +25,7 @@ import { hypot } from "../../core/math/real.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
+import { chosenVariation, type Varied } from "./variations.ts";
 
 /**
  * What a profile was measured on: its model and the digest of that body's spec
@@ -547,7 +548,7 @@ export const specDigest = (spec: BodySpec): string => {
 /**
  * **A strike's digest** on a body of `spec`: what it does, not what it is called: its action's
  * config and its executor's (the one the action names), each without its name, the variation of
- * the executor's skill the body's character runs (`BodySpec.skills`), and the body's own
+ * the executor's skill it runs (`chosenVariation`), and the body's own
  * row of each record the executor reads (`Part.reads`: an executor's data is its skills' records by
  * model, `SkillRecord`), as the mind holds them, so another body's row moves no digest.
  */
@@ -577,8 +578,8 @@ function readSkillDigest(parts: PartLookup, part: ReturnType<typeof executorPart
   const aim = action.aim ? parts.of("aim", action.aim) : null;
   const keys = [...new Set([...(executor && part ? part.reads?.(executor) ?? [] : []), ...(action.aim ? aim?.reads?.(action.aim) ?? [] : [])])];
   const data = keys.map(key => digestOf(dataIdentity(key, body)));
-  const { name: _action, executor: _executor, ...does } = action, variation = executor ? spec.skills?.[executor.kind] : undefined;
-  return digestOf({ action: does, executor: executor && (({ name: _, ...rest }) => rest)(executor), ...(variation === undefined ? {} : { variation }), data });
+  const { name: _action, executor: _executor, ...does } = action, variation = executor ? chosenVariation(spec, executor.kind, executor) : undefined;
+  return digestOf({ action: does, executor: executor && (({ name: _, variation: _variation, ...rest }: ExecutorEntry & Varied) => rest)(executor), ...(variation === undefined ? {} : { variation }), data });
 }
 
 /** A ground technique's digest: its config and the body's records its part reads. */

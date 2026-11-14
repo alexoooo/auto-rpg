@@ -65,18 +65,21 @@ function familyOf(model: BodyModel): Family {
 /** **Each model's character's skills** (`assets/characters/characters.json`): the Warrior's, the Rogue's, the Skeleton's, the rat's and the reptile's. */
 const SKILLS: Readonly<Record<BodyModel, SkillChoices>> = deepFreeze(Object.fromEntries(Object.entries(characters).map(([model, character]) => [model, character.skills]))) as unknown as Readonly<Record<BodyModel, SkillChoices>>;
 
-/** `model`'s character's skills, each by the variation it runs (`SkillChoices`). */
+/** `model`'s character's skills, each `skill/variation` it holds (`SkillChoices`). */
 export function characterSkills(model: BodyModel): SkillChoices {
   const skills = Object.hasOwn(SKILLS, model) ? SKILLS[model] : undefined;
   if (!skills) throw new Error(`model ${String(model)} has no character`);
   return skills;
 }
 
-/** Why `skills` are no character's choice, or null: each a skill's name and its variation's, both words. */
+/** Why `skills` are no character's choice, or null: a list of `skill/variation`, both words, none twice. */
 function skillsError(skills: unknown): string | null {
-  if (skills === null || typeof skills !== "object" || Array.isArray(skills)) return "skills: a skill's variation by its name";
-  for (const [skill, variation] of Object.entries(skills)) {
-    if (!/^[a-z][a-z-]*$/.test(skill) || typeof variation !== "string" || !/^[a-z][a-z-]*$/.test(variation)) return `skills: ${skill}'s variation by its name`;
+  if (!Array.isArray(skills)) return "skills: a list of skill/variation";
+  const seen = new Set<string>();
+  for (const name of skills) {
+    if (typeof name !== "string" || !/^[a-z][a-z-]*\/[a-z][a-z-]*$/.test(name)) return `skills: ${String(name)} is not skill/variation`;
+    if (seen.has(name)) return `skills: ${name} twice`;
+    seen.add(name);
   }
   return null;
 }
@@ -132,7 +135,7 @@ export function resolveCharacterChecked(character: CharacterConfig): ResolvedCha
   if (!Object.hasOwn(FAMILIES, model)) return { refused: `unknown model ${String(model)}` };
   const invalid = attributesError(overrides) ?? (character.skills === undefined ? null : skillsError(character.skills));
   if (invalid) return { refused: invalid };
-  const skills = character.skills === undefined ? characterSkills(model) : deepFreeze({ ...character.skills });
+  const skills = character.skills === undefined ? characterSkills(model) : deepFreeze([...character.skills]);
   const defaults = characterDefaults(model), attributes = Object.freeze({ ...defaults,
     ...Object.fromEntries(Object.entries(overrides).filter(([, value]) => value !== undefined)) }) as CharacterAttributes;
   const physique = Object.fromEntries((["size", "weight", "strength", "speed"] as const)

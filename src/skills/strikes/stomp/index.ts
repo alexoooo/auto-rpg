@@ -7,7 +7,7 @@ import { dataOf } from "../../../core/data/store.ts";
 import { fitsAll } from "../../../parts/parts.ts";
 import { aimedPoint, type ExecutorMaking, type ExecutorPart } from "../../framework/executor-part.ts";
 import type { ActionConfig } from "../../config.ts";
-import { variationFault, variationMaker } from "../../framework/variations.ts";
+import { variationFault, variationMaker, type Varied } from "../../framework/variations.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../../framework/records.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { stompExecutor, STOMP_PATH, validStompTuning, type StompTuning } from "./stomp/stomp.ts";
@@ -20,7 +20,7 @@ declare module "../../../core/data/store.ts" {
 }
 
 /** A stomp's config: its kind, and an experiment's research `tuning`, which a link does not carry. */
-interface Config {
+interface Config extends Varied {
   readonly kind: "stomp";
   readonly tuning?: Partial<StompTuning>;
 }
@@ -60,7 +60,7 @@ const VARIATIONS = {
  */
 export const STOMP_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Stomp", stage: "experimental", defaults: { kind: "stomp" },
-  keys: { kind: true, tuning: true }, fields: [], slots: [], tuning: Object.keys(STOMP_PATH),
+  keys: { kind: true, variation: true, tuning: true }, fields: [], slots: [], tuning: Object.keys(STOMP_PATH),
   fits: fitsAll(variationFault("stomp", "stomp", VARIATIONS), stompRefusal, recordFault("stomp", deepFreeze(meta.bodies), wholeStomp),
     (spec, config) => validStompTuning(tunedSettings(dataOf("stomp/stomp"), spec, config)) ? null : "invalid stomp executor settings"),
   faults: (config) => config.tuning === undefined || validStompPart(config.tuning) ? [] : ["invalid stomp tuning"],

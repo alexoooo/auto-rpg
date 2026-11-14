@@ -12,7 +12,7 @@ import layoutFile from "../../../../assets/skills/strikes/straight-punch/drive.l
 import { handConfigurationRefusal, holdsNothing } from "../../reach/hand.ts";
 import { PUNCH_BODIES } from "./data/records.ts";
 import { recordFault } from "../../framework/records.ts";
-import { variationFault, variationMaker, type Variations } from "../../framework/variations.ts";
+import { variationFault, variationMaker, type Variations, type Varied } from "../../framework/variations.ts";
 import { fromGuard } from "./from-guard/from-guard.ts";
 
 /** How the straight punch's steer reads and pushes: its networks' inputs and outputs (`assets/skills/strikes/straight-punch/drive.layout.json`). */
@@ -26,7 +26,7 @@ export const PUNCH_LAYOUT: SteerLayout = deepFreeze(checkedLayout(layoutFile as 
  * trainer's subject: all of them where the body has none), and then no network steers it: its
  * trainer does, where it is `steered`.
  */
-interface Config {
+interface Config extends Varied {
   readonly kind: "straight-punch";
   readonly tuning?: Partial<StraightDrive>;
 }
@@ -54,7 +54,7 @@ const VARIATIONS: Variations<Config> = {
 /** A straight punch owns its body fit; its settings are its body's, its variation its character's. */
 export const PUNCH_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Straight punch", stage: "game", defaults: { kind: "straight-punch" },
-  keys: { kind: true, tuning: true }, tuning: STRAIGHT_DRIVE_KEYS,
+  keys: { kind: true, variation: true, tuning: true }, tuning: STRAIGHT_DRIVE_KEYS,
   fields: [], slots: [], fits: fitsAll(variationFault("straight-punch", "straight punch", VARIATIONS), strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightDriveFits, "needs both arms on the upper trunk, each with a fist, and a thoracic joint"),
     (spec) => handConfigurationRefusal(spec, ["hand.left", "hand.right"], "fist"),
     recordFault("straight punch", PUNCH_BODIES, validStraightDrive), (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),
