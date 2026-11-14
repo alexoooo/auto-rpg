@@ -147,9 +147,9 @@ fingerprint where shared code moved.
   lose their profiles, sparring the Warrior's punch at 5, 10 and 25 per cent landed 18, 25 and 29
   more of 240, and moved neither the table's value nor the life dealt detectably. Haste and the
   scales change the body more.
-- **How much of the Warrior's fall from 0 to 0.01 is the minds' pricing.** With its profiles read it
-  takes under a third of the life it takes where neither mind reads them. Read by the same starts with each profile
-  read as at 0.
+- **How much of the Warrior's fall from 0 to 0.01 is the minds' pricing.** With its profiles
+  read it takes under a third of the life it takes where neither mind reads them. Read by the
+  same starts with each profile read as at 0.
 
 ## To pick it up
 
