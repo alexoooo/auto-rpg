@@ -349,6 +349,27 @@ unreached moments; held items; Rogue and Skeleton as strikers; Option Mind's cho
 profiles; 480 Hz; every reel. Nothing is tuned or widened and the required gain on `fight`
 remains open.
 
+## Sparring: settings searched, the steer trained
+
+The bar the owner set for a better punch: on the held-out `sparring` starts, damage dealt a second
+over begun punches at least twice the drive's (the low end of its 95 % interval above 1.5), with
+no more life lost and no more falls (`punch-sparring.mjs --bar`). The drive deals 0.197 a second
+there; of its 240 starts 105 land, 55 meet the guard, 46 never come in reach, 21 miss.
+
+- **The settings without the network** fall to 0.17 of it: the trained steer carries the drive.
+- **The settings searched beside the network** (CMA over 15 of them, 16 generations of 16 on 80
+  twin starts) reached 1.08 (0.79 to 1.47) on the held-out starts.
+- **The steer retrained sparring**, PPO from the record's checkpoint against Option Mind:
+  - on the twin's 127 training starts, pooled and replayed, it learned those starts: 1.84 there at
+    3.0 M decisions, 0.77 on the twin's other half;
+  - on `sparring-drawn` (4,800 Warrior starts, none replayed often) it came to 1.16 and 1.24 on the
+    whole twin at 2.4 and 3.4 M decisions (value a trial 0.197 against 0.143), and 0.95 (0.76 to
+    1.19) on the held-out starts at 3.4 M: no gain that holds yet.
+- A sparring trial costs about 0.55 s of a core a simulated second; a decision of the steer is two
+  world steps, and the play on to the reader's end (the foe's counters, the hand back at its
+  guard) and the pooled starts' walk in are most of a run's machine time: about 230 decisions a
+  second on 32 workers, 0.8 M an hour.
+
 ## Open questions
 
 - **Why trunk punches are refused**: against the guarded target 5 of 32 still and 7 of 64 walked
@@ -367,10 +388,8 @@ remains open.
   network's layout in `assets/skills/strikes/straight-punch/`.
 - **The Option**: `strikeKind` and `STRAIGHT_PUNCH_OPTION` in `src/minds/option/kinds.ts`; the
   game's config in `src/entrants/option/mind.ts`; its profiles, which price it for the Mind, are
-  built from the Strike drill's fights (`--protocol fights`) by
-  `research/skills/strikes/strike-profiles.mjs` into
-  `assets/skills/strikes/strike-profiles/strike-profiles.json`. The asset's are still the ones
-  measured at a drill's target; no fight is played for them yet.
+  built from the Strike drill's sparring rungs by `research/skills/strikes/strike-profiles.mjs`
+  into `assets/skills/strikes/strike-profiles/strike-profiles.json`.
 - **The drill**: its cases `src/evaluation/strike/cases.ts`, its reader and what each outcome
   means `src/evaluation/strike/read.ts`, its score `score.ts`.
 - **Research**: `research/skills/strikes/straight-punch/` holds the schedule search on
