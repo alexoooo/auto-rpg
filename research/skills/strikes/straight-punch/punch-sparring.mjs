@@ -15,16 +15,30 @@
  * (the life its begun punches took from the foe over their cycles) at least `RATE` times the
  * drive's, the low end of its 95 % interval (paired bootstrap over the starts) above `LOW`; the life
  * the striker lost a trial no more than the drive's; and no more falls. It prints PASS or FAIL with
- * each figure.
+ * each figure; beside them, how many starts only one side lands with the exact two-sided sign test's
+ * p on those two counts, the damage ratio and its interval to four places, and the wall-clock
+ * seconds each side took to play (the workers' start not among them).
+ *
+ * `--network <form> --out <file>` writes a network file in the installed layout
+ * (`assets/skills/strikes/straight-punch/drive.layout.json`) from the Warrior's record's network,
+ * keeping its `normalization` and `actionLimit`, its inputs found by name and its outputs by term,
+ * `along` and `channel` there, and prints which rows and columns it set (`FORMS`). A fit (`fit`,
+ * `fit-aged`, `fit-spans`) is one layer: it plays the twin's training half steered by the record's
+ * network, keeps each decision's inputs and solves by least squares for the network's pushes before
+ * tanh, printing the share of each push's variance it holds there. `fit-spans` writes
+ * `{ "spans": [{ "from": <drive age, s>, "network": ... }, ...] }`, the punch steered at each decision
+ * by the last span whose `from` its drive's age has reached.
  *
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --search --out <file.json> [--variation drive] [--keeps-network] [--every 3] [--lambda 16] [--sigma 0.2] [--patience 30] [--workers N] [--resume]
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --bar <candidate.json> [--on held-out|twin|dev|train] [--workers N]
+ *   node research/skills/strikes/straight-punch/punch-sparring.mjs --network <form> --out <file.json> [--workers N]
  *
  * `--on twin` plays the training twin, the starts checkpoints are ranked on where a trainer draws
  * from `sparring-drawn`; `--on dev` and `--on train` its halves an environment's `split` keeps out
  * and in, where a trainer draws from the twin. The bar's own starts are held out of all of them.
- * A candidate may be a trained network's file (`policy-<n>.json`): it steers the punch on its
- * record's settings, answering each of its requests as a trainer does.
+ * A candidate may be a trained network's file (`policy-<n>.json`), or a file of spans of networks
+ * (`fit-spans`): it steers the punch on its record's settings, answering each of its requests as a
+ * trainer does.
  * A candidate file is `{ "variation": "drive", "tuning": { ... }, "keepsNetwork": true }`, or a search's out file, its best.
  * With `keepsNetwork` (`--keeps-network`), the record's network still steers the tuned punch.
  *
@@ -32,6 +46,7 @@
  */
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
@@ -94,9 +109,35 @@ function trialsOf(protocol, variation) {
   return cases.conditions.filter((condition) => condition.model === BODY && cases.faults(subject.value, condition, subject).length === 0);
 }
 
-/** Each policy file's network, as a worker reads it once. */
+/** The punch's steer layout: its inputs' names and its outputs' terms, as the game reads them. */
+const LAYOUT = JSON.parse(readFileSync(fileURLToPath(new URL("../../../../assets/skills/strikes/straight-punch/drive.layout.json", import.meta.url)), "utf8"));
+
+/** The layout's input named `name`: its column. */
+function inputAt(name) {
+  const i = LAYOUT.inputs.indexOf(name);
+  if (i < 0 || LAYOUT.inputs.lastIndexOf(name) !== i) throw new Error(`the layout has no one input ${name}`);
+  return i;
+}
+
+/** The layout's output whose `term`, `along` and `channel` are `fields`'s (those it names): its row. */
+function outputAt(fields) {
+  const found = LAYOUT.outputs.flatMap((output, i) => Object.entries(fields).every(([key, v]) => output[key] === v) ? [i] : []);
+  if (found.length !== 1) throw new Error(`the layout has ${found.length} outputs ${JSON.stringify(fields)}, not one`);
+  return found[0];
+}
+
+/** A file's steer: one network, or spans of them chosen by the drive's age (the last whose `from` it has reached). */
+function steerOf(file) {
+  if (!Array.isArray(file.spans)) return recoveryNetwork(file);
+  if (file.spans.length === 0 || file.spans.some((span, k) => !Number.isFinite(span.from) || (k > 0 && !(span.from > file.spans[k - 1].from))))
+    throw new Error("a file of spans names them in order of their drive age");
+  const age = inputAt("drive age"), spans = file.spans.map((span) => ({ from: span.from, steer: recoveryNetwork(span.network) }));
+  return (inputs) => (spans.findLast((span) => span.from <= inputs[age]) ?? spans[0]).steer(inputs);
+}
+
+/** Each policy file's steer, as a worker reads it once. */
 const policies = new Map();
-const policyOf = (path) => { if (!policies.has(path)) policies.set(path, recoveryNetwork(JSON.parse(readFileSync(path, "utf8")))); return policies.get(path); };
+const policyOf = (path) => { if (!policies.has(path)) policies.set(path, steerOf(JSON.parse(readFileSync(path, "utf8")))); return policies.get(path); };
 
 /** A trial of a punch steered by a trainer, `act` answering its every request, played to its reader's end: its reading. */
 async function steeredTrial(cases, world, condition, value, act) {
@@ -117,29 +158,35 @@ async function steeredTrial(cases, world, condition, value, act) {
 /**
  * One trial played: its outcome, the life it dealt and took, its trade (null where its punch did
  * not begin), whether the striker fell, and its value. With `policy`, a checkpoint's network file
- * steers the punch on its record's settings, as a trainer steers it (`steeredTrial`).
+ * steers the punch on its record's settings, as a trainer steers it (`steeredTrial`). With `keeps`,
+ * the record's network steers it so, and each decision's inputs come back (`kept`).
  */
-async function playOne({ protocol, variation, tuning, keepsNetwork, policy, condition }) {
+async function playOne({ protocol, variation, tuning, keepsNetwork, policy, keeps, condition }) {
   const evaluation = EVALUATIONS.strike, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects([subjectName(variation)]);
-  const value = policy ? withTuning(subject.value, { ...tuning, steered: true })
+  const value = policy || keeps ? withTuning(subject.value, { ...tuning, steered: true })
     : tuning ? withTuning(subject.value, tuning, keepsNetwork ? { keepsNetwork: true } : {}) : subject.value;
   const world = cases.world([value], condition, cases.engine ?? DEFAULT_ENGINE, [subject]);
   if (world.refused) throw new Error(world.refused);
   let r;
-  if (policy) r = await steeredTrial(cases, world, condition, value, policyOf(policy));
+  const kept = keeps ? [] : null;
+  if (keeps) {
+    const steer = recoveryNetwork(record().network);
+    r = await steeredTrial(cases, world, condition, value, (inputs) => { kept.push(inputs.slice()); return steer(inputs); });
+  } else if (policy) r = await steeredTrial(cases, world, condition, value, policyOf(policy));
   else {
     const played = await playCase(world, cases.seconds, (built) => cases.read(built, condition));
     if (played.refused) throw new Error(played.refused);
     r = played.reading;
   }
-  const outcome = evaluation.outcome(r).label, kept = keep({ judge: "strike" }, r);
+  const outcome = evaluation.outcome(r).label, judged = keep({ judge: "strike" }, r);
   const dealt = Object.values(r.dealt).reduce((sum, x) => sum + x, 0);
-  return { outcome, dealt, taken: r.taken, trade: strikeTrade(r), down: r.down, value: trialValue("strike", { kept, outcome }, FALL_PRICE) };
+  return { outcome, dealt, taken: r.taken, trade: strikeTrade(r), down: r.down, value: trialValue("strike", { kept: judged, outcome }, FALL_PRICE),
+    ...(kept ? { kept } : {}) };
 }
 
 if (!isMainThread && workerData?.punchSparring) {
   parentPort.on("message", async ({ id, x }) => {
-    let r; try { r = await playOne(x); } catch (error) { r = { error: String(error?.stack ?? error) }; }
+    let r; try { r = x.ping ? {} : await playOne(x); } catch (error) { r = { error: String(error?.stack ?? error) }; }
     parentPort.postMessage({ id, r });
   });
 }
@@ -164,7 +211,7 @@ const rateOf = (played) => {
 function candidateIn(path) {
   const file = JSON.parse(readFileSync(path, "utf8"));
   const keepsNetwork = file.keepsNetwork === true;
-  if (file.actions !== undefined && file.layers !== undefined) return { variation: "drive", policy: path };
+  if ((file.actions !== undefined && file.layers !== undefined) || Array.isArray(file.spans)) return { variation: "drive", policy: path };
   return file.best ? { variation: file.variation, tuning: tuningOf(file.best.u, keepsNetwork), keepsNetwork }
     : { variation: file.variation ?? "drive", ...(file.tuning ? { tuning: file.tuning } : {}), keepsNetwork };
 }
@@ -175,12 +222,23 @@ function stream(seed) {
   return () => { state = (state + 0x6d2b79f5) >>> 0; let t = state; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
+/** The exact two-sided sign test's p on `a` and `b` discordant pairs (1 where there are none). */
+function signTest(a, b) {
+  const n = a + b, k = Math.min(a, b);
+  if (n === 0) return 1;
+  let log = -n * Math.LN2, sum = 0;
+  for (let i = 0; i <= k; i++) { sum += Math.exp(log); log += Math.log((n - i) / (i + 1)); }
+  return Math.min(1, 2 * sum);
+}
+
 async function bar(path, workers, on) {
   const candidate = candidateIn(path), protocol = on === "held-out" ? "sparring" : "sparring-twin";
   const conditions = trialsOf(protocol, candidate.variation).filter((condition) => on === "held-out" || on === "twin" || heldOut(condition) === (on === "dev"));
   const pool = workerPool(fileURLToPath(import.meta.url), { punchSparring: true }, workers);
   try {
-    const [mine, drive] = [await playAll(pool, protocol, candidate, conditions), await playAll(pool, protocol, { variation: "drive" }, conditions)];
+    await Promise.all(Array.from({ length: workers }, () => pool.evaluate({ ping: true })));
+    const timed = async (side) => { const begun = performance.now(), played = await playAll(pool, protocol, side, conditions); return [played, (performance.now() - begun) / 1000]; };
+    const [[mine, mineSeconds], [drive, driveSeconds]] = [await timed(candidate), await timed({ variation: "drive" })];
     const ratio = rateOf(mine) / rateOf(drive), random = stream(1), ratios = [];
     for (let k = 0; k < 2000; k++) {
       const picks = conditions.map(() => Math.floor(random() * conditions.length));
@@ -198,6 +256,11 @@ async function bar(path, workers, on) {
     console.log(`  beside: begun ${begun(mine)} against ${begun(drive)}, landed ${landed(mine)} against ${landed(drive)}, the table's value a trial ${value(mine).toFixed(4)} against ${value(drive).toFixed(4)}`);
     const outcomes = (played) => Object.entries(Object.groupBy(played, (one) => one.outcome)).map(([outcome, all]) => `${outcome} ${all.length}`).join(", ");
     console.log(`  outcomes: ${outcomes(mine)}; the drive's: ${outcomes(drive)}`);
+    const lands = (one) => one.outcome === "landed";
+    const onlyMine = conditions.filter((_, i) => lands(mine[i]) && !lands(drive[i])).length, onlyDrive = conditions.filter((_, i) => !lands(mine[i]) && lands(drive[i])).length;
+    console.log(`  landed by one side only: the candidate ${onlyMine}, the drive ${onlyDrive}; exact two-sided sign test p ${signTest(onlyMine, onlyDrive).toPrecision(4)}`);
+    console.log(`  damage ratio ${ratio.toFixed(4)} (95 % ${low.toFixed(4)} to ${high.toFixed(4)})`);
+    console.log(`  wall-clock to play: the candidate ${mineSeconds.toFixed(1)} s, the drive ${driveSeconds.toFixed(1)} s (${workers} workers, their start not among them)`);
     console.log(pass ? "PASS" : "FAIL");
   } finally { await pool.terminate(); }
 }
@@ -228,12 +291,173 @@ async function search({ out, variation, keepsNetwork, every, lambda, sigma, pati
   } finally { await pool.terminate(); }
 }
 
+/** The fit's 16 inputs: the target from the shoulder, the fist from the target, the fist's and the centre's velocity, and the arm's four angles. */
+const FIT_INPUTS = Object.freeze([...["target from shoulder", "fist from target", "fist velocity", "centre velocity"].flatMap((name) => ["across", "up", "ahead"].map((axis) => `${name} ${axis}`)),
+  ...["shoulder.right flexion", "shoulder.right abduction", "shoulder.right internal rotation", "elbow.right flexion"].map((channel) => `angle ${channel}`)]);
+
+/** The legs and the stance: each hip, knee and ankle channel's angle and speed, and the four readings of the gait. */
+const legInputs = () => [...LAYOUT.inputs.filter((name) => /^(angle|speed) (hip|knee|ankle)\./.test(name)), "near foot bearing", "far foot bearing", "stance shifting", "stance swinging"];
+
+/** The record's network as plain data of its own, its normalization and action limit kept. */
+const installed = () => JSON.parse(JSON.stringify(record().network));
+
+/** `network`'s layer `k`'s rows of `outputs` (each found by `outputAt`) at zero weights and `bias`. */
+function setRows(network, k, outputs, bias) {
+  const layer = network.layers[k], rows = outputs.map(outputAt);
+  for (const row of rows) { layer.weights[row].fill(0); layer.bias[row] = bias; }
+  console.log(`set layer ${k} of ${network.layers.length}, rows ${rows.map((row, i) => `${row} ${JSON.stringify(outputs[i])}`).join(", ")}: weights 0, bias ${bias}`);
+  return network;
+}
+
+/** `network`'s first layer's columns of the inputs `names` at zero, in every row. */
+function zeroColumns(network, names) {
+  const columns = names.map(inputAt);
+  for (const row of network.layers[0].weights) for (const column of columns) row[column] = 0;
+  console.log(`set layer 0, ${columns.length} columns at 0 in every row: ${columns.map((column) => `${column} ${LAYOUT.inputs[column]}`).join(", ")}`);
+  return network;
+}
+
+/** `network`'s outputs before tanh, as its action limit clamps them, from raw inputs (as `recoveryNetwork` reads, before its tanh). */
+function beforeTanh(network) {
+  const { mean, scale, clip } = network.normalization, limit = network.actionLimit ?? Infinity;
+  return (raw) => {
+    let previous = raw.map((x, i) => Math.max(-clip, Math.min(clip, (x - mean[i]) * scale[i])));
+    network.layers.forEach((layer, k) => {
+      const last = k + 1 === network.layers.length;
+      previous = layer.bias.map((bias, i) => {
+        let v = bias; const w = layer.weights[i];
+        for (let j = 0; j < previous.length; j++) v += w[j] * previous[j];
+        return last ? v : Math.max(0, v);
+      });
+    });
+    return previous.slice(0, network.actions).map((v) => Math.max(-limit, Math.min(limit, v)));
+  };
+}
+
+/** The solution of `a x = b` for a symmetric positive definite `a` (Cholesky). */
+function solveSpd(a, b) {
+  const n = b.length, l = a.map((row) => row.map(() => 0));
+  for (let i = 0; i < n; i++) for (let j = 0; j <= i; j++) {
+    let sum = a[i][j];
+    for (let k = 0; k < j; k++) sum -= l[i][k] * l[j][k];
+    if (i !== j) l[i][j] = sum / l[j][j];
+    else if (sum > 0) l[i][i] = Math.sqrt(sum);
+    else throw new Error("the least squares' matrix is not positive definite");
+  }
+  const y = new Array(n).fill(0), x = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) { let sum = b[i]; for (let k = 0; k < i; k++) sum -= l[i][k] * y[k]; y[i] = sum / l[i][i]; }
+  for (let i = n - 1; i >= 0; i--) { let sum = y[i]; for (let k = i + 1; k < n; k++) sum -= l[k][i] * x[k]; x[i] = sum / l[i][i]; }
+  return x;
+}
+
+/** The ridge on a fit's weights (not its bias), times its decisions: its conditioning, the normalised inputs being about one in size. */
+const RIDGE = 1e-6;
+
+/** The layout's pushes: their rows. */
+const pushRows = () => LAYOUT.outputs.flatMap((output, i) => output.term === "pushes" ? [i] : []);
+
+/**
+ * One layer in the installed layout, fitted by least squares on `decisions` (each `{ raw, x, y }`:
+ * its inputs raw and normalised, and the record's network's outputs before tanh) to the eight pushes,
+ * reading the inputs `names`: its other columns, and its heading and centre rows, zero; its walk row
+ * zero weights and bias -1.
+ */
+function fitted(network, decisions, names) {
+  const columns = names.map(inputAt), pushes = pushRows(), width = columns.length + 1;
+  if (pushes.length !== 8) throw new Error(`the layout has ${pushes.length} pushes, not eight`);
+  const ata = Array.from({ length: width }, () => new Array(width).fill(0)), atb = pushes.map(() => new Array(width).fill(0));
+  for (const { x, y } of decisions) {
+    const f = [...columns.map((c) => x[c]), 1];
+    for (let i = 0; i < width; i++) {
+      for (let j = 0; j < width; j++) ata[i][j] += f[i] * f[j];
+      pushes.forEach((output, p) => { atb[p][i] += f[i] * y[output]; });
+    }
+  }
+  for (let i = 0; i < columns.length; i++) ata[i][i] += RIDGE * decisions.length;
+  const solved = atb.map((b) => solveSpd(ata, b));
+  const weights = LAYOUT.outputs.map(() => new Array(LAYOUT.inputs.length).fill(0)), bias = LAYOUT.outputs.map(() => 0);
+  pushes.forEach((output, p) => { columns.forEach((c, i) => { weights[output][c] = solved[p][i]; }); bias[output] = solved[p][columns.length]; });
+  bias[outputAt({ term: "walk" })] = -1;
+  return { actions: network.actions, layers: [{ weights, bias }], normalization: network.normalization, actionLimit: network.actionLimit };
+}
+
+/** Each push's share of its variance over `decisions` that `steer` (raw inputs to outputs before tanh) holds, printed after `label`. */
+function printShares(label, decisions, steer) {
+  const steered = decisions.map(({ raw }) => steer(raw));
+  const shares = pushRows().map((output) => {
+    const mean = decisions.reduce((sum, { y }) => sum + y[output], 0) / decisions.length;
+    let residual = 0, total = 0;
+    decisions.forEach(({ y }, i) => { residual += (y[output] - steered[i][output]) ** 2; total += (y[output] - mean) ** 2; });
+    return `${LAYOUT.outputs[output].channel} ${(total > 0 ? 1 - residual / total : 1).toFixed(3)}`;
+  });
+  console.log(`${label}, ${decisions.length} decisions; each push's share of its variance held (before tanh, as the action limit clamps it): ${shares.join(", ")}`);
+}
+
+/** Each decision on the twin's training half, the record's network steering the punch: its raw and normalised inputs and the network's outputs before tanh. */
+async function decisionsOnTrain(network, workers) {
+  const conditions = trialsOf("sparring-twin", "drive").filter((condition) => !heldOut(condition));
+  const pool = workerPool(fileURLToPath(import.meta.url), { punchSparring: true }, workers);
+  let played;
+  try {
+    played = await Promise.all(conditions.map(async (condition) => {
+      const r = await pool.evaluate({ protocol: "sparring-twin", variation: "drive", keeps: true, condition });
+      if (r.error) throw new Error(r.error);
+      return r.kept;
+    }));
+  } finally { await pool.terminate(); }
+  const { mean, scale, clip } = network.normalization, target = beforeTanh(network);
+  const decisions = played.flat().map((raw) => ({ raw, x: raw.map((v, i) => Math.max(-clip, Math.min(clip, (v - mean[i]) * scale[i]))), y: target(raw) }));
+  console.log(`played the twin's training half, ${conditions.length} starts, steered by the record's network: ${decisions.length} decisions`);
+  return decisions;
+}
+
+/** A one-layer fit of `names` over the training half, its shares printed. */
+async function fitForm(names, label, workers) {
+  const network = installed(), decisions = await decisionsOnTrain(network, workers), fit = fitted(network, decisions, names);
+  printShares(label, decisions, beforeTanh(fit));
+  return fit;
+}
+
+/** How many spans of the drive's age `fit-spans` fits a layer to, each an equal share of the training half's decisions. */
+const SPANS = 3;
+
+/** Each form a network file is written in (`--network`), from the record's network. */
+const FORMS = {
+  installed: async () => installed(),
+  "no-stance-asks": async () => setRows(installed(), 2, [{ term: "heading" }, { term: "centre", along: "ahead" }, { term: "centre", along: "across" }], 0),
+  "walk-on": async () => setRows(installed(), 2, [{ term: "walk" }], 1),
+  "walk-off": async () => setRows(installed(), 2, [{ term: "walk" }], -1),
+  "blind-legs": async () => zeroColumns(installed(), legInputs()),
+  "fit-inputs": async () => zeroColumns(installed(), LAYOUT.inputs.filter((name) => !FIT_INPUTS.includes(name))),
+  fit: async (workers) => fitForm(FIT_INPUTS, "fit", workers),
+  "fit-aged": async (workers) => fitForm([...FIT_INPUTS, "drive age"], "fit-aged", workers),
+  "fit-spans": async (workers) => {
+    const network = installed(), decisions = await decisionsOnTrain(network, workers), age = inputAt("drive age");
+    const ages = decisions.map(({ raw }) => raw[age]).sort((a, b) => a - b);
+    const froms = [Math.min(0, ages[0]), ...Array.from({ length: SPANS - 1 }, (_, k) => ages[Math.floor(((k + 1) * ages.length) / SPANS)])];
+    const spanOf = (raw) => froms.findLastIndex((from) => from <= raw[age]);
+    const spans = froms.map((from, k) => {
+      const mine = decisions.filter(({ raw }) => Math.max(0, spanOf(raw)) === k), fit = fitted(network, mine, FIT_INPUTS);
+      printShares(`fit-spans, span ${k + 1}, drive age from ${from.toFixed(4)} s${k + 1 < froms.length ? ` to ${froms[k + 1].toFixed(4)} s` : ""}`, mine, beforeTanh(fit));
+      return { from, network: fit };
+    });
+    const steers = spans.map((span) => beforeTanh(span.network));
+    printShares("fit-spans, every decision by its span's layer", decisions, (raw) => steers[Math.max(0, spanOf(raw))](raw));
+    return { spans };
+  },
+};
+
 if (isMainThread) {
   const { values } = parseArgs({ options: { search: { type: "boolean" }, bar: { type: "string" }, out: { type: "string" }, variation: { type: "string", default: "drive" },
     "keeps-network": { type: "boolean" }, on: { type: "string", default: "held-out" }, every: { type: "string", default: "3" }, lambda: { type: "string", default: "16" }, sigma: { type: "string", default: "0.2" }, patience: { type: "string", default: "30" },
-    workers: { type: "string", default: String(Math.max(1, availableParallelism() - 2)) }, resume: { type: "boolean" } } });
-  if (values.bar) await bar(values.bar, Number(values.workers), values.on);
+    workers: { type: "string", default: String(Math.max(1, availableParallelism() - 2)) }, resume: { type: "boolean" }, network: { type: "string" } } });
+  if (values.network) {
+    const form = Object.hasOwn(FORMS, values.network) ? FORMS[values.network] : null;
+    if (!form || !values.out) throw new Error(`--network <${Object.keys(FORMS).join("|")}> --out <file.json>`);
+    writeFileSync(values.out, `${JSON.stringify(await form(Number(values.workers)))}\n`);
+    console.log(`wrote ${values.out}`);
+  } else if (values.bar) await bar(values.bar, Number(values.workers), values.on);
   else if (values.search && values.out) await search({ out: values.out, variation: values.variation, keepsNetwork: !!values["keeps-network"], every: Number(values.every), lambda: Number(values.lambda),
     sigma: Number(values.sigma), patience: Number(values.patience), workers: Number(values.workers), resume: !!values.resume });
-  else throw new Error("--search --out <file.json>, or --bar <candidate.json>");
+  else throw new Error("--search --out <file.json>, --bar <candidate.json>, or --network <form> --out <file.json>");
 }
