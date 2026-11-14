@@ -18,8 +18,12 @@
  * each figure.
  *
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --search --out <file.json> [--variation drive] [--keeps-network] [--every 3] [--lambda 16] [--sigma 0.2] [--patience 30] [--workers N] [--resume]
- *   node research/skills/strikes/straight-punch/punch-sparring.mjs --bar <candidate.json> [--workers N]
+ *   node research/skills/strikes/straight-punch/punch-sparring.mjs --bar <candidate.json> [--on held-out|dev] [--workers N]
  *
+ * `--on dev` plays the training twin's half a trainer leaves out (`heldOut`, an environment's
+ * `split`), the starts checkpoints are ranked on; the bar's own starts are held out of that too.
+ * A candidate may be a trained network's file (`policy-<n>.json`): it steers the punch on its
+ * record's settings, answering each of its requests as a trainer does.
  * A candidate file is `{ "variation": "drive", "tuning": { ... }, "keepsNetwork": true }`, or a search's out file, its best.
  * With `keepsNetwork` (`--keeps-network`), the record's network still steers the tuned punch.
  *
@@ -33,7 +37,10 @@ import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../../../../tests/harness/preload-data.mjs";
 import { cmaSearch, workerPool } from "../../../cma.mjs";
 import { withTuning } from "../../../drill-trials.mjs";
-import { EVALUATIONS, playCase } from "../../../../src/app/node/evaluation.ts";
+import { heldOut, learnerIn } from "../../../case-learning-environment.mjs";
+import { BOUT_WORLD, EVALUATIONS, playCase } from "../../../../src/app/node/evaluation.ts";
+import { recoveryNetwork } from "../../../../src/core/math/learning/recovery-network.ts";
+import { answer, pending } from "../../../../src/core/math/learning/learner.ts";
 import { DEFAULT_ENGINE } from "../../../../src/core/physics/engines.ts";
 import { dataOf } from "../../../../src/core/data/store.ts";
 import { strikeTrade } from "../../../../src/evaluation/strike/read.ts";
@@ -86,15 +93,45 @@ function trialsOf(protocol, variation) {
   return cases.conditions.filter((condition) => condition.model === BODY && cases.faults(subject.value, condition, subject).length === 0);
 }
 
-/** One trial played: its outcome, the life it dealt and took, its trade (null where its punch did not begin), whether the striker fell, and its value. */
-async function playOne({ protocol, variation, tuning, keepsNetwork, condition }) {
+/** Each policy file's network, as a worker reads it once. */
+const policies = new Map();
+const policyOf = (path) => { if (!policies.has(path)) policies.set(path, recoveryNetwork(JSON.parse(readFileSync(path, "utf8")))); return policies.get(path); };
+
+/** A trial of a punch steered by a trainer, `act` answering its every request, played to its reader's end: its reading. */
+async function steeredTrial(cases, world, condition, value, act) {
+  const built = await BOUT_WORLD.build(world, {});
+  if (built.refused) throw new Error(built.refused);
+  try {
+    const reader = cases.read(built, condition), { learner } = learnerIn(BOUT_WORLD, built, value);
+    BOUT_WORLD.start(built, world);
+    while (!reader.ended) {
+      if (built.duel.clock > cases.seconds + 1) throw new Error("the trial ran past its seconds");
+      built.world.step(); reader.afterStep();
+      if (pending(learner)) answer(learner, act(learner.inputs));
+    }
+    return reader.reading();
+  } finally { built.dispose(); }
+}
+
+/**
+ * One trial played: its outcome, the life it dealt and took, its trade (null where its punch did
+ * not begin), whether the striker fell, and its value. With `policy`, a checkpoint's network file
+ * steers the punch on its record's settings, as a trainer steers it (`steeredTrial`).
+ */
+async function playOne({ protocol, variation, tuning, keepsNetwork, policy, condition }) {
   const evaluation = EVALUATIONS.strike, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects([subjectName(variation)]);
-  const value = tuning ? withTuning(subject.value, tuning, keepsNetwork ? { keepsNetwork: true } : {}) : subject.value;
+  const value = policy ? withTuning(subject.value, { ...tuning, steered: true })
+    : tuning ? withTuning(subject.value, tuning, keepsNetwork ? { keepsNetwork: true } : {}) : subject.value;
   const world = cases.world([value], condition, cases.engine ?? DEFAULT_ENGINE, [subject]);
   if (world.refused) throw new Error(world.refused);
-  const played = await playCase(world, cases.seconds, (built) => cases.read(built, condition));
-  if (played.refused) throw new Error(played.refused);
-  const r = played.reading, outcome = evaluation.outcome(r).label, kept = keep({ judge: "strike" }, r);
+  let r;
+  if (policy) r = await steeredTrial(cases, world, condition, value, policyOf(policy));
+  else {
+    const played = await playCase(world, cases.seconds, (built) => cases.read(built, condition));
+    if (played.refused) throw new Error(played.refused);
+    r = played.reading;
+  }
+  const outcome = evaluation.outcome(r).label, kept = keep({ judge: "strike" }, r);
   const dealt = Object.values(r.dealt).reduce((sum, x) => sum + x, 0);
   return { outcome, dealt, taken: r.taken, trade: strikeTrade(r), down: r.down, value: trialValue("strike", { kept, outcome }, FALL_PRICE) };
 }
@@ -107,9 +144,9 @@ if (!isMainThread && workerData?.punchSparring) {
 }
 
 /** Every trial of `conditions` played by a candidate on `pool`. */
-async function playAll(pool, protocol, { variation, tuning, keepsNetwork }, conditions) {
+async function playAll(pool, protocol, { variation, tuning, keepsNetwork, policy }, conditions) {
   return Promise.all(conditions.map(async (condition) => {
-    const r = await pool.evaluate({ protocol, variation, tuning, keepsNetwork, condition });
+    const r = await pool.evaluate({ protocol, variation, tuning, keepsNetwork, policy, condition });
     if (r.error) throw new Error(r.error);
     return r;
   }));
@@ -126,6 +163,7 @@ const rateOf = (played) => {
 function candidateIn(path) {
   const file = JSON.parse(readFileSync(path, "utf8"));
   const keepsNetwork = file.keepsNetwork === true;
+  if (file.actions !== undefined && file.layers !== undefined) return { variation: "drive", policy: path };
   return file.best ? { variation: file.variation, tuning: tuningOf(file.best.u, keepsNetwork), keepsNetwork }
     : { variation: file.variation ?? "drive", ...(file.tuning ? { tuning: file.tuning } : {}), keepsNetwork };
 }
@@ -136,11 +174,12 @@ function stream(seed) {
   return () => { state = (state + 0x6d2b79f5) >>> 0; let t = state; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
-async function bar(path, workers) {
-  const candidate = candidateIn(path), conditions = trialsOf("sparring", candidate.variation);
+async function bar(path, workers, on) {
+  const candidate = candidateIn(path), protocol = on === "dev" ? "sparring-twin" : "sparring";
+  const conditions = trialsOf(protocol, candidate.variation).filter((condition) => on !== "dev" || heldOut(condition));
   const pool = workerPool(fileURLToPath(import.meta.url), { punchSparring: true }, workers);
   try {
-    const [mine, drive] = [await playAll(pool, "sparring", candidate, conditions), await playAll(pool, "sparring", { variation: "drive" }, conditions)];
+    const [mine, drive] = [await playAll(pool, protocol, candidate, conditions), await playAll(pool, protocol, { variation: "drive" }, conditions)];
     const ratio = rateOf(mine) / rateOf(drive), random = stream(1), ratios = [];
     for (let k = 0; k < 2000; k++) {
       const picks = conditions.map(() => Math.floor(random() * conditions.length));
@@ -152,10 +191,12 @@ async function bar(path, workers) {
     const begun = (played) => played.filter((one) => one.trade).length, landed = (played) => played.filter((one) => one.outcome === "landed").length;
     const value = (played) => played.reduce((sum, one) => sum + (one.value ?? 0), 0) / played.length;
     const pass = ratio >= RATE && low > LOW && taken(mine) <= taken(drive) && falls(mine) <= falls(drive);
-    console.log(`Warrior, held-out sparring, ${conditions.length} starts; candidate ${path} (${candidate.variation}${candidate.tuning ? ", tuned" : ""}) against the drive`);
+    console.log(`Warrior, ${on === "dev" ? "the twin's held-out half (dev)" : "held-out sparring"}, ${conditions.length} starts; candidate ${path} (${candidate.variation}${candidate.tuning ? ", tuned" : ""}${candidate.policy ? ", its policy steering" : ""}) against the drive`);
     console.log(`  damage dealt per second: ${rateOf(mine).toFixed(3)} against ${rateOf(drive).toFixed(3)}, ratio ${ratio.toFixed(2)} (95 % ${low.toFixed(2)} to ${high.toFixed(2)}); bar ${RATE}, low end above ${LOW}`);
     console.log(`  life taken a trial: ${taken(mine).toFixed(3)} against ${taken(drive).toFixed(3)}; falls ${falls(mine)} against ${falls(drive)}`);
     console.log(`  beside: begun ${begun(mine)} against ${begun(drive)}, landed ${landed(mine)} against ${landed(drive)}, the table's value a trial ${value(mine).toFixed(4)} against ${value(drive).toFixed(4)}`);
+    const outcomes = (played) => Object.entries(Object.groupBy(played, (one) => one.outcome)).map(([outcome, all]) => `${outcome} ${all.length}`).join(", ");
+    console.log(`  outcomes: ${outcomes(mine)}; the drive's: ${outcomes(drive)}`);
     console.log(pass ? "PASS" : "FAIL");
   } finally { await pool.terminate(); }
 }
@@ -188,9 +229,9 @@ async function search({ out, variation, keepsNetwork, every, lambda, sigma, pati
 
 if (isMainThread) {
   const { values } = parseArgs({ options: { search: { type: "boolean" }, bar: { type: "string" }, out: { type: "string" }, variation: { type: "string", default: "drive" },
-    "keeps-network": { type: "boolean" }, every: { type: "string", default: "3" }, lambda: { type: "string", default: "16" }, sigma: { type: "string", default: "0.2" }, patience: { type: "string", default: "30" },
+    "keeps-network": { type: "boolean" }, on: { type: "string", default: "held-out" }, every: { type: "string", default: "3" }, lambda: { type: "string", default: "16" }, sigma: { type: "string", default: "0.2" }, patience: { type: "string", default: "30" },
     workers: { type: "string", default: String(Math.max(1, availableParallelism() - 2)) }, resume: { type: "boolean" } } });
-  if (values.bar) await bar(values.bar, Number(values.workers));
+  if (values.bar) await bar(values.bar, Number(values.workers), values.on);
   else if (values.search && values.out) await search({ out: values.out, variation: values.variation, keepsNetwork: !!values["keeps-network"], every: Number(values.every), lambda: Number(values.lambda),
     sigma: Number(values.sigma), patience: Number(values.patience), workers: Number(values.workers), resume: !!values.resume });
   else throw new Error("--search --out <file.json>, or --bar <candidate.json>");
