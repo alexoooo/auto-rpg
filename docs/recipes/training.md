@@ -174,10 +174,14 @@ dropped run keeps nothing; its reading goes in the commit message.
 - Fixing the controller under a trained actor and reading the actor unchanged: the actor no
   longer fits, and the reading blames the fix.
 - One decision that plays many world steps (an action's windup before its first steer, a return
-  played to the reader's end): the trainer steps every environment together, so each decision
+  played to the reader's end) under SAC, which steps every environment together: each decision
   waits on the longest, and the run slows to a fraction of one environment's rate times the
-  workers. Measure one pooled environment's rate (decisions over its stepping and idle time) and
-  compare it with the first chunk's.
+  workers. PPO's workers play their rollouts on their own and meet once a rollout. Measure one
+  pooled environment's rate (decisions over its stepping and idle time) and compare it with the
+  first chunk's.
+- A world step costs what it costs whichever decision it serves: the steps played on after the
+  learner stops (to the reader's end) and a pooled start's walk in are most of a strike run's
+  machine time. Count them (train.log's world steps over its decisions) before pricing a run.
 - A pooled start whose reader begins after the action did: the reader misses what it reads at the
   action's beginning (where the hand rests at guard), and the reward reads a different trial from
   the checkpoint reading's. Check parity on the pooled environment, not only a fresh one.

@@ -34,7 +34,7 @@ import { isRefused } from "../src/core/refusal.ts";
  * each a trial at a fresh draw played to its first decision and saved. An episode loads one of
  * them, a fresh reader beside it, and owes the pool one fresh start every `refresh` episodes: the
  * server plays it between its steps (`idle`), `slice` world steps at a time, so that a start's
- * walk in never holds up the trainer's lockstep, and it takes the place of a start no episode is
+ * walk in never holds up a step, and it takes the place of a start no episode is
  * playing. Without a pool, each episode is a trial begun afresh.
  *
  * `curriculum` moves training from cheaper settings to the file's own: `from`, settings that

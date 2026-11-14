@@ -4,7 +4,10 @@ reads a network (src/core/math/learning/recovery-network.ts, Network: a straight
 a bare mind's `network`): ReLU layers with explicit clipped observation normalisation,
 tanh on the outputs (PPO's mean, which the environment squashes; SAC's squashed mean, tanh of its
 mean layer). A step of training is one decision of the environment's learner: its request answered
-and the world stepped to its next (research/learner-adapter.mjs). Each line of train.log has the
+and the world stepped to its next (research/learner-adapter.mjs). PPO's rollouts are played on the
+server's workers, each stepping its environments on its own with the policy as it stands
+(research/rollout.mjs, `rollout`), so that no environment waits on another's decision; SAC, which
+learns between decisions, steps every environment together. Each line of train.log has the
 decisions so far, the chunk's decisions, world steps and simulated seconds, and the mean of each of
 `--keywords` over the episodes lately ended, of those that have it. The run's layout, its inputs,
 outputs and decision interval as the environment names them, is layout.json; a resume or a `--start`
@@ -45,6 +48,7 @@ with CUDA's torch: `python -m venv .tools/ai-lab-cuda-venv`, then its pip instal
   .tools/ai-lab-venv/Scripts/python.exe research/run-train.py --config <configuration.json> --output <dir> [--algo ppo|sac] [--steps N] [--keep N] [--resume [<model-n.zip>]] [--keywords stood,seconds] [--start <network.json> --start-layout <layout.json>]
 """
 import argparse
+import base64
 import json
 import math
 import subprocess
@@ -64,7 +68,7 @@ parser.add_argument('--algo', choices=('ppo', 'sac'), default='ppo')
 parser.add_argument('--steps', type=int, default=20_000_000, help='decisions to train')
 parser.add_argument('--keep', type=int, default=1_000_000, help='decisions between the policies kept')
 parser.add_argument('--hidden', type=int, default=256)
-parser.add_argument('--rollout', type=int, default=256, help="PPO: decisions each environment gathers per update; both: a chunk is 8 of these")
+parser.add_argument('--rollout', type=int, default=256, help="PPO: decisions each environment gathers per update, a resumed model's too; both: a chunk is 8 of these")
 parser.add_argument('--resume', nargs='?', const='', default=None, help="continue the output's model.zip, or a checkpoint (model-<n>.zip) into another output")
 parser.add_argument('--threads', type=int, default=4)
 parser.add_argument('--log-std', type=float, default=-1.0, help='the spread a policy starts with, before the tanh')
@@ -137,7 +141,7 @@ class RunEnvs(VecEnv):
         return answer
 
     def _call(self, message):
-        started = time.perf_counter() if options.profile and message['op'] == 'step' else None
+        started = time.perf_counter() if options.profile and message['op'] in ('step', 'collect') else None
         self.server.stdin.write(json.dumps(message) + '\n'); self.server.stdin.flush()
         answer = self._receive()
         if started is not None: self.environment_seconds += time.perf_counter() - started
@@ -162,6 +166,19 @@ class RunEnvs(VecEnv):
             info['TimeLimit.truncated'] = info.get('truncated', False)
             infos.append(info)
         return np.asarray(a['observations'], np.float32), np.asarray(a['rewards'], np.float32), np.asarray(a['dones'], bool), infos
+
+    def collect(self, steps, policy):
+        """A rollout of `steps` decisions on every environment, each worker's on its own (`research/rollout.mjs`): its arrays by environment."""
+        rollouts = self._call({'op': 'collect', 'steps': steps, 'policy': policy})['rollouts']
+        obs, act = self.observation_space.shape[0], self.action_space.shape[0]
+        unpack = lambda text, dtype, shape: np.frombuffer(base64.b64decode(text), dtype=dtype).reshape(shape)
+        stacked = lambda key, dtype, shape: np.stack([unpack(r[key], dtype, shape) for r in rollouts], axis=1)
+        for r in rollouts: self.world_steps += r['worldSteps']; self.world_seconds += r['worldSeconds']
+        return {'observations': stacked('observations', '<f4', (steps, obs)), 'actions': stacked('actions', '<f4', (steps, act)),
+                'rewards': stacked('rewards', '<f4', (steps,)), 'dones': stacked('dones', np.uint8, (steps,)).astype(bool),
+                'last': np.stack([unpack(r['last'], '<f4', (obs,)) for r in rollouts]),
+                'cuts': [(cut['t'], k, np.asarray(cut['observation'], np.float32)) for k, r in enumerate(rollouts) for cut in r['cuts']],
+                'ended': [episode for r in rollouts for episode in r['ended']]}
 
     def close(self):
         if self.server is None:
@@ -255,6 +272,52 @@ def act(network, raw):
     return np.clip(x, -network['actionLimit'], network['actionLimit']) if 'actionLimit' in network else x
 
 
+def rollout(model, normalize, server):
+    """
+    PPO's rollout played on the server's workers, each on its own with the policy as it stands
+    (`RunEnvs.collect`), into the model's buffer as its own collection would put it: each observation
+    normalised as the policy read it, the statistics then updated from the rollout's; each reward
+    normalised by the discounted return in order; a cut episode's last reward bootstrapped with its
+    last observation's value; every value and log-probability the policy's, on the batch.
+    """
+    mean, scale = scaling(normalize)
+    linears = actor_linears(model)
+    policy = {'layers': [{'weights': l.weight.detach().cpu().double().numpy().tolist(), 'bias': l.bias.detach().cpu().double().numpy().tolist()} for l in linears],
+              'mean': mean.tolist(), 'scale': scale.tolist(), 'clip': float(normalize.clip_obs),
+              'std': torch.exp(model.policy.log_std.detach()).cpu().double().numpy().tolist()}
+    steps, n = model.n_steps, server.num_envs
+    played = server.collect(steps, policy)
+    raw, dones = played['observations'], played['dones']
+    observations = normalize.normalize_obs(raw).astype(np.float32)
+    if normalize.training: normalize.obs_rms.update(raw.reshape(steps * n, -1))
+    rewards = np.empty_like(played['rewards'])
+    for t in range(steps):
+        normalize.returns = normalize.returns * normalize.gamma + played['rewards'][t]
+        if normalize.training: normalize.ret_rms.update(normalize.returns)
+        rewards[t] = normalize.normalize_reward(played['rewards'][t])
+        normalize.returns[dones[t]] = 0
+    policy_net = model.policy
+    policy_net.set_training_mode(False)
+    with torch.no_grad():
+        values, log_probs, _ = policy_net.evaluate_actions(torch.as_tensor(observations.reshape(steps * n, -1), device=model.device),
+                                                           torch.as_tensor(played['actions'].reshape(steps * n, -1), device=model.device))
+        values, log_probs = values.reshape(steps, n), log_probs.reshape(steps, n)
+        for t, k, last in played['cuts']:
+            cut = torch.as_tensor(normalize.normalize_obs(last[None, :]).astype(np.float32), device=model.device)
+            rewards[t, k] += model.gamma * float(policy_net.predict_values(cut)[0, 0])
+        buffer = model.rollout_buffer
+        buffer.reset()
+        starts = model._last_episode_starts
+        for t in range(steps):
+            buffer.add(observations[t], played['actions'][t], rewards[t], starts, values[t], log_probs[t])
+            starts = dones[t]
+        model._last_episode_starts = dones[-1]
+        last_values = policy_net.predict_values(torch.as_tensor(normalize.normalize_obs(played['last']).astype(np.float32), device=model.device))
+        buffer.compute_returns_and_advantage(last_values=last_values, dones=dones[-1])
+    model.num_timesteps += steps * n
+    model.ep_info_buffer.extend(played['ended'])
+
+
 def read_stats(envs, layers):
     """The start steering `--stats` messages, so that the normalisation reads this environment: the decisions made."""
     envs.reset()
@@ -318,7 +381,7 @@ try:
     if resumed is not None:
         envs = VecNormalize.load(str(resumed.with_name(resumed.stem.replace('model', 'normalize', 1) + '.pkl')), monitored)
         model = Algorithm.load(str(resumed), env=envs, device=options.device,
-                               **({'learning_rate': options.lr} if options.lr is not None else {}))
+                               **({'learning_rate': options.lr} if options.lr is not None else {}), **({} if squashed else {'n_steps': options.rollout}))
         if options.gamma is not None and options.gamma != model.gamma:
             raise SystemExit('--gamma differs from the resumed model')
         if options.gae_lambda is not None and options.gae_lambda != model.gae_lambda:
@@ -346,6 +409,7 @@ try:
 
     done = 0
     chunk = options.rollout * envs.num_envs * 8
+    if not squashed: model._setup_learn(options.steps, reset_num_timesteps=False)
     log = (output / 'train.log').open('a')
     while done < options.steps:
         held = model.num_timesteps < critic_until
@@ -360,7 +424,12 @@ try:
         chunk_started = time.perf_counter()
         environment_before = server_envs.environment_seconds
         world_before, seconds_before = server_envs.world_steps, server_envs.world_seconds
-        model.learn(chunk, reset_num_timesteps=False, progress_bar=False)
+        if squashed: model.learn(chunk, reset_num_timesteps=False, progress_bar=False)
+        else:
+            for _ in range(8):
+                rollout(model, envs, server_envs)
+                model._update_current_progress_remaining(model.num_timesteps, model._total_timesteps)
+                model.train()
         learned_at = time.perf_counter()
         done += chunk
         infos = model.ep_info_buffer
