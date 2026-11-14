@@ -32,6 +32,15 @@
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --search --out <file.json> [--variation drive] [--keeps-network] [--every 3] [--lambda 16] [--sigma 0.2] [--patience 30] [--workers N] [--resume]
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --bar <candidate.json> [--on held-out|twin|dev|train] [--workers N]
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --network <form> --out <file.json> [--workers N]
+ *   node research/skills/strikes/straight-punch/punch-sparring.mjs --commitments [--out <file.json>] [--workers N]
+ *
+ * `--commitments` reads whether sparring's commitments cover a fight's: it plays the Warrior's
+ * `sparring`, `sparring-twin` and `fights` trials steered by the record's network and keeps, of each
+ * trial whose punch commits, the layout's inputs at that punch's first decision. It prints each
+ * input's range on `sparring` beside its range on `fights`, and how many commitments of `fights` and
+ * of the twin hold an input outside `sparring`'s ranges: the twin's count is what another draw of
+ * sparring's own starts holds outside them. With `--out`, it writes each rung's commitments, each
+ * its trial's outcome and its inputs in the layout's order.
  *
  * `--on twin` plays the training twin, the starts checkpoints are ranked on where a trainer draws
  * from `sparring-drawn`; `--on dev` and `--on train` its halves an environment's `split` keeps out
@@ -149,7 +158,7 @@ async function steeredTrial(cases, world, condition, value, act) {
     while (!reader.ended) {
       if (built.duel.clock > cases.seconds + 1) throw new Error("the trial ran past its seconds");
       built.world.step(); reader.afterStep();
-      if (pending(learner)) answer(learner, act(learner.inputs));
+      if (pending(learner)) answer(learner, act(learner.inputs, built.world.time));
     }
     return reader.reading();
   } finally { built.dispose(); }
@@ -159,19 +168,20 @@ async function steeredTrial(cases, world, condition, value, act) {
  * One trial played: its outcome, the life it dealt and took, its trade (null where its punch did
  * not begin), whether the striker fell, and its value. With `policy`, a checkpoint's network file
  * steers the punch on its record's settings, as a trainer steers it (`steeredTrial`). With `keeps`,
- * the record's network steers it so, and each decision's inputs come back (`kept`).
+ * the record's network steers it so, and each decision's inputs come back (`kept`); with `commits`
+ * beside it, its punch's commitment alone (`commitmentOf`).
  */
-async function playOne({ protocol, variation, tuning, keepsNetwork, policy, keeps, condition }) {
+async function playOne({ protocol, variation, tuning, keepsNetwork, policy, keeps, commits, condition }) {
   const evaluation = EVALUATIONS.strike, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects([subjectName(variation)]);
   const value = policy || keeps ? withTuning(subject.value, { ...tuning, steered: true })
     : tuning ? withTuning(subject.value, tuning, keepsNetwork ? { keepsNetwork: true } : {}) : subject.value;
   const world = cases.world([value], condition, cases.engine ?? DEFAULT_ENGINE, [subject]);
   if (world.refused) throw new Error(world.refused);
   let r;
-  const kept = keeps ? [] : null;
+  const kept = keeps ? [] : null, keptAt = [];
   if (keeps) {
     const steer = recoveryNetwork(record().network);
-    r = await steeredTrial(cases, world, condition, value, (inputs) => { kept.push(inputs.slice()); return steer(inputs); });
+    r = await steeredTrial(cases, world, condition, value, (inputs, at) => { kept.push(inputs.slice()); keptAt.push(at); return steer(inputs); });
   } else if (policy) r = await steeredTrial(cases, world, condition, value, policyOf(policy));
   else {
     const played = await playCase(world, cases.seconds, (built) => cases.read(built, condition));
@@ -181,7 +191,24 @@ async function playOne({ protocol, variation, tuning, keepsNetwork, policy, keep
   const outcome = evaluation.outcome(r).label, judged = keep({ judge: "strike" }, r);
   const dealt = Object.values(r.dealt).reduce((sum, x) => sum + x, 0);
   return { outcome, dealt, taken: r.taken, trade: strikeTrade(r), down: r.down, value: trialValue("strike", { kept: judged, outcome }, FALL_PRICE),
-    ...(kept ? { kept } : {}) };
+    ...(commits ? { commitment: commitmentOf(kept, keptAt, r.committed) } : kept ? { kept } : {}) };
+}
+
+/**
+ * The commitment of a trial's punch: the layout's inputs at the first decision of the swing begun
+ * nearest the time its reader has it commit (`committed`, s), and how long after that time the
+ * decision was asked, s. A swing's first decision is one whose drive is no older than the decision
+ * before it. Null where the punch never committed or no swing was steered.
+ */
+function commitmentOf(kept, keptAt, committed) {
+  if (committed === null || kept.length === 0) return null;
+  const age = inputAt("drive age");
+  let best = -1;
+  kept.forEach((inputs, i) => {
+    if (i > 0 && inputs[age] > kept[i - 1][age]) return;
+    if (best < 0 || Math.abs(keptAt[i] - committed) < Math.abs(keptAt[best] - committed)) best = i;
+  });
+  return { inputs: kept[best], late: keptAt[best] - committed };
 }
 
 if (!isMainThread && workerData?.punchSparring) {
@@ -289,6 +316,55 @@ async function search({ out, variation, keepsNetwork, every, lambda, sigma, pati
       } });
     console.log(`ended after ${generation} generations, ${sinceBest} since the best`);
   } finally { await pool.terminate(); }
+}
+
+/** The rung a try is judged on, the draw of its own starts read beside it, and the fights whose commitments it is asked to cover. */
+const COVERS = Object.freeze({ reference: "sparring", draw: "sparring-twin", asked: "fights" });
+
+/**
+ * Whether sparring's commitments cover the fights' (`--commitments`): each of `COVERS`'s rungs
+ * played steered by the record's network, its punches' commitments kept (`commitmentOf`), and each
+ * input's range on the reference beside the asked rung's, with how many commitments of the asked
+ * rung and of the draw hold an input outside the reference's ranges.
+ */
+async function commitments(workers, out) {
+  const pool = workerPool(fileURLToPath(import.meta.url), { punchSparring: true }, workers);
+  const read = {};
+  try {
+    await Promise.all(Array.from({ length: workers }, () => pool.evaluate({ ping: true })));
+    for (const protocol of Object.values(COVERS)) {
+      const conditions = trialsOf(protocol, "drive"), begun = performance.now();
+      const played = await Promise.all(conditions.map(async (condition) => {
+        const r = await pool.evaluate({ protocol, variation: "drive", keeps: true, commits: true, condition });
+        if (r.error) throw new Error(r.error);
+        return r;
+      }));
+      const committed = played.filter((one) => one.commitment);
+      const outcomes = Object.entries(Object.groupBy(played, (one) => one.outcome)).map(([outcome, all]) => `${outcome} ${all.length}`).join(", ");
+      const late = committed.reduce((most, one) => Math.max(most, Math.abs(one.commitment.late)), 0);
+      console.log(`${protocol}: ${conditions.length} Warrior trials, ${committed.length} commitments, each at most ${late.toFixed(4)} s from its reader's commit; outcomes: ${outcomes}; ${((performance.now() - begun) / 1000).toFixed(1)} s on ${workers} workers`);
+      read[protocol] = committed;
+    }
+  } finally { await pool.terminate(); }
+  if (out) {
+    writeFileSync(out, `${JSON.stringify({ inputs: LAYOUT.inputs, ...Object.fromEntries(Object.entries(read).map(([protocol, all]) => [protocol, all.map((one) => ({ outcome: one.outcome, inputs: one.commitment.inputs }))])) })}\n`);
+    console.log(`wrote ${out}`);
+  }
+  const n = LAYOUT.inputs.length, rangeOf = (all) => Array.from({ length: n }, (_, i) => all.reduce(([low, high], one) => [Math.min(low, one.commitment.inputs[i]), Math.max(high, one.commitment.inputs[i])], [Infinity, -Infinity]));
+  const reference = rangeOf(read[COVERS.reference]), asked = rangeOf(read[COVERS.asked]);
+  const outside = (one) => one.commitment.inputs.flatMap((x, i) => x < reference[i][0] || x > reference[i][1] ? [i] : []);
+  const perInput = (all) => { const counts = new Array(n).fill(0); for (const one of all) for (const i of outside(one)) counts[i]++; return counts; };
+  const inAsked = perInput(read[COVERS.asked]), inDraw = perInput(read[COVERS.draw]), span = ([low, high]) => low > high ? "none" : `[${low.toFixed(3)}, ${high.toFixed(3)}]`;
+  console.log(`input | ${COVERS.reference} range | ${COVERS.asked} range | ${COVERS.asked} outside / ${read[COVERS.asked].length} | ${COVERS.draw} outside / ${read[COVERS.draw].length}`);
+  LAYOUT.inputs.forEach((name, i) => console.log(`${name} | ${span(reference[i])} | ${span(asked[i])} | ${inAsked[i]} | ${inDraw[i]}`));
+  const summary = (label, all) => {
+    const counts = all.map((one) => outside(one).length).sort((a, b) => a - b), some = counts.filter((count) => count > 0).length;
+    console.log(`${label}: ${some} of ${all.length} commitments hold an input outside ${COVERS.reference}'s ranges; inputs outside a commitment, of ${n}: median ${counts.length ? counts[Math.floor(counts.length / 2)] : 0}, most ${counts.at(-1) ?? 0}`);
+  };
+  summary(COVERS.asked, read[COVERS.asked]);
+  summary(`${COVERS.asked}, landed`, read[COVERS.asked].filter((one) => one.outcome === "landed"));
+  summary(`${COVERS.asked}, not landed`, read[COVERS.asked].filter((one) => one.outcome !== "landed"));
+  summary(COVERS.draw, read[COVERS.draw]);
 }
 
 /** The fit's 16 inputs: the target from the shoulder, the fist from the target, the fist's and the centre's velocity, and the arm's four angles. */
@@ -450,8 +526,9 @@ const FORMS = {
 if (isMainThread) {
   const { values } = parseArgs({ options: { search: { type: "boolean" }, bar: { type: "string" }, out: { type: "string" }, variation: { type: "string", default: "drive" },
     "keeps-network": { type: "boolean" }, on: { type: "string", default: "held-out" }, every: { type: "string", default: "3" }, lambda: { type: "string", default: "16" }, sigma: { type: "string", default: "0.2" }, patience: { type: "string", default: "30" },
-    workers: { type: "string", default: String(Math.max(1, availableParallelism() - 2)) }, resume: { type: "boolean" }, network: { type: "string" } } });
-  if (values.network) {
+    workers: { type: "string", default: String(Math.max(1, availableParallelism() - 2)) }, resume: { type: "boolean" }, network: { type: "string" }, commitments: { type: "boolean" } } });
+  if (values.commitments) await commitments(Number(values.workers), values.out);
+  else if (values.network) {
     const form = Object.hasOwn(FORMS, values.network) ? FORMS[values.network] : null;
     if (!form || !values.out) throw new Error(`--network <${Object.keys(FORMS).join("|")}> --out <file.json>`);
     writeFileSync(values.out, `${JSON.stringify(await form(Number(values.workers)))}\n`);
@@ -459,5 +536,5 @@ if (isMainThread) {
   } else if (values.bar) await bar(values.bar, Number(values.workers), values.on);
   else if (values.search && values.out) await search({ out: values.out, variation: values.variation, keepsNetwork: !!values["keeps-network"], every: Number(values.every), lambda: Number(values.lambda),
     sigma: Number(values.sigma), patience: Number(values.patience), workers: Number(values.workers), resume: !!values.resume });
-  else throw new Error("--search --out <file.json>, --bar <candidate.json>, or --network <form> --out <file.json>");
+  else throw new Error("--search --out <file.json>, --bar <candidate.json>, --network <form> --out <file.json>, or --commitments");
 }

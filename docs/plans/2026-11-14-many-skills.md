@@ -121,6 +121,19 @@ They say whether Part 2 holds, and they wait on no part.
   starts): each push's share of its variance before tanh is 0.19 to 0.60 for `fit`, 0.26 to
   0.61 for `fit-aged`, and 0.41 to 0.69 for `fit-spans`, its three spans of the drive's age
   beginning at 0, 4/60 and 8/60 s, split at the thirds of the decisions (408, 407 and 512).
+- **Sparring's commitments do not cover the fights' the punch's notes hold**
+  ([the comparison](2026-11-10-warrior-punch.md#what-a-fight-asks-that-the-drill-does-not)): of
+  those 20, each a `fights` trial whose punch missed, landed elsewhere or fell, 16 hold an input
+  outside the ranges of held-out sparring's 188 commitments, a median 17 of the 59 inputs and at
+  most 30. Of the twin's 184 commitments, another draw of sparring's own starts, 43 hold one, a
+  median 0 and at most 14: one of them holds more than 7, and 12 of the fights' hold 11 or more.
+  Outside most often are the trunk's flexion (lumbar in 12, thoracic in 11), each knee (11), each
+  ankle (10) and the thoracic rotation (10). Four are inside every range, three of them falls
+  from the network's heading and centre asks (3 m left moment 5, 5 m left and right moment 5) and
+  one a blow landed elsewhere (4 m left moment 4). `punch-sparring.mjs --commitments` reads
+  sparring's and the twin's commitments; the fights' are that comparison's.
+- **`fights` gives no commitment to read as the tool steers it**: of the Warrior's 48 `fights`
+  trials, 46 never reach their moment and 2 are refused (`--commitments`).
 
 **What they read.** Each is a network file read on the held-out sparring starts beside the drive
 (`punch-sparring.mjs --bar <file>`). The tool plays a file that names its `actions` and `layers`
@@ -178,8 +191,14 @@ network reaches, and a search scores the punch itself.
   the drill as a table
   ([the comparison](2026-11-10-warrior-punch.md#what-a-fight-asks-that-the-drill-does-not)): the
   layout's inputs at each commitment (`steerFeatures` at drive age zero), their ranges on the
-  drill beside the fights'. A tool that reads a protocol's commitments makes it for sparring.
-  Where sparring's do not cover the fights', a try's measure is the `fights` rung.
+  drill beside the fights'. `punch-sparring.mjs --commitments` makes it for sparring: it plays
+  the Warrior's `sparring`, `sparring-twin` and `fights` trials steered by the record's network,
+  keeps the layout's inputs at the first decision of each trial's punch (`commitmentOf`), and
+  counts the commitments of `fights` and of the twin that hold an input outside `sparring`'s
+  ranges. The twin's count is what another draw of sparring's own starts holds outside them.
+  With `--out <file>` it writes every commitment. The three rungs play in 75 to 81 s, 52 to 53 s
+  and 63 to 70 s on 30 workers. Where sparring's do not cover the fights', a try's measure is the
+  `fights` rung.
 - **What a try's comparison costs**: the time of a `--bar`. It sizes how many starts a try is
   read on. A sparring trial plays at most 11 s (`seconds`, `STILL`,
   `src/evaluation/strike/cases.ts`) at about 0.55 s of a core a simulated second
@@ -438,7 +457,8 @@ refactor the fingerprint shows. Two choices reach installed skills:
 ## To pick it up
 
 - **The readings**: `research/skills/strikes/straight-punch/punch-sparring.mjs` (`candidateIn`,
-  `steeredTrial`, `--bar`, `--on`, `--network` and its `FORMS`); the installed network,
+  `steeredTrial`, `--bar`, `--on`, `--network` and its `FORMS`, `--commitments`); the installed
+  network,
   `assets/skills/strikes/straight-punch/drive.json`, and its layout, `drive.layout.json`; what a
   layer computes, `src/core/math/learning/recovery-network.ts`; what an output asks,
   `src/skills/strikes/shared/steer.ts`.
