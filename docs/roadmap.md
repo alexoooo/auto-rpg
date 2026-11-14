@@ -86,6 +86,7 @@ Each holds its goal, where it stands and the questions open
 | [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | an overhead club strike at the head with either hand, with and without the buckler: the buckler cell, then a learned steer |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
+| [Many skills, faster](plans/2026-11-14-many-skills.md) | variations that stand alone, a layer under the skills that carries balance, and a pipeline that reads fights first |
 
 ## Waiting on the owner
 
