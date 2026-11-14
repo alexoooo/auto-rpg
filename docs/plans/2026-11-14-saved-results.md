@@ -110,7 +110,8 @@ Those are working rows, deleted a day after their last change (`npm run clean`).
 - **What it saves a try**: the time of a `--bar`, the drive's side of it every start played once
   more, and of a row's play. A side of 240 starts is at most 24 core-minutes by arithmetic
   ([a try's comparison](2026-11-14-many-skills.md#the-readings-that-come-first)), and ten times
-  that on the judge's larger draw.
+  that on the judge's larger draw. Played, the drive's side of the steer's control took 53.1 s on
+  30 workers of a machine of 32 logical processors (`punch-sparring.mjs --bar`).
 - **How many found rows a run plays again** to say its rows are the code's now, and whether it
   draws them anew each run.
 - **What a result made from rows of several commits names.** A result is written from a commit

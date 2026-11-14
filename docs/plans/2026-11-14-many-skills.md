@@ -95,6 +95,32 @@ They say whether Part 2 holds, and they wait on no part.
   ([the punch's notes](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)).
 - **Holding the body up adds landings and no value**
   ([what the assist does to the punch](#part-2-a-strike-made-by-search-apart-from-the-legs)).
+- **The tool steers a network file as the game steers its record's network**: the installed
+  network as a file lands 106 of the 240 held-out starts against the drive's 105, one start
+  landed by it alone and none by the drive alone (sign test p 1), at 1.0137 times the drive's
+  damage a second, 95 % 0.9969 to 1.0452.
+- **The steer's readings, read together.** Each file is written by
+  `node research/skills/strikes/straight-punch/punch-sparring.mjs --network <form> --out <file>`
+  and read by `--bar <file>`, on the Warrior's 240 held-out sparring starts beside the drive,
+  which lands 105, falls 3 times, loses 0.029 life a trial and reads 0.1623 of the table's value
+  a trial:
+
+  | `<form>` | Landed | Only it, only the drive | Sign test p | Damage a second, times the drive's (95 %) | Falls | Life taken | Value |
+  | --- | --- | --- | --- | --- | --- | --- | --- |
+  | `installed` | 106 | 1, 0 | 1.000 | 1.0137 (0.9969 to 1.0452) | 3 | 0.030 | 0.1640 |
+  | `fit` | 73 | 13, 45 | 0.00003 | 0.3555 (0.2607 to 0.4907) | 1 | 0.026 | 0.0451 |
+  | `fit-aged` | 90 | 20, 35 | 0.058 | 0.5615 (0.4231 to 0.7413) | 2 | 0.028 | 0.0837 |
+  | `fit-spans` | 93 | 22, 34 | 0.141 | 0.6858 (0.5257 to 0.9022) | 3 | 0.029 | 0.0981 |
+  | `no-stance-asks` | 92 | 13, 26 | 0.053 | 0.7194 (0.5603 to 0.9155) | 1 | 0.029 | 0.1086 |
+  | `blind-legs` | 85 | 16, 36 | 0.0078 | 0.6081 (0.4510 to 0.8267) | 3 | 0.025 | 0.0926 |
+  | `fit-inputs` | 67 | 12, 50 | 0.0000012 | 0.4307 (0.3210 to 0.5710) | 2 | 0.026 | 0.0574 |
+  | `walk-on` | 106 | 1, 0 | 1.000 | 1.0141 (0.9973 to 1.0456) | 3 | 0.030 | 0.1640 |
+  | `walk-off` | 106 | 1, 0 | 1.000 | 1.0137 (0.9969 to 1.0452) | 3 | 0.030 | 0.1640 |
+
+- **The fits copy the network in part on the twin's training half** (1,327 decisions on its 127
+  starts): each push's share of its variance before tanh is 0.19 to 0.60 for `fit`, 0.26 to
+  0.61 for `fit-aged`, and 0.41 to 0.69 for `fit-spans`, its three spans of the drive's age
+  beginning at 0, 4/60 and 8/60 s, split at the thirds of the decisions (408, 407 and 512).
 
 **What they read.** Each is a network file read on the held-out sparring starts beside the drive
 (`punch-sparring.mjs --bar <file>`). The tool plays a file that names its `actions` and `layers`
@@ -135,9 +161,11 @@ another's reading.
   layer for each of two or three spans of the drive's age, each fitted on its span's decisions
   and chosen by that age as the punch plays. The last is the form of its provenance, a feedback
   fitted to each fragment of a schedule (Liu, van de Panne & Yin, below).
-- **It is a mode of the tool.** `steeredTrial` holds each decision's inputs, and the tool runs
-  its command line wherever it is imported. The mode plays the training half once, steered by the
-  installed network, keeps each decision's inputs and solves in Node.
+- **It is a mode of the tool** (`--network fit`, `fit-aged`, `fit-spans`). The mode plays the
+  training half once, steered by the installed network through `steeredTrial`, keeps a copy of
+  each decision's inputs and solves in Node, its weights under a ridge of a millionth of the
+  decisions (`RIDGE`). `fit-spans` cuts three spans at the thirds of the decisions by the drive's
+  age (`SPANS`).
 
 Where a form of the fit holds most of the steered landings, Part 2's layout and that form of
 correction carry the punch, and its search starts from it. Where each lands near the unsteered
@@ -156,7 +184,9 @@ network reaches, and a search scores the punch itself.
   read on. A sparring trial plays at most 11 s (`seconds`, `STILL`,
   `src/evaluation/strike/cases.ts`) at about 0.55 s of a core a simulated second
   ([the punch's notes](2026-11-10-warrior-punch.md#sparring-settings-searched-the-steer-trained)),
-  so a side of 240 starts is at most 24 core-minutes, by arithmetic.
+  so a side of 240 starts is at most 24 core-minutes, by arithmetic. Played, the drive's side of
+  the control's `--bar` took 53.1 s on 30 workers of a machine of 32 logical processors (51.0 to
+  53.1 s over the nine readings), and a network file's side 70 to 79 s.
 
 ## The judge of a try
 
@@ -164,7 +194,9 @@ network reaches, and a search scores the punch itself.
 
 - **The judge reads damage dealt a second** against the drive's on the 240 held-out starts the
   Warrior is admitted to, each start played by both, its interval a paired bootstrap over the
-  starts (`bar`, `punch-sparring.mjs`). Beside it, it prints how many starts each side lands.
+  starts (`bar`, `punch-sparring.mjs`). Beside it, it prints how many starts each side lands,
+  how many only one side lands with the exact two-sided sign test's p on those two counts, and
+  each side's seconds to play.
 - **At 240 starts it does not tell a fifth better from a fifth worse**: a candidate that reads
   1.08 times the drive has an interval of 0.79 to 1.47.
 - **Landings paired by start tell more at the same count of starts.** A reading of the drive
@@ -392,9 +424,9 @@ refactor the fingerprint shows. Two choices reach installed skills:
 
 ## How the parts depend
 
-- **The readings wait on the tool's modes and on nothing else built**: the fit's, and a network
-  file's edit. Each `--bar` of them plays the drive's side once more until the judge finds its
-  rows ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
+- **The steer's readings are read** on the tool's mode (`--network`). Each `--bar` of them plays
+  the drive's side once more until the judge finds its rows
+  ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
 - **The judge's paired landings wait on nothing.** Its larger draw is a protocol added beside
   sparring's; with the played rows its drive's side is played once.
 - **Part 1 and the played rows wait on no reading**: every try after them plays only its own
@@ -406,7 +438,7 @@ refactor the fingerprint shows. Two choices reach installed skills:
 ## To pick it up
 
 - **The readings**: `research/skills/strikes/straight-punch/punch-sparring.mjs` (`candidateIn`,
-  `steeredTrial`, `--bar`, `--on`); the installed network,
+  `steeredTrial`, `--bar`, `--on`, `--network` and its `FORMS`); the installed network,
   `assets/skills/strikes/straight-punch/drive.json`, and its layout, `drive.layout.json`; what a
   layer computes, `src/core/math/learning/recovery-network.ts`; what an output asks,
   `src/skills/strikes/shared/steer.ts`.
