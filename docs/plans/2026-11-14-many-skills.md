@@ -286,12 +286,15 @@ core-hours a side, by the arithmetic of [a try's comparison](#the-readings-that-
 - **A search's generation draws its starts from the bank** where sparring's commitments do not
   cover the fights' ([the readings](#the-readings-that-come-first)), and from `sparring-drawn`
   where they do.
-- **A start is of the code that played it**: the minds, the stance and the skills that brought
-  the fight to its moment. Once a save loads across commits
-  ([profiles and saves](2026-11-14-profiles-and-saves.md#the-design)) it is found by the
-  question it answers and used as a played row is, until there is reason to believe it misleads
-  a decision ([played rows kept and found](2026-11-14-saved-results.md#the-design)). Until then
-  a bank is its commit's.
+- **A start is found by its condition, and the code is no part of what finds it**: its bout,
+  gap, limb, moment and draw. It is a state a fight came to, and stays a start whatever changes
+  after it. Where it came from is kept on it and gates nothing.
+- **A start loads wherever each part of it fits**
+  ([profiles and saves](2026-11-14-profiles-and-saves.md#the-design)): the bodies, and each
+  module's memory that still has the shape saved. The build is no part of what a load refuses.
+- **A start is played again when it is asked**, as a played row is
+  ([played rows kept and found](2026-11-14-saved-results.md#the-design)): where there is reason
+  to believe the fights the minds make now come to other moments.
 
 **What it would cost.** A start's fight is played to its moment once: at most 30 s, about 17
 core-seconds at sparring's cost, which is unread for a fight of two of the game's minds. A
@@ -519,10 +522,10 @@ refactor the fingerprint shows. Two choices reach installed skills:
 - **Part 2's search waits on the fit**, its start, and on a candidate's network going to a trial
   with its settings. What it makes waits on Part 1 to be installed beside the drive.
 - **A stance that knows of a blow waits on a reading that shows a strike needs it.**
-- **The kept starts wait on a save that loads across commits** to outlast the commit they were
-  played on ([profiles and saves](2026-11-14-profiles-and-saves.md#the-design)), and on a load
-  under a striker's tuning to serve a search. What is built serves one comparison on one commit:
-  a network file beside the installed network as a file, both under the steered recipe. The
+- **The kept starts wait on a save that loads where its parts fit**, the build no part of what
+  it refuses ([profiles and saves](2026-11-14-profiles-and-saves.md#the-design)), and on a load
+  under a striker's tuning to serve a search. Without the second a bank serves a comparison of
+  network files: one beside the installed network as a file, both under the steered recipe. The
   larger measure of a fight waits on the kept starts.
 - **Another base waits on Part 2**: until a strike's layout holds no reading of the legs, a base
   other than the stance makes each strike's network a seed to retrain

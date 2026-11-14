@@ -9,6 +9,7 @@ Profiles, saves and recordings are in
 ## Goal
 
 - **A played row is found by the question it answers**, never by the code it was played on.
+  Nothing a tool keeps holds the commit or the build in what finds it.
 - **What is under work plays; everything else is found.** A row played on older code is used. It
   is played again when a person, or an agent's brief, has reason to believe it misleads a
   decision.
@@ -44,10 +45,12 @@ Profiles, saves and recordings are in
   evaluation's cases are made (`cases.world`, as in `casesOf`, `src/evaluation/run.ts`), so the
   drive's trial on a start is the case of `strike`, its protocol, `option/straight-punch` and
   that start.
-- **Three research tools key a cache of their own by the commit**:
-  `research/skills/recovery/edge-profiles.mjs`,
-  `research/skills/recovery/implementations/staged/rise-search.mjs` and
-  `research/empty-hand-league.mjs`.
+- **Three research tools hold the build in a cache of their own** (`BUILD_IDENTITY`,
+  `scripts/build-identity.mjs`). `research/skills/recovery/edge-profiles.mjs` finds a row by its
+  job, and `research/skills/recovery/implementations/staged/rise-search.mjs` by its trials and
+  tuning, each only among rows of the build that runs.
+  `research/empty-hand-league.mjs` finds a game by its two minds' configs, its gap, cap and
+  epoch, with the build hashed into the key beside the engine.
 
 ## The design
 
@@ -60,20 +63,24 @@ Profiles, saves and recordings are in
   record and profile its mind reads (`treeData`, `src/minds/catalog/catalog.ts`; `dataIdentity`).
   A record is part of the question a row answers, and the code is not: a network installed under
   a subject is a new key, and its cases play.
-- **A row carries where it came from, which gates nothing**: its commit, whether build inputs
-  differed from it, and when it was played. A report names the oldest commit among the rows it
-  read.
-- **The newest row of a key stands.** Two that read differently on one commit with no build
-  input changed stop the run as now; otherwise they are a change to the code between them.
+- **A row carries where it came from, which finds and refuses no row**: its commit, whether
+  build inputs differed from it, and when it was played. A report names the oldest commit among
+  the rows it read.
+- **A research tool's cache is found the same way.** The three that hold the build find a row
+  by what was run: the job, the trials and tuning, the two minds' configs with the gap, cap,
+  epoch and engine. The build is kept on each row as where it came from.
+- **The newest row of a key stands.** Two that read differently and say they came from one
+  commit with no build input changed stop the run as now: a play that does not repeat.
+  Otherwise they are a change to the code between them.
 - **A run finds every row unless it is told to play**:
   `npm run evaluate -- <id> <subject> --fresh` plays the named subjects' cases again. Their
   counterparts (`--previous`, `--against`) are found, and paired by case as now.
 - **A research judge reads the same store.** Its candidate plays. What the candidate is read
   beside is found by its cases' keys (`casesOf`), and played and kept where no row has one.
-- **A run that finds rows of another commit plays a few of them again**, drawn by key, and
-  compares each with its kept row by the digest of its trace (`Row.digest`). It says how many
-  read as kept and gates nothing: a row that reads differently says the code under its subject
-  changed, which is the reason to play that subject again (`--fresh`).
+- **A run plays a few of the rows it found again**, drawn by key, whatever commit they came
+  from, and compares each with its kept row by the digest of its trace (`Row.digest`). It says
+  how many read as kept and gates nothing: a row that reads differently says the code under its
+  subject changed, which is the reason to play that subject again (`--fresh`).
 
 **What is under work plays; everything else is found.**
 
@@ -117,7 +124,8 @@ Those are working rows, deleted a day after their last change (`npm run clean`).
 - **What a result made from rows of several commits names.** A result is written from a commit
   with no build input changed, and names it (`--write`); its rows are each of the commit they
   were played on. A result made from them names the oldest.
-- **Whether the three research tools' caches are rows of the store.**
+- **Whether the three research tools' caches are rows of the store**, or caches of their own
+  found by what was run.
 
 ## To pick it up
 
