@@ -336,6 +336,13 @@ const SPARRING = deepFreeze({ ...SAMPLED, marks: ["high", "middle"] as Mark[], t
 const SPARRING_TWIN = deepFreeze({ ...SPARRING, seed: 2 });
 
 /**
+ * **Sparring's training draws**, `sparring-drawn`: ten times its starts, on a stream of their own,
+ * for a trainer to draw from, so that no start recurs often enough to be learned for itself; the
+ * twin and the rung stay out of training, to rank and to judge by.
+ */
+const SPARRING_DRAWN = deepFreeze({ ...SPARRING, seed: 3, trials: SPARRING.trials * 10 });
+
+/**
  * **Sparring at a foe laid down**, the `sparring-laid` rung: the stomping rung's sampled starts
  * (`STOMPING_SAMPLED`), with each foot, at each of the game's foes laid down and fighting back
  * (`SPARRING_FOE`), which rises as it would. A foe that keeps its balance is shoved four times as
@@ -484,6 +491,7 @@ export function createStrikeCases(context: GameContext) {
   /** Every protocol the Strike drill may be played on, by name: its rungs. */
   const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ ...twinned("still", atEveryFoe(STILL)), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
     sparring: { ...stillCases(SPARRING, sampledConditions(SPARRING)), twin: "sparring-twin" }, "sparring-twin": stillCases(SPARRING_TWIN, sampledConditions(SPARRING_TWIN)),
+    "sparring-drawn": stillCases(SPARRING_DRAWN, sampledConditions(SPARRING_DRAWN)),
     "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
     "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),
