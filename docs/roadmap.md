@@ -64,15 +64,13 @@ The standing goal behind it: every cell of the table raised from its baseline, a
 
 In order; each is a row of the table or one question, taken up on the owner's request.
 
-1. **The Warrior's punch**: the table's `punch` row on `man`
-   ([its notes](plans/2026-11-10-warrior-punch.md)): the straight punch at the trunk.
-2. **The Warrior's bonk with the buckler**, which never meets the head
+1. **The Warrior's bonk with the buckler**, which never meets the head
    ([its plan](plans/2026-11-05-warrior-bonk.md)).
-3. **The Warrior's thrust**: the grip's geometry before another search
+2. **The Warrior's thrust**: the grip's geometry before another search
    ([the approaches](approaches.md#weapon-strikes)).
-4. **The Warrior's start from a stand**: a controller that places feet by balance under the run
+3. **The Warrior's start from a stand**: a controller that places feet by balance under the run
    ([its plan](plans/2026-11-05-warrior-travel.md)).
-5. **Blows in fights**: Option Mind's footwork, places round the foe chosen by its reach and
+4. **Blows in fights**: Option Mind's footwork, places round the foe chosen by its reach and
    striking arc, so the blows that land in the drill land in a bout.
 
 ## Parked plans
