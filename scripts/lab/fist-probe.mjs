@@ -1,5 +1,5 @@
 import { fistTurns as authoredTurns } from "../../src/core/bodies/human/fist.ts";
-// Measures a hand pose on the workshop skin, offline: CPU-skins `base__skin` from the GLB and
+// Measures a hand pose on the human skin, offline: CPU-skins `base__skin` from the GLB and
 // reports, for every pair of hand parts that do not share a joint, how deep one's vertices sit
 // inside the other (behind the nearest vertex of the other, along its normal), mm.
 import { readFile } from "node:fs/promises";

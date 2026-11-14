@@ -16,7 +16,7 @@
  "starts": [
   {
    "id": "fours",
-   "model": "workshop-fighter",
+   "model": "man",
    "envelope": "barefoot",
    "source": {
     "row": "fours",
@@ -106,7 +106,7 @@
   },
   {
    "id": "half-kneel",
-   "model": "workshop-fighter",
+   "model": "man",
    "envelope": "barefoot",
    "source": {
     "row": "half kneel, knee light",
@@ -196,7 +196,7 @@
   },
   {
    "id": "squat",
-   "model": "workshop-fighter",
+   "model": "man",
    "envelope": "barefoot",
    "source": {
     "row": "squat @ 0.60 m",

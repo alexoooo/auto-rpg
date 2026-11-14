@@ -2,7 +2,7 @@ import { PAW_MOTOR } from "../../control/quadruped/paw-motor.ts";
 import { TROT_PART } from "../../skills/locomotion/quadruped/trot.ts";
 import { CRAWL_PART } from "../../skills/locomotion/quadruped/crawl.ts";
 import { PAW_MOVE } from "../../skills/locomotion/quadruped/paw-legs.ts";
-import { JAW_BITE } from "../../skills/strikes/bite/index.ts";
+import { BITE_PART } from "../../skills/strikes/bite/index.ts";
 import { FIRST_EXPOSED_AIM } from "../../skills/strikes/bite/jaw-aim.ts";
 import { RIGHTING_RECIPE, RIGHTING_ROUTES } from "../../skills/recovery/righting/righting.ts";
 
@@ -15,4 +15,4 @@ import { RIGHTING_RECIPE, RIGHTING_ROUTES } from "../../skills/recovery/righting
  * `scripts/build-identity.mjs`).
  */
 export const REPTILE_PARTS = { "paw-motor": PAW_MOTOR, "paw-trot": TROT_PART, "paw-crawl": CRAWL_PART, "paw-move": PAW_MOVE,
-  "jaw-bite": JAW_BITE, "first-exposed": FIRST_EXPOSED_AIM, "righting-recipe": RIGHTING_RECIPE, "righting-routes": RIGHTING_ROUTES };
+  bite: BITE_PART, "first-exposed": FIRST_EXPOSED_AIM, "righting-recipe": RIGHTING_RECIPE, "righting-routes": RIGHTING_ROUTES };

@@ -6,29 +6,29 @@ import type { HumanFigure } from "./figure.ts";
 import { humanJoints } from "./joints.ts";
 import { physiqueFigure, type Physique } from "./physique.ts";
 import { peakTorque } from "./muscle.ts";
-import { WORKSHOP_MODELS, type WorkshopModel } from "./rig.ts";
+import { HUMAN_MODELS, type HumanModel } from "./rig.ts";
 import { humanSegments } from "./segments.ts";
 import { SKELETON_MODEL, skeletonFigure, skeletonMotors } from "./skeleton.ts";
 import { jointSpeed } from "./speed.ts";
 import { toedFigure } from "./toes.ts";
-import { workshopFigure } from "./workshop.ts";
+import { humanFigure } from "./rigged.ts";
 import { humanWounds } from "./wounds.ts";
 import { SIDES, pairedSegment } from "../bilateral.ts";
 
 /**
- * **A workshop human, whole**: its segments, the joints and muscle between them, its wounds and its
+ * **A human model, whole**: its segments, the joints and muscle between them, its wounds and its
  * attributes, at x1, or with `physique` (`physique.ts`) and with `haste` per cent in place of its
  * character's; its feet with toes (`toes.ts`).
  */
-export function humanSpec(model: WorkshopModel, physique?: Physique, haste?: number): BodySpec {
-  const spec = shapedSpec(workshopFigure(model), physique, haste);
+export function humanSpec(model: HumanModel, physique?: Physique, haste?: number): BodySpec {
+  const spec = shapedSpec(humanFigure(model), physique, haste);
   if (isRefused(spec)) throw new Error(spec.refused);
   return spec;
 }
 
-/** The core's bodies by model: the workshop humans and the crypt skeleton. */
-export type HumanoidModel = WorkshopModel | typeof SKELETON_MODEL;
-export const HUMANOID_MODELS: readonly HumanoidModel[] = Object.freeze([...WORKSHOP_MODELS, SKELETON_MODEL]);
+/** The core's bodies by model: the two humans and the skeleton. */
+export type HumanoidModel = HumanModel | typeof SKELETON_MODEL;
+export const HUMANOID_MODELS: readonly HumanoidModel[] = Object.freeze([...HUMAN_MODELS, SKELETON_MODEL]);
 
 /** **A core body by model**, whole, with `physique` and `haste` where they are given; the skeleton's joints are motors (`skeletonMotors`). */
 export function humanoidSpec(model: HumanoidModel, physique?: Physique, haste?: number): BodySpec {
@@ -39,7 +39,7 @@ export function humanoidSpec(model: HumanoidModel, physique?: Physique, haste?: 
 
 /** A humanoid under supplied physique settings, returning unsupported geometry from its owner. */
 export function humanoidSpecChecked(model: HumanoidModel, physique?: Physique, haste?: number): BodySpec | Refused {
-  const spec = shapedSpec(model === SKELETON_MODEL ? skeletonFigure() : workshopFigure(model), physique, haste);
+  const spec = shapedSpec(model === SKELETON_MODEL ? skeletonFigure() : humanFigure(model), physique, haste);
   return isRefused(spec) || model !== SKELETON_MODEL ? spec : skeletonMotors(spec);
 }
 

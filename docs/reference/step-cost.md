@@ -71,6 +71,6 @@ question.
 node tests/harness/step-allocation.mjs standing
 node tests/harness/step-allocation.mjs down
 node tests/harness/step-allocation.mjs fall
-node tests/harness/step-allocation.mjs mind option workshop-fighter sword
+node tests/harness/step-allocation.mjs mind option man sword
 node --test tests/core-step-cost.test.mjs                  # every ceiling
 ```

@@ -121,10 +121,18 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
   used (a club is swung; a sword cuts and thrusts). No Option switches between acts by a setting
   or bundles acts (walking over and striking): sequencing is the chooser's. What Options share is
   code they call, never a kind of Option that makes one of each.
-- **No body is named in control code**: a skill specializes by Option first, then by body.
-  Settings are a record per body (`SkillRecord`, `recordFault`), with entries per loadout where a
-  loadout needs its own; other logic for a body is a skill only that body fits, and a controller
-  is never made per loadout.
+- **No body is named in control code**: shared code (the framework, `src/skills/strikes/shared/`)
+  is general, every body through the same code. A skill specializes by Option first, then by
+  variation: logic of a character's own is a variation of the skill that it holds, as many of one
+  skill as it likes, a skill of any role (`Part.variations`)
+  (`BodySpec.skills`), its own code in a folder only that skill's part imports
+  (`src/skills/strikes/<skill>/<variation>/`, `scripts/source-boundary.mjs`). What variations do
+  alike is shared, never copied: one implementation in `shared/` that each calls with its own
+  settings and options, the variation's folder holding only what is its own. A variation's
+  settings are a record per body (`SkillRecord`, `recordFault`), with entries per loadout where a
+  loadout needs its own; a controller is never made per loadout. A change to one variation moves
+  only the fingerprint cases that run it (`node scripts/fingerprint.mjs --compare <file>
+  --variation <skill/variation>`).
 
 ## The steps
 
@@ -176,7 +184,7 @@ A skill that exists enters at the step its failing part belongs to.
   timed pushes for a blow) and check it against [the approaches](../approaches.md). A controller
   without it is not searched or trained.
 - **Start from the simplest controller that can make the motion**: a schedule of timed pushes
-  (`src/skills/strikes/timed-push.ts`) over a posture, a gait, a stance. A tracker following a
+  (`src/skills/strikes/shared/timed-push.ts`) over a posture, a gait, a stance. A tracker following a
   declared course runs behind it by its response time; at a blow's speed that lag is the stroke.
 - **Search it** with CMA-ES on its drill's twin, scored by the graded score, at 120 Hz; its
   confirmation plays the cells' cases at 120 and 480 Hz, the worse counting

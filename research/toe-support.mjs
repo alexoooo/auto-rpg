@@ -37,7 +37,7 @@ if(!Number.isFinite(loadShare)||loadShare<=0||!Number.isFinite(frequency)||frequ
 if(!o.out||!Number.isFinite(seconds)||seconds<2||pitches.some(p=>!Number.isFinite(p)||p<0||p>Math.PI/2))
   throw Error('--out names the reading; seconds is at least two and pitches lie in [0,pi/2]');
 if(frequency&&pitches.some(p=>p-amplitude<0||p+amplitude>Math.PI/2))throw Error('rocking pitches retain the amplitude within [0,pi/2]');
-const spec=modelSpec('workshop-fighter'),foot=spec.segments.find(s=>s.name==='foot.left');
+const spec=modelSpec('man'),foot=spec.segments.find(s=>s.name==='foot.left');
 const [width,length,height]=foot.shape.size.value,toeLength=foot.toes.length.value,thickness=foot.toes.thickness.value;
 const toeMass=foot.mass.value*(toeLength*thickness)/(length*height+toeLength*thickness);
 const footMass=foot.mass.value-toeMass,loadMass=spec.mass.value*loadShare-foot.mass.value,parentMass=footMass+loadMass;

@@ -8,13 +8,12 @@ import { commandedBody } from "../minds/seat/host.ts";
 import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
 import { loadEngine } from "../core/physics/engines.ts";
 import { withLoadout, type Held } from "../core/bodies/items/held.ts";
-import { humanoidSpec } from "../core/bodies/human/spec.ts";
 import { motorAndGuardOf } from "../skills/assembly/filled.ts";
 import { poseDrive, type TechniqueEnd, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/technique.ts";
 import type { GroundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";
 import { cos, sin } from "../core/math/real.ts";
-import type { HumanoidModel } from "../core/bodies/models.ts";
+import { modelSpec, type HumanoidModel } from "../core/bodies/models.ts";
 import { guardPosture } from "../skills/guard/guard.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 import { createWorld, type World } from "../core/world/world.ts";
@@ -87,7 +86,7 @@ export interface BuiltTechnique {
 
 /** The body a case plays: the model, holding what it names in each hand (`withLoadout`). */
 const techniqueSpec = (one: Pick<TechniqueCase, "model" | "held" | "left">): BodySpec =>
-  withLoadout(humanoidSpec(one.model), { left: one.left ?? "empty", right: one.held });
+  withLoadout(modelSpec(one.model), { left: one.left ?? "empty", right: one.held });
 
 /** Where a case's body is built, or why its start is refused, a sentence. */
 export function techniquePlacement(one: TechniqueCase): ReturnType<typeof groundPlacement> {

@@ -8,7 +8,7 @@ import { brace, hold } from "../../../src/minds/option/rest.ts";
 
 test("lying retains an opportunity cost against a foe with no modelled hand attack", () => {
   // The Skeleton on its back, a reptile beside it, both still; then on its feet, the reptile out of every reach.
-  const spec = modelSpec("crypt-skeleton"), foe = modelSpec("reptile"), reading = perceiver();
+  const spec = modelSpec("skeleton"), foe = modelSpec("reptile"), reading = perceiver();
   const at = (down, away) => reading.at({ spec, hz: 120, delay: 0, rules: rulebook("arena"), strikes: [], measured: [], reach: reachMemory(),
     focus: { spec: foe, centre: new Vector3(0, 0.3, away), velocity: new Vector3(), segments: new Map(), down: false, time: 0 },
     sight: { view: { down, ground: down ? { position: "back" } : null, head: new Vector3(0, down ? 0.2 : 1.7, 0), stance: { centre: new Vector3(), velocity: new Vector3() },

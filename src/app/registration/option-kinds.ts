@@ -10,7 +10,7 @@ import { BRACE_OPTION, BRACE_TUMBLING_OPTION, FLATTEN_OPTION, LAND_OPTION, REPOS
 export const OPTION_KINDS = {
   orders: ORDERS_OPTION, "strike-straight-punch": STRAIGHT_PUNCH_OPTION, "strike-club-blow": CLUB_BLOW_OPTION, "strike-sword-thrust": SWORD_THRUST_OPTION,
   "strike-bonk": BONK_OPTION,
-  "strike-stomp": STOMP_OPTION, "strike-jaw-bite": BITE_OPTION,
+  "strike-stomp": STOMP_OPTION, "strike-bite": BITE_OPTION,
   walk: WALK_OPTION,
   "brace-tumbling": BRACE_TUMBLING_OPTION, steadying: STEADY_OPTION, "way-up": WAY_UP_OPTION, reposition: REPOSITION_OPTION, flattening: FLATTEN_OPTION, landing: LAND_OPTION,
   covers: COVER_OPTION, "hold-position": HOLD_OPTION, "hold-at-place": HOLD_AT_OPTION, "hands-at-guard": GUARD_OPTION, "brace-down": BRACE_OPTION,

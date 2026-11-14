@@ -31,30 +31,30 @@ try {
   await page.goto(`${base}/?play=arena`);
   await page.waitForFunction(() => window.__arena && !document.querySelector("#begin").disabled);
   await page.getByLabel("Left appearance", { exact: true }).selectOption("industrial");
-  await page.getByLabel("Right character", { exact: true }).selectOption("workshop-fighter");
-  await page.getByLabel("Right appearance", { exact: true }).selectOption("relic");
+  await page.getByLabel("Right character", { exact: true }).selectOption("man");
+  await page.getByLabel("Right appearance", { exact: true }).selectOption("steampunk");
   await page.waitForTimeout(2000);
-  await capture("arena-industrial-relic");
-  await page.getByLabel("Left appearance", { exact: true }).selectOption("duelist");
+  await capture("arena-industrial-steampunk");
+  await page.getByLabel("Left appearance", { exact: true }).selectOption("futuristic");
   await page.waitForTimeout(2000);
-  await capture("arena-duelist-relic");
+  await capture("arena-futuristic-steampunk");
   await page.locator("#begin").click();
-  await page.waitForFunction(() => window.__arena?.world);
+  await page.waitForFunction(() => window.__arena?.world && !document.querySelector("[aria-busy]"));
   await page.evaluate(() => __arena.scene.whenReadyAsync());
   await page.waitForTimeout(500);
   await capture("arena-fight");
-  assert.equal(new URL(page.url()).searchParams.get("appearance"), "duelist,relic");
-  assert.ok(await page.evaluate(() => ["duelist", "relic"].every(id => __arena.scene.meshes.some(m => m.name.includes(`.${id}.`)))));
+  assert.equal(new URL(page.url()).searchParams.get("appearance"), "futuristic,steampunk");
+  assert.ok(await page.evaluate(() => ["futuristic", "steampunk"].every(id => __arena.scene.meshes.some(m => m.name.includes(`.${id}.`)))));
   await page.keyboard.press("Space");
   await page.locator("#restart").click();
-  await page.waitForFunction(() => window.__arena?.world);
-  assert.equal(new URL(page.url()).searchParams.get("appearance"), "duelist,relic");
+  await page.waitForFunction(() => window.__arena?.world && !document.querySelector("[aria-busy]"));
+  assert.equal(new URL(page.url()).searchParams.get("appearance"), "futuristic,steampunk");
   await page.keyboard.press("Space");
   await page.locator("#leave").click();
-  assert.equal(await page.getByLabel("Left appearance", { exact: true }).inputValue(), "duelist");
-  await page.getByLabel("Right character", { exact: true }).selectOption("workshop-rogue");
+  assert.equal(await page.getByLabel("Left appearance", { exact: true }).inputValue(), "futuristic");
+  await page.getByLabel("Right character", { exact: true }).selectOption("woman");
   assert.equal(await page.getByLabel("Right appearance", { exact: true }).isVisible(), false);
-  await page.getByLabel("Right character", { exact: true }).selectOption("workshop-fighter");
+  await page.getByLabel("Right character", { exact: true }).selectOption("man");
   assert.equal(await page.getByLabel("Right appearance", { exact: true }).inputValue(), "default");
   checks.push("Arena previews, fight, restart, setup and compatible selection");
 
@@ -77,15 +77,16 @@ try {
     camera.alpha = Math.PI / 2 + .4; camera.beta = 1.3; camera.radius = 3.7;
     camera.target.set(0, 1, 0);
   });
-  const appearances = page.getByRole("group", { name: "Appearance", exact: true });
+  await page.locator("summary", { hasText: /^Character$/ }).click();
+  const appearances = page.getByRole("combobox", { name: "Appearance", exact: true });
   const choose = async (name, id, ready = true) => {
-    await appearances.getByRole("button", { name, exact: true }).click();
+    await appearances.selectOption({ label: name });
     await page.waitForFunction(appearance => __lab.current().appearance === appearance && __lab.current().skin.meshes.length > 0 &&
       __lab.current().skin.meshes.every(m => appearance === "default" ? m.name.includes(".skin.") : m.name.includes(`.${appearance}.`)), id);
     if (ready) await page.evaluate(() => __lab.scene.whenReadyAsync());
     await page.waitForTimeout(100);
   };
-  for (const [name, id] of [["Steampunk", "relic"], ["Futuristic", "duelist"], ["Industrial", "industrial"]]) {
+  for (const [name, id] of [["Steampunk", "steampunk"], ["Futuristic", "futuristic"], ["Industrial", "industrial"]]) {
     await choose(name, id);
     await capture(`lab-${id}`);
     assert.equal(new URL(page.url()).searchParams.get("appearance"), id);
@@ -95,8 +96,9 @@ try {
     return __lab.current() === saved.loaded && __lab.world() === saved.world && now.length === saved.physics.length &&
       now.every((byte, index) => byte === saved.physics[index]) && JSON.stringify(saved.recording) === JSON.stringify(saved.loaded.run.recording());
   }));
+  await page.locator("summary", { hasText: /^View$/ }).click();
   await page.getByRole("button", { name: "Tactical", exact: true }).click();
-  await choose("Steampunk", "relic");
+  await choose("Steampunk", "steampunk");
   assert.ok(await page.evaluate(() => __lab.current().skin.meshes.every(m => !m.isEnabled()) && __lab.current().view.meshes.every(m => m.isEnabled())));
   await capture("lab-tactical");
   await page.getByRole("button", { name: "World", exact: true }).click();
@@ -105,19 +107,19 @@ try {
 
   let release, requested;
   const art = JSON.parse(await readFile("public/assets/generated/manifest.json", "utf8"));
-  const fighterUri = art.characters.fighter.model.uri;
+  const manUri = art.characters.man.model.uri;
   const requestedPromise = new Promise(done => { requested = done; });
   const releasePromise = new Promise(done => { release = done; });
-  await page.route(`**/${fighterUri}`, async route => { requested(); await releasePromise; await route.continue(); });
-  await appearances.getByRole("button", { name: "Original", exact: true }).click();
+  await page.route(`**/${manUri}`, async route => { requested(); await releasePromise; await route.continue(); });
+  await appearances.selectOption({ label: "Original" });
   await requestedPromise;
-  await choose("Futuristic", "duelist", false);
-  const response = page.waitForResponse(r => r.url().endsWith(`/${fighterUri}`));
+  await choose("Futuristic", "futuristic", false);
+  const response = page.waitForResponse(r => r.url().endsWith(`/${manUri}`));
   release(); await response;
   await page.evaluate(() => __lab.scene.whenReadyAsync());
   await page.waitForTimeout(100);
-  assert.ok(await page.evaluate(() => __lab.current().skin.meshes.every(m => m.name.includes(".duelist."))));
-  await page.unroute(`**/${fighterUri}`);
+  assert.ok(await page.evaluate(() => __lab.current().skin.meshes.every(m => m.name.includes(".futuristic."))));
+  await page.unroute(`**/${manUri}`);
   await choose("Original", "default");
   assert.ok(await page.getByRole("group", { name: "Wears", exact: true }).isVisible());
   await choose("Industrial", "industrial");
@@ -125,7 +127,7 @@ try {
     __lab.scene.onBeforeRenderObservable.observers.filter(o => !o._willBeUnregistered).length]);
   const baseline = await resources();
   for (let i = 0; i < 3; i++) {
-    await choose("Steampunk", "relic"); await choose("Original", "default"); await choose("Industrial", "industrial");
+    await choose("Steampunk", "steampunk"); await choose("Original", "default"); await choose("Industrial", "industrial");
   }
   assert.deepEqual(await resources(), baseline);
   checks.push("Late human asset cannot replace a newer shell; repeated switching retains resource counts");
@@ -137,15 +139,15 @@ try {
   await page.waitForTimeout(900);
   await capture("lab-shoved");
   await page.getByRole("button", { name: "Rogue", exact: true }).click();
-  await page.waitForFunction(() => __lab.current().built.spec.model === "workshop-rogue");
+  await page.waitForFunction(() => __lab.current().built.spec.model === "woman");
   assert.equal(await appearances.isVisible(), false);
   assert.equal(new URL(page.url()).searchParams.has("appearance"), false);
-  await page.goto(`${base}/?play=lab&scenario=routine&appearance=relic&right=club`);
+  await page.goto(`${base}/?play=lab&scenario=attack&appearance=steampunk&right=club`);
   await page.waitForFunction(() => window.__lab?.current()?.skin.meshes.length > 0);
   await page.evaluate(() => __lab.scene.whenReadyAsync());
   await page.waitForTimeout(500);
-  await capture("lab-routine");
-  checks.push("Movement, shove and Routine render; non-Warrior selection resets appearance");
+  await capture("lab-attack");
+  checks.push("Movement, shove and Attack render; non-Warrior selection resets appearance");
   await writeFile(`${output}/checks.json`, JSON.stringify({ checks, errors }, null, 2));
   console.log(JSON.stringify({ checks, errors }));
   assert.deepEqual(errors, []);

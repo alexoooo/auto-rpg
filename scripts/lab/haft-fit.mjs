@@ -2,7 +2,7 @@
 // where the core's grip puts it (`haft.mjs`), measured on its skin with `fist-probe.mjs`, one pose
 // for both hands.
 //
-//   node scripts/lab/haft-fit.mjs [workshop-fighter|workshop-rogue]
+//   node scripts/lab/haft-fit.mjs [man|woman]
 //
 // Fingers: each finger's knuckle (MCP) and middle joint (PIP) on a 5-degree grid, the end joint
 // at 0.65 of the middle (the coupling `fist-fit.mjs` fits with). Each finger wraps the haft: it
@@ -18,11 +18,11 @@
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { fistTurns, loadGlb, nelderMead, penetration, restBones, skinHand, summary } from "./fist-probe.mjs";
 import { haftGaps, haftOf } from "./haft.mjs";
-import fighterRig from "../../assets/humanoid/workshop-fighter.json" with { type: "json" };
-import rogueRig from "../../assets/humanoid/workshop-rogue.json" with { type: "json" };
+import manRig from "../../assets/humanoid/man.json" with { type: "json" };
+import womanRig from "../../assets/humanoid/woman.json" with { type: "json" };
 
-const model = process.argv[2] ?? "workshop-fighter";
-const rig = { "workshop-fighter": fighterRig, "workshop-rogue": rogueRig }[model];
+const model = process.argv[2] ?? "man";
+const rig = { man: manRig, woman: womanRig }[model];
 const glb = await loadGlb(model);
 const hands = ["r", "l"].map((side) => {
   const relaxed = new Map(Object.entries(rig.grips.empty).filter(([k]) => k.endsWith(`_${side}`))

@@ -13,7 +13,7 @@ import { isRefused } from "../../../../../src/core/refusal.ts";
  * and with none, and each technique's attempts by where they were begun: begun, done, the stage
  * the failures ended in.
  *
- *   node research/skills/recovery/implementations/staged/rise-trace.mjs [--model workshop-fighter] [--offsets 0,11.25] [--mind <file.json>]
+ *   node research/skills/recovery/implementations/staged/rise-trace.mjs [--model man] [--offsets 0,11.25] [--mind <file.json>]
  *     [--loadout <left>,<right>] [--only <degrees>,...] [--seeds <n>,...] [--workers N] [--out <rows.json>] [--falls]
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
@@ -143,7 +143,7 @@ function summary(rows) {
 }
 
 if (isMainThread) {
-  const { values } = parseArgs({ options: { model: { type: "string", default: "workshop-fighter" }, offsets: { type: "string", default: "0" },
+  const { values } = parseArgs({ options: { model: { type: "string", default: "man" }, offsets: { type: "string", default: "0" },
     mind: { type: "string" }, loadout: { type: "string" }, only: { type: "string" }, seeds: { type: "string", default: "1" }, workers: { type: "string" }, out: { type: "string" }, falls: { type: "boolean", default: false } } });
   const { risingJobs } = await import("../../../../../src/evaluation/rising.ts");
   const { MINDS } = await import("../../../../../src/app/catalog.ts");

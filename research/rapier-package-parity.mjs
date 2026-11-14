@@ -30,9 +30,9 @@ console.log(JSON.stringify({ harness: "Node arena core world, Rapier SIMD, 120 H
   reference: manifest.version, stockMotorEffort: "unavailable; not used by the compared policies",
   referenceEntrySha256: createHash("sha256").update(await readFile(entry)).digest("hex") }));
 for (const recipe of [
-  { left: "workshop-fighter", right: "workshop-rogue" },
-  { left: "workshop-fighter", right: "workshop-fighter", gap: 3 },
-  { left: "workshop-rogue", right: "crypt-skeleton", gap: 3.5 },
+  { left: "man", right: "woman" },
+  { left: "man", right: "man", gap: 3 },
+  { left: "woman", right: "skeleton", gap: 3.5 },
 ]) {
   const stock = await playBout(recipe, 12, [], { physicsEngine: reference });
   const installed = await playBout(recipe, 12);

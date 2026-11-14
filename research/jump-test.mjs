@@ -17,7 +17,7 @@
  * A person's squat jump leaves at about 2.4 to 2.8 m/s (a rise of 0.3 to 0.4 m), from a knee bent
  * about 90 degrees; this reference is recalled, not read from a source here.
  *
- *   node research/jump-test.mjs [--models workshop-fighter,workshop-rogue] [--knees 0.8,1.1,1.3]
+ *   node research/jump-test.mjs [--models man,woman] [--knees 0.8,1.1,1.3]
  *     [--haste 1,1.5,2,3] [--generations 14] [--workers n] [--json out.json]
  *
  * `--haste` is `Physique.speed`, every muscle's unloaded speed by the factor (only the legs' move
@@ -170,7 +170,7 @@ if (!isMainThread) {
   });
 } else {
   const { values: options } = parseArgs({ options: {
-    models: { type: "string", default: "workshop-fighter,workshop-rogue" }, knees: { type: "string", default: "0.8,1.1,1.3" },
+    models: { type: "string", default: "man,woman" }, knees: { type: "string", default: "0.8,1.1,1.3" },
     haste: { type: "string", default: "1,1.5,2,3" }, generations: { type: "string", default: "14" },
     workers: { type: "string", default: String(Math.max(1, availableParallelism() - 2)) }, json: { type: "string" },
   } });

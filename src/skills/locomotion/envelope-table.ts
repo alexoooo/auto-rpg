@@ -1,6 +1,6 @@
 import { heldBy } from "../../core/bodies/items/held.ts";
 import type { SourceKey } from "../../core/sources.ts";
-import { bodyKey, type BodySpec } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { derive, sourced, type Quantity } from "../../core/quantity.ts";
 import type { StanceEnvelope } from "../../control/stance/stance-envelope.ts";
 
@@ -25,7 +25,7 @@ interface EnvelopeEntry {
 }
 
 /**
- * An envelope's asset, as `research/skills/locomotion/stance/core-stance-envelope.mjs` writes it: its speeds and ways (degrees
+ * An envelope's asset, as `research/skills/locomotion/stance/stance-envelope.mjs` writes it: its speeds and ways (degrees
  * to the right of forward), and each model's readings over every thing its right hand held, the
  * least of them, with each one's own where it measured them (`holds`).
  */
@@ -39,12 +39,12 @@ interface EnvelopeTable {
 const CARDINAL = { forward: 0, right: 90, back: 180, left: 270 } as const;
 
 /**
- * The envelope of `spec`'s body (`bodyKey`) in `table`, the asset `source` names, with what its right
+ * The envelope of `spec`'s model in `table`, the asset `source` names, with what its right
  * hand holds (`heldBy`) where the asset measured that apart, and over everything it measured held
  * where not: `what` walks, for an error.
  */
 export function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, what: string): StanceEnvelope {
-  const key = bodyKey(spec), model = table.models[key];
+  const key = spec.model, model = table.models[key];
   if (!model) throw new Error(`${what}'s envelope was not measured on ${key}`);
   const held = heldBy(spec, "right"), own = held === null ? undefined : model.holds?.[held];
   const entry = own ?? model, at = own ? `/models/${key}/holds/${held}` : `/models/${key}`;

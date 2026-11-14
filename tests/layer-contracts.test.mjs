@@ -66,7 +66,7 @@ test("convex clearance separates rounded corners and edge-cross-edge hulls", () 
 });
 
 test("two-freedom joints refuse nonorthogonal axes", () => {
-  const original = modelSpec("workshop-fighter").joints.find(joint => joint.dofs.length === 2);
+  const original = modelSpec("man").joints.find(joint => joint.dofs.length === 2);
   assert.ok(original, "the fixture needs a joint with exactly two freedoms");
   const changed = { ...original, dofs: original.dofs.map((dof, i) => ({ ...dof, axis: { ...dof.axis, value: i === 0 ? [1, 0, 0] : [1, 1, 0] } })) };
   assert.throws(() => jointKinematics(changed), /not square/);
@@ -74,10 +74,10 @@ test("two-freedom joints refuse nonorthogonal axes", () => {
 });
 
 test("completed equipment and canonical up cannot contaminate shared constants", () => {
-  const loadout = { left: "empty", right: "sword" }, spec = modelHolding("workshop-fighter", loadout);
+  const loadout = { left: "empty", right: "sword" }, spec = modelHolding("man", loadout);
   assert.ok(Object.isFrozen(spec) && Object.isFrozen(spec.held) && Object.isFrozen(spec.held[0].item));
   assert.throws(() => { spec.held[0].item.name = "changed"; }, TypeError);
-  assert.equal(modelHolding("workshop-fighter", loadout), spec);
+  assert.equal(modelHolding("man", loadout), spec);
   assert.throws(() => Vector3.UpReadOnly.set(1, 0, 0), TypeError);
   assert.deepEqual([Vector3.UpReadOnly.x, Vector3.UpReadOnly.y, Vector3.UpReadOnly.z], [0, 1, 0]);
 });
@@ -90,13 +90,13 @@ test("failed body construction removes every completed segment", async () => {
   world.physics.addBody = (...args) => { if (made === 1) throw failure; const body = add(...args); made++; return body; };
   world.physics.removeBody = body => { removed++; remove(body); };
   try {
-    assert.throws(() => buildBody(modelSpec("workshop-fighter"), world, { position: [0, 0, 0] }), error => error === failure);
+    assert.throws(() => buildBody(modelSpec("man"), world, { position: [0, 0, 0] }), error => error === failure);
     assert.deepEqual({ made, removed }, { made: 1, removed: 1 });
   } finally { world.dispose(); }
 });
 
 test("senses admit opaque prototype names and restore their complete frames", async () => {
-  const stand = await coreStand(modelSpec("workshop-fighter")), hub = createSenses(stand.world);
+  const stand = await coreStand(modelSpec("man")), hub = createSenses(stand.world);
   try {
     const readers = ["constructor", "__proto__"].map(id => hub.add({ id, side: id, built: stand.built, out: () => false }));
     assert.deepEqual(readers.map(read => read().others.map(other => other.id)), [["__proto__"], ["constructor"]]);
@@ -123,7 +123,7 @@ test("paw admission consumes its declared support point and patch", () => {
 });
 
 test("command layers deliver changed tracking, bracing and moving-frame goals", async () => {
-  const stand = await coreStand(modelSpec("workshop-fighter")), received = [], stock = stockMotor();
+  const stand = await coreStand(modelSpec("man")), received = [], stock = stockMotor();
   const motor = { ...stock, make(...args) {
     const made = stock.make(...args), reach = made.reach.bind(made);
     return { ...made, reach(segment, goal) { received.push(structuredClone(goal)); reach(segment, goal); } };
@@ -155,7 +155,7 @@ test("pacing detects changed orders from a provider reusing its object", () => {
 
 test("walk pricing refuses zero pace and bounds tiny-pace pressure sampling", () => {
   let samples = 0;
-  const spec = modelSpec("workshop-fighter"), gait = { name: "walk" };
+  const spec = modelSpec("man"), gait = { name: "walk" };
   const pressure = { model: [], phase: "clear", struck: null, peak: 0, latency: 0 };
   const at = { where: { x: 0, z: 0, face: 0 }, apart: 1, range: 1, grace: 0,
     focus: { centre: new Vector3(1, 0, 0), velocity: new Vector3(), segments: new Map(), spec },
@@ -170,7 +170,7 @@ test("walk pricing refuses zero pace and bounds tiny-pace pressure sampling", ()
 });
 
 test("fallen footprints retain observed elevation through navigation memory", () => {
-  const spec = modelSpec("workshop-fighter"), segment = spec.segments[0];
+  const spec = modelSpec("man"), segment = spec.segments[0];
   const other = { id: "fallen", down: true, out: false, spec, centre: new Vector3(0, 2.2, 0),
     segments: new Map([[segment.name, { centre: new Vector3(0, 2.2, 0), position: new Vector3(0, 2.2, 0), rotation: Quaternion.Identity() }]]) };
   const solids = fallenSolids({ others: [other] }, null, new Map());
@@ -180,7 +180,7 @@ test("fallen footprints retain observed elevation through navigation memory", ()
 
 
 test("a changed destination retains a planned route while locomotion is unavailable", () => {
-  const navigation = VISIBILITY_NAVIGATION.make(modelSpec("workshop-fighter")),
+  const navigation = VISIBILITY_NAVIGATION.make(modelSpec("man"), VISIBILITY_NAVIGATION.defaults),
     solids = [{ name: "wall", kind: "box", centre: [0, 1, 3], size: [2, 2, 2] }],
     sight = { view: { time: 0, stance: { centre: { x: 0, y: 1, z: 0 }, velocity: { x: 0, y: 0, z: 0 } },
       senses: { side: "party", others: [], solids } }, report: { legs: { heading: 0 } } },
@@ -197,7 +197,7 @@ test("a changed destination retains a planned route while locomotion is unavaila
   let from = [0, 1, 0];
   for (const point of route) {
     const to = [point.x, 1, point.z];
-    assert.ok(clearStep(from, to, bodyClearance(modelSpec("workshop-fighter")), solids), "published legs must clear the wall");
+    assert.ok(clearStep(from, to, bodyClearance(modelSpec("man")), solids), "published legs must clear the wall");
     from = to;
   }
 });

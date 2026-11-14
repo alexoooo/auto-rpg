@@ -20,14 +20,15 @@
  * selects the loaded data each provider declares relevant to a subject (`dataIdentity`).
  */
 import { dataIdentity, type DataKey } from "../../core/data/store.ts";
-import { bodyKey, type BodySpec } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { hypot } from "../../core/math/real.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
+import { chosenVariation, type Varied } from "./variations.ts";
 
 /**
- * What a profile was measured on: its body (`bodyKey`) and the digest of that body's spec
+ * What a profile was measured on: its model and the digest of that body's spec
  * (`specDigest`), its skill's digest (`skillDigest`, `techniqueDigest`), the world's rate, Hz,
  * how late its senses showed the other body, s (null for a skill that reads none), the rate its
  * mind's driver ran at, Hz, where that is not the world's (`rateOf`, `LayerOptions.every`), and the
@@ -49,7 +50,7 @@ const delayOf = (measured: Measured): number => measured.delay ?? 0;
 /** **The rate the mind's driver ran at** where `measured` was measured, Hz: its `rate`, else the world's. */
 const rateOf = (measured: Measured): number => measured.rate ?? measured.hz;
 
-/** The body a profile was measured against: its body (`bodyKey`) and its spec's digest (`specDigest`). */
+/** The body a profile was measured against: its model and its spec's digest (`specDigest`). */
 interface Target {
   readonly body: string;
   readonly spec: string;
@@ -466,7 +467,7 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
     scaled(struck) {
       const target = profile.target;
       if (!target || !struck) return null;
-      const body = bodyKey(struck);
+      const body = struck.model;
       return body !== target.body ? `measured against ${target.body}, read against ${body}` : specDigest(struck) !== target.spec ? `measured against another ${body}` : null;
     },
   };
@@ -535,19 +536,21 @@ const SPEC_DIGESTS = new WeakMap<BodySpec, string>();
 
 /**
  * **A body's spec's digest** (`digestOf`): what a profile measured on it names. Its wounds are
- * left out: they are how the rules read a blow on it (`src/combat/pool.ts`), not how it moves.
+ * left out: they are how the rules read a blow on it (`src/combat/pool.ts`), not how it moves; and
+ * its skills: a strike's digest names the variation it runs (`skillDigest`).
  */
 export const specDigest = (spec: BodySpec): string => {
   let digest = SPEC_DIGESTS.get(spec);
-  if (digest === undefined) SPEC_DIGESTS.set(spec, digest = digestOf({ ...spec, wounds: undefined }));
+  if (digest === undefined) SPEC_DIGESTS.set(spec, digest = digestOf({ ...spec, wounds: undefined, skills: undefined }));
   return digest;
 };
 
 /**
  * **A strike's digest** on a body of `spec`: what it does, not what it is called: its action's
- * config and its executor's (the one the action names), each without its name, and the body's own
+ * config and its executor's (the one the action names), each without its name, the variation of
+ * the executor's skill it runs (`chosenVariation`), and the body's own
  * row of each record the executor reads (`Part.reads`: an executor's data is its skills' records by
- * `bodyKey`, `SkillRecord`), as the mind holds them, so another body's row moves no digest.
+ * model, `SkillRecord`), as the mind holds them, so another body's row moves no digest.
  */
 export function skillDigest(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig): string {
   const executor = executors.find((entry) => entry.name === action.executor) ?? NO_EXECUTOR;
@@ -571,24 +574,24 @@ const executorPart = (parts: PartLookup, executor: ExecutorEntry) => parts.of("e
 const NO_EXECUTOR = Object.freeze({}) as ExecutorEntry;
 
 function readSkillDigest(parts: PartLookup, part: ReturnType<typeof executorPart> | null, spec: BodySpec, executor: ExecutorEntry | null, action: ActionConfig): string {
-  const body = bodyKey(spec);
+  const body = spec.model;
   const aim = action.aim ? parts.of("aim", action.aim) : null;
   const keys = [...new Set([...(executor && part ? part.reads?.(executor) ?? [] : []), ...(action.aim ? aim?.reads?.(action.aim) ?? [] : [])])];
   const data = keys.map(key => digestOf(dataIdentity(key, body)));
-  const { name: _action, executor: _executor, ...does } = action;
-  return digestOf({ action: does, executor: executor && (({ name: _, ...rest }) => rest)(executor), data });
+  const { name: _action, executor: _executor, ...does } = action, variation = executor ? chosenVariation(spec, executor.kind, executor) : undefined;
+  return digestOf({ action: does, executor: executor && (({ name: _, variation: _variation, ...rest }: ExecutorEntry & Varied) => rest)(executor), ...(variation === undefined ? {} : { variation }), data });
 }
 
 /** A ground technique's digest: its config and the body's records its part reads. */
 export function techniqueDigest(parts: PartLookup, spec: BodySpec, technique: PartConfig): string {
   const keys = parts.of("technique", technique).reads?.(technique) ?? [];
-  const body = bodyKey(spec), data = keys.map((key) => digestOf(dataIdentity(key, body)));
+  const body = spec.model, data = keys.map((key) => digestOf(dataIdentity(key, body)));
   return data.length ? digestOf({ technique, data }) : digestOf(technique);
 }
 
 /** What a profile of a skill of digest `skill`, read by a body of `spec` at `hz`, its senses `reaction` s late (null for none), its mind's driver at `rate` Hz, its command `delay` steps late, must have been measured on. */
 export const measuredOn = (spec: BodySpec, skill: string, hz: number, reaction: number | null, rate: number, delay: number): Measured =>
-  ({ body: bodyKey(spec), spec: specDigest(spec), skill, hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) });
+  ({ body: spec.model, spec: specDigest(spec), skill, hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) });
 
 /** **Whether a reaction time `now` s reads as `was` s** at `hz`: within half a step, or either unknown. */
 export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= .5 / hz;
@@ -637,7 +640,7 @@ export function profileFor(profiles: readonly Profile[], now: Measured): Found |
  * body that is stale (`staleness`), or none measured on it.
  */
 export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null, rate: number, delay: number): { readonly fresh: readonly Profile[]; readonly stale: string } {
-  const body = bodyKey(spec), digest = specDigest(spec), fresh: Profile[] = [];
+  const body = spec.model, digest = specDigest(spec), fresh: Profile[] = [];
   let stale: string | null = null;
   for (const profile of profiles) {
     const why = staleness(profile, { body, spec: digest, skill: profile.measured.skill, hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) });

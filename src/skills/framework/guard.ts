@@ -1,3 +1,4 @@
+import { heldVariation, type Variations } from "./variations.ts";
 import type { BodyView } from "../../control/body.ts";
 import type { EffectorGoal, PointTask } from "../../control/motor.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
@@ -37,6 +38,21 @@ export interface GuardPart<C extends PartConfig = PartConfig> extends Part<C> {
   posture(spec: BodySpec, config: C): Pose;
   /** The guard skill of `config` for the body `built`; its `posture` is `posture`'s for the body's spec. */
   make(built: ReadBody, config: C): GuardSkill;
+}
+
+/** **A guard's variation** (`Variations`): the arms' rest it holds and the guard skill it makes. */
+export type GuardVariation<C extends PartConfig> = Pick<GuardPart<C>, "posture" | "make">;
+
+/**
+ * **A guard's `posture`, `make` and `variations` over its variations**: each the one its body runs
+ * (`heldVariation`), and the part's own fit refusing a body whose character holds none (`variationFault`).
+ */
+export function guardVariations<C extends PartConfig>(skill: string, variations: Variations<GuardVariation<C>>): Pick<GuardPart<C>, "posture" | "make" | "variations"> {
+  return {
+    posture: (spec, config) => heldVariation(spec, skill, config, variations).posture(spec, config),
+    make: (built, config) => heldVariation(built.spec, skill, config, variations).make(built, config),
+    variations: Object.keys(variations),
+  };
 }
 
 declare module "../../parts/lookup.ts" {

@@ -1,7 +1,7 @@
 import type { LimbSpec, WoundSpec } from "../spec/body.ts";
 import { sourced, type Quantity } from "../../quantity.ts";
 import type { HumanFigure } from "./figure.ts";
-import type { WorkshopModel } from "./rig.ts";
+import type { HumanModel } from "./rig.ts";
 import { SKELETON_MODEL } from "./skeleton.ts";
 import { SIDES } from "../bilateral.ts";
 
@@ -16,8 +16,8 @@ const armsAndLegs = (arm: number, leg: number): LimbSpec[] => SIDES.flatMap((sid
 ]);
 
 /**
- * **What a human figure's wounds are** (`owner-life`): its hit points (the figure's); a workshop
- * human's head vital, its arms (0.25 of full life each) fighting on without them and its legs
+ * **What a human figure's wounds are** (`owner-life`): its hit points (the figure's); a human
+ * model's head vital, its arms (0.25 of full life each) fighting on without them and its legs
  * (0.35) not; the Skeleton's ribcage vital and never coming off, its head a limb (0.2) it fights
  * on without, its arms 0.15 and its legs 0.25.
  */
@@ -28,11 +28,11 @@ export function humanWounds(figure: HumanFigure): WoundSpec {
     : { hp: figure.hp, vital: ["head"], whole: [], limbs: armsAndLegs(0.25, 0.35), bareExtremities };
 }
 
-/** A workshop model's hit points: Warrior 6, Rogue 4. */
-export function workshopHitPoints(model: WorkshopModel): Quantity<number> {
+/** A human model's hit points: Warrior 6, Rogue 4. */
+export function humanHitPoints(model: HumanModel): Quantity<number> {
   switch (model) {
-    case "workshop-fighter": return sourced(6, "HP", "owner-hp-pool", "Warrior 6");
-    case "workshop-rogue": return sourced(4, "HP", "owner-hp-pool", "Rogue 4");
+    case "man": return sourced(6, "HP", "owner-hp-pool", "Warrior 6");
+    case "woman": return sourced(4, "HP", "owner-hp-pool", "Rogue 4");
     default: { const never: never = model; throw new Error(`no hit points for ${String(never)}`); }
   }
 }

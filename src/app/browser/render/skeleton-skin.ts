@@ -48,7 +48,7 @@ const BONE = new Color3(0.80, 0.74, 0.62), RUNE = new Color3(0.72, 0.35, 0.12);
 /** The eye's diameter, m: a fifth of a 0.16 m head's width, scaled by 0.7. */
 const EYE = 0.16 * 0.2 * 0.7;
 
-/** Dress `built`, the crypt skeleton, in `art`. The meshes and their materials are this view's own. */
+/** Dress `built`, the skeleton, in `art`. The meshes and their materials are this view's own. */
 export function dressSkeleton(built: DrawnBody, art: SkeletonArt, scene: Scene): SkinView {
   const prefix = `${built.spec.model}.skin.`;
   const bone = new PBRMaterial(`${prefix}bone`, scene);

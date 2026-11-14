@@ -34,7 +34,7 @@ import { footOn } from "../../../../src/control/support.ts";
  *   touching, the centre of mass over them, slower than `slow` and lower than `below` of standing;
  *   `stay` and `keepPitch` hold the centre of mass's place and the pelvis's pitch where they are.
  *
- *   node research/skills/recovery/witness/crouch-steady.mjs [--model workshop-fighter] [--held empty] [--variant '{"ease":0.5}'] [--seeds 8] [--trace <seed>]
+ *   node research/skills/recovery/witness/crouch-steady.mjs [--model man] [--held empty] [--variant '{"ease":0.5}'] [--seeds 8] [--trace <seed>]
  *   node research/skills/recovery/witness/crouch-steady.mjs --search [--generations 40]
  *
  * `--search` is CMA-ES (`research/cma.mjs`) over `ease`, `servo` and the stance's time constants,
@@ -50,7 +50,8 @@ import { stockBody } from "../../../../src/app/stock-body.ts";
 import { pendingControl } from "../../../minds/pending-control.mjs";
 import { buildBody } from "../../../../src/core/bodies/build/build-body.ts";
 import { loadEngine } from "../../../../src/core/physics/engines.ts";
-import { humanSpec, humanoidSpec } from "../../../../src/core/bodies/human/spec.ts";
+import { humanSpec } from "../../../../src/core/bodies/human/spec.ts";
+import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { armedWith } from "../../../../src/core/bodies/items/held.ts";
 import { guardPosture } from "../../../../src/skills/guard/guard.ts";
 import { createWorld } from "../../../../src/core/world/world.ts";
@@ -64,11 +65,11 @@ import { crouchSteady, traceRow } from "./climb.mjs";
 /** The cap, and a failure's score, s. */
 const CAP = 5, FAIL = 6;
 
-const bodySpec = (model, held) => armedWith(humanoidSpec(model), "right", held);
+const bodySpec = (model, held) => armedWith(modelSpec(model), "right", held);
 
 /** The Warrior's stored squat put on `spec` at `seed`, or why it is refused. */
 export function placement(spec, seed) {
-  const reference = humanSpec("workshop-fighter"), source = poses.find(p => p.model === "workshop-fighter" && p.id === "squat");
+  const reference = humanSpec("man"), source = poses.find(p => p.model === "man" && p.id === "squat");
   const angles = Object.fromEntries(reference.joints.flatMap(j => j.dofs.map((d, k) => [`${j.name} ${d.positive}`, source.placement.joints[j.name][k] + d.bind.value])));
   const waypoint = { ...source.placement, joints: Object.fromEntries(spec.joints.map(j => [j.name, j.dofs.map(d => (angles[`${j.name} ${d.positive}`] ?? 0) - d.bind.value)])) };
   return groundPlacement(spec, { seed, ground: { start: "placed", posture: "squat", degrees: null, impulse: null, foe: 0, gusts: false } }, waypoint);
@@ -82,7 +83,7 @@ export function acceptedSeeds(spec, count) {
 }
 
 /** One steady from the squat at `seed`: when the body is first at 95 % of standing height, handed back and verified, s. */
-export async function steady({ model = "workshop-fighter", held = "empty", seed, variant = {}, trace = false }) {
+export async function steady({ model = "man", held = "empty", seed, variant = {}, trace = false }) {
   const spec = bodySpec(model, held), placed = placement(spec, seed);
   if ("refused" in placed) return { seed, refused: placed.refused };
   const world = createWorld(await loadEngine());
@@ -133,7 +134,7 @@ if (!isMainThread && workerData.harness === "crouch-steady") {
 } else if (process.argv[1]?.endsWith("crouch-steady.mjs")) {
   const { values } = parseArgs({ options: { model: { type: "string" }, held: { type: "string" }, variant: { type: "string" }, seeds: { type: "string" },
     trace: { type: "string" }, search: { type: "boolean" }, generations: { type: "string" }, workers: { type: "string" } } });
-  const model = values.model ?? "workshop-fighter", held = values.held ?? "empty", variant = JSON.parse(values.variant ?? "{}");
+  const model = values.model ?? "man", held = values.held ?? "empty", variant = JSON.parse(values.variant ?? "{}");
   const seeds = acceptedSeeds(bodySpec(model, held), Number(values.seeds ?? 8));
   const fmt = v => v === null ? "-" : v.toFixed(2);
   if (values.trace) {

@@ -14,7 +14,7 @@ import { buildBody } from "../../../src/core/bodies/build/build-body.ts";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
 import { createWorld } from "../../../src/core/world/world.ts";
 import { freshEngine } from "../../../tests/harness/core-stand.mjs";
-import { AUDITED, envelopeSpec, posed, staticBody } from "./core-posture-trials.mjs";
+import { AUDITED, envelopeSpec, posed, staticBody } from "./posture-trials.mjs";
 
 const RECORD = new URL("./data/man-postures.json", import.meta.url);
 /** How far above the ground a start is built, m, as the installed starts were. */

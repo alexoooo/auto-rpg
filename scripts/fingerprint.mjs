@@ -9,15 +9,18 @@ import { rulebook } from "../src/combat/rulebook.ts";
  * change and compare after, on the same machine. It is not a test: a change that means to change
  * how a fight plays changes its lines, and says so.
  *
- *   node scripts/fingerprint.mjs [--workers 12] [--character] [--experimental] [--only <regex>] [--json <file>] [--compare <file>]
+ *   node scripts/fingerprint.mjs [--workers 12] [--character] [--experimental] [--only <regex>] [--json <file>] [--compare <file> [--variation <skill/variation>]...]
  *
  * The minds it plays are the game's (`Part.stage`); `--experimental` plays every mind a person may
  * pick, research ones too. `--only` runs the cases whose names match. `--json` writes each case's record as well, and
  * `--compare` reads such a file and names every case whose record differs: it fails on a pose,
  * and names a state or physics difference without failing, since a change may reshape what a
- * bout keeps and still play it to the bit. The engine is `CORE_ENGINE`'s (`tests/harness/core-stand.mjs`).
+ * bout keeps and still play it to the bit. A fight's record names the variations its bodies run
+ * (`variationsOf`); given `--variation`, a change to those variations' code, `--compare` lets a case
+ * that runs one of them move and fails on any other that moves, so a change to one variation is
+ * shown to move only the cases that run it. The engine is `CORE_ENGINE`'s (`tests/harness/core-stand.mjs`).
  *
- * `--character` prints instead what the character workshop's checks measure on its two models: the
+ * `--character` prints instead what the Character Lab's checks measure on its two models: the
  * lines a change to `scripts/character-lab/validation.mjs` or `contact.mjs` must leave as they were.
  *
  * One line a case, each ending in the first 16 hex digits of a SHA-256. A pose hash is `traceOf`'s
@@ -43,7 +46,6 @@ import { CHARACTERS, WEAPONS, clipFor } from "../src/game/appearance/characters.
 import { controlCharacter, controlsFor, defaultControl, readControls, readMinds } from "../src/app/node/setup.ts";
 import { SERVO_SECONDS, commandsBody } from "../src/control/body.ts";
 import { stockBody } from "../src/app/stock-body.ts";
-import { humanSpec } from "../src/core/bodies/human/spec.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
 import { standIntent } from "../src/skills/framework/intent.ts";
 import { driveBy } from "../src/minds/decider.ts";
@@ -78,6 +80,12 @@ import { losslessModelPath } from "./art/paths.mjs";
 Logger.LogLevels = Logger.NoneLogLevel;
 
 const digestOf = (hash) => hash.digest("hex").slice(0, 16);
+/**
+ * The skill variations `combatants` run, each `skill/variation`, sorted: every skill of a body's
+ * kit (`KitEntry`, what its mind made) that runs a variation, by that variation.
+ */
+const variationsOf = (combatants) => [...new Set(combatants.flatMap(({ minded }) => (minded.report?.kit ?? [])
+  .flatMap(({ kind, variation }) => variation === undefined ? [] : [`${kind}/${variation}`])))].sort();
 /**
  * A vector's or a quaternion's numbers, by its class's name, whichever library made it; anything
  * else, undefined.
@@ -154,9 +162,10 @@ async function arena(recipe, { watch } = {}) {
     for (let i = 0; i < 2 * world.hz; i++) step();
     const later = taken();
     const down = meter ? { down: `${watch} ${meter.reading()}` } : {};
+    const variations = variationsOf(SIDES.map((side) => duel.duelists[side]));
     return {
       line: `${verdict}, blows ${blows}, ${down.down ? `${down.down}, ` : ""}pose ${then.pose}, 2 s on ${later.pose}`,
-      record: { pose: `${then.pose} ${later.pose}`, state: `${then.state} ${later.state}`, physics: `${then.physics} ${later.physics}`, verdict, blows, ...down },
+      record: { pose: `${then.pose} ${later.pose}`, state: `${then.state} ${later.state}`, physics: `${then.physics} ${later.physics}`, verdict, blows, ...down, variations },
     };
   } finally { dispose(); }
 }
@@ -167,13 +176,14 @@ async function arena(recipe, { watch } = {}) {
  */
 async function stand(model) {
   const stand = await coreStand(modelSpec(model));
-  const body = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS.option.config, { rules: rulebook("arena"), name: "stand", orders: () => null }).body : stockBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  const minded = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS.option.config, { rules: rulebook("arena"), name: "stand", orders: () => null }) : null;
+  const body = minded?.body ?? stockBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   try {
-    if (model !== "reptile") driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills(body));
+    if (!minded) driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills(body));
     const trace = traceOf([stand.built]);
     for (let i = 0; i < stand.seconds(11); i++) { stand.step(); trace.take(); }
     const pose = trace.digest();
-    return { line: `pose ${pose}`, record: { pose } };
+    return { line: `pose ${pose}`, record: { pose, variations: minded ? variationsOf([{ built: stand.built, minded }]) : [] } };
   } finally { body.dispose(); stand.dispose(); }
 }
 
@@ -193,14 +203,15 @@ async function cryptFight(seed) {
   try {
     const trace = traceOf({ *[Symbol.iterator]() { for (const actor of run.actors) if (actor.fighter) yield actor.fighter.built; } });
     for (let i = 0; i < 12 * run.world.hz && run.status === "playing"; i++) { run.step(); trace.take(); }
-    const built = run.actors.filter((actor) => actor.fighter).length, pose = trace.digest();
-    return { line: `${run.status} at step ${run.world.steps}, bodies ${built}, blows ${run.blows.length}, pose ${pose}`, record: { pose, blows: run.blows.length } };
+    const fighters = run.actors.flatMap((actor) => actor.fighter ? [actor.fighter] : []), pose = trace.digest();
+    return { line: `${run.status} at step ${run.world.steps}, bodies ${fighters.length}, blows ${run.blows.length}, pose ${pose}`,
+      record: { pose, blows: run.blows.length, variations: variationsOf(fighters) } };
   } finally { run.dispose(); }
 }
 
 /** `model` round the lab's circle for 10 s. */
 async function labRun(model) {
-  const stand = await coreStand(humanSpec(model), { ground: true });
+  const stand = await coreStand(modelSpec(model), { ground: true });
   const run = admitted(startLocomotion(admitted(labActor(stand.built, stand.world, { mind: LAB_MIND, rules: rulebook("arena") })), trackOf(TRACKS.circle.pieces)));
   try {
     const trace = traceOf([stand.built]);
@@ -259,7 +270,7 @@ const SPANS = [["hand_l", "hand_r"], ["foot_l", "head"], ["foot_r", "upperarm_l"
 const CLEAR = new Vector3(3, 0, 0);
 
 /**
- * What the workshop's checks measure on the model `id` (`scripts/character-lab/validation.mjs`, `contact.mjs`):
+ * What the Character Lab's checks measure on the model `id` (`scripts/character-lab/validation.mjs`, `contact.mjs`):
  * the regions of its skin at rest, and, at `CHARACTER_FRAMES` of every clip of the catalogue, each wrist's area and
  * each forearm's girth against rest, how each pad of the holding hand lies on each grip the clip carries, and what
  * the surface index answers for a short segment through triangles of the head and for long ones across the body
@@ -372,12 +383,12 @@ const both = (held) => ({ left: rightHand(held), right: rightHand(held) });
 /** Whether the run plays the mind `id`: a game mind, or any where `--experimental` asks (`Part.stage`); a worker is handed the run's arguments. */
 const played = (id) => process.argv.includes("--experimental") || partOf(MINDS[id].config).stage === "game";
 /** The Rogue's mind against the Warrior's `control` holding `held`: the same where the Rogue is offered it, else its own (`defaultControl`). */
-const rogueControl = (control, held) => controlsFor("workshop-rogue", rightHand(held)).includes(control) ? control : defaultControl("workshop-rogue", rightHand(held));
+const rogueControl = (control, held) => controlsFor("woman", rightHand(held)).includes(control) ? control : defaultControl("woman", rightHand(held));
 /** What a fighter's right hand holds in the cases below, the left empty. */
 const HELDS = Object.freeze(["sword", "club", "empty"]);
 /** The minds the Warrior is offered (`controlsFor`) that the run plays, with each loadout it is offered with: each a case below. */
-const warriorMinds = () => [...new Set(HELDS.flatMap((held) => controlsFor("workshop-fighter", rightHand(held))))].filter(played)
-  .map((control) => [control, HELDS.filter((held) => controlsFor("workshop-fighter", rightHand(held)).includes(control))]);
+const warriorMinds = () => [...new Set(HELDS.flatMap((held) => controlsFor("man", rightHand(held))))].filter(played)
+  .map((control) => [control, HELDS.filter((held) => controlsFor("man", rightHand(held)).includes(control))]);
 /**
  * A case for each mind a person may pick for a fight (`MINDS`, an entrant's among them) that the
  * run plays, the Warrior is not offered and no case above plays: itself on
@@ -393,31 +404,31 @@ const elsewhere = () => Object.entries(MINDS).filter(([id]) => played(id) && war
 });
 /**
  * A case for each part that reads mind data, so that a change to how the data is loaded or stored is
- * read by a case that plays it: the straight punch's records, Option Mind throwing it alone at the chest on both sides of a bout of toed Warriors, the body it has a record for.
+ * read by a case that plays it: the straight punch's records, Option Mind throwing it alone at the chest on both sides of a bout of Warriors, the body it has a record for.
  */
 const DATA_CASES = [
   { name: "data: straight-punch", run: () => {
     const option = MINDS.option.config, mind = { ...option,
       options: option.options.filter((one) => !one.kind.startsWith("strike-") || one.kind === "strike-straight-punch") };
-    return arena({ left: "workshop-fighter", right: "workshop-fighter", loadouts: both("empty"), minds: { left: mind, right: mind } });
+    return arena({ left: "man", right: "man", loadouts: both("empty"), minds: { left: mind, right: mind } });
   } },
 ];
 /** The cases in the order they print, the long ones first so that the lanes stay full. */
 const CASES = [
-  ...[["workshop-fighter", "workshop-rogue"], ["crypt-skeleton", "workshop-fighter"], ["workshop-rogue", "crypt-skeleton"]]
+  ...[["man", "woman"], ["skeleton", "man"], ["woman", "skeleton"]]
     .map(([left, right]) => ({ name: `arena ${left} v ${right}`, run: () => arena({ left, right }) })),
   ...warriorMinds().flatMap(([control, helds]) =>
-    helds.map((held) => controlled("workshop-fighter", "workshop-rogue", `${control},${rogueControl(control, held)}`, both(held)))),
-  controlled("crypt-skeleton", "workshop-rogue", "option,option", both("sword")),
+    helds.map((held) => controlled("man", "woman", `${control},${rogueControl(control, held)}`, both(held)))),
+  controlled("skeleton", "woman", "option,option", both("sword")),
   controlled("reptile", "reptile", "option,option", both("empty")),
-  controlled("reptile", "workshop-fighter", "option,option", { left: rightHand("empty"), right: rightHand("sword") }),
+  controlled("reptile", "man", "option,option", { left: rightHand("empty"), right: rightHand("sword") }),
   ...elsewhere(),
   ...DATA_CASES,
   { name: "bare: seeded nonzero network", run: () => arena(seededBareRecipe()) },
   ...entrantRecipes().map(({ name, recipe }) => ({ name, run: () => arena(recipe) })),
   ...[...HUMANOID_MODELS, "reptile"].map((model) => ({ name: `stand ${model}`, run: () => stand(model) })),
   ...[1, 2].map((seed) => ({ name: `crypt fight, seed ${seed}`, run: () => cryptFight(seed) })),
-  ...["workshop-fighter", "workshop-rogue"].flatMap((model) => [
+  ...["man", "woman"].flatMap((model) => [
     { name: `lab run, circle, ${model}`, run: () => labRun(model) },
   ]),
   { name: "crypts, seeds 0-99 and 2124530852", run: () => crypts([...range(100), 2124530852]) },
@@ -425,15 +436,16 @@ const CASES = [
   ...range(8).map((i) => i + 1).map((seed) => ({ name: `sight, crypt ${seed}`, run: () => sight(seed) })),
   { name: "weathering, crypts 1-3", run: () => weathering([1, 2, 3]) },
   { name: "cut-away, the chamber and crypts 1-3", run: () => cutaway([1, 2, 3]) },
-  ...Object.keys(CHARACTERS).map((id) => ({ name: `character ${id}`, workshop: true, run: () => character(id) })),
+  ...Object.keys(CHARACTERS).map((id) => ({ name: `character ${id}`, character: true, run: () => character(id) })),
 ];
 
 if (isMainThread) {
   const { values } = parseArgs({ options: {
     workers: { type: "string" }, character: { type: "boolean" }, experimental: { type: "boolean" }, only: { type: "string" }, json: { type: "string" }, compare: { type: "string" },
+    variation: { type: "string", multiple: true },
   } });
   const only = values.only === undefined ? null : new RegExp(values.only);
-  const chosen = CASES.keys().filter((id) => !!CASES[id].workshop === !!values.character && (!only || only.test(CASES[id].name))).toArray();
+  const chosen = CASES.keys().filter((id) => !!CASES[id].character === !!values.character && (!only || only.test(CASES[id].name))).toArray();
   console.log(`engine ${CORE_ENGINE}, ${chosen.length} cases`);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
   const lines = new Array(CASES.length);
@@ -446,16 +458,21 @@ if (isMainThread) {
   if (values.compare) {
     const before = JSON.parse(await readFile(values.compare, "utf8"));
     if (before.engine !== CORE_ENGINE) throw new Error(`${values.compare} was taken on ${before.engine}, this on ${CORE_ENGINE}`);
-    let moved = 0;
+    // The variations changed; a case runs one where its record says so before or after.
+    const changed = new Set(values.variation ?? []);
+    const runs = (...records) => records.flatMap((record) => record?.variations ?? []).filter((one) => changed.has(one));
+    let moved = 0, expected = 0;
     for (const [name, record] of Object.entries(cases)) {
       const was = before.cases[name];
       if (!was) { console.log(`new: ${name}`); continue; }
       const differs = Object.keys({ ...was, ...record }).filter((key) => JSON.stringify(was[key]) !== JSON.stringify(record[key]));
-      if (differs.includes("pose")) moved++;
-      if (differs.length) console.log(`${differs.includes("pose") ? "MOVED" : "reshaped"}: ${name} (${differs.join(", ")})`);
+      const running = [...new Set(runs(was, record))];
+      if (differs.includes("pose")) { if (running.length) expected++; else moved++; }
+      if (differs.length) console.log(`${!differs.includes("pose") ? "reshaped" : running.length ? `moved, runs ${running.join(" ")}` : "MOVED"}: ${name} (${differs.join(", ")})`);
     }
     for (const name of Object.keys(before.cases)) if (!(name in cases) && (!only || only.test(name))) console.log(`gone: ${name}`);
-    console.log(moved ? `${moved} cases moved` : "no pose moved");
+    if (expected) console.log(`${expected} cases that run ${[...changed].join(" ")} moved`);
+    console.log(moved ? `${moved} cases moved${changed.size ? " that run none of the changed variations" : ""}` : changed.size ? "no other pose moved" : "no pose moved");
     if (moved) process.exitCode = 1;
   }
 } else {

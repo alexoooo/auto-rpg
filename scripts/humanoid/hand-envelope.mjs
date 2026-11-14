@@ -1,5 +1,5 @@
 /**
- * **A workshop human's hands**, measured from its GLB's bare skin (`base__skin`, which the Warrior
+ * **A human model's hands**, measured from its GLB's bare skin (`base__skin`, which the Warrior
  * and the Rogue share with their rig). Each side's:
  *
  * - `palm`: the open hand's convex hull, the bind pose's skinned hand (fingers straight), and its
@@ -28,14 +28,14 @@ import { fistTurns, loadGlb, restBones, skinHand } from "../lab/fist-probe.mjs";
 import { FIST } from "../../src/core/bodies/human/fist.ts";
 import { convexHull } from "../../src/core/bodies/spec/hull.ts";
 import { add, cross, dot, length, normalize, orthogonalTo, scale, sub } from "../../src/core/bodies/spec/vec.ts";
-import { transcribed } from "./workshop-envelope.mjs";
-import fighterRig from "../../assets/humanoid/workshop-fighter.json" with { type: "json" };
-import rogueRig from "../../assets/humanoid/workshop-rogue.json" with { type: "json" };
+import { transcribed } from "./clothed-envelope.mjs";
+import manRig from "../../assets/humanoid/man.json" with { type: "json" };
+import womanRig from "../../assets/humanoid/woman.json" with { type: "json" };
 import { SIDES } from "../../src/core/bodies/bilateral.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const RIGS = { "workshop-fighter": fighterRig, "workshop-rogue": rogueRig };
-/** The models whose hands are measured: the workshop humans. */
+const RIGS = { man: manRig, woman: womanRig };
+/** The models whose hands are measured: the two humans. */
 const HAND_MODELS = Object.freeze(Object.keys(RIGS));
 const handsFile = (model) => path.join(ROOT, "assets", "humanoid", `${model}-hands.json`);
 
@@ -47,7 +47,7 @@ export const PATCH = 0.005;
 
 /** Blender (the rig's export) to the body frame, as `src/core/bodies/human/rig.ts` turns it. */
 const fromBlender = ([x, y, z]) => [-x, z, -y];
-/** glTF (the GLB) to the body frame, as `workshop-envelope.mjs` turns it. */
+/** glTF (the GLB) to the body frame, as `clothed-envelope.mjs` turns it. */
 export const fromGltf = ([x, y, z]) => [-x, y, z];
 /** A bone's head or tail in the body frame. */
 export const rigBone = (model, name, end) => fromBlender(RIGS[model].bones[name][end]);

@@ -70,8 +70,8 @@ if (isMainThread) {
     for (const t of p.trials) { const f = byFrom.get(t.start.postures.own) ?? { n: 0, done: 0, seconds: 0 }; f.n++; f.done += t.done ? 1 : 0; f.seconds += t.seconds; byFrom.set(t.start.postures.own, f); }
     console.log(`${p.label} ${p.measured.spec}: ${[...byFrom].map(([from, f]) => `from ${from} ${f.done}/${f.n} done, ${(f.seconds / f.n).toFixed(2)} s`).join("; ")}`);
   }
-  const { modelSpec } = await import("../../../src/core/bodies/models.ts"), { bodyKey } = await import("../../../src/core/bodies/spec/body.ts");
-  const body = values.model ? bodyKey(modelSpec(values.model)) : null;
+  const { modelSpec } = await import("../../../src/core/bodies/models.ts");
+  const body = values.model ? modelSpec(values.model).model : null;
   const refreshed = sorted.map((p) => ({ measured: p.measured, target: null, trials: p.trials }));
   const out = { source: { script: "research/skills/recovery/edge-profiles.mjs", engine: DEFAULT_ENGINE, falls: "rising-target", offsets },
     profiles: [...(retained?.profiles.filter((p) => p.measured.body !== body) ?? []), ...refreshed] };

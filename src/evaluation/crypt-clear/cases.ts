@@ -31,7 +31,7 @@ const ALONE = deepFreeze({
   seeds: [10, 25],
   trials: 2,
   enemies: [{ kind: "mob" }, { kind: "independent" }] as CommanderConfig[],
-  hero: "workshop-fighter" as BodyModel,
+  hero: "man" as BodyModel,
   mind: "option",
   walk: 0.5,
 });

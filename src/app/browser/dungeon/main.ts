@@ -21,7 +21,7 @@ import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { movementRoutes } from "../render/movement-routes.ts";
 import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
-import { HUMANOID_MODELS, type BodyModel } from "../../../core/bodies/models.ts";
+import { HUMANOID_MODELS, modelLabel, type BodyModel } from "../../../core/bodies/models.ts";
 import { defaultMind } from "../../catalog.ts";
 import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -129,7 +129,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   const linkedSeed = setupQuery.get("seed");
   seedInput.value = linkedSeed !== null && /^\d{1,10}$/.test(linkedSeed) && Number(linkedSeed) <= 4294967295 ? linkedSeed : String(randomSeed());
   /** The heroes a person can lead, in the order companions are drawn from: each is a body, and each carries what its model holds (`ModelInfo.held`). */
-  const HEROES: readonly { readonly model: BodyModel; readonly label: string }[] = HUMANOID_MODELS.map((model) => ({ model, label: MODEL_DISPLAY[model].label }));
+  const HEROES: readonly { readonly model: BodyModel; readonly label: string }[] = HUMANOID_MODELS.map((model) => ({ model, label: modelLabel(model) }));
   /** The companions for a hero: the next heroes on the list after the hero's own, in turn. */
   const companionModels = (hero: BodyModel, count: number): BodyModel[] => {
     const at = Math.max(0, HEROES.findIndex(h => h.model === hero));
@@ -137,7 +137,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   };
   for (const hero of HEROES) {
     const label = document.createElement("label"), input = document.createElement("input"), name = document.createElement("span");
-    input.type = "radio"; input.name = "hero"; input.value = hero.model; input.checked = hero.model === (setupQuery.get("hero") ?? "workshop-fighter");
+    input.type = "radio"; input.name = "hero"; input.value = hero.model; input.checked = hero.model === (setupQuery.get("hero") ?? "man");
     name.textContent = hero.label;
     label.append(input, name); heroChoices.append(label);
   }
@@ -294,7 +294,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       meter,
       abort, signal: abort.signal,
       party: null,
-      selectedHero: "workshop-fighter", mind: () => null, attributes: () => ({}), loadout: () => null, companions: [], clothing: { boots: true, armour: true },
+      selectedHero: "man", mind: () => null, attributes: () => ({}), loadout: () => null, companions: [], clothing: { boots: true, armour: true },
       selectedScenario: "generated", selectedQuality: "high", reference: false, commanders: { party: { kind: "party" }, enemies: { kind: "mob" } },
       seed: 0, cryptPlan: undefined, scene: null, run: null, camera: null, rig: null, subjects: new Map(), lighting: null, referenceLook: null,
       drawn: [], soundTorches: [], routes: null,

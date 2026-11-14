@@ -3,7 +3,7 @@ import { LOADOUTS, type Held, type Loadout } from "../core/bodies/items/held.ts"
 
 /** Default equipment selected by the game's model roster. */
 const EQUIPMENT: Readonly<Record<BodyModel, Held>> = Object.freeze({
-  "workshop-fighter": "sword", "workshop-rogue": "sword", "crypt-skeleton": "sword", reptile: "empty", rat: "empty",
+  man: "sword", woman: "sword", skeleton: "sword", reptile: "empty", rat: "empty",
 });
 
 /** The game's equipment choice where a setup supplies none. */

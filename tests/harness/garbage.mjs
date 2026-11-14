@@ -20,7 +20,7 @@ import { poseAngles } from "../../src/control/kinematics.ts";
  * 3 m apart, each under the command layers with an order to stand: what a step allocates is read
  * on them (`tests/core-step-cost.test.mjs`, `research/step-garbage.mjs`).
  */
-export async function standBodies(count, model = "crypt-skeleton") {
+export async function standBodies(count, model = "skeleton") {
   const spec = armed(modelSpec(model), "right", woodenClub());
   const world = createWorld(await freshEngine());
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
@@ -52,7 +52,7 @@ const lying = (_own, view) => ({
 export async function downBody() {
   const world = createWorld(await freshEngine());
   world.physics.addFixedBox([0, -.5, 0], [20, 1, 20]);
-  const spec = modelSpec("workshop-fighter"), half = Math.sqrt(.5);
+  const spec = modelSpec("man"), half = Math.sqrt(.5);
   const built = buildBody(spec, world, { position: [0, .4, 0], rotation: [-half, 0, 0, half], joints: poseAngles(spec, GUARD) });
   const body = stockBody(built, world, { servoSeconds: SERVO_SECONDS }, [lying]);
   return { world, body, dispose() { body.dispose(); built.dispose(); world.dispose(); } };

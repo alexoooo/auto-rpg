@@ -17,7 +17,7 @@ const {standingSkills}=await module(existsSync(resolve(base,'src/app/standing-sk
 const {standIntent}=await module('src/skills/framework/intent.ts');
 const makesSkills=readFileSync(resolve(base,'src/minds/decider.ts'),'utf8').includes('make: (body: Body) => Skills');
 const output={};
-for(const model of ['workshop-fighter','workshop-rogue','crypt-skeleton']){
+for(const model of ['man','woman','skeleton']){
  const s=await coreStand(modelSpec(model),{engine:'rapier-coordinate'}),b=stockBody(s.built,s.world,{servoSeconds:SERVO_SECONDS});
  driveBy(b,{name:'standing',decide:()=>standIntent(0)},makesSkills?standingSkills:standingSkills(b));const trace=traceOf([s.built]);
  s.step(120);let time=0;for(let i=0;i<1200;i++){const start=performance.now();s.step();time+=performance.now()-start;trace.take();}
@@ -25,7 +25,7 @@ for(const model of ['workshop-fighter','workshop-rogue','crypt-skeleton']){
 }
 for(const held of ['club','empty']){
  const world = createWorld(await freshEngine('rapier-coordinate'));
- world.physics.addFixedBox([0,-.5,0],[40,1,40]);const duel=new Duel(world,{left:'workshop-fighter',right:'workshop-rogue',loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } }});
+ world.physics.addFixedBox([0,-.5,0],[40,1,40]);const duel=new Duel(world,{left:'man',right:'woman',loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } }});
  const trace=traceOf(Object.values(duel.duelists).map(f=>f.built));let time=0;
  for(let i=0;i<2400;i++){const start=performance.now();world.step();time+=performance.now()-start;trace.take();}
  output[held]={digest:trace.digest(),milliseconds:time/2400,verdict:duel.verdict};duel.dispose();world.dispose();

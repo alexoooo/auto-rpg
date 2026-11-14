@@ -2,7 +2,7 @@
 
 ## Goal
 
-The toed Warrior (`workshop-fighter`, record key `workshop-fighter+toes`, default attributes, no
+The Warrior (`man`, default attributes, no
 assistance) bonks a standing body's head with the club as hard as it can: an intentional overhead strike
 that raises the club above the head, brings it down in one descending arc onto the head with the
 club's swell, the arm straight as it lands, follows through and returns to guard. It does so with either hand, the club alone and with the buckler in the other
@@ -42,13 +42,13 @@ by contact.
   (`score.ts`); the `bonk` protocol plays the still rung's places on the Warrior's right hand at
   the drill's standing target, its arms lowered (`drill-stand`), each of the game's foes (the
   Warrior, the Rogue, the Skeleton).
-- **The bonk** is a swing (`swingExecutor`, `SWINGS.bonk` in `src/skills/strikes/swing-part.ts`): a
-  chamber posture and timed pushes, its record `assets/skills/strikes/bonk/bonk.json`, thrown by
+- **The bonk** is a swing (`swingExecutor`, `BONK_PART` in `src/skills/strikes/bonk/index.ts`): a
+  chamber posture and timed pushes, its record `assets/skills/strikes/bonk/swing.json`, thrown by
   its own experimental Option (`strike-bonk`, aimed at the head's centre). It is searched on the
   training twins of the body's bonk row's cells by
-  `research/skills/strikes/swing/swing-drill.mjs --body workshop-fighter --skill bonk`, scored by
+  `research/skills/strikes/swing/swing-drill.mjs --body man --skill bonk`, scored by
   the cell's value graded (`searchScore`), and confirmed on the cells' own cases (`--confirm`).
-- **The straight punch** (`src/skills/strikes/straight-punch.ts`, `learned-punch.ts`) is the
+- **The straight punch** (`src/skills/strikes/shared/straight-drive.ts`, `shared/steer.ts`) is the
   worked example of every step below: a graded bar, a searched push schedule, a learned actor
   correcting it.
 
@@ -92,7 +92,7 @@ strikes as it arrives (`walk`), at the paces its walk serves; faster with
 ## Where it stands
 
 The row, from saved results:
-`npm run evaluate -- table --body workshop-fighter --skill bonk --by gap`.
+`npm run evaluate -- table --body man --skill bonk --by gap`.
 
 - **Work steps 1 to 3 are done, and step 6**: the native swing (its record, with its footing) is
   the Warrior's bonk, Option Mind's only club blow (`src/entrants/option/mind.ts`), priced by its

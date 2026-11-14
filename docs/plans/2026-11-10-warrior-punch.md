@@ -5,7 +5,7 @@ what is worked next is the run's brief ([AGENTS.md](../../AGENTS.md#the-rules)),
 
 ## Goal
 
-Raise the value of the Warrior's punch: the table's `punch` row on `workshop-fighter`, its cells
+Raise the value of the Warrior's punch: the table's `punch` row on `man`, its cells
 the loadouts with an empty hand (`empty,empty`, `empty,club`, `empty,sword`). The value is the
 life a punch trades a second ([the table](../reference/the-table.md)). The punch is the straight
 punch at the trunk with an empty hand; no other blow is part of this goal.
@@ -17,8 +17,8 @@ arms lowered (`drill-stand`). Each asks the straight punch at the trunk, with ea
 against the Warrior, the Rogue and the Skeleton. Read the saved results, playing nothing:
 
 ```powershell
-npm run evaluate -- table --body workshop-fighter --skill punch
-npm run evaluate -- table --body workshop-fighter --skill punch --loadout empty,empty --by gap
+npm run evaluate -- table --body man --skill punch
+npm run evaluate -- table --body man --skill punch --loadout empty,empty --by gap
 ```
 
 Values are hp traded a second; counts are begun / on the mark / trials. The cell's mark compares
@@ -115,7 +115,7 @@ The foe moves 0.071 m during the action. Removing only foe travel still misses; 
 learned arm pushes still misses. Across P’s 12 missed trials, closest fist-to-aim distances are
 0.106–0.442 m; the other two P trials hit the head while aimed at the trunk (4 m, right moment 3,
 left moment 4). The drive and its corrections are in `straightTechnique.drive` and
-`straightPunchExecutor.command` (`src/skills/strikes/straight-punch.ts`, `steerPushes`). The trace
+`straightDriveExecutor.command` (`src/skills/strikes/shared/straight-drive.ts`, `steerPushes`). The trace
 establishes the missing or misplaced delivery; these ablations do not isolate its native and
 learned contributions. Removing learned pushes changes 3 m right moment 7 from missed to guarded
 and left moment 2 from missed to elsewhere: their later obstruction or misplaced contact is secondary.
@@ -126,7 +126,7 @@ only the learned heading and centre requests changes `fell` to `landed`. The sam
 the falls at 3 m left moments 4 and 5, and 5 m right moment 5; those become missed. The right-hand
 case first waits for the original left punch, whose stance requests destabilize the body before
 the requested right can begin. The later foe blow is secondary. The source is `stanceAsks`
-and the `heading`/`centre` legs goals in `straightPunchExecutor.command`.
+and the `heading`/`centre` legs goals in `straightDriveExecutor.command`.
 
 **Learned arm (A), confirmed.** At 5 m, right, moment 6 ([fights Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)),
 the fist misses before the foe contacts the head at 22.783 s. Suppressing only learned arm pushes
@@ -167,7 +167,7 @@ the foe retreats across the moving window and the requested punch never begins. 
 foe travel after takeover changes outside to guarded. At the same gap, right moment 6 becomes
 missed under that removal. Guard or delivery remains secondary, with stance quietness also
 limiting the right-hand admission. The moving window is `strikeWindow` and `quietToStrike`
-(`src/skills/strikes/strike-window.ts`), pursued by the drill’s ordinary approach.
+(`src/skills/strikes/shared/strike-window.ts`), pursued by the drill’s ordinary approach.
 
 **Unreached (U), trace evidence.** At 3 m, either hand, moment 8 ([fights Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)),
 the fight reaches seven body-directed actions before 30 s. At 5 m it reaches six, so moments
@@ -191,7 +191,7 @@ Skeleton causes; held items; Option Mind’s own punch choice and combat footwor
 The commitment comparison reads the installed punch in Node, `rapier-coordinate`, 120 Hz,
 each command one step late, with empty hands. All 20 selected `fights` trials reproduce their
 saved outcome labels. Of the 414 `still`, `walk`, `still-twin` and `walk-twin` trials
-from `drillTrials(cellOf({ body: "workshop-fighter", skill: "punch" }), "cell")` and its `"twin"`,
+from `drillTrials(cellOf({ body: "man", skill: "punch" }), "cell")` and its `"twin"`,
 414 begin an action and 414 supply a first committed drive.
 The reference is every such commitment, including failed drill punches. Each fight commitment
 has at least one input outside that reference's component ranges; this identifies missing
@@ -202,8 +202,8 @@ rotation in 18; ground speed is outside in only
 1. A speed admitted by the drill's range therefore does not
 establish that the arm, trunk or velocity vector is a state the drill holds.
 
-The readings are the 59 inputs of `PUNCH_LAYOUT`, directly from `punchFeatures`
-at drive age zero, mirrored by `punchChannels`. Vectors stay together, in across/up/ahead order,
+The readings are the 59 inputs of `PUNCH_LAYOUT`, directly from `steerFeatures`
+at drive age zero, mirrored by `steerChannels`. Vectors stay together, in across/up/ahead order,
 across toward the punching hand. Network vectors use the root frame; admission and foe
 context use the ground heading. The admission readings use the target against the head,
 the legs' heading and the striker's ground speed; facing error uses target against centre,
@@ -308,13 +308,13 @@ At 3-left-5 ([fights Ratings](http://localhost:5180/?play=ratings&evaluation=str
 
 At 5-left-5 ([fights Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)), changing **centre velocity** changes `fell` to `landed` with the quantity in range; its coupled input changes are reported with the intervention.
 
-The input mapping is `punchChannels` and `punchFeatures`
-(`src/skills/strikes/learned-punch.ts`); the first drive and its learned correction are
-`straightTechnique.drive`, with `stanceAsks` applied by `straightPunchExecutor.command`
-(`src/skills/strikes/straight-punch.ts`). Target velocity is the aim's finite difference,
+The input mapping is `steerChannels` and `steerFeatures`
+(`src/skills/strikes/shared/steer.ts`); the first drive and its learned correction are
+`straightTechnique.drive`, with `stanceAsks` applied by `straightDriveExecutor.command`
+(`src/skills/strikes/shared/straight-drive.ts`). Target velocity is the aim's finite difference,
 clipped per world component by `AIM_SPEED` in `aimAt`, rather than the foe's centre velocity.
-Admission is `punchReadiness` in `straight-punch.ts`, then `strikeWindow` and `quietToStrike`
-(`src/skills/strikes/strike-window.ts`), with facing read by `windowHolds`
+Admission is `driveReadiness` in `shared/straight-drive.ts`, then `strikeWindow` and `quietToStrike`
+(`src/skills/strikes/shared/strike-window.ts`), with facing read by `windowHolds`
 (`src/skills/intent/action-window.ts`). The range table describes those code paths' inputs;
 it does not identify a defect in them.
 
@@ -337,8 +337,8 @@ remains open.
 
 ## To pick it up
 
-- **The skill**: the executor `src/skills/strikes/straight-punch.ts`, its part `punch-part.ts`,
-  what its network reads `learned-punch.ts`, its window `strike-window.ts`; its record and the
+- **The skill**: the executor `src/skills/strikes/shared/straight-drive.ts`, its part `straight-punch/index.ts`,
+  what its network reads `shared/steer.ts`, its window `shared/strike-window.ts`; its record and the
   network's layout in `assets/skills/strikes/straight-punch/`.
 - **The Option**: `strikeKind` and `STRAIGHT_PUNCH_OPTION` in `src/minds/option/kinds.ts`; the
   game's config in `src/entrants/option/mind.ts`; its profiles, which price it for the Mind, are
@@ -356,7 +356,7 @@ remains open.
   `npm run evaluate -- strike option/straight-punch --protocol still`; with `--write` it becomes
   the newest result the table reads. Price it from its first trials.
 - **The row, played again on the code now**:
-  `npm run evaluate -- table --body workshop-fighter --skill punch --fresh --workers <logical processors>`.
+  `npm run evaluate -- table --body man --skill punch --fresh --workers <logical processors>`.
   Each reading has its baseline, so the lines then say better, worse or within noise.
 - Work goes under `.tmp/warrior-punch/`.
 

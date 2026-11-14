@@ -8,7 +8,7 @@ import {
 /**
  * **The bake-off's engine-neutral body**: what every engine adapter builds, and nothing else.
  *
- * It is read from `humanSpec("workshop-fighter")`: each segment's mass, centre of mass, principal
+ * It is read from `humanSpec("man")`: each segment's mass, centre of mass, principal
  * inertia (kg m2, about the segment frame's axes) and each joint's centre, freedoms, ranges and
  * muscle peaks, as the spec states them. Two simplifications, the same for every engine:
  *
@@ -68,7 +68,7 @@ export interface Model {
 
 export const GRAVITY = STANDARD_GRAVITY.value;
 /** The body the bench builds: the Warrior. */
-const WARRIOR = "workshop-fighter" as const;
+const WARRIOR = "man" as const;
 
 /** Segment frame coordinates of body-frame `p`. */
 function inFrame(spec: SegmentSpec, p: readonly number[]): V3 {
@@ -110,7 +110,7 @@ function segmentOf(spec: SegmentSpec): Segment {
   return { name: spec.name, mass: spec.mass.value, com, inertia: [...spec.inertia.value] as V3, inertiaFrame: frame, shape };
 }
 
-/** The whole workshop human, every segment and joint of the spec, hulls as boxes. */
+/** The whole human model, every segment and joint of the spec, hulls as boxes. */
 export function humanModel(): Model {
   const spec = humanSpec(WARRIOR);
   const segments = spec.segments.map(segmentOf);

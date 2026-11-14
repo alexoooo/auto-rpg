@@ -19,7 +19,7 @@ import { lifeTaken } from "../src/combat/blows.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 
 const { values } = parseArgs({ options: { seeds: { type: "string", default: "1,2,3,4" }, seconds: { type: "string", default: "120" }, companions: { type: "string", default: "0" } } });
-const seconds = Number(values.seconds), companions = Array.from({ length: Number(values.companions) }, () => "workshop-fighter");
+const seconds = Number(values.seconds), companions = Array.from({ length: Number(values.companions) }, () => "man");
 
 const hpOf = (blow) => blow.sides.reduce((sum, side) => sum + lifeTaken(side), 0);
 const isHand = (side) => side.item === null && side.segment.startsWith("hand.");

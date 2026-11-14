@@ -13,7 +13,7 @@
  * difference with its 95 % bootstrap interval and verdict (`compareValues`), and the trials only one
  * of them fell in.
  *
- *   node research/skills/locomotion/locomotion-scorecard.mjs --out .tmp/<task>/card.jsonl [--bodies workshop-fighter,workshop-rogue]
+ *   node research/skills/locomotion/locomotion-scorecard.mjs --out .tmp/<task>/card.jsonl [--bodies man,woman]
  *     [--skills walk,run] [--legs '<json>'|file] [--stance '<json>'|file] [--gait run='<json>'|file ...]
  *     [--cell [--hz 480]] [--against <other.jsonl>] [--workers 14]
  *
@@ -31,7 +31,7 @@ import { drillTrials, scoreOn, trialPool } from "../../drill-trials.mjs";
 import { moveRow, valuesWith } from "./move-drill.mjs";
 
 const { values: o } = parseArgs({ options: {
-  out: { type: "string" }, bodies: { type: "string", default: "workshop-fighter,workshop-rogue" }, skills: { type: "string", default: "walk" },
+  out: { type: "string" }, bodies: { type: "string", default: "man,woman" }, skills: { type: "string", default: "walk" },
   legs: { type: "string" }, stance: { type: "string" }, gait: { type: "string", multiple: true }, cell: { type: "boolean" }, hz: { type: "string", default: "120" },
   against: { type: "string" }, workers: { type: "string" },
 } });

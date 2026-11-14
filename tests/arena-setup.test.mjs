@@ -9,11 +9,11 @@ import { dataOf } from "../src/core/data/store.ts";
 test("Arena setup loads compatibility data before offering Option Mind", async () => {
   const context = applicationContext("setup-test"), { catalog } = context;
   const { readControls, linkedMind } = createMatchup(context), { mindFaults } = mindLinks(catalog);
-  assert.throws(() => dataOf("stomp"), /mind data "stomp" is not loaded/);
+  assert.throws(() => dataOf("stomp/stomp"), /mind data "stomp\/stomp" is not loaded/);
   await catalog.loadFitData();
-  const search = "?control=option&matchup=workshop-fighter,workshop-rogue";
+  const search = "?control=option&matchup=man,woman";
   assert.deepEqual(readControls(search), { left: "option", right: "option" });
-  for (const [side, model] of [["left", "workshop-fighter"], ["right", "workshop-rogue"]]) {
+  for (const [side, model] of [["left", "man"], ["right", "woman"]]) {
     const mind = linkedMind(search, side), spec = modelSpec(model);
     assert.deepEqual(mind, { config: catalog.minds.option.config, faults: [] });
     assert.deepEqual(mindFaults(mind.config, spec), []);
@@ -21,6 +21,6 @@ test("Arena setup loads compatibility data before offering Option Mind", async (
   }
   const reptile = modelSpec("reptile"), config = catalog.minds.option.config;
   assert.equal(catalog.kindsFor("aim", reptile, config).find(part => part.kind === "first-exposed").reason, null);
-  assert.equal(catalog.kindsFor("executor", reptile, config).find(part => part.kind === "jaw-bite").reason, null);
-  assert.throws(() => dataOf("straight-punch"), /mind data "straight-punch" is not loaded/);
+  assert.equal(catalog.kindsFor("executor", reptile, config).find(part => part.kind === "bite").reason, null);
+  assert.throws(() => dataOf("straight-punch/drive"), /mind data "straight-punch\/drive" is not loaded/);
 });

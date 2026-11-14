@@ -70,6 +70,11 @@ export interface Part<C extends PartConfig = PartConfig> extends Edited<C> {
   readonly keys: Readonly<Record<string, true>>;
   /** The keys of the research tuning a config of it may carry (`tuning`); none, it carries none. */
   readonly tuning?: readonly string[];
+  /**
+   * **A skill's variations** by name (`Variations`): a part with them is a skill a character
+   * chooses (`BodySpec.skills`), and a body runs only those its character holds (`variationFault`).
+   */
+  readonly variations?: readonly string[];
 
   // The parts its config holds (`heldBy`).
   readonly slots: readonly Slot[];

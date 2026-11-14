@@ -48,7 +48,7 @@ export async function bootCrowd(context: ScreenContext): Promise<void> {
   const arena = await buildArena(engine, "open", context.signal);
   const { scene, camera, shadows } = arena;
   context.own(() => scene.dispose());
-  const dress = await dresserFor("workshop-fighter", scene);
+  const dress = await dresserFor("man", scene);
   const link = await opening;
   context.signal.throwIfAborted();
 

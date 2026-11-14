@@ -10,7 +10,7 @@
  * how many steps over `--over` ms had a collection inside; and what each side's hands' solves took
  * (`ReachMeter`, `src/control/motor.ts`): how many, their passes, and how many ran to the cap.
  *
- *   node research/step-time.mjs [--left workshop-fighter] [--right workshop-rogue] [--runs 4] [--over 3]
+ *   node research/step-time.mjs [--left man] [--right woman] [--runs 4] [--over 3]
  *   node research/step-time.mjs --link "?matchup=...&control=option,option&left.loadout=empty,sword" [--cap 60]
  *   node research/step-time.mjs --crowd [--seed 0] [--cap 120]
  *   ... --minds 3                      every mind apart, on that many worker threads (`mindWorkers`, `src/app/node/minds.ts`)
@@ -39,7 +39,7 @@ import { lagOf } from "./lag.mjs";
 import { mindWorkers } from "../src/app/node/minds.ts";
 
 const { values } = parseArgs({ options: {
-  left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
+  left: { type: "string", default: "man" }, right: { type: "string", default: "woman" },
   runs: { type: "string", default: "4" }, over: { type: "string", default: "3" }, profile: { type: "boolean", default: false },
   link: { type: "string" }, crowd: { type: "boolean", default: false }, seed: { type: "string", default: "0" },
   cap: { type: "string" }, skip: { type: "string", default: "2" }, minds: { type: "string" },

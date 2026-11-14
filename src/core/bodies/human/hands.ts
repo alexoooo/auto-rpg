@@ -1,14 +1,14 @@
-import fighterHands from "../../../../assets/humanoid/workshop-fighter-hands.json" with { type: "json" };
-import rogueHands from "../../../../assets/humanoid/workshop-rogue-hands.json" with { type: "json" };
+import manHands from "../../../../assets/humanoid/man-hands.json" with { type: "json" };
+import womanHands from "../../../../assets/humanoid/woman-hands.json" with { type: "json" };
 import type { SourceKey } from "../../sources.ts";
 
 import { sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 import type { HandFigure } from "./figure.ts";
-import type { WorkshopModel } from "./rig.ts";
+import type { HumanModel } from "./rig.ts";
 import type { Side } from "../bilateral.ts";
 
 /**
- * **A workshop model's hands**, as `scripts/humanoid/hand-envelope.mjs` measures them from its skin
+ * **A human model's hands**, as `scripts/humanoid/hand-envelope.mjs` measures them from its skin
  * and writes them to `assets/humanoid/<model>-hands.json` (the script's header gives the rules): each
  * side's open hull and palm centre, and its fist's hull and strike, body frame, authored size.
  */
@@ -21,12 +21,12 @@ interface SideFile {
   readonly fist: { readonly hull: readonly number[][]; readonly strike: readonly number[] };
 }
 
-const FILES: Readonly<Record<WorkshopModel, { readonly file: HandsFile; readonly source: SourceKey }>> = {
-  "workshop-fighter": { file: fighterHands, source: "workshop-fighter-hands" },
-  "workshop-rogue": { file: rogueHands, source: "workshop-rogue-hands" },
+const FILES: Readonly<Record<HumanModel, { readonly file: HandsFile; readonly source: SourceKey }>> = {
+  man: { file: manHands, source: "man-hands" },
+  woman: { file: womanHands, source: "woman-hands" },
 };
 
-export function workshopHands(model: WorkshopModel): Readonly<Record<Side, HandFigure>> {
+export function humanHands(model: HumanModel): Readonly<Record<Side, HandFigure>> {
   const { file, source } = FILES[model];
   const hand = (side: Side): HandFigure => {
     const at = (point: readonly number[], path: string): Quantity<Vec3> => sourced(point as unknown as Vec3, "m", source, `/${side}/${path}`);

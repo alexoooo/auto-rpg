@@ -5,11 +5,13 @@
  * is a reel of one. The Arena plays each case's recipe and tape as this build's code builds them
  * (`reel.ts`); the address the case gives the pickers only shows its choices.
  */
+import { writeSkills } from "../../../game/skill-link.ts";
 import { MINDS } from "../../catalog.ts";
 import { recordingKey } from "../../../core/world/recording.ts";
 import { writeAttributes } from "../../../game/attribute-link.ts";
 import { SIDES, type DuelRecipe } from "../../../game/arena/duel.ts";
 import { matchupSearch } from "../../../game/arena/matchup.ts";
+import { modelCharacter } from "../../../core/bodies/models.ts";
 import { defaultControl, mindsSearch } from "../setup.ts";
 
 /** A reel as a link carries it. */
@@ -49,7 +51,7 @@ export function readReel(hash: string): LinkedReel | { readonly fault: string } 
 }
 
 /** The recipe's fields the pickers show (`caseSearch`). */
-const SHOWN: ReadonlySet<string> = new Set(["left", "right", "level", "gap", "capSeconds", "loadouts", "attributes", "minds"] satisfies (keyof DuelRecipe)[]);
+const SHOWN: ReadonlySet<string> = new Set(["left", "right", "characters", "level", "gap", "capSeconds", "loadouts", "attributes", "skills", "minds"] satisfies (keyof DuelRecipe)[]);
 
 /** What `recipe` sets that the pickers do not show, by its field's name: every field but those they show. */
 export const unshown = (recipe: DuelRecipe): string[] =>
@@ -68,6 +70,7 @@ export function caseSearch(recipe: DuelRecipe): string {
     const loadout = recipe.loadouts?.[side];
     if (loadout) query.set(`${side}.loadout`, `${loadout.left},${loadout.right}`);
     if (recipe.attributes) writeAttributes(query, side, recipe.attributes[side]);
+    writeSkills(query, side, recipe.skills?.[side]);
   }
   const controls = SIDES.map((side) => {
     const mind = recipe.minds?.[side], loadout = recipe.loadouts?.[side];
@@ -75,6 +78,6 @@ export function caseSearch(recipe: DuelRecipe): string {
     return preset ?? defaultControl(recipe[side], loadout);
   });
   query.set("control", controls.join(","));
-  const search = matchupSearch(`?${query}`, { left: recipe.left, right: recipe.right });
+  const search = matchupSearch(`?${query}`, { left: recipe.characters?.left ?? modelCharacter(recipe.left), right: recipe.characters?.right ?? modelCharacter(recipe.right) });
   return recipe.minds ? mindsSearch(search, recipe.minds) : search;
 }

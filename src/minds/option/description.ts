@@ -45,14 +45,14 @@ export function describeOptionMind(spec: BodySpec, config: OptionMindConfig, res
     const path = config.options == null ? null : ["options", i] as const;
     const declaration = parts.of("option", option).skills?.(option, spec, parts, resolved.options);
     components.push({ config: option, role: "option", owner: `option:${i}`, path });
-    if (declaration?.executor) {
-      const { name, ...settings } = declaration.executor;
+    for (const executor of declaration?.executors ?? []) {
+      const { name, ...settings } = executor;
       component(name, "executor", settings, path);
     }
     if (declaration?.technique) component(declaration.technique.kind, "technique", declaration.technique, path);
     if (declaration?.support) component("support", "support", declaration.support, path);
     if (declaration?.navigation) component("navigation", "navigation", declaration.navigation, path);
-    return declaration?.action ? [{ action: declaration.action, path }] : [];
+    return (declaration?.actions ?? []).map((action) => ({ action, path }));
   });
 
   // What lies under its skills (`FILLED`), then the navigation its walks go by.

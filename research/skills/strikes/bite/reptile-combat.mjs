@@ -5,11 +5,11 @@ import { lifeTaken } from "../../../../src/combat/blows.ts";
 import { BOUT_ENGINE } from "../../../bout.mjs";
 import { sourced } from "../../../../src/core/quantity.ts";
 import { rulebook } from "../../../../src/combat/rulebook.ts";
-import { mouthOf } from "../../../../src/skills/strikes/bite/jaw.ts";
+import { mouthOf } from "../../../../src/skills/strikes/shared/jaw.ts";
 
 export const DEVELOPMENT_GAPS = Object.freeze([1.5, 2, 3, 4]);
 export const CONFIRMATION_GAPS = Object.freeze([1.75, 2.5, 3.5, 4.5]);
-export const HUMANOIDS = Object.freeze(["workshop-rogue", "workshop-fighter", "crypt-skeleton"]);
+export const HUMANOIDS = Object.freeze(["woman", "man", "skeleton"]);
 
 /** Node Arena Duel, rapier-coordinate, 120 Hz, empty hands, zero balance and unlimited recovery. */
 export async function combatTrial({ opponent = "reptile", gap = 2, side = "left", rate = rulebook("arena").pointLoad.rate.value } = {}) {

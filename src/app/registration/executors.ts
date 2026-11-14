@@ -1,7 +1,8 @@
-import { STOMP_PART } from "../../skills/strikes/stomp-part.ts";
-import { PUNCH_PART } from "../../skills/strikes/punch-part.ts";
-import { SWORD_THRUST_PART } from "../../skills/strikes/held-blow.ts";
-import { BONK_PART, CLUB_BLOW_PART } from "../../skills/strikes/swing-part.ts";
+import { STOMP_PART } from "../../skills/strikes/stomp/index.ts";
+import { PUNCH_PART } from "../../skills/strikes/straight-punch/index.ts";
+import { SWORD_THRUST_PART } from "../../skills/strikes/sword-thrust/index.ts";
+import { CLUB_BLOW_PART } from "../../skills/strikes/club-blow/index.ts";
+import { BONK_PART } from "../../skills/strikes/bonk/index.ts";
 
 /**
  * **Every executor, by its kind** (`ExecutorPart`), in the order a picker offers them: what a

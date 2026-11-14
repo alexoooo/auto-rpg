@@ -14,7 +14,7 @@ to run them is in [the research readme](../README.md#the-physics-bake-off).
 
 ## Setup
 
-- **One body.** `src/app/browser/physics-bench/model.ts` hands every adapter the same Warrior from `humanSpec("workshop-fighter")`,
+- **One body.** `src/app/browser/physics-bench/model.ts` hands every adapter the same Warrior from `humanSpec("man")`,
   each segment built world-aligned at its centre of mass and the trunk hull as its bounding box.
 - **One controller** (`src/app/browser/physics-bench/control.ts`), no engine motor: at 120 Hz it reads each segment back and
   applies world torques held over the sub-steps: a critically damped acceleration of each

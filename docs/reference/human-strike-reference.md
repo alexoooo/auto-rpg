@@ -2,7 +2,7 @@
 
 What the literature measured of human strikes, segments, joint torques and ranges, and what the
 core human is built from: sections 1 to 6 are the literature (the strike bars, `BAR` in
-`src/evaluation/strike/read.ts`; torques; segments), section 8 the workshop models'
+`src/evaluation/strike/read.ts`; torques; segments), section 8 the human models'
 stature and volume (`src/core/sources.ts`), section 9 the core human's joint ranges and strengths
 (`src/core/bodies/human/muscle.ts`, `tables/`).
 
@@ -133,19 +133,19 @@ Useful sums at 80 kg:
 - Arm from shoulder to wrist ~0.56 m; to the knuckles ~0.65 m.
 - De Leva's trunk mass is lower than Dempster's because de Leva moves mass into the head and thigh through different segment boundaries. Use one set consistently.
 
-## 8. The workshop models
+## 8. The human models
 
 Measurements of this repository's assets for the core's human spec (`src/core/bodies/human/`).
 
 **Stature** is the top of the skin: the maximum y of `base__skin`'s positions in
-`public/assets/humanoid/workshop-*.glb`, bind pose, soles on 0; hair is not stature. It is the
+the lossless cached GLBs (`losslessModelPath`), bind pose, soles on 0; hair is not stature. It is the
 GLB's own figure, the maximum its position accessor states (`/accessors/231/max/1` in the
 Warrior's file, `/accessors/220/max/1` in the Rogue's).
 
 | Model | Skin top at the authored size | At x1 (x 1.77 / 1.880) |
 |---|---|---|
-| Warrior (`workshop-fighter`) | 1.8805 m | 1.770 m |
-| Rogue (`workshop-rogue`) | 1.7305 m | 1.629 m |
+| Warrior (`man`) | 1.8805 m | 1.770 m |
+| Rogue (`woman`) | 1.7305 m | 1.629 m |
 
 x1 is a typical adult (`owner-typical-adult` in `SOURCES`): 1.77 m and 79 kg for a man. The
 Rogue takes the Warrior's factor, so she keeps her size against him.
@@ -173,7 +173,7 @@ Rogue's columns of tables 9.2 and 9.4 are the measured peaks and ranges, before 
 
 - **The legs' peaks in use** (`IN_USE`, `src/core/bodies/human/muscle.ts`): every hip exertion ×2.49,
   the knee's ×1.58, the ankle's plantar flexion ×2.75.
-- **The Rogue's elbow extension** ×2 (`WORKSHOP_EXERTIONS`, `src/core/bodies/human/attributes.ts`).
+- **The Rogue's elbow extension** ×2 (`HUMAN_EXERTIONS`, `src/core/bodies/human/attributes.ts`).
 - **A toed foot's dorsiflexion** (`toedFigure`, `src/core/bodies/human/toes.ts`; both bodies' feet are
   toed): it stops at `TOED_DORSIFLEXION`, 0.8 rad past the reference pose
   (`src/core/bodies/human/joints.ts`), in place of the measured range.

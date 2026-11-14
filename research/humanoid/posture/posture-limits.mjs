@@ -15,7 +15,7 @@ const rows = new Array(jobs.length); let next = 0;
 await Promise.all(Array.from({ length: Math.min(workers, jobs.length) }, async () => {
   while (next < jobs.length) {
     const index = next++, job = jobs[index];
-    const worker = new Worker(new URL("./core-posture-worker.mjs", import.meta.url), { env: { ...process.env, CORE_ENGINE: job.engine } });
+    const worker = new Worker(new URL("./posture-worker.mjs", import.meta.url), { env: { ...process.env, CORE_ENGINE: job.engine } });
     const request = (task) => new Promise((resolve, reject) => {
       const cleanup = () => { worker.off("message", message); worker.off("error", failed); worker.off("exit", exited); };
       const failed = (error) => { cleanup(); reject(error); };

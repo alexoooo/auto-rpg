@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 /** Lossless source exports serve measurements; compressed delivery files never do. */
 export function losslessModelPath(model) {
-  const root = resolve(import.meta.dirname, "../.."), id = model.replace(/^workshop-/, "");
+  const root = resolve(import.meta.dirname, "../.."), id = model;
   const catalog = JSON.parse(readFileSync(join(root, "assets/art/catalog.json"), "utf8"));
   if (!Object.hasOwn(catalog.characters, id)) throw new Error(`Unknown art model: ${model}`);
   const current = join(root, ".cache/art/current.json");

@@ -31,7 +31,7 @@ const SHOWN_DELAY = 2;
 
 test("a body's command is applied the world's delay after it is sent, none before, none again after its level leaves full, and across a save and load", async () => {
   // A body-declared actuator away from a bilateral hand name, with its own configuration names.
-  const stock = modelSpec("workshop-fighter");
+  const stock = modelSpec("man");
   const spec = JSON.parse(JSON.stringify(stock).replaceAll('"hand.right"', '"tool.central"'));
   const tool = spec.segments.find(segment => segment.name === "tool.central");
   const shapes = tool.configurations.shapes;
@@ -120,7 +120,7 @@ test("a fresh physics fork resets exactly the forces pending at its save", async
 
 test("a commanded Mind restores its driver's memory from its own state", async () => {
   const make = async () => {
-    const stand = await coreStand(modelSpec("workshop-fighter"));
+    const stand = await coreStand(modelSpec("man"));
     const embodied = embody(stand.built, stand.world, own => commandedMind(own, { servoSeconds: SERVO_SECONDS, motor: stockMotor() }, stand.world));
     const memory = { decisions: 0 };
     driveBy(embodied.construction.body, { name: "counted stand", state: memory, decide() {
@@ -156,7 +156,7 @@ test("recorded orders accept configured gait names across JSON transport", () =>
 
 
 test("a fresh bout load restores the whole published Mind report before another decision", async () => {
-  const recipe = { ...recipeOf("?matchup=workshop-fighter,workshop-fighter&control=option,option&left.loadout=empty,empty&right.loadout=empty,empty", { left: {}, right: {} }, "open"),
+  const recipe = { ...recipeOf("?matchup=man,man&control=option,option&left.loadout=empty,empty&right.loadout=empty,empty", { left: {}, right: {} }, "open"),
     commanders: { left: { kind: "drill", after: 0 } } };
   const original = await buildBout(recipe), fork = await buildBout(recipe);
   const report = bout => structuredClone(reportNow(bout.duel.duelists.left.minded.report));
@@ -172,7 +172,7 @@ test("a fresh bout load restores the whole published Mind report before another 
 
 
 test("a bout whose minds' menus are read every step plays as it does unread", async () => {
-  const recipe = { ...recipeOf("?matchup=workshop-fighter,workshop-fighter&control=option,option&left.loadout=empty,sword&right.loadout=empty,sword", { left: {}, right: {} }, "open"), capSeconds: 4 };
+  const recipe = { ...recipeOf("?matchup=man,man&control=option,option&left.loadout=empty,sword&right.loadout=empty,sword", { left: {}, right: {} }, "open"), capSeconds: 4 };
   // Every pose of the bout, with each side's menu read between steps where `reading`, as a Commander or a screen reads it.
   const play = async (reading) => {
     const bout = await buildBout(recipe), sides = ["left", "right"], trace = traceOf(sides.map((side) => bout.duel.duelists[side].built));
@@ -218,7 +218,7 @@ test("a mind's report is what it said at its answer, through a sword bout, a fal
     last.set(minded, said);
   };
   const { buildBout, buildFall, risingMind } = evaluationApplication(context), { createDungeonRun } = gameApplication(context);
-  const recipe = { ...recipeOf("?matchup=workshop-fighter,workshop-fighter&control=option,option&left.loadout=empty,sword&right.loadout=empty,sword", { left: {}, right: {} }, "open"), capSeconds: 4 };
+  const recipe = { ...recipeOf("?matchup=man,man&control=option,option&left.loadout=empty,sword&right.loadout=empty,sword", { left: {}, right: {} }, "open"), capSeconds: 4 };
   const bout = await buildBout(recipe);
   try {
     while (bout.duel.verdict === null) {
@@ -227,7 +227,7 @@ test("a mind's report is what it said at its answer, through a sword bout, a fal
     }
   } finally { bout.dispose(); }
   // The Warrior's first stand-up target fall: its skills taken from it as it falls (a release) and given back as it rises (a resume).
-  const job = risingJobs({ target: true }).find((one) => one.model === "workshop-fighter");
+  const job = risingJobs({ target: true }).find((one) => one.model === "man");
   const fall = await buildFall({ ...job, mind: risingMind(job.techniques) }, DEFAULT_ENGINE);
   assert.equal("refused" in fall, false);
   try {
@@ -257,7 +257,7 @@ test("a fallback recovery Option does not count its own transition as an ordinar
   const { REPOSITION_OPTION, WAY_UP_OPTION, waysUpIn, withWaysUp } = await import("../../src/minds/option/rise.ts");
   const { walker } = await import("../../src/minds/option/walk.ts");
   const { optionRecord } = await import("../../src/minds/option/record.ts");
-  const spec = modelSpec("workshop-fighter"), fallback = REPOSITION_OPTION.defaults;
+  const spec = modelSpec("man"), fallback = REPOSITION_OPTION.defaults;
   const technique = GAME.partLookup.of("technique", fallback.skill), from = technique.edges[0]?.from;
   assert.equal(technique.fits(spec, fallback.skill, GAME.partLookup), null, "the real fallback technique must fit the fixture body");
   assert.ok(from && technique.starts.length, "the fallback must expose a transition and a declared beginning");
@@ -281,7 +281,7 @@ test("a measured Lab script follows an explicit numeric walk without a gait enve
     import("../../src/app/node/setup.ts"), import("../../src/app/node/game.ts"),
     import("../../src/game/lab/locomotion-mode.ts"), import("../../src/game/lab/track.ts"),
   ]);
-  const stand = await coreStand(modelSpec("workshop-fighter"));
+  const stand = await coreStand(modelSpec("man"));
   let session;
   try {
     const actor = labActor(stand.built, stand.world, { mind: LAB_MIND, experiment: { measuring: true } });

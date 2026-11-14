@@ -36,7 +36,7 @@ and thrust, kept as they are.
 
 **The Warrior's punch into fights**, a goal driven unattended ([driven](recipes/documents.md)):
 the straight punch begun from close in the Strike drill, then landing in the Arena's fights by
-Option Mind's footwork; met when the `punch` row on `workshop-fighter` reads better than its
+Option Mind's footwork; met when the `punch` row on `man` reads better than its
 baseline and the punch lands more often in the Strike drill's fights (`fight`) than it did when
 the goal began. The empty-handed cell reads 0.256 hp a second traded, better than its baseline;
 every Warrior punch trial begins across the three loadouts. The drill keeps its ordered facing
@@ -64,7 +64,7 @@ The standing goal behind it: every cell of the table raised from its baseline, a
 
 In order; each is a row of the table or one question, taken up on the owner's request.
 
-1. **The Warrior's punch**: the table's `punch` row on `workshop-fighter`
+1. **The Warrior's punch**: the table's `punch` row on `man`
    ([its notes](plans/2026-11-10-warrior-punch.md)): the straight punch at the trunk.
 2. **The strikes' profiles from fights**: a strike's profile is built only from the Strike drill's
    fights (`fights`, [the evaluations](architecture.md#evaluations)). The asset still holds the
@@ -111,10 +111,13 @@ Each holds its goal, where it stands and the questions open
 - Standing up in the Lab, the Arena and the Crypt, and whether the rise looks human.
 - The reaction time, 0.15 s, beside a bout at `&senseDelay=0`.
 - The crowd fight and the Crypt with minds on workers (`npm run preview`): smooth, no slow motion.
-- The Skeleton in play (`?play=arena&matchup=crypt-skeleton,workshop-fighter`).
+- The Skeleton in play (`?play=arena&matchup=skeleton,warrior`).
 - The reptile and the rat on the game's Option Mind against a Warrior and a Reptile: the trot,
   the bite, righting; the Walker in the Lab (`&scenario=reach`).
 - The Crypt's commands (H, X, Q, E, right click), the level-clearer (`&party=clearer`) and the mob.
+- The Arena's Skills panel: each side's skills, any number of variations of each (`left.skills=`).
+- The Arena's character picker: each character by name (`matchup=warrior,rogue`), a model's name
+  standing for its own character.
 
 ## Open, by layer
 
@@ -150,6 +153,10 @@ here.
 - The compiler checks no caller of `src/` under `scripts/`, `research/` or `tests/`.
 - Ratings when asked: items, characters and attributes; ablations beside a battery; live runs on
   the screen.
+- A variation is tuned and read at its model's default attributes; a character with others runs
+  those settings untuned.
+- The bite's aim (`first-exposed`, `src/skills/strikes/bite/jaw-aim.ts`) reads the `bite`
+  variation's settings whichever variation of the bite its character runs.
 
 ### Body and motor control
 
@@ -172,6 +179,9 @@ here.
 - Grit, a rising assist, has no mechanism; movement and attack-and-defence assists are not built.
 - The reach solver runs to its cap on a cover the joints' ranges keep out of reach.
 - A way up reads no solid before it begins: it lets go once stuck against one (`STUCK`).
+- The Skeleton's guard asks for angles past its joint limits (`guardPosture`,
+  `src/skills/guard/guard.ts`: shoulder abduction -0.2 rad below its 0 minimum, elbow flexion
+  1.3 rad past its 0.84 maximum); every skill reads the guard.
 - A body on paws righted does not stand: the rat's recipe ends propped on folded legs, not its
   paws, and any drive of its legs from there rolls it onto its back; the reptile's routes turn it
   over while placing a paw, or hold a swept leg short of the hip's yaw limit.
@@ -180,6 +190,10 @@ here.
 
 - Not built: a part's own tolerance, the face apart from the head, armour, edges and points.
 - Striking a body that is down waits on faster rises.
+- The Warrior's punch from its guard: the straight punch's `from-guard` variation
+  (`straight-punch/from-guard/`) commits only with the arm at its guard and still, and any
+  character may hold it beside `drive` (`left.skills=straight-punch/drive,straight-punch/from-guard`).
+  No character holds it yet; it has no measured profile, so its mind prices it by hand.
 
 ### The AI
 

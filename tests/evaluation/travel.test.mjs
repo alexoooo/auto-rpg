@@ -9,10 +9,10 @@ import { readTravel } from "../../src/evaluation/travel/read.ts";
 import { TRAVEL, travelScript } from "../../src/evaluation/travel/protocol.ts";
 
 test("travel reads attached toe support for entry, stepping and quiet standing", async () => {
-  const spec = passiveToeBody(modelSpec("workshop-fighter"));
+  const spec = passiveToeBody(modelSpec("man"));
   const stand = await coreStand(spec, { gravity: false, ground: false, posture: guardPosture(spec), engine: "rapier-coordinate" });
   try {
-    const condition = { model: "workshop-fighter", mode: "forward", way: 0, sense: 1, pace: 4,
+    const condition = { model: "man", mode: "forward", way: 0, sense: 1, pace: 4,
       heading: 0, loadout: { left: "empty", right: "empty" }, seed: 1, gusts: false };
     const protocol = travelScript(condition), left = stand.built.segments.get("toe.left"), right = stand.built.segments.get("toe.right");
     assert.ok(left && right, "the body must supply the observed separate toe segments");

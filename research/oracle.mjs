@@ -3,7 +3,7 @@
  * of responses in forks of the true world (`rollout`, `rollouts.mjs`) and takes the best, beside
  * the same bout under its tactics alone.
  *
- *   node research/oracle.mjs [--left workshop-fighter] [--right workshop-rogue] [--all] [--gap 4]
+ *   node research/oracle.mjs [--left man] [--right woman] [--all] [--gap 4]
  *     [--side left|right|both] [--every 0.5] [--horizon 2] [--seconds 120] [--blind 0] [--nudge 0.5]
  *     [--balance left,right] [--replay] [--workers 14] [--out .tmp/oracle]
  *
@@ -40,7 +40,7 @@ import { rolloutPool } from "./rollout-pool.mjs";
 import { chooseResponse, nudgesOf, poseDigest, responsesAt, valueOf } from "./rollouts.mjs";
 
 const { values } = parseArgs({ options: {
-  left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
+  left: { type: "string", default: "man" }, right: { type: "string", default: "woman" },
   all: { type: "boolean", default: false }, gap: { type: "string", default: "4" },
   side: { type: "string", default: "left" }, every: { type: "string", default: "0.5" }, horizon: { type: "string", default: "2" },
   seconds: { type: "string", default: String(CAP_SECONDS) }, blind: { type: "string", default: "0" }, nudge: { type: "string", default: "0.5" },

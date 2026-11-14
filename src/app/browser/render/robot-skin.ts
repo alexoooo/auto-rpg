@@ -1,7 +1,7 @@
 import { HAND_CONFIGURATION } from "../../../core/bodies/human/hand-configurations.ts";
 /**
- * The Warrior's robot appearances: Industrial (`industrial`), Steampunk (`relic`) and Futuristic
- * (`duelist`), built in code with no external asset. They are cosmetic: the body, colliders,
+ * The Warrior's robot appearances, Industrial, Steampunk and Futuristic, built in code with no
+ * external asset. They are cosmetic: the body, colliders,
  * joints, muscles, held items and damage rules are the Warrior's, and a metal-looking plate gives
  * no metal contact, armour or sound.
  *
@@ -30,7 +30,7 @@ import { futuristicRobot } from "./robot-futuristic.ts";
 import type { Side } from "../../../core/bodies/bilateral.ts";
 
 type Robot = Exclude<Appearance, "default">;
-const DESIGNS: Readonly<Record<Robot, RobotDesign>> = { industrial: industrialRobot, relic: steampunkRobot, duelist: futuristicRobot };
+const DESIGNS: Readonly<Record<Robot, RobotDesign>> = { industrial: industrialRobot, steampunk: steampunkRobot, futuristic: futuristicRobot };
 
 /** Rigid shells ride the simulated segments; only cosmetic finger articulation needs a render callback. */
 export function dressRobot(built: DrawnBody, scene: Scene, appearance: Robot, options: SkinOptions): SkinView {

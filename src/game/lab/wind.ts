@@ -43,7 +43,7 @@ const LAB_GUSTS: WindSettings = Object.freeze({ rate: .7, strength: 45 });
  * as much as his.
  */
 export const labGusts = (model: BodyModel): WindSettings =>
-  ({ rate: LAB_GUSTS.rate, strength: LAB_GUSTS.strength * (modelSpec(model).mass.value / modelSpec("workshop-fighter").mass.value) });
+  ({ rate: LAB_GUSTS.rate, strength: LAB_GUSTS.strength * (modelSpec(model).mass.value / modelSpec("man").mass.value) });
 
 /** Still air. */
 export const CALM: WindSettings = Object.freeze({ rate: 0, strength: 0 });

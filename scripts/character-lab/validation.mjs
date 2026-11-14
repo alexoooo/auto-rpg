@@ -2,7 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { surface } from "./contact.mjs";
 
 /**
- * What the checks read off a workshop model's skin (`docs/art/characters.md#what-the-checks-read`). A length along
+ * What the checks read off a human model's skin (`docs/art/characters.md#what-the-checks-read`). A length along
  * the hand is in metres on the hand the grips are authored on, whose middle knuckle is `hand` from its wrist;
  * another model's hand scales it. A place along the forearm is a share of it, 0 at the elbow and 1 at the wrist.
  */

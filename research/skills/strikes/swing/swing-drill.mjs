@@ -1,6 +1,6 @@
 /**
  * **A swing searched on its drill's twin**: a body's swung blow of `--skill <cell>` (`bonk`: a
- * table cell's skill, `SWINGS`' kind). Each of the swung channels (`swingChannels`: the trunk's
+ * table cell's skill, its swing variation's). Each of the swung channels (`swingChannels`: the trunk's
  * turn and bends, the striking arm and its wrist) has a windup angle, a fraction of its range
  * (`Swing.wound`), and a push: a level, a start and a length into the swing (`Swing.timed`); then
  * where it stands to swing (`reach`, the head from the target across the ground), how long the wound
@@ -16,7 +16,7 @@
  * drill). `--confirm` plays a search's best and the record the body plays now on the row's cells'
  * own cases at 120 and 480 Hz, the worse counting (`confirmRow`).
  *
- *   node research/skills/strikes/swing/swing-drill.mjs --body workshop-fighter --skill bonk --out <file.json> [--loadout <left,right>] [--hand right]
+ *   node research/skills/strikes/swing/swing-drill.mjs --body man --skill bonk --out <file.json> [--loadout <left,right>] [--hand right]
  *     [--footing <behind,right,behind,right>] [--workers N] [--lambda 16] [--generations 60] [--seed 1] [--from <file.json>] [--sigma 0.15]
  *   node research/skills/strikes/swing/swing-drill.mjs --confirm <file.json> [--workers N]
  *   node research/skills/strikes/swing/swing-drill.mjs --settings <file.json>   the found swing's settings, whole, for `skill-records.mjs`
@@ -34,8 +34,6 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import "../../../../tests/harness/preload-data.mjs";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
-import { bodyKey } from "../../../../src/core/bodies/spec/body.ts";
-import { SWINGS } from "../../../../src/skills/strikes/swing-part.ts";
 import { cmaSearch } from "../../../cma.mjs";
 import { confirmRow, drillTrials, rowOf, scoreOn, subjectOf, trialPool, withTuning } from "../../../drill-trials.mjs";
 import { recordsOf } from "../../skill-records.mjs";
@@ -58,7 +56,7 @@ const BEHIND = [0.4, 1.3], RIGHT = [-0.5, 0.5];
 /** A push weaker than this leaves the schedule. */
 const QUIET = 0.05;
 
-/** The table's swung blows this searches: a cell's skill, its swing's kind (`SWINGS`). */
+/** The table's swung blows this searches: a cell's skill, the skill whose swing variation it tunes. */
 const SKILLS = Object.freeze({ bonk: "bonk" });
 
 /** Each of `channels`' range on `model`, rad: its least and most angle. */
@@ -127,7 +125,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     confirm: { type: "string" }, settings: { type: "string" }, footing: { type: "string" } } });
   if (values.settings) {
     // Whole, as a record holds them: the body's record the search played over, its tuning over it.
-    const found = JSON.parse(readFileSync(values.settings, "utf8")), record = recordsOf(SKILLS[found.cell.skill])[bodyKey(modelSpec(found.cell.body))];
+    const found = JSON.parse(readFileSync(values.settings, "utf8")), record = recordsOf(SKILLS[found.cell.skill])[modelSpec(found.cell.body).model];
     if (!record) throw new Error(`${found.cell.body} has no ${found.cell.skill} record the search played over`);
     console.log(JSON.stringify({ ...record.settings, ...tuningOf(found.best.x, found.cell) }, null, 2));
     process.exit(0);
@@ -142,7 +140,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exit(0);
   }
   if (!values.out || !values.body || !Object.hasOwn(SKILLS, values.skill ?? "")) throw new Error(`--body <model> --skill <${Object.keys(SKILLS).join("|")}> --out <file.json>`);
-  if (!Object.hasOwn(SWINGS, SKILLS[values.skill])) throw new Error(`no swing ${SKILLS[values.skill]}: one of ${Object.keys(SWINGS).join(", ")}`);
   const cell = { body: values.body, skill: values.skill, ...(values.loadout ? { loadout: values.loadout } : {}), hand: values.hand ?? "right" };
   const trials = rowOf(cell).flatMap((one) => drillTrials(one, "twin")), channels = swingChannels(cell.hand);
   const ranges = rangesOf(cell.body, channels), lo = [], hi = [];

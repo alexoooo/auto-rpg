@@ -1,7 +1,7 @@
 /**
  * How blind the oracle's blind search is: how far the forks it nudges stand from the true fork.
  *
- *   node research/oracle-spread.mjs [--left workshop-fighter] [--right workshop-rogue] [--gap 4]
+ *   node research/oracle-spread.mjs [--left man] [--right woman] [--gap 4]
  *     [--every 0.5] [--horizon 2] [--blind 4] [--nudge 0.5]
  *
  * At each decision of the bout under its tactics alone (every `--every` s) the bout is saved, and
@@ -19,7 +19,7 @@ import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
 import { nudgesOf, rollout, valueOf } from "./rollouts.mjs";
 
 const { values } = parseArgs({ options: {
-  left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
+  left: { type: "string", default: "man" }, right: { type: "string", default: "woman" },
   gap: { type: "string", default: "4" }, every: { type: "string", default: "0.5" }, horizon: { type: "string", default: "2" },
   blind: { type: "string", default: "4" }, nudge: { type: "string", default: "0.5" },
 } });

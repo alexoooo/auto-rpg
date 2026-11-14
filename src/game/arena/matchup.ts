@@ -1,5 +1,5 @@
 import { isRefused } from "../../core/refusal.ts";
-import { BODY_MODELS, modelHolding, modelHoldingChecked, modelHolds, type BodyModel } from "../../core/bodies/models.ts";
+import { characterNamed, modelCharacter, modelHolding, modelHoldingChecked, modelHolds, readCharacter, type BodyModel } from "../../core/bodies/models.ts";
 import { modelLoadout } from "../model-loadouts.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import type { GameContext } from "./context.ts";
@@ -10,7 +10,9 @@ import { EMPTY_LOADOUT, readLoadout, type Loadout } from "../../core/bodies/item
 import { appearanceFor, type Appearance } from "../appearance/appearance.ts";
 
 import { mindLinks, type LinkedMind } from "../../minds/catalog/config-link.ts";
-import { legacyAttributes, readAttributes } from "../attribute-link.ts";
+import { readAttributes } from "../attribute-link.ts";
+import { readSkills } from "../skill-link.ts";
+import type { SkillChoices } from "../../core/bodies/spec/body.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { gapFits, LEVELS, type ArenaLevel } from "./levels.ts";
 import type { ArenaSeat as Side } from "./seat.ts";
@@ -21,28 +23,43 @@ export function readLevel(search: string): ArenaLevel {
   return Object.hasOwn(LEVELS, level) ? level as ArenaLevel : "open";
 }
 
-/** The arena link's parameter: `?matchup=left,right`, each a core model. */
+/** The arena link's parameter: `?matchup=left,right`, each a character (`CHARACTERS`), or a model for its own (`readCharacter`). */
 export const MATCHUP_PARAM = "matchup";
 
-export type Matchup = Readonly<Record<Side, BodyModel>>;
+/** Each side's character, by name (`CHARACTERS`). */
+export type Matchup = Readonly<Record<Side, string>>;
 
-/** Each contender's attributes: its side's own parameters, over the flat `balance=` and `haste=` (`legacyAttributes`). */
+/** The body each side's character is built on. */
+export const matchupModels = (matchup: Matchup): Readonly<Record<Side, BodyModel>> =>
+  ({ left: characterNamed(matchup.left).model, right: characterNamed(matchup.right).model });
+
+/** Each contender's attributes: its side's own parameters (`left.<attribute>=`, `right.<attribute>=`). */
 export function arenaAttributes(search: string): Readonly<Record<Side, AttributeOverrides>> {
   const query = new URLSearchParams(search);
-  return { left: readAttributes(query, "left", legacyAttributes(query, 0)), right: readAttributes(query, "right", legacyAttributes(query, 1)) };
+  return { left: readAttributes(query, "left"), right: readAttributes(query, "right") };
+}
+
+/** Each contender's skills where its link names them (`left.skills=`, `right.skills=`, `readSkills`); a side it does not name, its character's. */
+export function arenaSkills(search: string): Readonly<Partial<Record<Side, SkillChoices>>> {
+  const query = new URLSearchParams(search), skills: Partial<Record<Side, SkillChoices>> = {};
+  for (const side of SIDES) { const read = readSkills(query, side); if (read !== undefined) skills[side] = read; }
+  return Object.freeze(skills);
 }
 
 /** The Warrior against the Rogue unless a link or a person picks another pair. */
-const DEFAULT_MATCHUP: Matchup = Object.freeze({ left: "workshop-fighter", right: "workshop-rogue" });
+const DEFAULT_MATCHUP: Matchup = Object.freeze({ left: "warrior", right: "rogue" });
 
-/** What each model is called on the page. */
-
-const isModel = (text: string | undefined): text is BodyModel => BODY_MODELS.includes(text as BodyModel);
-
-/** The matchup an address names; a side it does not name, or names wrongly, is the default's. */
+/** The matchup an address names (`readCharacter`); a side it does not name, or names wrongly, is the default's. */
 export function readMatchup(search: string): Matchup {
   const [left, right] = (new URLSearchParams(search).get(MATCHUP_PARAM) ?? "").split(",");
-  return { left: isModel(left) ? left : DEFAULT_MATCHUP.left, right: isModel(right) ? right : DEFAULT_MATCHUP.right };
+  return { left: readCharacter(left) ?? DEFAULT_MATCHUP.left, right: readCharacter(right) ?? DEFAULT_MATCHUP.right };
+}
+
+/** The characters a bout's recipe names (`DuelRecipe.characters`): each side's where it is not its model's own. */
+function namedCharacters(matchup: Matchup): Partial<Record<Side, string>> {
+  const models = matchupModels(matchup), named: Partial<Record<Side, string>> = {};
+  for (const side of SIDES) if (matchup[side] !== modelCharacter(models[side])) named[side] = matchup[side];
+  return named;
 }
 
 /** `search` with its matchup replaced by `matchup`. */
@@ -54,13 +71,14 @@ export function matchupSearch(search: string, matchup: Matchup): string {
 
 /** Each side's cosmetic choice, independent of the bout's recipe and orders. */
 export function readAppearances(search: string, matchup: Matchup): Readonly<Record<Side, Appearance>> {
-  const [left, right] = (new URLSearchParams(search).get("appearance") ?? "").split(",");
-  return { left: appearanceFor(matchup.left, left), right: appearanceFor(matchup.right, right) };
+  const [left, right] = (new URLSearchParams(search).get("appearance") ?? "").split(","), models = matchupModels(matchup);
+  return { left: appearanceFor(models.left, left), right: appearanceFor(models.right, right) };
 }
 
 /** Keep compatible appearances in a shareable address; an ordinary pair needs no extra parameter. */
 export function appearanceSearch(search: string, matchup: Matchup, appearances: Readonly<Record<Side, Appearance>>): string {
-  const query = new URLSearchParams(search), left = appearanceFor(matchup.left, appearances.left), right = appearanceFor(matchup.right, appearances.right);
+  const query = new URLSearchParams(search), models = matchupModels(matchup);
+  const left = appearanceFor(models.left, appearances.left), right = appearanceFor(models.right, appearances.right);
   if (left === "default" && right === "default") query.delete("appearance");
   else query.set("appearance", `${left},${right}`);
   return `?${query.toString().replace(/%2C/g, ",")}`;
@@ -86,7 +104,7 @@ export function youSearch(search: string, you: Side | null): string {
 export function readLoadouts(search: string): Readonly<Record<Side, Loadout>> | undefined {
   const query = new URLSearchParams(search);
   if (!SIDES.some((side) => query.has(`${side}.loadout`))) return undefined;
-  const models = readMatchup(search), loadouts = {} as Record<Side, Loadout>;
+  const models = matchupModels(readMatchup(search)), loadouts = {} as Record<Side, Loadout>;
   for (const side of SIDES) {
     const text = query.get(`${side}.loadout`);
     if (text === null) { loadouts[side] = modelLoadout(models[side]); continue; }
@@ -121,7 +139,7 @@ type Control = string;
 
 /** Both fighters' hands, each its model's (`modelLoadout`) unless the link assigns them. */
 const loadoutsOf = (search: string): Readonly<Record<Side, Loadout>> => {
-  const models = readMatchup(search);
+  const models = matchupModels(readMatchup(search));
   return readLoadouts(search) ?? { left: modelLoadout(models.left), right: modelLoadout(models.right) };
 };
 
@@ -149,7 +167,7 @@ export function createMatchup(context: GameContext) {
   /** Per-side controller choices in a shareable arena recipe: the preset the link names, offered or not; where it names none, the side's default among those offered (`controlsFor`). */
   function readControls(search: string): Readonly<Record<Side, Control>> {
     const parts = (new URLSearchParams(search).get("control") ?? "").split(",");
-    const models = readMatchup(search), loadouts = loadoutsOf(search), attributes = arenaAttributes(search);
+    const models = matchupModels(readMatchup(search)), loadouts = loadoutsOf(search), attributes = arenaAttributes(search);
     const read = (s: string | undefined, side: Side): Control => {
       const admitted = modelHoldingChecked(models[side], loadouts[side], attributes[side]);
       const choices = controlsFor(models[side], loadouts[side], isRefused(admitted) ? undefined : attributes[side]);
@@ -185,7 +203,7 @@ export function createMatchup(context: GameContext) {
    */
   function linkedMind(search: string, side: Side): LinkedMind {
     const control = readControls(search)[side], preset = MINDS[control]!.config;
-    const model = readMatchup(search)[side], loadout = loadoutsOf(search)[side];
+    const model = matchupModels(readMatchup(search))[side], loadout = loadoutsOf(search)[side];
     const admitted = modelHoldingChecked(model, loadout, controlCharacter(control, arenaAttributes(search)[side]));
     const fallback = isRefused(admitted) ? modelHoldingChecked(model, loadout, controlCharacter(control)) : admitted;
     if (isRefused(fallback)) return { config: preset, faults: [fallback.refused] };
@@ -201,7 +219,7 @@ export function createMatchup(context: GameContext) {
     const query = new URLSearchParams(search);
     return SIDES.flatMap((side) => {
       const text = query.get(mindKey(side));
-      return text !== null && parseMind(text, modelHolding(readMatchup(search)[side], EMPTY_LOADOUT), []) === null
+      return text !== null && parseMind(text, modelHolding(matchupModels(readMatchup(search))[side], EMPTY_LOADOUT), []) === null
         ? [`The link's ${side} mind is no mind this build has; its preset is shown.`] : [];
     });
   }
@@ -235,12 +253,13 @@ export function createMatchup(context: GameContext) {
   /** The bout `search` asks for on `level`, each side's attributes as the page holds them over its mind's character (`controlCharacter`). */
   function recipeOf(search: string, attributes: Readonly<Record<Side, AttributeOverrides>>, level: ArenaLevel): DuelRecipe {
     const matchup = readMatchup(search), gap = readGap(search, level), capSeconds = readCap(search), controls = readControls(search);
-    const senseDelay = readSenseDelay(search), seed = readSeed(search);
+    const senseDelay = readSenseDelay(search), seed = readSeed(search), skills = arenaSkills(search);
+    const models = matchupModels(matchup), characters = namedCharacters(matchup);
     return {
-      left: matchup.left, right: matchup.right, level, minds: readMinds(search),
+      left: models.left, right: models.right, ...(Object.keys(characters).length ? { characters } : {}), level, minds: readMinds(search),
       attributes: { left: controlCharacter(controls.left, attributes.left), right: controlCharacter(controls.right, attributes.right) },
       ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), loadouts: loadoutsOf(search),
-      ...(senseDelay !== undefined ? { senseDelay } : {}), ...(seed !== undefined ? { seed } : {}),
+      ...(senseDelay !== undefined ? { senseDelay } : {}), ...(seed !== undefined ? { seed } : {}), ...(Object.keys(skills).length ? { skills } : {}),
     };
   }
   return { CONTROLS, readControls, controlCharacter, controlsFor, defaultControl, linkedMind, unreadMinds, readMinds, mindsSearch, controlName, controllerLabel, recipeOf };

@@ -2,7 +2,7 @@
   "kind": "cases",
   "evaluation": "strike",
   "part": "mind.options.1.skill",
-  "layout": "assets/skills/strikes/bonk/bonk.layout.json",
+  "layout": "assets/skills/strikes/bonk/swing.layout.json",
   "subject": {
     "mind": {
       "preset": "option-drill",
@@ -19,13 +19,13 @@
     {
       "protocol": "bonk-twin",
       "where": {
-        "model": "workshop-fighter"
+        "model": "man"
       }
     },
     {
       "protocol": "walk-twin",
       "where": {
-        "model": "workshop-fighter"
+        "model": "man"
       }
     }
   ],

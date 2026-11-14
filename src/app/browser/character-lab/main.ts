@@ -89,7 +89,7 @@ scene.imageProcessingConfiguration.exposure = STAGE.exposure;
 scene.imageProcessingConfiguration.contrast = STAGE.contrast;
 
 const camera = new ArcRotateCamera(
-  "workshop-camera", VIEW.home.alpha, VIEW.home.beta, VIEW.home.radius, vector(VIEW.home.target), scene);
+  "character-lab-camera", VIEW.home.alpha, VIEW.home.beta, VIEW.home.radius, vector(VIEW.home.target), scene);
 camera.fov = VIEW.fov;
 camera.minZ = VIEW.near;
 camera.lowerRadiusLimit = VIEW.radius.least;
@@ -387,7 +387,7 @@ async function start(): Promise<void> {
   } catch (error) {
     console.error(error);
     const told = error instanceof Error ? error.message : String(error);
-    need("loading").textContent = `The workshop could not load. ${told}. Reload to retry.`;
+    need("loading").textContent = `The Character Lab could not load. ${told}. Reload to retry.`;
   }
 }
 

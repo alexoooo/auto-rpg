@@ -90,7 +90,7 @@ console.log(`Node, the core world, ${CORE_ENGINE}, 120 Hz; each model with the c
 `);
 console.log(`| model | ${SHOVES.map(([name]) => `shoved ${name}`).join(" | ")} | let go standing |`);
 console.log(`|---|${SHOVES.map(() => "---:").join("|")}|---:|`);
-const MODELS = ["crypt-skeleton", "workshop-fighter", "workshop-rogue"];
+const MODELS = ["skeleton", "man", "woman"];
 const shown = (seconds) => seconds === null ? "moving" : seconds.toFixed(2);
 let longest = 0, moving = 0;
 for (const model of MODELS) {
@@ -108,7 +108,7 @@ console.log(`
 the longest that ends: ${longest.toFixed(2)} s; rounded up to a second, ${Math.ceil(longest)} s; ${moving} of ${MODELS.length * (SHOVES.length + 1)} still moving at the end
 `);
 
-const spec = armed(modelSpec("crypt-skeleton"), "right", woodenClub());
+const spec = armed(modelSpec("skeleton"), "right", woodenClub());
 const world = createWorld(await freshEngine());
 world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
 const count = Number(values.bodies), side = Math.ceil(Math.sqrt(count));
@@ -126,7 +126,7 @@ const rigids = bodies.flatMap(rigidsOf);
 const asleep = (of = rigids) => of.filter((rigid) => rigid.isSleeping()).length;
 const fastest = () => Math.max(...rigids.map((rigid) => { const v = rigid.linvel(); return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z); })).toFixed(3);
 
-console.log(`Node, the core world, ${CORE_ENGINE}, 120 Hz; ${count} of crypt-skeleton with the club, ${rigids.length} segments\n`);
+console.log(`Node, the core world, ${CORE_ENGINE}, 120 Hz; ${count} of skeleton with the club, ${rigids.length} segments\n`);
 world.step(2 * world.hz);
 console.log(`standing under the command layers: ${timed(SECONDS)} ms a step`);
 for (const { body } of bodies) body.setLevel("limp");

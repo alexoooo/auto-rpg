@@ -1,3 +1,6 @@
+import { variationFault, variedMake, type Varied } from "../framework/variations.ts";
+import type { Body } from "../../control/body.ts";
+import type { Legs } from "../framework/locomotion-part.ts";
 import type { Locomotion } from "../framework/locomotion-part.ts";
 import type { GaitName } from "../framework/skill.ts";
 import { choice } from "../../parts/fields.ts";
@@ -18,7 +21,7 @@ export const GOING: MoveConfig = deepFreeze({ kind: "move", rules: [], otherwise
  * **Move** (`move`, `skills/locomotion/move.ts`): of its gaits (`gaits`, the stock ones, `STOCK_GAITS`, where
  * it names none), the one of the first of `rules` that holds, or `otherwise`'s.
  */
-export interface MoveConfig {
+export interface MoveConfig extends Varied {
   readonly kind: "move";
   readonly gaits?: readonly Gait[];
   readonly rules: readonly MoveRuleConfig[];
@@ -52,27 +55,9 @@ function gaitFaults(config: MoveConfig): readonly string[] {
   return faults;
 }
 
-/**
- * **Move** (`move`): the legs of the gait it goes by, so it holds that gait's envelope and stops at
- * its stopping. Its gaits are made once for each complete configuration; its rules are made as the lookup finds them (`MoveRulePart`). Its
- * gaits are config (`MoveConfig.gaits`): a new gait is an entry, its legs any gait part's config (`GaitPart`).
- */
-export const MOVE_PART = deepFreeze<LocomotionPart<MoveConfig>>({
-  role: "locomotion", label: "Move", stage: "game", defaults: GOING, keys: { kind: true, gaits: true, rules: true, otherwise: true },
-  fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
-  slots: [slotList("rules", "When", "move-rule")],
-  children: config => Array.isArray(config.gaits) ? config.gaits.map((gait, i) => ({ path: ["gaits", i, "legs"], role: "gait", config: gait?.legs })) : [],
-  // The stock gaits' legs, where it names no gaits of its own.
-  supplies: config => config.gaits == null ? STOCK_GAITS.map((gait) => ({ role: "gait" as const, config: gait.legs })) : [],
-  fits: (spec, config, parts) => {
-    for (const gait of gaitsOf(config)) {
-      const refusal = parts.of("gait", gait.legs).fits(spec, gait.legs, parts);
-      if (refusal) return `${gait.name}: ${refusal}`;
-    }
-    return null;
-  },
-  faults: gaitFaults, gaits: gaitsOfMove,
-  make(body, config, legs) {
+/** Move's variations: move. */
+const VARIATIONS = {
+  move(body: Body, config: MoveConfig, legs: Legs): Locomotion {
     const walked = gaitsOf(config), names = walked.map((gait) => gait.name), built = new Map<string, Locomotion>();
     const gaits = walked.map((gait): MoveGait => {
       const of: PartConfig = gait.legs, key = JSON.stringify(of);
@@ -81,6 +66,32 @@ export const MOVE_PART = deepFreeze<LocomotionPart<MoveConfig>>({
     });
     return move(gaits, config.rules.map((r) => legs.parts.of("move-rule", r).make(r, names.indexOf(r.gait))), names.indexOf(config.otherwise));
   },
+};
+
+/**
+ * **Move** (`move`): the legs of the gait it goes by, so it holds that gait's envelope and stops at
+ * its stopping. Its gaits are made once for each complete configuration; its rules are made as the lookup finds them (`MoveRulePart`). Its
+ * gaits are config (`MoveConfig.gaits`): a new gait is an entry, its legs any gait part's config (`GaitPart`).
+ */
+export const MOVE_PART = deepFreeze<LocomotionPart<MoveConfig>>({
+  role: "locomotion", label: "Move", stage: "game", defaults: GOING, keys: { kind: true, variation: true, gaits: true, rules: true, otherwise: true },
+  fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
+  slots: [slotList("rules", "When", "move-rule")],
+  children: config => Array.isArray(config.gaits) ? config.gaits.map((gait, i) => ({ path: ["gaits", i, "legs"], role: "gait", config: gait?.legs })) : [],
+  // The stock gaits' legs, where it names no gaits of its own.
+  supplies: config => config.gaits == null ? STOCK_GAITS.map((gait) => ({ role: "gait" as const, config: gait.legs })) : [],
+  fits: (spec, config, parts) => {
+    const unheld = variationFault("move", "move", VARIATIONS)(spec, config);
+    if (unheld) return unheld;
+    for (const gait of gaitsOf(config)) {
+      const refusal = parts.of("gait", gait.legs).fits(spec, gait.legs, parts);
+      if (refusal) return `${gait.name}: ${refusal}`;
+    }
+    return null;
+  },
+  faults: gaitFaults, gaits: gaitsOfMove,
+  make: variedMake("move", VARIATIONS, (body, config) => [body.built.spec, config]),
+  variations: Object.keys(VARIATIONS),
 });
 
 declare module "../config.ts" {

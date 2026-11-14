@@ -8,8 +8,8 @@ import type { Side } from "../bilateral.ts";
 
 /**
  * **A human figure**: everything the human body-plan code (`segments.ts`, `joints.ts`,
- * `muscle.ts`, `speed.ts`, `wounds.ts`) reads of one body, and nothing it derives. The workshop
- * models' figures come from their rigs and envelopes (`workshop.ts`); the crypt skeleton's from
+ * `muscle.ts`, `speed.ts`, `wounds.ts`) reads of one body, and nothing it derives. The two
+ * humans' figures come from their rigs and envelopes (`rigged.ts`); the skeleton's from
  * its art's bind (`skeleton.ts`). Families share this code, not its values: each figure's numbers
  * say where they came from.
  *

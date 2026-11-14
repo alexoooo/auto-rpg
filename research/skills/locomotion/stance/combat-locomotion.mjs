@@ -9,7 +9,7 @@ import {GUARD} from "../../../../src/skills/guard/guard.ts";
 import {balanceCeiling,balancePercent,rulebook} from "../../../../src/combat/rulebook.ts";
 
 /** A half-turn from rest or an established walk, through shared locomotion and ordinary muscles. */
-export async function combatTurn({speed,rate,sense,after,turnLimit,turnStartup,model='workshop-fighter',engine=DEFAULT_ENGINE,balance=0,hz=120}) {
+export async function combatTurn({speed,rate,sense,after,turnLimit,turnStartup,model='man',engine=DEFAULT_ENGINE,balance=0,hz=120}) {
  if(!Number.isFinite(speed)||speed<=0||!Number.isFinite(rate)||rate<=0||![-1,1].includes(sense)||!Number.isFinite(after)||after<0)
   throw new Error('turn trial needs positive speed/rate, a sense and nonnegative walking delay');
  const spec=modelSpec(model),legs=locomotion(stanceFeetOf(spec),null,{segments:stanceSegmentsOf(spec),turnLimit,turnStartup}),assist=balanceCeiling(balance,balancePercent(rulebook('arena')));

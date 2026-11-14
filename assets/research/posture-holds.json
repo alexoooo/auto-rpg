@@ -1,7 +1,7 @@
 [
   {
     "id": "fours",
-    "model": "workshop-fighter",
+    "model": "man",
     "source": {
       "path": "research/posture-limits.mjs",
       "engine": "rapier-coordinate",
@@ -91,7 +91,7 @@
   },
   {
     "id": "half-kneel",
-    "model": "workshop-fighter",
+    "model": "man",
     "source": {
       "path": "research/posture-limits.mjs",
       "engine": "rapier-coordinate",
@@ -181,7 +181,7 @@
   },
   {
     "id": "squat",
-    "model": "workshop-fighter",
+    "model": "man",
     "source": {
       "path": "research/posture-limits.mjs",
       "engine": "rapier-coordinate",
@@ -271,7 +271,7 @@
   },
   {
     "id": "kneeling",
-    "model": "workshop-fighter",
+    "model": "man",
     "source": {
       "path": "research/route-postures.mjs",
       "commit": "108323c6",
@@ -362,7 +362,7 @@
   },
   {
     "id": "fours",
-    "model": "workshop-rogue",
+    "model": "woman",
     "source": {
       "path": "research/route-postures.mjs",
       "commit": "108323c6",
@@ -453,7 +453,7 @@
   },
   {
     "id": "kneeling",
-    "model": "workshop-rogue",
+    "model": "woman",
     "source": {
       "path": "research/route-postures.mjs",
       "commit": "108323c6",
@@ -544,7 +544,7 @@
   },
   {
     "id": "half-kneel",
-    "model": "workshop-rogue",
+    "model": "woman",
     "source": {
       "path": "research/route-postures.mjs",
       "commit": "108323c6",

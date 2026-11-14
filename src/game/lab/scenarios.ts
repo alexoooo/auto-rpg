@@ -2,10 +2,7 @@ import { readViewSettings, viewSearch, type ViewSettings } from "../appearance/v
 import { appearanceFor, type Appearance } from "../appearance/appearance.ts";
 import { playHref } from "../route.ts";
 import { CHARACTERS } from "../appearance/characters.ts";
-import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../../core/bodies/models.ts";
-import { MODEL_DISPLAY } from "../appearance/models.ts";
-import { balanceFrom } from "../../combat/rulebook.ts";
-import { hasteFrom } from "../../core/bodies/human/attributes.ts";
+import { HUMANOID_MODELS, modelLabel, modelSpec, type HumanoidModel } from "../../core/bodies/models.ts";
 import { HELD, type Loadout } from "../../core/bodies/items/held.ts";
 import type { GameContext } from "../arena/context.ts";
 import { offered, presetFitsModel, type MindPreset } from "../../minds/catalog/controller.ts";
@@ -13,7 +10,7 @@ import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { mindLinks, type Staging } from "../../minds/catalog/config-link.ts";
 import { isWayUp, type TechniqueName } from "../../skills/recovery/technique.ts";
-import { readAttributes, writeAttributes, legacyAttributes } from "../attribute-link.ts";
+import { readAttributes, writeAttributes } from "../attribute-link.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { loadoutAttributes, loadoutSpec } from "./loadout.ts";
 import { GROUND_LEVELS, type GroundLevel } from "./ground-environment.ts";
@@ -47,18 +44,18 @@ export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "reach", name: "Reach a place" },
 ];
 
-export const MODELS: readonly { readonly id: HumanoidModel; readonly name: string }[] = HUMANOID_MODELS.map((id) => ({ id, name: MODEL_DISPLAY[id].label }));
+export const MODELS: readonly { readonly id: HumanoidModel; readonly name: string }[] = HUMANOID_MODELS.map((id) => ({ id, name: modelLabel(id) }));
 /** The hands that hold, and the clothing worn or not, as the loadout names them. */
 export const LAB_HANDS = ["right", "left"] as const, LAB_WORN = ["boots", "armour"] as const;
 
 /**
- * What each body wears unless the address says: the character workshop's own default loadout for
+ * What each body wears unless the address says: the Character Lab's own default loadout for
  * the humans, the Warrior armoured and the Rogue not; the skeleton wears nothing.
  */
 const WORN: Readonly<Record<HumanoidModel, { readonly boots: boolean; readonly armour: boolean }>> = {
-  "workshop-fighter": CHARACTERS.fighter.defaults,
-  "workshop-rogue": CHARACTERS.rogue.defaults,
-  "crypt-skeleton": { boots: false, armour: false },
+  man: CHARACTERS.man.defaults,
+  woman: CHARACTERS.woman.defaults,
+  skeleton: { boots: false, armour: false },
 };
 
 /**
@@ -137,7 +134,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "crippled", "cut", "mind", "hz", "view", "camera", "projection", "targets", "targetPart", "seed"] as const;
+const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "scenario", "model", "appearance", "right", "left", "boots", "armour", "crippled", "cut", "mind", "hz", "view", "camera", "projection", "targets", "targetPart", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -217,7 +214,7 @@ export function createLabScenarios(context: GameContext) {
   /** Read the lab's address; anything missing or unknown is the default. */
   function labAddress(search: string): LabAddress {
     const query = new URLSearchParams(search);
-    const attributes = readAttributes(query, "body", legacyAttributes(query));
+    const attributes = readAttributes(query, "body");
     const model = MODELS.find((m) => m.id === query.get("model"))?.id ?? MODELS[0].id;
     const worn = WORN[model];
     const bounded = (key: string, lo: number, hi: number, fallback: number): number => {
@@ -245,8 +242,8 @@ export function createLabScenarios(context: GameContext) {
       left: HELD.find((h) => h === query.get("left")) ?? "empty",
       boots: flag(query.get("boots"), worn.boots),
       armour: flag(query.get("armour"), worn.armour),
-      balance: query.has("body.balance") ? attributes.balance ?? null : balanceFrom(query.get("balance") ?? ""),
-      haste: query.has("body.haste") ? attributes.haste ?? null : hasteFrom(query.get("haste") ?? ""),
+      balance: attributes.balance ?? null,
+      haste: attributes.haste ?? null,
       crippled: modelSpec(model).wounds.limbs.find((limb) => limb.name === query.get("crippled"))?.name ?? null,
       cut: modelSpec(model).wounds.limbs.find((limb) => limb.name === query.get("cut"))?.name ?? null,
       mind,

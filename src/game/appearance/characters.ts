@@ -1,15 +1,15 @@
-export type CharacterId = "fighter" | "rogue";
+export type CharacterId = "man" | "woman";
 export type WeaponId = "empty" | "sword" | "shield" | "sword-shield" | "bow";
 export type PoseId = "inspection" | "loop";
 export interface Loadout { boots: boolean; armour: boolean; weapon: WeaponId }
 
-/** The workshop's characters, in the order the page counts them. `armour` is what the page calls each one's. */
+/** The Character Lab's characters, in the order the page counts them. `armour` is what the page calls each one's. */
 export const CHARACTERS = {
-  fighter: {
-    name: "The Fighter", armour: "Plate armour",
+  man: {
+    name: "The Warrior", armour: "Plate armour",
     defaults: { boots: true, armour: true, weapon: "sword-shield" },
   },
-  rogue: {
+  woman: {
     name: "The Rogue", armour: "Leather armour",
     defaults: { boots: true, armour: false, weapon: "bow" },
   },

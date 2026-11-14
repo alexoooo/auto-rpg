@@ -11,8 +11,8 @@
     "totalBudgetBytes": 35000000
   },
   "characters": {
-    "fighter": {
-      "source": "assets/character-lab/fighter.blend",
+    "man": {
+      "source": "assets/character-lab/man.blend",
       "consumers": [
         "arena",
         "dungeon",
@@ -21,8 +21,8 @@
       ],
       "licence": "assets/character-lab/MAKEHUMAN-CC0.txt"
     },
-    "rogue": {
-      "source": "assets/character-lab/rogue.blend",
+    "woman": {
+      "source": "assets/character-lab/woman.blend",
       "consumers": [
         "arena",
         "dungeon",

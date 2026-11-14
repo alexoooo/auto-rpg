@@ -39,7 +39,7 @@ const SETTLE = 1;
  * centre (backward, along -z: it faces +z), with its muscles holding at the guard's bounds; its free
  * mass there, and its surface's stiffness, N/m. The yield is plain numbers, read once.
  */
-export async function referenceHead({ model = "workshop-fighter", physique, part = "head", hz = 120 } = {}) {
+export async function referenceHead({ model = "man", physique, part = "head", hz = 120 } = {}) {
   const spec = modelSpec(model, physique), s = await coreStand(spec, { engine: DEFAULT_ENGINE, hz, posture: guardPosture(spec) });
   const body = stockBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true }), skills = standingSkills(body);
   body.drive((view, dt) => skills.command(view, { move: null, face: 0, guard: NO_COVER, actions: [] }, dt));

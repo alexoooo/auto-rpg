@@ -21,7 +21,7 @@ try {
   await page.route("**/favicon.ico", route => route.fulfill({ status: 204 }));
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error") errors.push(`${message.text()} (${message.location().url})`); });
-  const url = `${base}/?play=arena&matchup=workshop-fighter,workshop-fighter&appearance=relic,duelist&you=right&gap=4&control=option,option&recovery=15`;
+  const url = `${base}/?play=arena&matchup=man,man&appearance=steampunk,futuristic&you=right&gap=4&control=option,option&recovery=15`;
   /** The person's side's last order on the bout's tape, as its worker keeps it. */
   const lastOrders = () => page.evaluate(async () => (await __arena.world.tape()).filter(entry => entry.side === "right").at(-1)?.orders);
   await page.goto(url);
@@ -53,7 +53,7 @@ try {
   assert.ok(await page.evaluate(() => {
     const names = __arena.puppets.flatMap(puppet => [...puppet.segments.values()].map(s => s.node));
     const meshes = __arena.scene.meshes.filter(m => names.includes(m.parent));
-    return meshes.filter(m => /\.(relic|duelist)\./.test(m.name)).every(m => !m.isEnabled()) &&
+    return meshes.filter(m => /\.(steampunk|futuristic)\./.test(m.name)).every(m => !m.isEnabled()) &&
       meshes.filter(m => m.name.endsWith(".view")).length === 32 && meshes.filter(m => m.name.endsWith(".view")).every(m => m.isEnabled());
   }));
   await page.screenshot({ path: `${output}/tactical.png` });
@@ -126,7 +126,7 @@ try {
     const r = element.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth;
   })));
   checks.push("View controls remain available at verdict and fit a narrow screen");
-  await page.goto(`${base}/?play=lab&scenario=stance&appearance=duelist`);
+  await page.goto(`${base}/?play=lab&scenario=stance&appearance=futuristic`);
   await page.waitForFunction(() => window.__lab?.current()?.skin.meshes.length > 0);
   await page.evaluate(() => __lab.scene.whenReadyAsync());
   await page.getByRole("button", { name: "Isometric", exact: true }).click();

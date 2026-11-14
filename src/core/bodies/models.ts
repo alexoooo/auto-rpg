@@ -1,6 +1,7 @@
 import { HUMANOID_MODELS, humanoidSpec, humanoidSpecChecked, type HumanoidModel } from "./human/spec.ts";
 import type { Physique } from "./human/physique.ts";
-import type { BodySpec } from "./spec/body.ts";
+import type { BodySpec, SkillChoices } from "./spec/body.ts";
+import characters from "../../../assets/characters/characters.json" with { type: "json" };
 import { reptileSpec } from "./quadruped/spec.ts";
 import reptileBody from "../../../assets/reptile/body.json" with { type: "json" };
 import ratBody from "../../../assets/rat/body.json" with { type: "json" };
@@ -19,12 +20,21 @@ export type BodyModel = HumanoidModel | "reptile" | "rat";
 export const BODY_MODELS: readonly BodyModel[] = Object.freeze([...HUMANOID_MODELS, "reptile", "rat"]);
 export { HUMANOID_MODELS, type HumanoidModel };
 
-/** A model with explicit attribute overrides; omitted fields inherit that model's defaults. */
-export interface CharacterConfig { readonly model: BodyModel; readonly attributes?: AttributeOverrides }
+/**
+ * A model with explicit attribute overrides, omitted fields inheriting that model's defaults; the
+ * character it is (`CHARACTERS`), its model's own where it names none; and the skills it has
+ * chosen (`SkillChoices`), its character's where it names none.
+ */
+export interface CharacterConfig {
+  readonly model: BodyModel;
+  readonly character?: string;
+  readonly attributes?: AttributeOverrides;
+  readonly skills?: SkillChoices;
+}
 
 /** A resolved recipe and its sourced anatomy, shared by previews, fights and saved setups. */
 export interface ResolvedCharacter {
-  readonly config: { readonly model: BodyModel; readonly attributes: CharacterAttributes };
+  readonly config: { readonly model: BodyModel; readonly character: string; readonly attributes: CharacterAttributes; readonly skills: SkillChoices };
   readonly spec: BodySpec;
 }
 
@@ -49,13 +59,85 @@ const quadruped = (data: Parameters<typeof reptileSpec>[0], source: Parameters<t
 const REPTILE = quadruped(reptileBody, "reptile-anatomy"), RAT = quadruped(ratBody, "rat-anatomy");
 
 /** **Every model's family**: the one list a body family is added to in the core. */
-const FAMILIES: Readonly<Record<BodyModel, Family>> = Object.freeze({ "workshop-fighter": HUMANOID, "workshop-rogue": HUMANOID, "crypt-skeleton": HUMANOID, reptile: REPTILE, rat: RAT });
+const FAMILIES: Readonly<Record<BodyModel, Family>> = Object.freeze({ man: HUMANOID, woman: HUMANOID, skeleton: HUMANOID, reptile: REPTILE, rat: RAT });
 
 /** The family of a trusted model from `BODY_MODELS`. */
 function familyOf(model: BodyModel): Family {
   const family = Object.hasOwn(FAMILIES, model) ? FAMILIES[model] : undefined;
   if (!family) throw new Error(`unknown model ${String(model)}`);
   return family;
+}
+
+/** **A character** (`CHARACTERS`): the body it is built on, what a page calls it, and the skills it holds unless it is given others. */
+export interface Character {
+  readonly model: BodyModel;
+  readonly label: string;
+  readonly skills: SkillChoices;
+}
+
+/** **The characters and each model's own** (`assets/characters/characters.json`): as many characters on a model as it likes, one of them the model's. */
+export interface CharacterRegistry {
+  readonly characters: Readonly<Record<string, Character>>;
+  readonly models: Readonly<Record<BodyModel, string>>;
+}
+
+/** Why `registry` is no registry of characters, or null: each character on a known model holding skills (`skillsError`), each model's own one of its characters. */
+export function registryError(registry: CharacterRegistry): string | null {
+  for (const [name, character] of Object.entries(registry.characters)) {
+    if (!/^[a-z][a-z-]*$/.test(name)) return `character ${name}: a name of lower-case words`;
+    if (!Object.hasOwn(FAMILIES, character.model)) return `character ${name}: unknown model ${String(character.model)}`;
+    if (typeof character.label !== "string" || !character.label) return `character ${name}: no label`;
+    const skills = skillsError(character.skills);
+    if (skills) return `character ${name}: ${skills}`;
+  }
+  for (const model of BODY_MODELS) {
+    const name = Object.hasOwn(registry.models, model) ? registry.models[model] : undefined;
+    if (name === undefined) return `model ${model} has no character`;
+    if (!Object.hasOwn(registry.characters, name) || registry.characters[name]!.model !== model) return `model ${model}'s character ${name} is no character on it`;
+  }
+  return null;
+}
+
+const REGISTRY: CharacterRegistry = deepFreeze(characters) as unknown as CharacterRegistry;
+{ const fault = registryError(REGISTRY); if (fault) throw new Error(`assets/characters/characters.json: ${fault}`); }
+
+/** **Every character's name** (`CHARACTERS`), in the order a page lists them. */
+export const CHARACTERS: readonly string[] = Object.freeze(Object.keys(REGISTRY.characters));
+
+/** The character `name` (`CHARACTERS`); an unknown name throws. */
+export function characterNamed(name: string): Character {
+  const character = Object.hasOwn(REGISTRY.characters, name) ? REGISTRY.characters[name] : undefined;
+  if (!character) throw new Error(`unknown character ${name}`);
+  return character;
+}
+
+/** `model`'s own character's name: the one a model alone stands for. */
+export function modelCharacter(model: BodyModel): string {
+  const name = Object.hasOwn(REGISTRY.models, model) ? REGISTRY.models[model] : undefined;
+  if (name === undefined) throw new Error(`model ${String(model)} has no character`);
+  return name;
+}
+
+/** The character `text` names: a character's name, or a model's for its own character (`modelCharacter`); undefined for anything else. */
+export function readCharacter(text: string | undefined): string | undefined {
+  if (text === undefined) return undefined;
+  if (Object.hasOwn(REGISTRY.characters, text)) return text;
+  return Object.hasOwn(REGISTRY.models, text) ? REGISTRY.models[text as BodyModel] : undefined;
+}
+
+/** What a page calls `model`: its own character's label. */
+export const modelLabel = (model: BodyModel): string => characterNamed(modelCharacter(model)).label;
+
+/** Why `skills` are no character's choice, or null: a list of `skill/variation`, both words, none twice. */
+function skillsError(skills: unknown): string | null {
+  if (!Array.isArray(skills)) return "skills: a list of skill/variation";
+  const seen = new Set<string>();
+  for (const name of skills) {
+    if (typeof name !== "string" || !/^[a-z][a-z-]*\/[a-z][a-z-]*$/.test(name)) return `skills: ${String(name)} is not skill/variation`;
+    if (seen.has(name)) return `skills: ${name} twice`;
+    seen.add(name);
+  }
+  return null;
 }
 
 /** Model defaults, including its own hit points and assistance capabilities. */
@@ -107,8 +189,12 @@ function scalingRefusal(model: BodyModel, physique: Physique, haste: number, def
 export function resolveCharacterChecked(character: CharacterConfig): ResolvedCharacter | Refused {
   const { model } = character, overrides = character.attributes ?? {};
   if (!Object.hasOwn(FAMILIES, model)) return { refused: `unknown model ${String(model)}` };
-  const invalid = attributesError(overrides);
+  const name = character.character ?? modelCharacter(model);
+  if (!Object.hasOwn(REGISTRY.characters, name)) return { refused: `unknown character ${String(name)}` };
+  if (REGISTRY.characters[name]!.model !== model) return { refused: `character ${name} is no ${model}` };
+  const invalid = attributesError(overrides) ?? (character.skills === undefined ? null : skillsError(character.skills));
   if (invalid) return { refused: invalid };
+  const skills = character.skills === undefined ? REGISTRY.characters[name]!.skills : deepFreeze([...character.skills]);
   const defaults = characterDefaults(model), attributes = Object.freeze({ ...defaults,
     ...Object.fromEntries(Object.entries(overrides).filter(([, value]) => value !== undefined)) }) as CharacterAttributes;
   const physique = Object.fromEntries((["size", "weight", "strength", "speed"] as const)
@@ -135,7 +221,8 @@ export function resolveCharacterChecked(character: CharacterConfig): ResolvedCha
       if (checked.size > 64) checked.delete(checked.values().next().value!);
     }
   }
-  return Object.freeze({ config: Object.freeze({ model, attributes }), spec: deepFreeze(spec) });
+  if (spec.skills !== skills) spec = { ...spec, skills };
+  return Object.freeze({ config: Object.freeze({ model, character: name, attributes, skills }), spec: deepFreeze(spec) });
 }
 
 /** Resolve a trusted recipe whose model, attributes and geometry already satisfy the body contract. */
@@ -161,7 +248,7 @@ export function modelHastes(model: BodyModel): boolean {
 const specs = new Map<BodyModel, BodySpec>();
 function specOf(model: BodyModel): BodySpec {
   let spec = specs.get(model);
-  if (!spec) specs.set(model, spec = deepFreeze(familyOf(model).spec(model)));
+  if (!spec) specs.set(model, spec = deepFreeze({ ...familyOf(model).spec(model), skills: characterNamed(modelCharacter(model)).skills }));
   return spec;
 }
 

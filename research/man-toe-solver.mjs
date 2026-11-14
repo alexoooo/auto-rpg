@@ -1,5 +1,5 @@
 /**
- * **Man's passive toe on the game's solver**: one foot of
+ * **The man's passive toe on the game's solver**: one foot of
  * the Warrior, cut at the ball (`assets/humanoid/man-contact-geometry.json`), on the arena's ground,
  * built through the core's Rapier world (`createRapierPhysics`: `SOLVER`'s iterations, the contract's
  * friction) and not through the core's body.
@@ -63,7 +63,7 @@ import { FIT_SCALE } from "../src/core/bodies/human/model.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";
 import { STANDARD_GRAVITY } from "../src/core/constants.ts";
 import { hullSolid } from "../scripts/humanoid/man-envelope.mjs";
-import { AUDITED, TOE as REFERENCE_TOE } from "./humanoid/posture/core-posture-trials.mjs";
+import { AUDITED, TOE as REFERENCE_TOE } from "./humanoid/posture/posture-trials.mjs";
 import MAN from "../assets/humanoid/man-contact-geometry.json" with { type: "json" };
 
 /** The toe's damping, N m s/rad: `SOURCES["falisse-2022-toes"]`. */

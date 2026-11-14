@@ -8,6 +8,7 @@ import type { ExecutorBinding } from "../framework/action-instances.ts";
 import type { Aim, AimAsking, Aims } from "../framework/aim-part.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
+import { chosenVariation } from "../framework/variations.ts";
 
 /** **`action`'s aim** on a body of `spec`, made by its aim's part (`AimPart.make`) to be asked as `asking` says; null for an action that names no aim. */
 function aimOf(parts: PartLookup, spec: BodySpec, action: ActionConfig, asking: AimAsking): Aim | null {
@@ -29,6 +30,7 @@ export function configuredExecutors(parts: PartLookup, body: Body, clock: Clock,
   const making = { body, clock, guard, aim: (view: BodyView, target: TargetRef, action: string, effector: string) => aims.of.get(action)?.(view, target, effector, ledger()) ?? null };
   return executors.map(config => {
     const part: ExecutorPart = parts.of("executor", config);
-    return { name: config.name, kind: config.kind, executor: part.make(making, config, actions.filter(action => action.executor === config.name)) };
+    const variation = part.variations === undefined ? undefined : chosenVariation(body.built.spec, config.kind, config);
+    return { name: config.name, kind: config.kind, ...variation === undefined ? {} : { variation }, executor: part.make(making, config, actions.filter(action => action.executor === config.name)) };
   });
 }

@@ -8,7 +8,7 @@ import { stockMotor } from "../../src/app/registration/stock-motor.ts";
 import { coreStand } from "../harness/core-stand.mjs";
 
 test("a stance's named bearing end excludes another controller of its segment", async () => {
-  const spec = modelSpec("workshop-fighter");
+  const spec = modelSpec("man");
   const end = spec.ends.find(end => end.kind === "foot" && spec.effectors.some(e => e.segment === end.segment));
   assert.ok(end, "the fixture needs a stance end that is also a controllable effector");
   const point = spec.effectors.find(e => e.segment === end.segment).point;

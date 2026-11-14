@@ -9,12 +9,11 @@ import { derive } from "../../src/core/quantity.ts";
 import { validRunCycle, RUN_CYCLE } from "../../src/skills/locomotion/cycle-run.ts";
 import { WALK_RUN_PART } from "../../src/skills/locomotion/walk-run-part.ts";
 import { validStepUp } from "../../src/skills/recovery/implementations/staged/records.ts";
-import { validStraightPunchPart } from "../../src/skills/strikes/straight-punch.ts";
-import * as punch from "../../src/skills/strikes/straight-punch.ts";
+import { validStraightDrivePart, straightDriveExecutor } from "../../src/skills/strikes/shared/straight-drive.ts";
+import { fromGuard } from "../../src/skills/strikes/straight-punch/from-guard/from-guard.ts";
+import { PUNCH_LAYOUT } from "../../src/skills/strikes/straight-punch/index.ts";
 import { bodyEffectors } from "../../src/control/effectors.ts";
 import { guardPosture } from "../../src/skills/guard/guard.ts";
-import { dataOf } from "../../src/core/data/store.ts";
-import { bodyKey } from "../../src/core/bodies/spec/body.ts";
 import { surfaceContains } from "../../src/skills/perception/openings.ts";
 import { actionResources } from "../../src/skills/framework/action-resources.ts";
 import { profileReading, skillDigest } from "../../src/skills/framework/profile.ts";
@@ -24,24 +23,25 @@ import { heldClearance } from "../../src/skills/locomotion/navigation/held-clear
 import { withLoadout, LOADOUTS } from "../../src/core/bodies/items/held.ts";
 import { coreStand } from "../harness/core-stand.mjs";
 
-const stock = modelSpec("workshop-fighter");
+const stock = modelSpec("man");
 
-test("a quiet stance cannot commit a punch with its striking arm away from prepare or still moving", async () => {
+test("the punch from guard does not begin its drive with its striking arm away from its guard or still moving", async () => {
   const guard = guardPosture(stock), stand = await coreStand(stock, { posture: guard });
   const host = stockBody(stand.built, stand.world, { servoSeconds: .1 });
   try {
-    const speeds = {}, body = { ...host, muscles: { ...host.muscles, speed: index => speeds[index] ?? 0 } };
-    const settings = dataOf("straight-punch")[bodyKey(stock)].settings, around = { heading: 0, lower: 0 };
+    const speeds = {}, body = { ...host, muscles: { ...host.muscles, speed: index => speeds[index] ?? 0 } }, around = { heading: 0, lower: 0 };
+    const settings = { pace: 1, reach: 1, band: .2, settle: 0, through: .1, hips: 0, turn: 0, lean: 0, chamber: 0, lead: 0, elbow: 0, brake: .05, follow: .1, longest: .5, recover: .3 };
+    const ready = fromGuard(body);
     for (const hand of ["left", "right"]) {
       const effector = `hand.${hand}`, channels = bodyEffectors(stand.built).find(e => e.segment.spec.name === effector).model.channels;
       const at = [0, host.view.head.y, 1], request = { id: 1, action: "punch", effector, target: { kind: "point", at } };
-      const executor = punch.straightPunchExecutor(body, guard, ["punch"], settings, () => at);
+      const executor = straightDriveExecutor(body, guard, ["punch"], settings, () => at, { label: "straight punch", layout: PUNCH_LAYOUT, ready });
       const view = { ...host.view, down: false, angles: { ...host.view.angles, ...Object.fromEntries(channels.map(channel => [channel, guard[channel] ?? 0])) },
         stance: { ...host.view.stance, phase: "stand" } };
       executor.start(view, request, around);
       for (const channel of channels) {
         const prepared = view.angles[channel];
-        // The fight's observed elbow excursion and speed also expose any omitted arm freedom.
+        // A fight's observed elbow excursion and speed; every freedom of the arm is tried, so none is left out of the rule.
         view.angles[channel] = prepared - 1.7;
         assert.equal(executor.update(view, [request], around, .01)[0].phase, "prepare", channel);
         view.angles[channel] = prepared;
@@ -49,8 +49,7 @@ test("a quiet stance cannot commit a punch with its striking arm away from prepa
         assert.equal(executor.update(view, [request], around, .01)[0].phase, "prepare", channel);
         speeds[body.muscles.channel(channel)] = 0;
       }
-      const posture = executor.command(view, 1, around).posture;
-      assert.equal(punch.punchArmPrepared(body, view, channels, posture), true);
+      assert.equal(ready(view, hand, executor.command(view, 1, around).posture), true);
       assert.equal(executor.update(view, [request], around, .01)[0].phase, "commit");
     }
   } finally { host.dispose(); stand.dispose(); }
@@ -61,13 +60,13 @@ test("invalid authored settings return refusals before the implementation consum
   const [key] = Object.keys(renamed);
   renamed.invented = renamed[key]; delete renamed[key];
   assert.equal(validRunCycle(renamed), false, "a same-size object must contain the actual settings");
-  assert.equal(validStraightPunchPart(null), false);
+  assert.equal(validStraightDrivePart(null), false);
   assert.equal(validStepUp({ settle: { speed: .1, seconds: .2 }, climb: 1, stages: { stage: { scale: 1, progress: { near: .1 } } } }), true);
   assert.equal(validStepUp({ settle: { speed: .1, seconds: .2 }, climb: 1, stages: {}, roll: {} }), false);
   const joints = stock.joints.map(joint => joint.name === "hip.left" ? { ...joint, name: "hip.port" } : joint);
   const ends = stock.ends.map(end => end.from === "hip.left" ? { ...end, from: "hip.port" } : end);
-  assert.match(WALK_RUN_PART.fits({ ...stock, joints, ends }), /bilateral/);
-  assert.equal(WALK_RUN_PART.fits(stock), null);
+  assert.match(WALK_RUN_PART.fits({ ...stock, joints, ends }, WALK_RUN_PART.defaults), /bilateral/);
+  assert.equal(WALK_RUN_PART.fits(stock, WALK_RUN_PART.defaults), null);
 });
 
 test("configuration observations select the sensed collision surface", () => {
@@ -249,7 +248,9 @@ import { partLookup, MINDS, GAME } from "../../src/app/catalog.ts";
 import { filledRefusal } from "../../src/skills/assembly/filled.ts";
 
 test("explicit filled parts obey the same body applicability as automatic selection", () => {
-  const rat = modelSpec("rat");
+  // A rat that holds the guards: what refuses them is its body.
+  const rat = { ...modelSpec("rat"), skills: [...modelSpec("rat").skills, "cover-guard/cover-guard", "shield-guard/shield-guard"] };
+  assert.match(filledRefusal(partLookup, modelSpec("rat"), { guard: { kind: "cover-guard" } }), /guard: the character has no guard and cover/);
   for (const kind of ["cover-guard", "shield-guard"]) {
     const config = { ...MINDS.option.config, tuning: { parts: { guard: { kind } } } };
     assert.deepEqual(GAME.treeFaults(config), []);
@@ -322,12 +323,12 @@ test("a low quadruped clears its supporting arena floor while retaining real par
 });
 
 import { COVER_GUARD } from "../../src/skills/guard/guard-part.ts";
-import { STOMP_PART } from "../../src/skills/strikes/stomp-part.ts";
+import { STOMP_PART } from "../../src/skills/strikes/stomp/index.ts";
 import { STAGED_DOWN } from "../../src/skills/recovery/implementations/staged/techniques.ts";
 import { stepUpTuning } from "../../src/skills/recovery/implementations/staged/records.ts";
 import { TROT_PART } from "../../src/skills/locomotion/quadruped/trot.ts";
 import { CRAWL_PART } from "../../src/skills/locomotion/quadruped/crawl.ts";
-import { JAW_BITE } from "../../src/skills/strikes/bite/index.ts";
+import { BITE_PART } from "../../src/skills/strikes/bite/index.ts";
 import { ROLL_POSES } from "../../src/skills/recovery/implementations/staged/stages.ts";
 import { makeSkills } from "../../src/skills/assembly/assembly.ts";
 import { LEG_RESOURCE, TRUNK_RESOURCE, poseResource, hasResource } from "../../src/skills/framework/action.ts";
@@ -377,7 +378,7 @@ test("admission resolves guard, staged channels and timed strike and gait settin
   assert.match(STAGED_DOWN.fits(stock, { kind: "staged-down", tuning }, partLookup), /unknown channel/);
   assert.match(STOMP_PART.fits(stock, { kind: "stomp", tuning: { swingSeconds: 0 } }, partLookup), /invalid stomp/);
   const reptile = modelSpec("reptile");
-  for (const [part, tuning] of [[TROT_PART, { speed: 0 }], [CRAWL_PART, { settle: 0, shift: 0, swing: 0, plant: 0 }], [JAW_BITE, { prepare: 0 }], [JAW_BITE, { snap: 0 }]]) {
+  for (const [part, tuning] of [[TROT_PART, { speed: 0 }], [CRAWL_PART, { settle: 0, shift: 0, swing: 0, plant: 0 }], [BITE_PART, { prepare: 0 }], [BITE_PART, { snap: 0 }]]) {
     const config = { ...part.defaults, tuning };
     assert.match(part.fits(reptile, config, partLookup), /invalid .*settings/);
     assert.notDeepEqual(part.faults(config, partLookup), []);

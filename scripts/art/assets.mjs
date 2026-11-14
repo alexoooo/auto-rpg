@@ -208,7 +208,7 @@ async function character(id, source, work, folder, tools, profile) {
   for (const accessor of root.listAccessors()) accessor.setBuffer(animationAccessors.has(accessor) ? animations : geometry);
   for (const buffer of root.listBuffers()) if (buffer !== geometry && buffer !== animations) buffer.dispose();
   document.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.QUANTIZE });
-  const workshop = await writeModel(document, folder, `${id}.workshop`, structure);
+  const animated = await writeModel(document, folder, `${id}.animated`, structure);
   for (const animation of [...root.listAnimations()]) {
     for (const channel of animation.listChannels()) channel.dispose();
     for (const sampler of animation.listSamplers()) sampler.dispose();
@@ -220,7 +220,7 @@ async function character(id, source, work, folder, tools, profile) {
   }
   animations.dispose();
   const model = await writeModel(document, folder, `${id}.model`, structure);
-  return { model, workshop, structure };
+  return { model, animated, structure };
 }
 
 async function decoders(folder) {
@@ -242,7 +242,7 @@ async function decoders(folder) {
 
 function deliveryUris(manifest) {
   return [...new Set([
-    ...Object.values(manifest.characters).flatMap(asset => [...asset.model.resources, ...asset.workshop.resources]),
+    ...Object.values(manifest.characters).flatMap(asset => [...asset.model.resources, ...asset.animated.resources]),
     ...Object.values(manifest.models ?? {}).flatMap(asset => asset.resources),
     ...Object.values(manifest.textures ?? {}).flatMap(asset => asset.resources),
     ...Object.values(manifest.decoders),
@@ -262,14 +262,14 @@ async function deliveryBytes(folder, manifest) {
 export async function checkAssets(folder = OUTPUT) {
   const manifest = json(join(folder, "manifest.json")), base = new Set();
   for (const [id, asset] of Object.entries(manifest.characters)) {
-    const model = json(join(folder, asset.model.uri)), workshop = json(join(folder, asset.workshop.uri));
+    const model = json(join(folder, asset.model.uri)), animated = json(join(folder, asset.animated.uri));
     assert.equal(model.animations, undefined, `${id}: gameplay contains animation`);
-    assert.ok(workshop.animations?.length, `${id}: workshop lacks animation`);
+    assert.ok(animated.animations?.length, `${id}: the animated model lacks animation`);
     const structure = doc => ({ nodes: doc.nodes.map(node => [node.name, node.translation ?? [0, 0, 0], node.rotation ?? [0, 0, 0, 1], node.scale ?? [1, 1, 1]]), meshes: doc.meshes.map(mesh => mesh.name) });
     assert.deepEqual(structure(model), asset.structure, `${id}: rig or mesh structure changed`);
-    assert.deepEqual(structure(workshop), asset.structure, `${id}: workshop rig changed`);
+    assert.deepEqual(structure(animated), asset.structure, `${id}: animated rig changed`);
     for (const uri of asset.model.resources) base.add(uri);
-    for (const variant of [asset.model, asset.workshop]) {
+    for (const variant of [asset.model, asset.animated]) {
       const doc = json(join(folder, variant.uri));
       const referenced = [variant.uri, ...(doc.buffers ?? []).flatMap(buffer => buffer.uri ? [buffer.uri] : []), ...(doc.images ?? []).map(image => image.uri)];
       assert.deepEqual([...new Set(referenced)].sort(), [...variant.resources].sort(), `${id}: resource graph is incomplete`);
@@ -280,8 +280,8 @@ export async function checkAssets(folder = OUTPUT) {
       }
     }
     const geometry = model.buffers.filter(b => b.uri).map(b => b.uri);
-    assert.ok(geometry.every(uri => workshop.buffers.some(b => b.uri === uri)), `${id}: duplicated geometry`);
-    assert.deepEqual(model.images.map(i => i.uri), workshop.images.map(i => i.uri), `${id}: duplicated textures`);
+    assert.ok(geometry.every(uri => animated.buffers.some(b => b.uri === uri)), `${id}: duplicated geometry`);
+    assert.deepEqual(model.images.map(i => i.uri), animated.images.map(i => i.uri), `${id}: duplicated textures`);
   }
   const bytes = (await Promise.all([...base].map(uri => readFile(join(folder, uri))))).reduce((sum, b) => sum + b.length, 0);
   assert.ok(bytes <= catalog().profile.baseBudgetBytes, `Character base resources: ${bytes} > ${catalog().profile.baseBudgetBytes} bytes`);
@@ -347,13 +347,13 @@ async function report() {
   const { manifest, baseBytes } = await checkAssets();
   const size = uris => sizeOf(OUTPUT, uris);
   const base = Object.values(manifest.characters).flatMap(asset => asset.model.resources);
-  const all = Object.values(manifest.characters).flatMap(asset => asset.workshop.resources);
+  const all = Object.values(manifest.characters).flatMap(asset => asset.animated.resources);
   console.log(JSON.stringify({ harness: "Static web artifacts; bytes before HTTP compression, shared resources counted once", baseBytes,
-    workshopAdditionalBytes: await size(all.filter(uri => !base.includes(uri))), decodersBytes: await size(Object.values(manifest.decoders)),
+    animatedAdditionalBytes: await size(all.filter(uri => !base.includes(uri))), decodersBytes: await size(Object.values(manifest.decoders)),
     modelsBytes: await size(Object.values(manifest.models).flatMap(asset => asset.resources)),
     environmentTexturesBytes: await size(Object.values(manifest.textures).flatMap(asset => asset.resources)),
     retainedBytes: await sizeOf(ROOT, catalog().retained), totalBytes: await deliveryBytes(OUTPUT, manifest),
-    characters: Object.fromEntries(await Promise.all(Object.entries(manifest.characters).map(async ([id, asset]) => [id, { baseBytes: await size(asset.model.resources), workshopBytes: await size(asset.workshop.resources) }]))), key: manifest.key }, null, 2));
+    characters: Object.fromEntries(await Promise.all(Object.entries(manifest.characters).map(async ([id, asset]) => [id, { baseBytes: await size(asset.model.resources), animatedBytes: await size(asset.animated.resources) }]))), key: manifest.key }, null, 2));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

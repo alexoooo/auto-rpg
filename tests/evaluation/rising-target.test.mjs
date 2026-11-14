@@ -19,7 +19,7 @@ test("Warrior unproduced fall is excluded from recovery statistics", () => {
 
 test("held Warrior club-and-buckler shove escalates to an actual fall", async () => {
   const { MINDS } = await import("../../src/app/catalog.ts");
-  const built = await buildFall({model:"workshop-fighter", loadout:{left:"buckler",right:"club"}, seed:1, start:"shoved", degrees:213.75, balance:0, grit:0, gusts:false, target:true, mind:MINDS.option.config}, DEFAULT_ENGINE);
+  const built = await buildFall({model:"man", loadout:{left:"buckler",right:"club"}, seed:1, start:"shoved", degrees:213.75, balance:0, grit:0, gusts:false, target:true, mind:MINDS.option.config}, DEFAULT_ENGINE);
   assert.ok(!("refused" in built), "the observed missing-fall recipe must construct");
   try {
     while (!built.ended) { built.world.step(); built.afterStep(); }

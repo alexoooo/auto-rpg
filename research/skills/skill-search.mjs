@@ -68,7 +68,6 @@ import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../../tests/harness/preload-data.mjs";
 import { ATTEMPT_CAP } from "../../src/evaluation/way-up/read.ts";
 import { modelSpec } from "../../src/core/bodies/models.ts";
-import { bodyKey } from "../../src/core/bodies/spec/body.ts";
 import { ROLL_POSES, SIT_BACK } from "../../src/skills/recovery/implementations/staged/stages.ts";
 import { cmaSearch, workerPool } from "../cma.mjs";
 import { CONFIRM_RATES, drillTrials, playTrial, rowOf, searchScore, subjectOf, withTuning } from "../drill-trials.mjs";
@@ -221,9 +220,9 @@ export function searchOn(skill, model) {
  * source's, its heights kept.
  */
 export function startOf(skill, model, source) {
-  const records = recordsOf(SEARCHES[skill].record ?? skill), spec = modelSpec(model), from = source ?? (records[bodyKey(spec)] ? model : "workshop-fighter"), fromSpec = modelSpec(from);
-  const start = structuredClone(records[bodyKey(fromSpec)].settings);
-  if (bodyKey(fromSpec) === bodyKey(spec)) return start;
+  const records = recordsOf(SEARCHES[skill].record ?? skill), spec = modelSpec(model), from = source ?? (records[spec.model] ? model : "man"), fromSpec = modelSpec(from);
+  const start = structuredClone(records[fromSpec.model].settings);
+  if (fromSpec.model === spec.model) return start;
   const scale = spec.stature.value / fromSpec.stature.value;
   for (const key of SEARCHES[skill].lengths ?? []) if (typeof start[key] === "number") start[key] = Number((start[key] * scale).toFixed(4));
   return start;
@@ -289,7 +288,7 @@ if (!isMainThread && workerData?.search) {
   if (values.loadout !== undefined && !search.rates) throw new Error(`${skill}'s trials are not a table row's: --loadout is not theirs`);
   const workers = Number(values.workers ?? Math.max(1, availableParallelism() - 4));
   const pool = workerPool(fileURLToPath(import.meta.url), { search: true, skill }, workers);
-  const body = bodyKey(modelSpec(model)), started = Date.now();
+  const body = modelSpec(model).model, started = Date.now();
   if (values.confirm) {
     const found = JSON.parse(readFileSync(values.confirm, "utf8")), trials = search.trials(model, search.confirm, values.loadout ?? found.loadout);
     // What the best must beat: the record the body plays now, which a search resumed after an install no longer starts from; its start where the body has none.
@@ -307,7 +306,7 @@ if (!isMainThread && workerData?.search) {
     else if (values.write) {
       const commit = execSync("git rev-parse --short=8 HEAD").toString().trim(), settings = kept === "best" ? found.best.settings : found.start;
       const fmt = (x) => x.toFixed(3);
-      const made = `Searched on the ${body.replace("+toes", "")} at ${commit} (research/skills/skill-search.mjs): CMA over ${search.dims.map(([key]) => key).join(", ")} from ${values.from ?? found.from}, `
+      const made = `Searched on the ${body} at ${commit} (research/skills/skill-search.mjs): CMA over ${search.dims.map(([key]) => key).join(", ")} from ${values.from ?? found.from}, `
         + `${found.checkpoint?.generation ?? found.log.length} generations of ${found.lambda}, on ${search.task} ${search.said(search.search)}, ${found.trials} trials a candidate, ${found.seconds} s; `
         + `on fresh trials ${search.said(search.confirm)} the search's best scored ${fmt(best.score)} (${best.falls} ${search.lost}) and ${record ? "the record it replaces" : "its start"} ${fmt(base.score)} (${base.falls} ${search.lost}): `
         + (kept === "best" ? "the best is kept." : "the start is kept.");
@@ -326,8 +325,8 @@ if (!isMainThread && workerData?.search) {
   const loadout = saved?.loadout ?? values.loadout, start = saved?.start ?? { ...startOf(skill, model, values.source), ...set }, trials = search.trials(model, search.search, loadout), lambda = Number(values.lambda ?? 16);
   // With a plateau to end on and no count given, the search runs until it ends on one.
   const generations = Number(values.generations ?? (values.patience === undefined ? 10 : Number.MAX_SAFE_INTEGER));
-  const sourceBody = bodyKey(modelSpec(values.source ?? (recordsOf(recordName)[body] ? model : "workshop-fighter")));
-  const from = saved?.from ?? (`the ${sourceBody.replace("+toes", "")}'s record${sourceBody === body ? "" : `, its lengths scaled by the body's stature${search.heights ? " and its heights kept" : ""}`}`
+  const sourceBody = modelSpec(values.source ?? (recordsOf(recordName)[body] ? model : "man")).model;
+  const from = saved?.from ?? (`the ${sourceBody}'s record${sourceBody === body ? "" : `, its lengths scaled by the body's stature${search.heights ? " and its heights kept" : ""}`}`
     + (set ? ` with ${Object.entries(set).map(([key, value]) => `${key} ${value}`).join(", ")}` : ""));
   if (values.try) {
     const r = await scored(pool, start, trials), seconds = Math.round((Date.now() - started) / 1000);

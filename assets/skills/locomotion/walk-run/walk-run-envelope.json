@@ -40,7 +40,7 @@
     }
   ],
   "models": {
-    "workshop-fighter+toes": {
+    "man": {
       "measured": "2026-10-28",
       "byWay": [0.7, 0.7, 1.5, 0.7],
       "wayTrials": 20,
@@ -133,7 +133,7 @@
         }
       }
     },
-    "workshop-rogue+toes": {
+    "woman": {
       "measured": "2026-10-30",
       "byWay": [1.2, 0.7, 1, 0.7],
       "wayTrials": 20,
@@ -251,7 +251,7 @@
         }
       }
     },
-    "crypt-skeleton+toes": {
+    "skeleton": {
       "measured": "2026-10-30",
       "byWay": [0.3, 0.5, 0.5, 0.5],
       "wayTrials": 20,

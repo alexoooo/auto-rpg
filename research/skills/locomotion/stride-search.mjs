@@ -8,7 +8,7 @@
  * <out>-best.json` plays the best and the record on the row's own cases at 120 and 480 Hz, the
  * worse counting.
  *
- * node research/skills/locomotion/stride-search.mjs --out .tmp/<task>/stride [--body workshop-fighter] [--loadout empty,empty]
+ * node research/skills/locomotion/stride-search.mjs --out .tmp/<task>/stride [--body man] [--loadout empty,empty]
  *   [--start stride.json] [--generations 8] [--lambda 16] [--workers 8] [--sigma .08] [--resume] [--score] [--confirm <out>-best.json]
  */
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
@@ -27,7 +27,7 @@ const DIMS = {
 };
 
 const { values: o } = parseArgs({ options: {
-  out: { type: 'string' }, body: { type: 'string', default: 'workshop-fighter' }, loadout: { type: 'string' },
+  out: { type: 'string' }, body: { type: 'string', default: 'man' }, loadout: { type: 'string' },
   start: { type: 'string' }, generations: { type: 'string', default: '8' }, lambda: { type: 'string', default: '16' },
   workers: { type: 'string' }, sigma: { type: 'string', default: '.08' }, score: { type: 'boolean' }, resume: { type: 'boolean' }, confirm: { type: 'string' },
 } });

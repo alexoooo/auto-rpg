@@ -6,13 +6,13 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 import build
 from motion import author_motion
 from morph_export import add_morph_animation
-for kind in (sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else ['fighter','rogue']):
+for kind in (sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else ['man','woman']):
  bpy.ops.wm.open_mainfile(filepath=str(build.SOURCE/(kind+'.blend')))
- rig=bpy.data.objects['WorkshopRig'];rig.animation_data_clear();rig.location=(0,0,0);rig.rotation_euler=(0,0,0)
+ rig,=[o for o in bpy.data.objects if o.type=='ARMATURE'];rig.animation_data_clear();rig.location=(0,0,0);rig.rotation_euler=(0,0,0)
  for p in rig.pose.bones:p.matrix_basis=Matrix.Identity(4)
  for o in list(bpy.data.objects):
   if o.name.startswith(('sword__','shield__','bow__')):bpy.data.objects.remove(o,do_unlink=True)
- weapons=os.environ.get('WORKSHOP_WEAPONS','').split(',') if os.environ.get('WORKSHOP_WEAPONS') else None
+ weapons=os.environ.get('CHARACTER_WEAPONS','').split(',') if os.environ.get('CHARACTER_WEAPONS') else None
  for a in list(bpy.data.actions):
   if weapons is None or any(a.name==prefix+w or a.name.startswith(prefix+w+'-bow__') for w in weapons for prefix in ['loop-','inspection-']):bpy.data.actions.remove(a)
  mats=tuple(next(m for m in bpy.data.materials if m.name.split('.')[0]==name) for name in ['Worn saddle leather','Blackened steel','Aged brass','Honed steel','Yew heartwood','Linen string'])

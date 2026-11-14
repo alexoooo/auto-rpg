@@ -31,7 +31,7 @@ import { humanSpec } from "../src/core/bodies/human/spec.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 /** The body whose arm the fixture's solves are of. */
-const MODEL = "workshop-rogue";
+const MODEL = "woman";
 /** How near its place a point is at it, m. */
 export const AT_PLACE = 1e-4;
 

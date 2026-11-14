@@ -12,7 +12,7 @@ const { slotsOf } = await import("../../src/evaluation/compare.ts");
 const SWORD_STRIKES = MINDS.option.config.options.filter(option => option.kind === "strike-sword-thrust");
 
 test("CLI ablations inherit calibrated bodies and loadouts before scheduling paired cases", () => {
-  const evaluation = EVALUATIONS.tournament, panel = "option/workshop-fighter/empty,empty";
+  const evaluation = EVALUATIONS.tournament, panel = "option/man/empty,empty";
   assert.ok(SWORD_STRIKES.length > 0, "Option Mind has a sword blow to widen with");
   for (const [id, changes] of [["swap-stub", ["rate=30"]],
     ["swap-unarmed", [`options=${JSON.stringify([...MINDS["swap-unarmed"].config.options, ...SWORD_STRIKES])}`]]]) {
@@ -36,7 +36,7 @@ test("CLI ablations inherit calibrated bodies and loadouts before scheduling pai
       new Set(units.flatMap(unit => unit.map(one => one.key))), "no unpaired work reaches the schedule");
     const withOther = resolveSubjects(evaluation, [panel], id, changes);
     assert.deepEqual(withOther.subjects, [...subjects, ...evaluation.subjects([panel])], "other requested subjects retain their scope");
-    if (id === "swap-unarmed") assert.ok(evaluation.subjects([candidate]).some(one => one.value.model === "workshop-fighter"
+    if (id === "swap-unarmed") assert.ok(evaluation.subjects([candidate]).some(one => one.value.model === "man"
       && !baseline.some(before => JSON.stringify(before.value.loadout) === JSON.stringify(one.value.loadout))),
     "the fixture also exposes loadout widening on the calibrated body");
   }
@@ -48,27 +48,27 @@ test("mind batteries admit only a named calibration's bodies and preserve that s
       { engine: BOUT_ENGINE, code: () => "battery-scope", schedule: { kind: "all" } });
     const named = evaluation.subjects(["swap-stub"]), original = JSON.stringify(named);
     const custom = evaluation.subjects([{ id: named[0].id, label: named[0].label, value: named[0].value }]);
-    assert.deepEqual(named, [{ ...custom[0], models: ["workshop-fighter"] }]);
+    assert.deepEqual(named, [{ ...custom[0], models: ["man"] }]);
     const raw = cases(custom), modelOf = one => one.world.kind === "crypt" ? one.world.crypt.party[0].model : one.condition.model;
     assert.ok(raw.units.length > 0, "the fixture fits the battery's equipment and bodies");
-    const allowed = raw.units.filter(unit => modelOf(unit[0]) === "workshop-fighter");
+    const allowed = raw.units.filter(unit => modelOf(unit[0]) === "man");
     assert.ok(allowed.length > 0, "the named calibration reaches eligible cases");
     assert.deepEqual(cases(named), {
       units: allowed,
-      dropped: raw.units.filter(unit => modelOf(unit[0]) !== "workshop-fighter").map(([one]) => ({
+      dropped: raw.units.filter(unit => modelOf(unit[0]) !== "man").map(([one]) => ({
         subjects: one.subjects, condition: one.condition,
-        reasons: [`swap-stub: named calibration allows workshop-fighter; ${modelOf(one)} is unavailable`],
+        reasons: [`swap-stub: named calibration allows man; ${modelOf(one)} is unavailable`],
       })),
     }, "admission filters cases without changing an eligible recipe or key");
-    if (evaluation === EVALUATIONS.court) assert.ok(raw.units.some(unit => modelOf(unit[0]) === "workshop-rogue"),
+    if (evaluation === EVALUATIONS.court) assert.ok(raw.units.some(unit => modelOf(unit[0]) === "woman"),
       "the equipped fixture exposes calibration leakage independently of physical fit");
     const resolved = resolveSubjects(evaluation, [], "swap-stub", ["rate=30"]);
     assert.deepEqual(resolved.subjects[0].models, named[0].models);
     const independent = cases(evaluation.subjects(resolved.choice));
-    assert.deepEqual(cases(resolved.subjects).units, independent.units.filter(unit => modelOf(unit[0]) === "workshop-fighter"),
+    assert.deepEqual(cases(resolved.subjects).units, independent.units.filter(unit => modelOf(unit[0]) === "man"),
       "the changed configuration keeps its source's scope before scheduling");
     assert.equal(JSON.stringify(named), original, "admission never changes the subject or its configuration");
-    const unavailable = (evaluation === EVALUATIONS.court ? ["workshop-fighter", "workshop-rogue"] : ["workshop-fighter"])
+    const unavailable = (evaluation === EVALUATIONS.court ? ["man", "woman"] : ["man"])
       .map(model => `named calibration allows no bodies; ${model} is unavailable`).join("; ");
     assert.deepEqual(cases([{ ...named[0], models: [] }]), { refused: `Warrior calibration fits no condition of ${evaluation.id} standard: ${unavailable}` });
   }
@@ -76,9 +76,9 @@ test("mind batteries admit only a named calibration's bodies and preserve that s
   const cases = subjects => casesOf(evaluation, evaluation.defaultProtocol, subjects,
     { engine: BOUT_ENGINE, code: () => "crowd-scope", schedule: { kind: "all" } });
   for (const id of ["swap-skeleton"]) {
-    assert.deepEqual(cases(evaluation.subjects([id])), { refused: "Skeleton calibration fits no condition of crowd standard: named calibration allows crypt-skeleton; workshop-fighter is unavailable" });
+    assert.deepEqual(cases(evaluation.subjects([id])), { refused: "Skeleton calibration fits no condition of crowd standard: named calibration allows skeleton; man is unavailable" });
     assert.deepEqual(cases(resolveSubjects(evaluation, [], id, ["rate=30"]).subjects),
-      { refused: "Skeleton calibration with rate=30 fits no condition of crowd standard: named calibration allows crypt-skeleton; workshop-fighter is unavailable" });
+      { refused: "Skeleton calibration with rate=30 fits no condition of crowd standard: named calibration allows skeleton; man is unavailable" });
     assert.ok(cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }])).units.length > 0,
       "an independent configuration still runs on physically compatible bodies");
   }
@@ -88,7 +88,7 @@ test("a match admits complete pairs within named calibrations and preserves the 
   const evaluation = EVALUATIONS.match;
   const cases = subjects => casesOf(evaluation, "standard", subjects,
     { engine: BOUT_ENGINE, code: () => "match-scope", schedule: { kind: "all" } });
-  for (const [id, model] of [["swap-stub", "workshop-fighter"], ["swap-unarmed", "workshop-fighter"]]) {
+  for (const [id, model] of [["swap-stub", "man"], ["swap-unarmed", "man"]]) {
     const named = evaluation.subjects([id, "option"]), before = JSON.stringify(named);
     const scoped = cases(named), raw = cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }, "option"]));
     assert.ok(scoped.units.length > 0, "the calibration has complete cases");
@@ -100,7 +100,7 @@ test("a match admits complete pairs within named calibrations and preserves the 
   const original = cases(evaluation.subjects(["swap-stub", "option"]));
   const changed = cases(resolveSubjects(evaluation, ["option"], "swap-stub", ["rate=30"]).subjects);
   assert.deepEqual(changed.units.map(unit => unit.map(one => one.condition)), original.units.map(unit => unit.map(one => one.condition)));
-  const unavailable = "named calibration allows crypt-skeleton; workshop-fighter is unavailable; named calibration allows crypt-skeleton; workshop-rogue is unavailable";
+  const unavailable = "named calibration allows skeleton; man is unavailable; named calibration allows skeleton; woman is unavailable";
   assert.deepEqual(cases(evaluation.subjects(["swap-skeleton", "option"])), { refused: `Skeleton calibration fits no condition of match standard: ${unavailable}` });
   assert.deepEqual(cases(resolveSubjects(evaluation, ["option"], "swap-skeleton", ["rate=30"]).subjects), { refused: `Skeleton calibration with rate=30 fits no condition of match standard: ${unavailable}` });
 });
@@ -122,7 +122,7 @@ test("every evaluation protocol and the Node stand play on the game's engine", a
 
 
 test("custom subjects retain execution scope through normalization", async () => {
-  const scope = { models: ["workshop-fighter"], character: { strength: 1.1 } };
+  const scope = { models: ["man"], character: { strength: 1.1 } };
   const choice = { id: "independent", label: "Independent", value: MINDS.option.config, ...scope };
   for (const name of ["locomotion", "match", "court", "rising-target"]) {
     const [subject] = EVALUATIONS[name].subjects(name === "match" ? [choice, "option"] : [choice]);
@@ -130,7 +130,7 @@ test("custom subjects retain execution scope through normalization", async () =>
   }
   const entrants = EVALUATIONS.tournament.subjects([choice]);
   assert.ok(entrants.length > 0, "the restricted custom mind enters at least one loadout");
-  assert.ok(entrants.every(subject => subject.value.model === "workshop-fighter"));
+  assert.ok(entrants.every(subject => subject.value.model === "man"));
   assert.ok(entrants.every(subject => JSON.stringify(subject.character) === JSON.stringify(scope.character)));
   const [strike] = EVALUATIONS.strike.subjects([{ ...choice, value: { mind: choice.value, skill: "straight-punch" } }]);
   assert.deepEqual({ models: strike.models, character: strike.character }, scope);
@@ -151,7 +151,7 @@ test("a run's rows refuse incomplete or conflicting cases", async () => {
 test("a table cell is valued only on every protocol case with none faulted", async () => {
   const { keep, valueOf } = await import("../../src/evaluation/table/judge.ts");
   const { caseName } = await import("../../src/evaluation/results.ts");
-  const conditions = EVALUATIONS.locomotion.protocols.run.conditions.filter(condition => condition.model === "workshop-fighter"
+  const conditions = EVALUATIONS.locomotion.protocols.run.conditions.filter(condition => condition.model === "man"
     && condition.loadout.left === "empty" && condition.loadout.right === "empty");
   assert.ok(conditions.some(condition => condition.kind === "run-held") && conditions.some(condition => condition.kind === "run-turn")
     && conditions.some(condition => condition.kind === "run-stop"), "the fixture reaches every run kind");
@@ -169,7 +169,7 @@ test("a table cell is valued only on every protocol case with none faulted", asy
 test("Cover requires an attempted attack before untouched can pass", async () => {
   const { readCover } = await import("../../src/evaluation/cover/read.ts");
   const { modelSpec } = await import("../../src/core/bodies/models.ts");
-  const spec = modelSpec("workshop-fighter"), world = { time: 0 };
+  const spec = modelSpec("man"), world = { time: 0 };
   const attacker = { actions: { kit: [{ action: "punch", regions: [{ kind: "mark", mark: "high" }] }] }, report: { actions: [], ledger: [] } };
   const duel = { blows: [], duelists: { left: { built: { spec }, body: { down: false }, minded: { skills: { report: { guard: { covering: [] } } } } },
     right: { built: { spec }, minded: { skills: attacker } } } };

@@ -52,14 +52,14 @@ async function targetFall(job) {
 /** The stance alone from the placed squat, to verified standing and 2 s held. */
 async function squatStance({ model, held, seed }) {
   await import("../../../tests/harness/preload-data.mjs");
-  const [{ default: poses }, { stockBody }, { buildBody }, { loadEngine }, { humanSpec, humanoidSpec }, { armedWith },
+  const [{ default: poses }, { stockBody }, { buildBody }, { loadEngine }, { humanSpec }, { armedWith },
     { guardPosture }, { createWorld }, { groundPlacement }, { recoveryMeasurement }, { observeBody }, { clockSenses }, { STAND_CHECK }] = await Promise.all([
     import("../../../assets/research/posture-holds.json", { with: { type: "json" } }),
     import("../../../src/app/stock-body.ts"), import("../../../src/core/bodies/build/build-body.ts"), import("../../../src/core/physics/engines.ts"), import("../../../src/core/bodies/human/spec.ts"),
     import("../../../src/core/bodies/items/held.ts"), import("../../../src/skills/guard/guard.ts"), import("../../../src/core/world/world.ts"), import("../../../src/game/lab/ground-starts.ts"),
     import("../../../src/game/lab/recovery-measurement.ts"), import("../../../src/control/observation.ts"), import("../../../src/core/world/senses.ts"), import("../../../src/game/lab/ground-mode.ts")]);
-  const spec = armedWith(humanoidSpec(model), "right", held), reference = humanSpec("workshop-fighter");
-  const source = poses.find(p => p.model === "workshop-fighter" && p.id === "squat");
+  const spec = armedWith((await import("../../../src/core/bodies/models.ts")).modelSpec(model), "right", held), reference = humanSpec("man");
+  const source = poses.find(p => p.model === "man" && p.id === "squat");
   const angles = Object.fromEntries(reference.joints.flatMap(j => j.dofs.map((d, k) => [`${j.name} ${d.positive}`, source.placement.joints[j.name][k] + d.bind.value])));
   const waypoint = { ...source.placement, joints: Object.fromEntries(spec.joints.map(j => [j.name, j.dofs.map(d => (angles[`${j.name} ${d.positive}`] ?? 0) - d.bind.value)])) };
   const placement = groundPlacement(spec, { seed, ground: { start: "placed", posture: "squat", degrees: null, impulse: null, foe: 0, gusts: false } }, waypoint);
@@ -88,18 +88,18 @@ if (isMainThread) {
   const { values } = parseArgs({ options: { workers: { type: "string" }, out: { type: "string" } } });
   const { risingJobs } = await import("../../../src/evaluation/rising.ts");
   const jobs = [...risingJobs({ target: true }).map(job => ({ kind: "fall", job })),
-    ...["workshop-fighter", "workshop-rogue"].flatMap(model => ["empty", "club"].flatMap(held => Array.from({ length: 8 }, (_, k) => ({ kind: "squat", job: { model, held, seed: k + 1 } }))))];
+    ...["man", "woman"].flatMap(model => ["empty", "club"].flatMap(held => Array.from({ length: 8 }, (_, k) => ({ kind: "squat", job: { model, held, seed: k + 1 } }))))];
   const count = Number(values.workers ?? Math.max(1, availableParallelism() - 4));
   const rows = (await workerJobs(jobs, { lanes: count, create: () => new Worker(new URL(import.meta.url)), result: answer => answer })).flat();
   if (values.out) writeFileSync(values.out, JSON.stringify(rows, null, 1) + "\n");
   const median = list => { const s = list.filter(v => v !== null).sort((a, b) => a - b), m = s.length >> 1; return s.length ? (s[m] + s[(s.length - 1) >> 1]) / 2 : null; };
-  const f = v => v === null ? "-" : v.toFixed(2), short = model => model.replace("workshop-", "");
+  const f = v => v === null ? "-" : v.toFixed(2);
   const falls = rows.filter(r => r.reading === "fall"), squats = rows.filter(r => r.reading === "squat");
   const groups = [...new Set(falls.map(r => `${r.model} ${r.held}`))].map(key => [key, falls.filter(r => `${r.model} ${r.held}` === key)]);
   console.log("| Group | Back | Side | Front | Stood | Landed, s | Slow, s | Brace, s | Hand-back, s | Median, s |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
   for (const [key, g] of [...groups, ["all", falls]]) {
     const lies = which => g.filter(r => which.includes(r.lie)).length;
-    console.log(`| ${short(key)} | ${lies(["back"])} | ${lies(["left", "right"])} | ${lies(["front"])} | ${g.filter(r => r.stood).length} of ${g.length} | ${f(median(g.map(r => r.landed)))} | ${f(median(g.map(r => r.slow)))} | ${f(median(g.map(r => r.brace)))} | ${f(median(g.filter(r => r.stood).map(r => r.handBack)))} | ${f(median(g.map(r => r.stood ? r.verified : 30)))} |`);
+    console.log(`| ${key} | ${lies(["back"])} | ${lies(["left", "right"])} | ${lies(["front"])} | ${g.filter(r => r.stood).length} of ${g.length} | ${f(median(g.map(r => r.landed)))} | ${f(median(g.map(r => r.slow)))} | ${f(median(g.map(r => r.brace)))} | ${f(median(g.filter(r => r.stood).map(r => r.handBack)))} | ${f(median(g.map(r => r.stood ? r.verified : 30)))} |`);
   }
   console.log("\n| Lie | Falls | Stood | Median, s |\n|---|---:|---:|---:|");
   for (const [name, which] of [["back", ["back"]], ["side", ["left", "right"]], ["front", ["front"]]]) {
@@ -109,7 +109,7 @@ if (isMainThread) {
   console.log("\n| Body | Loadout | Placed | Stood | Height at start, m | To 95 % height, s | Verified, s |\n|---|---|---:|---:|---:|---:|---:|");
   for (const [key, g] of [...new Set(squats.map(r => `${r.model} ${r.held}`))].map(key => [key, squats.filter(r => `${r.model} ${r.held}` === key)])) {
     const placed = g.filter(r => !r.refused), stood = placed.filter(r => r.held2s);
-    console.log(`| ${short(key.split(" ")[0])} | ${key.split(" ")[1]} | ${placed.length} of ${g.length} | ${stood.length} | ${f(median(placed.map(r => r.height)))} | ${f(median(stood.map(r => r.climbed)))} | ${stood.length ? `${f(median(stood.map(r => r.verified)))} (${f(Math.min(...stood.map(r => r.verified)))} to ${f(Math.max(...stood.map(r => r.verified)))})` : "-"} |`);
+    console.log(`| ${key.split(" ")[0]} | ${key.split(" ")[1]} | ${placed.length} of ${g.length} | ${stood.length} | ${f(median(placed.map(r => r.height)))} | ${f(median(stood.map(r => r.climbed)))} | ${stood.length ? `${f(median(stood.map(r => r.verified)))} (${f(Math.min(...stood.map(r => r.verified)))} to ${f(Math.max(...stood.map(r => r.verified)))})` : "-"} |`);
   }
 } else {
   await import("../../../tests/harness/preload-data.mjs");

@@ -1,4 +1,4 @@
-"""Workshop-only deformation helpers; baked into ordinary glTF skin joints."""
+"""Authoring-only deformation helpers; baked into ordinary glTF skin joints."""
 import bpy
 from mathutils import Matrix,Vector,Quaternion
 from mathutils.kdtree import KDTree

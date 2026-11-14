@@ -7,7 +7,7 @@
  * (`stagedValue`), and is confirmed on the cells' own falls (`confirm`, `research/drill-trials.mjs`).
  *
  *   import { RECORD_WAYS, wayCells, stagedValue, tuningOn } from "./way-up-trials.mjs";
- *   const cells = wayCells(RECORD_WAYS["sit-back"], "workshop-rogue");
+ *   const cells = wayCells(RECORD_WAYS["sit-back"], "woman");
  *   const value = (trial) => stagedValue(subjectOf(trial).value, tuningOn(trial, { sitBack: settings }));
  */
 import { tableCells } from "../../../src/app/node/evaluation.ts";

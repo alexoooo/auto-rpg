@@ -8,12 +8,12 @@ import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.j
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import fighterRig from "../../../../assets/humanoid/workshop-fighter.json" with { type: "json" };
-import rogueRig from "../../../../assets/humanoid/workshop-rogue.json" with { type: "json" };
+import manRig from "../../../../assets/humanoid/man.json" with { type: "json" };
+import womanRig from "../../../../assets/humanoid/woman.json" with { type: "json" };
 import { characterAssetUrl } from "./art-assets.ts";
 import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";
 import { FIT_SCALE } from "../../../core/bodies/human/model.ts";
-import type { WorkshopModel } from "../../../core/bodies/human/rig.ts";
+import type { HumanModel } from "../../../core/bodies/human/rig.ts";
 import { visiblePart } from "../../../game/appearance/characters.ts";
 import { CLUB_GRIP } from "./club-grip.ts";
 import { fistTurns } from "./fist.ts";
@@ -25,7 +25,7 @@ import { skinApart } from "./skin-apart.ts";
 import type { Side } from "../../../core/bodies/bilateral.ts";
 
 /**
- * **The body as the world sees it**: the workshop model's skinned mesh, each bone carried by
+ * **The body as the world sees it**: the human model's skinned mesh, each bone carried by
  * the core segment it belongs to. It reads the segments' achieved transforms and nothing else; it
  * owns no collision and decides nothing, so what it shows is a costume on the shapes `body-shapes.ts`
  * draws.
@@ -41,9 +41,9 @@ import type { Side } from "../../../core/bodies/bilateral.ts";
 interface RigBone { readonly host: string; readonly head: readonly number[] }
 type Grip = Readonly<Record<string, readonly number[]>>;
 interface Rig { readonly bones: Readonly<Record<string, RigBone>>; readonly grips: { readonly empty: Grip } }
-const RIGS: Readonly<Record<WorkshopModel, Rig>> = {
-  "workshop-fighter": fighterRig as Rig,
-  "workshop-rogue": rogueRig as Rig,
+const RIGS: Readonly<Record<HumanModel, Rig>> = {
+  man: manRig as Rig,
+  woman: womanRig as Rig,
 };
 
 const TRUNK = ["upperTrunk", "middleTrunk", "lowerTrunk"] as const;
@@ -64,9 +64,9 @@ const HOSTS: Readonly<Record<string, string>> = {
   "locomotion.thighL": "thigh.left", "locomotion.shinL": "shank.left", "locomotion.footL": "foot.left",
 };
 
-const loads = new WeakMap<Scene, Map<WorkshopModel, Promise<AssetContainer>>>();
+const loads = new WeakMap<Scene, Map<HumanModel, Promise<AssetContainer>>>();
 /** `model`'s asset, loaded once per scene; the scene owns it and its materials. */
-export function loadSkin(model: WorkshopModel, scene: Scene): Promise<AssetContainer> {
+export function loadSkin(model: HumanModel, scene: Scene): Promise<AssetContainer> {
   let byModel = loads.get(scene);
   if (!byModel) loads.set(scene, byModel = new Map());
   let load = byModel.get(model);
@@ -98,13 +98,13 @@ function trunkSegment(built: DrawnBody, point: Vector3): DrawnSegment {
 
 /**
  * Dress `built` in its model's skin from `container`, which `loadSkin` loaded into `scene`, wearing
- * `clothing`; no workshop weapon is ever shown. `closure` says, each frame, how far each empty
+ * `clothing`; no Character Lab weapon is ever shown. `closure` says, each frame, how far each empty
  * hand is closed into a fist, 0 relaxed to 1 closed; a hand that holds something (`BodySpec.held`)
  * is closed on its haft.
  */
 export function dressBody(built: DrawnBody, container: AssetContainer, scene: Scene, clothing: Clothing,
   closure?: (hand: Side) => number): SkinView {
-  const model = built.spec.model as WorkshopModel, rig = RIGS[model], prefix = `${model}.skin.`;
+  const model = built.spec.model as HumanModel, rig = RIGS[model], prefix = `${model}.skin.`;
   // Materials stay the container's, which the scene owns and other bodies share: a body part never
   // disposes them.
   const instance = container.instantiateModelsToScene((name) => prefix + name, false, { doNotInstantiate: true });
@@ -168,7 +168,7 @@ export function dressBody(built: DrawnBody, container: AssetContainer, scene: Sc
   const meshes = nodes.filter((node): node is Mesh => node instanceof Mesh && node.getTotalVertices() > 0);
   // Each bone's segment, by the bone's node: a finger's is its hand's; a bone no row carries stays with the body.
   const carriers = new Map(rows.map((row) => [row.node, row.finger ? `hand.${row.finger.hand}` : row.segment!.spec.name]));
-  // Each worn mesh is drawn apart while it is shown; one never worn, a workshop weapon, never is.
+  // Each worn mesh is drawn apart while it is shown; one never worn, a Character Lab weapon, never is.
   const parting = meshes.filter((mesh) => mesh.skeleton).map((mesh) => ({ mesh, part: skinApart(mesh, built,
     mesh.skeleton!.bones.reduce<(string | null)[]>((by, bone) => { by[bone.getIndex()] = carriers.get(bone.getTransformNode() as TransformNode) ?? null; return by; }, [])) }));
   let worn: Mesh[] = [], enabled = true;

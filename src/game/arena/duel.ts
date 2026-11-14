@@ -22,7 +22,7 @@ import type { Pool } from "../../combat/pool.ts";
 import { seedOf } from "../../core/math/random.ts";
 import { phaseOf } from "../../minds/seat/host.ts";
 import { reactionSteps, rulebook, type Rulebook, type RulebookOverride } from "../../combat/rulebook.ts";
-import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import type { BodySpec, SkillChoices } from "../../core/bodies/spec/body.ts";
 import { derive, type Vec3 } from "../../core/quantity.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import { loadState, saveState, type Saved } from "../../core/state.ts";
@@ -109,6 +109,10 @@ export interface DuelRecipe {
   readonly right: BodyModel;
   /** Each character's attributes; a stored recipe carries their resolved values. */
   readonly attributes?: Readonly<Record<Side, AttributeOverrides>>;
+  /** Each side's character (`CHARACTERS`) where it is not its model's own (`modelCharacter`). */
+  readonly characters?: Readonly<Partial<Record<Side, string>>>;
+  /** Each character's skills, each by the variation it runs (`SkillChoices`), in place of its character's. */
+  readonly skills?: Readonly<Partial<Record<Side, SkillChoices>>>;
   /** Physical stage and its spawn policy; the open stage unless given. */
   readonly level?: ArenaLevel;
   /** How far apart the two stand, m; the level's default unless given. */
@@ -177,11 +181,11 @@ const recipeKey = (recipe: DuelRecipe): string => JSON.stringify(recipe, (_, val
   typeof value === "object" && value !== null && !Array.isArray(value)
     ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : value);
 
-/** `side`'s character in `recipe`: its model, with the recipe's balance, haste and attributes over the model's own. */
-const duelCharacter = (recipe: DuelRecipe, side: Side) => resolveCharacter({ model: recipe[side], attributes: {
+/** `side`'s character in `recipe`: the one it names, else its model's own, with the recipe's balance, haste and attributes over the model's own, and its skills where the recipe names them. */
+const duelCharacter = (recipe: DuelRecipe, side: Side) => resolveCharacter({ model: recipe[side], ...(recipe.characters?.[side] ? { character: recipe.characters[side] } : {}), attributes: {
   ...(recipe.balance?.[side] !== undefined ? { balance: recipe.balance[side] } : {}),
   ...(recipe.haste?.[side] !== undefined ? { haste: recipe.haste[side] } : {}), ...recipe.attributes?.[side],
-} });
+}, ...(recipe.skills?.[side] ? { skills: recipe.skills[side] } : {}) });
 
 /**
  * The spec `side` of `recipe` is built from: its character's (`character`, else the recipe's),

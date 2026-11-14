@@ -1,0 +1,102 @@
+{
+  "man": {
+    "made": "The swing searched on the Strike drill's still rung (research/swing-drill.mjs: windup, schedule and stand-off, walked in from 1 and 1.4 m and scored at 120 and 480 Hz)",
+    "settings": {
+      "pace": 1.021,
+      "band": 0.15,
+      "aside": 0.15,
+      "follow": 0.02,
+      "longest": 0.5,
+      "recover": 0.376,
+      "reach": 0.48554877761411536,
+      "settle": 0.14513928502235637,
+      "wound": {
+        "left": {},
+        "right": {
+          "thoracic rotation right": -0.10167318484391519,
+          "lumbar rotation right": -0.06578069929898586,
+          "thoracic flexion": 0.14306425729433586,
+          "lumbar flexion": 0.12065268133977497,
+          "shoulder.right flexion": 2.596806139484853,
+          "shoulder.right abduction": 0.08839757832244333,
+          "shoulder.right internal rotation": -0.7345986707334532,
+          "elbow.right flexion": 0.44737226710116795,
+          "wrist.right flexion": -0.3073715681666247,
+          "wrist.right radial deviation": -0.31541821423865257,
+          "wrist.right pronation": -0.7673012999556903
+        }
+      },
+      "timed": {
+        "left": [],
+        "right": [
+          {
+            "channel": "thoracic rotation right",
+            "level": 0.6200680801278398,
+            "from": 0,
+            "length": 0.31291749729410734
+          },
+          {
+            "channel": "lumbar rotation right",
+            "level": 0.44811489325120024,
+            "from": 0.05463620683009197,
+            "length": 0.018491627102839414
+          },
+          {
+            "channel": "thoracic flexion",
+            "level": 0.5416618287963466,
+            "from": 0.06526995896099624,
+            "length": 0.20286391015341773
+          },
+          {
+            "channel": "lumbar flexion",
+            "level": -0.4576085484808494,
+            "from": 0,
+            "length": 0.16654735435015283
+          },
+          {
+            "channel": "shoulder.right flexion",
+            "level": -0.7934232739724996,
+            "from": 0.08476093587519583,
+            "length": 0.16003232091911426
+          },
+          {
+            "channel": "shoulder.right abduction",
+            "level": 0.7005844612648893,
+            "from": 0.04767381036395806,
+            "length": 0.3053421734520647
+          },
+          {
+            "channel": "shoulder.right internal rotation",
+            "level": -0.34681766703592354,
+            "from": 0.10043801032409995,
+            "length": 0.4
+          },
+          {
+            "channel": "elbow.right flexion",
+            "level": -1,
+            "from": 0.06458200418478738,
+            "length": 0.25224904153111566
+          },
+          {
+            "channel": "wrist.right flexion",
+            "level": -0.12725796860856553,
+            "from": 0.12187063634723383,
+            "length": 0.4
+          },
+          {
+            "channel": "wrist.right radial deviation",
+            "level": -0.8022060335099304,
+            "from": 0.05825474616146899,
+            "length": 0.0833670269903371
+          },
+          {
+            "channel": "wrist.right pronation",
+            "level": 0.885585126650005,
+            "from": 0.17488155157220867,
+            "length": 0.3477548098776637
+          }
+        ]
+      }
+    }
+  }
+}

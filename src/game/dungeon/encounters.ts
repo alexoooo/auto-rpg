@@ -8,7 +8,7 @@ import { levelCandidates } from "./level.ts";
 const ENCOUNTERS = Object.freeze({ pack: 3, spacing: 2, doorMargin: 1 });
 
 /** The models a generated level's encounters field, by turn: skeleton rooms and reptile packs. */
-export const ENCOUNTER_MODELS: readonly BodyModel[] = Object.freeze(["crypt-skeleton", "reptile"]);
+export const ENCOUNTER_MODELS: readonly BodyModel[] = Object.freeze(["skeleton", "reptile"]);
 
 /** Whether `point` is far enough from the party's start for an enemy to begin there: more than 15 m. */
 export function outsidePartyStart(map: DungeonMap, point: Point): boolean { return distance(point, map.start) > 15; }
@@ -31,7 +31,7 @@ export function populateEncounters(map: DungeonMap): Refused | null {
   for (const [index, room] of rooms.entries()) {
     const model = ENCOUNTER_MODELS[index % ENCOUNTER_MODELS.length]!, radius = cryptModel(model).radius;
     const existing = map.spawns.filter(point => contains(room, point));
-    if (model === "crypt-skeleton") {
+    if (model === "skeleton") {
       for (const point of existing) encounters.push({ room: room.id, model, point: { ...point } });
       continue;
     }
@@ -53,7 +53,7 @@ export function populateEncounters(map: DungeonMap): Refused | null {
     for (const point of pack) encounters.push({ room: room.id, model, point });
   }
   // Spawn points outside rooms remain the map's existing skeleton encounters.
-  for (const point of map.spawns) if (!rooms.some(room => contains(room, point))) encounters.push({ room: -1, model: "crypt-skeleton", point: { ...point } });
+  for (const point of map.spawns) if (!rooms.some(room => contains(room, point))) encounters.push({ room: -1, model: "skeleton", point: { ...point } });
   map.encounters = encounters;
   map.spawns = encounters.map(e => e.point);
   return null;

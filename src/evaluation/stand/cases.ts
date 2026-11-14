@@ -12,7 +12,7 @@
  * toward its left. A trial is a bout world, so the Arena plays it as it was scored.
  *
  * Rung 0 holds the shoves the stance's capabilities read (`shove`,
- * `research/skills/locomotion/stance/core-stance-trials.mjs`): the Warrior 8 N s each way, 55 forward, forward right and
+ * `research/skills/locomotion/stance/stance-trials.mjs`): the Warrior 8 N s each way, 55 forward, forward right and
  * back, and 60 to each side, at the middle trunk.
  */
 import type { BodyModel } from "../../core/bodies/models.ts";
@@ -68,15 +68,15 @@ export interface StandRung {
 /** Each way a body is shoved, 45 degrees apart. */
 const WAYS = [0, 45, 90, 135, 180, 225, 270, 315];
 
-const GUARD: StandRung = deepFreeze({ state: "guard", models: ["workshop-fighter"] as BodyModel[], ways: WAYS, heights: ["low", "middle", "high"] as Height[],
+const GUARD: StandRung = deepFreeze({ state: "guard", models: ["man"] as BodyModel[], ways: WAYS, heights: ["low", "middle", "high"] as Height[],
   impulses: [8, 30, 55, 60], gap: 2.5, at: 2, watch: 5, seconds: 8, aim: "still", within: .05, window: .5 });
 
 /** Walking in from 6 m at 0.5 m/s, shoved 2 s after it may set off, long before the strike it walks to. */
-const WALKING: StandRung = deepFreeze({ state: "walking", models: ["workshop-fighter"] as BodyModel[], ways: [0, 90, 180, 270], heights: ["low", "middle", "high"] as Height[],
+const WALKING: StandRung = deepFreeze({ state: "walking", models: ["man"] as BodyModel[], ways: [0, 90, 180, 270], heights: ["low", "middle", "high"] as Height[],
   impulses: [20, 40], gap: 6, at: 2.5, after: .5, pace: .5, watch: 5, seconds: 8, aim: "before", within: .1, window: .5 });
 
 /** The Strike drill's still rung at 1 m, the middle mark, shoved once the striking hand flies from the chest at 2.5 m/s. */
-const STRIKING: StandRung = deepFreeze({ state: "striking", models: ["workshop-fighter"] as BodyModel[], ways: [0, 90, 180, 270], heights: ["middle"] as Height[],
+const STRIKING: StandRung = deepFreeze({ state: "striking", models: ["man"] as BodyModel[], ways: [0, 90, 180, 270], heights: ["middle"] as Height[],
   impulses: [20, 40], hands: [...SIDES] as Hand[], mark: "middle", gap: 1, at: .5, limb: 2.5, after: .5, pace: 1, watch: 5, seconds: 12,
   aim: "still", within: .05, window: .5 });
 
@@ -113,7 +113,7 @@ export function createStandCases(context: GameContext) {
           : striker(subject, `hand.${hand ?? "right"}`, rung.mark ?? "middle", { after: rung.after ?? 0, ...(rung.pace === undefined ? {} : { pace: rung.pace }) });
         return { kind: "bout", engine, tape: [],
           // A drill, not a fight: nothing ends it but its reader.
-          recipe: { left: model, right: "workshop-fighter", capSeconds: rung.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
+          recipe: { left: model, right: "man", capSeconds: rung.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
             ...loadoutsOf(subject),
             // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
             start: { left: { at: [-rung.gap / 2, 0], heading: Math.PI / 2 }, right: { at: [rung.gap / 2, 0], heading: -Math.PI / 2 } },

@@ -125,6 +125,12 @@ cannot expose this startup failure.
 | [runtime-data.test.mjs](runtime-data.test.mjs): `nested configured parts return whole role and value faults before graph traversal` | Reproduce explicit Option service tuning throwing for a wrong role and nested Move gait settings bypassing validation. Check complete path-prefixed role, unknown-kind, value and malformed-shape refusals, plus nested tuning removal; physical drills construct admitted settings and cannot establish this configuration boundary. |
 | [rise-control.test.mjs](skills/recovery/implementations/staged/rise-control.test.mjs): `bearing posture accelerations use the joint turning map, including damping and transfer` | A compound joint pose with nonzero rates distinguishes joint-angle accelerations from motor-axis accelerations. Check the coordinate mapping against the servo calculation for ordinary bearing and weight transfer; standing up eventually does not establish the correctness of this calculation. |
 | [skills/profiles.test.mjs](skills/profiles.test.mjs): `every measured profile is of a current skill on a current body` | Detect stored profile keys that match no current body/skill digest and are silently ignored by the chooser. A directly ordered strike can work while selection falls back to unmeasured values. |
+| [skills/variations.test.mjs](skills/variations.test.mjs): `a character holding two variations of a skill strikes by each, and each reads as it does alone` | Two variations of one skill must be two executors and two actions, each measured as it is when held alone, so holding a second never voids the first's profiles. A fight with one variation held cannot show a second one's executor shadowing or renaming it. |
+| [characters.test.mjs](characters.test.mjs): `a model carries as many characters as the registry lists, one of them its own` | The registry must admit two characters on one model and refuse a model's own character on another body, a bad skill name and a model with none; the shipped file has one character a model, so no fight can show a second one being refused or a wrong one standing for its model. |
+| [characters.test.mjs](characters.test.mjs): `a character resolves on its own model and refuses another, and a model alone is its own character` | Refuse a character on another model's body and an unknown name before construction, and resolve a model alone to its own character's skills; a fight built from a resolved character never meets these inputs. |
+| [characters.test.mjs](characters.test.mjs): `the Arena's matchup names characters, a model standing for its own, and a bout builds each side's` | A link names characters, an older link models, and a recipe names a character only where it is not its model's own, so recipes saved before characters had names still read alike; a bout cannot show a link read to the wrong character or a recipe building another model's character. |
+| [skills/variations.test.mjs](skills/variations.test.mjs): `a character's skills are a list of skill/variation, none twice, carried whole by a link` | Refuse a bare skill, a duplicate and the old map before construction, and keep a link's list as written, empty or absent apart; a fight built from a resolved character never meets these inputs. |
+| [skills/variations.test.mjs](skills/variations.test.mjs): `every skill part, whatever its role, runs only on a body whose character holds it` | Each skill part of every role must fit some character that holds it and refuse the same body once its character drops it; the shipped characters hold everything they run, so no fight shows a guard, gait, technique or navigation run without being held. |
 | [skills/profiles.test.mjs](skills/profiles.test.mjs): `a strike's record counts its own limb's tries its executor gave up on` | Check that self-abandoned attempts lower that limb's estimate, another limb's record is unchanged and cancelled attempts are excluded. A one-strike trial does not establish learning from a history of stalls. |
 | [minds/option/lying.test.mjs](minds/option/lying.test.mjs): `lying retains an opportunity cost against a foe with no modelled hand attack` | Detect zero lost-opportunity cost for remaining down when the foe has no modelled hand attack. Compare durations and an upright out-of-reach state without fixing tuned values; a rise ordered by a drill bypasses this decision rule. |
 
@@ -197,20 +203,10 @@ ordinary capability drills use impulse joints and rigid contacts, so cannot expo
 
 ## Layer contract regressions
 
-`a quiet stance cannot commit a punch with its striking arm away from prepare or still moving`
+`the punch from guard does not begin its drive with its striking arm away from its guard or still moving`
 in [skills/boundaries.test.mjs](skills/boundaries.test.mjs) reproduces a fight punch committing
 while its elbow is displaced and moving. It checks every striking-arm freedom on each hand,
-then permits the prepared arm; strike outcomes alone do not establish the commitment condition.
-
-[skills/strike-prepare.test.mjs](skills/strike-prepare.test.mjs): `a held face prepares with
-reachable wrist goals under the damped servo` reproduces a sword chamber whose undamped wrist
-pushes keep it moving until preparation expires. Check wrist command ownership and bounded
-requests; strike outcomes do not establish that preparation retains servo damping.
-
-[skills/guard-posture.test.mjs](skills/guard-posture.test.mjs): `the guard requests reachable
-angles on empty and equipped arms` reproduces the Skeleton guard asking for shoulder adduction
-and elbow flexion beyond its stops. Construction clamps those angles while the command retains
-them; a completed strike does not establish that its guard requests an attainable posture.
+then lets the arm at its guard begin; strike outcomes alone do not establish when it begins.
 
 [skills/locomotion/cycle-run.test.mjs](skills/locomotion/cycle-run.test.mjs) checks the running reference through its published knee-channel requests.
 

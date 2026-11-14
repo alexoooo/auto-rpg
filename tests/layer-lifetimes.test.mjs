@@ -95,8 +95,8 @@ test("late Arena callbacks and local Dungeon warming release every hosted mind",
     } };
   } };
   const context = { ...CONTEXT, catalog }, engine = await freshEngine(), failure = new Error("late built callback");
-  const side = { model: "workshop-fighter", count: 1, loadout: { left: "empty", right: "empty" } };
-  for (const build of [world => new Duel(world, { left: "workshop-fighter", right: "workshop-fighter" }, context, { onBuilt() { throw failure; } }),
+  const side = { model: "man", count: 1, loadout: { left: "empty", right: "empty" } };
+  for (const build of [world => new Duel(world, { left: "man", right: "man" }, context, { onBuilt() { throw failure; } }),
     world => new TeamBout(world, { left: side, right: side }, context, { onBuilt() { throw failure; } })]) {
     const world = createWorld(engine), before = made;
     try { assert.throws(() => build(world), error => error === failure); }
@@ -153,7 +153,7 @@ test("mind threads send a gait value replaced since it was last said", async () 
     const { mindThread } = await import("../src/app/apart/thread.ts?lifetime-regression");
     const sent = [], thread = mindThread(length => new Float64Array(length), { say(reply) { sent.push(reply); }, answered() {} });
     const step = (seq) => { thread.handle({ seq, asks: [{ seat: 0, ask: { kind: "step" } }] }); return sent.at(-1).said[0].report; };
-    const made = thread.handle({ seq: 1, specs: [[0, modelSpec("workshop-fighter")]], asks: [{ seat: 0, ask: { kind: "make", recipe: { statics: { spec: 0 } } }, inbound: new Float64Array(), outbound: new Float64Array() }] });
+    const made = thread.handle({ seq: 1, specs: [[0, modelSpec("man")]], asks: [{ seat: 0, ask: { kind: "make", recipe: { statics: { spec: 0 } } }, inbound: new Float64Array(), outbound: new Float64Array() }] });
     assert.deepEqual(made.said[0].report.gaits, [{ envelope: null, stopping: 1, lag: 0 }]);
     assert.equal("gaits" in step(2), false, "a gait value said already does not cross again");
     gaits = [{ envelope: null, stopping: 9, lag: 0 }];
@@ -196,7 +196,7 @@ test("the shape renderer draws an admitted capsule with coincident endpoints", a
     import("@babylonjs/core/Engines/nullEngine.js"), import("@babylonjs/core/scene.js"), import("@babylonjs/core/Maths/math.color.js"),
     import("../src/core/bodies/models.ts"), import("../src/app/browser/render/puppet.ts"), import("../src/app/browser/render/body-shapes.ts"),
   ]);
-  const base = modelSpec("workshop-fighter"), head = base.segments.find(segment => segment.name === "head");
+  const base = modelSpec("man"), head = base.segments.find(segment => segment.name === "head");
   assert.equal(head.shape.kind, "capsule", "the fixture needs a capsule to collapse");
   const spec = { ...base, segments: base.segments.map(segment => segment === head ? { ...head, shape: { ...head.shape, to: head.shape.from } } : segment) };
   const engine = new NullEngine(), scene = new Scene(engine);

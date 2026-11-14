@@ -86,10 +86,8 @@ export type BearingEndSpec = EndLimb | ProppedLimb | FootLimb | PawLimb;
  * mass -- reads both.
  */
 export interface BodySpec {
-  /** Which body it is, such as `workshop-fighter`; a spec never spreads another family's spec. */
+  /** Which body it is, such as `man`; a spec never spreads another family's spec. */
   readonly model: string;
-  /** An explicit anatomy variant keeps its measured skill data separate. */
-  readonly variant?: string;
   /** Whole-body mass: the segments' masses sum to it. */
   readonly mass: Quantity<number>;
   readonly stature: Quantity<number>;
@@ -104,6 +102,11 @@ export interface BodySpec {
   readonly substance: Substance;
   /** Items held rigidly in a segment, such as a club in a hand; absent, nothing. */
   readonly held?: readonly HeldSpec[];
+  /**
+   * The skills its character holds (`SkillChoices`): each variation of a skill it may use, as
+   * `skill/variation`. A skill none of whose variations it names, it does not have; absent, none.
+   */
+  readonly skills?: SkillChoices;
   /** When the body is down: the rule every fight, page and mind reads it by (`uprightness`, `src/control/ground.ts`). */
   readonly down: DownSpec;
   /** Where another body aims at it. */
@@ -160,6 +163,17 @@ interface EffectorSpec {
 export const pawsOf = (spec: BodySpec): readonly PawLimb[] => (spec.ends ?? []).filter((end): end is PawLimb => end.kind === "paw");
 
 /** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
+/**
+ * **A character's skills**: each variation of a skill it holds, as `skill/variation`
+ * (`straight-punch/drive`: the skill a part's kind names, the variation one way of it). It may hold
+ * several variations of one skill; each is a skill of its own to its mind.
+ */
+export type SkillChoices = readonly string[];
+
+/** **The variations of `skill` a body of `spec` holds** (`BodySpec.skills`), in its list's order. */
+export const heldVariations = (spec: Pick<BodySpec, "skills">, skill: string): readonly string[] =>
+  (spec.skills ?? []).flatMap((name) => name.startsWith(`${skill}/`) ? [name.slice(skill.length + 1)] : []);
+
 export type Substance = "flesh" | "bone" | "wood" | "metal" | "stone";
 
 /**
@@ -499,16 +513,6 @@ export interface SegmentFrame {
 }
 
 const BODY_RIGHT: Vec3 = [1, 0, 0];
-
-/**
- * **The key a body's measured data is read under** (a walk's envelope, a technique's profile, a
- * learned skill's settings): its model, `+toes` where its feet have toes (`ToesSpec`), and its
- * explicit anatomy variant. Each foot and variant has its own measurements.
- */
-export const bodyKey = (spec: Pick<BodySpec, "model" | "segments" | "variant">): string => {
-  const base = spec.segments.some((segment) => segment.toes !== undefined) ? `${spec.model}+toes` : spec.model;
-  return spec.variant ? `${base}+${spec.variant}` : base;
-};
 
 /**
  * A segment's frame from its ends: origin at `proximal`, y toward `distal`, x `right` made square

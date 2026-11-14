@@ -76,7 +76,7 @@ const tanh = value => {
 };
 
 export async function residualEnvironment(configuration = {}) {
-  const o = { model: 'workshop-fighter', engine: DEFAULT_ENGINE, pace: 4.2, seconds: 8,
+  const o = { model: 'man', engine: DEFAULT_ENGINE, pace: 4.2, seconds: 8,
     starts: [1.8, 3.5, 6], settle: 1, speedReward: 'tracking', fallPenalty: 5, fromRestShare: 0, speedWidth: 1, actionAt: 0, fallRule: 'physical', residual: 'velocity', scale: 2, seed: 1, ...configuration };
   const layout = residualLayout(o.residual);
   if (o.cacheWarmStarts !== undefined && typeof o.cacheWarmStarts !== 'boolean')

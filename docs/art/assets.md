@@ -34,7 +34,7 @@ commit an LFS pointer whose content has not been uploaded when publishing the co
 | `npm run assets` | Build changed sources, or validate and reuse cached output |
 | `npm run assets -- --force` | Rebuild the current source recipe |
 | `npm run assets:check` | Check freshness, references, hashes, rig frames, sharing and the size budget |
-| `npm run assets:report` | Unique delivery bytes, workshop additions, environment resources and the whole art total |
+| `npm run assets:report` | Unique delivery bytes, animation additions, environment resources and the whole art total |
 
 `npm run dev` and `npm run build` prepare assets automatically. Normal export never saves a master
 or updates the physics metadata. Building art needs Windows x64 or Linux x64: the toolchain
@@ -52,7 +52,7 @@ the source inputs remain part of that identity.
 ## Delivery
 
 `public/assets/generated/` contains hashed resources and a manifest. Two small glTF descriptors
-per character reference the same geometry and KTX2 textures. The workshop descriptor also names
+per character reference the same geometry and KTX2 textures. The animated descriptor also names
 its animation buffer; the gameplay descriptor contains no animation. Decoder scripts and WASM
 are served from the same deployment base, with their licence notices.
 
@@ -75,7 +75,7 @@ Two ceilings bound delivery, both in `assets/art/catalog.json`'s profile: `baseB
 combined base resources of both characters, and `totalBudgetBytes`, the entire art inventory with
 all decoders, the HDR and the menu image. Both count shared payloads once, before HTTP
 compression; manifest and licence text are excluded. Neither is a single scene's download.
-Workshop additions and decoders are reported separately. A larger asset needs an explicit budget
+Animation additions and decoders are reported separately. A larger asset needs an explicit budget
 change; an encoder failure never relaxes a ceiling.
 
 ## Physics authority

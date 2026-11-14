@@ -233,7 +233,7 @@ export interface LayerOptions {
   readonly servoSeconds: number;
   /** An experiment's stance tuning in place of the stance's constants. */
   readonly stance?: StanceTuning;
-  /** The envelope's own measurement (`research/skills/locomotion/stance/core-stance-envelope.mjs`): the body has none to read yet. */
+  /** The envelope's own measurement (`research/skills/locomotion/stance/stance-envelope.mjs`): the body has none to read yet. */
   readonly measuring?: boolean;
   /** The configured motor and its implementation-owned calibration (`motorOf`). */
   readonly motor: MotorMaker;

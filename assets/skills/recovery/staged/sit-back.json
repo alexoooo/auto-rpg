@@ -1,6 +1,6 @@
 {
-  "crypt-skeleton+toes": {
-    "made": "Found by CMA-ES on the crypt-skeleton's body (research/cma.mjs), with its roll.",
+  "skeleton": {
+    "made": "Found by CMA-ES on the skeleton's body (research/cma.mjs), with its roll.",
     "settings": {
       "stages": {
         "up": {
@@ -15,8 +15,8 @@
       }
     }
   },
-  "workshop-fighter+toes": {
-    "made": "The sit-back's stages as its recipe times them (scale 1), as the workshop-fighter's stand-up plays them on its target falls.",
+  "man": {
+    "made": "The sit-back's stages as its recipe times them (scale 1), as the man's stand-up plays them on its target falls.",
     "settings": {
       "stages": {
         "up": {
@@ -31,8 +31,8 @@
       }
     }
   },
-  "workshop-rogue+toes": {
-    "made": "Searched on the workshop-rogue at c1deb94d (research/skills/skill-search.mjs): CMA over plant: knee.@ flexion, plant: hip.@ flexion, plant: shoulder.@ flexion, plant: elbow.@ flexion, sit back: hip.@ flexion, sit back: shoulder.@ flexion, sit back: elbow.@ flexion, sit back: thoracic flexion, sit back: ankle.@ dorsiflexion, up: hip.@ flexion, up: shoulder.@ flexion, up: thoracic flexion from the workshop-rogue's record, 50 generations of 16, on the Rise drill's front-sit-back and sit-back, each alone on the body holding each rated loadout on its placed rung at seeds 1 to 6, 60 trials a candidate, 1851 s; on fresh trials on its placed and moving rungs at seeds 7 to 12 the search's best scored -7.080 (29 not stood) and its start -11.503 (73 not stood): the best is kept.",
+  "woman": {
+    "made": "Searched on the woman at c1deb94d (research/skills/skill-search.mjs): CMA over plant: knee.@ flexion, plant: hip.@ flexion, plant: shoulder.@ flexion, plant: elbow.@ flexion, sit back: hip.@ flexion, sit back: shoulder.@ flexion, sit back: elbow.@ flexion, sit back: thoracic flexion, sit back: ankle.@ dorsiflexion, up: hip.@ flexion, up: shoulder.@ flexion, up: thoracic flexion from the woman's record, 50 generations of 16, on the Rise drill's front-sit-back and sit-back, each alone on the body holding each rated loadout on its placed rung at seeds 1 to 6, 60 trials a candidate, 1851 s; on fresh trials on its placed and moving rungs at seeds 7 to 12 the search's best scored -7.080 (29 not stood) and its start -11.503 (73 not stood): the best is kept.",
     "settings": {
       "stages": {
         "up": {

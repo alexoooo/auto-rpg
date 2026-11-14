@@ -44,7 +44,7 @@ const forkSeconds = values.fork === undefined ? null : Number(values.fork);
 if (!(seconds > 0 && Number.isFinite(seconds))) throw new Error("--seconds is a finite number above zero");
 if (forkSeconds !== null && !(forkSeconds > 0 && forkSeconds < seconds)) throw new Error("--fork is above zero and below --seconds");
 
-const duel = (loadouts) => ({ ...recipeOf(`?matchup=workshop-fighter,workshop-fighter&control=option,option&${loadouts}`, { left: {}, right: {} }, "open"), capSeconds: seconds });
+const duel = (loadouts) => ({ ...recipeOf(`?matchup=man,man&control=option,option&${loadouts}`, { left: {}, right: {} }, "open"), capSeconds: seconds });
 const entrants = entrantRecipes();
 const duels = [["sword", () => duel("left.loadout=empty,sword&right.loadout=empty,club")], ["hands", () => duel("left.loadout=empty,empty&right.loadout=empty,empty")],
   ["bare", () => ({ ...seededBareRecipe(), capSeconds: seconds })], ...entrants.map(({ name, recipe }) => [name, () => ({ ...recipe, capSeconds: seconds })])];

@@ -1,4 +1,4 @@
-"""Character workshop: customized CC0 MPFB anatomy and authored equipment/motion.
+"""Character Lab: customized CC0 MPFB anatomy and authored equipment/motion.
 Run through rebuild.ps1, which downloads MPFB under .tools/mpfb and runs Blender from the repository root.
 """
 import bpy, bmesh, sys, math, json, hashlib
@@ -11,7 +11,7 @@ sys.path.insert(0,str(ROOT/'scripts/art'))
 from source_images import unpack_images
 import mpfb
 bpy.utils.extension_path_user=lambda *a,**k:str(ROOT/'.tools/mpfb/user')
-mpfb.get_preference=lambda k:{'mpfb_user_data':str(ROOT/'.tools/mpfb/user'),'mpfb_second_root':str(ROOT/'.tools/mpfb/assets'),'mpfb_shelf_label':'Workshop'}.get(k)
+mpfb.get_preference=lambda k:{'mpfb_user_data':str(ROOT/'.tools/mpfb/user'),'mpfb_second_root':str(ROOT/'.tools/mpfb/assets'),'mpfb_shelf_label':'Character Lab'}.get(k)
 mpfb.register()
 from mpfb.services.humanservice import HumanService
 from mpfb.services.targetservice import TargetService
@@ -91,7 +91,7 @@ def patch(body,name,predicate,offset,mat,rig,bone=None,smooth=0):
 def body_and_rig(kind):
  for old in list(bpy.data.objects):bpy.data.objects.remove(old,do_unlink=True)
  for a in list(bpy.data.actions):bpy.data.actions.remove(a)
- female=kind=='rogue';d=TargetService.get_default_macro_info_dict();d.update(gender=0.0 if female else 1.0,age=.38 if female else .52,muscle=.55 if female else .78,weight=.43 if female else .57,height=.55,proportions=.65)
+ female=kind=='woman';d=TargetService.get_default_macro_info_dict();d.update(gender=0.0 if female else 1.0,age=.38 if female else .52,muscle=.55 if female else .78,weight=.43 if female else .57,height=.55,proportions=.65)
  d['race']={'caucasian':.75,'asian':.15,'african':.10}
  body=HumanService.create_human(macro_detail_dict=d)
  skinfolder='young_caucasian_female' if female else 'middleage_caucasian_male'
@@ -118,13 +118,13 @@ def body_and_rig(kind):
  bpy.context.view_layer.objects.active=rig;bpy.ops.object.mode_set(mode='EDIT')
  for b in rig.data.edit_bones:b.head*=factor;b.tail*=factor
  bpy.ops.object.mode_set(mode='OBJECT');bpy.context.view_layer.update()
- rig.name='WorkshopRig';body.data.update()
+ rig.name='Rig';body.data.update()
  for o in bpy.context.scene.objects:
   if o.type=='MESH':o.data.name=o.name
  return body,rig
 
 def build(kind):
- body,rig=body_and_rig(kind);female=kind=='rogue';b=rig.data.bones
+ body,rig=body_and_rig(kind);female=kind=='woman';b=rig.data.bones
  hip=b['thigh_l'].head_local.z;neck=b['neck_01'].head_local.z;wrist=b['hand_l'].head_local
  cloth=material('Woven charcoal linen',(.075,.082,.071) if female else (.14,.115,.08))
  leather=material('Worn saddle leather',(.075,.041,.025),rough=.72)
@@ -241,4 +241,4 @@ def build(kind):
  print('REALISTIC_COMPLETE',kind,flush=True)
 
 if __name__=='__main__':
- for kind in (sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else ['fighter','rogue']):build(kind)
+ for kind in (sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else ['man','woman']):build(kind)

@@ -18,7 +18,7 @@ import { Vector3 } from '../../../src/core/math/vector.ts';
 const { values: o } = parseArgs({ options: { out: { type: 'string' } } });
 if (!o.out) throw Error('--out names the retained neutral-placement screen');
 const rows = [];
-for (const model of ['workshop-fighter', 'workshop-rogue', 'crypt-skeleton']) {
+for (const model of ['man', 'woman', 'skeleton']) {
   const spec = modelSpec(model), guard = guardPosture(spec);
   const stand = await coreStand(spec, { ground: true, posture: { ...guard, 'hip.left abduction': .35, 'hip.right abduction': .35 }, engine: DEFAULT_ENGINE });
   const host = stockBody(stand.built, stand.world, { servoSeconds: .1, measuring: true,

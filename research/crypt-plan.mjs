@@ -22,7 +22,7 @@ import { createDungeonRun } from "../src/app/node/game.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 
 const { values } = parseArgs({ options: { seeds: { type: "string", default: "1,2,3" }, seconds: { type: "string", default: "90" }, companions: { type: "string", default: "3" }, profile: { type: "boolean", default: false } } });
-const seconds = Number(values.seconds), companions = Array.from({ length: Number(values.companions) }, () => "workshop-fighter");
+const seconds = Number(values.seconds), companions = Array.from({ length: Number(values.companions) }, () => "man");
 
 async function played(seed) {
   const run = admitted(createDungeonRun({ seed, engine: await freshEngine(), companions, party: { kind: "clearer" } }));

@@ -8,7 +8,7 @@ import { workerJobs } from "../../worker-jobs.mjs";
  * scenario on the Node stand, Rapier, 120 Hz, no wind): each control step, for each bearing foot,
  * the chain from the stance's plan to the ground, and where it parts.
  *
- *   node research/skills/locomotion/locomotion-wrench.mjs [--models workshop-fighter,workshop-rogue] [--paces 0,0.5,1.2]
+ *   node research/skills/locomotion/locomotion-wrench.mjs [--models man,woman] [--paces 0,0.5,1.2]
  *     [--legs stance,sway] [--seconds 12] [--from 3] [--out wrench.jsonl] [--workers 12]
  *     [--scale "ankle dorsiflexion+=3;ankle dorsiflexion-=2"]
  *
@@ -344,7 +344,7 @@ if (!isMainThread) {
 } else {
   const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
   const list = (name, fallback) => arg(name, fallback).split(",");
-  const models = list("models", "workshop-fighter,workshop-rogue"), paces = list("paces", "0,0.5,1.2").map(Number), legsList = list("legs", "stance");
+  const models = list("models", "man,woman"), paces = list("paces", "0,0.5,1.2").map(Number), legsList = list("legs", "stance");
   const scale = Object.fromEntries((arg("scale", "") || "").split(";").filter(Boolean).map((x) => { const [k, v] = x.split("="); return [k, Number(v)]; }));
   const seconds = Number(arg("seconds", "12")), from = Number(arg("from", "3")), out = arg("out");
   const workers = Math.min(Number(arg("workers", String(Math.max(1, availableParallelism() - 2)))), 64);

@@ -22,7 +22,7 @@ function conditions({ confirmation, twin = false }: { readonly confirmation: boo
   const seeds = [1, 2, 3, 4], count = confirmation ? 16 : 8;
   return REPRESENTATIVE.flatMap(loadout => [false, true].flatMap(gusts => (twin ? later(seeds) : seeds).flatMap((seed, k) => {
     const heading = k * Math.PI / 2 + (confirmation ? Math.PI / 8 : 0) + (twin ? Math.PI / 4 : 0);
-    const base = { model: "workshop-fighter" as const, loadout, gusts, seed, heading };
+    const base = { model: "man" as const, loadout, gusts, seed, heading };
     const rows: TravelCondition[] = [];
     const add = (mode: TravelMode, way = 0, sense: 1 | -1 = 1) => rows.push({ ...base, mode, way, sense,
       pace: mode === "circle" ? TRAVEL.circleSpeed : mode === "facing" && way !== 0 ? TRAVEL.directional : TRAVEL.forward });

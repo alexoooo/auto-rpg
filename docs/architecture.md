@@ -51,7 +51,9 @@ registered technique set. Gameplay and evaluations receive it as an argument.
 runtime paths and public entry points across source modules. Shared libraries never import entrants;
 application composition imports their public manifests. Entrants import published library APIs
 and themselves. Recovery's shared wiring never imports implementations; each implementation owns
-its algorithms, tuning, data and caches. Motor, balance, support, locomotion, gait, move-rule,
+its algorithms, tuning, data and caches. A strike's variation (`src/skills/strikes/<skill>/<variation>/`)
+imports its own folder, the strikes' shared mechanics (`shared/`) and code outside the strikes, never
+another variation; only its own skill's code imports it, and the shared mechanics import no skill's. Motor, balance, support, locomotion, gait, move-rule,
 navigation, guard, aim, executor, recovery technique and leg adapter registrations, the parts of a
 body on paws, Option component lists and the Commander registry live in `src/app/registration/`.
 Commander lookup receives that registry; reusable implementations live in `src/minds/command/`.
@@ -83,7 +85,7 @@ records and arrays.
 A `BodySpec` (`src/core/bodies/spec/body.ts`) is a body in its reference pose (metres, +y up, +z forward,
 soles on y = 0): segments with mass, inertia, shapes and stiffness; a joint tree, each freedom with
 its axis, range and muscle; effectors (a named point on a segment and the ancestor `base` whose
-chain moves it); bearing ends; wounds; the down rule (`DownSpec`); and anything held. `bodyKey`
+chain moves it); bearing ends; wounds; the down rule (`DownSpec`); and anything held. Its `model`
 names a body for everything measured on it.
 
 Segments declare named collision `configurations`, their initial configuration and any attachment
@@ -95,7 +97,19 @@ effector segment (`BodyView.pointMotion`).
 - **Models** (`BODY_MODELS`, `modelSpec`, `src/core/bodies/models.ts`): the humans are built in
   `src/core/bodies/human/spec.ts`, the quadrupeds in `src/core/bodies/quadruped/spec.ts`.
 - **A character** (`CharacterConfig`, `resolveCharacter`) is a model plus its attributes
-  (`CharacterAttributes`). The physical keys and validation live in the body domain; editor labels,
+  (`CharacterAttributes`) and its skills (`SkillChoices`, carried on its spec as `BodySpec.skills`):
+  a list of each variation of a skill it holds, `skill/variation`, several of one skill if it likes,
+  its named character's where it names none. The characters (`CHARACTERS`,
+  `assets/characters/characters.json`, checked by `registryError`) are each a model, a label and
+  skills, as many on one model as the file lists; each model has its own (`modelCharacter`: the
+  Warrior, the Rogue, the Skeleton, the rat and the reptile), the one a model alone stands for and
+  whose label names the model on a page (`modelLabel`). Each variation held is a skill of
+  its own to its mind: its executor runs that variation (`Varied.variation`), named by the
+  variation too where the body holds several of the skill, and is measured as it is held alone
+  (`skillDigest`). A bout's recipe carries each side's model, its character where it is not the model's own
+  (`DuelRecipe.characters`) and its skills (`DuelRecipe.skills`); the Arena's matchup names
+  characters (`matchup=warrior,rogue`, a model's name standing for its own), and the Arena sets the skills by its panel and its link
+  (`left.skills=straight-punch/drive,straight-punch/from-guard,stomp/stomp`, `src/game/skill-link.ts`). The physical keys and validation live in the body domain; editor labels,
   increments and help live in `src/app/browser/ui/character-attribute-info.ts`.
   A physique (`physiqueFigure`, `src/core/bodies/human/physique.ts`) scales one
   thing a factor: size every length at the same density, weight the mass alone, strength every peak
@@ -209,7 +223,7 @@ driven points, a stance goal) into muscle commands.
 - **Balance** is a part of role `balance` (`BALANCES`); the game's is the stance
   (`stance-balance.ts`): the centre of mass kept inside the support by forces the ground can give,
   steps placed from the capture point, a body without box soles refused. What a body was measured
-  to hold is its envelope, read by `bodyKey` from its implementation in `assets/skills/locomotion/`.
+  to hold is its envelope, read by model from its implementation in `assets/skills/locomotion/`.
   Each balance supplies its calibration through its motor; command-layer wiring reads that result.
 - **The assist** (`Assist`, `assist.ts`) is a force at the root and a moment that no muscle gives:
   asked by the mind, shortened to the body's ceiling, applied through the solver step, metered. The
@@ -247,8 +261,9 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   predicate. Skill assembly constructs configured aims once and roots their memory in `Skills.state`.
 - **Tuned per body**: a skill that reads a record (`Part.reads`: the blows, step up's and the
   sit-back's poses and timings, the righting's recipe) has its settings as its body's record (`SkillRecord`),
-  read as mind data by `bodyKey` from its implementation in `assets/skills/` (`dataOf`). A body with no record
-  does not use the skill. Step up's record may adjust the recovery poses and timings by loadout.
+  read as mind data by model from its implementation in `assets/skills/` (`dataOf`). A body with no record
+  does not use the skill. Logic of a character's own is never a branch on its body in shared code but
+  a variation it chooses (**Strikes**, below). Step up's record may adjust the recovery poses and timings by loadout.
   Implementations register loaders in `data/registration.ts`; an entrant adds its loaders to its
   manifest's `data`. The catalog supplies those loaders to the store (`DataKey`, `keyof DataOf`)
   through `Catalog.loadData`, with the same registrations in Node and the page. A loader declares
@@ -306,17 +321,35 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   control step after its request until the next answer, so native play and training step alike.
   The learned run, the punch and the bare entrant decide this way; every training environment
   steps from one request to the next through `research/learner-adapter.mjs`.
-- **The straight punch** (`straight-punch.ts`) drives the arm flat out at a contact pose solved
-  each step, on a timed schedule (`TimedPush`). Steered, a network (`learned-punch.ts`), deciding every
+- **Strikes** live in `src/skills/strikes/`, a folder a skill: the skill's part
+  (`straight-punch/index.ts`) names its variations, and a variation with code of its own keeps it
+  in its own folder (`stomp/stomp/`). What two variations do alike is one implementation in
+  `shared/`, which names no skill, each variation calling it with its own settings and options.
+  A variation's settings are
+  `assets/skills/strikes/<skill>/<variation>.json`, by model, its data `dataOf("<skill>/<variation>")`.
+  A skill's part fits only a body whose character has the skill and runs the variation it chose
+  (`variationFault`, `heldVariation`, `src/skills/framework/variations.ts`), so the Option Mind
+  offers only the character's skills; a strike's digest names its variation (`skillDigest`).
+  Every skill part is a skill a character chooses so, whatever its role (`Part.variations`): the
+  guards, Move and the paw gaits, the gaits, low support, the recovery techniques and the
+  navigations as the strikes. Each but a strike has one variation, named as its skill
+  (`walk-run/walk-run`), made by its part's file (`variedMake`, a guard's `guardVariations`, a
+  technique's `technique`); a body built without a character (`humanoidSpec`) holds none, so
+  whatever runs skills is built from its model's character (`modelSpec`).
+- **The straight punch** (`straight-punch/index.ts`, its drive `shared/straight-drive.ts`) drives the arm flat out at a contact pose solved
+  each step, on a timed schedule (`TimedPush`). Steered, a network (`shared/steer.ts`), deciding every
   interval its layout names, adds to the trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
   (`PunchRecord`), trained by `research/run-train.py` and exported by `research/skills/strikes/straight-punch/punch-export.mjs`.
+  Its `drive` variation begins once the stance is quiet and settled; `from-guard` (`straight-punch/from-guard/`)
+  also waits for the striking arm at its guard and still (`StraightDriveOptions.ready`), with the same record.
 - **Held blows** strike with what the hand holds (`StrikingFace`), naming the mechanism they meet
-  with (`ExecutorPart.meets`). The thrust is the punch's drive with the blade's point, through which
-  `faceAligner` servos the wrist onto the line to the target; a swing (the club's) winds up to its
-  record's angles, pushes on its `TimedPush` schedule and returns to guard.
-- **The stomp** (`stomp.ts`) is a strike cycle down from a high chamber onto a body lying ahead. A
+  with (`ExecutorPart.meets`). The sword thrust (`sword-thrust/index.ts`) is the same straight drive with
+  the blade's point, through which `faceAligner` servos the wrist onto the line to the target; the
+  club blow and the bonk (`club-blow/index.ts`, `bonk/index.ts`) are one swing (`shared/swing.ts`), each winding up to its record's angles,
+  pushing on its `TimedPush` schedule and returning to guard.
+- **The stomp** (`stomp/stomp/`) is a strike cycle down from a high chamber onto a body lying ahead. A
   strike's window (`strikeWindow`) keeps the two bodies clear.
-- **The bite** (`jaw-bite`, `src/skills/strikes/bite/index.ts`) is a strike cycle of the jaw on a crawl:
+- **The bite** (`bite`, `src/skills/strikes/bite/bite/`) is a strike cycle of the jaw on a crawl:
   the head driven to the mouth's goal, the jaw opened and closed on its path, aimed by the first
   exposed surface along the jaw's arc (`first-exposed`, `jaw-aim.ts`), its tooth carried with the
   aim (`Aimed.with`).
@@ -600,7 +633,7 @@ The profile model supplies these components:
   A config names a limb's role (`limbsOf`).
 - **The strikes**: each blow is its own kind of option naming its skill (`StrikeKindPart`,
   `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-bonk`,
-  `strike-sword-thrust`, `strike-stomp`, `strike-jaw-bite`), a strike (`strike`) of the action it asks of its
+  `strike-sword-thrust`, `strike-stomp`, `strike-bite`), a strike (`strike`) of the action it asks of its
   executor on its body (`strikeAction`), one Option a limb (`limbAction`): a punch on empty hands
   is two Options, each priced by its limb's profile. An action is named as its skill; where a mind
   uses one skill in two ways (a club's bonk at the head and its swipe at the trunk), each is its
@@ -842,7 +875,7 @@ any page.
 
 `src/app/browser/` is Vite's browser root. Its `index.html` holds the app shell; `app.ts` mounts each
 screen's HTML from beside its UI code, selected by `?play=` (`src/game/route.ts`). The shell disposes
-the last screen explicitly and keeps setup choices for the tab. The Character Workshop and Physics
+the last screen explicitly and keeps setup choices for the tab. The Character Lab and Physics
 Bench have their own `index.html` beside their modules. Every entry document is in `vite.config.ts`'s
 `rollupOptions.input`.
 

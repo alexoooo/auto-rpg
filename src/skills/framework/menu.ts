@@ -6,12 +6,14 @@ import type { ActionBinding, ExecutorBinding } from "./action-instances.ts";
 
 /**
  * **An action a body has**, as its skills bind it: its name, its executor's kind (what the skill
- * is, named alike across minds: `straight-punch`, `club-blow`, `stomp`), the limbs it may
- * be asked with, and the regions it aims at (none: it acts on the body itself, as a rise does).
+ * is, named alike across minds: `straight-punch`, `club-blow`, `stomp`) and the variation of it
+ * it runs where the skill has variations, the limbs it may be asked with, and the regions it aims
+ * at (none: it acts on the body itself, as a rise does).
  */
 export interface KitEntry {
   readonly action: string;
   readonly kind: string;
+  readonly variation?: string;
   readonly limbs: readonly string[];
   readonly regions: readonly Region[];
 }
@@ -50,13 +52,14 @@ export const sameRegion = (a: Region | null, b: Region | null): boolean => a !==
 export const kitOffers = (kit: readonly KitEntry[], skill: string, limb: string, region: Region): boolean =>
   kit.some((entry) => entry.kind === skill && entry.limbs.includes(limb) && entry.regions.some((one) => sameRegion(one, region)));
 
-/** The kit `actions` make with `executors`: each action with its executor's kind, its limbs and its regions. */
-export function kitOf(executors: readonly Pick<ExecutorBinding, "name" | "kind">[], actions: readonly ActionBinding[]): readonly KitEntry[] {
-  const kinds = new Map(executors.map((one) => [one.name, one.kind]));
+/** The kit `actions` make with `executors`: each action with its executor's kind and variation, its limbs and its regions. */
+export function kitOf(executors: readonly Pick<ExecutorBinding, "name" | "kind" | "variation">[], actions: readonly ActionBinding[]): readonly KitEntry[] {
+  const named = new Map(executors.map((one) => [one.name, one]));
   return deepFreeze(actions.map((action): KitEntry => {
-    const kind = kinds.get(action.executor);
-    if (kind === undefined) throw new Error(`action ${action.name} names no executor of the kit: ${action.executor}`);
-    return { action: action.name, kind, limbs: [...action.effectors], regions: [...action.regions ?? []] };
+    const executor = named.get(action.executor);
+    if (executor === undefined) throw new Error(`action ${action.name} names no executor of the kit: ${action.executor}`);
+    return { action: action.name, kind: executor.kind, ...executor.variation === undefined ? {} : { variation: executor.variation },
+      limbs: [...action.effectors], regions: [...action.regions ?? []] };
   }));
 }
 

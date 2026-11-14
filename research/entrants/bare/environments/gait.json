@@ -3,6 +3,6 @@
   "evaluation": "locomotion",
   "subject": { "preset": "bare" },
   "layout": "research/entrants/bare/environments/bare-warrior.layout.json",
-  "places": [{ "protocol": "screen", "where": { "model": "workshop-fighter" } }],
+  "places": [{ "protocol": "screen", "where": { "model": "man" } }],
   "reward": { "progress": 1, "halt": 0.5, "upright": 0.2, "effort": 0.01, "down": -10 }
 }
