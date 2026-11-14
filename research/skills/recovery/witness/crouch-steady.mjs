@@ -50,7 +50,8 @@ import { stockBody } from "../../../../src/app/stock-body.ts";
 import { pendingControl } from "../../../minds/pending-control.mjs";
 import { buildBody } from "../../../../src/core/bodies/build/build-body.ts";
 import { loadEngine } from "../../../../src/core/physics/engines.ts";
-import { humanSpec, humanoidSpec } from "../../../../src/core/bodies/human/spec.ts";
+import { humanSpec } from "../../../../src/core/bodies/human/spec.ts";
+import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { armedWith } from "../../../../src/core/bodies/items/held.ts";
 import { guardPosture } from "../../../../src/skills/guard/guard.ts";
 import { createWorld } from "../../../../src/core/world/world.ts";
@@ -64,7 +65,7 @@ import { crouchSteady, traceRow } from "./climb.mjs";
 /** The cap, and a failure's score, s. */
 const CAP = 5, FAIL = 6;
 
-const bodySpec = (model, held) => armedWith(humanoidSpec(model), "right", held);
+const bodySpec = (model, held) => armedWith(modelSpec(model), "right", held);
 
 /** The Warrior's stored squat put on `spec` at `seed`, or why it is refused. */
 export function placement(spec, seed) {

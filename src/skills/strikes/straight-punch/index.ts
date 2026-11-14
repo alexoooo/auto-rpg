@@ -12,7 +12,7 @@ import layoutFile from "../../../../assets/skills/strikes/straight-punch/drive.l
 import { handConfigurationRefusal, holdsNothing } from "../../reach/hand.ts";
 import { PUNCH_BODIES } from "./data/records.ts";
 import { recordFault } from "../../framework/records.ts";
-import { variationFault, variationMaker, type Variations, type Varied } from "../../framework/variations.ts";
+import { variationFault, variationMaker, type ExecutorVariations, type Varied } from "../../framework/variations.ts";
 import { fromGuard } from "./from-guard/from-guard.ts";
 
 /** How the straight punch's steer reads and pushes: its networks' inputs and outputs (`assets/skills/strikes/straight-punch/drive.layout.json`). */
@@ -46,7 +46,7 @@ function punch({ body, guard, aim }: ExecutorMaking, config: Config, actions: re
  * The straight punch's variations: the drive, begun once the stance is quiet and settled; and
  * from its guard (`from-guard/`), begun only once the striking arm is also at its guard and still.
  */
-const VARIATIONS: Variations<Config> = {
+const VARIATIONS: ExecutorVariations<Config> = {
   drive: (making, config, actions) => punch(making, config, actions),
   "from-guard": (making, config, actions) => punch(making, config, actions, fromGuard(making.body)),
 };

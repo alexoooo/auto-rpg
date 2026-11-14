@@ -1,3 +1,4 @@
+import { variationFault, variedMake, type Varied } from "../../framework/variations.ts";
 import type { MotorAndGuard } from "../../framework/motor-and-guard.ts";
 import { MOTOR_SUPPORT } from "../../../control/motor-part.ts";
 import { bilateralBindings } from "../bilateral.ts";
@@ -317,7 +318,10 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, fitted: Mo
 }
 
 /** **Righting by recipe**'s config: its kind, and an experiment's research `tuning`, a whole recipe in place of its body's, which a link does not carry. */
-interface RecipeConfig { readonly kind: "righting-recipe"; readonly tuning?: Partial<RightingRecipe> }
+interface RecipeConfig extends Varied { readonly kind: "righting-recipe"; readonly tuning?: Partial<RightingRecipe> }
+
+/** Righting by routes' config: no settings of its own. */
+interface RoutesConfig extends Varied { readonly kind: "righting-routes" }
 
 /** What the rightings share: begun on either side, from where the body lies as it moves, to standing. */
 const RIGHTING = { bindings: (spec: BodySpec) => bilateralBindings(spec, BOTH), role: "technique", stage: "game", moving: true, starts: BOTH, fields: [], slots: [] } as const;
@@ -328,13 +332,18 @@ const RIGHTING = { bindings: (spec: BodySpec) => bilateralBindings(spec, BOTH), 
  * `dataOf("righting")`), or a whole research recipe in its place. It is done once its last pose
  * holds the trunk upright and still, wherever its legs bear.
  */
+const RECIPE_VARIATIONS = {
+  "righting-recipe": (own: OwnBody, _view: BodyView, _clock: Clock, _fitted: MotorAndGuard, config: RecipeConfig) =>
+    rightingByRecipe(own, tunedSettings(dataOf("righting"), own.spec, config)),
+};
+
 export const RIGHTING_RECIPE = deepFreeze<TechniquePart<RecipeConfig>>({
-  ...RIGHTING, edges: toStanding(LYING), label: "Right by recipe", defaults: { kind: "righting-recipe" }, keys: { kind: true, tuning: true } as KeysOf<RecipeConfig>, tuning: ["settle", "servo", "upright", "calm", "still", "limit", "side", "back"],
-  fits: fitsAll<RecipeConfig>(fitsPaws, recordFault("righting", deepFreeze(meta.bodies), wholeRecipe)),
+  ...RIGHTING, edges: toStanding(LYING), label: "Right by recipe", defaults: { kind: "righting-recipe" }, keys: { kind: true, variation: true, tuning: true } as KeysOf<RecipeConfig>, tuning: ["settle", "servo", "upright", "calm", "still", "limit", "side", "back"],
+  fits: fitsAll<RecipeConfig>(variationFault("righting-recipe", "righting by recipe", RECIPE_VARIATIONS), fitsPaws, recordFault("righting", deepFreeze(meta.bodies), wholeRecipe)),
   faults: (config: RecipeConfig) => config.tuning === undefined || wholeRecipe(config.tuning) ? [] : ["invalid righting recipe"],
   reads: () => ["righting"],
-  make: (own: OwnBody, _view: BodyView, _clock: Clock, _fitted: MotorAndGuard, config: RecipeConfig) =>
-    rightingByRecipe(own, tunedSettings(dataOf("righting"), own.spec, config)),
+  make: variedMake("righting-recipe", RECIPE_VARIATIONS, (own, _view, _clock, _fitted, config) => [own.spec, config]),
+  variations: Object.keys(RECIPE_VARIATIONS),
 });
 
 /**
@@ -358,15 +367,20 @@ const holdsRoutes = (spec: BodySpec): boolean => pawsOf(spec).every((paw) => {
  * between: a body on paws (`fitsPaws`) whose legs take the routes' poses (`holdsRoutes`), carried
  * up by its mind's motor.
  */
-export const RIGHTING_ROUTES = deepFreeze<TechniquePart<{ readonly kind: "righting-routes" }>>({
-  ...RIGHTING, requires: [MOTOR_SUPPORT], edges: toStanding([...LYING, "crouch", "between"]), label: "Right by routes", defaults: { kind: "righting-routes" }, keys: { kind: true },
-  fits: fitsAll(fitsPaws, fitsWhen(holdsRoutes, "needs legs whose ranges hold the righting routes' poses")), faults: () => [],
-  make: (own: OwnBody, view: BodyView, clock: Clock, fitted: MotorAndGuard) => rightingByRoutes(own, view, clock, fitted),
+const ROUTES_VARIATIONS = {
+  "righting-routes": (own: OwnBody, view: BodyView, clock: Clock, fitted: MotorAndGuard, _config: RoutesConfig) => rightingByRoutes(own, view, clock, fitted),
+};
+
+export const RIGHTING_ROUTES = deepFreeze<TechniquePart<RoutesConfig>>({
+  ...RIGHTING, requires: [MOTOR_SUPPORT], edges: toStanding([...LYING, "crouch", "between"]), label: "Right by routes", defaults: { kind: "righting-routes" }, keys: { kind: true, variation: true },
+  fits: fitsAll(variationFault("righting-routes", "righting by routes", ROUTES_VARIATIONS), fitsPaws, fitsWhen(holdsRoutes, "needs legs whose ranges hold the righting routes' poses")), faults: () => [],
+  make: variedMake("righting-routes", ROUTES_VARIATIONS, (own, _view, _clock, _fitted, config) => [own.spec, config]),
+  variations: Object.keys(ROUTES_VARIATIONS),
 });
 
 declare module "../technique.ts" {
   interface TechniqueConfigs {
     readonly "righting-recipe": RecipeConfig;
-    readonly "righting-routes": { readonly kind: "righting-routes" };
+    readonly "righting-routes": RoutesConfig;
   }
 }

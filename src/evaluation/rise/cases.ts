@@ -10,8 +10,7 @@
  * cases are those on a body it fits.
  */
 import type { TechniqueName } from "../../skills/recovery/technique.ts";
-import { HUMANOID_MODELS, type HumanoidModel } from "../../core/bodies/models.ts";
-import { humanoidSpec } from "../../core/bodies/human/spec.ts";
+import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../../core/bodies/models.ts";
 import { withLoadout } from "../../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import type { Held } from "../../core/bodies/items/held.ts";
@@ -76,7 +75,7 @@ export function createRiseCases(context: GameContext) {
 
   /** Why `edge` is no technique of the body a condition names, a sentence (`Part.fits`); null where it fits. */
   const unfit = (edge: TechniqueName, condition: RiseCondition): string | null =>
-    TECHNIQUES[edge].fits(withLoadout(humanoidSpec(condition.model), { left: condition.left ?? "empty", right: condition.held }), TECHNIQUES[edge].defaults, context.catalog.partLookup);
+    TECHNIQUES[edge].fits(withLoadout(modelSpec(condition.model), { left: condition.left ?? "empty", right: condition.held }), TECHNIQUES[edge].defaults, context.catalog.partLookup);
 
   /** The positions `edge` is begun from. */
   const fromOf = (edge: TechniqueName): readonly string[] => TECHNIQUES[edge].edges.map((one) => one.from);

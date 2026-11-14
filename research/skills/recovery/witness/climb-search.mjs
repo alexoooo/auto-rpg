@@ -14,7 +14,7 @@ import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import { humanoidSpec } from "../../../../src/core/bodies/human/spec.ts";
+import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { armedWith } from "../../../../src/core/bodies/items/held.ts";
 import { acceptedSeeds as squatSeeds, steady } from "./crouch-steady.mjs";
 import { witnessTrial } from "./rise-witness.mjs";
@@ -42,7 +42,7 @@ const START = [unlin(.8, .4, 1.4), unlin(.1, 0, .4), unlin(0, -.3, 1), unlin(0, 
 
 /** Every start: `{ kind: "squat", seed }` or `{ kind: "witness", file, seed }`. */
 async function starts(model, held) {
-  const spec = armedWith(humanoidSpec(model), "right", held), { acceptedSeeds: witnessSeeds } = await import("./rise-witness.mjs");
+  const spec = armedWith(modelSpec(model), "right", held), { acceptedSeeds: witnessSeeds } = await import("./rise-witness.mjs");
   const list = squatSeeds(spec, SQUATS).map(seed => ({ kind: "squat", seed }));
   for (const [name, count] of WITNESSES) {
     const best = JSON.parse(await readFile(new URL(`../../../../assets/skills/recovery/witness/${name}.json`, import.meta.url), "utf8"));

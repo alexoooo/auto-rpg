@@ -39,8 +39,6 @@ export interface ExecutorPart<C extends PartConfig = PartConfig> extends Part<C>
   readonly meets?: Mechanism;
   /** Whether it strikes with `effector` of `spec`, as it holds what it holds; with each of its `effectors` unless it says. A mind reads it to throw only the blows its body can (`limbsOf`). */
   strikesWith?(spec: BodySpec, config: C, effector: string): boolean;
-  /** A skill's variations by name (`Variations`), each its own maker: a body runs the one its character chose (`BodySpec.skills`). */
-  readonly variations?: readonly string[];
   /** How many blows an action of it throws; one unless it says. */
   blows?(config: C): number;
   make(making: ExecutorMaking, config: C, actions: readonly ActionConfig[]): Executor;

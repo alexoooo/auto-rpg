@@ -65,8 +65,8 @@ test("invalid authored settings return refusals before the implementation consum
   assert.equal(validStepUp({ settle: { speed: .1, seconds: .2 }, climb: 1, stages: {}, roll: {} }), false);
   const joints = stock.joints.map(joint => joint.name === "hip.left" ? { ...joint, name: "hip.port" } : joint);
   const ends = stock.ends.map(end => end.from === "hip.left" ? { ...end, from: "hip.port" } : end);
-  assert.match(WALK_RUN_PART.fits({ ...stock, joints, ends }), /bilateral/);
-  assert.equal(WALK_RUN_PART.fits(stock), null);
+  assert.match(WALK_RUN_PART.fits({ ...stock, joints, ends }, WALK_RUN_PART.defaults), /bilateral/);
+  assert.equal(WALK_RUN_PART.fits(stock, WALK_RUN_PART.defaults), null);
 });
 
 test("configuration observations select the sensed collision surface", () => {
@@ -248,7 +248,9 @@ import { partLookup, MINDS, GAME } from "../../src/app/catalog.ts";
 import { filledRefusal } from "../../src/skills/assembly/filled.ts";
 
 test("explicit filled parts obey the same body applicability as automatic selection", () => {
-  const rat = modelSpec("rat");
+  // A rat that holds the guards: what refuses them is its body.
+  const rat = { ...modelSpec("rat"), skills: [...modelSpec("rat").skills, "cover-guard/cover-guard", "shield-guard/shield-guard"] };
+  assert.match(filledRefusal(partLookup, modelSpec("rat"), { guard: { kind: "cover-guard" } }), /guard: the character has no guard and cover/);
   for (const kind of ["cover-guard", "shield-guard"]) {
     const config = { ...MINDS.option.config, tuning: { parts: { guard: { kind } } } };
     assert.deepEqual(GAME.treeFaults(config), []);

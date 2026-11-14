@@ -180,7 +180,7 @@ test("fallen footprints retain observed elevation through navigation memory", ()
 
 
 test("a changed destination retains a planned route while locomotion is unavailable", () => {
-  const navigation = VISIBILITY_NAVIGATION.make(modelSpec("man")),
+  const navigation = VISIBILITY_NAVIGATION.make(modelSpec("man"), VISIBILITY_NAVIGATION.defaults),
     solids = [{ name: "wall", kind: "box", centre: [0, 1, 3], size: [2, 2, 2] }],
     sight = { view: { time: 0, stance: { centre: { x: 0, y: 1, z: 0 }, velocity: { x: 0, y: 0, z: 0 } },
       senses: { side: "party", others: [], solids } }, report: { legs: { heading: 0 } } },

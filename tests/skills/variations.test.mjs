@@ -8,6 +8,9 @@ import { skillsOf } from "../../src/minds/option/skills.ts";
 import { limbAction } from "../../src/minds/option/kinds.ts";
 import { skillDigest } from "../../src/skills/framework/profile.ts";
 import { readSkills, writeSkills } from "../../src/game/skill-link.ts";
+import { allParts, partLookup } from "../../src/app/catalog.ts";
+import { BODY_MODELS, modelHolds } from "../../src/core/bodies/models.ts";
+import { LOADOUTS, loadoutFaults, withLoadout } from "../../src/core/bodies/items/held.ts";
 
 const config = MINDS.option.config, parts = treeLookup(config);
 const punches = (skills) => {
@@ -42,4 +45,22 @@ test("a character's skills are a list of skill/variation, none twice, carried wh
   assert.deepEqual(readSkills(query, "left"), [], "an empty value holds no skill");
   writeSkills(query, "left", undefined);
   assert.equal(readSkills(query, "left"), undefined, "no value is the character's own");
+});
+
+test("every skill part, whatever its role, runs only on a body whose character holds it", () => {
+  const roles = new Set();
+  for (const [kind, part] of Object.entries(allParts())) {
+    if (!part.variations) continue;
+    let fitted = null;
+    for (const model of BODY_MODELS) for (const loadout of LOADOUTS) {
+      if (fitted || loadoutFaults(loadout).length || !modelHolds(model) && (loadout.left !== "empty" || loadout.right !== "empty")) continue;
+      const spec = withLoadout(resolveCharacter({ model }).spec, loadout);
+      if (part.fits(spec, part.defaults, partLookup) === null) fitted = spec;
+    }
+    assert.ok(fitted, `${kind}: some character holds it and runs it`);
+    const without = { ...fitted, skills: fitted.skills.filter((name) => !name.startsWith(`${kind}/`)) };
+    assert.match(part.fits(without, part.defaults, partLookup) ?? "", /the character has no/, `${kind}: a character that does not hold it does not run it`);
+    roles.add(part.role);
+  }
+  for (const role of ["executor", "guard", "locomotion", "gait", "paw-gait", "support", "technique", "navigation"]) assert.ok(roles.has(role), `a ${role} is a skill a character holds`);
 });

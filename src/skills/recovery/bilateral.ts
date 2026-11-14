@@ -1,3 +1,4 @@
+import { heldVariation, variationFault, type Variations, type Varied } from "../framework/variations.ts";
 import { soleRefusal } from "../../control/support.ts";
 import { fitsAll, type Part } from "../../parts/parts.ts";
 import type { TechniquePart, TechniqueRun } from "./technique.ts";
@@ -47,14 +48,16 @@ export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "
   readonly make: (...args: Parameters<TechniquePart["make"]>) => TechniqueRun<Side>;
   readonly requires?: TechniquePart["requires"];
   readonly reads?: Part["reads"]; readonly moving?: boolean; readonly fits?: (spec: BodySpec) => string | null;
-}): TechniquePart<{ readonly kind: K }> => {
+}): TechniquePart<{ readonly kind: K } & Varied> => {
   const { fits, sides, make, ...rest } = part;
   const supported = (start: string): start is Side => sides.some(side => side === start);
-  const made: TechniquePart<{ readonly kind: K }> = { moving: false, starts: sides, bindings: (spec: BodySpec) => bilateralBindings(spec, sides), ...rest,
-    role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true }), fields: [], slots: [],
-    fits: fits ? fitsAll(fitsStance, fits) : fitsStance, faults: () => [],
+  // Its one variation, the technique itself: a skill its character holds (`variationFault`).
+  const variations: Variations<typeof make> = { [kind]: make }, held = variationFault(kind, part.label.toLowerCase(), variations);
+  const made: TechniquePart<{ readonly kind: K } & Varied> = { moving: false, starts: sides, bindings: (spec: BodySpec) => bilateralBindings(spec, sides), ...rest,
+    role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true, variation: true }), fields: [], slots: [],
+    fits: fits ? fitsAll(held, fitsStance, fits) : fitsAll(held, fitsStance), faults: () => [], variations: Object.keys(variations),
     make(...args: Parameters<TechniquePart["make"]>): TechniqueRun {
-      const run = make(...args);
+      const run = heldVariation(args[0].spec, kind, args[4], variations)(...args);
       return { state: run.state, get phase() { return run.phase; }, get yields() { return run.yields; },
         admits: (reading, start) => supported(start) && run.admits(reading, start),
         reached: (reading, to) => run.reached(reading, to),

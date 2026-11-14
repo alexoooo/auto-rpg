@@ -1,3 +1,5 @@
+import { variationFault } from "../../../framework/variations.ts";
+import { fitsAll } from "../../../../parts/parts.ts";
 import type { MotorAndGuard } from "../../../framework/motor-and-guard.ts";
 import { SUPPORT_REFERENCE } from "../../../../control/support-reference.ts";
 import { MOTOR_STANCE } from "../../../../control/motor-part.ts";
@@ -266,8 +268,8 @@ const routeTechnique = <K extends StagedKind>(kind: K, label: string): Technique
   sides: Object.freeze(["left"] as const), edges: Object.freeze(PARTS[kind].from.map(from => Object.freeze({ from, to: PARTS[kind].to as Position }))),
   requires: PARTS[kind].first === null ? [] : [SUPPORT_REFERENCE, MOTOR_STANCE], reads: () => ["step-up", "sit-back"],
   make: (own, view, _clock: Clock, fitted, config) => routePart(own, view, fitted, kind, (config as StagedConfig<K>).tuning ?? stepUpTuning(own.spec)) }),
-  fitReads: ["step-up", "sit-back"] as const, fits: fitsPart(kind),
-  keys: { kind: true, tuning: true } as const, tuning: ["settle", "climb", "stages", "rest", "over", "roll", "sideSwing", "heldSupport", "loadouts"],
+  fitReads: ["step-up", "sit-back"] as const, fits: fitsAll(variationFault(kind, label.toLowerCase(), [kind]), fitsPart(kind)),
+  keys: { kind: true, variation: true, tuning: true } as const, tuning: ["settle", "climb", "stages", "rest", "over", "roll", "sideSwing", "heldSupport", "loadouts"],
   faults: (config: StagedConfig<K>) => config.tuning === undefined || validStepUp(config.tuning) ? [] : ["tuning: invalid step-up settings"],
 });
 

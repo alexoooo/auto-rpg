@@ -18,7 +18,7 @@ import { Quaternion, Vector3 } from "../../../../../src/core/math/vector.ts";
 import { stockBody } from "../../../../../src/app/stock-body.ts";
 import { buildBody } from "../../../../../src/core/bodies/build/build-body.ts";
 import { loadEngine } from "../../../../../src/core/physics/engines.ts";
-import { humanoidSpec } from "../../../../../src/core/bodies/human/spec.ts";
+import { modelSpec } from "../../../../../src/core/bodies/models.ts";
 import { armedWith } from "../../../../../src/core/bodies/items/held.ts";
 import { createWorld } from "../../../../../src/core/world/world.ts";
 import { recoveryMeasurement } from "../../../../../src/game/lab/recovery-measurement.ts";
@@ -38,7 +38,7 @@ const WITHIN = 6, CAP = 12;
 
 /** One seed: when the technique ended and how, and when the body was verified standing, s from the start; null where it was not. */
 export async function sitBackTrial({ model = "man", held = "empty", seed = 1, technique = "sit-back", delay = undefined }) {
-  const spec = armedWith(humanoidSpec(model), "right", held), placed = placement("push-off-bear", spec, seed);
+  const spec = armedWith(modelSpec(model), "right", held), placed = placement("push-off-bear", spec, seed);
   if ("refused" in placed) return { seed, refused: placed.refused };
   const world = createWorld(await loadEngine(), delay === undefined ? {} : { delay });
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);

@@ -179,9 +179,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   // Each side's skills as its panel holds them: undefined, its character's own (`Character.skills`).
   const skills: Partial<Record<Side, SkillChoices>> = { ...arenaSkills(location.search) };
   const skillEditors = {} as Record<Side, ReturnType<typeof skillEditor>>;
-  /** Each skill a character may choose and its variations, as the catalog's executors offer them (`ExecutorPart.variations`). */
+  /** Each skill a character may choose and its variations, as the catalog's parts offer them (`Part.variations`). */
   const skillOffers: readonly SkillOffer[] = Object.entries(allParts()).flatMap(([skill, part]) =>
-    part.role === "executor" && "variations" in part && Array.isArray(part.variations) ? [{ skill, label: part.label, variations: part.variations }] : []);
+    part.variations ? [{ skill, label: part.label, variations: part.variations }] : []);
   /** `side`'s character config: the character `character`, its attributes over its mind's character's, and its skills where its panel chose them. */
   const characterOf = (side: Side, character: string, control: string) => ({ model: characterNamed(character).model, character,
     attributes: controlCharacter(control, attributes[side]), ...(skills[side] ? { skills: skills[side] } : {}) });

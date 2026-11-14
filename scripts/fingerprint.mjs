@@ -46,7 +46,6 @@ import { CHARACTERS, WEAPONS, clipFor } from "../src/game/appearance/characters.
 import { controlCharacter, controlsFor, defaultControl, readControls, readMinds } from "../src/app/node/setup.ts";
 import { SERVO_SECONDS, commandsBody } from "../src/control/body.ts";
 import { stockBody } from "../src/app/stock-body.ts";
-import { humanSpec } from "../src/core/bodies/human/spec.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
 import { standIntent } from "../src/skills/framework/intent.ts";
 import { driveBy } from "../src/minds/decider.ts";
@@ -212,7 +211,7 @@ async function cryptFight(seed) {
 
 /** `model` round the lab's circle for 10 s. */
 async function labRun(model) {
-  const stand = await coreStand(humanSpec(model), { ground: true });
+  const stand = await coreStand(modelSpec(model), { ground: true });
   const run = admitted(startLocomotion(admitted(labActor(stand.built, stand.world, { mind: LAB_MIND, rules: rulebook("arena") })), trackOf(TRACKS.circle.pieces)));
   try {
     const trace = traceOf([stand.built]);

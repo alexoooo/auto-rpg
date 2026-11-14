@@ -13,7 +13,6 @@ import { Vector3 } from "../core/math/vector.ts";
 import { commandedBody } from "../minds/seat/host.ts";
 import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
 import { DEFAULT_ENGINE, loadEngine } from "../core/physics/engines.ts";
-import { humanoidSpec } from "../core/bodies/human/spec.ts";
 import { armedWith, loadoutKey, type Held } from "../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "./loadouts.ts";
 import type { OptionMindConfig } from "../minds/option/config.ts";
@@ -206,7 +205,7 @@ export function createRising(context: GameContext) {
     if (job.after && !TECHNIQUES[job.after]) return rejected(`unknown predecessor ${job.after}`);
     const destination = TECHNIQUES[technique].edges[0]!.to;
     if (!["man", "woman", "skeleton"].includes(model)) throw new Error(`unsupported humanoid technique model ${model}`);
-    const spec = strengthSpec(armedWith(humanoidSpec(model as "man"), "right", job.held ?? "empty"), factor);
+    const spec = strengthSpec(armedWith(modelSpec(model as "man"), "right", job.held ?? "empty"), factor);
     const fitted = motorAndGuardOf(partLookup, spec);
     for (const name of [technique, ...(job.after ? [job.after] : [])]) {
       const part = TECHNIQUES[name];

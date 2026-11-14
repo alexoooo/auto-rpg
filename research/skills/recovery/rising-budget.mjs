@@ -52,13 +52,13 @@ async function targetFall(job) {
 /** The stance alone from the placed squat, to verified standing and 2 s held. */
 async function squatStance({ model, held, seed }) {
   await import("../../../tests/harness/preload-data.mjs");
-  const [{ default: poses }, { stockBody }, { buildBody }, { loadEngine }, { humanSpec, humanoidSpec }, { armedWith },
+  const [{ default: poses }, { stockBody }, { buildBody }, { loadEngine }, { humanSpec }, { armedWith },
     { guardPosture }, { createWorld }, { groundPlacement }, { recoveryMeasurement }, { observeBody }, { clockSenses }, { STAND_CHECK }] = await Promise.all([
     import("../../../assets/research/posture-holds.json", { with: { type: "json" } }),
     import("../../../src/app/stock-body.ts"), import("../../../src/core/bodies/build/build-body.ts"), import("../../../src/core/physics/engines.ts"), import("../../../src/core/bodies/human/spec.ts"),
     import("../../../src/core/bodies/items/held.ts"), import("../../../src/skills/guard/guard.ts"), import("../../../src/core/world/world.ts"), import("../../../src/game/lab/ground-starts.ts"),
     import("../../../src/game/lab/recovery-measurement.ts"), import("../../../src/control/observation.ts"), import("../../../src/core/world/senses.ts"), import("../../../src/game/lab/ground-mode.ts")]);
-  const spec = armedWith(humanoidSpec(model), "right", held), reference = humanSpec("man");
+  const spec = armedWith((await import("../../../src/core/bodies/models.ts")).modelSpec(model), "right", held), reference = humanSpec("man");
   const source = poses.find(p => p.model === "man" && p.id === "squat");
   const angles = Object.fromEntries(reference.joints.flatMap(j => j.dofs.map((d, k) => [`${j.name} ${d.positive}`, source.placement.joints[j.name][k] + d.bind.value])));
   const waypoint = { ...source.placement, joints: Object.fromEntries(spec.joints.map(j => [j.name, j.dofs.map(d => (angles[`${j.name} ${d.positive}`] ?? 0) - d.bind.value)])) };

@@ -328,8 +328,14 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   A variation's settings are
   `assets/skills/strikes/<skill>/<variation>.json`, by model, its data `dataOf("<skill>/<variation>")`.
   A skill's part fits only a body whose character has the skill and runs the variation it chose
-  (`variationFault`, `variationMaker`, `src/skills/framework/variations.ts`), so the Option Mind
+  (`variationFault`, `heldVariation`, `src/skills/framework/variations.ts`), so the Option Mind
   offers only the character's skills; a strike's digest names its variation (`skillDigest`).
+  Every skill part is a skill a character chooses so, whatever its role (`Part.variations`): the
+  guards, Move and the paw gaits, the gaits, low support, the recovery techniques and the
+  navigations as the strikes. Each but a strike has one variation, named as its skill
+  (`walk-run/walk-run`), made by its part's file (`variedMake`, a guard's `guardVariations`, a
+  technique's `technique`); a body built without a character (`humanoidSpec`) holds none, so
+  whatever runs skills is built from its model's character (`modelSpec`).
 - **The straight punch** (`straight-punch/index.ts`, its drive `shared/straight-drive.ts`) drives the arm flat out at a contact pose solved
   each step, on a timed schedule (`TimedPush`). Steered, a network (`shared/steer.ts`), deciding every
   interval its layout names, adds to the trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record

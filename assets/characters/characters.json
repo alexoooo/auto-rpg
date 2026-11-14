@@ -1,10 +1,111 @@
 {
   "characters": {
-    "warrior": { "model": "man", "label": "Warrior", "skills": ["straight-punch/drive", "sword-thrust/drive", "bonk/swing", "club-blow/swing", "stomp/stomp"] },
-    "rogue": { "model": "woman", "label": "Rogue", "skills": ["straight-punch/drive", "stomp/stomp"] },
-    "skeleton": { "model": "skeleton", "label": "Skeleton", "skills": ["straight-punch/drive"] },
-    "rat": { "model": "rat", "label": "Rat", "skills": ["bite/bite"] },
-    "reptile": { "model": "reptile", "label": "Reptile", "skills": ["bite/bite"] }
+    "warrior": {
+      "model": "man", "label": "Warrior",
+      "skills": [
+        "straight-punch/drive",
+        "sword-thrust/drive",
+        "bonk/swing",
+        "club-blow/swing",
+        "stomp/stomp",
+        "cover-guard/cover-guard",
+        "shield-guard/shield-guard",
+        "lowered/lowered",
+        "move/move",
+        "stance-walk/stance-walk",
+        "walk-run/walk-run",
+        "support-fold/support-fold",
+        "flatten/flatten",
+        "brace/brace",
+        "land/land",
+        "steady/steady",
+        "roll/roll",
+        "roll-back/roll-back",
+        "staged-roll/staged-roll",
+        "staged-down/staged-down",
+        "sit-back/sit-back",
+        "front-sit-back/front-sit-back",
+        "visibility-navigation/visibility-navigation",
+        "local-navigation/local-navigation"
+      ]
+    },
+    "rogue": {
+      "model": "woman", "label": "Rogue",
+      "skills": [
+        "straight-punch/drive",
+        "stomp/stomp",
+        "cover-guard/cover-guard",
+        "shield-guard/shield-guard",
+        "lowered/lowered",
+        "move/move",
+        "stance-walk/stance-walk",
+        "walk-run/walk-run",
+        "support-fold/support-fold",
+        "flatten/flatten",
+        "brace/brace",
+        "land/land",
+        "steady/steady",
+        "roll/roll",
+        "roll-back/roll-back",
+        "staged-roll/staged-roll",
+        "staged-down/staged-down",
+        "sit-back/sit-back",
+        "front-sit-back/front-sit-back",
+        "visibility-navigation/visibility-navigation",
+        "local-navigation/local-navigation"
+      ]
+    },
+    "skeleton": {
+      "model": "skeleton", "label": "Skeleton",
+      "skills": [
+        "straight-punch/drive",
+        "cover-guard/cover-guard",
+        "shield-guard/shield-guard",
+        "lowered/lowered",
+        "move/move",
+        "stance-walk/stance-walk",
+        "walk-run/walk-run",
+        "support-fold/support-fold",
+        "flatten/flatten",
+        "brace/brace",
+        "land/land",
+        "steady/steady",
+        "roll/roll",
+        "roll-back/roll-back",
+        "staged-roll/staged-roll",
+        "staged-down/staged-down",
+        "sit-back/sit-back",
+        "front-sit-back/front-sit-back",
+        "visibility-navigation/visibility-navigation",
+        "local-navigation/local-navigation"
+      ]
+    },
+    "rat": {
+      "model": "rat", "label": "Rat",
+      "skills": [
+        "bite/bite",
+        "rest/rest",
+        "paw-move/paw-move",
+        "paw-trot/paw-trot",
+        "paw-crawl/paw-crawl",
+        "righting-recipe/righting-recipe",
+        "visibility-navigation/visibility-navigation",
+        "local-navigation/local-navigation"
+      ]
+    },
+    "reptile": {
+      "model": "reptile", "label": "Reptile",
+      "skills": [
+        "bite/bite",
+        "rest/rest",
+        "paw-move/paw-move",
+        "paw-trot/paw-trot",
+        "paw-crawl/paw-crawl",
+        "righting-routes/righting-routes",
+        "visibility-navigation/visibility-navigation",
+        "local-navigation/local-navigation"
+      ]
+    }
   },
   "models": { "man": "warrior", "woman": "rogue", "skeleton": "skeleton", "rat": "rat", "reptile": "reptile" }
 }

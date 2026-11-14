@@ -47,7 +47,8 @@ import { stockBody } from "../../../../src/app/stock-body.ts";
 import { pendingControl } from "../../../minds/pending-control.mjs";
 import { buildBody } from "../../../../src/core/bodies/build/build-body.ts";
 import { loadEngine } from "../../../../src/core/physics/engines.ts";
-import { humanSpec, humanoidSpec } from "../../../../src/core/bodies/human/spec.ts";
+import { humanSpec } from "../../../../src/core/bodies/human/spec.ts";
+import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { armedWith } from "../../../../src/core/bodies/items/held.ts";
 import { guardPosture } from "../../../../src/skills/guard/guard.ts";
 import { createWorld } from "../../../../src/core/world/world.ts";
@@ -185,7 +186,7 @@ export function seedUnit(move, spec) {
 }
 
 /** The body for `model` holding `held` in its right hand. */
-const bodySpec = (model, held) => armedWith(humanoidSpec(model), "right", held);
+const bodySpec = (model, held) => armedWith(modelSpec(model), "right", held);
 
 /** The placement of `move`'s start at `seed`, the Warrior's stored posture put on a body without its own; or why it is refused. */
 export function placement(move, spec, seed) {

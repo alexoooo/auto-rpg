@@ -1,3 +1,6 @@
+import { variationFault, variedMake, type Varied } from "../framework/variations.ts";
+import { fitsAll } from "../../parts/parts.ts";
+import type { Body } from "../../control/body.ts";
 import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import { STANCE_GAIT, validGaitTuning, type GaitTuning } from "../../control/stance/stance-tuning.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
@@ -38,7 +41,7 @@ declare module "../../core/data/store.ts" {
  * braking, envelope and learned settings, which a link does not carry; and with `steered`, its
  * learned corrections' actor in learning mode, its trainer answering it (`learnedRun`).
  */
-interface WalkRunConfig {
+interface WalkRunConfig extends Varied {
   readonly kind: "walk-run";
   readonly tuning?: { readonly walk?: Partial<WalkRunSettings>; readonly run?: Partial<RunCycleSettings>; readonly braking?: Partial<RunCycleSettings>; readonly stride?: Partial<GaitTuning>;
     readonly learned?: LearnedRunSettings; readonly envelope?: StanceEnvelope; readonly steered?: true };
@@ -73,6 +76,16 @@ function walkRunRefusal(spec: BodySpec): string | null {
   return null;
 }
 
+/** The walk and run's variations: the walk and run. */
+const VARIATIONS = {
+  "walk-run": (body: Body, config: WalkRunConfig) => {
+    const { walk, run, braking, stride, learned, envelope, steered } = tunedOver(dataOf("walk-run")[body.built.spec.model]?.settings ?? DEFAULTS, config);
+    const motion = walkRun(body, walk, run, { braking, stride, envelope, entry: learned?.entry, trim: learned?.trim });
+    // Steered with no learned corrections, there is no actor to steer: the gait runs as it is, and a trainer finds no learner in it.
+    return learned ? learnedRun(body, motion, learned, run.settle, { steered }) : motion;
+  },
+};
+
 /**
  * **The walk and run** (`walkRun`): its settings its body's record (`assets/skills/locomotion/walk-run/walk-run.json`,
  * `dataOf("walk-run")`), else the defaults (`WALK_RUN`, `WALK_RUN_CYCLE`) scaled to its leg, a
@@ -82,8 +95,8 @@ function walkRunRefusal(spec: BodySpec): string | null {
  */
 export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk and run", stage: "game", fields: [], slots: [], defaults: { kind: "walk-run" },
-  keys: { kind: true, tuning: true },
-  tuning: ["walk", "run", "braking", "stride", "learned", "envelope", "steered"], fits: walkRunRefusal,
+  keys: { kind: true, variation: true, tuning: true },
+  tuning: ["walk", "run", "braking", "stride", "learned", "envelope", "steered"], fits: fitsAll(variationFault("walk-run", "walk and run", VARIATIONS), walkRunRefusal),
   faults: (config) => {
     if (config.tuning !== undefined && (!config.tuning || typeof config.tuning !== "object" || Array.isArray(config.tuning))) return ["invalid walk and run tuning"];
     if (config.tuning && Object.entries(config.tuning).some(([key, value]) => key === "steered" ? value !== true : !value || typeof value !== "object" || Array.isArray(value))) return ["invalid walk and run tuning"];
@@ -98,12 +111,8 @@ export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
     ];
   },
   reads: () => ["walk-run"],
-  make: (body, config) => {
-    const { walk, run, braking, stride, learned, envelope, steered } = tunedOver(dataOf("walk-run")[body.built.spec.model]?.settings ?? DEFAULTS, config);
-    const motion = walkRun(body, walk, run, { braking, stride, envelope, entry: learned?.entry, trim: learned?.trim });
-    // Steered with no learned corrections, there is no actor to steer: the gait runs as it is, and a trainer finds no learner in it.
-    return learned ? learnedRun(body, motion, learned, run.settle, { steered }) : motion;
-  },
+  make: variedMake("walk-run", VARIATIONS, (body, config) => [body.built.spec, config]),
+  variations: Object.keys(VARIATIONS),
 });
 
 declare module "../config.ts" {
