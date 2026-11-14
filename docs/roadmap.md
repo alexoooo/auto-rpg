@@ -66,18 +66,13 @@ In order; each is a row of the table or one question, taken up on the owner's re
 
 1. **The Warrior's punch**: the table's `punch` row on `man`
    ([its notes](plans/2026-11-10-warrior-punch.md)): the straight punch at the trunk.
-2. **The strikes' profiles from sparring**: a strike's profile is built only from the Strike
-   drill's sparring rungs (`sparring`, `sparring-laid`, [the evaluations](architecture.md#evaluations)).
-   The asset still holds the ones measured at a drill's target, and no sparring is played for them
-   yet. The first build replaces every strike's profile, so it plays every strike that has one: the
-   punch, the stomp and the bonk.
-3. **The Warrior's bonk with the buckler**, which never meets the head
+2. **The Warrior's bonk with the buckler**, which never meets the head
    ([its plan](plans/2026-11-05-warrior-bonk.md)).
-4. **The Warrior's thrust**: the grip's geometry before another search
+3. **The Warrior's thrust**: the grip's geometry before another search
    ([the approaches](approaches.md#weapon-strikes)).
-5. **The Warrior's start from a stand**: a controller that places feet by balance under the run
+4. **The Warrior's start from a stand**: a controller that places feet by balance under the run
    ([its plan](plans/2026-11-05-warrior-travel.md)).
-6. **Blows in fights**: Option Mind's footwork, places round the foe chosen by its reach and
+5. **Blows in fights**: Option Mind's footwork, places round the foe chosen by its reach and
    striking arc, so the blows that land in the drill land in a bout.
 
 ## Parked plans

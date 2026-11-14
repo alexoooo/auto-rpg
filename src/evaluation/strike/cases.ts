@@ -335,9 +335,13 @@ const SPARRING = deepFreeze({ ...SAMPLED, marks: ["high", "middle"] as Mark[], t
 /**
  * **Sparring at a foe laid down**, the `sparring-laid` rung: the stomping rung's sampled starts
  * (`STOMPING_SAMPLED`), with each foot, at each of the game's foes laid down and fighting back
- * (`SPARRING_FOE`), which rises as it would; a stomp not begun while the foe lay is no trial of it.
+ * (`SPARRING_FOE`), which rises as it would. A foe that keeps its balance is shoved four times as
+ * hard as a limp one (`speed`) to go down, and sits up before a striker standing longer than
+ * `settled` s reaches it from farther than `gaps` and `closer`; a stomp not begun before the foe
+ * is up is no trial of it.
  */
-const SPARRING_LAID = deepFreeze({ ...STOMPING_SAMPLED, targets: FOES, trials: 240, opponent: SPARRING_FOE });
+const SPARRING_LAID = deepFreeze({ ...STOMPING_SAMPLED, targets: FOES, trials: 240, opponent: SPARRING_FOE,
+  laid: { ...LAID, speed: 2 }, settled: .6, gaps: [.5, .8], closer: [.8, 1.2] });
 
 export function createStrikeCases(context: GameContext) {
   const { treeObeys, controllers: CONTROLLERS, minds: MINDS } = context.catalog;
