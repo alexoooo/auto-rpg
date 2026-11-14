@@ -105,9 +105,11 @@ rung (`walk`, its `walking` start) and sparring.
 - **Strikes apart from the legs**
   ([the skills' notes](2026-11-14-many-skills.md#part-2-a-strike-made-by-search-apart-from-the-legs)):
   until a strike's layout holds no reading of the legs, each strike's network is a seed to
-  retrain on another base. What the installed punch keeps blind to the legs and the stance, and
-  asking the stance for nothing, is read there
-  ([the readings](2026-11-14-many-skills.md#the-readings-that-come-first)).
+  retrain on another base. The installed punch keeps 0.61 of its damage a second blind to the
+  legs and the stance, and 0.72 asking the stance for nothing
+  ([the readings](2026-11-14-many-skills.md#the-readings-that-come-first)). So a strike made
+  there keeps its heading and centre asks, and a base that answers them as the stance does not
+  is a reason to search the strike again on it.
 - **A reading of each thing made on the stance**, on the new base, before a character that holds
   it chooses the base: the bonk's footing, each way up, the run's handover, the envelope
   ([the rules](../../AGENTS.md#the-rules)).

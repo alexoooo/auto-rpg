@@ -14,8 +14,9 @@ A part describes a design under consideration; nothing in it is built.
   margin its judge names.
 - **A new idea is a variation of its own**: trying it moves nothing installed, and nothing else is
   played again for it.
-- **A strike moves the arm and the trunk.** Standing and footwork are the layer under it, so a
-  change to the legs, the stance or the footwork leaves every strike as it is.
+- **A strike moves the arm and the trunk, and asks the stance where to face and where its
+  centre goes.** It reads no leg and orders no step. Standing and footwork are the layer under
+  it, so a change to the legs or the footwork leaves every strike as it is.
 - **A strike is made by search**, with no training run where a search and a correction do, by
   one tool for every strike and body it is named.
 - **Nothing is computed again routinely**: what is under work plays, and every other played row is
@@ -125,6 +126,33 @@ They say whether Part 2 holds, and they wait on no part.
   0.61 for `fit-aged`, and 0.41 to 0.69 for `fit-spans`, its three spans of the drive's age
   beginning at 0, 4/60 and 8/60 s, split at the thirds of the decisions (408, 407 and 512).
 
+**What the steer's readings say.**
+
+- **A correction needs the stroke's time.** One layer over the fit's 16 inputs holds 0.36 of
+  the drive's damage a second, 0.56 with the drive's age an input, and 0.69 as a layer for each
+  of three spans of that age. They land 73, 90 and 93 of the starts, against the steered 105
+  and the 20 of the settings alone.
+- **The heading and centre asks hold about a quarter of the punch's damage**: the installed
+  network without them reads 0.72 of the drive's, 95 % 0.56 to 0.92. Blind to the legs and the
+  stance it reads 0.61, 0.45 to 0.83.
+- **The per-span fit reads near the installed network without its stance asks**: 0.69 beside
+  0.72, each read against the drive and neither against the other. The fit asks the stance for
+  nothing, so how much of what it is short by is the asks and how much the form is unread.
+- **The walk ask moves nothing on sparring's starts**: held on and held off, the network reads
+  as the control does.
+- **No reading is of a form made for itself.** An edit is the installed network with a part at
+  zero and the rest as trained, and a fit copies the network's outputs on the states the network
+  reaches. The network on the fit's 16 inputs alone reads 0.43, under the per-span fit on the
+  same inputs. A search that starts from a form scores the punch itself.
+- **At 240 starts the readings are told from the drive and seldom from each other.** Their
+  intervals reach about a quarter to a third either way, and `fit-aged`, `fit-spans`,
+  `no-stance-asks` and `blind-legs` overlap one another.
+
+**A form unread.** `fit-spans` with its heading and centre rows fitted as its pushes are, where
+the forms read leave them at zero. It is the form Part 2's search starts from, and it says how
+much of the per-span fit's shortfall is the asks. It is one more form of the tool's mode
+(`FORMS`) and one `--bar`.
+
 **What they read.** Each is a network file read on the held-out sparring starts beside the drive
 (`punch-sparring.mjs --bar <file>`). The tool plays a file that names its `actions` and `layers`
 as a network steering the punch in the installed layout (`candidateIn`, `steeredTrial`), and the
@@ -141,7 +169,7 @@ another's reading.
 | Reading | The file | What it says |
 | --- | --- | --- |
 | The control | the installed network, unedited | about 1.00 where the tool steers as the game does; every other reading stands on it |
-| The fit | one layer, shaped as Part 2 leaves the punch, in three forms | whether a correction of the size and the inputs Part 2 searches carries the punch |
+| The fit | one layer over Part 2's inputs, its asks of the stance at zero, in three forms | whether a correction of the size and the inputs Part 2 searches carries the punch |
 | The stance asks | the last layer's heading and centre rows at zero | what the punch loses asking nothing of where it faces or where its centre is |
 | The walk | the last layer's walk row at zero weights, its bias held above 0, then below | an output of 0 halts the walk, so the ask is read held on and held off |
 | The legs and the stance | the first layer's 20 leg-joint columns and four stance columns at zero | each held at its training mean (the network's `normalization`): what the punch loses blind to them |
@@ -170,10 +198,9 @@ another's reading.
   decisions (`RIDGE`). `fit-spans` cuts three spans at the thirds of the decisions by the drive's
   age (`SPANS`).
 
-Where a form of the fit holds most of the steered landings, Part 2's layout and that form of
-correction carry the punch, and its search starts from it. Where each lands near the unsteered
-20, it is evidence against them, short of proof: a fit copies the network on the states the
-network reaches, and a search scores the punch itself.
+The per-span form holds most of the steered landings, 93 of 105, and about two thirds of the
+damage a second. Part 2's search starts from that form
+([its design](#part-2-a-strike-made-by-search-apart-from-the-legs)).
 
 **Two readings that play no network file.**
 
@@ -226,7 +253,15 @@ network reaches, and a search scores the punch itself.
   comparison's play.
 
 **What it would cost.** Ten times the starts is ten times the play: at most about four
-core-hours a side, by the arithmetic of [a try's comparison](#the-readings-that-come-first).
+core-hours a side, by the arithmetic of [a try's comparison](#the-readings-that-come-first). By
+the seconds a side of 240 starts took played on 30 workers, it is about 9 minutes for the
+drive's side and 12 to 13 for a network file's.
+
+**It comes before Part 2's search.** A search gains by steps smaller than the judge's interval
+at 240 starts: the settings' search read 1.08 times the drive, 0.79 to 1.47, and the steer's
+readings do not tell one form from the next
+([what they say](#the-readings-that-come-first)). The larger draw is a protocol and no part of
+a search, and a comparison on it is minutes.
 
 **Open.**
 
@@ -390,17 +425,26 @@ layout they run now, which the fingerprint shows.
 
 **The design.**
 
-- **A strike's layout holds no leg joint, no reading of the stance and no ask of the legs.** It
-  is a few inputs (the target from the shoulder, the fist from the target, the fist's and the
-  centre's velocity, the arm's angles) and the pushes of the arm and the trunk. A layout names
-  any of the steer's inputs and outputs (`SteerLayout`, `checkedLayout`,
+- **A strike's layout holds no leg joint, no reading of the stance and no walk output.** It is
+  a few inputs (the target from the shoulder, the fist from the target, the fist's and the
+  centre's velocity, the arm's angles), the pushes of the arm and the trunk, and the three asks
+  of the stance: a heading turn, and the centre of mass ahead and across (`stanceAsks`). A
+  layout names any of the steer's inputs and outputs (`SteerLayout`, `checkedLayout`,
   `src/skills/strikes/shared/steer.ts`); with no walk output, the settings' `halts` says whether
-  a walk goes on. Standing is the stance's; getting into the window is the layer's and the
-  mind's.
-- **A one-layer correction over those inputs**, added to the schedule's pushes inside the stroke.
+  a walk goes on. Standing and stepping are the stance's; getting into the window is the layer's
+  and the mind's.
+- **The asks of the stance stay** because the installed punch holds about a quarter of its
+  damage by them, and the walk output goes because it moves nothing on sparring's starts
+  ([what the readings say](#the-readings-that-come-first)).
+- **A correction of one layer for each span of the drive's age** over those inputs, added to the
+  schedule's pushes inside the stroke and sending the asks. One layer for the whole stroke
+  holds about half of what three spans hold.
 - **One search moves the schedule's settings and the correction's weights together.** A
-  candidate's network goes to a trial with its settings. The search starts from
-  [the fit](#the-readings-that-come-first).
+  candidate's network goes to a trial with its settings. The search starts from the per-span
+  fit with its asks' rows fitted ([a form unread](#the-readings-that-come-first)).
+- **A record's network chosen by the drive's age.** A file of spans is the tool's
+  (`punch-sparring.mjs`): a record holds one network, and the steer runs it at every decision.
+  A variation made in the per-span form needs the steer to choose its layer by the drive's age.
 - **Each generation is scored on starts drawn anew from `sparring-drawn`**, the same starts for
   every candidate of the generation, so no start recurs often enough to be learned for itself.
   The twin (`sparring-twin`, `src/evaluation/strike/cases.ts`) ranks a search's bests, and the
@@ -453,9 +497,8 @@ recipe. Against 0.01 per cent, where the assist gives under 0.1 N:
 
 **What it would bring.** A strike on a new body or loadout is a search, with no training run. One
 strike covers sparring's range of places. A strike's network stops reading the legs, so a change
-to the stance, the legs or the footwork leaves it valid, and its readings stand. A strike that
-leaves the legs alone runs beside a walk: the mind runs together Options whose resources do not
-overlap ([Option Mind](../architecture.md#minds)).
+to the legs or the footwork leaves it valid, and its readings stand. A change to how the stance
+answers its heading and centre asks moves it, as below.
 
 **Where the separation stops.**
 
@@ -467,10 +510,15 @@ overlap ([Option Mind](../architecture.md#minds)).
 **Open.**
 
 - Whether a linear correction holds what the open-loop schedule loses: 1.5 cm of foot took a bonk
-  from 96 to 63 J. The fit reads it for the punch.
-- Whether the search reaches a good correction at a search's budget: 136 weights and biases for
-  16 inputs and 8 pushes, against the 15 settings it moves now, whose search ran 16 generations
-  of 16 candidates on 80 starts.
+  from 96 to 63 J. For the punch the per-span fit holds 0.69 of the drive's damage a second
+  while asking the stance for nothing; whether a search from it reaches the drive is unread.
+- Whether the search reaches a good correction at a search's budget: 561 weights and biases for
+  16 inputs, 8 pushes, 3 asks and 3 spans, by arithmetic, against the 15 settings it moves now,
+  whose search ran 16 generations of 16 candidates on 80 starts.
+- Whether a strike that sends the stance its heading and centre asks runs beside a walk: the
+  mind runs together Options whose resources do not overlap
+  ([Option Mind](../architecture.md#minds)).
+- Whether the walk output is idle in fights as it is on sparring's starts.
 - Whether a best found on starts drawn anew holds on the twin and the held-out starts, and how
   many starts a generation needs: its score then differs between generations by the draw.
 - Whether a correction this small follows a moving target inside the stroke.
@@ -515,12 +563,14 @@ refactor the fingerprint shows. Two choices reach installed skills:
 - **The steer's readings are read** on the tool's mode (`--network`). Each `--bar` of them plays
   the drive's side once more until the judge finds its rows
   ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
-- **The judge's paired landings wait on nothing.** Its larger draw is a protocol added beside
-  sparring's; with the played rows its drive's side is played once.
+- **The judge's larger draw is first.** It waits on nothing: a protocol added beside sparring's.
+  With the played rows its drive's side is played once.
 - **Part 1 and the played rows wait on no reading**: every try after them plays only its own
   variation.
-- **Part 2's search waits on the fit**, its start, and on a candidate's network going to a trial
-  with its settings. What it makes waits on Part 1 to be installed beside the drive.
+- **Part 2's search waits on the judge's larger draw**, which tells its best from its start; on
+  the per-span fit with its asks' rows fitted, its start; and on a candidate's network going to
+  a trial with its settings. What it makes waits on Part 1 to be installed beside the drive,
+  and on a steer that chooses a record's layer by the drive's age.
 - **A stance that knows of a blow waits on a reading that shows a strike needs it.**
 - **The kept starts wait on a save that loads where its parts fit**, the build no part of what
   it refuses ([profiles and saves](2026-11-14-profiles-and-saves.md#the-design)), and on a load
