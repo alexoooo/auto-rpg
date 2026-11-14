@@ -127,9 +127,9 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
   variation: logic of a character's own is a variation of the skill that it holds, as many of one
   skill as it likes, a skill of any role (`Part.variations`)
   (`BodySpec.skills`), its own code in a folder only that skill's part imports
-  (`src/skills/<area>/<skill>/<variation>/`, `scripts/source-boundary.mjs`). What skills and
-  variations do alike is shared, never copied: one implementation in the area's `shared/` that each
-  calls with its own settings and options, the variation's folder holding only what is its own. A variation's
+  (`src/skills/<area>/<skill>/<variation>/`, `scripts/source-boundary.mjs`). Whether a variation
+  calls code another uses or keeps its own is its author's choice. Code that is shared lives in
+  the area's `shared/` and names no skill, each caller giving it its own settings and options. A variation's
   settings are a record per body (`SkillRecord`, `recordFault`), with entries per loadout where a
   loadout needs its own; a controller is never made per loadout. A change to one variation moves
   only the fingerprint cases that run it (`node scripts/fingerprint.mjs --compare <file>

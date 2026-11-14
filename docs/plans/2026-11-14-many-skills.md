@@ -64,8 +64,9 @@ What ties variations together is on the skill's part, declared once for all of t
 the drive's executor on the drive's record and network. Adding it moves no case of `drive`, and
 any change to the drive's record, network or executor moves `from-guard`.
 
-[The skill recipe](../recipes/skill.md#an-options-code) says what variations do alike is shared
-and never copied, with a variation's folder holding only what is its own.
+Whether a variation calls shared code or keeps its own is its author's choice
+([the skill recipe](../recipes/skill.md#an-options-code)). The five rows above are shared
+whatever a variation chooses.
 
 **The design.** Each of the five rows is declared by the variation. A variation may name
 another's record or layout, and then it shares it by choice. The research tools that write a
@@ -74,7 +75,6 @@ record take the variation they write (`punch-export.mjs` writes the drive's;
 
 **Open.**
 
-- Whether the recipe's rule becomes "shared where a variation chooses".
 - Whether a variation has a row of [the table](../reference/the-table.md) or is read as a subject
   against its skill's row.
 

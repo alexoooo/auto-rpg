@@ -334,9 +334,10 @@ given the same groups in what it sees (`Sight`, `sightOf`).
 - **Skills** live in an area of `src/skills/` (`guard/`, `locomotion/`, `strikes/`, `recovery/`), a
   folder a skill: the skill's part (`straight-punch/index.ts`, `walk-run/index.ts`) names its
   variations, and a variation with code of its own keeps it in its own folder (`stomp/stomp/`,
-  `walk-run/walk-run/`). What two skills or variations do alike is one implementation in the area's
-  `shared/`, which imports no skill's code, each calling it with its own settings and options
-  (`locomotion/shared/locomotion.ts`, the stance walk's and the walk and run's legs). A strike
+  `walk-run/walk-run/`). Code that skills or variations share is in the area's `shared/`, which
+  imports no skill's code, each caller giving it its own settings and options
+  (`locomotion/shared/locomotion.ts`, the stance walk's and the walk and run's legs); a variation
+  shares as much of it as it chooses. A strike
   variation's settings are
   `assets/skills/strikes/<skill>/<variation>.json`, by model, its data `dataOf("<skill>/<variation>")`.
   A skill's part fits only a body whose character has the skill and runs the variation it chose
