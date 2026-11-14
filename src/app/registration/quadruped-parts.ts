@@ -10,9 +10,7 @@ import { RIGHTING_RECIPE, RIGHTING_ROUTES } from "../../skills/recovery/righting
  * **Every part a body on paws is made of, by its kind**, of each role in the order a picker offers
  * them: its motor (`MotorPart`), its gaits (`PawGaitPart`) and the legs that go by them
  * (`LocomotionPart`), its jaw's bite (`ExecutorPart`) and its aim (`AimPart`), and its ways up
- * (`TechniquePart`); a line here registers one. This module holds its imports and this list and
- * nothing else: a case's code reads it as where each kind's own code begins (`caseCoder`,
- * `scripts/build-identity.mjs`).
+ * (`TechniquePart`); a line here registers one.
  */
 export const REPTILE_PARTS = { "paw-motor": PAW_MOTOR, "paw-trot": TROT_PART, "paw-crawl": CRAWL_PART, "paw-move": PAW_MOVE,
   bite: BITE_PART, "first-exposed": FIRST_EXPOSED_AIM, "righting-recipe": RIGHTING_RECIPE, "righting-routes": RIGHTING_ROUTES };

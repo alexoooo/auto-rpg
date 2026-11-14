@@ -16,9 +16,16 @@ export function recordingKey(value: unknown): string {
   throw new Error("recording configuration must be finite plain JSON");
 }
 
-/** A build fingerprint is content identity, never a mutable branch or commit label. */
+/**
+ * **What a build's identity is** (`BUILD_IDENTITY`, `scripts/build-identity.mjs`): the commit it was
+ * built from, never a branch, followed where a build input was not committed by a mark no other
+ * build shares.
+ */
+export const BUILD_IDENTITY_FORM = /^(git:[0-9a-f]{40,64}|unversioned)(\+uncommitted:[0-9a-f-]{36})?$/;
+
+/** A recording's identity: its build's (`BUILD_IDENTITY_FORM`), its protocol and its configuration. */
 export function recordingIdentity(build: string, protocol: string, configuration: unknown): RecordingIdentity {
-  if (!/^sha256:[0-9a-f]{64}$/.test(build) || !protocol) throw new Error("a recording needs its content build identity and protocol");
+  if (!BUILD_IDENTITY_FORM.test(build) || !protocol) throw new Error("a recording needs its build identity and protocol");
   return Object.freeze({ build, protocol, configuration: recordingKey(configuration) });
 }
 
@@ -27,6 +34,6 @@ export function requireRecordingIdentity(value: unknown, expected: RecordingIden
   if (typeof value !== "object" || value === null) throw new Error("this recording has no build and protocol identity; make a new recording");
   const identity = value as Partial<RecordingIdentity>;
   if (identity.protocol !== expected.protocol) throw new Error(`this recording uses another protocol; expected ${expected.protocol}`);
-  if (identity.build !== expected.build) throw new Error("this recording was made on different source, assets or solver; rerun its recipe on this build");
+  if (identity.build !== expected.build) throw new Error("this recording was made on another build; rerun its recipe on this build");
   if (identity.configuration !== expected.configuration) throw new Error("this recording belongs to different physical conditions or a different recipe");
 }

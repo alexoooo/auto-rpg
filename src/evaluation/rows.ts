@@ -1,5 +1,5 @@
 /**
- * **Played rows as a run keeps them while it works** (`.tmp/evaluations/<evaluation>/`): each
+ * **Played rows as a run keeps them while it works** (`.tmp/evaluations/<evaluation>/<commit>/`): each
  * case's row once, by its key, so a run plays only what has none.
  */
 import { recordingKey } from "../core/world/recording.ts";

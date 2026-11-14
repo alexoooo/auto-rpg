@@ -16,8 +16,10 @@ import "../tests/harness/preload-data.mjs";
  * JSON; `--mind` names a file to put first. `--against` plays each subject against a panel (the
  * evaluation's own, `default`, or the ids given, one per flag) and not the panel among itself; an evaluation
  * whose schedule is a panel is played no other way. Rows are kept as they come in
- * `.tmp/evaluations/<evaluation>/` (every file there is read, so machines merge by copying), work
- * `npm run clean` deletes once a day untouched, and found again by key. `--previous` names the
+ * `.tmp/evaluations/<evaluation>/<commit>/` (every file there is read, so machines on one commit
+ * merge by copying), work `npm run clean` deletes once a day untouched, and found again by key: a
+ * run on another commit finds none of them. Where a build input differs from the commit or is
+ * untracked, no row is kept or found and every case plays. `--previous` names the
  * first subject's baseline, another mind or a mind given whole as a JSON file: against a panel it is
  * the baseline of the panel report, and in a battery the subject's figures are read against it,
  * condition by condition. `--ablate` makes the first subject the `--previous` mind with one slot or
@@ -29,8 +31,8 @@ import "../tests/harness/preload-data.mjs";
  * `--engine` (or `CORE_ENGINE`) picks the engine unless the protocol fixes one; the game's, `DEFAULT_ENGINE`, where neither does.
  * `--write` keeps each subject's reading as its newest result on the protocol, with a trial's row
  * where the evaluation names outcomes or the table reads the subject (`keep`), and a contest's
- * standings where the run plays every pair: refused unless a unit is complete and the commit holds
- * the files of every case's code unchanged (`caseCoder`), so the commit a result names is its code's.
+ * standings where the run plays every pair: refused unless a unit is complete and no build input
+ * differs from the commit, before or after the run, so the commit a result names is its code's.
  */
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -42,7 +44,7 @@ import { Worker } from "node:worker_threads";
 import { DEFAULT_ENGINE, isEngineName } from "../src/core/physics/engines.ts";
 import { recordingKey } from "../src/core/world/recording.ts";
 import { EVALUATIONS, tableCells } from "../src/app/node/evaluation.ts";
-import { CONTROLLERS, MINDS } from "../src/app/catalog.ts";
+import { MINDS } from "../src/app/catalog.ts";
 import { caseName, harnessOf, rounded, roundedEstimate, withResult, withStandings } from "../src/evaluation/results.ts";
 import { indexRows } from "../src/evaluation/rows.ts";
 import { standingsOf } from "../src/evaluation/standings.ts";
@@ -52,8 +54,7 @@ import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf
 import { batteryComparison, panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
 import { scheduleName } from "../src/evaluation/schedule.ts";
 import { ratedNotes } from "../src/evaluation/tournament/notes.ts";
-import { caseNames } from "../src/app/node/evaluation.ts";
-import { BUILD_IDENTITY, caseCoder, fileTable } from "./build-identity.mjs";
+import { BUILD_IDENTITY, uncommittedInputs } from "./build-identity.mjs";
 import { resultsOf, writeResults } from "./evaluation-results.mjs";
 import { belongsTo, resolveSubjects, subjectOf } from "./evaluation-subjects.mjs";
 
@@ -201,21 +202,22 @@ async function runProtocol(evaluation, id, protocol, named, values) {
     : { baseline: values.previous && cases.arity === 1 ? evaluation.subjects([subjectOf(values.previous)]) : [], counterpart: new Map() };
   const panelIds = new Set(schedule.panel ?? []), mine = [...chosen, ...baseline].filter((one) => !panelIds.has(one.id));
   const subjects = [...mine.filter((one, k) => mine.findIndex((other) => other.id === one.id) === k), ...panel];
-  const coder = caseCoder(fileTable(), `src/evaluation/${id}/cases.ts`, Object.keys(CONTROLLERS)), environment = coder.environment;
-  const code = (world) => coder.code(caseNames(world)).digest;
   const rule = evaluation.analysis.settle;
   if (counterpart.size > 0 && !rule) throw new Error(`${id} has no rule to settle a comparison on`);
-  const selected = casesOf(evaluation, protocol, subjects, { engine, code, schedule });
+  const selected = casesOf(evaluation, protocol, subjects, { engine, schedule });
   if (isRefused(selected)) throw new Error(selected.refused);
   const { units, dropped } = selected;
   const pairs = [...counterpart].filter(([subject, other]) => !panelIds.has(subject) && !panelIds.has(other));
-  const paired = pairs.length > 0 ? casesOf(evaluation, protocol, subjects, { engine, code, schedule: { kind: "pairs", pairs } }) : { units: [] };
+  const paired = pairs.length > 0 ? casesOf(evaluation, protocol, subjects, { engine, schedule: { kind: "pairs", pairs } }) : { units: [] };
   if (isRefused(paired)) throw new Error(paired.refused);
   const headToHead = paired.units;
   const slots = slotsOf(units, counterpart, schedule.panel ?? []), order = playOrder(slots, headToHead, [...units, ...headToHead]);
   const defined = new Map([...units, ...headToHead].map((unit, k) => [unit[0].key, k]));
-  const working = join(ROOT, ".tmp/evaluations", id);
-  const rows = indexRows(filesIn(working).map(({ name, text }) => ({ name, rows: text.split("\n").filter(Boolean).map((line) => JSON.parse(line)) })));
+  // Rows are kept under the commit they are played on, and only where it is the code they play.
+  const commit = commitOf(), changed = commit ? uncommittedInputs() : [];
+  const working = commit && changed.length === 0 ? join(ROOT, ".tmp/evaluations", id, commit.slice(0, 12)) : null;
+  if (!working) console.log(`${commit ? `${changed.length} build inputs differ from the commit` : "no commit"}: no row is kept or found, and every case plays`);
+  const rows = indexRows((working ? filesIn(working) : []).map(({ name, text }) => ({ name, rows: text.split("\n").filter(Boolean).map((line) => JSON.parse(line)) })));
 
   // Play what has no row: this shard's units, in the play order, until the budget is spent or, asked, the verdict settles.
   const shard = order.filter((_, k) => k % shards === shardAt - 1), lanes = Number(values.workers ?? defaultLanes()), budget = Number(values.budget);
@@ -223,7 +225,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   const toPlay = shard.flat().filter((one) => !rows.has(one.key)).length, reused = shard.flat().length - toPlay;
   console.log(`${evaluation.title}: ${protocol}; ${harness}; ${order.length} units, ${toPlay} cases to play, ${reused} found${shards > 1 ? `; shard ${shardAt}/${shards}` : ""}`);
   if (toPlay > 0) console.log(`about ${(toPlay / REFERENCE_RATE).toFixed(0)} min at the 10-hour tournament's rate (${REFERENCE_RATE} bouts a minute); the budget is ${budget} min${values.until ? ", or until the verdict settles" : ""}`);
-  const file = join(working, `${hostname()}${shards > 1 ? `-${shardAt}of${shards}` : ""}.jsonl`), lost = [];
+  const file = working && join(working, `${hostname()}${shards > 1 ? `-${shardAt}of${shards}` : ""}.jsonl`), lost = [];
   let played = 0, spent = false;
   const started = Date.now(), deadline = started + budget * 60_000;
   /** Whether, asked to stop when settled, the verdict is reached, or every pair is read and it never will be. */
@@ -233,7 +235,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
     return settled.verdict !== null || read === slots.length;
   };
   if (toPlay > 0) {
-    mkdirSync(working, { recursive: true });
+    if (working) mkdirSync(working, { recursive: true });
     await runEvaluation(shard, rows, {
       evaluation: id, protocol, lanes, minutes: Number(values["case-minutes"]),
       stop: () => (spent ||= Date.now() >= deadline) || settledNow(),
@@ -245,7 +247,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
         return { post: (job) => worker.postMessage(job), terminate: () => void worker.terminate() };
       },
       onRow: (row) => {
-        appendFileSync(file, JSON.stringify(row) + "\n");
+        if (file) appendFileSync(file, JSON.stringify(row) + "\n");
         rows.set(row.key, row);
         if (++played === Math.min(lanes, toPlay) && toPlay > played)
           console.log(`about ${(((Date.now() - started) / played) * (toPlay - played) / 60_000).toFixed(1)} min more for ${toPlay - played} cases`);
@@ -254,8 +256,8 @@ async function runProtocol(evaluation, id, protocol, named, values) {
     });
   }
   // The complete units in their definition's order, which neither the play order nor the keys change: a summary's digest reads them so.
-  const complete = order.filter((unit) => unit.every((one) => rows.has(one.key))).sort((a, b) => defined.get(a[0].key) - defined.get(b[0].key)), commit = commitOf();
-  console.log(`${played} played in ${((Date.now() - started) / 1000).toFixed(0)} s; ${lost.length} lost; commit ${commit ?? "unknown"}; build ${BUILD_IDENTITY}; environment ${environment.digest}`);
+  const complete = order.filter((unit) => unit.every((one) => rows.has(one.key))).sort((a, b) => defined.get(a[0].key) - defined.get(b[0].key));
+  console.log(`${played} played in ${((Date.now() - started) / 1000).toFixed(0)} s; ${lost.length} lost; commit ${commit ?? "unknown"}; build ${BUILD_IDENTITY}`);
   if (complete.length < order.length) console.log(`${complete.length} of ${order.length} units have every row${spent ? "; the budget ran out" : ""}${lost.length ? "; run again to retry the lost" : ""}`);
 
   const date = new Date().toISOString().slice(0, 10);
@@ -291,9 +293,8 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   if (values.write) {
     if (!commit) throw new Error("a result needs a commit");
     if (lines.length === 0) throw new Error("a result needs a complete unit");
-    const files = new Set(complete.flat().flatMap(({ world }) => coder.code(caseNames(world)).files));
-    const changed = git("status", "--porcelain", "--", ...[...files].filter((one) => !one.startsWith("node_modules/")));
-    if (changed) throw new Error(`a result's code is its commit's: these differ or are untracked:\n${changed}`);
+    const differ = [...new Set([...changed, ...uncommittedInputs()])];
+    if (differ.length > 0) throw new Error(`a result's code is its commit's: these build inputs differ or are untracked:\n${differ.join("\n")}`);
     const read = { commit: commit.slice(0, 8), date, harness };
     let results = resultsOf(id);
     if (cases.arity === 2) {

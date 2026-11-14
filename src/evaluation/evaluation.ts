@@ -83,7 +83,7 @@ export type BuiltCase = BuiltBout | BuiltFall | BuiltCrypt | BuiltLone | BuiltTe
 /**
  * **A kind of case world**: how a world of it is built, what it is handed once its reader is made
  * (a bout its tape), the bodies a case's digest traces (`traceOf`), the simulated seconds it has
- * played, and the minds it plays and its other parts by kind (Commanders, end rules), whose code a case holds (`caseNames`).
+ * played.
  * `playCase` steps every kind the same way.
  */
 export interface WorldKind<W extends CaseWorld = CaseWorld, B extends { readonly world: { step(): void }; dispose(): void } = BuiltCase> {
@@ -92,10 +92,6 @@ export interface WorldKind<W extends CaseWorld = CaseWorld, B extends { readonly
   start?(built: B, world: W): void;
   traced(built: B): readonly BuiltBody[];
   clock(built: B): number;
-  minds(world: W): readonly MindConfig[];
-  parts?(world: W): readonly string[];
-  /** Data read by the world or its parts outside the minds' trees. */
-  data?(world: W): readonly string[];
   /** The bodies under a mind the built world plays, where the kind lists them: what a learning environment finds its learner in. */
   hosted?(built: B): readonly Minded[];
   /** The built world as it stands, and the same world put back to a save of it, where the kind can (a bout's, `Duel.save`). */

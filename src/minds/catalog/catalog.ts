@@ -91,7 +91,7 @@ export interface Catalog {
   readonly partLookup: PartLookup;
   /**
    * **The lookup a mind of `config` runs on**: the catalog's (`partLookup`), refusing a part its
-   * tree does not name (`treeKinds`), whose code a case of that mind would not hold.
+   * tree does not name (`treeKinds`).
    */
   treeLookup(config: PartConfig): PartLookup;
   /**
@@ -102,8 +102,6 @@ export interface Catalog {
    * names the kinds of two entrants is a fault (`scopesOf`).
    */
   treeFaults(config: PartConfig, at?: string): readonly string[];
-  /** **Every kind of part in the tree `config` roots**, the root's included, with what each part runs that its config does not say (`Part.supplies`), each once: what a case's code holds the parts' own code of (`caseCoder`). */
-  treeKinds(config: PartConfig): readonly string[];
   /** Whether the mind `config` roots carries out a person's orders (`Controller.obeys`). */
   treeObeys(config: PartConfig): boolean;
   /** What a person is shown for each phase the mind `config` roots reports (`Controller.phases`). */
@@ -210,7 +208,7 @@ function lookupOf(kinds: () => Readonly<Record<string, Part>>): PartLookup {
   return lookup;
 }
 
-/** Every kind of part a case of the tree `config` roots holds the code of, each once, the root's first: the tree's parts and what each runs that its config does not say (`eachPart`). */
+/** Every kind of part the tree `config` roots, each once, the root's first: the tree's parts and what each runs that its config does not say (`eachPart`). */
 function treeKinds(parts: PartLookup, config: PartConfig): readonly string[] {
   const kinds = new Set<string>();
   eachPart(parts, config, ({ config: one }) => { kinds.add(one.kind); });
@@ -321,7 +319,6 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     partLookup: parts,
     treeLookup: (config: PartConfig): PartLookup => treeLookup(parts, config),
     treeFaults: (config: PartConfig, at = ""): readonly string[] => treeFaults(parts, config, at),
-    treeKinds: (config: PartConfig): readonly string[] => treeKinds(parts, config),
     treeObeys: (config: PartConfig): boolean => parts.find("mind", config)?.obeys?.(config, parts) ?? false,
     phaseLabels: (config: PartConfig): Readonly<Record<string, string | null>> => parts.find("mind", config)?.phases?.(config, parts) ?? {},
     treeData: (config: PartConfig): readonly DataKey[] => treeData(parts, config),

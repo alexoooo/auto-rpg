@@ -75,8 +75,7 @@ The public APIs for entrant authors are:
 Role owners augment `RoleParts` and `RoleConfigs`; each part adds its config to its role's map by kind.
 `DataKey` is `keyof DataOf`. An implementation registers its owned loaders beside its components;
 an entrant supplies them in its manifest. The application catalog loads the same registered keys
-in Node and the browser. Case identity hashes the current module paths and contents; saved rows
-are reused only when their current case keys match.
+in Node and the browser.
 The data store deep-freezes each loaded value before publishing it; loaders supply immutable
 records and arrays.
 
@@ -776,8 +775,9 @@ the bit in Node and in the page (`buildBout`, `src/evaluation/bout.ts`).
 - **Tape** (`Duel.tape`): every order with its step; recipe and tape are the whole bout
   (`Duel.play`). **Order sheets** (`SheetLog`) replay a bout with no mind (`replayedBody`).
 - **Save** (`Duel.save`, `Duel.load`) loads only into a bout of the same recipe and build
-  (`RecordingIdentity`). A case's code (`caseCoder`, `scripts/build-identity.mjs`) is the import
-  closure of what it plays, so an edit re-keys only the cases that reach it.
+  (`RecordingIdentity`). A build is the commit it was built from (`BUILD_IDENTITY_FORM`); with a
+  build input not committed, a mark no other build shares, made once a process and handed to its
+  workers.
 
 ## Evaluations
 
@@ -809,10 +809,9 @@ on its own merit, and a profile prices the skill where the Mind uses it.
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)
   the question, subjects, figures and a drill trial's `outcome`.
-- **A case's key** is the digest of everything it plays; a row (`Row`) is found again by its key
-  while a run works (`.tmp/evaluations/<id>/`, `rows.ts`), so only changed cases replay. World kinds
-  declare data read outside their minds' trees (`WorldKind.data`); a technique world includes
-  the installed records its techniques read. `--write`
+- **A case's key** is the digest of everything it plays but its code; a row (`Row`) is found again
+  by its key while runs work on one commit (`.tmp/evaluations/<id>/<commit>/`, `rows.ts`). A run on
+  another commit, or with a build input not committed, plays every case. `--write`
   keeps the run's results in `assets/evaluations/<id>.json` (`results.ts`): each subject's newest
   reading on a protocol (its figures and, for a drill, a short row of numbers a trial, by its
   condition's name), each earlier reading a table cell's baseline names, and a contest's standings

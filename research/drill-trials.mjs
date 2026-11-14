@@ -56,7 +56,7 @@ export function drillTrials(cell, held) {
   return cell.readings.flatMap((reading) => {
     const evaluation = EVALUATIONS[reading.drill], protocol = protocolOf(reading, held), cases = evaluation.protocols[protocol];
     const [subject] = evaluation.subjects([reading.subject]);
-    const scheduled = casesOf(evaluation, protocol, [subject], { engine: cases.engine ?? DEFAULT_ENGINE, code: () => "", schedule: { kind: "all" } });
+    const scheduled = casesOf(evaluation, protocol, [subject], { engine: cases.engine ?? DEFAULT_ENGINE, schedule: { kind: "all" } });
     if (isRefused(scheduled)) throw new Error(`${reading.drill}/${protocol}: ${scheduled.refused}`);
     return casesOn(cell, reading, scheduled.units.flat()).map(({ condition }) => ({ drill: reading.drill, protocol, subject: reading.subject,
       judge: { judge: reading.judge, ...(reading.hit === undefined ? {} : { hit: reading.hit }) }, condition, name: caseName(condition) }));

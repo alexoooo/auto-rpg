@@ -2,7 +2,6 @@ import { FEW_TERMS_PART, REACH_PLACE_PART } from "../../minds/option/objective.t
 
 /**
  * **Every objective, by its kind** (`ObjectivePart`), in the order a picker offers them: a line here
- * registers one. This module holds its imports and this list and nothing else: a case's code
- * reads it as where each kind's own code begins (`caseCoder`, `scripts/build-identity.mjs`).
+ * registers one.
  */
 export const OBJECTIVES = { "few-terms": FEW_TERMS_PART, "reach-place": REACH_PLACE_PART };

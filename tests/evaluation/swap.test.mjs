@@ -28,7 +28,7 @@ test("CLI ablations inherit calibrated bodies and loadouts before scheduling pai
     const counterpart = new Map(subjects.map((one, k) => [one.id, baseline[k].id]));
     assert.deepEqual(subjects.map(one => one.id.slice(candidate.id.length)), baseline.map(one => one.id.slice(id.length)));
     const { units, dropped } = casesOf(evaluation, evaluation.defaultProtocol, [...subjects, ...baseline, ...evaluation.subjects([panel])],
-      { engine: BOUT_ENGINE, code: () => "scope-fixture", schedule: { kind: "versus", panel: [panel] } });
+      { engine: BOUT_ENGINE, schedule: { kind: "versus", panel: [panel] } });
     assert.deepEqual(dropped, []);
     const slots = slotsOf(units, counterpart, [panel]);
     assert.deepEqual(new Set(slots.map(slot => slot.subject)), new Set(subjects.map(one => one.id)), "every candidate has a paired baseline");
@@ -45,7 +45,7 @@ test("CLI ablations inherit calibrated bodies and loadouts before scheduling pai
 test("mind batteries admit only a named calibration's bodies and preserve that scope through CLI ablations", () => {
   for (const evaluation of [EVALUATIONS.court, EVALUATIONS.crowd]) {
     const cases = subjects => casesOf(evaluation, evaluation.defaultProtocol, subjects,
-      { engine: BOUT_ENGINE, code: () => "battery-scope", schedule: { kind: "all" } });
+      { engine: BOUT_ENGINE, schedule: { kind: "all" } });
     const named = evaluation.subjects(["swap-stub"]), original = JSON.stringify(named);
     const custom = evaluation.subjects([{ id: named[0].id, label: named[0].label, value: named[0].value }]);
     assert.deepEqual(named, [{ ...custom[0], models: ["man"] }]);
@@ -74,7 +74,7 @@ test("mind batteries admit only a named calibration's bodies and preserve that s
   }
   const evaluation = EVALUATIONS.crowd;
   const cases = subjects => casesOf(evaluation, evaluation.defaultProtocol, subjects,
-    { engine: BOUT_ENGINE, code: () => "crowd-scope", schedule: { kind: "all" } });
+    { engine: BOUT_ENGINE, schedule: { kind: "all" } });
   for (const id of ["swap-skeleton"]) {
     assert.deepEqual(cases(evaluation.subjects([id])), { refused: "Skeleton calibration fits no condition of crowd standard: named calibration allows skeleton; man is unavailable" });
     assert.deepEqual(cases(resolveSubjects(evaluation, [], id, ["rate=30"]).subjects),
@@ -87,7 +87,7 @@ test("mind batteries admit only a named calibration's bodies and preserve that s
 test("a match admits complete pairs within named calibrations and preserves the scope of ablations", () => {
   const evaluation = EVALUATIONS.match;
   const cases = subjects => casesOf(evaluation, "standard", subjects,
-    { engine: BOUT_ENGINE, code: () => "match-scope", schedule: { kind: "all" } });
+    { engine: BOUT_ENGINE, schedule: { kind: "all" } });
   for (const [id, model] of [["swap-stub", "man"], ["swap-unarmed", "man"]]) {
     const named = evaluation.subjects([id, "option"]), before = JSON.stringify(named);
     const scoped = cases(named), raw = cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }, "option"]));

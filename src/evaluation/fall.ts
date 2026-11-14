@@ -351,7 +351,6 @@ export function createFall(context: GameContext) {
     build: (world, options) => buildFall(world.fall, world.engine, options?.hz === undefined ? {} : { hz: options.hz }),
     traced: (built) => [built.body],
     clock: (built) => built.world.time,
-    minds: (world) => [world.fall.mind],
   };
 
   return { fallStart, buildStandFall, buildFall, FALL_WORLD };

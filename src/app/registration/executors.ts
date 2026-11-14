@@ -6,9 +6,7 @@ import { BONK_PART } from "../../skills/strikes/bonk/index.ts";
 
 /**
  * **Every executor, by its kind** (`ExecutorPart`), in the order a picker offers them: what a
- * fighter's executors list holds, a kind its own module and a line here. This module holds its
- * imports and this list and nothing else: a case's code reads it as where each kind's own code
- * begins (`caseCoder`, `scripts/build-identity.mjs`).
+ * fighter's executors list holds, a kind its own module and a line here.
  */
 export const EXECUTORS = { "stomp": STOMP_PART,
   "straight-punch": PUNCH_PART,

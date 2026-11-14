@@ -17,7 +17,7 @@ import type { MindConfig } from "../minds/catalog/config.ts";
 import type { BodyModel } from "../core/bodies/models.ts";
 import type { World } from "../core/world/world.ts";
 import { distance, type Door, type DungeonMap, type DungeonObstacle, type Point } from "../game/dungeon/map.ts";
-import { DungeonRun, prepareDungeonCharacters, RUN_COMMANDERS, runParticipants } from "../game/dungeon/run.ts";
+import { DungeonRun, prepareDungeonCharacters } from "../game/dungeon/run.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
 import { type GameContext } from "../game/arena/context.ts";
 
@@ -124,8 +124,6 @@ export interface BuiltCrypt {
 }
 
 export function createCrypt(context: GameContext) {
-  const { defaultMind } = context;
-
   /** `crypt`'s run on `engine`: the party placed, every member under the case's mind and the enemies under their own, its script begun. */
   async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<BuiltCrypt | Refused> {
     const map = cryptMap(crypt.layout), [hero, ...companions] = crypt.party;
@@ -234,12 +232,6 @@ export function createCrypt(context: GameContext) {
     build: (world) => buildCrypt(world.crypt, world.engine),
     traced: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.built] : []),
     clock: (built) => built.world.time,
-    minds: ({ crypt }) => {
-      const [hero, ...companions] = crypt.party;
-      return runParticipants(cryptMap(crypt.layout), { hero: hero!.model, companions: companions.map((one) => one.model) })
-        .map((one) => one.side === "party" ? crypt.mind ?? defaultMind(one.model) : defaultMind(one.model));
-    },
-    parts: ({ crypt }) => [crypt.commanders?.party?.kind ?? RUN_COMMANDERS.party.kind, crypt.commanders?.enemies?.kind ?? RUN_COMMANDERS.enemies.kind],
     hosted: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.minded] : []),
   };
 

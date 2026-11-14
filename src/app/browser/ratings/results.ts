@@ -48,7 +48,7 @@ export function casesNow(evaluation: Evaluation, protocol: string, subject: stri
   const cases = evaluation.protocols[protocol];
   if (!cases) return { fault: `${evaluation.id} has no protocol ${protocol}` };
   try {
-    const scheduled = casesOf(evaluation, protocol, evaluation.subjects([subject]), { engine: cases.engine ?? DEFAULT_ENGINE, code: () => "", schedule: { kind: "all" } });
+    const scheduled = casesOf(evaluation, protocol, evaluation.subjects([subject]), { engine: cases.engine ?? DEFAULT_ENGINE, schedule: { kind: "all" } });
     if (isRefused(scheduled)) return { fault: scheduled.refused };
     return new Map(scheduled.units.flat().filter((one) => one.subjects.length === 0 || one.subjects.includes(subject))
       .map((one) => [caseName(one.condition), { condition: one.condition, world: one.world }]));

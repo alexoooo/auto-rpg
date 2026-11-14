@@ -16,14 +16,13 @@ import { sha256Text } from "./sha256.ts";
 import { mean, median, pairBootstrap, wilson, type Estimate } from "./stats.ts";
 import type { ArenaSeat as Side } from "../game/arena/seat.ts";
 
-/** One case: its subjects by id (a contest's left first), condition and world; how long it may last, s; its key and code. */
+/** One case: its subjects by id (a contest's left first), condition and world; how long it may last, s; its key. */
 export interface Case {
   readonly subjects: readonly string[];
   readonly condition: Json;
   readonly world: CaseWorld;
   readonly seconds: number;
   readonly key: string;
-  readonly code: string;
 }
 
 /** The unit of evidence: in a contest, one condition with each side on the left; else one case. */
@@ -48,10 +47,10 @@ interface CaseJob {
 
 /**
  * A case's key: the digest of everything it plays. The world holds every subject's value in full
- * and no index or label, so adding a subject changes no other key; `code` is what the code it runs
- * is (the environment and its minds' own code, `caseCoder`).
+ * and no index or label, so adding a subject changes no other key. The code it runs on is not in
+ * it: a run keeps its rows under the commit it plays (`scripts/evaluate.mjs`).
  */
-const keyOf = (fields: { evaluation: string; play: Json; engine: EngineName; world: CaseWorld; seconds: number; code: string }): string =>
+const keyOf = (fields: { evaluation: string; play: Json; engine: EngineName; world: CaseWorld; seconds: number }): string =>
   sha256Text(recordingKey(fields)).slice(0, 32);
 
 /** `world` with a bout's reaction time and seed written in its recipe (`senseDelayOf`, `boutSeedOf`), so its key names them. */
@@ -70,12 +69,11 @@ export const senseDelaysOf = (units: readonly Unit[]): number[] =>
 /**
  * The cases of `evaluation` on `protocol` for `subjects`, unit by unit, in the definition's order:
  * arity 0 each condition; 1 each subject on each condition it fits; 2 each pair `schedule` makes
- * on each condition both fit, the first on the left then the second; each case's code what `code`
- * makes of its world. Beside them, each condition a subject or pair does not fit, and why
+ * on each condition both fit, the first on the left then the second. Beside them, each condition a subject or pair does not fit, and why
  * (`Dropped`). Refused for a subject that fits no condition, or a pair that share none.
  */
 export function casesOf(evaluation: Evaluation, protocol: string, subjects: readonly Subject[],
-  { engine, code: codeOf, schedule }: { engine: EngineName; code: (world: CaseWorld) => string; schedule: Schedule }): { readonly units: Unit[]; readonly dropped: Dropped[] } | Refused {
+  { engine, schedule }: { engine: EngineName; schedule: Schedule }): { readonly units: Unit[]; readonly dropped: Dropped[] } | Refused {
   const cases = evaluation.protocols[protocol];
   if (!cases) return { refused: `${evaluation.id} has no protocol ${protocol}: ${Object.keys(evaluation.protocols).join(", ")}` };
   const make = (seated: readonly Subject[], condition: Json): Case | Refused => {
@@ -83,9 +81,9 @@ export function casesOf(evaluation: Evaluation, protocol: string, subjects: read
     if (isRefused(made)) return made;
     if (cases.timing && (made.kind !== "bout" || made.timing?.hz !== cases.timing.hz || made.timing.delay !== cases.timing.delay))
       return { refused: "a case's timing must match its protocol" };
-    const world = named(made), code = codeOf(world);
-    return { subjects: seated.map((subject) => subject.id), condition, world, seconds: cases.seconds, code,
-      key: keyOf({ evaluation: evaluation.id, play: cases.play, engine, world, seconds: cases.seconds, code }) };
+    const world = named(made);
+    return { subjects: seated.map((subject) => subject.id), condition, world, seconds: cases.seconds,
+      key: keyOf({ evaluation: evaluation.id, play: cases.play, engine, world, seconds: cases.seconds }) };
   };
   const faults = (subject: Subject, condition: Json) => cases.faults?.(subject.value, condition, subject) ?? [];
   for (const subject of subjects) if (cases.arity > 0 && cases.conditions.every((condition) => faults(subject, condition).length > 0))
