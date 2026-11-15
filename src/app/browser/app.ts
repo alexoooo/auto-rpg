@@ -15,7 +15,7 @@ const errorNote = need("loading-error"), retry = need<HTMLButtonElement>("loadin
 const state = { current: null as { lifetime: ReturnType<typeof screenLifetime>; context: ScreenContext } | null,
   drafts: new Map<Route, string>(), pending: new Set<symbol>(), reveal: null as symbol | null };
 const modules = {
-  arena: () => import("./arena/main.ts"), dungeon: () => import("./dungeon/main.ts"), lab: () => import("./lab/setup.ts"),
+  arena: () => import("./arena/main.ts"), dungeon: () => import("./dungeon/setup.ts"), lab: () => import("./lab/setup.ts"),
   ratings: () => import("./ratings/main.ts"),
 };
 
@@ -69,8 +69,8 @@ async function open(route: Route, context: ScreenContext): Promise<void> {
     case "dungeon": {
       document.title = "The Depths · Auto-RPG";
       await import("./dungeon/style.css"); check(); await mount(import("./dungeon/screen.html?raw"), context);
-      const { bootDungeon } = await modules.dungeon(); check();
-      return bootDungeon(context);
+      const { bootDungeonSetup } = await modules.dungeon(); check();
+      return bootDungeonSetup(context);
     }
     case "lab": {
       document.title = "Lab · Auto-RPG";

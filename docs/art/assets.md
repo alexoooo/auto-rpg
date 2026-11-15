@@ -2,7 +2,7 @@
 
 Characters, environment models and surface textures have full-quality sources and generated web
 resources. Large originals are in Git LFS; web delivery and character inspection exports are
-reproducible build outputs. The HDR environment and the menu image are served as committed.
+reproducible build outputs. The HDR environment, menu painting and hero portraits are served as committed.
 
 ## Sources
 

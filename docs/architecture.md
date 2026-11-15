@@ -904,6 +904,10 @@ the last screen explicitly and keeps setup choices for the tab. The Character La
 Bench have their own `index.html` beside their modules. Every entry document is in `vite.config.ts`'s
 `rollupOptions.input`.
 
+The Dungeon's hero selection (`dungeon/setup.ts`) offers Warrior and Rogue as static
+[portraits](art/menu.md#hero-portraits). Start loads `dungeon/main.ts`, which owns the 3D
+renderer, character assets and gameplay resources for the screen's lifetime.
+
 | Screen | Where | What it is |
 |---|---|---|
 | Arena | `src/game/arena/` | two bodies under a `Duel`, to a verdict; a person may lead a side |

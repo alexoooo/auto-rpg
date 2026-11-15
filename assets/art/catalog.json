@@ -242,6 +242,8 @@
   },
   "retained": [
     "public/assets/env.hdr",
-    "public/assets/menu/cathedral.jpg"
+    "public/assets/menu/cathedral.jpg",
+    "public/assets/menu/warrior.webp",
+    "public/assets/menu/rogue.webp"
   ]
 }

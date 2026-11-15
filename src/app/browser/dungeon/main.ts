@@ -1,3 +1,4 @@
+import { scenarioOf, usesReferenceLook, type DungeonScenario, type DungeonSetup } from "./setup.ts";
 import { playerControls } from "../ui/player-controls.ts";
 import { isRefused, type Refused } from "../../../core/refusal.ts";
 import type { SkeletonArt } from "../../../core/bodies/human/skeleton-art.ts";
@@ -21,7 +22,7 @@ import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { movementRoutes } from "../render/movement-routes.ts";
 import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
-import { HUMANOID_MODELS, modelLabel, type BodyModel } from "../../../core/bodies/models.ts";
+import type { BodyModel } from "../../../core/bodies/models.ts";
 import { defaultMind } from "../../catalog.ts";
 import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -37,8 +38,6 @@ import { prepareDungeonCharacters, runMap, runModels, runParticipants, type Part
 import { RunView, type ViewActor } from "./run-view.ts";
 import { openWorld } from "../worker/client.ts";
 import type { CryptCard } from "../../worker/crypt-stage.ts";
-import { runAttributes } from "./run-attributes.ts";
-import { runLoadouts } from "./run-loadouts.ts";
 import type { Loadout } from "../../../core/bodies/items/held.ts";
 import type { AttributeOverrides } from "../../../core/bodies/character-attributes.ts";
 import { cellKey } from "../../../game/dungeon/map.ts";
@@ -51,8 +50,6 @@ import { lightDungeon, CRYPT_LIGHT, REFERENCE_LIGHT, type DungeonLighting } from
 import { lookProbe } from "./look-probe.ts";
 import { frameMeter } from "../ui/frame-meter.ts";
 import { dungeonStone, stoneQuery } from "./stone.ts";
-import { runMinds } from "./run-minds.ts";
-import { ENCOUNTER_MODELS } from "../../../game/dungeon/encounters.ts";
 
 import type { CryptRoomPlan } from "../../../game/dungeon/crypt-plan.ts";
 import { generateCryptDungeon } from "../../../game/dungeon/crypt-dungeon.ts";
@@ -60,31 +57,10 @@ import { referenceChamber, REFERENCE_ZOOM, REFERENCE_TORCHES } from "../../../ga
 import { dressReference, type ReferenceQuality } from "./reference-look.ts";
 import { need as find } from "../dom.ts";
 import type { ScreenContext } from "../ui/screen.ts";
-import { showHeroLineup } from "../render/character-preview.ts";
 import type { Command } from "../../../minds/command/commands.ts";
-import type { CommanderConfig, CommanderEntry } from "../../../minds/command/kind.ts";
+import type { CommanderConfig } from "../../../minds/command/kind.ts";
 import { commanderOf } from "../../../minds/command/commander.ts";
 import { COMMANDERS } from "../../registration/commanders.ts";
-
-type DungeonScenario = "generated" | "reference" | "random-crypt";
-
-/** The scenario `text` names, as the scene's menu and the address write it. */
-function scenarioOf(text: string): DungeonScenario {
-  if (text === "generated" || text === "reference" || text === "random-crypt") return text;
-  throw new Error(`unknown crypt scenario ${JSON.stringify(text)}`);
-}
-
-/** Whether a scenario is drawn with the reference chamber's look, in place of the generated level's. */
-function usesReferenceLook(scenario: DungeonScenario): boolean {
-  switch (scenario) {
-    case "generated": return false;
-    case "reference": case "random-crypt": return true;
-    default: {
-      const never: never = scenario;
-      throw new Error(`unknown crypt scenario ${JSON.stringify(never)}`);
-    }
-  }
-}
 
 /** The pause panel's title for the run's status. */
 function pauseTitle(status: RunStatus): string {
@@ -100,13 +76,13 @@ function pauseTitle(status: RunStatus): string {
 }
 
 /** Mount a dungeon whose DOM and resources belong to this screen's lifetime. */
-export async function bootDungeon(context: ScreenContext): Promise<void> {
+export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => void {
   const location = context.address;
   const need = <T extends HTMLElement>(id: string): T => find<T>(id, context.root);
   const canvas = need<HTMLCanvasElement>("dungeon"), start = need<HTMLButtonElement>("start");
-  const heroChoices = need("hero-choices"), seedInput = need<HTMLInputElement>("seed");
-  const companionCount = need<HTMLFieldSetElement>("companions"), partyList = need<HTMLOListElement>("party-list");
-  const choice = (group: HTMLElement): string => group.querySelector<HTMLInputElement>("input:checked")!.value;
+  const partyList = need<HTMLOListElement>("party-list");
+  const { heroChoices, seedInput, choice, attributePanel, loadoutPanel, mindPanel,
+    scenario, quality, partyCommander, enemyCommander, writeCommanders, heroLabel } = setup;
   let view = readViewSettings(location.search, { view: "world", camera: "isometric", projection: "orthographic" });
   let profile: ReturnType<typeof sceneProfile> | null = null;
   let geometry: ReturnType<typeof solidGeometry> | null = null;
@@ -125,76 +101,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   // `?floor=flat` and `?wall=flat` draw the untextured colours, the control for what the stone's maps cost, and
   // `?masonry=0` the flat wall skin, the control for what the blocks cost; `?dressing=0` leaves the clutter out.
   const stone = stoneQuery(location.search);
-  const setupQuery = new URLSearchParams(location.search);
-  const linkedSeed = setupQuery.get("seed");
-  seedInput.value = linkedSeed !== null && /^\d{1,10}$/.test(linkedSeed) && Number(linkedSeed) <= 4294967295 ? linkedSeed : String(randomSeed());
-  /** The heroes a person can lead, in the order companions are drawn from: each is a body, and each carries what its model holds (`ModelInfo.held`). */
-  const HEROES: readonly { readonly model: BodyModel; readonly label: string }[] = HUMANOID_MODELS.map((model) => ({ model, label: modelLabel(model) }));
-  /** The companions for a hero: the next heroes on the list after the hero's own, in turn. */
-  const companionModels = (hero: BodyModel, count: number): BodyModel[] => {
-    const at = Math.max(0, HEROES.findIndex(h => h.model === hero));
-    return Array.from({ length: count }, (_, i) => HEROES[(at + 1 + i) % HEROES.length].model);
-  };
-  for (const hero of HEROES) {
-    const label = document.createElement("label"), input = document.createElement("input"), name = document.createElement("span");
-    input.type = "radio"; input.name = "hero"; input.value = hero.model; input.checked = hero.model === (setupQuery.get("hero") ?? "man");
-    name.textContent = hero.label;
-    label.append(input, name); heroChoices.append(label);
-  }
-  const heroLabel = (model: BodyModel) => HEROES.find(h => h.model === model)?.label ?? model;
-  if (!heroChoices.querySelector<HTMLInputElement>("input:checked")) heroChoices.querySelector<HTMLInputElement>("input")!.checked = true;
-  const linkedCompanions = (setupQuery.get("companions") ?? "").split(",").filter((value): value is BodyModel => HEROES.some(h => h.model === value)).slice(0, 3);
-  companionCount.querySelector<HTMLInputElement>(`input[value="${linkedCompanions.length}"]`)!.checked = true;
-  let selectedCompanions = linkedCompanions;
-  const attributeHolder = document.createElement("div");
-  attributeHolder.id = "party-attributes"; need("party-minds").before(attributeHolder);
-  const attributePanel = runAttributes(attributeHolder, location.search);
-  const loadoutPanel = runLoadouts(need("party-loadout-list"), location.search);
-  const updateAttributeParty = (keepRoster = false) => {
-    const hero = choice(heroChoices) as BodyModel;
-    if (!keepRoster) selectedCompanions = companionModels(hero, Number(choice(companionCount)));
-    attributePanel.update(hero, selectedCompanions);
-    loadoutPanel.update(hero, selectedCompanions);
-  };
-  updateAttributeParty(true);
-  heroChoices.addEventListener("change", () => updateAttributeParty());
-  companionCount.addEventListener("change", () => updateAttributeParty());
-  /** Each hero's mind as a party member, and each enemy model's: chosen on the start panel and carried by the address. */
-  const mindPanel = runMinds(need("party-mind-list"), [...HEROES.map(h => ({ side: "party" as const, model: h.model })),
-    ...ENCOUNTER_MODELS.map((model) => ({ side: "enemy" as const, model }))], location.search);
-
-  const scenario = need<HTMLFieldSetElement>("dungeon-scene"), quality = need<HTMLSelectElement>("dungeon-quality");
-  const requestedScene = new URLSearchParams(location.search).get("scene");
-  const initialScene = requestedScene === "reference" || requestedScene === "random-crypt" ? requestedScene : "generated";
-  scenario.querySelector<HTMLInputElement>(`input[value="${initialScene}"]`)!.checked = true;
-  quality.value = new URLSearchParams(location.search).get("quality") === "reduced" ? "reduced" : "high";
-  const chooseScenario = () => {
-    const reference = usesReferenceLook(scenarioOf(choice(scenario)));
-    quality.parentElement!.hidden = !reference;
-  };
-  scenario.addEventListener("change", chooseScenario);
-  chooseScenario();
-  // Each side's Commander, offered from every one that leads that side (`COMMANDERS`, `CommanderEntry.sides`), by kind as the
-  // address carries it (`?party=`, `?enemies=`): the first offered unless it names another, and a kind it cannot take is said.
-  const partyCommander = need<HTMLSelectElement>("party-commander"), enemyCommander = need<HTMLSelectElement>("enemy-commander");
-  const unknownCommanders: string[] = [];
-  for (const [select, key, side] of [[partyCommander, "party", "party"], [enemyCommander, "enemies", "enemies"]] as const) {
-    select.replaceChildren(...Object.entries(COMMANDERS).filter(([, entry]) => (entry as CommanderEntry).sides.includes(side))
-      .map(([kind, entry]) => Object.assign(document.createElement("option"), { value: kind, textContent: entry.label })));
-    const kind = setupQuery.get(key);
-    if (kind === null) continue;
-    if ([...select.options].some((option) => option.value === kind)) select.value = kind;
-    else unknownCommanders.push(`No Commander ${JSON.stringify(kind)} leads the ${side}; ${select.selectedOptions[0]?.textContent ?? "none"} does.`);
-  }
-  if (unknownCommanders.length > 0) Object.assign(need("setup-error"), { hidden: false, textContent: unknownCommanders.join(" ") });
-  /** `url` with each side's Commander, and none where it is the default (the picker's first). */
-  const writeCommanders = (url: URL) => {
-    for (const [select, key] of [[partyCommander, "party"], [enemyCommander, "enemies"]] as const) {
-      if (select.selectedIndex === 0) url.searchParams.delete(key);
-      else url.searchParams.set(key, select.value);
-    }
-  };
-
   /** What the party's panel gives the rest of the page. */
   interface Party {
     /** Builds one row a member of the run's party. */
@@ -564,11 +470,11 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   }
 
   /** The start panel, the pause panel and the help. */
-  function wireControls(page: DungeonPage): void {
+  function wireControls(page: DungeonPage): () => void {
     const { signal } = page;
     start.disabled = false;
     start.textContent = "Start";
-    start.addEventListener("click", () => {
+    const startRun = () => {
       if (!/^\d{1,10}$/.test(seedInput.value) || Number(seedInput.value) > 0xffffffff) {
         need<HTMLDetailsElement>("setup-options").open = true;
         seedInput.setCustomValidity("Enter a seed from 0 to 4294967295.");
@@ -593,7 +499,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       loadoutPanel.write(url);
       writeCommanders(url);
       url.searchParams.set("hero", page.selectedHero);
-      url.searchParams.set("companions", selectedCompanions.join(","));
+      url.searchParams.set("companions", setup.selectedCompanions.join(","));
       url.searchParams.set("seed", seedInput.value);
       if (page.reference) {
         url.searchParams.set("scene", page.selectedScenario);
@@ -603,9 +509,9 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
         url.searchParams.delete("quality");
       }
       context.replace(url);
-      page.companions = [...selectedCompanions];
+      page.companions = [...setup.selectedCompanions];
       void launch(page, Number(seedInput.value));
-    }, { signal });
+    };
     seedInput.addEventListener("input", () => seedInput.setCustomValidity(""), { signal });
     need("pause-button").addEventListener("click", () => setPaused(page, !page.paused), { signal });
     need("resume").addEventListener("click", () => setPaused(page, false), { signal });
@@ -613,6 +519,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     need("new-run").addEventListener("click", () => void launch(page, randomSeed()), { signal });
     need("help-button").addEventListener("click", () => toggleHelp(page), { signal });
     need("close-help").addEventListener("click", () => toggleHelp(page), { signal });
+    return startRun;
   }
 
   /** The party's panel: one row a member, built once a run and refreshed with the HUD. A row is a button: a click
@@ -888,47 +795,12 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     page.engine.dispose();
   }
 
-  async function boot(): Promise<void> {
-    const page = createPage(loadSkeletonArt());
-    const dispose = () => disposePage(page);
-    context.own(dispose);
-    const preview = await showHeroLineup(need<HTMLCanvasElement>("hero-preview"), HEROES.map(h => h.model), page.signal);
-    const updatePreview = async () => {
-      try {
-        const attributes = attributePanel.read(), hero = choice(heroChoices) as BodyModel;
-        if (!attributes) return;
-        await Promise.all(HEROES.map((row, index) => {
-          const companion = selectedCompanions.indexOf(row.model), id = row.model === hero ? "hero" : companion >= 0 ? `ally-${companion}` : "";
-          return preview.setCharacter(index, { model: row.model, attributes: id ? attributes({ id, model: row.model, side: "party" }) : {} });
-        }));
-      } catch (error) { if (page.signal.aborted) return; throw error; }
-    };
-    await updatePreview();
-    const refreshPreview = () => { void updatePreview().catch(error => { if (!page.signal.aborted) { need("setup-error").hidden = false; need("setup-error").textContent = String(error); } }); };
-    attributeHolder.addEventListener("input", refreshPreview, { signal: page.signal });
-    attributeHolder.addEventListener("click", refreshPreview, { signal: page.signal });
-    heroChoices.addEventListener("change", refreshPreview, { signal: page.signal });
-    companionCount.addEventListener("change", refreshPreview, { signal: page.signal });
-    if (page.signal.aborted) return;
-    context.own(() => {
-      const url = new URL(location.href);
-      mindPanel.write(url);
-      try { attributePanel.write(url); } catch { /* The last valid attributes remain in the link. */ }
-      loadoutPanel.write(url);
-      writeCommanders(url);
-      url.searchParams.set("hero", choice(heroChoices));
-      url.searchParams.set("companions", selectedCompanions.join(","));
-      url.searchParams.set("seed", seedInput.value);
-      url.searchParams.set("scene", choice(scenario));
-      url.searchParams.set("quality", quality.value);
-      context.remember(url.href);
-    });
-    wireControls(page);
-    const party = page.party = wireParty(page);
-    wireKeys(page, party);
-    wirePointer(page, party);
-    page.engine.runRenderLoop(() => frame(page, party));
-  }
-
-  await boot();
+  const page = createPage(loadSkeletonArt());
+  context.own(() => disposePage(page));
+  const startRun = wireControls(page);
+  const party = page.party = wireParty(page);
+  wireKeys(page, party);
+  wirePointer(page, party);
+  page.engine.runRenderLoop(() => frame(page, party));
+  return startRun;
 }
