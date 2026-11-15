@@ -1,5 +1,5 @@
 # What the working copy keeps outside Git, one entry each; anything else untracked outside the
-# tracked folders is a stray (scripts/workspace.mjs, tests/workspace.test.mjs).
+# tracked folders is a stray, which `npm run clean` lists (scripts/workspace.mjs).
 
 # Build output and installed dependencies.
 node_modules/

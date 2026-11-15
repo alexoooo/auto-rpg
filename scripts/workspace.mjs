@@ -17,8 +17,7 @@
  * - A path `.gitignore` keeps outside Git is never tracked: a file added past its rule
  *   (`git add -f`) is in Git and ignored at once, and each says the other is wrong.
  *
- * `strays()` names every path these rules do not allow: `tests/workspace.test.mjs` fails on them and
- * `npm run clean` lists them.
+ * `strays()` names every path these rules do not allow; `npm run clean` lists them.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";

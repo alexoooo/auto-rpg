@@ -37,7 +37,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   `npx` leaves `vite` running).
 - **Temporary files** in `.tmp/<task>/`, a run's output among them, worktrees in
   `.tmp/worktrees/<name>/`; deleted when the task lands. Something kept outside Git gets its own
-  `.gitignore` line (`tests/workspace.test.mjs`).
+  `.gitignore` line (`npm run clean` lists what has none).
 
 ## Documents
 

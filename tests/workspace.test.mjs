@@ -1,11 +1,12 @@
 /**
- * **The working copy holds only what it should** (`strays`, `scripts/workspace.mjs`): its tracked
- * files, work in progress inside tracked folders, what the repository's `.gitignore` keeps, and
- * `.tmp/`. On a scratch repository holding one of each kind of path, the strays are exactly the
- * untracked file and folder at the root, what a folder of toolchains holds beside its kept
- * toolchain, the folder hidden through `.git/info/exclude`, the crash dump, and in `research/runs/`
- * a loose file, a folder with no README and an entry its folder's README does not name, and the
- * file added to Git past the rule that ignores it; on this working copy there are none.
+ * **What `npm run clean` lists as strays** (`strays`, `scripts/workspace.mjs`) is everything but a
+ * working copy's tracked files, work in progress inside tracked folders, what the repository's
+ * `.gitignore` keeps, and `.tmp/`. On a scratch repository holding one of each kind of path, the
+ * strays are exactly the untracked file and folder at the root, what a folder of toolchains holds
+ * beside its kept toolchain, the folder hidden through `.git/info/exclude`, the crash dump, and in
+ * `research/runs/` a loose file, a folder with no README and an entry its folder's README does not
+ * name, and the file added to Git past the rule that ignores it. The working copy itself is not
+ * read: what lies in it is not what a change broke.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -44,15 +45,4 @@ test("strays_are_the_untracked_outside_tracked_folders_the_hidden_and_the_garbag
       [".snap/", ".tools/kit/forced.cfg", ".tools/old/", ".tools/probe.mjs", "notes.txt", "research/bash.exe.stackdump", "research/old/bash.exe.stackdump",
         "research/runs/bare/", "research/runs/rows.jsonl", "research/runs/seed/trace.log", "scratch/"]);
   } finally { rmSync(root, { recursive: true, force: true }); }
-});
-
-/**
- * Apply that inventory to the actual workspace so untracked output, hidden storage, research runs
- * past their budget or unnamed by a README, and files both tracked and ignored do not accumulate
- * unnoticed.
- */
-test("the_working_copy_holds_no_strays", () => {
-  const found = strays();
-  assert.deepEqual(found, [], `${found.length} strays (npm run clean deletes crash dumps and stale .tmp/ work, and lists the rest):\n`
-    + found.map(({ path, why }) => `  ${path} (${why})`).join("\n"));
 });

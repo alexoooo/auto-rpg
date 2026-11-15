@@ -378,7 +378,7 @@ A run's output goes to `.tmp/<task>/`: checkpoints, traces, screens, rejected ca
 `research/runs/<task>/` keeps only what a later run reads (a selected model with its
 normalisation and configuration, rows a comparison reuses) and a README naming each file. A file
 loose in `research/runs/`, a folder there with no README or an entry its README does not name, or
-a folder over 1,000 files or 1 GB fails `tests/workspace.test.mjs`. `npm run evaluate` keeps
+a folder over 1,000 files or 1 GB is a stray `npm run clean` lists. `npm run evaluate` keeps
 played rows in `.cache/evaluations/<id>/` and its results, a few numbers a trial, in
 `assets/evaluations/<id>.json`, committed with the change they read
 ([the architecture](../architecture.md#evaluations)). A pooled environment keeps

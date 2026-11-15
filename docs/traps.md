@@ -56,10 +56,9 @@ its kind or running those tools.
 - **Python's `open(path, 'w')` writes cp1252**: Vite's build then refuses the file while `tsc` and
   `npm test` pass. Pass `encoding='utf-8'`.
 - **Git Bash dies in its own startup at times**, leaving `bash.exe.stackdump` in the repository
-  root (every frame in `msys-2.0.dll`, the runtime's fatal-error exit), which fails
-  `tests/workspace.test.mjs`. Many bash launches at once or in quick succession are the common
-  thread. A dump's first lines and time, and what was running, are read before `npm run clean`
-  deletes it; the remedy left is a newer Git for Windows.
+  root (every frame in `msys-2.0.dll`, the runtime's fatal-error exit). Many bash launches at
+  once or in quick succession are the common thread. A dump's first lines and time, and what was
+  running, are read before `npm run clean` deletes it; the remedy left is a newer Git for Windows.
 - **A shell rewrites quotes, backticks and `$` in text passed inline** (`node -e`, a heredoc,
   `git commit -m`): an edit script or a commit message is written to a file with the file tool,
   then run or passed by path (`node <file>`, `git commit -F <file>`). One file is edited with the
