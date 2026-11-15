@@ -2,8 +2,8 @@
 
 Notes on the layer under a strike and a guard: what stands the body, steps it and holds it when
 it is pushed. They hold what a fight asks of that layer, where the stance stands against it, and
-a design under consideration; nothing in it is built. Each part is taken up on the owner's
-request by a brief of its own. A run that travels is in
+a design under consideration: its cases are built and the stance read on them, and nothing more
+of it is. Each part is taken up on the owner's request by a brief of its own. A run that travels is in
 [the Warrior's travel](2026-11-05-warrior-travel.md), which leaves the braced walk for fighting.
 
 ## Goal
@@ -63,22 +63,44 @@ request by a brief of its own. A run that travels is in
   in, and as the striking limb flies (`guard`, `walking`, `striking`,
   `src/evaluation/stand/cases.ts`). It holds no saved result (`assets/evaluations/stand.json`);
   `npm run evaluate -- stand option/straight-punch --protocol striking` plays a rung.
+- **Shoved, the Warrior keeps its feet and is slow to settle.** In guard it stands through all
+  96 shoves and settles after 74, in a median 2 steps and 3.8 s. Walking in it stands through
+  all 24 and settles after 23, in 4 steps and 0.87 s. As its fist flies it stands through 15 of
+  16, finishes every strike and settles after 9, in 3 steps and 4.2 s.
 - **The table's walk row reads the Locomotion drill** (`EVERY`,
   `src/evaluation/locomotion/cases.ts`): walks at a pace each of eight ways facing forward,
   turns, a standing body shoved, a shove after a walk, and the walks again in gusts, valued in
   seconds lost against the orders (`npm run evaluate -- table --body man --skill walk`;
   [the table](../reference/the-table.md)).
-- **A short place reached with the facing held is read only inside a strike's trial**: the drill
-  Commander orders one to bring the striker into its window, the reading keeps when it is ready
-  there (`StrikeReading.ready`, `src/evaluation/strike/read.ts`), and the trial is valued by its
-  blow. The Stand drill's `striking` rung counts the steps a shoved striker takes (`steps`).
+- **The Locomotion drill's `step` protocol reads a short step** (`STEP`,
+  `src/evaluation/locomotion/cases.ts`): each body in every rated loadout ordered to stand at a
+  place 0.2 or 0.4 m from where it is put, each of eight ways, within 4 cm, at 0.3 or 0.7 m/s,
+  facing forward, for 4 s, then to stop. The order is given again each tenth of a second, as a
+  Commander gives one each step, so each tenth the body does not close on the place at the pace
+  is lost; a trial's value is its seconds lost, a fall at its price, as a walk's is. Its figures
+  are the share of steps that came to stand at the place and the seconds they took
+  (`npm run evaluate -- locomotion option --protocol step`).
+- **A short step takes the stance about two and a half seconds, where it arrives.** Of 480
+  steps the body comes to stand at its place in 335, a median 2.4 s after the order, falls in 3
+  and loses a mean 2.8 s against the order. A step that arrives loses 2.2 s and comes 1.8 s
+  later than its pace asks; one that does not loses 4.2 s. Forward and back 109 of 120 arrive,
+  on the diagonals 166 of 240, and to a side 60 of 120. The Warrior's 0.2 m step at 0.7 m/s
+  arrives in 11 of 40, and at 0.3 m/s in 37. With empty hands its centre of mass first goes 2 to
+  8 cm the other way, as the weight shifts, for most of a second.
+  The three bodies lose 2.9, 2.8 and 2.7 s (Warrior, Rogue, Skeleton).
+- **Inside a strike's trial the same step is read by its blow**: the drill Commander orders a
+  place to bring the striker into its window, slowing the pace as it closes (`approachPace`,
+  `src/skills/intent/action-window.ts`), the reading keeps when it is ready there
+  (`StrikeReading.ready`, `src/evaluation/strike/read.ts`), and the trial is valued by its blow.
+  The Stand drill's `striking` rung counts the steps a shoved striker takes (`steps`).
 
 ## The design
 
-**A fight's cases.** The Stand drill's three rungs, and a rung that orders a place a fraction of
-a metre off in each of eight ways with the facing held, valued as the walk is: the seconds lost
-against the order, a fall at its price. The stance's reading on them is the baseline every base
-is read beside.
+**A fight's cases.** The Stand drill's three rungs and the Locomotion drill's `step` protocol,
+which orders a place a fraction of a metre off in each of eight ways with the facing held,
+valued as the walk is: the seconds lost against the order, a fall at its price. The stance's
+reading on them ([where it stands](#where-it-stands)) is the baseline every base is read
+beside, by the same commands.
 
 **A second balance beside the stance.** A part of role `balance`, registered beside the stance
 and chosen by a body's config, that carries out the stance goals it is given. What a skill asks
@@ -124,6 +146,15 @@ step of one body costs, and how many decisions the actor takes.
 
 ## Open
 
+- **Why a step to a side arrives in half its trials.** In the Warrior's steps traced, a centre
+  that misses its place passes within 6 to 15 cm of it and goes on. Whether that is the pace it
+  is asked (a Commander slows a pace as the place closes, and the script's is flat), where the
+  swing foot is placed, or the navigator's stop is unread: the trials are read by their figures
+  alone.
+- **Whether a step's place is given from where the body's centre stands.** The script's is from
+  where the body is put, and a standing body's centre of mass is ahead of that (the Warrior's
+  by 6.5 cm), so a forward step is that much shorter than its name and a back step longer. The
+  seconds lost are read against the way the centre has to go.
 - **Whether the base is what holds a fight's blows back.** The punch's traces put the fist's
   delivery first, 14 of 48 trials, and the network's asks of the stance in four. The cases above
   read the base apart from any strike.
@@ -151,8 +182,8 @@ step of one body costs, and how many decisions the actor takes.
 - **What asks it**: `LegsGoal` in `src/skills/framework/skill.ts`; a strike's asks,
   `src/skills/strikes/shared/steer.ts`; the window, `shared/strike-window.ts`; the stance's walk
   as a gait, `src/skills/locomotion/stance-walk/`.
-- **Its readings**: the Stand drill, `src/evaluation/stand/`; the Locomotion drill's walks and
-  shoves, `src/evaluation/locomotion/cases.ts`; the stance's own trials,
+- **Its readings**: the Stand drill, `src/evaluation/stand/`; the Locomotion drill's walks,
+  shoves and short steps, `src/evaluation/locomotion/cases.ts`; the stance's own trials,
   `research/skills/locomotion/stance/stance-trials.mjs`.
 - **A learning environment over a drill's cases**: `research/case-learning-environment.mjs`;
   [the training recipe](../recipes/training.md).

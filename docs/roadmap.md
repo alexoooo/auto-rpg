@@ -76,9 +76,9 @@ owner's request. What each part waits on is in
 2. **Starts kept from fights**, which wait on a load under a striker's tuning
    ([their notes](plans/2026-11-14-many-skills.md#starts-kept-from-fights)); a save loads on
    whatever build made it ([the architecture](architecture.md#bouts-tapes-and-replay)).
-3. **The base under a fight**: a fight's cases and the stance's reading on them, which wait on
-   no part; then a second balance, which waits on a strike apart from the legs
-   ([its notes](plans/2026-11-14-fighting-base.md)).
+3. **The base under a fight**: a second balance, which waits on a strike apart from the legs;
+   a fight's cases are built and the stance is read on them
+   ([its notes](plans/2026-11-14-fighting-base.md#where-it-stands)).
 4. **The strikes' profiles measured again**, their foe a mind that fights as it does now: one
    that prices a strike by its profile against the body it strikes from a bout's start, and
    models its foe by the strikes its character holds.
@@ -104,7 +104,7 @@ Each holds its goal, where it stands and the questions open
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
 | [Many skills, faster](plans/2026-11-14-many-skills.md) | the steer's readings are read: a layer for each of three spans of the stroke over 16 inputs that hold no leg, its asks of the stance fitted, deals 0.98 times the installed punch's damage a second on the judge's 2,400 held-out starts (95 % 0.92 to 1.05), and sparring's commitments leave 16 of the 20 fights' read outside their ranges; a judge that screens a try on landings paired by start and accepts on the larger held-out draw; starts kept from fights, a trial loaded where its strike is asked; then a strike made by search with no training run, reading no leg and keeping its asks of the stance, by one tool for every strike and body |
 | [A character's numbers in a profile's trials](plans/2026-11-14-profiles-and-saves.md) | Balance, haste and the physique's scales as conditions of a profile's trials |
-| [The base under a fight](plans/2026-11-14-fighting-base.md) | what a fight asks of standing and stepping, read as cases on the stance; then a second balance beside it, one actor trained once on one body, which a strike apart from the legs lets a character choose |
+| [The base under a fight](plans/2026-11-14-fighting-base.md) | what a fight asks of standing and stepping, the stance's reading on its cases; a second balance beside it, one actor trained once on one body, which a strike apart from the legs lets a character choose |
 
 ## Waiting on the owner
 

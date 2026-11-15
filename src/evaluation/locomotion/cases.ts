@@ -22,7 +22,11 @@
  * - `run-moved`: told to run with no pace to a place `COURSE.ahead` m forward, which moves
  *   `COURSE.aside` m to the side `way` names `RUN_UP` s on, as the body runs;
  * - `walk-run`: told to walk forward at `WALKING_PACE` for `RUN_UP` s, then to run forward with no
- *   pace for `RUN_UP` s and `SETTLE` s more, then to stop.
+ *   pace for `RUN_UP` s and `SETTLE` s more, then to stop;
+ * - `step`: told to stand at a place `distance` m from where it is put, `way` degrees from forward,
+ *   within `ARRIVED` of it, at `pace` m/s, facing forward, from `START` for `WALK` s, then to stop.
+ *   The order is given again each `CUE`, as a Commander gives one each step, so each span it does
+ *   not close on the place at the pace is lost (`orderTime`).
  *
  * A trial may name what the body holds (`loadout`, empty hands where it names none), the lab's
  * gusts (`gusts`, `labGusts`: the Warrior's, scaled by the body's mass) and the seed of its mind's chance and the gusts (`seed`). Calm
@@ -44,6 +48,7 @@ import { readLocomotion, type LocomotionReading } from "./read.ts";
 import { between, later, turned } from "../twin.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 import { ARRIVAL } from "../../minds/command/goals.ts";
+import { ARRIVED, placeMovement } from "../../skills/framework/movement.ts";
 
 /** When a trial's first order comes, and how long a walk or a turn's leg lasts, s. */
 export const START = 1, WALK = 4;
@@ -68,8 +73,8 @@ const WALKING_PACE = 1;
  */
 const COURSE = deepFreeze({ leg: 15, ahead: 24, aside: 9 });
 
-/** How often a turning way is given again, s. */
-const TURN_CUE = .1;
+/** How often a turning way, or a place stepped to, is given again, s. */
+const CUE = .1;
 
 /** How long a trial runs on after its last cue, s: what its stop or its shove is read over. */
 export const AFTER = 4;
@@ -86,7 +91,8 @@ export type LocomotionCondition = Held & (
   | { readonly kind: "run-stop"; readonly model: BodyModel }
   | { readonly kind: "run-route"; readonly model: BodyModel; readonly way: 1 | -1 }
   | { readonly kind: "run-moved"; readonly model: BodyModel; readonly way: 1 | -1 }
-  | { readonly kind: "walk-run"; readonly model: BodyModel });
+  | { readonly kind: "walk-run"; readonly model: BodyModel }
+  | { readonly kind: "step"; readonly model: BodyModel; readonly way: number; readonly distance: number; readonly pace: number });
 
 /** What a trial may name beside its kind: what its body holds, the lab's gusts, and its seed. */
 type Held = { readonly loadout?: Loadout; readonly gusts?: true; readonly seed?: number };
@@ -125,6 +131,14 @@ const RUN_BAR = deepFreeze({ models: ["man", "woman"] as BodyModel[], loadouts: 
 /** **The run's bar's training twin**: its trials on the next seeds (`later`), research's to tune on. */
 const RUN_TWIN = deepFreeze({ ...RUN_BAR, seeds: later(RUN_BAR.seeds) });
 
+/**
+ * **The short step** on every body in every rated loadout: a place a fraction of a metre off each
+ * of eight ways, at the screen's slow and brisk pace, the facing held. What a fight asks of the
+ * legs between its blows.
+ */
+const STEP = deepFreeze({ models: ["man", "woman", "skeleton"] as BodyModel[], loadouts: REPRESENTATIVE as Loadout[],
+  ways: [0, 45, 90, 135, 180, 225, 270, 315], distances: [.2, .4], paces: SCREEN.paces });
+
 /** Facing forward, +z. */
 const FORWARD = deepFreeze({ x: 0, z: 1 });
 
@@ -155,9 +169,9 @@ export function scriptOf(condition: LocomotionCondition): { readonly cues: reado
       { at: START, orders: { move: { kind: "direct", direction: FORWARD }, gait: "run", face: null } }, { at: START + RUN_UP + HOLD, orders: STOP }] };
     case "run-turn": {
       const cues: LoneCue[] = [{ at: START, orders: { move: { kind: "direct", direction: FORWARD }, pace: TURNING_PACE, gait: "run", face: null } }];
-      for (let k = 1; k * TURN_CUE <= TURNING; k++) {
-        const angle = condition.way * TURN_RATE * k * TURN_CUE;
-        cues.push({ at: START + RUN_UP + k * TURN_CUE, orders: { move: { kind: "direct", direction: { x: sin(angle), z: cos(angle) } }, pace: TURNING_PACE, gait: "run", face: null } });
+      for (let k = 1; k * CUE <= TURNING; k++) {
+        const angle = condition.way * TURN_RATE * k * CUE;
+        cues.push({ at: START + RUN_UP + k * CUE, orders: { move: { kind: "direct", direction: { x: sin(angle), z: cos(angle) } }, pace: TURNING_PACE, gait: "run", face: null } });
       }
       cues.push({ at: START + RUN_UP + TURNING, orders: STOP });
       return { last: START + RUN_UP + TURNING, cues };
@@ -171,6 +185,13 @@ export function scriptOf(condition: LocomotionCondition): { readonly cues: reado
     case "walk-run": return { last: START + 2 * RUN_UP + SETTLE, cues: [
       { at: START, orders: { move: { kind: "direct", direction: FORWARD }, pace: WALKING_PACE, face: FORWARD } },
       { at: START + RUN_UP, orders: { move: { kind: "direct", direction: FORWARD }, gait: "run", face: null } }, { at: START + 2 * RUN_UP + SETTLE, orders: STOP }] };
+    case "step": {
+      const way = toward(condition.way), orders: Orders = { move: placeMovement({ x: condition.distance * way.x, z: condition.distance * way.z }, ARRIVED), pace: condition.pace, face: FORWARD };
+      const cues: LoneCue[] = [];
+      for (let k = 0; k * CUE < WALK; k++) cues.push({ at: START + k * CUE, orders });
+      cues.push({ at: START + WALK, orders: STOP });
+      return { last: START + WALK, cues };
+    }
     default: { const never: never = condition; throw new Error(`no locomotion trial ${JSON.stringify(never)}`); }
   }
 }
@@ -232,6 +253,10 @@ const runsOf = (protocol: typeof RUN_BAR): LocomotionCondition[] => protocol.mod
       { kind: "run-moved", model, way: 1, ...held }, { kind: "run-moved", model, way: -1, ...held }, { kind: "walk-run", model, ...held }];
   }))));
 
+/** The short step's trials (`STEP`): each body and loadout, each way, distance and pace. */
+const stepsOf = (protocol: typeof STEP): LocomotionCondition[] => protocol.models.flatMap((model) => protocol.loadouts.flatMap((loadout) =>
+  protocol.ways.flatMap((way) => protocol.distances.flatMap((distance) => protocol.paces.map((pace): LocomotionCondition => ({ kind: "step", model, way, distance, pace, loadout }))))));
+
 /** How long a trial of `conditions` plays at most: its last cue and `AFTER`, s. */
 const longest = (conditions: readonly LocomotionCondition[]) => Math.max(...conditions.map((condition) => scriptOf(condition).last)) + AFTER;
 
@@ -268,6 +293,7 @@ export function createLocomotionCases(context: GameContext) {
     "every-twin": locomotionCases(EVERY_TWIN as unknown as Json, everyOf(EVERY_TWIN)),
     run: { ...locomotionCases(RUN_BAR as unknown as Json, runsOf(RUN_BAR)), twin: "run-twin" },
     "run-twin": locomotionCases(RUN_TWIN as unknown as Json, runsOf(RUN_TWIN)),
+    step: locomotionCases(STEP as unknown as Json, stepsOf(STEP)),
   });
 
   return { LOCOMOTION_CASES };
