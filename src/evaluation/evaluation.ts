@@ -214,6 +214,12 @@ export interface Cases<C extends Json = Json, R extends Json = Json, B extends B
   /** `seats` each seated subject's character (`Seat`): the attributes its bodies take and the variations they hold. */
   world(values: readonly Json[], condition: C, engine: EngineName, seats: readonly Seat[]): CaseWorld | Refused;
   read(built: B, condition: C): Reader<R>;
+  /**
+   * Whether a trial's bout is still in its opening: play that is the same whatever the trial then
+   * measures (a fight up to its drill's moment), where the protocol's trials have one. Research
+   * keeps a start at its end and plays trials from there (`research/starts.mjs`). In no key.
+   */
+  opening?(built: B): boolean;
 }
 
 /**

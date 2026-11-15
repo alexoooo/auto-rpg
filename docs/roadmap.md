@@ -73,10 +73,9 @@ owner's request. What each part waits on is in
 1. **A strike made by search**, judged on sparring's larger held-out draw
    ([the search](plans/2026-11-14-many-skills.md#part-2-a-strike-made-by-search-apart-from-the-legs),
    [the judge](plans/2026-11-14-many-skills.md#the-judge-of-a-try)).
-2. **Starts kept from fights**, which wait on no part
-   ([their notes](plans/2026-11-14-many-skills.md#starts-kept-from-fights)): a save loads under
-   a striker's tuning, on whatever build made it
-   ([the architecture](architecture.md#bouts-tapes-and-replay)).
+2. **The fights' drawn rungs played from kept starts**
+   ([their notes](plans/2026-11-14-many-skills.md#starts-kept-from-fights)): the bank is built
+   and reads the `fights` trials as they read played whole; its three drawn rungs are unplayed.
 3. **The base under a fight**: a second balance, which waits on a strike apart from the legs;
    a fight's cases are built and the stance is read on them
    ([its notes](plans/2026-11-14-fighting-base.md#where-it-stands)).

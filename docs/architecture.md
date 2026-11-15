@@ -852,7 +852,13 @@ seldom chooses is measured as often as one it favours. A fight is read in fights
 Option Mind against Option Mind in which the drill throws the strike in place of the blow the Mind
 was about to begin, and only what follows that moment is the trial's: `fight` (the Warrior's
 first four such moments) and `fights` (every striker's body, starting gaps of 3, 4 and 5 m, the
-first eight). No table cell reads either: a cell is its skill on its own merit.
+first eight). `fights-twin`, `fights-drawn` and `fights-judge` are fights drawn at random as
+sparring's starts are: each trial a fight of its own from a gap drawn between 3 and 5 m, its limb,
+mark and moment by turns, on a stream for ranking, one ten times larger for a search to draw from
+and one as large held out to judge on. A protocol of fights names its opening (`Cases.opening`),
+the fight before the drill's moment, and research keeps a bout saved at its end and plays a trial
+from there (`research/starts.mjs`, `.cache/starts/`). No table cell reads any of them: a cell is
+its skill on its own merit.
 
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)

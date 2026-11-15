@@ -57,8 +57,8 @@ drill's rung at a foe that fights back, from starts drawn at random (`sparring`,
 - **Each try plays its own side.** `punch-sparring.mjs --bar` plays every held-out start by the
   candidate and finds the drive's rows on them; `npm run evaluate` keeps its rows uncommitted
   and across commits ([the architecture](../architecture.md#evaluations)).
-- **Each trial of a search and of the judge is played from its start**: the wait, the walk into
-  the window and the play on to its reader's end, beside the stroke
+- **Each sparring trial of a search and of the judge is played from its start**: the wait, the
+  walk into the window and the play on to its reader's end, beside the stroke
   ([starts kept from fights](#starts-kept-from-fights)).
 - **A strike is tied to the legs and the footwork.** Among its 59 inputs the straight punch's
   network reads 20 leg-joint angles and speeds and four readings of the stance (each foot's
@@ -307,10 +307,35 @@ Part 2's search starts from the per-span form with its asks fitted
 
 **Where it stands.**
 
-- **A search's and the judge's trial is played from its start.** `playOne` makes the trial's
-  world, and `playCase` (`src/evaluation/play.ts`) or `steeredTrial` builds it and plays it from
-  the drill's first step to its reader's end (`punch-sparring.mjs`): the wait and the walk into
-  the window, the stroke, and the play on that the value reads.
+- **A sparring trial of a search and of the judge is played from its start.** `playOne` makes
+  the trial's world, and `playCase` (`src/evaluation/play.ts`) or `steeredTrial` builds it and
+  plays it from the drill's first step to its reader's end (`punch-sparring.mjs`): the wait and
+  the walk into the window, the stroke, and the play on that the value reads.
+- **A fight's trial is played from a start kept of it** (`research/starts.mjs`). A protocol
+  names its opening (`Cases.opening`: a fight while its drill's phase is `fighting`). `makeStart`
+  plays a trial's bout to the step its opening ends, saving it every 120 steps, puts it back to
+  the last save before, plays to two steps short of that end and saves there; played on, the
+  opening must end at the step it did. `startBank` keeps the save by its condition under its
+  evaluation, protocol and subject (`.cache/starts/`, outside Git), with where it came from, and
+  keeps a fight that never comes to its moment as no start. `playFrom` builds the trial's world,
+  puts a fresh reader beside it, loads the save and plays to the reader's end.
+- **A trial from its start reads what the whole trial reads.** Of the Warrior's punch's 48
+  `fights` trials, 34 come to their moments and 14 do not; each of the 34 played from its start
+  ends in the reading its whole trial ends in, to the last figure. Played whole the 48 take 350
+  core-seconds, their starts 323 to make, and the 34 from their starts 28: under a second a
+  trial against seven. A start is 311 KiB kept.
+- **Three rungs of fights are drawn for it** (`FIGHTS_TWIN`, `FIGHTS_DRAWN`, `FIGHTS_JUDGE`,
+  `src/evaluation/strike/cases.ts`): `fights-twin`, 960 fights a body, each from a gap drawn to
+  the millimetre between 3 and 5 m, its limb, mark and moment by turns, so no two trials share
+  what came before their moments; `fights-drawn`, ten times as many on a stream of its own for a
+  search to draw from; `fights-judge`, ten times as many on another that no search plays. The
+  Warrior's punch is asked at 240 of the twin's and 2,400 of each of the others. None is
+  played: how many come to their moments, and what the punch lands of them, is unread.
+- **The punch's tool plays them** (`punch-sparring.mjs`): `--bar <candidate> --on fights-twin`
+  and `--on fights-judge` make the starts the bank lacks by the drive's own bouts, then play the
+  candidate and the drive from the same saves; `--search --draws fights` draws a generation's
+  starts from `fights-drawn` and ranks on `fights-twin`. A candidate is the drive under other
+  settings; a variation of its own is refused there.
 - **The trainer keeps starts for its own run.** A learning environment given a `pool` plays each
   fresh draw to its learner's first decision, saves the world there and loads it for every
   episode begun from it (`WorldKind.save`, `research/case-learning-environment.mjs`). The saves
@@ -338,15 +363,17 @@ Part 2's search starts from the per-span form with its asks fitted
   (`rollout`, `research/rollouts.mjs`).
 - **The rung that reads a fight's commitments is small.** The Warrior's punch is asked at 48
   trials of `fights`: three gaps, two hands and eight moments the mind's own fight comes to
-  (`FIGHTS`, `src/evaluation/strike/cases.ts`). It reaches 42 of them and lands 13
-  ([the punch's notes](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)): 19
-  to 46 in a hundred at 95 %, by arithmetic, each moment counted as a fight of its own.
+  (`FIGHTS`, `src/evaluation/strike/cases.ts`). It reaches 34 of them and lands 6: 7 to 35 in a
+  hundred at 95 %, by arithmetic, each moment counted as a fight of its own.
 
 **The design.**
 
-- **A start is a trial of a fight saved at its moment**: the trial's own bout, its gap, its limb
-  and its moment drawn, played to the step its drill takes over (`reached`,
-  `src/minds/command/drill.ts`) and saved there, kept with its condition.
+- **A start is a trial of a fight saved two steps before its moment**: the trial's own bout, its
+  gap, its limb and its moment drawn, played to the step its drill takes over (`reached`,
+  `src/minds/command/drill.ts`), kept with its condition. Two steps before, so that a reader put
+  beside the loaded bout sees the fight's last step before it sees the drill's first.
+- **Each start is a fight of its own**, at a gap of its own: an interval drawn over starts is
+  drawn over fights.
 - **A trial is a start loaded and played on**: from the moment, through the drill's positioning
   and the stroke, to its reader's end. The fight before the moment is played once, for the bank.
 - **Both sides of a comparison play from one world.** A candidate and what it is read beside
@@ -368,36 +395,36 @@ Part 2's search starts from the per-span form with its asks fitted
   ([the code recipe](../recipes/code.md#code)): where there is reason
   to believe the fights the minds make now come to other moments.
 
-**What it would cost.** A start's fight is played to its moment once: at most 30 s, about 17
-core-seconds at sparring's cost, which is unread for a fight of two of the game's minds. A
-thousand starts are at most about five core-hours, by arithmetic. What a save takes on disk is
-unread.
+**What it costs.** A start's fight is played to its moment once: about seven core-seconds on
+the `fights` trials read. The twin's 240 fights for the Warrior's punch are about half a
+core-hour and the judge's 2,400 about five, by arithmetic, and a bank of 2,400 starts about
+0.7 GiB.
 
 **Open.**
 
+- **The drawn rungs are unplayed, and the tool's way to them is unrun**: `--on fights-twin`,
+  `--on fights-judge` and `--draws fights` have played nothing, so the bank holds nothing. How
+  many of the twin's fights come to their moments, what the drive lands of them, and whether a
+  candidate steered by a network's file or a trainer reads from a start as it does played whole
+  are unread. The 34 read are the drive's own, made and played by `makeStart` and `playFrom`.
 - **A start under another variation.** A save loads under a striker's tuning and under a
-  network's file ([where it stands](#starts-kept-from-fights)). A variation of its own is its
-  character's skill, which a load holds to (`DuelRecipe.skills`), and at a moment the mind's own
-  action is under way in the striker's memory; where it cannot load, its trial is a fight played
-  from its start.
-- **What a start carries of the mind that made it.** A candidate loaded at a moment does what
-  the save's mind had decided and not yet done: the orders and commands on their way, a step's
-  worth, and the moment's own action where the drill carries it on. On the `still` trials read,
-  that moved no reading from a fresh bout's; it is unread at a fight's moment.
+  network's file. A variation of its own is its character's skill, which a load holds to
+  (`DuelRecipe.skills`), and at a moment the mind's own action is under way in the striker's
+  memory; its trial is a fight played from its start, which the tool does not play beside a
+  kept one.
+- **What a start carries of the mind that made it.** A candidate loaded two steps before a moment
+  does what the save's mind had decided and not yet done: the orders and commands on their way,
+  and the moment's own action where the drill carries it on. On the `still` trials read, that
+  moved no reading from a fresh bout's; it is unread at a fight's moment.
 - **One fight for several starts.** Whether the fight before a moment is the same play
   whichever limb and moment its drill asks. Where it is, a load across the Commander's limb and
-  moment makes a start of each moment a fight comes to: six to eight of a fight's 30 s
-  ([the punch's notes](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)).
-- **Where a start is saved.** At the moment, it serves a candidate that moves where its strike
-  begins (`reach`, `band` and `pace` are among `SEARCHED`). At the strike's first decision, as
-  the trainer's pool saves it, it leaves out the positioning as well and serves only a candidate
-  that keeps the window.
-- **How starts are counted.** The moments of one fight share its history, so an interval is
-  drawn over fights where one drawn over moments would read too narrow.
-- **Which fights the bank holds**: the matchups, the loadouts and the gaps, beside the open
-  stage's 3, 4 and 5 m that `fights` plays.
-- **What it saves a try**: the share of a trial that is its walk in and of a fight that is before
-  its moment, each unread.
+  moment makes a start of each moment a fight comes to, and a bank costs a fraction of its
+  fights.
+- **Which fights the bank holds**: the matchups and the loadouts, beside the open stage's gaps
+  of 3 to 5 m.
+- **A walker's reach of its fellows is kept by the step's time alone** (`REACHES`,
+  `src/skills/locomotion/shared/navigation/crowd.ts`), as the strike option's reading of its
+  limbs was: a bout put back to a save could meet it stale. No reading shows it.
 
 ## Part 1: a variation declares its record
 
@@ -618,10 +645,8 @@ refactor the fingerprint shows. Two choices reach installed skills:
   start is the per-span fit with its asks' rows fitted. What it makes waits on Part 1 to be
   installed beside the drive, and on a steer that chooses a record's layer by the drive's age.
 - **A stance that knows of a blow waits on a reading that shows a strike needs it.**
-- **The kept starts wait on no part**: a save loads where its parts fit, under a striker's
-  tuning and whatever build made it
-  ([the architecture](../architecture.md#bouts-tapes-and-replay)). The larger measure of a fight
-  waits on the kept starts.
+- **The larger measure of a fight waits on the bank's first play**: the starts are made by the
+  drive's own bouts the first time a rung is asked (`--bar <candidate> --on fights-twin`).
 - **Another base waits on Part 2**: until a strike's layout holds no reading of the legs, a base
   other than the stance makes each strike's network a seed to retrain
   ([the base under a fight](2026-11-14-fighting-base.md#the-design)).
@@ -636,7 +661,9 @@ refactor the fingerprint shows. Two choices reach installed skills:
   `src/skills/strikes/shared/steer.ts`.
 - **The judge**: `bar` in `punch-sparring.mjs`; sparring's draws (`SPARRING`, `SPARRING_TWIN`,
   `SPARRING_DRAWN`, `SPARRING_JUDGE`) in `src/evaluation/strike/cases.ts`.
-- **Kept starts**: a bout's save and load, `Duel` in `src/game/arena/duel.ts`; a fork by a load,
+- **Kept starts**: the bank, `research/starts.mjs`; the drawn rungs, `FIGHTS_TWIN` and
+  `drawnFights` in `src/evaluation/strike/cases.ts`; a bout's save and load, `Duel` in
+  `src/game/arena/duel.ts`; a fork by a load,
   `research/rollouts.mjs`; the trainer's pool, `research/case-learning-environment.mjs`; a
   fight's moments, `FIGHTS` in `src/evaluation/strike/cases.ts` and `reached` in
   `src/minds/command/drill.ts`.

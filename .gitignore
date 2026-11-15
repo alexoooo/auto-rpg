@@ -14,6 +14,10 @@ public/assets/generated/
 # (scripts/evaluation-rows.mjs). `npm run clean` leaves them.
 .cache/evaluations/
 
+# Starts kept from fights, each a bout saved where its drill takes over, found again by its
+# condition (research/starts.mjs). `npm run clean` leaves them.
+.cache/starts/
+
 # Disposable work: probes, logs, before-readings, screenshots in .tmp/<task>/, worktrees in
 # .tmp/worktrees/<name>/. `npm run clean` deletes what is a day old.
 .tmp/
