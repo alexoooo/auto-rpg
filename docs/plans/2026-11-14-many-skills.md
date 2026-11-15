@@ -329,8 +329,8 @@ Part 2's search starts from the per-span form with its asks fitted
   the millimetre between 3 and 5 m, its limb, mark and moment by turns, so no two trials share
   what came before their moments; `fights-drawn`, ten times as many on a stream of its own for a
   search to draw from; `fights-judge`, ten times as many on another that no search plays. The
-  Warrior's punch is asked at 240 of the twin's and 2,400 of each of the others. None is
-  played: how many come to their moments, and what the punch lands of them, is unread.
+  Warrior's punch is asked at 240 of the twin's and 2,400 of each of the others. The twin is
+  played, read under Open below; the other two are not.
 - **The punch's tool plays them** (`punch-sparring.mjs`): `--bar <candidate> --on fights-twin`
   and `--on fights-judge` make the starts the bank lacks by the drive's own bouts, then play the
   candidate and the drive from the same saves; `--search --draws fights` draws a generation's
