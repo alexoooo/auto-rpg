@@ -932,6 +932,8 @@ renderer, character assets and gameplay resources for the screen's lifetime.
   contacts in sight. Wounds to the same fighter and part accumulate until a 0.7-second gap between
   contacts. A total below 0.1 HP draws a tiny pale-gold spark; at 0.1 HP it becomes a brighter
   burst with a floating number showing the accumulated HP lost.
+  Outlined spark strokes and minimum screen sizes keep the effects legible as the camera zooms out;
+  the spark remains half the burst's diameter and briefly holds before fading.
   While the Arena's end rules drain life, red screen edges pulse on the bout's clock, both health
   bars glow; the cue clears at the verdict or when leaving the bout.
 - **Player input** (`src/app/browser/ui/player-controls.ts`): Arena and Dungeon share click and held-pointer

@@ -1,5 +1,7 @@
 import { Constants } from "@babylonjs/core/Engines/constants.js";
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { Camera } from "@babylonjs/core/Cameras/camera.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture.js";
@@ -9,8 +11,11 @@ import type { DamageCue } from "../../worker/damage-cues.ts";
 /** A tight contact burst, m across, held long enough to read a hit at real speed. */
 const DIAMETER = .28, SECONDS = .18;
 
-/** Light contacts use three pale-gold strokes, m across and s visible, without a number. */
-const SPARK_DIAMETER = .1, SPARK_SECONDS = .1, NUMBER_MINIMUM = .1;
+/** Light contacts are half-size strokes, briefly held before fading, s, without a number below this HP. */
+const SPARK_SCALE = .5, SPARK_SECONDS = .2, SPARK_HOLD = .05, NUMBER_MINIMUM = .1;
+
+/** Minimum burst diameter in CSS pixels; the half-size spark retains visible strokes when zoomed out. */
+const MIN_DIAMETER_PIXELS = 20;
 
 /** A number lingers above the contact long enough to read, s. */
 const NUMBER_SECONDS = .7;
@@ -73,15 +78,17 @@ export function damageFlashes(scene: Scene) {
   const sparkCanvas = document.createElement("canvas");
   sparkCanvas.width = sparkCanvas.height = 128;
   const sparkContext = sparkCanvas.getContext("2d")!;
-  sparkContext.strokeStyle = "#e4ca8d"; sparkContext.lineWidth = 7; sparkContext.lineCap = "round";
+  sparkContext.lineCap = "round";
   sparkContext.beginPath();
-  sparkContext.moveTo(48, 60); sparkContext.lineTo(23, 39);
-  sparkContext.moveTo(63, 48); sparkContext.lineTo(67, 17);
-  sparkContext.moveTo(78, 61); sparkContext.lineTo(105, 46);
-  sparkContext.stroke();
+  sparkContext.moveTo(47, 62); sparkContext.lineTo(18, 32);
+  sparkContext.moveTo(64, 48); sparkContext.lineTo(64, 10);
+  sparkContext.moveTo(81, 62); sparkContext.lineTo(113, 36);
+  sparkContext.strokeStyle = "#302214"; sparkContext.lineWidth = 26; sparkContext.stroke();
+  sparkContext.strokeStyle = "#ffe1a3"; sparkContext.lineWidth = 16; sparkContext.stroke();
   const sparkTexture = new DynamicTexture("damage spark", sparkCanvas, scene, false);
   sparkTexture.hasAlpha = true; sparkTexture.update();
   const sparkMaterial = markerMaterial("damage spark", sparkTexture, scene);
+  const cameraPoint = new Vector3();
   const state = { pending: [] as DamageCue[], flashes: new Map<string, {
     mesh: Mesh; number: ReturnType<typeof damageNumber> | null; damage: number; time: number;
   }>() };
@@ -117,13 +124,19 @@ export function damageFlashes(scene: Scene) {
         flash.mesh.position.set(cue.point[0], cue.point[1], cue.point[2]);
         return false;
       });
+      const camera = scene.activeCamera, engine = scene.getEngine();
+      const height = engine.getRenderingCanvas()?.clientHeight || engine.getRenderHeight();
+      const pixelsAtUnitDepth = camera ? height * camera.viewport.height * camera.getProjectionMatrix().m[5]! / 2 : 0;
       for (const [key, { mesh, number, damage, time: began }] of state.flashes) {
         const elapsed = time - began, age = elapsed / NUMBER_SECONDS;
         if (age >= 1) { mesh.dispose(false, false); number?.dispose(); state.flashes.delete(key); continue; }
         const light = damage < NUMBER_MINIMUM, seconds = light ? SPARK_SECONDS : SECONDS;
         mesh.setEnabled(elapsed < seconds);
-        mesh.visibility = (light ? .75 : 1) * Math.max(0, 1 - elapsed / seconds);
-        mesh.scaling.setAll((light ? SPARK_DIAMETER / DIAMETER : 1) * (.7 + .3 * Math.min(1, elapsed / seconds)));
+        mesh.visibility = Math.max(0, light ? 1 - Math.max(0, elapsed - SPARK_HOLD) / (seconds - SPARK_HOLD) : 1 - elapsed / seconds);
+        if (camera) Vector3.TransformCoordinatesToRef(mesh.position, camera.getViewMatrix(), cameraPoint);
+        const depth = camera?.mode === Camera.PERSPECTIVE_CAMERA ? Math.abs(cameraPoint.z) : 1;
+        const minimum = pixelsAtUnitDepth > 0 ? MIN_DIAMETER_PIXELS * depth / (DIAMETER * pixelsAtUnitDepth) : 0;
+        mesh.scaling.setAll((light ? SPARK_SCALE : 1) * Math.max(minimum, .7 + .3 * Math.min(1, elapsed / seconds)));
         if (number) {
           number.mesh.position.copyFrom(mesh.position); number.mesh.position.y += .18 + .3 * age;
           number.mesh.visibility = Math.min(1, (1 - age) / .35);
