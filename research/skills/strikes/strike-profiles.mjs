@@ -31,8 +31,10 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  * let its strike go (`letGo`) prices letting go alone: the progress of the motion it was let go at
  * (the seconds from its start, to the step), the seconds from the let-go until the hand was back at
  * its guard (the trial's end where it was not), and the hit points the striker lost meanwhile.
- * A profile is of one limb, as one Option strikes with one (`limbAction`): its skill's digest is
- * of the action struck with that limb, and it names the limb (`Profile.limbs`).
+ * A profile is of one limb, as one Option strikes with one (`limbAction`), and names it
+ * (`Measured.limb`) beside its skill as the body holds it (`strikeSkill`). Where it came from
+ * (`Origin`) is the digests of its body, of the action struck with that limb and of the body
+ * struck, and its runs' commit and day where they share one.
  *
  *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/strike-profiles.mjs <run.json> ... [--write]
  *
@@ -46,10 +48,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
 import { partIn, partLookup } from "../../../src/app/catalog.ts";
 import { limbAction } from "../../../src/minds/option/kinds.ts";
-import { measuredOn, skillDigest, specDigest } from "../../../src/skills/framework/profile.ts";
+import { holdsOf, measuredOn, skillDigest, specDigest, strikeSkill } from "../../../src/skills/framework/profile.ts";
 import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
-import { profileKeys } from "../../../tests/harness/profile-keys.mjs";
+import { profileKey, profileKeys } from "../../../tests/harness/profile-keys.mjs";
 import { lifeFactor } from "../../../src/combat/pool.ts";
 import { rulebook } from "../../../src/combat/rulebook.ts";
 
@@ -119,11 +121,13 @@ for (const path of paths) {
     const limbed = limbAction(action, drill.effector), marks = marksOf(action);
     if (marks && !marks.includes(row.condition.mark)) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
-    const struck = specOf(recipe, "right"), target = { body: struck.model, spec: specDigest(struck) };
-    const measured = measuredOn(spec, skillDigest(partLookup, spec, executors, limbed), hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
-    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector} on ${struck.model}`, effectors: limbed.effectors, limbs: new Set(), trials: [] };
+    const struck = specOf(recipe, "right"), held = holdsOf(struck), target = { body: struck.model, ...(held === undefined ? {} : { holds: held }) };
+    const measured = measuredOn(spec, strikeSkill(spec, executors, limbed), drill.effector, hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
+    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector} on ${struck.model}`,
+      digests: { spec: specDigest(spec), skill: skillDigest(partLookup, spec, executors, limbed), target: specDigest(struck) }, commits: new Set(), dates: new Set(), trials: [] };
     profiles.set(key, profile);
-    profile.limbs.add(drill.effector);
+    profile.commits.add(header.commit ?? null);
+    profile.dates.add(header.date ?? null);
     const r = row.reading;
     if (r.foePhase === undefined) throw new Error(`${path}: no foePhase in its readings; play its rung again`);
     if (r.foePhase === null || r.foeAt === null || r.began === null) continue;
@@ -153,11 +157,15 @@ for (const profile of profiles.values()) {
   profile.trials = profile.trials.filter((trial) => recorded(trial) === most);
 }
 const order = (a, b) => (a.start.postures?.target ?? "").localeCompare(b.start.postures?.target ?? "") || a.start.phase.localeCompare(b.start.phase) || a.start.range - b.start.range;
-const made = [...profiles.values()].map((profile) => ({ measured: profile.measured, target: profile.target,
-  limbs: profile.effectors.filter((limb) => profile.limbs.has(limb)), trials: [...profile.trials].sort(order) }));
+/** The one value of `values` that is known; undefined where they differ or none is. */
+const shared = (values) => values.size === 1 ? [...values][0] ?? undefined : undefined;
+const made = [...profiles.values()].map((profile) => {
+  const commit = shared(profile.commits), date = shared(profile.dates);
+  return { measured: profile.measured, target: profile.target, from: { ...profile.digests, ...(commit === undefined ? {} : { commit }), ...(date === undefined ? {} : { date }) }, trials: [...profile.trials].sort(order) };
+});
 for (const profile of profiles.values()) {
   const m = profile.measured, run = profile.trials.filter((t) => !t.letGo), lets = profile.trials.length - run.length;
-  console.log(`${profile.label} (${m.body}, spec ${m.spec}, skill ${m.skill}, ${m.hz} Hz${m.rate ? `, its mind at ${m.rate} Hz` : ""}${m.delay ? `, its command ${m.delay} steps late` : ""}, senses ${m.reaction} s late)`);
+  console.log(`${profile.label} (${m.body}${m.holds ? ` holding ${m.holds}` : ""}, ${m.skill} with ${m.limb}, ${m.hz} Hz${m.rate ? `, its mind at ${m.rate} Hz` : ""}${m.delay ? `, its command ${m.delay} steps late` : ""}, senses ${m.reaction} s late)`);
   if (!run.length) { console.log(`  no trial run; ${lets} let go`); continue; }
   const ranges = run.map((t) => t.start.range), closing = run.map((t) => t.start.velocity?.[0] ?? 0), across = run.map((t) => t.start.velocity?.[1] ?? 0);
   const ahead = run.map((t) => t.start.window?.[0] ?? 0), aside = run.map((t) => t.start.window?.[1] ?? 0);
@@ -171,6 +179,7 @@ for (const profile of profiles.values()) {
 if (write) {
   // Each of the asset's profiles keeps its place; one a run made again is replaced there, and the new follow.
   const keyOf = (profile) => JSON.stringify([profile.measured, profile.target]), current = profileKeys().strike;
+  const named = (m) => `${m.body}${m.holds ? ` holding ${m.holds}` : ""}, ${m.skill}${m.limb ? ` with ${m.limb}` : ""}`;
   const remade = new Map(made.map((profile) => [keyOf(profile), profile])), kept = [], asset = JSON.parse(readFileSync(OUT, "utf8"));
   // An asset measured on other rungs holds no profile to keep beside these.
   const measuredOnRungs = JSON.stringify(asset.source?.protocols ?? null) === JSON.stringify(PROTOCOLS);
@@ -180,8 +189,8 @@ if (write) {
     const again = remade.get(keyOf(profile));
     remade.delete(keyOf(profile));
     if (again) kept.push(again);
-    else if (current.has(`${profile.measured.body} ${profile.measured.spec} ${profile.measured.skill}`)) kept.push(profile);
-    else console.log(`dropped: ${profile.measured.body} (spec ${profile.measured.spec}), skill ${profile.measured.skill}, which no preset throws now`);
+    else if (current.has(profileKey(profile.measured))) kept.push(profile);
+    else console.log(`dropped: ${named(profile.measured)}, which no preset throws now`);
   }
   writeFileSync(OUT, `${JSON.stringify({ source: { script: SCRIPT, protocols: PROTOCOLS }, profiles: [...kept, ...remade.values()] }, null, 2)}\n`);
 }

@@ -160,7 +160,7 @@ function strikeSkills(parts: PartLookup, spec: BodySpec, config: StrikeConfig, o
 /** Each action struck with one of its limbs (`limbAction`), by its limb: configs are data, so a narrowing is made once and is the same config at every make. */
 const LIMBED = new WeakMap<ActionConfig, Map<string, ActionConfig>>();
 
-/** **`action` struck with `limb` alone**: what one Option of a strike asks of its skill, and what its profile is measured of (`skillDigest`). */
+/** **`action` struck with `limb` alone**: what one Option of a strike asks of its skill, and what its profile is measured of (`strikeMeasure`). */
 export function limbAction(action: ActionConfig, limb: string): ActionConfig {
   let by = LIMBED.get(action);
   if (!by) LIMBED.set(action, by = new Map());
@@ -203,7 +203,7 @@ function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, li
       const executors = [executor], blows = given.parts.of("executor", executor).blows?.(executor) ?? 1;
       return action.effectors.map((limb) => {
         const one = limbAction(action, limb);
-        const option = strike(one, given.walk, blows, strikeMeasure(given.parts, given.spec, executors, one, given.hz, given.tables.strikes, given.rate ?? given.hz, given.delay), `${action.name} ${limb}`);
+        const option = strike(one, given.walk, blows, strikeMeasure(given.spec, executors, one, given.hz, given.tables.strikes, given.rate ?? given.hz, given.delay), `${action.name} ${limb}`);
         const support = config.support && given.parts.of("support", config.support).fits(given.spec, config.support, given.parts) === null ? config.support : null;
         return support ? choosingSkill(option, { ...support, variation: chosenVariation(given.spec, support.kind, support) }, given.parts.of("support", support).label, "supportSkill") : option;
       });

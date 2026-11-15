@@ -104,8 +104,8 @@ effector segment (`BodyView.pointMotion`).
   Warrior, the Rogue, the Skeleton, the rat and the reptile), the one a model alone stands for and
   whose label names the model on a page (`modelLabel`). Each variation held is a skill of
   its own to its mind: its executor runs that variation (`Varied.variation`), named by the
-  variation too where the body holds several of the skill, and is measured as it is held alone
-  (`skillDigest`). A bout's recipe carries each side's model, its character where it is not the model's own
+  variation too where the body holds several of the skill, and its profile is found by the skill
+  and variation (`strikeSkill`, `src/skills/framework/profile.ts`). A bout's recipe carries each side's model, its character where it is not the model's own
   (`DuelRecipe.characters`) and its skills (`DuelRecipe.skills`); the Arena's matchup names
   characters (`matchup=warrior,rogue`, a model's name standing for its own), and the Arena sets the skills by its panel and its link
   (`left.skills=straight-punch/drive,straight-punch/from-guard,stomp/stomp`, `src/game/skill-link.ts`). The physical keys and validation live in the body domain; editor labels,
@@ -342,7 +342,7 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   `assets/skills/strikes/<skill>/<variation>.json`, by model, its data `dataOf("<skill>/<variation>")`.
   A skill's part fits only a body whose character has the skill and runs the variation it chose
   (`variationFault`, `heldVariation`, `src/skills/framework/variations.ts`), so the Option Mind
-  offers only the character's skills; a strike's digest names its variation (`skillDigest`).
+  offers only the character's skills; a strike's profile is found by its skill and variation (`strikeSkill`).
   Every skill part is a skill a character chooses so, whatever its role (`Part.variations`): the
   guards, Move and the paw gaits, the gaits, low support, the recovery techniques and the
   navigations as the strikes. Each but a strike has one variation, named as its skill
@@ -576,7 +576,16 @@ The profile model supplies these components:
 - **Percepts** (`PERCEPTS`) and **predictions** (`PREDICTIONS`) are read into the `Situation`
   the first time a step asks for each and kept for the step (`perceiver`); predictions price from
   measured profiles (`Profile`, `src/skills/framework/profile.ts`),
-  a stale one unread and a model with none priced by its prior. A measured predictor may receive
+  a stale one unread and a model with none priced by its prior. A profile is found by the question
+  it answers (`Measured`): its skill and variation as the body's character holds it (`strikeSkill`,
+  `techniqueSkill`), a strike's limb, the body's model and what it holds (`holdsOf`); a strike's is
+  the one measured against the body it strikes, that body's model holding what it holds, else one
+  against its model, else the first, read scaled (`profileAgainst`). It is read only at the world's
+  rate, the mind's rate, the command's delay and the senses' reaction time it was measured at
+  (`staleness`). Where it came from (`Origin`: the digests of its body, its skill and the body
+  struck, its commit and day) is kept on it and gates nothing, so a retrained network, a tuned
+  setting or a number a character sets keeps its profile until its tool measures it again. A foe
+  is modelled by the profiles of the skills its character holds (`profilesOn`). A measured predictor may receive
   immutable ground profiles (`edges`) for the skill settings an experiment runs. A profile is a sample of
   trials, a strike's thrown against a foe fighting back (the Strike drill's `sparring` rungs) and a ground Option's tried
   in falls, each keeping what it brought and where it began (the range, the foe's phase,

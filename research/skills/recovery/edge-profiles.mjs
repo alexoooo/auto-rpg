@@ -12,8 +12,10 @@ import { workerJobs } from "../../worker-jobs.mjs";
  * where its Option noted it done and the body is then where it goes (a way up's edge, on its feet
  * for one to standing; flatten's lie; a brace's, where a way up is begun next); else it ended down
  * where the body lies then (`Trial.end`).
- * Each profile names what it was measured on: the body as the fall builds it, the technique's
- * config, the world's rate and the command's delay. Node, core world, the gameplay engine, 120 Hz.
+ * Each profile names what it was measured on: the body's model and what it holds, the technique
+ * as the body holds it, the world's rate and the command's delay; and where it came from
+ * (`Origin`): its body's and its technique's digests, the build's commit, whether a build input
+ * differed from it, and the day. Node, core world, the gameplay engine, 120 Hz.
  *
  *   node research/skills/recovery/edge-profiles.mjs [--model <model>] [--offsets 5.625,16.875] [--workers N] [--write]
  *     [--rows <trials.jsonl>]
@@ -68,16 +70,17 @@ if (isMainThread) {
   for (const p of sorted) {
     const byFrom = new Map();
     for (const t of p.trials) { const f = byFrom.get(t.start.postures.own) ?? { n: 0, done: 0, seconds: 0 }; f.n++; f.done += t.done ? 1 : 0; f.seconds += t.seconds; byFrom.set(t.start.postures.own, f); }
-    console.log(`${p.label} ${p.measured.spec}: ${[...byFrom].map(([from, f]) => `from ${from} ${f.done}/${f.n} done, ${(f.seconds / f.n).toFixed(2)} s`).join("; ")}`);
+    console.log(`${p.label}${p.measured.holds ? ` holding ${p.measured.holds}` : ""}: ${[...byFrom].map(([from, f]) => `from ${from} ${f.done}/${f.n} done, ${(f.seconds / f.n).toFixed(2)} s`).join("; ")}`);
   }
   const { modelSpec } = await import("../../../src/core/bodies/models.ts");
   const body = values.model ? modelSpec(values.model).model : null;
-  const refreshed = sorted.map((p) => ({ measured: p.measured, target: null, trials: p.trials }));
+  const commit = /^git:([0-9a-f]+)/.exec(BUILD_IDENTITY)?.[1], played = { ...(commit ? { commit, changed: BUILD_IDENTITY.includes("+uncommitted:") } : {}), date: new Date().toISOString().slice(0, 10) };
+  const refreshed = sorted.map((p) => ({ measured: p.measured, target: null, from: { ...p.from, ...played }, trials: p.trials }));
   const out = { source: { script: "research/skills/recovery/edge-profiles.mjs", engine: DEFAULT_ENGINE, falls: "rising-target", offsets },
     profiles: [...(retained?.profiles.filter((p) => p.measured.body !== body) ?? []), ...refreshed] };
   // A trial a line: the file stays readable at a few thousand trials.
   const text = `{\n  "source": ${JSON.stringify(out.source)},\n  "profiles": [\n${out.profiles.map((p) =>
-    `    { "measured": ${JSON.stringify(p.measured)}, "target": null, "trials": [\n${p.trials.map((t) => `      ${JSON.stringify(t)}`).join(",\n")}\n    ] }`).join(",\n")}\n  ]\n}\n`;
+    `    { "measured": ${JSON.stringify(p.measured)}, "target": null, "from": ${JSON.stringify(p.from ?? {})}, "trials": [\n${p.trials.map((t) => `      ${JSON.stringify(t)}`).join(",\n")}\n    ] }`).join(",\n")}\n  ]\n}\n`;
   if (values.write) writeFileSync(OUT, text);
 } else {
   parentPort.on("message", async ([i, job]) => parentPort.postMessage([i, await edgeTrial(job)]));

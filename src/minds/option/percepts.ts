@@ -205,10 +205,11 @@ function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySp
 }
 
 /**
- * **The strikes a foe of `foe` is modelled by**: those measured on its body (`profilesOn`, each
- * skill's profiles one strike, `strikesOf`), else this body's own measured (`Seen.strikes`), each
+ * **The strikes a foe of `foe` is modelled by**: those its character holds that are measured on
+ * its body (`profilesOn`, each skill's profiles with a limb one strike, `strikesOf`), else this
+ * body's own measured (`Seen.strikes`), each
  * read by its profile against this body (`modelOf`), fresh at the senses' reaction time and
- * this mind's rate (`Seen.rate`: a foe's mind is taken for one like it) and thrown with the limbs it names (`Profile.limbs`); and each other limb the foe strikes with
+ * this mind's rate (`Seen.rate`: a foe's mind is taken for one like it) and thrown with the limb it names (`Measured.limb`); and each other limb the foe strikes with
  * (`defaultStrikeLimbs`), by its prior. A foe's strikes are not sensed, so its limbs stand for them: a limb
  * no measured strike throws is priced by hand while the others are measured.
  */
@@ -222,14 +223,14 @@ function foeModel(seen: Seen, foe: BodySpec, postures: Postures = STANDING): Mod
   return { ...model, priced: limbs.length && strikes.length ? `${source}; by hand: ${limbs.join(", ")}` : source };
 }
 
-/** **The strikes `profiles` measure**, each skill's profiles one strike (`ModelledStrike`), named by its skill and thrown with the limbs its first names. */
+/** **The strikes `profiles` measure**, each skill's profiles with one limb one strike (`ModelledStrike`), named by its skill and its limb and thrown with that limb. */
 function strikesOf(profiles: readonly Profile[]): readonly ModelledStrike[] {
   const bySkill = new Map<string, Profile[]>();
   for (const profile of profiles) {
-    const of = bySkill.get(profile.measured.skill);
-    if (of) of.push(profile); else bySkill.set(profile.measured.skill, [profile]);
+    const { skill, limb } = profile.measured, name = limb === undefined ? skill : `${skill} ${limb}`, of = bySkill.get(name);
+    if (of) of.push(profile); else bySkill.set(name, [profile]);
   }
-  return [...bySkill].map(([name, of]) => ({ name, limbs: of[0]!.limbs ?? [], profiles: of }));
+  return [...bySkill].map(([name, of]) => ({ name, limbs: of[0]!.measured.limb === undefined ? [] : [of[0]!.measured.limb], profiles: of }));
 }
 
 /** **This body's own strikes** (`Seen.strikes`) at a body of `struck`, read at `postures` (`modelOf`). */

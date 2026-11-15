@@ -1,10 +1,10 @@
-import { profileKeys } from "../harness/profile-keys.mjs";
+import { profileKey, profileKeys } from "../harness/profile-keys.mjs";
 import "../harness/preload-data.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolveCharacter } from "../../src/core/bodies/models.ts";
-import { profileAgainst, profilesFor, skillDigest, specDigest } from "../../src/skills/framework/profile.ts";
+import { holdsOf, profileAgainst, profilesFor, profilesOn, skillDigest } from "../../src/skills/framework/profile.ts";
 import { record } from "../../src/minds/option/value.ts";
 import { buildBout } from "../../src/app/node/evaluation.ts";
 import { recipeOf } from "../../src/app/node/setup.ts";
@@ -12,7 +12,7 @@ import { reportNow } from "../../src/minds/seat/apart.ts";
 
 /**
  * Every measured profile (`assets/skills/strikes/strike-profiles/strike-profiles.json`) is of a skill the game has, on a body
- * it builds (`profileKeys`): a profile is read only where its body, spec digest and skill digest are the reader's
+ * it builds (`profileKeys`): a profile is read only where its body, what it holds, its skill and its limb are the reader's
  * (`staleness`), so one keyed to a skill or body that has moved on is never read, and a strike or
  * edge that has none is priced by hand in silence.
  */
@@ -24,8 +24,7 @@ test("every measured profile is of a current skill on a current body", () => {
     const path = kind === "strike" ? "../../assets/skills/strikes/strike-profiles/strike-profiles.json" : "../../assets/skills/recovery/edge-profiles.json";
     const { profiles } = JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
     assert.ok(profiles.length > 0, `${path} holds profiles`);
-    for (const { measured } of profiles) if (!keys[kind].has(`${measured.body} ${measured.spec} ${measured.skill}`))
-      stale.push(`${kind}: ${measured.body} (spec ${measured.spec}), skill ${measured.skill}`);
+    for (const { measured } of profiles) if (!keys[kind].has(profileKey(measured))) stale.push(`${kind}: ${profileKey(measured)}`);
   }
   assert.deepEqual(stale, [], "profiles keyed to no current skill on a current body: measure them again (research/<kind>-profiles.mjs)");
 });
@@ -39,13 +38,13 @@ test("every measured profile is of a current skill on a current body", () => {
 test("a strike is read by its profile measured against the body it strikes", () => {
   const { profiles } = JSON.parse(readFileSync(new URL("../../assets/skills/strikes/strike-profiles/strike-profiles.json", import.meta.url), "utf8"));
   const specs = ["man", "woman", "skeleton"].map((model) => resolveCharacter({ model }).spec);
-  const skills = new Map(profiles.map(({ measured }) => [`${measured.body} ${measured.spec} ${measured.skill}`, measured]));
+  const skills = new Map(profiles.map(({ measured }) => [profileKey(measured), measured]));
   const wrong = [];
   let read = 0;
   for (const [key, measured] of skills) {
     const found = profilesFor(profiles, { ...measured, reaction: null });
     for (const struck of specs) {
-      const against = found.fresh.filter((profile) => profile.target.spec === specDigest(struck));
+      const against = found.fresh.filter((profile) => profile.target.body === struck.model && profile.target.holds === holdsOf(struck));
       if (against.length === 0) continue;
       read++;
       const profile = profileAgainst(found.fresh, struck);
@@ -54,6 +53,28 @@ test("a strike is read by its profile measured against the body it strikes", () 
   }
   assert.ok(read > skills.size, `the stored profiles reached a skill measured against several bodies: ${read} readings of ${skills.size} skills`);
   assert.deepEqual(wrong, [], "strikes read by a profile measured against another body than the one struck");
+});
+
+/**
+ * **A foe is modelled by the strikes its character holds** (`profilesOn`): the stored profiles hold
+ * a model's punch in two variations, and its character holds one. Found by the body's digest, which
+ * leaves its skills out, a Warrior holding `straight-punch/drive` was modelled as throwing
+ * `straight-punch/from-guard` beside it.
+ */
+test("a foe is modelled by the profiles of the skills its character holds", () => {
+  const { profiles } = JSON.parse(readFileSync(new URL("../../assets/skills/strikes/strike-profiles/strike-profiles.json", import.meta.url), "utf8"));
+  const strayed = [];
+  let others = 0;
+  for (const model of ["man", "woman", "skeleton"]) {
+    const spec = resolveCharacter({ model }).spec, on = profiles.filter(({ measured }) => measured.body === model && measured.holds === holdsOf(spec));
+    assert.ok(on.length > 0, `the stored profiles hold a ${model}'s strikes`);
+    others += on.filter(({ measured }) => !spec.skills.includes(measured.skill)).length;
+    const { hz, reaction, rate, delay } = on[0].measured, { fresh, stale } = profilesOn(profiles, spec, hz, reaction, rate ?? hz, delay ?? 0);
+    assert.ok(fresh.length > 0, `a ${model} is modelled by measured strikes: ${stale}`);
+    for (const { measured } of fresh) if (!spec.skills.includes(measured.skill)) strayed.push(`${model}: ${measured.skill} with ${measured.limb}`);
+  }
+  assert.ok(others > 0, "the stored profiles reached a variation a model's own character does not hold");
+  assert.deepEqual(strayed, [], "foes modelled by strikes their characters do not hold");
 });
 
 /**

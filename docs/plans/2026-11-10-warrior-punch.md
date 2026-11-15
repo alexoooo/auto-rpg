@@ -202,8 +202,8 @@ Skeleton causes; held items; Option Mind’s own punch choice and combat footwor
 
 **The punch from its guard.** The straight punch’s `from-guard` variation
 (`src/skills/strikes/straight-punch/from-guard/`), which commits only with the striking arm at its
-guard and still, has a profile of its own: a strike's profile is keyed by its digest, which names
-its variation (`skillDigest`). Its arm waits about 0.1 s a punch before the drive begins on the
+guard and still, has a profile of its own: a strike's profile is found by its skill and
+variation (`strikeSkill`). Its arm waits about 0.1 s a punch before the drive begins on the
 Warrior and the Rogue.
 
 In `fights`, with every strike priced from sparring, Option Mind begins few punches: of the 144

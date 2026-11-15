@@ -3,12 +3,13 @@
 Notes on how the game finds a strike's profile, a bout's save and a recording. Each is found by
 the question it answers, as a played row is
 ([played rows kept and found](2026-11-14-saved-results.md)). No try of a skill waits on them:
-every try reads played rows. They describe a design under consideration; nothing in it is built.
+every try reads played rows. A profile is found so
+([the architecture](../architecture.md#minds)); a save and a recording are not, and a
+number a character sets is no coordinate of a trial.
 
 ## Goal
 
-- **A profile is found by its skill, its variation and the body's model**, a strike's also by
-  the model of the body it strikes, and a number a character sets is a condition of its trials.
+- **A number a character sets is a condition of a profile's trials.**
 - **A save and a recording load across commits**, each part of them that fits.
 - **A result says where it came from**, so a reader can judge it.
 
@@ -17,9 +18,26 @@ every try reads played rows. They describe a design under consideration; nothing
 Some results are found by the question they answer and reused across every change: a saved
 reading (its subject and protocol, the newest read, `resultOf`, `src/evaluation/results.ts`), a
 skill's record and its network (the body's model, `recordFault`,
-`src/skills/framework/records.ts`), and the stance's envelope and calibration (the body's model,
-`assets/skills/locomotion/stance/`). That is the form this design gives a profile, a save and a
-recording.
+`src/skills/framework/records.ts`), the stance's envelope and calibration (the body's model,
+`assets/skills/locomotion/stance/`), and a profile.
+
+**A profile is found by its question** (`Measured`, `src/skills/framework/profile.ts`): its skill
+and variation as the body's character holds it (`strikeSkill`, `techniqueSkill`), a strike's
+limb, the body's model and what it holds (`holdsOf`). A strike has a profile for each body it was
+sparred against, and is read by the one against the body it strikes: that body's model holding
+what it holds, else one against its model, else the first, read scaled (`profileAgainst`). The
+world's rate, the mind's rate, the command's delay and the senses' reaction time still gate a
+reading (`staleness`): a profile measured at others is not read. Where it came from is kept on it
+and gates nothing (`Origin`): the digests of its body, its skill and the body it struck, and the
+commit and day where its tool knows them. A foe is modelled by the profiles of the skills its
+character holds (`profilesOn`).
+
+So a retrained network, a tuned setting or a number a character sets (Balance, haste, the
+physique's scales) keeps its profile until its tool measures it again
+(`research/skills/strikes/strike-profiles.mjs`, `research/skills/recovery/edge-profiles.mjs`),
+and is read as measured at the defaults: every stored trial began at its bodies' defaults, and a
+trial records none of those numbers. A strike thrown holding what none of its profiles was
+measured holding has no profile, and is priced by its prior.
 
 **Keyed by the build.** The build's identity is the commit checked out, and a mark made anew by
 each run where a build input is uncommitted (`currentBuildIdentity`,
@@ -30,40 +48,18 @@ each run where a build input is uncommitted (`currentBuildIdentity`,
 | A bout's save and its tape | `Duel` (`requireRecordingIdentity`, `src/core/world/recording.ts`) | the save refuses to load |
 | A body's recorded commands, a mind's replay log | `src/game/combatant.ts`, `src/minds/seat/replay.ts`, `research/bout-pool.mjs` | the recording refuses |
 
-**Keyed by an exact digest.** A strike's profile is found by a digest of the body's whole spec but
-its wounds and skills (`specDigest`), of the skill's config and the body's row of each record it
-reads (`skillDigest`), and by the rate, the reaction time, the mind's rate and the command delay
-(`measuredOn`, `src/skills/framework/profile.ts`). A strike has a profile for each body it was
-sparred against, and is read by the one against the body it strikes: the one whose target has
-that body's spec digest, else one against another of its model, else the first, read scaled
-(`profileAgainst`). A technique's profile is found by its config and the body's whole row of each
-record (`techniqueDigest`). So a retrained network, a tuned setting or a number a character sets
-(Balance, haste, the physique's scales) loses the profile; such a number set on the struck body
-leaves the strike read by its profile against that body's model, as scaled.
-
-A profile not found is not read. The body's own mind prices its strike by a prior set by hand
-(`profilesFor`, `src/skills/framework/profile.ts`), and a foe's mind models it as its own strikes
-or by hand (`foeModel`, `src/minds/option/percepts.ts`). Sparring the Warrior's punch at a
-Balance of 0.01 per cent, where the assist gives under 0.1 N, takes 3.6 times the life it takes
-at 0 on the same 240 starts, and holds less than half the table's value
-([the skills' notes](2026-11-14-many-skills.md#part-2-a-strike-made-by-search-apart-from-the-legs)).
-The profile measured at 0 is a far better guess there than the prior.
+Sparring the Warrior's punch at a Balance of 0.01 per cent, where the assist gives under 0.1 N,
+takes 3.6 times the life it takes at 0 on the same 240 starts, and holds less than half the
+table's value
+([the skills' notes](2026-11-14-many-skills.md#part-2-a-strike-made-by-search-apart-from-the-legs)):
+a reading of fights in which neither mind read a profile at that Balance.
 
 ## The design
 
 | Saved | Found by |
 | --- | --- |
-| A technique's profile | its skill and variation, and the body's model |
-| A strike's profile | its skill and variation, the body's model and the model of the body it strikes |
-| A saved reading, a record, the stance's envelope | as now |
+| A profile, a saved reading, a record, the stance's envelope | as now |
 | A bout's save and its tape | its recipe |
-
-**Where it came from is kept on it and gates nothing**: the commit, whether build inputs differed
-from it, and the date. A reader that shows a result shows its commit, as the table shows a
-reading's.
-
-**A profile is measured again by its own tool, asked.** A retrained network or a tuned setting
-keeps its profile until then.
 
 **A number a character sets is a condition of a trial.** A profile's trial records where it
 began: the range, the closing and across velocities and the place in a window (`Start`,
@@ -72,12 +68,9 @@ read at its nearest measured edge (`within`).
 
 - **Balance, haste and the physique's scales, the striker's and the target's, are further
   coordinates of a start.**
-- **Every trial begins at its bodies' defaults**, so a character at another Balance reads its
-  profiles as measured at the default.
+- **A trial that records none began at its bodies' defaults**, as every stored trial did.
 - **A sparring run that draws each trial's levels from a range measures them with the same
   trials**, where a decision needs it.
-
-**A profile never measured is priced by its prior**, as now, and the mind's report says so.
 
 **A save loads what fits.** A save restores the bodies and the minds' memory. Where a body's parts
 or a mind's memory no longer have the shape saved, that part cannot load: the bodies refuse with
@@ -86,27 +79,26 @@ and says the commit it was recorded on.
 
 **What it would bring.**
 
-- A character's Balance, haste or scale keeps its profiles, and its foe models it as measured.
-- A retrained network or a tuned setting keeps its profile until it is measured again.
+- A character's foe models it as measured at its own Balance, haste or scale.
 - A save and a recording load across commits.
 
 ## What it would cost what is saved
 
 Nothing is played.
 
-- **The profiles are found again in place**: each keeps its digests as where it came from, and
-  each trial's start is given its bodies' defaults.
+- **The profiles stay as they are**: a trial with no level is one at the defaults.
 - **Saves and recordings made before it load where they fit.**
 
 ## Open
 
-- **How far a level read at the nearest measured is true.** Against a Balance at which both minds
-  lose their profiles, sparring the Warrior's punch at 5, 10 and 25 per cent landed 18, 25 and 29
+- **How far a level read at the nearest measured is true.** Against a Balance at which neither
+  mind read a profile, sparring the Warrior's punch at 5, 10 and 25 per cent landed 18, 25 and 29
   more of 240, and moved neither the table's value nor the life dealt detectably. Haste and the
   scales change the body more.
-- **How much of the Warrior's fall from 0 to 0.01 is the minds' pricing.** With its profiles
-  read it takes under a third of the life it takes where neither mind reads them. Read by the
-  same starts with each profile read as at 0.
+- **How much of the Warrior's fall from 0 to 0.01 was the minds' pricing.** With its profiles
+  read it took under a third of the life it took where neither mind read them. Read by the same
+  starts, each profile now read as at 0.
+- **Whether a reader shows a profile's commit**, as the table shows a reading's.
 
 ## To pick it up
 

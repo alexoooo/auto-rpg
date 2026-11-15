@@ -257,9 +257,9 @@ Follows [the training recipe](training.md). What is particular to a new skill:
   stand-up's: the way-up drill's `fresh` falls), its cells' falls held out.
 - **Reporting the drill**: the search's or the screen's figure given as the skill's, with the
   record never installed or the Mind never choosing it.
-- **Installing a record change on stale profiles**: a technique's digest covers its body's whole
-  record (`techniqueDigest`), every loadout included, so a change to one loadout's settings
-  leaves every loadout of that body without its profiles, and the game's Mind prices it by hand.
-  Refresh the body's (`node research/skills/recovery/edge-profiles.mjs --model <body> --write`)
+- **Installing a record change on the profiles of the record before it**: a profile is found by
+  its skill and its body, not by its record, so the game's Mind goes on pricing the skill by the
+  trials of the record replaced. Refresh the body's
+  (`node research/skills/recovery/edge-profiles.mjs --model <body> --write`)
   in the change that installs the record. The table reads no profile, so its reading neither
   waits on nor moves with them.

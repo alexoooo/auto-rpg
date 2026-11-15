@@ -25,8 +25,8 @@ Profiles, saves and recordings are in
   mind prices a strike by is its profile: each is mind data, loaded by its key (`dataOf`,
   `src/core/data/store.ts`) and named by no world. A record changed under a subject leaves its
   cases' keys as they are, and the commit's folder is what keeps its older rows from being found.
-  A strike's profile is keyed by its record already: its digest takes its body's row of each
-  record its executor reads (`dataIdentity`, in `skillDigest`,
+  A strike's profile names the record it came from and is found without it: its origin's digest
+  takes its body's row of each record its executor reads (`dataIdentity`, in `skillDigest`,
   `src/skills/framework/profile.ts`).
 - **A folder and one rule tie the rows to the commit.** A run keeps its rows in
   `.tmp/evaluations/<evaluation>/<commit>/` and reads that folder alone, and where a build input

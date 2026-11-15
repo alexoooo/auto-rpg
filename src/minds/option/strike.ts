@@ -4,8 +4,7 @@ import { regionSegments } from "../../skills/framework/action-aim.ts";
 import { heldBeside, placeInWindow, SIDES, windowHolds, windowSpot, type Side } from "../../skills/intent/action-window.ts";
 import { orderAllows, orderedTarget } from "../orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
-import { measuredOn, profileAgainst, profilesFor, readProfile, sameReaction, skillDigest, staleness, type Expected, type Measured, type Profile } from "../../skills/framework/profile.ts";
+import { measuredOn, profileAgainst, profilesFor, readProfile, sameReaction, staleness, strikeSkill, type Expected, type Measured, type Profile } from "../../skills/framework/profile.ts";
 import type { Sight } from "../decider.ts";
 import { along, asking, blocked, READY, standing, type Asked, type Option, type Site, type Situation } from "./option.ts";
 import { startOf, threatened } from "./percepts.ts";
@@ -20,9 +19,10 @@ const PATIENCE = 2;
 export const around = (sight: Sight): ActionAround => sight.actions.around;
 
 /**
- * What a strike's profile is looked up by: the body throwing it, what a profile read by it must
- * have been measured on (`measuredOn`, no reaction time: the senses give it at each decision), and
- * the strikes' profiles it is looked up among (`ProfileTables.strikes`).
+ * What a strike's profile is looked up by: the body throwing it, the question a profile read by it
+ * answers (`measuredOn`: its skill as the body holds it, `strikeSkill`, and its limb; no reaction
+ * time: the senses give it at each decision), and the strikes' profiles it is looked up among
+ * (`ProfileTables.strikes`).
  */
 interface StrikeMeasure {
   readonly spec: BodySpec;
@@ -30,9 +30,9 @@ interface StrikeMeasure {
   readonly profiles: readonly Profile[];
 }
 
-/** The measure (`StrikeMeasure`) of `action`, carried out by one of `executors`, thrown by a body of `spec` at `hz` whose mind decides at `rate` Hz and whose command is `delay` steps late, looked up among `profiles`. */
-export const strikeMeasure = (parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig, hz: number, profiles: readonly Profile[], rate: number, delay: number): StrikeMeasure =>
-  ({ spec, measured: measuredOn(spec, skillDigest(parts, spec, executors, action), hz, null, rate, delay), profiles });
+/** The measure (`StrikeMeasure`) of `action`, carried out by one of `executors`, thrown with its one limb by a body of `spec` at `hz` whose mind decides at `rate` Hz and whose command is `delay` steps late, looked up among `profiles`. */
+export const strikeMeasure = (spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig, hz: number, profiles: readonly Profile[], rate: number, delay: number): StrikeMeasure =>
+  ({ spec, measured: measuredOn(spec, strikeSkill(spec, executors, action), action.effectors[0] ?? null, hz, null, rate, delay), profiles });
 
 /**
  * **A strike option** (`strike`): how its model is priced (`Option.priced`); its sites

@@ -11,10 +11,14 @@
  * to its right of its facing); and, for a skill begun from a window, where in it the body stood. A
  * reading takes the trials nearest the start asked at (`NEAREST`), its velocity and its place in
  * its window within the spans its trials began at (`within`). A
- * skill with no foe, a ground edge, begins at no range, clear. A profile names what it was measured
- * on (`Measured`) and the body it was measured against (`Target`, none for a skill with no foe); one
- * read for another body, skill, rate or reaction time is stale (`staleness`), and a chooser prices
- * that skill by hand.
+ * skill with no foe, a ground edge, begins at no range, clear. A profile is found by the question
+ * it answers (`Measured`): its skill and variation, the limb that throws it, its body's model and
+ * what that body holds, the world's rates and the senses' reaction time; and by the body it was
+ * measured against (`Target`, none for a skill with no foe). The code it was measured on is no
+ * part of what finds it: a retrained network, a tuned setting or a number its character sets
+ * leaves it read until its own tool measures it again, and where it came from is kept on it
+ * (`Origin`). One read for another body, loadout, rate or reaction time is stale (`staleness`),
+ * and a chooser prices that skill by hand.
  *
  * Each dataset owner declares and loads its profiles. Readers use `readProfile`; identity
  * selects the loaded data each provider declares relevant to a subject (`dataIdentity`).
@@ -28,16 +32,19 @@ import type { PartConfig } from "../../parts/parts.ts";
 import { chosenVariation, type Varied } from "./variations.ts";
 
 /**
- * What a profile was measured on: its model and the digest of that body's spec
- * (`specDigest`), its skill's digest (`skillDigest`, `techniqueDigest`), the world's rate, Hz,
- * how late its senses showed the other body, s (null for a skill that reads none), the rate its
- * mind's driver ran at, Hz, where that is not the world's (`rateOf`, `LayerOptions.every`), and the
- * steps its body's command waited (`World.delay`), where there were any (`delayOf`).
+ * **The question a profile answers**, which it is found by: its body's model and what that body
+ * held (`holdsOf`; absent, nothing), its skill as its character holds it (`skill/variation`,
+ * `strikeSkill`, `techniqueSkill`), the limb a strike was thrown with (absent for a skill thrown
+ * with none), the world's rate, Hz, how late its senses showed the other body, s (null for a skill
+ * that reads none), the rate its mind's driver ran at, Hz, where that is not the world's (`rateOf`,
+ * `LayerOptions.every`), and the steps its body's command waited (`World.delay`), where there were
+ * any (`delayOf`).
  */
 export interface Measured {
   readonly body: string;
-  readonly spec: string;
+  readonly holds?: string;
   readonly skill: string;
+  readonly limb?: string;
   readonly hz: number;
   readonly reaction: number | null;
   readonly rate?: number;
@@ -50,10 +57,31 @@ const delayOf = (measured: Measured): number => measured.delay ?? 0;
 /** **The rate the mind's driver ran at** where `measured` was measured, Hz: its `rate`, else the world's. */
 const rateOf = (measured: Measured): number => measured.rate ?? measured.hz;
 
-/** The body a profile was measured against: its model and its spec's digest (`specDigest`). */
+/** The body a profile was measured against: its model and what it held (`holdsOf`; absent, nothing). */
 interface Target {
   readonly body: string;
-  readonly spec: string;
+  readonly holds?: string;
+}
+
+/**
+ * **Where a profile came from**, which finds and refuses none: the digests of its body's spec, of
+ * its skill and of the spec of the body it was measured against, as its trials were played
+ * (`specDigest`, `skillDigest`, `techniqueDigest`); and the commit its trials were played on,
+ * whether a build input differed from it, and the day, where its tool knew them.
+ */
+export interface Origin {
+  readonly spec?: string;
+  readonly skill?: string;
+  readonly target?: string;
+  readonly commit?: string;
+  readonly changed?: boolean;
+  readonly date?: string;
+}
+
+/** **What a body of `spec` holds**, each item's name by the segment that holds it, in the segments' order by name; undefined with nothing. */
+export function holdsOf(spec: Pick<BodySpec, "held">): string | undefined {
+  const held = spec.held ?? [];
+  return held.length ? held.map((one) => `${one.segment}:${one.item.name}`).sort().join(",") : undefined;
 }
 
 /**
@@ -143,8 +171,8 @@ export interface Profile {
   /** The body it was measured against; null for a skill with no foe. */
   readonly target: Target | null;
   readonly trials: readonly Trial[];
-  /** The limbs a strike's trials were thrown with (effector segments, `hand.right`), which a foe's strikes are modelled by; absent for a skill thrown with none. */
-  readonly limbs?: readonly string[];
+  /** Where it came from (`Origin`); absent where its tool kept none. */
+  readonly from?: Origin;
 }
 
 const profileObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -153,9 +181,12 @@ const profileNonnegative = (value: unknown): boolean => profileNumber(value) && 
 const profileText = (value: unknown): boolean => typeof value === "string" && value.length > 0;
 const profilePair = (value: unknown): boolean => Array.isArray(value) && value.length === 2 && value.every(profileNumber);
 const profilePostures = (value: unknown): boolean => profileObject(value) && profileText(value.own) && profileText(value.target);
-const profileTarget = (value: unknown): boolean => profileObject(value) && profileText(value.body) && profileText(value.spec);
+const profileTarget = (value: unknown): boolean => profileObject(value) && profileText(value.body) && (value.holds === undefined || profileText(value.holds));
+const profileOrigin = (value: unknown): boolean => profileObject(value)
+  && [value.spec, value.skill, value.target, value.commit, value.date].every((one) => one === undefined || profileText(one))
+  && (value.changed === undefined || typeof value.changed === "boolean");
 const profileMeasured = (value: unknown): boolean => profileTarget(value) && profileObject(value)
-  && profileText(value.skill) && profileNumber(value.hz) && value.hz > 0
+  && profileText(value.skill) && (value.limb === undefined || profileText(value.limb)) && profileNumber(value.hz) && value.hz > 0
   && (value.reaction === null || profileNonnegative(value.reaction))
   && (value.rate === undefined || profileNumber(value.rate) && value.rate > 0)
   && (value.delay === undefined || profileNonnegative(value.delay) && Number.isSafeInteger(value.delay));
@@ -175,7 +206,7 @@ const profileTrial = (value: unknown): boolean => profileObject(value) && profil
 export const validProfiles = (value: unknown): value is readonly Profile[] => Array.isArray(value) && value.every(profile => profileObject(profile)
   && profileMeasured(profile.measured) && (profile.target === null || profileTarget(profile.target))
   && Array.isArray(profile.trials) && profile.trials.every(profileTrial)
-  && (profile.limbs === undefined || Array.isArray(profile.limbs) && profile.limbs.every(profileText)));
+  && (profile.from === undefined || profileOrigin(profile.from)));
 
 /**
  * **What a skill is expected to bring from a start** (`ProfileReading.expect`), in life, a share
@@ -468,7 +499,8 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
       const target = profile.target;
       if (!target || !struck) return null;
       const body = struck.model;
-      return body !== target.body ? `measured against ${target.body}, read against ${body}` : specDigest(struck) !== target.spec ? `measured against another ${body}` : null;
+      return body !== target.body ? `measured against ${target.body}, read against ${body}`
+        : holdsOf(struck) !== target.holds ? `measured against a ${body} holding ${target.holds ?? "nothing"}` : null;
     },
   };
   return reading;
@@ -535,9 +567,10 @@ function digestOf(value: unknown): string {
 const SPEC_DIGESTS = new WeakMap<BodySpec, string>();
 
 /**
- * **A body's spec's digest** (`digestOf`): what a profile measured on it names. Its wounds are
- * left out: they are how the rules read a blow on it (`src/combat/pool.ts`), not how it moves; and
- * its skills: a strike's digest names the variation it runs (`skillDigest`).
+ * **A body's spec's digest** (`digestOf`): where a profile measured on it came from
+ * (`Origin.spec`). Its wounds are left out: they are how the rules read a blow on it
+ * (`src/combat/pool.ts`), not how it moves; and its skills: a strike's digest names the variation
+ * it runs (`skillDigest`).
  */
 export const specDigest = (spec: BodySpec): string => {
   let digest = SPEC_DIGESTS.get(spec);
@@ -545,15 +578,32 @@ export const specDigest = (spec: BodySpec): string => {
   return digest;
 };
 
+/** The executor among `executors` that `action` names; undefined where it names none of them. */
+const executorOf = (executors: readonly ExecutorEntry[], action: ActionConfig): ExecutorEntry | undefined => executors.find((entry) => entry.name === action.executor);
+
 /**
- * **A strike's digest** on a body of `spec`: what it does, not what it is called: its action's
+ * **The skill a strike's profile is found by** (`Measured.skill`): the skill `action`'s executor
+ * among `executors` runs and the variation of it a body of `spec` runs (`chosenVariation`), as its
+ * character holds it (`skill/variation`, `BodySpec.skills`); the action's executor's name where it
+ * names none of them.
+ */
+export function strikeSkill(spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig): string {
+  const executor = executorOf(executors, action);
+  return executor ? `${executor.kind}/${chosenVariation(spec, executor.kind, executor) ?? ""}` : action.executor;
+}
+
+/** **The skill a ground technique's profile is found by** (`Measured.skill`): `technique`'s kind and the variation of it a body of `spec` runs, as its character holds it (`skill/variation`). */
+export const techniqueSkill = (spec: BodySpec, technique: PartConfig): string => `${technique.kind}/${chosenVariation(spec, technique.kind, technique) ?? ""}`;
+
+/**
+ * **A strike's digest** on a body of `spec`, where its profile came from (`Origin.skill`): what it does, not what it is called: its action's
  * config and its executor's (the one the action names), each without its name, the variation of
  * the executor's skill it runs (`chosenVariation`), and the body's own
  * row of each record the executor reads (`Part.reads`: an executor's data is its skills' records by
  * model, `SkillRecord`), as the mind holds them, so another body's row moves no digest.
  */
 export function skillDigest(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig): string {
-  const executor = executors.find((entry) => entry.name === action.executor) ?? NO_EXECUTOR;
+  const executor = executorOf(executors, action) ?? NO_EXECUTOR;
   let byExecutor = SKILL_DIGESTS.get(action);
   if (!byExecutor) SKILL_DIGESTS.set(action, byExecutor = new WeakMap());
   let bySpec = byExecutor.get(executor);
@@ -582,16 +632,21 @@ function readSkillDigest(parts: PartLookup, part: ReturnType<typeof executorPart
   return digestOf({ action: does, executor: executor && (({ name: _, variation: _variation, ...rest }: ExecutorEntry & Varied) => rest)(executor), ...(variation === undefined ? {} : { variation }), data });
 }
 
-/** A ground technique's digest: its config and the body's records its part reads. */
+/** A ground technique's digest, where its profile came from (`Origin.skill`): its config and the body's records its part reads. */
 export function techniqueDigest(parts: PartLookup, spec: BodySpec, technique: PartConfig): string {
   const keys = parts.of("technique", technique).reads?.(technique) ?? [];
   const body = spec.model, data = keys.map((key) => digestOf(dataIdentity(key, body)));
   return data.length ? digestOf({ technique, data }) : digestOf(technique);
 }
 
-/** What a profile of a skill of digest `skill`, read by a body of `spec` at `hz`, its senses `reaction` s late (null for none), its mind's driver at `rate` Hz, its command `delay` steps late, must have been measured on. */
-export const measuredOn = (spec: BodySpec, skill: string, hz: number, reaction: number | null, rate: number, delay: number): Measured =>
-  ({ body: spec.model, spec: specDigest(spec), skill, hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) });
+/**
+ * The question (`Measured`) a profile of `skill` (`strikeSkill`, `techniqueSkill`) thrown with `limb` (null with none) answers for
+ * a body of `spec` at `hz`, its senses `reaction` s late (null for none), its mind's driver at `rate` Hz, its command `delay` steps late.
+ */
+export function measuredOn(spec: BodySpec, skill: string, limb: string | null, hz: number, reaction: number | null, rate: number, delay: number): Measured {
+  const holds = holdsOf(spec);
+  return { body: spec.model, ...(holds === undefined ? {} : { holds }), skill, ...(limb === null ? {} : { limb }), hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) };
+}
 
 /** **Whether a reaction time `now` s reads as `was` s** at `hz`: within half a step, or either unknown. */
 export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= .5 / hz;
@@ -600,8 +655,8 @@ export const sameReaction = (was: number | null, now: number | null, hz: number)
 export function staleness(profile: Profile, now: Measured): string | null {
   const was = profile.measured;
   if (was.body !== now.body) return `measured on ${was.body}, read on ${now.body}`;
-  if (was.spec !== now.spec) return `measured on another ${now.body}`;
-  if (was.skill !== now.skill) return "measured on another version of the skill";
+  if (was.holds !== now.holds) return `measured holding ${was.holds ?? "nothing"}, read holding ${now.holds ?? "nothing"}`;
+  if (was.skill !== now.skill || was.limb !== now.limb) return `measured of ${was.skill}${was.limb ? ` with ${was.limb}` : ""}`;
   if (was.hz !== now.hz) return `measured at ${was.hz} Hz, read at ${now.hz} Hz`;
   if (rateOf(was) !== rateOf(now)) return `measured with its mind at ${rateOf(was)} Hz, read at ${rateOf(now)} Hz`;
   if (delayOf(was) !== delayOf(now)) return `measured with its command ${delayOf(was)} steps late, read ${delayOf(now)} steps late`;
@@ -617,15 +672,16 @@ interface Found {
 }
 
 /**
- * **The profiles of the skill `now` names** among `profiles`: each measured as it is read, one a
- * body it was measured against (`profileAgainst` reads the struck body's); with none, why one on
- * its body, else any of the skill's, is stale; null where the skill was never measured.
+ * **The profiles of the skill and limb `now` names** among `profiles`: each measured as it is
+ * read, one a body it was measured against (`profileAgainst` reads the struck body's); with none,
+ * why one on its body, else any of the skill's, is stale; null where the skill was never measured
+ * with that limb.
  */
 export function profilesFor(profiles: readonly Profile[], now: Measured): Found | null {
   const fresh: Profile[] = [];
   let body: Profile | null = null, any: Profile | null = null;
   for (const profile of profiles) {
-    if (profile.measured.skill !== now.skill) continue;
+    if (profile.measured.skill !== now.skill || profile.measured.limb !== now.limb) continue;
     if (staleness(profile, now) === null) fresh.push(profile);
     else if (profile.measured.body === now.body) body ??= profile;
     any ??= profile;
@@ -637,34 +693,37 @@ export function profilesFor(profiles: readonly Profile[], now: Measured): Found 
 
 /**
  * **The profile among one skill's `profiles` that a body of `struck` is read by**: the one
- * measured against it; else the first against another of its body, else the first of any, each
- * read scaled (`ProfileReading.scaled`). A skill with no foe has one, read with none struck. Null
- * with none.
+ * measured against its model holding what it holds (`holdsOf`); else the first against its model
+ * holding otherwise, else the first of any, read scaled (`ProfileReading.scaled`). A skill with no
+ * foe has one, read with none struck. Null with none.
  */
 export function profileAgainst(profiles: readonly Profile[], struck: BodySpec | null): Profile | null {
   if (!struck) return profiles[0] ?? null;
-  const body = struck.model, spec = specDigest(struck);
+  const body = struck.model, holds = holdsOf(struck);
   let another: Profile | null = null;
   for (const profile of profiles) {
-    if (!profile.target || profile.target.body === body && profile.target.spec === spec) return profile;
+    if (!profile.target || profile.target.body === body && profile.target.holds === holds) return profile;
     if (profile.target.body === body) another ??= profile;
   }
   return another ?? profiles[0] ?? null;
 }
 
 /**
- * **The profiles among `profiles` measured on a body of `spec`** at `hz` with senses `reaction` s
- * late, a mind's driver at `rate` Hz and its command `delay` steps late, of any skill (`fresh`): what a
- * foe of that body is measured to deal; and, for none, why (`stale`): the first measured on its
- * body that is stale (`staleness`), or none measured on it.
+ * **The profiles among `profiles` of the skills a body of `spec` holds** (`BodySpec.skills`),
+ * measured on its model holding what it holds at `hz` with senses `reaction` s late, a mind's
+ * driver at `rate` Hz and its command `delay` steps late (`fresh`): what a foe of that body is
+ * measured to deal; and, for none, why (`stale`): the first of a skill it holds, measured on its
+ * model, that is stale (`staleness`), or none measured of them.
  */
 export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null, rate: number, delay: number): { readonly fresh: readonly Profile[]; readonly stale: string } {
-  const body = spec.model, digest = specDigest(spec), fresh: Profile[] = [];
+  const body = spec.model, held = spec.skills ?? [], fresh: Profile[] = [];
   let stale: string | null = null;
   for (const profile of profiles) {
-    const why = staleness(profile, { body, spec: digest, skill: profile.measured.skill, hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) });
+    const was = profile.measured;
+    if (!held.includes(was.skill)) continue;
+    const why = staleness(profile, measuredOn(spec, was.skill, was.limb ?? null, hz, reaction, rate, delay));
     if (why === null) fresh.push(profile);
-    else if (profile.measured.body === body) stale ??= why;
+    else if (was.body === body) stale ??= why;
   }
-  return { fresh, stale: stale ?? `no fight measured the strikes of a ${body}` };
+  return { fresh, stale: stale ?? `no fight measured the strikes a ${body} holds` };
 }

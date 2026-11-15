@@ -1,8 +1,7 @@
 import { dataOf } from "../../../core/data/store.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
-import type { PartLookup } from "../../../parts/lookup.ts";
 import type { PartConfig } from "../../../parts/parts.ts";
-import { measuredOn, profileAgainst, profilesFor, readProfile, techniqueDigest, type Expected, type Postures, type Profile } from "../../framework/profile.ts";
+import { measuredOn, profileAgainst, profilesFor, readProfile, techniqueSkill, type Expected, type Postures, type Profile } from "../../framework/profile.ts";
 
 declare module "../../../core/data/store.ts" { interface DataOf { "edge-profiles": readonly Profile[] } }
 
@@ -16,9 +15,9 @@ export const groundStart = (from: string): Postures => ({ own: from, target: "no
  * null from a position none began at; and how it is priced, a sentence (`priced`): measured, or not,
  * and why (no drill measured it, or its profile is stale, `staleness`).
  */
-export function edgeExpected(parts: PartLookup, spec: BodySpec, technique: PartConfig, hz: number, delay: number, profiles: readonly Profile[] = dataOf("edge-profiles")): {
+export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number, delay: number, profiles: readonly Profile[] = dataOf("edge-profiles")): {
   readonly expected: ((from: string) => Expected | null) | null; readonly priced: string } {
-  const found = profilesFor(profiles, measuredOn(spec, techniqueDigest(parts, spec, technique), hz, null, hz, delay));
+  const found = profilesFor(profiles, measuredOn(spec, techniqueSkill(spec, technique), null, hz, null, hz, delay));
   if (!found) return { expected: null, priced: "no drill measured it" };
   const profile = profileAgainst(found.fresh, null);
   if (!profile) return { expected: null, priced: found.stale ?? "no drill measured it" };

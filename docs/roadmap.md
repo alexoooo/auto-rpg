@@ -74,22 +74,21 @@ owner's request. What each part waits on is in
    drive on the 240 held-out sparring starts (`punch-sparring.mjs --bar`). Each is last read with
    a strike priced from its sparring at one body whatever body it struck
    ([the punch's notes](plans/2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)).
-2. **Option Mind's pricing, before a played row is kept**: a foe is modelled by every strike
-   measured on its body, two of the punch a hand on the Warrior, whichever it holds. Then whether
-   the strikes' profiles are measured again, their foe a mind that fights as it does now.
-3. **A variation declares its record**
+2. **A variation declares its record**
    ([the skills' notes](plans/2026-11-14-many-skills.md#part-1-a-variation-declares-its-record)).
-4. **Played rows kept and found** ([its notes](plans/2026-11-14-saved-results.md)).
-5. **The judge's larger draw, then a strike made by search**
+3. **Played rows kept and found** ([its notes](plans/2026-11-14-saved-results.md)).
+4. **The judge's larger draw, then a strike made by search**
    ([the judge](plans/2026-11-14-many-skills.md#the-judge-of-a-try),
    [the search](plans/2026-11-14-many-skills.md#part-2-a-strike-made-by-search-apart-from-the-legs)).
-6. **Profiles found by the question they answer; then saves that load across commits**, which
-   the starts kept from fights wait on
+5. **Saves that load across commits**, which the starts kept from fights wait on
    ([their notes](plans/2026-11-14-profiles-and-saves.md),
    [kept starts](plans/2026-11-14-many-skills.md#starts-kept-from-fights)).
-7. **The base under a fight**: a fight's cases and the stance's reading on them, which wait on
+6. **The base under a fight**: a fight's cases and the stance's reading on them, which wait on
    no part; then a second balance, which waits on a strike apart from the legs
    ([its notes](plans/2026-11-14-fighting-base.md)).
+7. **The strikes' profiles measured again**, their foe a mind that fights as it does now: one
+   that prices a strike by its profile against the body it strikes from a bout's start, and
+   models its foe by the strikes its character holds.
 8. **The Warrior's bonk with the buckler**, which never meets the head
    ([its plan](plans/2026-11-05-warrior-bonk.md)).
 9. **The Warrior's thrust**: the grip's geometry before another search
@@ -112,7 +111,7 @@ Each holds its goal, where it stands and the questions open
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
 | [Many skills, faster](plans/2026-11-14-many-skills.md) | the steer's readings are read: a layer for each of three spans of the stroke, asking the stance for nothing, lands 93 of the 240 held-out sparring starts the steered punch lands 105 of, the punch's asks of the stance hold about a quarter of its damage, and sparring's commitments leave 16 of the 20 fights' read outside their ranges; first a judge that screens a try on landings paired by start and accepts on a larger held-out draw; starts kept from fights, a trial loaded where its strike is asked; then a variation that declares its record, and a strike made by search with no training run, reading no leg and keeping its asks of the stance, by one tool for every strike and body |
 | [Played rows kept and found](plans/2026-11-14-saved-results.md) | one store of played rows for an evaluation and a research judge, found by the question a row answers, the records its subjects load in its key, kept uncommitted and across commits; what is under work plays and everything else is found |
-| [Profiles and saves found by the question they answer](plans/2026-11-14-profiles-and-saves.md) | a profile found by its skill, its variation and the two bodies' models, a character's numbers conditions of its trials; a save and a recording that load across commits |
+| [Profiles and saves found by the question they answer](plans/2026-11-14-profiles-and-saves.md) | a save and a recording that load across commits; a character's numbers conditions of a profile's trials |
 | [The base under a fight](plans/2026-11-14-fighting-base.md) | what a fight asks of standing and stepping, read as cases on the stance; then a second balance beside it, one actor trained once on one body, which a strike apart from the legs lets a character choose |
 
 ## Waiting on the owner

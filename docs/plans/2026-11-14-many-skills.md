@@ -54,10 +54,9 @@ drill's rung at a foe that fights back, from starts drawn at random (`sparring`,
   and layout. The straight punch's two both call one function (`punch`,
   `src/skills/strikes/straight-punch/index.ts`), which runs one layout (`PUNCH_LAYOUT`) and each
   body's one record and network (`dataOf("straight-punch/drive")`); `from-guard` adds when its
-  drive may begin. The part names that one record for every variation: what a mind loads and what
-  a profile's digest covers (`reads`; `skillDigest`, `src/skills/framework/profile.ts`), and
-  which bodies have the skill (`recordFault`). So a network of a variation's own goes into a
-  record the part names for all of them, and each change to it moves the drive's profile.
+  drive may begin. The part names that one record for every variation: what a mind loads
+  (`reads`) and which bodies have the skill (`recordFault`). So a network of a variation's own
+  goes into a record the part names for all of them.
 - **Each try plays again what it is compared with.** `punch-sparring.mjs --bar` plays every
   held-out start by the candidate and by the drive. `npm run evaluate` keeps no row while a build
   input is uncommitted, and a commit finds none of the rows made before it
