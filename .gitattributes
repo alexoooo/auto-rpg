@@ -1,14 +1,8 @@
-# Files whose bytes another tool reads as LF: bash runs a script, and `git apply` applies a patch
-# to a clone with LF sources. They stay LF in every working copy, whatever core.autocrlf says.
-*.sh text eol=lf
-# An empty context line in a unified patch consists of its single-space marker.
-*.patch text eol=lf whitespace=-blank-at-eol
-# Editable character masters and the shared original texture library.
-assets/character-lab/*.blend filter=lfs diff=lfs merge=lfs -text
+# Text is LF in every working copy; Git decides what is text and keeps it so.
+* text=auto eol=lf
+# A patch's empty context line is a single space, not trailing whitespace.
+*.patch whitespace=-blank-at-eol
+# Blender masters and the original art are kept in Git LFS.
+*.blend filter=lfs diff=lfs merge=lfs -text
 assets/art/textures/** filter=lfs diff=lfs merge=lfs -text
-# Full-quality environment inputs are shared by generated web delivery and authoring tools.
 assets/art/environment/** filter=lfs diff=lfs merge=lfs -text
-assets/forge/*.blend filter=lfs diff=lfs merge=lfs -text
-assets/dungeon-reference/*.blend filter=lfs diff=lfs merge=lfs -text
-assets/crypt-kit/*.blend filter=lfs diff=lfs merge=lfs -text
-assets/skeleton/*.blend filter=lfs diff=lfs merge=lfs -text
