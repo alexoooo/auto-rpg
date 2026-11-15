@@ -39,13 +39,15 @@ function axes(name: string): string[] {
 
 /**
  * One output of a learned steer (`SteerLayout`): a push on a named channel (the right hand's
- * blow's), the legs goal's heading turned the striking shoulder forward, rad, or its centre of
- * mass moved ahead along the way the blow faces or across it toward the striking hand's
- * side, m, each its output times its full scale, a distance's in proportion to the body's leg; or
- * the walk under way kept (above 0) or halted (`walk`, `keepsWalk`).
+ * blow's); a speed added to the speed a stroke drives a named channel toward, rad/s (`speeds`, a
+ * stroke's pushes being speeds, `MusclePush.speed`); the legs goal's heading turned the striking
+ * shoulder forward, rad, or its centre of mass moved ahead along the way the blow faces or across
+ * it toward the striking hand's side, m, each its output times its full scale, a distance's in
+ * proportion to the body's leg; or the walk under way kept (above 0) or halted (`walk`, `keepsWalk`).
  */
 type SteerOutput =
   | { readonly term: "pushes"; readonly channel: string }
+  | { readonly term: "speeds"; readonly channel: string; readonly full: number }
   | { readonly term: "heading"; readonly full: number }
   | { readonly term: "centre"; readonly along: "ahead" | "across"; readonly full: number }
   | { readonly term: "walk" };
@@ -72,7 +74,8 @@ export function checkedLayout(layout: SteerLayout): SteerLayout {
   }
   for (const output of layout.outputs) {
     const term: string = output.term;
-    if (term !== "pushes" && term !== "heading" && term !== "centre" && term !== "walk") throw new Error(`a learned steer steers no ${term}`);
+    if (term !== "pushes" && term !== "speeds" && term !== "heading" && term !== "centre" && term !== "walk") throw new Error(`a learned steer steers no ${term}`);
+    if (output.term === "speeds" && !(output.full > 0 && Number.isFinite(output.full))) throw new Error(`a steered speed on ${output.channel} has a finite positive full scale`);
   }
   return layout;
 }
@@ -92,9 +95,10 @@ export function steerChannels(hand: Side, leg: number, layout: SteerLayout): Ste
     inputs: inputs.map((name) => { const c = channelOf(name); return c === null ? null : swap(c); }),
     inputSenses: inputs.map((name) => { const c = channelOf(name); return c === null ? 1 : sense(c); }),
     speeds: inputs.map((name) => name.startsWith("speed ")),
-    pushes: outputs.map((o) => o.term === "pushes" ? swap(o.channel) : null),
-    senses: outputs.map((o) => o.term === "pushes" ? sense(o.channel) : 1),
-    full: outputs.map((o) => o.term === "heading" ? o.full : o.term === "centre" ? o.full * scale : 1),
+    pushes: outputs.map((o) => o.term === "pushes" || o.term === "speeds" ? swap(o.channel) : null),
+    senses: outputs.map((o) => o.term === "pushes" || o.term === "speeds" ? sense(o.channel) : 1),
+    full: outputs.map((o) => o.term === "heading" || o.term === "speeds" ? o.full : o.term === "centre" ? o.full * scale : 1),
+    paced: outputs.map((o) => o.term === "speeds"),
     heading: outputs.findIndex((o) => o.term === "heading"),
     ahead: outputs.findIndex((o) => o.term === "centre" && o.along === "ahead"),
     across: outputs.findIndex((o) => o.term === "centre" && o.along === "across"),
@@ -107,7 +111,8 @@ export function steerChannels(hand: Side, leg: number, layout: SteerLayout): Ste
  * A hand's punch as its layout lays it out (`steerChannels`). Each input: its reading's place in
  * `READINGS` (-1 for a channel's), its channel, the hand's (null for a reading), its sense, and
  * whether it reads the channel's speed. Each output: the channel it pushes (null for an ask of the
- * legs), its sense, and its full scale on this body. Where among the outputs the legs goal's
+ * legs), its sense, its full scale on this body, and whether it adds to a push's speed (`speeds`)
+ * in place of its level. Where among the outputs the legs goal's
  * heading, centre ahead and centre across are, and the walk's keep (-1 with none), and the hand's
  * side, 1 right and -1 left.
  */
@@ -119,6 +124,7 @@ interface SteerChannels {
   readonly pushes: readonly (string | null)[];
   readonly senses: readonly number[];
   readonly full: readonly number[];
+  readonly paced: readonly boolean[];
   readonly heading: number;
   readonly ahead: number;
   readonly across: number;
@@ -180,11 +186,13 @@ export function steerFeatures(body: Body, view: BodyView, hand: Side, channels: 
  * `steer` (levels, -1 to 1, in `channels`' outputs and senses) added to the pushes
  * the drive asks of the channels its outputs push, in place: each pushed channel's net level, its
  * sign the sense, no more than flat out. A channel the drive does not push is left to what holds it
- * (the posture, the stance): a push of any level takes a channel from them.
+ * (the posture, the stance): a push of any level takes a channel from them. A `speeds` output adds
+ * its steer times its full scale to the speed a push drives toward (`MusclePush.speed`), its level
+ * kept; a push with no speed it leaves as it is.
  */
 export function steerPushes(pushes: MusclePush[], channels: SteerChannels, steer: readonly number[]): void {
   if (steer.length === 0) return;
-  const { pushes: names, senses } = channels;
+  const { pushes: names, senses, paced, full } = channels;
   for (let i = 0; i < names.length; i++) {
     const name = names[i];
     if (name === null || name === undefined) continue;
@@ -192,6 +200,13 @@ export function steerPushes(pushes: MusclePush[], channels: SteerChannels, steer
     if (add === 0) continue;
     const j = pushes.findIndex((push) => push.channel === name);
     if (j < 0) continue;
+    if (paced[i]) {
+      const speed = pushes[j]!.speed;
+      if (speed === undefined) continue;
+      const to = speed + add * full[i]!;
+      pushes[j] = { channel: name, sense: to >= 0 ? 1 : -1, level: pushes[j]!.level, speed: to };
+      continue;
+    }
     const net = Math.max(-1, Math.min(1, pushes[j]!.sense * pushes[j]!.level + add));
     pushes[j] = { channel: name, sense: net >= 0 ? 1 : -1, level: Math.abs(net) };
   }

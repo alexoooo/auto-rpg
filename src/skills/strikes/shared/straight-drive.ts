@@ -431,19 +431,25 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
         if (part > 0) push(f.name, limb.angles[f.joint]![f.k]!, part);
       }
     }
-    if (settings.steered) {
-      const learner = state.learner, steer = act(learner, policy);
-      if (ask(learner, step)) {
-        // The shoulder where the trunk stands, against the target the solve above left in the body frame.
-        const { chain, angles, trunk } = limb;
-        for (let j = 0; j < trunk; j++) chain[j]!.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(chain[j]!, k)] ?? 0; });
-        pointAtToRef(limb.trunkChain, angles, limb.shoulder, apart);
-        steerFeatures(body, view, hand, steeredChannels[hand], since, apart.set(target.x - apart.x, target.y - apart.y, target.z - apart.z), state.target, state.aimed,
-          (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, limb.arm, learner.inputs, limb.behind ? struck(view, hand, limb) : null);
-      }
-      steerPushes(pushes, steeredChannels[hand], steer);
-    }
+    if (settings.steered) steer(view, hand, since, pushes, policy);
     return posture;
+  };
+  /**
+   * The learned steer of a drive `since` s old added to `pushes` (`steerPushes`): every decision
+   * interval it reads the drive (`steerFeatures`), the target where the last solve left it in the
+   * body frame. A stroke of its own (`StraightDriveOptions.stroke`) is steered alike, after it.
+   */
+  const steer = (view: BodyView, hand: Side, since: number, pushes: MusclePush[], policy?: (features: readonly number[]) => number[]): void => {
+    const limb = limbs[hand], learner = state.learner, outputs = act(learner, policy);
+    if (ask(learner, state.step)) {
+      // The shoulder where the trunk stands, against the target the solve left in the body frame.
+      const { chain, angles, trunk } = limb;
+      for (let j = 0; j < trunk; j++) chain[j]!.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(chain[j]!, k)] ?? 0; });
+      pointAtToRef(limb.trunkChain, angles, limb.shoulder, apart);
+      steerFeatures(body, view, hand, steeredChannels[hand], since, apart.set(target.x - apart.x, target.y - apart.y, target.z - apart.z), state.target, state.aimed,
+        (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, limb.arm, learner.inputs, limb.behind ? struck(view, hand, limb) : null);
+    }
+    steerPushes(pushes, steeredChannels[hand], outputs);
   };
   /** Where a held face's striking point is, world, as `view` has it. */
   const struck = (view: BodyView, hand: Side, limb: Limb): Vector3 =>
@@ -482,7 +488,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
     return { apart: state.apart, along: state.along, arm: limb.arm, trunk: limb.goals.map((g) => ({ channel: g.channel, angle: g.angle })),
       pose: limb.free.map((f) => ({ channel: f.name, angle: limb.angles[f.joint]![f.k]! })) };
   };
-  return { state, end, enter, read, standOff, chamber, drive, reach, sense, steeredChannels, aimAt,
+  return { state, end, enter, read, standOff, chamber, drive, steer, reach, sense, steeredChannels, aimAt,
     heightFits: (hand: Side, up: number) => Math.abs(up - state.shoulders[hand][1]) <= settings.reach * limbs[hand].arm
       && (settings.above === undefined || up - state.shoulders[hand][1] <= settings.above) };
 }
@@ -630,6 +636,8 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
         ? stroke.drive({ view, hand: live.hand, since: live.time, touched, guard, kept: keptOf(live), reach: (out, turned) => technique.reach(view, live.hand, out, turned) }, pushes)
         : technique.drive(view, live.hand, live.time, pushes, policy)
         : live.phase === "prepare" ? technique.chamber(view, live.hand) ?? guard : guard;
+      // A stroke of its own steered as the drive is, after it: its learned steer adds to the speeds it drives toward.
+      if (stroke && live.phase === "commit" && settings.steered) technique.steer(view, live.hand, live.time, pushes, policy);
       const aligner = aligners[live.hand], at = faces?.[live.hand] && view.effectors[`hand.${live.hand}`]?.points[faces[live.hand]!.point];
       if (aligner && at && live.phase !== "release") {
         // The face's way to the target, from where it stands, body frame.

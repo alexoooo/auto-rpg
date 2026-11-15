@@ -73,8 +73,9 @@ serious punch".
   the legs are dropped under `leavesLegs`.
 - **Trained to punch while moving.** Its own network in its own record
   (`straight-punch/moving`), trained on blows thrown while the walk goes on, deciding the timing
-  and the walk's site as well as steering the swing. Today it borrows the installed punch's
-  record and network, trained standing.
+  and the walk's site as well as steering the swing. Today its stroke takes a steer laid out by
+  `moving.layout.json` (speeds added to the stroke's pushes on the trunk, the arm and the wrist,
+  `steerPushes`), its record has no network yet and is not steered.
 
 It is **done** when, on the Warrior:
 
