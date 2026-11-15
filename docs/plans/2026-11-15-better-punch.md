@@ -58,9 +58,9 @@ It is **done** when, on the Warrior:
 2. **In bouts, v2 against v1, each on each side, it lands dramatically more often and
    dramatically stronger**, takes more life than it gives, and falls no more. In the owner's
    words: "it needs to land dramatically stronger (currently it mostly jsut graxes dealing < 0.1
-   damage) and dramatically more often". Read as **at least twice the installed punch's, in the
-   same bouts**: its landed blows a minute, and the median hp a landed blow takes. Twice is the
-   agent's reading of "dramatically"; the owner's word changes it. Counts first: begun, thrown
+   damage) and dramatically more often", and then: "at least 5x more blows, and at least 2x damage
+   per blow. that's what i would be happy with". So, **in the same bouts: at least five times the
+   installed punch's landed blows, and at least twice the median hp a landed blow takes**. Counts first: begun, thrown
    with a foot swinging, landed, missed, guarded, fell; then hp a landed blow, kg behind the fist
    and J on the mark.
 3. **The Warrior holds it in the game.**
@@ -72,8 +72,13 @@ It is **done** when, on the Warrior:
 - **Nothing re-measures or re-fits the installed punch.** Its readings are saved; they are read.
 - **A run over half an hour starts on the owner's word**, given its price and what will be
   different in the game when it ends.
-- **A gate that fails stops the work** with a report. The next step is then the owner's, not a
-  wider search, a longer run or a new tool.
+- **Short of the bar is not thrown away; spinning wheels is what stops.** In the owner's words:
+  "if you don't get all the way there, then that doesn't mean that you need to throw away all of
+  your work. it's fine if you discover something that allows us to proceed furhter. but the one
+  thing i don't want, is just to spin our wheels for many more horus and achieve nothing". A step
+  that falls short keeps what it built and reports what it found and what that opens. A step
+  that finds nothing new stops the work; the next step is then the owner's, not a wider search,
+  a longer run or a new tool.
 - **Counts before ratios.**
 
 ## The steps
@@ -132,9 +137,10 @@ No training. Minutes.
 
 - **Read the fixed rule** of step 3: in the Arena, watched; and one bout, v2 against v1, its
   counts and the kg and J of its landed blows.
-- **Gate**: the median hp of its landed blows is at least twice the installed punch's in step 1's
-  bout (done, 2). Training is not counted on to double it: if walking into the punch on the step
-  does not, the work stops here, before any training, and the owner chooses what next (a gait
+- **Gate**: the median hp of its landed blows against the installed punch's in step 1's bout, the
+  bar twice (done, 2). Training is not counted on to raise the weight: where walking into the
+  punch on the step brings it up, training goes on from it; where it brings nothing, the work
+  stops here, before any training, with what was found, and the owner chooses what next (a gait
   that steps in, trained once for every strike, among the ways).
 
 ### 5. Train it
@@ -155,7 +161,7 @@ A run, on the owner's word.
   best is installed in `moving`'s record at once, so the owner can watch it in the Arena while the
   run goes on.
 - **Gate**: the chosen checkpoint lands more than step 4's fixed rule on the held-out cases,
-  paired, its blows no lighter, toward twice the installed punch's landed blows a minute. On a plateau (5 M decisions with no kept gain) the run stops and
+  paired, its blows no lighter, toward five times the installed punch's landed blows. On a plateau (5 M decisions with no kept gain) the run stops and
   the report goes to the owner.
 
 ### 6. The bout and the owner's eye
@@ -182,7 +188,7 @@ deleted.
 - **Retraining the installed punch's network read flat** (0.95 of where it began): a run is not
   assumed to beat where it starts.
 - **The risk**: `moving`'s weight came from the legs it no longer drives. Whether walking into
-  the punch on the step doubles what the installed punch's landed blows take in a bout is read
+  the punch on the step raises what its landed blows take in a bout is read
   at step 4, before any training. The bar is the installed punch in bouts, where the owner sees
   it graze, not its 4.5 kg at a target that stands.
 
