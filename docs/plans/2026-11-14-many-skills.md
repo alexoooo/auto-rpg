@@ -34,8 +34,8 @@ half days a run. A run is one try.
 
 **Days: a measure that does not say what a fight does.** The Warrior's empty-handed punch is on
 the mark in 78 of 96 trials at a still target
-([the punch's notes](2026-11-10-warrior-punch.md#where-it-stands)). In `fights` it lands 2 of
-the 10 trials it reaches, 38 of the 48 moments unreached; with each strike priced by its
+([the punch's notes](2026-11-10-warrior-punch.md#where-it-stands)). In `fights` it lands 6 of
+its 48 trials, 14 of the moments unreached; with each strike priced by its
 standing-target profile it lands 13 of the 42 it reaches
 ([why](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)). Each of those fights'
 commitments that is read holds an input outside every range the drill plays
@@ -83,7 +83,11 @@ drill's rung at a foe that fights back, from starts drawn at random (`sparring`,
 
 They say whether Part 2 holds, and they wait on no part. Each is of minds that priced a strike
 from its sparring at one body whatever body it struck. A strike is priced from its sparring at
-the body it strikes (`profileAgainst`, `src/skills/framework/profile.ts`), and none is read so.
+the body it strikes (`profileAgainst`, `src/skills/framework/profile.ts`), from a bout's start,
+and its foe is modelled by the strikes it holds. Read so, the drive lands 107 of the 240
+held-out starts, falls 3 times, loses 0.072 life a trial and reads 0.0898 of the table's value a
+trial, and the installed network as a file reads as the drive does on every start. No other
+form below is read so.
 
 **Where it stands.**
 
