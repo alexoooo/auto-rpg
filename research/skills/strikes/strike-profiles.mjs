@@ -17,7 +17,10 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  * A trial's start (`Start`) is where the striker sensed the target as it began (the reading's
  * `foeAt` and `foePhase`): the range centre to centre, the target's phase and posture, the
  * striker's velocity against the target's (`foeAt.velocity`), and where it stood in its strike's
- * window (`inWindow`); each absent in a record from before the reading held it. A profile keeps
+ * window (`inWindow`); each absent in a record from before the reading held it. With them, the
+ * Balance and haste of each body as its row's bout built it, where its character set one apart
+ * from its model's own (`startLevels`): rows played at several levels make one profile, read at
+ * the level nearest a body's. A profile keeps
  * the trials that record the most of their start alone: fresh trials replace the older. A record
  * that does not hold the phase is refused: its rung is played again.
  *
@@ -49,7 +52,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
 import { partIn, partLookup } from "../../../src/app/catalog.ts";
 import { limbAction } from "../../../src/minds/option/kinds.ts";
-import { holdsOf, measuredOn, skillDigest, specDigest, strikeSkill } from "../../../src/skills/framework/profile.ts";
+import { holdsOf, measuredOn, skillDigest, specDigest, startLevels, strikeSkill } from "../../../src/skills/framework/profile.ts";
 import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 import { profileKey, profileKeys } from "../../../tests/harness/profile-keys.mjs";
@@ -133,9 +136,9 @@ for (const path of paths) {
     const r = row.reading;
     if (r.foePhase === undefined) throw new Error(`${path}: no foePhase in its readings; play its rung again`);
     if (r.foePhase === null || r.foeAt === null || r.began === null) continue;
-    const posture = r.foeAt.posture ?? "standing";
+    const posture = r.foeAt.posture ?? "standing", levels = startLevels(spec, struck);
     const start = { range: round(r.foeAt.apart), phase: r.foePhase, ...(posture === "standing" ? {} : { postures: { own: "standing", target: posture } }),
-      ...(r.foeAt.velocity ? { velocity: r.foeAt.velocity.map(round) } : {}), ...(r.inWindow ? { window: r.inWindow.map(round) } : {}) };
+      ...(r.foeAt.velocity ? { velocity: r.foeAt.velocity.map(round) } : {}), ...(r.inWindow ? { window: r.inWindow.map(round) } : {}), ...(levels ? { levels } : {}) };
     if (drill.letGo !== undefined) {
       // Past its point of no return, a strike is not let go: such a trial prices nothing.
       if (r.letGo) profile.trials.push({ start, done: false, dealt: 0, taken: round(r.taken ?? 0), seconds: round((r.ended ?? r.seconds) - r.began), recovers: null, down: r.down,

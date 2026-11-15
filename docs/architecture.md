@@ -585,15 +585,18 @@ The profile model supplies these components:
   against its model, else the first, read scaled (`profileAgainst`). It is read only at the world's
   rate, the mind's rate, the command's delay and the senses' reaction time it was measured at
   (`staleness`). Where it came from (`Origin`: the digests of its body, its skill and the body
-  struck, its commit and day) is kept on it and gates nothing, so a retrained network, a tuned
-  setting or a number a character sets keeps its profile until its tool measures it again. A foe
+  struck, its commit and day) is kept on it and gates nothing, so a retrained network or a tuned
+  setting keeps its profile until its tool measures it again. A foe
   is modelled by the profiles of the skills its character holds (`profilesOn`). A measured predictor may receive
   immutable ground profiles (`edges`) for the skill settings an experiment runs. A profile is a sample of
   trials, a strike's thrown against a foe fighting back (the Strike drill's `sparring` rungs) and a ground Option's tried
   in falls, each keeping what it brought and where it began (the range, the foe's phase,
-  both postures, the velocity in its target's frame, `startVelocity`, and, for a skill begun from
-  a window, where in it the body stood, `placeInWindow`); a reading takes the trials nearest the
-  start asked at, its velocity and place read within the spans its trials began at, and a
+  both postures, the velocity in its target's frame, `startVelocity`, for a skill begun from
+  a window, where in it the body stood, `placeInWindow`, and the Balance and haste each body's
+  character set, where not its model's own, `Start.levels`); a reading takes the trials nearest the
+  start asked at, its velocity and place read within the spans its trials began at, its bodies'
+  levels their specs' and read so too (`LEVELS`), so a level no trial began at is read at the
+  nearest one did and a trial that records none began at its bodies' models' own, and a
   rate of blows reads each trial's run and its limb's way back to its guard. A blow the foe has not
   begun reaches the body only after the foe's latency (`Pressure.latency`: its rethink, its
   command's delay and its fastest blow), spent as the body stays within its reach and restored as

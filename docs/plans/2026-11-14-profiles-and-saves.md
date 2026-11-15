@@ -3,8 +3,9 @@
 Notes on how a strike's profile reads a number a character sets. A profile is found by the
 question it answers, as a played row is
 ([the architecture](../architecture.md#minds)), and a bout's save loads on whatever build
-made it ([the architecture](../architecture.md#bouts-tapes-and-replay)). A number a
-character sets is no coordinate of a trial. No try of a skill waits on it: every try reads
+made it ([the architecture](../architecture.md#bouts-tapes-and-replay)). A body's Balance and
+haste are coordinates of a trial's start; the physique's scales are not, and no stored trial
+began at a level other than its model's own. No try of a skill waits on it: every try reads
 played rows.
 
 ## Goal
@@ -24,12 +25,23 @@ and gates nothing (`Origin`): the digests of its body, its skill and the body it
 commit and day where its tool knows them. A foe is modelled by the profiles of the skills its
 character holds (`profilesOn`).
 
-So a retrained network, a tuned setting or a number a character sets (Balance, haste, the
-physique's scales) keeps its profile until its tool measures it again
-(`research/skills/strikes/strike-profiles.mjs`, `research/skills/recovery/edge-profiles.mjs`),
-and is read as measured at the defaults: every stored trial began at its bodies' defaults, and a
-trial records none of those numbers. A strike thrown holding what none of its profiles was
-measured holding has no profile, and is priced by its prior.
+So a retrained network or a tuned setting keeps its profile until its tool measures it again
+(`research/skills/strikes/strike-profiles.mjs`, `research/skills/recovery/edge-profiles.mjs`).
+A strike thrown holding what none of its profiles was measured holding has no profile, and is
+priced by its prior.
+
+**A body's Balance and haste are coordinates of a start** (`Start.levels`, `LEVELS`,
+`profile.ts`). A trial records each body's, the striker's and the target's, where its character
+set it apart from its model's own (`startLevels`, which the strikes' tool writes from each row's
+bodies as its bout built them); a trial that records none began at its models' own. A reading
+takes its bodies' levels from their specs and reads each within the span its trials began at, as
+it reads a velocity, so a level no trial began at is read at the nearest one did. Every stored
+trial began at its models' own, so every reading is as it was: a profile whose trials record no
+level is compared by none, and the fingerprint moves no pose.
+
+**The physique's scales are no coordinate.** A body's spec says its Balance and its haste
+(`AttributeSpec`) and not the size, weight, strength and speed its character scaled it by, so a
+reading has nothing to take them from.
 
 Sparring the Warrior's punch at a Balance of 0.01 per cent, where the assist gives under 0.1 N,
 takes 3.6 times the life it takes at 0 on the same 240 starts, and holds less than half the
@@ -45,10 +57,11 @@ began: the range, the closing and across velocities and the place in a window (`
 read at its nearest measured edge (`within`).
 
 - **Balance, haste and the physique's scales, the striker's and the target's, are further
-  coordinates of a start.**
+  coordinates of a start.** Balance and haste are; the scales wait on a spec that says them.
 - **A trial that records none began at its bodies' defaults**, as every stored trial did.
 - **A sparring run that draws each trial's levels from a range measures them with the same
-  trials**, where a decision needs it.
+  trials**, where a decision needs it. Rows played at several levels already make one profile;
+  no rung draws a level.
 
 **What it would bring.** A character's foe models it as measured at its own Balance, haste or
 scale.
@@ -59,6 +72,13 @@ Nothing is played. The profiles stay as they are: a trial with no level is one a
 
 ## Open
 
+- **How wide a level's span is.** Trials are taken as alike over 2 per cent of Balance and 10 of
+  haste (`LEVELS`), set by no reading: no profile holds trials begun at two levels.
+- **Where a spec says its physique**, so that the scales are read as Balance and haste are. A
+  field for it on the spec enters the spec's digest (`specDigest`); what else compares or digests
+  a spec, and would move with it, is unread.
+- **Whether a ground edge's trial records its levels.** The strikes' tool does; the edges' tool
+  plays its falls at a Balance its jobs name.
 - **How far a level read at the nearest measured is true.** Against a Balance at which neither
   mind read a profile, sparring the Warrior's punch at 5, 10 and 25 per cent landed 18, 25 and 29
   more of 240, and moved neither the table's value nor the life dealt detectably. Haste and the

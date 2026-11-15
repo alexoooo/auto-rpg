@@ -124,6 +124,31 @@ test("a skill's identity includes the selected aim's declared data", async () =>
   assert.notEqual(skillDigest(lookup("aim-audit-a"), spec, executors, action), skillDigest(lookup("aim-audit-b"), spec, executors, action));
 });
 
+/**
+ * **A number a character sets is a condition of a profile's trials** (`Start.levels`): a profile
+ * whose trials began at two Balances was read as measured at one, whatever its reader's Balance.
+ * A striker and a struck body are each read by the trials begun at the level nearest theirs, a
+ * level no trial began at by the nearest that one did, and a profile that records none as before.
+ */
+test("a profile whose trials began at several Balances is read at the level nearest each body's", async () => {
+  const { profileReading, startLevels, validProfiles } = await import("../../src/skills/framework/profile.ts");
+  const body = (balance) => resolveCharacter({ model: "man", ...(balance === undefined ? {} : { attributes: { balance } }) }).spec;
+  const plain = body(), own = plain.attributes.balance.value, raised = body(own + 25), beyond = body(own + 60);
+  assert.deepEqual([startLevels(plain, plain), startLevels(raised, plain), startLevels(plain, raised)], [undefined, { own: { balance: own + 25 } }, { target: { balance: own + 25 } }]);
+  const trial = (range, done, levels) => ({ start: { phase: "clear", range, ...(levels ? { levels } : {}) }, done, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false });
+  const ranges = Array.from({ length: 12 }, (_, k) => .5 + k * .02), measured = { body: "man", skill: "straight-punch/drive", hz: 120, reaction: null }, target = { body: "man" };
+  const at = { phase: "clear", range: .6 };
+  for (const side of ["own", "target"]) {
+    const profile = { measured, target, trials: ranges.flatMap((range) => [trial(range, false), trial(range, true, { [side]: { balance: own + 25 } })]) };
+    assert.ok(validProfiles([profile]));
+    const done = (striker, struck) => profileReading(profile, striker).expect(at, struck).done;
+    const read = side === "own" ? (spec) => done(spec, plain) : (spec) => done(plain, spec);
+    assert.deepEqual([read(plain), read(raised), read(beyond)], [0, 1, 1], `${side}'s Balance`);
+  }
+  const unlevelled = { measured, target, trials: ranges.flatMap((range) => [trial(range, false), trial(range, true)]) };
+  assert.equal(profileReading(unlevelled, raised).expect(at, raised).done, profileReading(unlevelled, plain).expect(at, plain).done);
+});
+
 test("a zero-length failed profile trial has a finite failed rate", async () => {
   const { profileReading } = await import("../../src/skills/framework/profile.ts");
   const spec = resolveCharacter({ model: "man" }).spec;
