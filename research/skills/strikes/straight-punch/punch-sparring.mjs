@@ -30,7 +30,7 @@
  * by the last span whose `from` its drive's age has reached.
  *
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --search --out <file.json> [--variation drive] [--keeps-network] [--every 3] [--lambda 16] [--sigma 0.2] [--patience 30] [--workers N] [--resume]
- *   node research/skills/strikes/straight-punch/punch-sparring.mjs --bar <candidate.json> [--variation drive] [--on held-out|twin|dev|train] [--workers N]
+ *   node research/skills/strikes/straight-punch/punch-sparring.mjs --bar <candidate.json> [--variation drive] [--on held-out|judge|twin|dev|train] [--workers N]
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --network <form> --out <file.json> [--variation drive] [--workers N]
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --commitments [--variation drive] [--out <file.json>] [--workers N]
  *
@@ -46,9 +46,11 @@
  * sparring's own starts holds outside them. With `--out`, it writes each rung's commitments, each
  * its trial's outcome and its inputs in the layout's order.
  *
+ * `--on judge` plays sparring's larger held-out draw (`sparring-judge`, ten times the starts), which
+ * a variation is accepted on; the drive's side of it is played once and found after.
  * `--on twin` plays the training twin, the starts checkpoints are ranked on where a trainer draws
  * from `sparring-drawn`; `--on dev` and `--on train` its halves an environment's `split` keeps out
- * and in, where a trainer draws from the twin. The bar's own starts are held out of all of them.
+ * and in, where a trainer draws from the twin. The bar's own starts and the judge's are held out of all of them.
  * A candidate may be a trained network's file (`policy-<n>.json`), or a file of spans of networks
  * (`fit-spans`): it steers the punch on its record's settings, answering each of its requests as a
  * trainer does.
@@ -305,9 +307,19 @@ async function driveOn(pool, protocol, conditions) {
     ...(drawn.length > 0 ? [`  ${drawn.length} of the ${of} rows found from other code played again: ${again.filter((row) => row.digest === store.rows.get(row.key).digest).length} read as kept`] : [])] };
 }
 
+/** What `--bar` may be played on (`--on`): each its protocol, its name in the report and, where it is a part of its protocol, which of the protocol's starts are its own. */
+const ON = Object.freeze({
+  "held-out": { protocol: "sparring", name: "held-out sparring" },
+  judge: { protocol: "sparring-judge", name: "the judge's draw" },
+  twin: { protocol: "sparring-twin", name: "the training twin" },
+  dev: { protocol: "sparring-twin", name: "the twin's held-out half (dev)", own: (condition) => heldOut(condition) },
+  train: { protocol: "sparring-twin", name: "the twin's training half", own: (condition) => !heldOut(condition) },
+});
+
 async function bar(path, workers, on, variation) {
-  const candidate = candidateIn(path, variation), protocol = on === "held-out" ? "sparring" : "sparring-twin";
-  const conditions = trialsOf(protocol, candidate.variation).filter((condition) => on === "held-out" || on === "twin" || heldOut(condition) === (on === "dev"));
+  if (!Object.hasOwn(ON, on)) throw new Error(`--on ${on}: one of ${Object.keys(ON).join(", ")}`);
+  const candidate = candidateIn(path, variation), { protocol, name, own = () => true } = ON[on];
+  const conditions = trialsOf(protocol, candidate.variation).filter(own);
   const pool = workerPool(fileURLToPath(import.meta.url), { punchSparring: true }, workers);
   try {
     await Promise.all(Array.from({ length: workers }, () => pool.evaluate({ ping: true })));
@@ -324,7 +336,7 @@ async function bar(path, workers, on, variation) {
     const begun = (played) => played.filter((one) => one.trade).length, landed = (played) => played.filter((one) => one.outcome === "landed").length;
     const value = (played) => played.reduce((sum, one) => sum + (one.value ?? 0), 0) / played.length;
     const pass = ratio >= RATE && low > LOW && taken(mine) <= taken(drive) && falls(mine) <= falls(drive);
-    console.log(`Warrior, ${on === "held-out" ? "held-out sparring" : on === "twin" ? "the training twin" : on === "dev" ? "the twin's held-out half (dev)" : "the twin's training half"}, ${conditions.length} starts; candidate ${path} (${candidate.variation}${candidate.tuning ? ", tuned" : ""}${candidate.policy ? ", its policy steering" : ""}) against the drive`);
+    console.log(`Warrior, ${name}, ${conditions.length} starts; candidate ${path} (${candidate.variation}${candidate.tuning ? ", tuned" : ""}${candidate.policy ? ", its policy steering" : ""}) against the drive`);
     console.log(`  damage dealt per second: ${rateOf(mine).toFixed(3)} against ${rateOf(drive).toFixed(3)}, ratio ${ratio.toFixed(2)} (95 % ${low.toFixed(2)} to ${high.toFixed(2)}); bar ${RATE}, low end above ${LOW}`);
     console.log(`  life taken a trial: ${taken(mine).toFixed(3)} against ${taken(drive).toFixed(3)}; falls ${falls(mine)} against ${falls(drive)}`);
     console.log(`  beside: begun ${begun(mine)} against ${begun(drive)}, landed ${landed(mine)} against ${landed(drive)}, the table's value a trial ${value(mine).toFixed(4)} against ${value(drive).toFixed(4)}`);

@@ -343,6 +343,14 @@ const SPARRING_TWIN = deepFreeze({ ...SPARRING, seed: 2 });
 const SPARRING_DRAWN = deepFreeze({ ...SPARRING, seed: 3, trials: SPARRING.trials * 10 });
 
 /**
+ * **Sparring's larger held-out draw**, `sparring-judge`: ten times its starts on a stream of their
+ * own, which no search and no trainer plays. A variation is judged on it beside the one it would
+ * replace (`punch-sparring.mjs --bar --on judge`): an interval over ten times the starts is about
+ * a third as wide.
+ */
+const SPARRING_JUDGE = deepFreeze({ ...SPARRING, seed: 4, trials: SPARRING.trials * 10 });
+
+/**
  * **Sparring at a foe laid down**, the `sparring-laid` rung: the stomping rung's sampled starts
  * (`STOMPING_SAMPLED`), with each foot, at each of the game's foes laid down and fighting back
  * (`SPARRING_FOE`), which rises as it would. A foe that keeps its balance is shoved four times as
@@ -492,6 +500,7 @@ export function createStrikeCases(context: GameContext) {
   const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ ...twinned("still", atEveryFoe(STILL)), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
     sparring: { ...stillCases(SPARRING, sampledConditions(SPARRING)), twin: "sparring-twin" }, "sparring-twin": stillCases(SPARRING_TWIN, sampledConditions(SPARRING_TWIN)),
     "sparring-drawn": stillCases(SPARRING_DRAWN, sampledConditions(SPARRING_DRAWN)),
+    "sparring-judge": stillCases(SPARRING_JUDGE, sampledConditions(SPARRING_JUDGE)),
     "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
     "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),

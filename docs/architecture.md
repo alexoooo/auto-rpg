@@ -828,8 +828,9 @@ a target guards only on the rung that tests the guard (`guarding`, `drill-guard`
 read how well a body throws a strike. What the strike brings against a foe fighting back is read
 sparring: from starts drawn at random, as `sampled` draws them, at each of the game's foes under
 Option Mind fighting from the start (`sparring`, with each hand at each mark, its training twin
-`sparring-twin` drawn on another stream and `sparring-drawn`, ten times its starts on a third, for
-a trainer to draw from; `sparring-laid`, with each foot at a foe laid down), from which alone the strikes' profiles are built
+`sparring-twin` drawn on another stream, `sparring-drawn`, ten times its starts on a third, for
+a trainer to draw from, and `sparring-judge`, ten times its starts on a fourth that no search and
+no trainer plays, for a variation to be judged on beside the one it would replace; `sparring-laid`, with each foot at a foe laid down), from which alone the strikes' profiles are built
 (`research/skills/strikes/strike-profiles.mjs`): the starts are drawn, so a strike the Mind
 seldom chooses is measured as often as one it favours. A fight is read in fights, a bout of
 Option Mind against Option Mind in which the drill throws the strike in place of the blow the Mind
