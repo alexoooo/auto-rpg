@@ -10,9 +10,9 @@ import type { CryptReading } from "../crypt.ts";
 import { mindSubject, type Evaluation, type Json } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import { createCrowdCases, type CrowdCondition } from "./cases.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
-export function createCrowdIndex(context: GameContext) {
+export const createCrowdIndex = perContext((context: GameContext) => {
   const { controllers: CONTROLLERS, minds: MINDS } = context.catalog;
   const { CROWD_CASES, CROWD_MIND } = createCrowdCases(context);
 
@@ -59,4 +59,4 @@ export function createCrowdIndex(context: GameContext) {
   };
 
   return { CROWD };
-}
+});

@@ -23,7 +23,7 @@ import type { Hand, Mark } from "../strike/read.ts";
 import { readStand, type StandReading } from "./read.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { createStrikeCases, loadoutsOf, striker, type StrikeSubject } from "../strike/cases.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
 
 /** Where on the trunk a shove meets the body: its lower, middle or upper trunk's centre of mass. */
@@ -92,7 +92,7 @@ function shoveOf(rung: StandRung, condition: StandCondition): Shove {
     ...(rung.limb === undefined || condition.hand === undefined ? {} : { limb: { segment: `hand.${condition.hand}`, against: "upperTrunk", speed: rung.limb } }) };
 }
 
-export function createStandCases(context: GameContext) {
+export const createStandCases = perContext((context: GameContext) => {
   const { opponentOf } = createDrillOpponents(context);
   const { faultsOf } = createStrikeCases(context);
 
@@ -129,4 +129,4 @@ export function createStandCases(context: GameContext) {
   });
 
   return { STAND_CASES };
-}
+});

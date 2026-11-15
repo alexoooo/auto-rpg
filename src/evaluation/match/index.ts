@@ -10,7 +10,7 @@ import { sha256Text } from "../sha256.ts";
 import { CONTEST_FIGURES, type BoutReading } from "../contest.ts";
 
 import { createMatchCases, type MatchCondition } from "./cases.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 
 const digest = (value: Json | string): string => sha256Text(typeof value === "string" ? value : recordingKey(value)).slice(0, 16);
@@ -24,7 +24,7 @@ function tally(bouts: readonly { bout: Bout; a: Side }[]) {
   return { ...t, score: t.bouts ? (t.wins + t.draws / 2) / t.bouts : null };
 }
 
-export function createMatchIndex(context: GameContext) {
+export const createMatchIndex = perContext((context: GameContext) => {
   const { controllers: CONTROLLERS, minds: MINDS } = context.catalog;
   const { MATCH_CASES } = createMatchCases(context);
 
@@ -89,4 +89,4 @@ export function createMatchIndex(context: GameContext) {
   };
 
   return { MATCH };
-}
+});

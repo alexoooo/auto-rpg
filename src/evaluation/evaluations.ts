@@ -14,9 +14,9 @@ import { createStrikeIndex } from "./strike/index.ts";
 import { createTournamentIndex } from "./tournament/index.ts";
 import { createUnseenIndex } from "./unseen/index.ts";
 import { createWayUpIndex } from "./way-up/index.ts";
-import { type GameContext } from "../game/arena/context.ts";
+import { type GameContext, perContext } from "../game/arena/context.ts";
 
-export function createEvaluations(context: GameContext) {
+export const createEvaluations = perContext((context: GameContext) => {
   const { BASELINE } = createBaselineIndex(context);
   const { COURT } = createCourtIndex(context);
   const { CROWD } = createCrowdIndex(context);
@@ -56,4 +56,4 @@ export function createEvaluations(context: GameContext) {
   }).map(([id, evaluation]) => [id, variedSubjects(evaluation, offered)])));
 
   return { EVALUATIONS };
-}
+});

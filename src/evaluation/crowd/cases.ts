@@ -32,7 +32,7 @@ import { LEVELS } from "../../game/dungeon/run.ts";
 import { CRYPT_CAP, floorRows, type BuiltCrypt, type CryptCase, type CryptLayout, type CryptLeg, type CryptReading } from "../crypt.ts";
 import type { Cases, Json, Reader, Subject } from "../evaluation.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
-import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
+import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
 
 /** The situations, in their order. */
 const SITUATIONS = ["reversal", "lone", "following", "crossing", "passage", "fallen"] as const;
@@ -177,7 +177,7 @@ function crowdCase(situation: Situation, seed: number, mind: MindConfig): CryptC
 const readCrypt = (built: BuiltCrypt): Reader<CryptReading> =>
   ({ afterStep: () => built.afterStep(), get ended() { return built.ended; }, reading: () => built.reading() });
 
-export function createCrowdCases(context: GameContext) {
+export const createCrowdCases = perContext((context: GameContext) => {
   const { defaultMind } = context;
   const { controllers: CONTROLLERS } = context.catalog;
   const mindFaults = contextMindFaults.bind(undefined, context);
@@ -214,4 +214,4 @@ export function createCrowdCases(context: GameContext) {
   const CROWD_MIND = defaultMind(CROWD.model);
 
   return { CROWD_MIND, CROWD_CASES };
-}
+});

@@ -1,6 +1,6 @@
 import type { Evaluation, Json } from "../evaluation.ts";
 import type { BuiltLone } from "../lone.ts";
-import type { GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 import { createLocomotionIndex } from "../locomotion/index.ts";
 import { createTravelCases } from "./cases.ts";
 import type { TravelCondition } from "./protocol.ts";
@@ -8,7 +8,7 @@ import { travelLegCoverage, type TravelReading } from "./read.ts";
 import { ordersValue } from "../order-time.ts";
 import { FALL_PRICE } from "../table/judge.ts";
 
-export function createTravelIndex(context: GameContext) {
+export const createTravelIndex = perContext((context: GameContext) => {
   const { mindSubjects } = createLocomotionIndex(context);
   const { TRAVEL_CASES } = createTravelCases(context);
   const TRAVEL_DRILL: Evaluation<TravelCondition, TravelReading, BuiltLone> = {
@@ -32,4 +32,4 @@ export function createTravelIndex(context: GameContext) {
     }), json: table.cases.map(row => ({ condition: row.condition, reading: row.reading })) as unknown as Json }),
   };
   return { TRAVEL_DRILL };
-}
+});

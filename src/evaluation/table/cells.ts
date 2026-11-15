@@ -14,7 +14,7 @@ import type { TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { createRising } from "../rising.ts";
 import { createStrikeCases } from "../strike/cases.ts";
 import { ATTEMPT_CAP } from "../way-up/read.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** The bodies the table reads: the Warrior, the Rogue and the Skeleton. */
 export const TABLE_BODIES: readonly HumanoidModel[] = Object.freeze(["man", "woman", "skeleton"]);
@@ -80,7 +80,7 @@ const BLOW = "the life each trial took from the target less the life it cost, a 
 /** What a move's value is, in words. */
 const MOVE = "the seconds each trial lost against its orders, a trial ended down charged the rest of a fall's price (10 s)";
 
-export function createTableCells(context: GameContext) {
+export const createTableCells = perContext((context: GameContext) => {
   const { STRIKE_CASES, strikesBy } = createStrikeCases(context);
   const { drillWaysUp } = createRising(context);
   const parts = context.catalog.partLookup, techniqueOf = (way: TechniqueName) => parts.of("technique", { kind: way });
@@ -149,4 +149,4 @@ export function createTableCells(context: GameContext) {
     .map((skill): Cell => ({ body, loadout, skill: skill.name, value: skill.value, readings: skill.readings(body, loadout) }))));
 
   return { TABLE_SKILLS, tableCells };
-}
+});

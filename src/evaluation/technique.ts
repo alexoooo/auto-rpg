@@ -22,7 +22,7 @@ import { groundPlacement, type GROUND_POSTURES } from "../game/lab/ground-starts
 import type { LabAddress } from "../game/lab/scenarios.ts";
 import type { CaseWorld, Json, Reader, WorldKind } from "./evaluation.ts";
 import type { PartConfig } from "../parts/parts.ts";
-import { type GameContext } from "../game/arena/context.ts";
+import { type GameContext, perContext } from "../game/arena/context.ts";
 
 /**
  * One case, as plain data: the body, what its right hand holds and its left (empty where it names none), its start (placed in `posture`, or
@@ -101,7 +101,7 @@ export function readTechnique(built: BuiltTechnique): Reader<TechniqueReading & 
   return { afterStep: () => built.afterStep(), get ended() { return built.ended; }, reading: () => built.reading() as TechniqueReading & Json };
 }
 
-export function createTechnique(context: GameContext) {
+export const createTechnique = perContext((context: GameContext) => {
   const { partLookup } = context.catalog;
   const TECHNIQUES = context.techniques;
 
@@ -241,7 +241,7 @@ export function createTechnique(context: GameContext) {
   };
 
   return { buildTechnique, TECHNIQUE_WORLD };
-}
+});
 
 /** The registered world factory for this builder. */
 export const techniqueWorld = (context: GameContext) => createTechnique(context).TECHNIQUE_WORLD;

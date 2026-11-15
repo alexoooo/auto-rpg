@@ -6,7 +6,7 @@ import type { PhysicsEngine } from "../core/physics/engine.ts";
 import { DEFAULT_ENGINE, loadEngine, type EngineName } from "../core/physics/engines.ts";
 import { createWorld, type World } from "../core/world/world.ts";
 import type { MindPlace } from "../minds/seat/apart.ts";
-import { type GameContext } from "../game/arena/context.ts";
+import { type GameContext, perContext } from "../game/arena/context.ts";
 import type { Catalog } from "../minds/catalog/catalog.ts";
 
 /** How a bout's world is built beside its recipe. */
@@ -33,7 +33,7 @@ export interface BuiltBout {
   dispose(): void;
 }
 
-export function createBout(context: GameContext) {
+export const createBout = perContext((context: GameContext) => {
   /** A world with the arena's solids and `recipe`'s bout in it. */
   async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, delay, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
     const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, actuation, ...(delay === undefined ? {} : { delay }), ...(minds ? { minds } : {}) });
@@ -74,7 +74,7 @@ export function createBout(context: GameContext) {
   }
 
   return { buildBout, BOUT_WORLD, buildTeamBout };
-}
+});
 
 /** The registered world factory for this builder. */
 export const boutWorld = (context: GameContext) => createBout(context).BOUT_WORLD;

@@ -14,7 +14,7 @@ import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject }
 import { readCover, type CoverReading } from "./read.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { between } from "../twin.ts";
-import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
+import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
 
 /** What the subject holds in its right hand: nothing, a club or a sword. */
 type CoverHeld = "empty" | "club" | "sword";
@@ -55,7 +55,7 @@ const loadoutOf = ({ held, left }: Pick<CoverCondition, "held" | "left">): Loado
 /** The Commander that leads the subject: stand facing the foe, and strike nothing. */
 const STANDING = deepFreeze({ kind: "stand" });
 
-export function createCoverCases(context: GameContext) {
+export const createCoverCases = perContext((context: GameContext) => {
   const { treeObeys, controllers: CONTROLLERS } = context.catalog;
   const mindFaults = contextMindFaults.bind(undefined, context);
   const { opponentOf } = createDrillOpponents(context);
@@ -101,4 +101,4 @@ export function createCoverCases(context: GameContext) {
   const COVER_CASES: Readonly<Record<string, Cases<CoverCondition, CoverReading>>> = Object.freeze({ punched: coverCases(PUNCHED), ...twinned("club", CLUBBED), ...twinned("sword", SWORD) });
 
   return { COVER_CASES };
-}
+});

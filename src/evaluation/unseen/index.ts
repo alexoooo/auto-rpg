@@ -7,9 +7,9 @@ import { loadoutKey } from "../../core/bodies/items/held.ts";
 import { offered } from "../../minds/catalog/controller.ts";
 import { mindSubject, type Evaluation } from "../evaluation.ts";
 import { createUnseenCases, type UnseenCondition, type UnseenReading } from "./cases.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
-export function createUnseenIndex(context: GameContext) {
+export const createUnseenIndex = perContext((context: GameContext) => {
   const { partOf, controllers: CONTROLLERS, minds: MINDS } = context.catalog;
   const { UNSEEN_CASES } = createUnseenCases(context);
 
@@ -56,4 +56,4 @@ export function createUnseenIndex(context: GameContext) {
   };
 
   return { UNSEEN };
-}
+});

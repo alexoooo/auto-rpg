@@ -17,7 +17,7 @@ import { generateEncounterLevel } from "../../game/dungeon/encounters.ts";
 import { distance, routeLength, walkable } from "../../game/dungeon/map.ts";
 import { CRYPT_CAP, floorRows, type BuiltCrypt, type CryptLayout } from "../crypt.ts";
 import type { Cases, Json } from "../evaluation.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /**
  * The protocol: the levels' seeds, the trials of each, the enemies' Commanders, the hero's model and
@@ -99,7 +99,7 @@ function faultsOf(context: GameContext, value: Json): readonly string[] {
   return commanderOf(context.commanders, (value as unknown as CommanderConfig).kind)!.sides.includes("party") ? [] : [`the ${(value as unknown as CommanderConfig).kind} Commander leads no party`];
 }
 
-export function createCryptClearCases(context: GameContext) {
+export const createCryptClearCases = perContext((context: GameContext) => {
   const { minds: MINDS } = context.catalog;
 
   function clearCases(protocol: typeof ALONE): Cases<CryptCondition, ClearReading, BuiltCrypt> {
@@ -152,4 +152,4 @@ export function createCryptClearCases(context: GameContext) {
   const CRYPT_CLEAR_CASES: Readonly<Record<string, Cases<CryptCondition, ClearReading, BuiltCrypt>>> = Object.freeze({ alone: clearCases(ALONE) });
 
   return { CRYPT_CLEAR_CASES };
-}
+});

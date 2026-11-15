@@ -20,7 +20,7 @@ import type { StrikeReading } from "./read.ts";
 import { barScore, graded, releasedScore } from "./score.ts";
 import { FALL_PRICE, keep, trialValue } from "../table/judge.ts";
 import { createStrikeCases, limbOf, type StrikeCondition } from "./cases.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** Where a trial was thrown: the still rung's offset and gap (and its target, and how it moves, where it names them), or a fight's foe and moment. */
 const whereOf = (condition: StrikeCondition) => "foe" in condition ? `${condition.foe}, ${condition.gap === undefined ? "" : `gap ${condition.gap} m, `}moment ${condition.moment}`
@@ -54,7 +54,7 @@ const strikeOutcome = (reading: StrikeReading) => {
   return { label: reading.outcome, passed: reading.outcome === "landed" };
 };
 
-export function createStrikeIndex(context: GameContext) {
+export const createStrikeIndex = perContext((context: GameContext) => {
   const { minds: MINDS } = context.catalog;
   const { STRIKE_CASES } = createStrikeCases(context);
 
@@ -159,4 +159,4 @@ export function createStrikeIndex(context: GameContext) {
   };
 
   return { strikeSubjects, STRIKE };
-}
+});

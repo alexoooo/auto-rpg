@@ -15,7 +15,7 @@ import { createLocomotionIndex, LOCOMOTION_FIGURES, locomotionSummary } from "..
 import { createRisingTargetIndex, FALL_FIGURES } from "../rising-target/index.ts";
 import { createStrikeIndex } from "../strike/index.ts";
 import { createBaselineCases, OPPONENTS, type BaselineFight, type BaselinePart, type BaselineReading, type FightReading } from "./cases.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** `figures` read on `part`'s readings alone, each named for its competence. */
 function partFigures<R>(part: BaselinePart, figures: readonly Figure<R & Json>[]): Figure<BaselineReading>[] {
@@ -47,7 +47,7 @@ function fightSummary({ subjects, cases }: Table<Json, BaselineReading>): { line
   };
 }
 
-export function createBaselineIndex(context: GameContext) {
+export const createBaselineIndex = perContext((context: GameContext) => {
   const { mindSubjects } = createLocomotionIndex(context);
   const { fallSummary } = createRisingTargetIndex(context);
   const { STRIKE } = createStrikeIndex(context);
@@ -90,4 +90,4 @@ export function createBaselineIndex(context: GameContext) {
   };
 
   return { BASELINE };
-}
+});

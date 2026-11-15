@@ -10,14 +10,14 @@ import { sha256Text } from "../sha256.ts";
 import type { CoverReading } from "./read.ts";
 import { createLocomotionIndex } from "../locomotion/index.ts";
 import { createCoverCases, type CoverCondition } from "./cases.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** What the strip shows a trial as: its outcome, and whether it passed (nothing on its head, the subject up). */
 const coverOutcome = (reading: CoverReading) => !reading.attempted
   ? { label: "unreached", passed: false }
   : { label: reading.outcome, passed: reading.outcome === "covered" || reading.outcome === "untouched" };
 
-export function createCoverIndex(context: GameContext) {
+export const createCoverIndex = perContext((context: GameContext) => {
   const { mindSubjects } = createLocomotionIndex(context);
   const { COVER_CASES } = createCoverCases(context);
 
@@ -60,4 +60,4 @@ export function createCoverIndex(context: GameContext) {
   };
 
   return { COVER };
-}
+});

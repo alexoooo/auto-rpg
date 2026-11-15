@@ -7,7 +7,7 @@
  */
 import { loadoutKey } from "../../core/bodies/items/held.ts";
 import { HUMANOID_MODELS, modelHolding } from "../../core/bodies/models.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 import { isWayUp, type TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { mindJson, type Evaluation, type Figure, type Json, type Subject, type SubjectChoice, type Table } from "../evaluation.ts";
 import type { BuiltFall } from "../fall.ts";
@@ -32,7 +32,7 @@ const WAY_UP_FIGURES: readonly Figure<WayUpReading>[] = [
     of: (r) => { const one = wayUpAttempts(r); return one === null || one.attempts === 0 ? null : one.obstructed; } },
 ];
 
-export function createWayUpIndex(context: GameContext) {
+export const createWayUpIndex = perContext((context: GameContext) => {
   const { minds: MINDS, partLookup: parts } = context.catalog;
   const { wayUpMind, drillWaysUp } = createRising(context);
   const { WAY_UP_CASES } = createWayUpCases(context);
@@ -90,4 +90,4 @@ export function createWayUpIndex(context: GameContext) {
   };
 
   return { WAY_UP };
-}
+});

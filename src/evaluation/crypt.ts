@@ -20,7 +20,7 @@ import type { World } from "../core/world/world.ts";
 import { distance, type Door, type DungeonMap, type DungeonObstacle, type Point } from "../game/dungeon/map.ts";
 import { DungeonRun, prepareDungeonCharacters, runParticipants } from "../game/dungeon/run.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
-import { type GameContext } from "../game/arena/context.ts";
+import { type GameContext, perContext } from "../game/arena/context.ts";
 
 /**
  * A level as plain data: its floor as rows (row `z`, a character a cell along `x`: `.` floor, any
@@ -126,7 +126,7 @@ export interface BuiltCrypt {
   dispose(): void;
 }
 
-export function createCrypt(context: GameContext) {
+export const createCrypt = perContext((context: GameContext) => {
   /** `crypt`'s run on `engine`: the party placed, every member under the case's mind and the enemies under their own, its script begun. */
   async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<BuiltCrypt | Refused> {
     const map = cryptMap(crypt.layout), [hero, ...companions] = crypt.party;
@@ -246,7 +246,7 @@ export function createCrypt(context: GameContext) {
   };
 
   return { CRYPT_WORLD };
-}
+});
 
 /** The registered world factory for this builder. */
 export const cryptWorld = (context: GameContext) => createCrypt(context).CRYPT_WORLD;

@@ -14,7 +14,7 @@ import type { Loadout } from "../../core/bodies/items/held.ts";
 import type { HumanoidModel } from "../../core/bodies/models.ts";
 import { isRefused } from "../../core/refusal.ts";
 import type { GroundLevel } from "../../game/lab/ground-environment.ts";
-import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
+import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
 import type { TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { mindOf, seatBody, seatCharacter, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { FALL_AFTER, FALL_CAP, fallCases, readFall, type BuiltFall, type FallReading } from "../fall.ts";
@@ -45,7 +45,7 @@ const wayUpFalls = (offset: number): WayUpCondition[] => [...risingJobs({ target
     ({ model: model!, loadout: loadout!, seed, start: "shoved", degrees: degrees!, level: level ?? "open", steadiness: steadiness!, grit: grit!, gusts: gusts!,
       target: Boolean(target), obstacle: Boolean(obstacle) }));
 
-export function createWayUpCases(context: GameContext) {
+export const createWayUpCases = perContext((context: GameContext) => {
   const mindFaults = contextMindFaults.bind(undefined, context);
   const parts = context.catalog.partLookup;
 
@@ -102,4 +102,4 @@ export function createWayUpCases(context: GameContext) {
   });
 
   return { WAY_UP_CASES };
-}
+});

@@ -17,6 +17,15 @@ export interface GameContext {
   modelRefusal(model: BodyModel, mind: MindConfig, loadout: Loadout, entry: readonly EntryRule[], attributes?: AttributeOverrides, skills?: SkillChoices): string | null;
 }
 
+/** `make` made once a context: whoever asks with the same context is handed the same thing. */
+export function perContext<T>(make: (context: GameContext) => T): (context: GameContext) => T {
+  const made = new WeakMap<GameContext, T>();
+  return (context) => {
+    if (!made.has(context)) made.set(context, make(context));
+    return made.get(context) as T;
+  };
+}
+
 /** Why a mind cannot run on this body or satisfy the scenario's entry rules. */
 export function mindFaults(context: GameContext, config: MindConfig, spec: BodySpec, { entry = [] }: { readonly entry?: readonly EntryRule[] } = {}): readonly string[] {
   const faults = context.catalog.treeFaults(config);

@@ -23,7 +23,7 @@ import { rulebook } from "../combat/rulebook.ts";
 import { createWorld, type World } from "../core/world/world.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
 import { labGusts, startWind } from "../game/lab/wind.ts";
-import { type GameContext } from "../game/arena/context.ts";
+import { type GameContext, perContext } from "../game/arena/context.ts";
 import { saveState, loadState, type Saved } from "../core/state.ts";
 
 /**
@@ -73,7 +73,7 @@ export interface BuiltLone {
   dispose(): void;
 }
 
-export function createLone(context: GameContext) {
+export const createLone = perContext((context: GameContext) => {
   const GAME = context.catalog;
 
   /**
@@ -140,7 +140,7 @@ export function createLone(context: GameContext) {
   };
 
   return { LONE_WORLD };
-}
+});
 
 /** The registered world factory for this builder. */
 export const loneWorld = (context: GameContext) => createLone(context).LONE_WORLD;

@@ -4,7 +4,7 @@ import type { CommanderConfig } from "../minds/command/kind.ts";
 import type { OptionMindConfig } from "../minds/option/config.ts";
 import { ORDERS_OPTION, COVER_OPTION, BONK_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../minds/option/kinds.ts";
 import { deepFreeze } from "../core/state.ts";
-import { type GameContext } from "../game/arena/context.ts";
+import { type GameContext, perContext } from "../game/arena/context.ts";
 
 /** On a rhythm: a strike ordered for 2 s, then a stand for 1 s. */
 const RHYTHM = [{ seconds: 2, move: { kind: "strike" } }, { seconds: 1, move: { kind: "stand" } }] as const;
@@ -25,7 +25,7 @@ export function opposed(left: { readonly mind: MindConfig; readonly commander?: 
     commanders: { ...(left.commander ? { left: left.commander } : {}), ...(opponent.commander ? { right: opponent.commander } : {}) } };
 }
 
-export function createDrillOpponents(context: GameContext) {
+export const createDrillOpponents = perContext((context: GameContext) => {
   const { minds: MINDS } = context.catalog;
 
   /** The drills' Option Mind (`option-drill`): its body layer, its rate and its rise, on its priors with no tree searched. */
@@ -88,4 +88,4 @@ export function createDrillOpponents(context: GameContext) {
     Object.hasOwn(DRILL_OPPONENTS, id) ? DRILL_OPPONENTS[id] : Object.hasOwn(MINDS, id) ? { label: MINDS[id]!.label, mind: MINDS[id]!.config } : undefined;
 
   return { opponentOf, STANDS, MOVES, DRILL_OPPONENTS };
-}
+});

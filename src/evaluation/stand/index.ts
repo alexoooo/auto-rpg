@@ -11,7 +11,7 @@ import { sha256Text } from "../sha256.ts";
 import type { StandReading } from "./read.ts";
 import { createStrikeIndex } from "../strike/index.ts";
 import { createStandCases, type StandCondition } from "./cases.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** The subject drilled when none is named: the reference mind's straight punch. */
 const DRILLED = ["option/straight-punch"];
@@ -32,7 +32,7 @@ function standOutcome(r: StandReading): { readonly label: string; readonly passe
   return { label: "settled", passed: true };
 }
 
-export function createStandIndex(context: GameContext) {
+export const createStandIndex = perContext((context: GameContext) => {
   const { strikeSubjects } = createStrikeIndex(context);
   const { STAND_CASES } = createStandCases(context);
 
@@ -72,4 +72,4 @@ export function createStandIndex(context: GameContext) {
   };
 
   return { STAND };
-}
+});

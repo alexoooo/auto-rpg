@@ -1,12 +1,12 @@
 import { dataIdentity, type DataKey } from "../core/data/store.ts";
 import { recordingKey } from "../core/world/recording.ts";
-import type { GameContext } from "../game/arena/context.ts";
+import { type GameContext, perContext } from "../game/arena/context.ts";
 import type { CaseWorld, Json, WorldKind } from "./evaluation.ts";
 import { sha256Text } from "./sha256.ts";
 import { WORLD_FACTORIES } from "./worlds.ts";
 
 /** The registered case-world builders, bound to the application's fixed choices, and what a world of them loads. */
-export function createWorlds(context: GameContext) {
+export const createWorlds = perContext((context: GameContext) => {
   const WORLD_BUILDERS = { bout: WORLD_FACTORIES.bout(context), fall: WORLD_FACTORIES.fall(context), crypt: WORLD_FACTORIES.crypt(context), lone: WORLD_FACTORIES.lone(context), technique: WORLD_FACTORIES.technique(context) };
 
   /** Each model's row of each key, digested once: mind data loads once a realm and is frozen (`loadData`). */
@@ -31,4 +31,4 @@ export function createWorlds(context: GameContext) {
   }
 
   return { WORLD_BUILDERS, loadsOf };
-}
+});

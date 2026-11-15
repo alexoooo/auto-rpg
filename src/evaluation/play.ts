@@ -3,7 +3,7 @@ import { recordingKey } from "../core/world/recording.ts";
 import type { CaseWorld, Json, Reader, BuiltCase, WorldKind } from "./evaluation.ts";
 import { traceOf } from "./trace.ts";
 import { createWorlds } from "./world-builders.ts";
-import { type GameContext } from "../game/arena/context.ts";
+import { type GameContext, perContext } from "../game/arena/context.ts";
 
 /** What a case came to: its reading, the digest of every pose it passed through (`traceOf`), and how long it played, simulated s. */
 interface Played<R extends Json = Json> {
@@ -28,7 +28,7 @@ export interface Row<R extends Json = Json> {
 /** How far past its `seconds` a case may run before it is an error, simulated s. */
 const OVERRUN = 1;
 
-export function createPlay(context: GameContext) {
+export const createPlay = perContext((context: GameContext) => {
   const { WORLD_BUILDERS } = createWorlds(context);
 
   /**
@@ -65,4 +65,4 @@ export function createPlay(context: GameContext) {
   }
 
   return { playCase, playRow };
-}
+});

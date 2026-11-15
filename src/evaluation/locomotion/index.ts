@@ -15,7 +15,7 @@ import type { LocomotionReading } from "./read.ts";
 import { createLocomotionCases, scriptOf, type LocomotionCondition } from "./cases.ts";
 import { ordersValue, routeLeft } from "../order-time.ts";
 import { FALL_PRICE } from "../table/judge.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** Whether a walk came to its pace: along within 0.8 to 1.25 of it, under a quarter of it across, on its feet. */
 const onPace = (r: LocomotionReading): boolean => !r.fell && r.along !== null && r.across !== null && r.along >= .8 && r.along <= 1.25 && Math.abs(r.across) < .25;
@@ -102,7 +102,7 @@ function orderedWay(built: BuiltLone, condition: LocomotionCondition): { readonl
   return direction && length > 0 ? { x: direction.x / length, z: direction.z / length, pace: orders?.pace ?? 0 } : null;
 }
 
-export function createLocomotionIndex(context: GameContext) {
+export const createLocomotionIndex = perContext((context: GameContext) => {
   const { controllers: CONTROLLERS, minds: MINDS } = context.catalog;
   const { LOCOMOTION_CASES } = createLocomotionCases(context);
 
@@ -151,4 +151,4 @@ export function createLocomotionIndex(context: GameContext) {
   };
 
   return { mindSubjects, LOCOMOTION };
-}
+});

@@ -46,7 +46,7 @@ import type { Cases, Json, Subject } from "../evaluation.ts";
 import { OPEN_FLOOR, type BuiltLone, type LoneCue } from "../lone.ts";
 import { readLocomotion, type LocomotionReading } from "./read.ts";
 import { between, later, turned } from "../twin.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 import { ARRIVAL } from "../../minds/command/goals.ts";
 import { ARRIVED, placeMovement } from "../../skills/framework/movement.ts";
 
@@ -260,7 +260,7 @@ const stepsOf = (protocol: typeof STEP): LocomotionCondition[] => protocol.model
 /** How long a trial of `conditions` plays at most: its last cue and `AFTER`, s. */
 const longest = (conditions: readonly LocomotionCondition[]) => Math.max(...conditions.map((condition) => scriptOf(condition).last)) + AFTER;
 
-export function createLocomotionCases(context: GameContext) {
+export const createLocomotionCases = perContext((context: GameContext) => {
   const { controllers: CONTROLLERS } = context.catalog;
 
   /** Why `value` cannot walk `model`: not a mind, or a named calibration that keeps it off that body. */
@@ -297,4 +297,4 @@ export function createLocomotionCases(context: GameContext) {
   });
 
   return { LOCOMOTION_CASES };
-}
+});

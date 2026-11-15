@@ -1,7 +1,7 @@
 import { mindOf, seatCharacter } from "../evaluation.ts";
 import type { Cases, Json } from "../evaluation.ts";
 import { OPEN_FLOOR, type BuiltLone } from "../lone.ts";
-import type { GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import { DEFAULT_ENGINE } from "../../core/physics/engines.ts";
 import { deepFreeze } from "../../core/state.ts";
@@ -35,7 +35,7 @@ function conditions({ confirmation, twin = false }: { readonly confirmation: boo
   })));
 }
 
-export function createTravelCases(context: GameContext) {
+export const createTravelCases = perContext((context: GameContext) => {
   const admission = createLocomotionCases(context).LOCOMOTION_CASES.run!;
   const protocol = ({ confirmation, twin = false }: { readonly confirmation: boolean; readonly twin?: boolean }): Cases<TravelCondition, TravelReading, BuiltLone> => {
     const cases = conditions({ confirmation, twin });
@@ -50,4 +50,4 @@ export function createTravelCases(context: GameContext) {
   };
   return { TRAVEL_CASES: deepFreeze({ minimum: protocol({ confirmation: false }), confirmation: { ...protocol({ confirmation: true }), twin: "confirmation-twin" },
     "confirmation-twin": protocol({ confirmation: true, twin: true }) }) };
-}
+});

@@ -39,7 +39,7 @@ import { directMovement } from "../skills/framework/movement.ts";
 import { loadoutSpecChecked } from "../game/lab/loadout.ts";
 import type { CaseWorld, Cases, Json, Reader, WorldKind } from "./evaluation.ts";
 import { createLabScenarios, type LabAddress } from "../game/lab/scenarios.ts";
-import { type GameContext } from "../game/arena/context.ts";
+import { type GameContext, perContext } from "../game/arena/context.ts";
 
 /**
  * One fall, as plain data: the body (a model with an item in its right hand, or a loadout), the start and its seed, the level, the assists, and the riser's mind in full. `target`
@@ -190,7 +190,7 @@ export function fallCases<C extends Json & Omit<FallCase, "mind">>(play: Json, c
   };
 }
 
-export function createFall(context: GameContext) {
+export const createFall = perContext((context: GameContext) => {
   const GAME = context.catalog;
   const { labAddress } = createLabScenarios(context);
 
@@ -357,7 +357,7 @@ export function createFall(context: GameContext) {
   };
 
   return { fallStart, buildStandFall, buildFall, FALL_WORLD };
-}
+});
 
 /** The registered world factory for this builder. */
 export const fallWorld = (context: GameContext) => createFall(context).FALL_WORLD;

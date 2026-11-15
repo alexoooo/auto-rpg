@@ -34,7 +34,7 @@ import { FIGHT_ENTRY, describeMind } from "../../minds/catalog/catalog.ts";
 import { createLocomotionCases, type LocomotionCondition } from "../locomotion/cases.ts";
 import { createRisingTargetCases, type TargetCondition } from "../rising-target/cases.ts";
 import { createStrikeCases, type StillCondition, type StrikeSubject } from "../strike/cases.ts";
-import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
+import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
 import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 
 /** The body every competence is read on. */
@@ -73,7 +73,7 @@ function tagged<R extends Json>(part: BaselinePart, reader: Reader<R>): Reader<B
 /** The standard match's loadouts and gaps on the open stage, the subject and its opponent on the Warrior. */
 const FIGHTS = deepFreeze({ loadouts: REPRESENTATIVE, gaps: [3, 4, 5], capSeconds: CAP_SECONDS });
 
-export function createBaselineCases(context: GameContext) {
+export const createBaselineCases = perContext((context: GameContext) => {
   const { minds: MINDS } = context.catalog;
   const mindFaults = contextMindFaults.bind(undefined, context);
   const { LOCOMOTION_CASES } = createLocomotionCases(context);
@@ -160,4 +160,4 @@ export function createBaselineCases(context: GameContext) {
   });
 
   return { BASELINE_CASES };
-}
+});

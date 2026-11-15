@@ -41,7 +41,7 @@ import { seatBody, sideCharacters, type BoutTiming, type Cases, type Json, type 
 import { drillOf, effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
 import type { Rail } from "../../game/arena/rail.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
-import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
+import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
 import { between } from "../twin.ts";
 
@@ -407,7 +407,7 @@ const SPARRING_JUDGE = deepFreeze({ ...SPARRING, seed: 4, trials: SPARRING.trial
 const SPARRING_LAID = deepFreeze({ ...STOMPING_SAMPLED, targets: FOES, trials: 240, opponent: SPARRING_FOE,
   laid: { ...LAID, speed: 2 }, settled: .6, gaps: [.5, .8], closer: [.8, 1.2] });
 
-export function createStrikeCases(context: GameContext) {
+export const createStrikeCases = perContext((context: GameContext) => {
   const { treeObeys, controllers: CONTROLLERS, minds: MINDS } = context.catalog;
   const mindFaults = contextMindFaults.bind(undefined, context);
   const { opponentOf, DRILL_OPPONENTS } = createDrillOpponents(context);
@@ -561,4 +561,4 @@ export function createStrikeCases(context: GameContext) {
     ...twinned("stomping-bodies", onOtherBodies(STOMPING)) });
 
   return { faultsOf, strikesBy, STRIKE_CASES };
-}
+});

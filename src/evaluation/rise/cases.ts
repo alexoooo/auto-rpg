@@ -17,7 +17,7 @@ import type { Held } from "../../core/bodies/items/held.ts";
 import type { GROUND_POSTURES } from "../../game/lab/ground-starts.ts";
 import type { Cases, Json } from "../evaluation.ts";
 import { readTechnique, techniquePlacement, TECHNIQUE_LIMITS, type BuiltTechnique, type TechniqueCase, type TechniqueReading } from "../technique.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** An edge drilled, by its technique; the edge before it on the route, none for the first. */
 export const EDGES: Readonly<Record<string, TechniqueName | null>> = Object.freeze({
@@ -70,7 +70,7 @@ const play = (rung: string): Json => ({ drill: "rise", rung, limits: TECHNIQUE_L
 /** The longest case: the route's every edge in turn. */
 const seconds = TECHNIQUE_LIMITS.admit * (DRILLED.length + 1) + TECHNIQUE_LIMITS.run * DRILLED.length + TECHNIQUE_LIMITS.stood + TECHNIQUE_LIMITS.rest + 2;
 
-export function createRiseCases(context: GameContext) {
+export const createRiseCases = perContext((context: GameContext) => {
   const TECHNIQUES = context.techniques;
 
   /** Why `edge` is no technique of the body a condition names, a sentence (`Part.fits`); null where it fits. */
@@ -139,4 +139,4 @@ export function createRiseCases(context: GameContext) {
   });
 
   return { RISE_CASES };
-}
+});

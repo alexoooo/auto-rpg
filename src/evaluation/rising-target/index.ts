@@ -10,7 +10,7 @@ import { FALL_CAP, timeToStand, type BuiltFall, type FallReading } from "../fall
 import { createLocomotionIndex } from "../locomotion/index.ts";
 import { createRising, STAND_WITHIN, type RisingRow } from "../rising.ts";
 import { createRisingTargetCases, type TargetCondition } from "./cases.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** A riser as a subject: its id, the label shown, and its mind whole. */
 const riserSubject = mindSubject;
@@ -31,7 +31,7 @@ export const FALL_FIGURES: readonly Figure<FallReading>[] = [
   { name: `within ${STAND_WITHIN} s`, unit: "share of falls made", kind: "rate", better: "higher", of: (r) => made(r) ? timeToStand(r)! <= STAND_WITHIN : null },
 ];
 
-export function createRisingTargetIndex(context: GameContext) {
+export const createRisingTargetIndex = perContext((context: GameContext) => {
   const { controllers: CONTROLLERS, minds: MINDS } = context.catalog;
   const TECHNIQUES = context.techniques;
   const { mindSubjects } = createLocomotionIndex(context);
@@ -85,4 +85,4 @@ export function createRisingTargetIndex(context: GameContext) {
   };
 
   return { RISING_TARGET, fallSummary };
-}
+});

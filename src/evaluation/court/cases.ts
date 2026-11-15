@@ -19,7 +19,7 @@ import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject }
 
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { createDrillOpponents } from "../drill-opponents.ts";
-import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
+import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
 import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 
 /**
@@ -44,7 +44,7 @@ export type CourtCondition = { readonly model: BodyModel; readonly gap: number; 
 /** What a case came to: when the striker arrived (null, never), its steps pushing on the furniture, its falls, and the time read to, s. */
 export type CourtReading = { readonly arrived: number | null; readonly contactSteps: number; readonly falls: number; readonly seconds: number };
 
-export function createCourtCases(context: GameContext) {
+export const createCourtCases = perContext((context: GameContext) => {
   const { controllers: CONTROLLERS } = context.catalog;
   const mindFaults = contextMindFaults.bind(undefined, context);
   const { MOVES, STANDS } = createDrillOpponents(context);
@@ -102,4 +102,4 @@ export function createCourtCases(context: GameContext) {
   const COURT_CASES: Readonly<Record<string, Cases<CourtCondition, CourtReading>>> = Object.freeze({ standard: courtCases(COURT) });
 
   return { COURT_CASES };
-}
+});

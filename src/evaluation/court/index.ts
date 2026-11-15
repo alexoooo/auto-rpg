@@ -8,9 +8,9 @@ import { recordingKey } from "../../core/world/recording.ts";
 import { mindSubject, type Evaluation, type Json } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import { createCourtCases, type CourtCondition, type CourtReading } from "./cases.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
-export function createCourtIndex(context: GameContext) {
+export const createCourtIndex = perContext((context: GameContext) => {
   const { controllers: CONTROLLERS, minds: MINDS } = context.catalog;
   const { COURT_CASES } = createCourtCases(context);
 
@@ -53,4 +53,4 @@ export function createCourtIndex(context: GameContext) {
   };
 
   return { COURT };
-}
+});

@@ -10,7 +10,7 @@ import { BODY_MODELS, type BodyModel } from "../../core/bodies/models.ts";
 import { mindJson, mindOf, mindSubject, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
 import { TOURNAMENT, type Entrant } from "./cases.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** The entrant of mind `id` (`config`, shown as `label`) on `model` with `loadout`, its body taking `character` (`MindPreset.character`). */
 function entrant(id: string, label: string, config: MindConfig, model: BodyModel, loadout: Loadout, character: AttributeOverrides): Subject {
@@ -21,7 +21,7 @@ function entrant(id: string, label: string, config: MindConfig, model: BodyModel
   };
 }
 
-export function createTournamentEntrants(context: GameContext) {
+export const createTournamentEntrants = perContext((context: GameContext) => {
   const { modelRefusal } = context;
   const { partOf, minds: MINDS } = context.catalog;
 
@@ -58,4 +58,4 @@ export function createTournamentEntrants(context: GameContext) {
   }
 
   return { entrantSubjects };
-}
+});

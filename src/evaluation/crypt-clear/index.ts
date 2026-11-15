@@ -12,12 +12,12 @@ import { sha256Text } from "../sha256.ts";
 import type { BuiltCrypt } from "../crypt.ts";
 import { medianOf } from "../stats.ts";
 import { createCryptClearCases, type CryptCondition, type ClearReading } from "./cases.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** A Commander as a subject. */
 const commanderSubject = (id: string, label: string, value: Json): Subject => ({ id, label, value });
 
-export function createCryptClearIndex(context: GameContext) {
+export const createCryptClearIndex = perContext((context: GameContext) => {
   const COMMANDERS = context.commanders;
   const { CRYPT_CLEAR_CASES } = createCryptClearCases(context);
 
@@ -69,4 +69,4 @@ export function createCryptClearIndex(context: GameContext) {
   };
 
   return { CRYPT_CLEAR };
-}
+});

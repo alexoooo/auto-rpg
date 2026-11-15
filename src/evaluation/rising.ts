@@ -34,7 +34,7 @@ import type { LabAddress } from "../game/lab/scenarios.ts";
 import { cos, sin } from "../core/math/real.ts";
 import { mean, medianOf } from "./stats.ts";
 import { createFall, checkFall, STAND_WITHIN, strengthSpec, type FallCase, type FallReading } from "./fall.ts";
-import { type GameContext } from "../game/arena/context.ts";
+import { type GameContext, perContext } from "../game/arena/context.ts";
 
 /**
  * A job of the bed: a fall (`FallCase`, its mind given or Option Mind getting up by `techniques`), or with
@@ -124,7 +124,7 @@ export function risingJobs(options: RisingOptions): (RisingJob & { id: number })
   return jobs.map((job, id) => ({ ...job, id }));
 }
 
-export function createRising(context: GameContext) {
+export const createRising = perContext((context: GameContext) => {
   const { minds: MINDS, partLookup, controllerOf } = context.catalog;
   const TECHNIQUES = context.techniques;
   const { buildStandFall, fallStart } = createFall(context);
@@ -360,4 +360,4 @@ export function createRising(context: GameContext) {
   }
 
   return { risingMind, wayUpMind, drillWaysUp, risingTrial, techniqueTrial, risingReport };
-}
+});

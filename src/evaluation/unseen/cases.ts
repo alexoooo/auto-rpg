@@ -12,7 +12,7 @@ import { mindOf, sideCharacters, type Cases, type Json, type Reader } from "../e
 import { TOURNAMENT } from "../tournament/cases.ts";
 
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 
 /** The opponent: Option Mind with sword and buckler, the sword-and-buckler reference. */
@@ -29,7 +29,7 @@ export type UnseenCondition = { readonly model: BodyModel; readonly loadout: Loa
 /** A bout as the subject played it: the bout's reading and the subject's side. */
 export type UnseenReading = BoutReading & { readonly side: Side };
 
-export function createUnseenCases(context: GameContext) {
+export const createUnseenCases = perContext((context: GameContext) => {
   const { modelRefusal } = context;
   const { controllers: CONTROLLERS, minds: MINDS } = context.catalog;
 
@@ -71,4 +71,4 @@ export function createUnseenCases(context: GameContext) {
   });
 
   return { UNSEEN_CASES };
-}
+});

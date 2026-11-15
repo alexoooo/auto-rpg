@@ -8,7 +8,7 @@ import type { Evaluation, Table } from "../evaluation.ts";
 import { ratingTable, type Game } from "../rating.ts";
 import { TOURNAMENT_CASES, type TournamentCondition } from "./cases.ts";
 import { createTournamentEntrants } from "./entrants.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** Each subject's rating over a table's bouts. */
 export function tableRatings({ subjects, cases }: Pick<Table<TournamentCondition, BoutReading>, "subjects" | "cases">) {
@@ -17,7 +17,7 @@ export function tableRatings({ subjects, cases }: Pick<Table<TournamentCondition
   return ratingTable(subjects.map((subject) => subject.id), games);
 }
 
-export function createTournamentIndex(context: GameContext) {
+export const createTournamentIndex = perContext((context: GameContext) => {
   const { entrantSubjects } = createTournamentEntrants(context);
 
   const TOURNAMENT: Evaluation<TournamentCondition, BoutReading> = {
@@ -62,4 +62,4 @@ export function createTournamentIndex(context: GameContext) {
   };
 
   return { TOURNAMENT };
-}
+});

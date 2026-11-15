@@ -10,7 +10,7 @@ import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import type { BuiltTechnique, LinkReading, TechniqueReading } from "../technique.ts";
 import { medianOf } from "../stats.ts";
 import { createRiseCases, DRILLED, EDGES, type RiseCondition } from "./cases.ts";
-import { type GameContext } from "../../game/arena/context.ts";
+import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** The drilled edge's reading: the last of the case's techniques. */
 const drilled = (reading: TechniqueReading): LinkReading => reading.links[reading.links.length - 1]!;
@@ -39,7 +39,7 @@ function profileOf(links: readonly LinkReading[]) {
     ends: Object.fromEntries([...new Set(entered.map((link) => link.end))].map((end) => [end, entered.filter((link) => link.end === end).length])) };
 }
 
-export function createRiseIndex(context: GameContext) {
+export const createRiseIndex = perContext((context: GameContext) => {
   const TECHNIQUES = context.techniques;
   const { RISE_CASES } = createRiseCases(context);
 
@@ -91,4 +91,4 @@ export function createRiseIndex(context: GameContext) {
   };
 
   return { RISE };
-}
+});
