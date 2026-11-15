@@ -1,8 +1,8 @@
-# A better punch, faster
+# A better punch
 
-The one plan. It holds the owner's goal in the owner's words, then what is known and built that
-bears on it, each reading with the command that reads it again. It proposes no step: what is
-worked is what the owner asks.
+The one plan: what the better punch is, when it is done, and the stages that get there in order.
+Each stage ends in something the owner can see in the game or in a stop with a report; none ends
+in a number about the installed punch.
 
 ## The goal, in the owner's words
 
@@ -26,205 +26,292 @@ worked is what the owner asks.
 > want to increase development velocity (right now we've spent weeks and don't even have 1 good
 > strike yet).
 
+> what i want is a comprehensive plan that you will follow to create a better punch -- if the
+> output is just another broken punch, then that would be another failure.
+
 Said of the punch before: a separate punch "to be able to see v1 vs v2 in a fight"; and of the
 installed one, "it kind of looked like dive jumping into the punch but in a very clumsy way
 which didn't look like a serious punch".
 
-## Saved results and what finds them
+## What the better punch is
 
-What holds now: a played row, a profile, a fight's start and a trainer's start are each found by
-the question they answer, never by the commit or the build
-([the code recipe](../recipes/code.md#code), [the architecture](../architecture.md#evaluations),
-[what to keep](../recipes/skill.md#what-to-keep)). What follows for the punch:
+The straight punch's `moving` variation (`src/skills/strikes/straight-punch/moving/`), made a
+punch of its own:
 
-- **A retrained network or a tuned setting keeps its profile** until its tool measures it again
-  (`research/skills/strikes/strike-profiles.mjs`).
-- **What a subject's records hold is no part of what finds a trainer's start** (`startBank`,
-  `research/starts.mjs`): a start kept before the base or the punch's beginning changed is read
-  until its folder in `.cache/starts/` is deleted.
+- **Its own motion**: a schedule of timed pushes of the trunk and the striking arm, and a rule
+  for when it fires against the step under it, both in its own folder and its own record
+  (`straight-punch/moving`). Today it has neither: it is 12 lines that set two settings over the
+  installed punch's record and network.
+- **Its own steer**: a network trained on blows thrown while the legs walk, with a layout of its
+  own.
+- **No legs**: it claims the hand and the trunk. Whatever Option claims the legs walks them. It
+  sends the walk a site (`Spot`: where to go and which way to face) and reads the body's state,
+  the gait's phase included. It never pushes a leg and gives the stance no goal.
 
-Where something is still computed again, or a stale entry is refused:
+It is **done** when all four hold, on the Warrior first:
 
-- **A new variation's record plays every case of its body whose mind names the skill**, the
-  other variations' among them, once: a case's key covers each seated body's row of every record
-  its mind's tree names (`treeData`, `loadsOf`), and a part named without a variation reads
-  every variation's (`variationReads`). Narrowing the key to the variation the body holds is
-  unbuilt.
-- **A save refuses a bout whose striker's character holds another variation**
-  (`DuelRecipe.skills`), so a new variation is played from starts kept of its own fights.
-- **A profile measured at another world rate, mind rate, command delay or reaction time is not
-  read** (`staleness`), and a strike thrown holding what none of its profiles was measured
-  holding is priced by its prior.
-- **The physique's scales are no coordinate of a trial**: a body's spec does not say them.
+1. **In bouts** between a Warrior holding `moving` and one holding the installed punch, each on
+   each side, it begins more punches, lands more, and takes more life than it gives up, each
+   beyond the spread of one side read twice, with no more falls. Reported as counts first:
+   begun, thrown with the legs walking, landed, missed, guarded, fell; then the weight behind
+   the fist (kg), the energy on the mark (J) and the life taken (hp).
+2. **Its landed blows are no lighter** than the installed punch's on the same body (the kg its
+   fist meets on its own side, the J on the mark).
+3. **The owner watches it** in the Arena beside the installed punch and says it is a punch.
+4. **The Warrior holds it in the game**, its profiles measured from its own sparring.
 
-## The punch and the legs
+The bar is this plan's, not the owner's words: the owner's word changes it.
 
-- **The installed punch drives no leg.** Its network (`assets/skills/strikes/straight-punch/drive.json`:
-  59 inputs, two layers of 256, 12 outputs) pushes the trunk and the arm with eight outputs and
-  sends the stance three asks and a walk flag with the other four: a heading turn, the centre of
-  mass ahead and across, and whether the walk goes on (`stanceAsks`, `keepsWalk`,
-  `src/skills/strikes/shared/steer.ts`). What a skill asks of the legs is a `LegsGoal`
-  (`src/skills/framework/skill.ts`), carried out by the stance.
-- **It reads the legs**: 20 of its 59 inputs are leg-joint angles and speeds and four are
-  readings of the stance (each foot's bearing, whether the stance shifts or swings). A change
-  under a trained actor makes it a seed to retrain
-  ([the skill recipe](../recipes/skill.md#before-the-first-run)), so a change to the legs
-  or the stance reaches the punch's network through those inputs.
-- **What those inputs and asks carry**, on the Warrior's 240 held-out sparring starts beside the
-  installed punch, as the minds priced strikes when it was read: blind to the legs and the
-  stance it deals 0.61 of the damage a second (95 % 0.45 to 0.83); asking the stance for nothing,
-  0.72 (0.56 to 0.92); the walk flag held on or off moves nothing. Each is a network file made
-  by `node research/skills/strikes/straight-punch/punch-sparring.mjs --network <form> --out <file>`
-  (`blind-legs`, `no-stance-asks`, `walk-on`, `walk-off`) and read by `--bar <file>`.
-- **A form that reads no leg deals what the installed punch deals**: a layer for each of three
-  spans of the stroke over 16 inputs (the target from the shoulder, the fist from the target,
-  the fist's and the centre's velocity, the arm's angles), its three asks fitted, reads 0.98
-  times the installed punch's damage a second on 2,400 starts (95 % 0.92 to 1.05)
-  (`--network fit-spans-asks`, then `--bar <file> --on judge`).
-- **In fights the asks of the stance fell the body four times in 48**: suppressing only the
-  learned heading and centre asks ends those falls.
-- **On the footwork gait the installed punch is not told apart**, with no retraining: 0.94
-  times the damage a second (95 % 0.69 to 1.29), 99 landed against 107, no fall against 3
-  (`--bar <file> --holds stance-walk/footwork`, the file holding `{ "variation": "drive" }`).
-- **Only the Option that claims the legs commands them.** Following orders claims the legs
-  alone (`src/minds/option/orders.ts`), so a blow that claims none is thrown beside a walk;
-  such a strike's Option keeps its site while a hand is ready and while its blow is live
-  (`onTheWay`, `src/minds/option/strike.ts`), the walk taking the body there.
-- **The punch's `moving` variation leaves the legs** (`straight-punch/moving`,
-  `StraightDriveOptions.leavesLegs`): the installed punch's record and network thrown by the
-  arm and the trunk. It claims no legs and gives them no goal, turns no hips, waits for no quiet
-  stance, and throws none of the record's pushes of the hips, knees and ankles. The network was
-  trained standing with those; nothing is trained for this. On the walk rung
-  (`npm run evaluate -- strike option-drill/straight-punch option-drill/straight-punch+straight-punch/moving --protocol walk`),
-  asked still walking it lands 83 of 96 where the drive lands 70; asked once settled, 54 where
-  the drive lands 78 (10 end outside its window, 5 are refused). From the drill's first ready
-  step to the mark is a median 0.23 s against 1.59; its fist is as fast (7.1 m/s) with 1.4 kg
-  behind it against 4.5. A drill's strike order stands the legs (`strike`,
-  `src/minds/command/drill.ts`), so the rung reads its blow at a walk's end, not under a
-  walk. Sparring, on the three bodies' 720 starts, 0.454 land (95 % 0.418 to 0.491), 0.806 are
-  admitted and 0.008 fall, a median 0.38 kg behind the fist and 4.0 J on the mark
-  (`npm run evaluate -- strike option/straight-punch+straight-punch/moving --protocol sparring`);
-  its profiles are measured from those. No character holds it, and it is unread in fights.
-- **A layout names any of the steer's inputs and outputs** (`SteerLayout`, `checkedLayout`,
-  `steer.ts`), so a punch with other inputs is a layout of its own.
-- **The bonk's footwork is 1.36 s of its 1.9 s** (`Swing.footing`;
-  [the approaches](../approaches.md#weapon-strikes)).
+## Why the tries before this failed, and what this plan does about each
 
-## The punch waits
+| What went wrong (12 to 15 Nov) | What this plan does |
+| --- | --- |
+| The motion was never changed. Each request became a measurement or a re-fit of the installed punch (its settings searched, its network retrained, its steer searched), and that was called the new punch | Work on the punch is a change to `moving/` or to `moving`'s record. A report that names neither says the punch was not worked on. Nothing in this plan re-fits or re-measures `drive`: its readings are saved and found |
+| The design was the limit and was treated as a tuning problem: three re-fits read level (1.08, 0.95, and one stopped unjudged) | Stage 3 reads what the body can do with this design before anything is searched or trained, and stops the work if the design cannot be heavy |
+| Every blow was trained and read on legs that stand. The Strike drill's order to strike is an order to stand, on every rung | Stage 2 adds the case the game needs: a blow ordered while the walk goes on. The search, the training and the bar all play it |
+| Results were ratios against the installed punch, so "level with a punch that mostly misses" read as fine | Counts come first, in the game's own units. The comparison is the bout the owner asked to see, v1 against v2 |
+| Each failure produced tooling instead of a look at the blow | Stage 1 is looking, with no code. Tooling is built only where a stage names it as what blocks that stage |
+| Long runs were started on the agent's own plan | A run over half an hour starts on the owner's word for that run, given its price and what will be different in the game when it ends |
+| A failed try was followed by a wider try of the same kind | Each stage has a gate. A gate that fails stops the work with a report of what was read; the next step is then the owner's |
 
-- **The installed punch begins only from a quiet stance and halts the walk.** Each body's record
-  is `poised` and `halts` (`drive.json`): admitted standing, or shifting its weight with the
-  centre of mass under 0.25 m/s (`quietToStrike`, `SHIFTING_PACE`,
-  `src/skills/strikes/shared/strike-window.ts`). Both are settings of a strike's record.
-- **In fights Option Mind begins few punches.** With every strike priced from its sparring, of
-  the 144 `fights` trials a subject 132 never reach their moment, and 2 land. The Warrior's 48:
-  6 land, 18 miss, four are guarded, four end outside the window, two fall and 14 are unreached
-  (`npm run evaluate -- strike option/straight-punch --protocol fights`; neither reading is
-  saved).
-- **Where it does punch, it mostly misses.** Over 1,869 fight moments on the footwork the
-  installed punch lands 375, misses 752, meets the guard 370, never gets into its window 213 and
-  falls 68 (the judge's kept fight moments, in `.tmp/worktrees/punch-fights/.cache/starts/`,
-  kept while the footwork was a variation of the stance: no subject finds them now).
-- **Why it fails in the 48, each trial's first cause** (fights with each strike priced by its
-  standing-target profile, 42 reached, 13 landed):
+## What is known
 
-  | Cause | Trials |
-  | --- | --- |
-  | The fist's delivery: a miss, 0.11 to 0.44 m from its moving aim, or a landing elsewhere | 14 |
-  | A fall from the network's heading and centre asks of the stance | 4 |
-  | The network's arm pushes | 2 |
-  | The foe's guard | 3 |
-  | The foe's own blow | 3 |
-  | The foe stepping out of the window | 2 |
-  | The drill's walk back to the window | 1 |
-  | The fight never reaching the moment | 6 |
+Each with the command that reads it again. None of these is played again by this plan.
 
-- **A fight commits the punch from states its training never held.** Of 20 failed `fights`
-  commitments, every one holds an input outside every range the still and walked drill plays:
-  the centre's velocity in 20, the elbow's flexion in 19, the trunk's rotation in 18, the fist's
-  velocity in 17, the target's velocity in 15 (to 4.5 m/s against 0.67). Sixteen of the 20 are
-  outside held-out sparring's ranges too, a median 17 of the 59 inputs
-  (`punch-sparring.mjs --commitments`).
-- **The installed punch at a target that stands**, the table's `punch` row on `man`
-  (`npm run evaluate -- table --body man --skill punch`): empty-handed it trades 0.256 hp a
-  second, on the mark in 78 of 96 still trials, its fist at 6.94 m/s (a person's rear hand 6.8).
-  Sparring, it deals 0.197 a second: of 240 starts 105 land, 55 meet the guard, 46 never come in
-  reach and 21 miss.
-- **Re-fitting it has not moved it**: its 15 settings searched beside the network read 1.08
-  times (95 % 0.79 to 1.47), and its network retrained on 4,800 drawn starts 0.95 (0.76 to 1.19)
-  at 3.4 M decisions. Its settings with no network land 20 of 240 against 105.
-- **The bar recorded as the owner's for a better punch**: on the held-out sparring starts,
-  damage dealt a second over begun punches at least twice the installed punch's, the low end of
-  its 95 % interval above 1.5, with no more life lost and no more falls
-  (`punch-sparring.mjs --bar`).
+**The installed punch (`drive`)**
 
-## The base under the punch
+- **It waits, then dives.** It begins only from a quiet stance and halts the walk (`poised`,
+  `halts`), then turns the hips 0.6 rad through the stance and pushes the hips, knees and ankles
+  on a schedule beside the trunk and the arm (`assets/skills/strikes/straight-punch/drive.json`).
+  The weight behind its fist comes from those.
+- **At a target that stands it is a punch**: on the mark in 78 of 96, the fist at 6.94 m/s (a
+  person's rear hand 6.8) (`npm run evaluate -- table --body man --skill punch`).
+- **In fights it is not.** Of 144 `fights` trials 132 never reach their moment and 2 land. Over
+  1,869 kept fight moments it lands 375, misses 752, meets the guard 370, never gets into its
+  window 213 and falls 68. Every failed commitment read holds inputs outside every range its
+  training played (`punch-sparring.mjs --commitments`).
+- **Its schedule alone lands 20 of 240 sparring where the network with it lands 105**: the
+  steer does most of the landing, so a new schedule needs a steer trained on it.
+- **Fighters stand about 0.6 m apart, inside its 0.89 to 1.01 m window**
+  ([the skill recipe](../recipes/skill.md#5-widen-and-confirm), *suspected*).
 
-- **The base is the stance under the whole-body solve** (`src/control/stance/`,
-  `src/control/solve.ts`; [motor control](../architecture.md#motor-control)), a skill each
-  character holds in a variation (`stance/stance`). The braced walk is the stance's walk
-  ([what it has done](../approaches.md#travel)). A balance carries out a stance goal
-  (`StanceGoal`, `src/control/stance/goal.ts`): which feet bear, where the centre of mass goes,
-  the pelvis's heading, a walk and a foot's swing; a step it is asked for is a weight shift,
-  then a swing.
-- **A short step takes it about two and a half seconds, where it arrives**
-  (`npm run evaluate -- locomotion option --protocol step`: 0.2 or 0.4 m, eight ways, the facing
-  held). Of 480 steps 335 arrive, a median 2.4 s after the order, the mean lost 2.8 s. To a side
-  60 of 120 arrive; the Warrior's 0.2 m step at 0.7 m/s arrives in 11 of 40.
-- **The footwork is a gait of its own** (`stance-walk/footwork`, `src/skills/locomotion/move/gaits.ts`):
-  the braced walk begun with the foot whose landing is the further its way
-  (`GaitTuning.startsToward`). Held in place of the braced walk, 427 of 480 steps arrive, a
-  median 2.0 s, the mean lost 2.0 s, to a side 101 of 120, the Warrior's 0.2 m step at 0.7 m/s
-  40 of 40 (`npm run evaluate -- locomotion option option+stance-walk/footwork --protocol step`).
-  Straight ahead and back it loses what the braced walk does (1.9 and 2.6 s). No character holds
-  it, and it is priced by the braced walk's envelope, its own unmeasured.
-- **Following orders walks many short steps by the run**: Move goes by the gait that carries
-  the orders out soonest, and the Warrior's 0.4 m step to a side at 0.3 m/s is the run's from
-  1.0 to 3.4 s. The run's first foot is its own: with the footwork a setting of the stance the
-  run read it too, and 20 more of the 480 arrived (447), 16 of them to a side.
-- **Why a step ahead or back still loses two seconds** is traced and not costed: a walk's first
-  step is planned at the pace the walk starts from, near nought, and lands beside the bearing
-  foot; and as the place closes the navigator's ask falls to nought for a tick or two mid-step
-  (`slowFrom`, `src/skills/locomotion/shared/travel.ts`).
-- **Other bases, none built and none chosen**: an actor that corrects the stance, trained once
-  on one body with no foe, under shoves, pushes at the arms and trunk, and orders to step and
-  face; a stepper that places feet by balance.
+**`moving` as it stands**
 
-## What a try costs
+- **The installed record and network with the legs let go**: no hip turn, no wait for a quiet
+  stance, none of the schedule's leg pushes (`StraightDriveOptions.leavesLegs`,
+  `src/skills/strikes/shared/straight-drive.ts`). The network was trained standing with all of
+  those.
+- **It begins sooner and hits like a tap.** On the walk rung, asked still walking, it lands 83
+  of 96 where the drive lands 70, a median 0.23 s to the mark against 1.59, the fist as fast
+  (7.1 m/s) with 1.4 kg behind it against 4.5
+  (`npm run evaluate -- strike option-drill/straight-punch option-drill/straight-punch+straight-punch/moving --protocol walk`).
+  Sparring on three bodies, 0.454 of 720 land, 0.806 are admitted, 0.008 fall, a median 0.38 kg
+  behind the fist and 4.0 J on the mark
+  (`npm run evaluate -- strike option/straight-punch+straight-punch/moving --protocol sparring`).
+- **It has never been read under a walk or in a bout**, and no character holds it.
 
-- **A training run is one to two and a half days.** PPO on the sparring punch steps about 240
-  decisions a second on 32 workers, 0.8 M an hour, and a skill has been trained for 20 to 50 M
-  ([the skill recipe](../recipes/skill.md#3-a-native-controller-that-succeeds-on-some-cases)).
-- **The steered stroke is about a fifteenth of what a run computes.** The rest is the walk in,
-  the play on to the reader's end, the foe's mind and the learner's update; how it divides is
-  unread.
-- **A run on few starts learns the starts**: on 127 pooled starts it read 1.84 times the
-  installed punch there and 0.77 on the half it never played.
-- **Reading a try beside the installed punch** (`punch-sparring.mjs --bar <file>`): on 240
-  held-out starts a side plays in under 80 s on 30 workers and does not tell a fifth better from
-  a fifth worse; on the 2,400 of `--on judge` a side plays in about 480 s and tells a tenth. The
-  installed punch's side is found, in 14 s. Landings paired by start, with an exact sign test,
-  tell more at the same count.
-- **A fight's trial from a kept start is under a second, against seven played whole**
-  (`research/starts.mjs`, kept in `.cache/starts/`, outside Git): a trial is saved two steps
-  before its moment and reads what its whole trial reads. Three rungs are drawn
-  (`fights-twin`, `fights-drawn`, `fights-judge`, `src/evaluation/strike/cases.ts`), played by
-  `punch-sparring.mjs --bar <candidate> --on fights-twin` and `--on fights-judge`. The twin's
-  starts for the installed punch on the stance are kept here; those kept on the footwork
-  were made while it was a variation of the stance, and no subject finds them now.
-- **A new idea is a variation of its own** (`RecordedVariation`,
-  `src/skills/framework/variations.ts`): its code in its own folder
-  (`src/skills/strikes/straight-punch/<variation>/`), its record its own
-  (`straight-punch/<variation>`, `straight-punch/data/registration.ts`), held by a character
-  beside the installed one (`left.skills=straight-punch/drive,straight-punch/moving`). The
-  fingerprint shows it moved only its own cases
-  (`node scripts/fingerprint.mjs --compare <file> --variation <skill/variation>`).
-- **The straight punch's two variations run one code**: each calls one function (`punch`,
-  `src/skills/strikes/straight-punch/index.ts`) on one layout (`PUNCH_LAYOUT`), over the
-  executor the sword thrust shares (`straightDriveExecutor`,
-  `src/skills/strikes/shared/straight-drive.ts`). `moving` names the installed punch's record
-  and leaves the legs.
-- **The tools are the installed punch's**: `punch-sparring.mjs` holds the Warrior, the straight
-  punch and its record (`BODY`, `SKILL`, `record`, `bar`) and takes a variation
-  (`--variation`); on the fights' rungs it refuses a variation of its own; the exporter
-  (`punch-export.mjs`) and the trainer write the installed punch's record.
+**The legs and the Mind**
+
+- **Only the Option that claims the legs commands them.** A walk is an Option that claims the
+  legs, one for each gait (`walkBy`, `src/minds/option/places.ts`); following orders claims
+  them too (`src/minds/option/orders.ts`). A blow that claims none is thrown beside it, and its
+  Option keeps its site while its blow is live, so the walk goes on to it (`onTheWay`,
+  `src/minds/option/strike.ts`).
+- **A drill's order to strike stands the legs** (`strike`, `src/minds/command/drill.ts`: its
+  move is null), and every rung of the Strike drill throws its blow on that order, sparring
+  and the fights' moments included (`src/evaluation/strike/cases.ts`).
+- **Two gaits walk short steps**: the braced walk (335 of 480 short steps arrive, a median
+  2.4 s) and the footwork (427 of 480, 2.0 s)
+  (`npm run evaluate -- locomotion option option+stance-walk/footwork --protocol step`). No
+  character holds the footwork, and it is priced by the braced walk's envelope.
+
+**What has made a strike here** ([the skill recipe](../recipes/skill.md#the-steps),
+[the approaches](../approaches.md#weapon-strikes))
+
+- **Timed pushes, searched, then one trained actor correcting them**, 20 to 50 M decisions,
+  from a controller that already succeeds on some held-out cases. A controller that succeeds on
+  none stays flat under training.
+- **A controller that tracks a path cannot throw a blow at a person's speed** (4 to 6 m/s
+  against 6.8), and a blow driven so carries a tenth of a swing's energy.
+- **A strike scored on energy alone yields a motion the owner rejects**: the score holds the
+  form from the first search.
+
+**What a try costs**
+
+- **A training run steps about 0.8 M decisions an hour** (240 a second), so 20 M is about a
+  day. The steered stroke is about a fifteenth of what a run computes: the rest is the walk in,
+  the play on after the stroke, the foe's mind and the learner's update. One reading on 15 Nov
+  had 32 workers no faster than 16.
+- **A sparring reading of 720 trials plays in about 200 s** on 30 workers; a candidate beside
+  the installed punch on 240 held-out starts in under 80 s and on 2,400 in about 480 s
+  (`research/skills/strikes/straight-punch/punch-sparring.mjs --bar`).
+- **A new variation's record plays every case of its body whose mind names the skill once
+  more**, the other variations' among them: a case's key covers every record its mind's tree
+  names (`treeData`, `loadsOf`, `variationReads`).
+- **A kept fight start is refused for a striker holding another variation**
+  (`DuelRecipe.skills`), so `moving`'s fights are played whole once (about 7 s a trial) and
+  kept from then (`research/starts.mjs`).
+- **The tools write the installed punch's record**: the exporter's default
+  (`punch-export.mjs`), the registration (`straight-punch/data/registration.ts`), the
+  trainer's mind (`presetMind`, `research/case-learning-environment.mjs`), and
+  `punch-sparring.mjs` on the fights' rungs.
+
+## Where the weight can come from
+
+The installed punch gets its weight from the legs. `moving` may not push them, so its weight has
+to come from somewhere else, and which of these carries it is not known. Stage 3 reads them in
+this order and keeps the first that is enough:
+
+1. **The trunk turned above the pelvis and the arm lined up behind the fist**, pushed flat out
+   on a schedule. Wholly the punch's own.
+2. **The step**: the fist arriving as the lead foot lands, so the blow meets the body's motion
+   and a leg that bears. Read up from the gait's phase; the punch decides only when it fires.
+3. **The site's facing**: the punch's site asks the walk to carry the striking side back before
+   the blow, so the trunk has further to turn. An indirect command any gait carries out.
+
+If none reaches the installed punch's weight, the punch cannot be heavy without the legs
+driving it, and the work stops there for the owner. The way through that keeps the legs apart
+is a gait of its own that steps in (trained once, used by every strike), which is a decision
+and a piece of work of its own.
+
+## The stages
+
+In order. A stage's output is the next one's input.
+
+### 1. Look
+
+No code in `src/`.
+
+- **Bouts**: a Warrior holding `moving` against one holding the installed punch, each on each
+  side, on the braced walk and on the footwork (`npm run match`, the subject
+  `option+straight-punch/moving`; the lifecycles and contacts read by
+  `research/skills/strikes/strike-bouts.mjs`).
+- **Read**, for each punch: begun a minute; of those, thrown with a foot swinging or the centre
+  moving; landed, missed, guarded, fell; kg and J; the range the fighters stand at and where
+  that falls in its window.
+- **Watch**: the same bout in the Arena, stepped through its blows. Written down in the body's
+  terms: what the trunk does, whether the arm is lined up at contact, where the body is going
+  when the fist arrives.
+- **Output**: the counts in [where the work stands](#where-the-work-stands), and a link the
+  owner opens to watch the same bout.
+- **What it can change**: if the Mind seldom begins `moving`, its window and its pricing come
+  before its motion, as the first part of stage 4. If its blows are all thrown on stood legs,
+  how the Mind runs the walk beside the blow comes before stage 2.
+- **Cost**: minutes.
+
+### 2. A blow under a walk can be read
+
+- **The Strike drill gets a rung whose order to strike keeps its move**
+  (`DrillCommanderConfig`, `src/minds/command/drill.ts`; `src/evaluation/strike/cases.ts`): the
+  striker walks at a pace toward and past a place in its window and is ordered to strike the
+  first step it is ready, the walk going on under the blow. At a target that stands, and at one
+  that steps in and out. With a training twin and draws of its own, the rung itself held out
+  ([research scores on its drill](../recipes/skill.md#an-options-code)).
+- **Checks**: the fingerprint moves no existing case; a punch that claims the legs is read on
+  it once, as the baseline, and that row is saved.
+- **Output**: `moving` as it stands read on the rung beside the installed punch, counts first.
+- **Gate**: the rung throws blows while a foot swings. If it cannot (the walk stops for every
+  blow whatever the order), the stop is in the Mind or the gait and is found before going on.
+
+### 3. What the body can do
+
+[The recipe's second step](../recipes/skill.md#2-what-the-body-can-do), on stage 2's twin.
+
+- **The trunk's and the arm's channels pushed free of any schedule, the legs left to the walk**
+  (`punch-drill.mjs --free --without <the legs' channels>`, taught to take the variation),
+  scored on the strike's value. Then the two further sources in
+  [where the weight can come from](#where-the-weight-can-come-from), each one search, only if
+  the one before falls short.
+- **Read**: the best blow's fist speed, kg, J and landings, beside the installed punch's on the
+  same cases.
+- **Gate**: a blow no lighter than the installed punch's is reachable. Then stage 4. If not,
+  the work stops with the three ceilings reported, and the owner chooses: a lighter punch that
+  lands more, or the step-in gait.
+- **Cost**: priced from its first generation; over half an hour, on the owner's word.
+
+### 4. The motion
+
+[The recipe's third step](../recipes/skill.md#3-a-native-controller-that-succeeds-on-some-cases).
+
+- **First, a new record costs nothing old**: a case's key covers only the variation its body
+  holds, so `moving`'s record plays no case of `drive`'s again. Checked by asking for `drive`'s
+  rows after the record is added and seeing none played.
+- **`moving` gets its record** (`straight-punch/moving`, registered): its window, its schedule
+  of trunk and arm pushes, its firing rule in `moving/`, no network. The exporter and the drill
+  search take the variation.
+- **Searched** with CMA-ES on stage 2's twin by the graded score, the form in it, until its
+  plateau (`--patience 30`), from stage 3's best.
+- **Gate**: with no network it lands some of the held-out rung's cases, thrown walking, its
+  blows no lighter than the installed punch's. A schedule that lands none is not trained:
+  the controller is changed.
+- **Output**: the record installed, its profiles measured from its own sparring, and a link:
+  the owner watches the new motion beside the old one before any training. What the owner
+  rejects in its look goes into the score, and the search is run again, before stage 5.
+
+### 5. The steer
+
+[Training](../recipes/skill.md#training), once the motion under it has stopped changing.
+
+- **A layout of its own** (`moving.layout.json`): the pushes of the trunk and the arm, and no
+  ask of the stance; the stroke's readings, the target's and the centre's velocity, the gait's
+  phase.
+- **An environment of its own**: stage 2's training draws and sparring's, the body holding
+  `moving` and its gait, started from kept starts at the first decision and ended at the
+  stroke's end (`onward` false), so a run computes the stroke and little else. The trainer
+  seats that character and writes `moving`'s record.
+- **Before the run**, [the recipe's seven checks](../recipes/skill.md#before-the-first-run):
+  the cases named, the schedule's own reading as the baseline, parity, the spread, the reward
+  the value.
+- **The run**: priced from its first chunk and profiled if slower than 1 M decisions in 45
+  minutes. Started on the owner's word. A checkpoint every 1 M, each played on the development
+  cases as it lands, the best installed in the game at once and watched there.
+- **Gate**: the chosen checkpoint lands more than the schedule alone on the held-out rung,
+  paired, its blows no lighter. On a plateau (5 M decisions with no kept gain) the environment
+  is checked first, then one thing is changed and run as a new question. A second plateau is
+  the controller's limit: back to stage 4, not a third run.
+
+### 6. The bout and the owner's eye
+
+- **The bar's bouts**, v1 against v2, counts first.
+- **The gait under it**: the one the bouts favour. If it is the footwork, its own envelope is
+  measured so the Mind prices it, and the Warrior holds it.
+- **The owner watches.** On the owner's yes the Warrior holds `moving` in the game.
+- **Then the Rogue and the Skeleton**, each a record of its own from the same search and the
+  same environment. The Skeleton's fist meets 0.09 to 0.22 kg whatever its speed; its bar is
+  its own installed punch.
+
+### 7. Land
+
+What worked goes into [the skill recipe](../recipes/skill.md) as the way a strike is made
+apart from the legs: the walking rung, a variation's own record and tools, the stroke-only
+environment. This plan is deleted.
+
+## How the plan is followed
+
+- **One stage at a time, in order.** A stage is finished when its output exists and its gate
+  is read, and its line in [where the work stands](#where-the-work-stands) says so.
+- **A report on the punch names what changed in `moving/` or in `moving`'s record**, or says
+  that nothing did.
+- **Before a run**: what will be different in the game when it ends, and its price. Over half
+  an hour, the owner's word for that run; the owner may give it for a stage ahead.
+- **A gate that fails stops the work.** The report says what was read. It is not followed by a
+  wider search, a longer run or a tool.
+- **Nothing here re-fits or re-measures the installed punch.** Its one new reading is its
+  baseline on stage 2's rung.
+- **Counts before ratios**, in every report.
+
+## Where the work stands
+
+| Stage | State |
+| --- | --- |
+| 1. Look | not begun |
+| 2. A blow under a walk can be read | not begun |
+| 3. What the body can do | not begun |
+| 4. The motion | not begun |
+| 5. The steer | not begun |
+| 6. The bout and the owner's eye | not begun |
+| 7. Land | not begun |
+
+Built before this plan and standing: the legs are let go (`leavesLegs`); only the Option that
+claims the legs commands them; every gait is a walk Option of its own; a saved result is found
+by the question it answers and a stale one is read until asked again.
