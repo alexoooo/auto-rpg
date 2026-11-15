@@ -1,8 +1,8 @@
-import type { MotionConstraint } from "../../core/bodies/build/constrained-mass.ts";
-import { jointCoordinateMotion } from "../../core/bodies/build/joint-coordinate.ts";
-import { jointAngles } from "../../core/bodies/build/joint-state.ts";
-import type { Vec3 } from "../../core/quantity.ts";
-import type { ReadBody } from "../../core/bodies/read-body.ts";
+import type { MotionConstraint } from "../../src/core/bodies/build/constrained-mass.ts";
+import { jointCoordinateMotion } from "./joint-coordinate.ts";
+import { jointAngles } from "../../src/core/bodies/build/joint-state.ts";
+import type { Vec3 } from "../../src/core/quantity.ts";
+import type { ReadBody } from "../../src/core/bodies/read-body.ts";
 
 /**
  * Inward motion rows near anatomical bounds. A backward-Euler coordinate step asks for

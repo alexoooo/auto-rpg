@@ -1,10 +1,10 @@
-import { Quaternion, Vector3 } from "../../math/vector.ts";
-import type { Vec3 } from "../../quantity.ts";
-import { constraintBasis, type MotionConstraint } from "./constrained-mass.ts";
-import { bodyDynamics } from "./dynamics.ts";
-import { jointAngles } from "./joint-state.ts";
-import type { ReadBody, ReadSegmentBody } from "../read-body.ts";
-import { cross } from "../spec/vec.ts";
+import { Quaternion, Vector3 } from "../../src/core/math/vector.ts";
+import type { Vec3 } from "../../src/core/quantity.ts";
+import { constraintBasis, type MotionConstraint } from "../../src/core/bodies/build/constrained-mass.ts";
+import { bodyDynamics } from "../../src/core/bodies/build/dynamics.ts";
+import { jointAngles } from "../../src/core/bodies/build/joint-state.ts";
+import type { ReadBody, ReadSegmentBody } from "../../src/core/bodies/read-body.ts";
+import { cross } from "../../src/core/bodies/spec/vec.ts";
 
 interface AttachedItem { readonly body: ReadSegmentBody; motionConstraints(): readonly MotionConstraint[] }
 interface Load { readonly body: ReadSegmentBody; readonly point: Vec3; readonly force: Vec3; readonly moment: Vec3 }

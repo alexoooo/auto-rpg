@@ -1,9 +1,9 @@
-import { Vector3 } from "../../math/vector.ts";
-import type { SegmentBody } from "../../physics/engine.ts";
-import type { Vec3 } from "../../quantity.ts";
+import { Vector3 } from "../../src/core/math/vector.ts";
+import type { SegmentBody } from "../../src/core/physics/engine.ts";
+import type { Vec3 } from "../../src/core/quantity.ts";
 import type { coupledDynamics } from "./coupled-dynamics.ts";
-import { constrainedMass, type MotionConstraint } from "./constrained-mass.ts";
-import { cross, dot } from "../spec/vec.ts";
+import { constrainedMass, type MotionConstraint } from "../../src/core/bodies/build/constrained-mass.ts";
+import { cross, dot } from "../../src/core/bodies/spec/vec.ts";
 
 interface AngularStop {
   /** Inward angle-rate row; only angular entries are admitted. */

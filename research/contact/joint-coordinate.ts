@@ -1,9 +1,9 @@
-import { Quaternion, Vector3 } from "../../math/vector.ts";
-import type { ReadJoint } from "../read-body.ts";
-import type { MotionConstraint } from "./constrained-mass.ts";
-import { jointAngles, relativeRotationToRef } from "./joint-state.ts";
-import type { Vec3 } from "../../quantity.ts";
-import { cross } from "../spec/vec.ts";
+import { Quaternion, Vector3 } from "../../src/core/math/vector.ts";
+import type { ReadJoint } from "../../src/core/bodies/read-body.ts";
+import type { MotionConstraint } from "../../src/core/bodies/build/constrained-mass.ts";
+import { jointAngles, relativeRotationToRef } from "../../src/core/bodies/build/joint-state.ts";
+import type { Vec3 } from "../../src/core/quantity.ts";
+import { cross } from "../../src/core/bodies/spec/vec.ts";
 
 const ZERO: Vec3 = [0, 0, 0];
 const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];

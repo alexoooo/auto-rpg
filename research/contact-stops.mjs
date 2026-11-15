@@ -5,11 +5,11 @@ import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 import { sourced } from "../src/core/quantity.ts";
 import { CONTACT_FRICTION } from "../src/core/constants.ts";
-import { planarSupportPoints } from "../src/core/bodies/build/planar-support.ts";
-import { coupledDynamics } from "../src/core/bodies/build/coupled-dynamics.ts";
-import { predictPointContacts } from "../src/core/bodies/build/contact-step.ts";
+import { planarSupportPoints } from "./contact/planar-support.ts";
+import { coupledDynamics } from "./contact/coupled-dynamics.ts";
+import { predictPointContacts } from "./contact/contact-step.ts";
 import { jointAngles } from "../src/core/bodies/build/joint-state.ts";
-import { nearJointStops } from "../src/control/whole-body/joint-stops.ts";
+import { nearJointStops } from "./contact/joint-stops.ts";
 
 const zero = [0, 0, 0], dimensions = [[1.2, .2, .6], [.6, .1, .2]];
 const q = (v, unit = "m") => sourced(v, unit, "synthetic-contact-fixtures", "synthetic ground and angular-stop fixture; not anatomical data");

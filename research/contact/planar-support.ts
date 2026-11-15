@@ -1,6 +1,6 @@
-import { Quaternion, Vector3 } from "../../math/vector.ts";
-import type { ColliderShape } from "../../physics/engine.ts";
-import type { Vec3 } from "../../quantity.ts";
+import { Quaternion, Vector3 } from "../../src/core/math/vector.ts";
+import type { ColliderShape } from "../../src/core/physics/engine.ts";
+import type { Vec3 } from "../../src/core/quantity.ts";
 
 /**
  * Current geometric support points toward a plane, whose inward normal points into the shape.

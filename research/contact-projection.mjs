@@ -6,8 +6,8 @@ import fixture from "../assets/research/contact-projection.json" with { type: "j
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 import { sourced } from "../src/core/quantity.ts";
 import { createEquipment } from "../src/core/bodies/equipment.ts";
-import { coupledDynamics } from "../src/core/bodies/build/coupled-dynamics.ts";
-import { predictPointContacts } from "../src/core/bodies/build/contact-step.ts";
+import { coupledDynamics } from "./contact/coupled-dynamics.ts";
+import { predictPointContacts } from "./contact/contact-step.ts";
 import { CONTACT_FRICTION } from "../src/core/constants.ts";
 
 const q = (path, unit = "m") => sourced(path.split("/").reduce((v, key) => v[key], fixture), unit, "contact-projection-fixture", "/" + path);
