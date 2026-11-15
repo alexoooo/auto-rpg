@@ -35,7 +35,12 @@ if (isMainThread) {
     models: { type: "string" }, gaps: { type: "string", default: "3,4,5" }, held: { type: "string", default: "club" },
     seconds: { type: "string", default: "120" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
     holds: { type: "string", multiple: true, default: [] },
+    drill: { type: "string" }, pace: { type: "string" },
   } });
+  // With `--drill stand|guard`, the left side is drilled at the right's trunk's middle with its punch (the Strike drill's Option Mind and Commander,
+  // walking into the window at `--pace` m/s, or ordering it where it stands with none), the right a drill opponent (`drill-stand`, `drill-guard`),
+  // the two set the gap apart, centre to centre, facing.
+  const drill = values.drill === undefined ? null : { opponent: `drill-${values.drill}`, ...(values.pace === undefined ? {} : { pace: Number(values.pace) }) };
   const holds = Object.fromEntries(values.holds.map(one => one.split("=")));
   if (Object.keys(holds).some(side => side !== "left" && side !== "right")) throw new Error("--holds is <left|right>=<skill/variation>");
   const { HUMANOID_MODELS } = await import("../../../src/core/bodies/models.ts");
@@ -45,8 +50,8 @@ if (isMainThread) {
     || !Number.isFinite(seconds) || seconds <= 0 || !Number.isSafeInteger(lanes) || lanes < 1 || helds.some(held => !["club", "empty"].includes(held)))
     throw new Error("invalid models, gaps, seconds, workers or held selection");
   const jobs = [];
-  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds });
-  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.holds)}`;
+  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill });
+  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}`;
   const loaded = new Map(values.load ? JSON.parse(await readFile(values.load, "utf8")) : []);
   for (const job of jobs) {
     job.result = loaded.get(key(job));
@@ -107,12 +112,19 @@ if (isMainThread) {
   const { SIDES } = await import("../../../src/game/arena/duel.ts");
   const { characterSkills } = await import("../../../src/core/bodies/models.ts");
   const { footOn } = await import("../../../src/control/support.ts");
-  parentPort.on("message", async ({ left, right, gap, held, seconds, holds }) => {
+  const { Vector3 } = await import("../../../src/core/math/vector.ts");
+  const { CONTEXT } = await import("../../../src/app/node/context.ts");
+  const { createDrillOpponents } = await import("../../../src/evaluation/drill-opponents.ts");
+  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill }) => {
     let dispose;
     try {
       const skills = Object.fromEntries(Object.entries(holds).map(([side, variation]) => [side, characterSkills(side === "left" ? left : right, [variation])]));
+      const drilled = drill ? { recoverySeconds: null, entry: [], ends: [],
+        start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, 0], heading: -Math.PI / 2 } },
+        minds: { left: CONTEXT.catalog.minds["option-drill"].config, right: createDrillOpponents(CONTEXT).opponentOf(drill.opponent).mind },
+        commanders: { left: { kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, ...(drill.pace === undefined ? { walking: true } : { pace: drill.pace }) } } } : {};
       const recipe = { left, right, gap, capSeconds: seconds, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } },
-        ...(Object.keys(skills).length ? { skills } : {}) };
+        ...(Object.keys(skills).length ? { skills } : {}), ...drilled };
       const bout = await buildBout(recipe, { engine: BOUT_ENGINE }); dispose = bout.dispose;
       const { world, duel } = bout, track = Object.fromEntries(SIDES.map(side => [side, {
         side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, attempts: [], sequence: 0,
@@ -154,6 +166,20 @@ if (isMainThread) {
           for (const action of report.actions) {
             t.phases[action.phase] += world.dt;
             const attempt = attemptOf(side, action); attempt.contacts = structuredClone(action.contacts);
+            // The fist's fastest while committed, m/s, and when, s from the fire.
+            if (action.phase === "commit" && action.effector.startsWith("hand.")) {
+              const v = new Vector3(); me.body.built.segments.get(action.effector).body.linearVelocityToRef(v);
+              const speed = Math.hypot(v.x, v.y, v.z);
+              if (!(attempt.fastest?.speed >= speed)) attempt.fastest = { speed, at: duel.clock - attempt.commit };
+              // The stroke step by step: s from the fire, the fist's speed, the elbow's and the shoulder's angles, and how far the fist is from the aim, m.
+              if (process.env.TRACE && duel.clock - attempt.commit <= .45) {
+                const angles = me.body.view.angles, hand = action.effector.slice(5), fist = me.body.built.segments.get(action.effector).pose.position;
+                (attempt.trace ??= []).push([+(duel.clock - attempt.commit).toFixed(3), +speed.toFixed(2),
+                  ...Object.keys(angles).filter((name) => name.includes(`.${hand} `) && /^(elbow|shoulder)/.test(name) || /^(thoracic|lumbar) (rotation|flexion)/.test(name))
+                    .map((name) => `${name.includes(".") ? name.split(" ").slice(1).join(" ") : name} ${angles[name].toFixed(2)}`),
+                  `to aim ${Math.hypot(fist.x - action.aim[0], fist.y - action.aim[1], fist.z - action.aim[2]).toFixed(3)}`]);
+              }
+            }
             // The fist's nearest pass to its aim while committed: how far, and which way it is off (up, to its right, past along the line from the head), m.
             if (action.phase === "commit" && action.aim && action.effector.startsWith("hand.")) {
               const fist = me.body.built.segments.get(action.effector).pose.position, [ax, ay, az] = action.aim, head = me.body.view.head;

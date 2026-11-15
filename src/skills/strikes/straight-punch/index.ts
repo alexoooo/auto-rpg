@@ -11,6 +11,7 @@ import { checkedLayout, type SteerLayout } from "../shared/steer.ts";
 import layoutFile from "../../../../assets/skills/strikes/straight-punch/drive.layout.json" with { type: "json" };
 import { handConfigurationRefusal, holdsNothing } from "../../reach/hand.ts";
 import { DRIVE_BODIES, MOVING_BODIES, type PunchRecordKey } from "./data/records.ts";
+import { MOVING_STROKE } from "./moving/stroke.ts";
 import { makersOf, variationFault, variationMaker, variationReads, variationRecordFault, type ExecutorVariations, type RecordedVariation, type Varied, type Variations } from "../../framework/variations.ts";
 
 /** How the straight punch's steer reads and pushes: its networks' inputs and outputs (`assets/skills/strikes/straight-punch/drive.layout.json`). */
@@ -31,8 +32,8 @@ interface Config extends Varied {
   readonly keepsNetwork?: true;
 }
 
-/** How a variation throws the punch its record has: whether it leaves the legs to a walk (`leavesLegs`). */
-type How = Pick<StraightDriveOptions, "leavesLegs">;
+/** How a variation throws the punch its record has: whether it leaves the legs to a walk (`leavesLegs`), and a stroke of its own in place of the drive's (`stroke`). */
+type How = Pick<StraightDriveOptions, "leavesLegs" | "stroke">;
 
 /**
  * A straight punch on `making`'s body: the straight drive with its fist, as the body's record of
@@ -43,7 +44,7 @@ function punch(key: PunchRecordKey, { body, guard, aim }: ExecutorMaking, config
   const network = config.tuning === undefined || config.keepsNetwork ? record?.network : null;
   return straightDriveExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim),
     { label: "straight punch", layout: PUNCH_LAYOUT, ...(network ? { policy: recoveryNetwork(network) } : {}),
-      ...(how.leavesLegs ? { leavesLegs: true as const } : {}) });
+      ...(how.leavesLegs ? { leavesLegs: true as const } : {}), ...(how.stroke ? { stroke: how.stroke } : {}) });
 }
 
 /**
@@ -55,11 +56,12 @@ const variation = (key: PunchRecordKey, bodies: readonly string[], how?: How): R
 
 /**
  * The straight punch's variations, each by its own record: the drive, begun once the stance is
- * quiet and settled; and on the move, thrown by the arm and the trunk on legs it leaves to a walk.
+ * quiet and settled; and on the move, thrown by the arm and the trunk on legs it leaves to a walk,
+ * with a stroke of its own (`MOVING_STROKE`).
  */
 const VARIATIONS: Variations<RecordedVariation<ExecutorVariations<Config>[string]>> = {
   drive: variation("straight-punch/drive", DRIVE_BODIES),
-  moving: variation("straight-punch/moving", MOVING_BODIES, { leavesLegs: true }),
+  moving: variation("straight-punch/moving", MOVING_BODIES, { leavesLegs: true, stroke: MOVING_STROKE }),
 };
 
 /** A straight punch owns its body fit; its settings are its body's record of its variation, its variation its character's. */

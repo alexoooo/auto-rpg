@@ -30,6 +30,19 @@ walk, coordinated with them only indirectly, and trained to punch that way.
 
 > i want `moving` as a better punch
 
+> I just want to make sure of something: you're not just tweaking the existing broken punch
+> motion, are you? Because that's precisely the pattern of failure that I want to break out of.
+> Whatever you're doing, it must not be what the old punch does, because that is what we know
+> doesn't work. Stop judging levers by landed count in six bouts; the unchanged punch ranges 6–19
+> there. Judge each by the readings you already built over all ~150 punches: nearest pass to the
+> aim, fist-side kg, closing speed, elbow bend at contact. Before any more window or walk levers,
+> measure the ceiling: moving at its best range on a target that stands. If a clean blow is under
+> 0.5 hp, the stroke itself must change (the arm straight and held at contact, the trunk's turn
+> behind it), in code of moving's own. Close the 0.16 m by standing nearer, not by a lunge.
+
+> We shouldn't have any rules that prevent a Mind from doing what it wants, the mind alone should
+> decide the behaviors of the body.
+
 Said before: a separate punch "to be able to see v1 vs v2 in a fight"; of the installed one, "it
 kind of looked like dive jumping into the punch but in a very clumsy way which didn't look like a
 serious punch".
@@ -236,6 +249,27 @@ deleted.
   weight carried over that foot through the drive (`StanceGoal.centre`): -0.01 m. None kept.
   What carries a body 0.15 m in 0.2 s is a push-off of some 0.75 g: a leg action the stance does
   not have.
+- **The installed stroke's ceiling is under the bar.** Thrown by `moving` at a target that stands
+  (the Strike drill's Commander and `drill-stand`, its window opened so it fires where it stands,
+  `strike-bouts.mjs --drill stand`), 0.84 m apart, 25 punches: a median 0.27 hp, the best 0.70. It
+  meets the target either fast (5 to 6 m/s) and light (about 1 kg) or held (15 to 24 kg) and slowed
+  to 3 m/s, never both: its pushes have no speed, a torque source that gives the arm no strength
+  against the blow (`MusclePush`).
+- **`moving`'s own stroke** (`moving/stroke.ts`, the drive's window, preparation and return around
+  it, `StraightDriveOptions.stroke`): the fist steered along the shoulder's line to the target, each
+  freedom pushed at full level toward a finite speed, all held at speed nought from the touch.
+  Per-joint pushes to the contact pose alone wandered (the shoulder swung, the fist peaked at
+  0.06 s and crept in, a median 0.07 hp). Steered, at a target that stands from 0.45 to 1.15 m:
+  **0.68 to 0.70 m trunk to trunk, 23 to 29 kg at 3.7 to 4.4 m/s, 0.55 to 0.86 hp**, the elbow 21
+  to 29 degrees at the touch; nearer, the elbow bent 60 to 90 degrees and 1 to 4 kg; from 0.73 m,
+  the arm straight short of the target. Read nothing: the chest and waist turned to their stops,
+  the arm held until the trunk brought the shoulder near (the lean moves the shoulder nowhere: the
+  stance keeps the weight over the feet).
+- **In the bar's bouts the stroke is not yet better.** At the record's window it fires from 0.82
+  to 1.05 m trunk to trunk and ends short (a median 0.25 m), 1 landed of 196; its window set where
+  the arm reaches (`inside`, `reach` 0.62, `band` 0.02) it commits 14 in 6.9 bout-minutes, all
+  touching, none landed, the elbow bent past 70 degrees at most touches. A window 2 cm wide is a rule
+  the fight seldom meets: where to throw it is the Mind's to decide, priced by range.
 - **The risk**: `moving`'s weight came from the legs it no longer drives. Whether walking into
   the punch on the step raises what its landed blows take in a bout is read
   at step 4, before any training. The bar is the installed punch in bouts, where the owner sees
@@ -248,7 +282,7 @@ deleted.
 | 1. Watch it, one bout | bout read, gate passed; the owner's look to come |
 | 2. Its own record | done: step 1's bouts replay to the bit, the fingerprint moves no pose |
 | 3. Timing and the walk, before the blow | built (`onStep`, `deeper`, `Window.through`); the layout waits on step 4 |
-| 4. The weight check | why it grazes is found (the fist ends short; the body must travel into the blow); no leg the game has carries it there in time; next: a push-off into the blow |
+| 4. The weight check | why it grazes is found (the fist ends short); no leg carries the body in; `moving`'s own stroke lands 0.55 to 0.86 hp where the straight arm reaches, not yet in bouts; next: the Mind chooses where to throw it, priced by range |
 | 5. Train it | not begun |
 | 6. The bout and the owner's eye | not begun |
 | 7. Land | not begun |

@@ -43,14 +43,14 @@ interface StrikeStand {
  * **How far ahead of the stance centre, facing `heading`, the mark `at` must be for the striker's
  * body to stand clear of `foe`'s**, m: how far the striker stands out ahead of its centre
  * (`ahead`, `bodyAhead`) less how far ahead of the mark the foe's body comes nearest
- * (`sensedNearest`), each body's own colliders as they stand, what they hold left out; 0 where
- * the mark is on no body.
+ * (`sensedNearest`), each body's own colliders as they stand, what they hold and the foe's
+ * segments `without` names left out; 0 where the mark is on no body.
  */
 export function clearAhead(view: BodyView, at: readonly [number, number, number], heading: number, foe: BodySense | null,
-  ahead: (view: BodyView, ax: number, az: number) => number): number {
+  ahead: (view: BodyView, ax: number, az: number) => number, without?: ReadonlySet<string>): number {
   if (!foe) return 0;
   const ax = sin(heading), az = cos(heading);
-  return ahead(view, ax, az) - sensedNearest(foe, at[0], at[2], ax, az);
+  return ahead(view, ax, az) - sensedNearest(foe, at[0], at[2], ax, az, without);
 }
 
 /**

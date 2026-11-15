@@ -111,14 +111,15 @@ function boundsOf(shape: ReturnType<typeof worldShapes>[number]): SolidSense {
 /**
  * **How far ahead of (`x`, `z`) along the ground direction (`ax`, `az`) `foe`'s body comes nearest**,
  * m, as sensed: the least reach along it of any segment's own collider, a hand's as posed, what it
- * holds left out. Negative where the body stands out behind the point toward the direction's start.
+ * holds left out, and the segments `without` names. Negative where the body stands out behind the
+ * point toward the direction's start.
  */
-export function sensedNearest(foe: BodySense, x: number, z: number, ax: number, az: number): number {
+export function sensedNearest(foe: BodySense, x: number, z: number, ax: number, az: number, without?: ReadonlySet<string>): number {
   const segments = ownShapesOf(foe.spec);
   let nearest = Infinity;
   for (let k = 0; k < segments.length; k++) {
     const segment = segments[k]!, sensed = foe.segments.get(segment.name);
-    if (!sensed) continue;
+    if (!sensed || without?.has(segment.name)) continue;
     const q = sensed.rotation, p = sensed.position;
     for (let m = 0; m < segment.shapes.length; m++) {
       const shape = m === 0 ? segment.poses?.[sensed.configuration ?? ""] ?? segment.shapes[0]! : segment.shapes[m]!, points = shape.points;
