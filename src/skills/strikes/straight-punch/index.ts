@@ -10,9 +10,8 @@ import { STRAIGHT_DRIVE_KEYS, timedChannelFault, straightDriveExecutor, straight
 import { checkedLayout, type SteerLayout } from "../shared/steer.ts";
 import layoutFile from "../../../../assets/skills/strikes/straight-punch/drive.layout.json" with { type: "json" };
 import { handConfigurationRefusal, holdsNothing } from "../../reach/hand.ts";
-import { PUNCH_BODIES } from "./data/records.ts";
-import { recordFault } from "../../framework/records.ts";
-import { variationFault, variationMaker, type ExecutorVariations, type Varied } from "../../framework/variations.ts";
+import { DRIVE_BODIES, type PunchRecordKey } from "./data/records.ts";
+import { makersOf, variationFault, variationMaker, variationReads, variationRecordFault, type ExecutorVariations, type RecordedVariation, type Varied, type Variations } from "../../framework/variations.ts";
 import { fromGuard } from "./from-guard/from-guard.ts";
 
 /** How the straight punch's steer reads and pushes: its networks' inputs and outputs (`assets/skills/strikes/straight-punch/drive.layout.json`). */
@@ -34,38 +33,46 @@ interface Config extends Varied {
 }
 
 /**
- * A straight punch on `making`'s body: the straight drive with its fist, as the body's record has it
- * (`dataOf("straight-punch/drive")`, each variation's), its drive begun when `ready` says where given.
+ * A straight punch on `making`'s body: the straight drive with its fist, as the body's record of
+ * `key` has it (its variation's, `dataOf`), its drive begun when `ready` says where given.
  */
-function punch({ body, guard, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[], ready?: StraightDriveOptions["ready"]) {
-  const record = dataOf("straight-punch/drive")[body.built.spec.model], settings = { ...record?.settings, ...config.tuning } as StraightDrive;
+function punch(key: PunchRecordKey, { body, guard, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[], ready?: StraightDriveOptions["ready"]) {
+  const record = dataOf(key)[body.built.spec.model], settings = { ...record?.settings, ...config.tuning } as StraightDrive;
   const network = config.tuning === undefined || config.keepsNetwork ? record?.network : null;
   return straightDriveExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim),
     { label: "straight punch", layout: PUNCH_LAYOUT, ...(network ? { policy: recoveryNetwork(network) } : {}), ...(ready ? { ready } : {}) });
 }
 
 /**
- * The straight punch's variations: the drive, begun once the stance is quiet and settled; and
- * from its guard (`from-guard/`), begun only once the striking arm is also at its guard and still.
+ * A variation of the straight punch: the punch as the record of `key` has it on each of `bodies`
+ * (`Recorded`), its drive begun when `ready` says of its body where given.
  */
-const VARIATIONS: ExecutorVariations<Config> = {
-  drive: (making, config, actions) => punch(making, config, actions),
-  "from-guard": (making, config, actions) => punch(making, config, actions, fromGuard(making.body)),
+const variation = (key: PunchRecordKey, bodies: readonly string[], ready?: (body: ExecutorMaking["body"]) => StraightDriveOptions["ready"]): RecordedVariation<ExecutorVariations<Config>[string]> =>
+  ({ reads: [key], bodies, make: (making, config, actions) => punch(key, making, config, actions, ready?.(making.body)) });
+
+/**
+ * The straight punch's variations: the drive, begun once the stance is quiet and settled; and
+ * from its guard (`from-guard/`), begun only once the striking arm is also at its guard and still,
+ * which names the drive's record and so shares it.
+ */
+const VARIATIONS: Variations<RecordedVariation<ExecutorVariations<Config>[string]>> = {
+  drive: variation("straight-punch/drive", DRIVE_BODIES),
+  "from-guard": variation("straight-punch/drive", DRIVE_BODIES, fromGuard),
 };
 
-/** A straight punch owns its body fit; its settings are its body's, its variation its character's. */
+/** A straight punch owns its body fit; its settings are its body's record of its variation, its variation its character's. */
 export const PUNCH_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Straight punch", stage: "game", defaults: { kind: "straight-punch" },
   keys: { kind: true, variation: true, tuning: true, keepsNetwork: true }, tuning: STRAIGHT_DRIVE_KEYS,
   fields: [], slots: [], fits: fitsAll(variationFault("straight-punch", "straight punch", VARIATIONS), strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightDriveFits, "needs both arms on the upper trunk, each with a fist, and a thoracic joint"),
     (spec) => handConfigurationRefusal(spec, ["hand.left", "hand.right"], "fist"),
-    recordFault("straight punch", PUNCH_BODIES, validStraightDrive), (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),
+    variationRecordFault("straight-punch", "straight punch", VARIATIONS, validStraightDrive), (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),
   faults: (config) => [...config.tuning === undefined || validStraightDrivePart(config.tuning) ? [] : ["invalid straight punch tuning"],
     ...config.keepsNetwork === undefined || config.keepsNetwork === true && config.tuning !== undefined ? [] : ["keepsNetwork: true, beside a tuning"]],
-  reads: () => ["straight-punch/drive"], effectors: ["hand.left", "hand.right"], aims: true,
+  reads: variationReads(VARIATIONS), effectors: ["hand.left", "hand.right"], aims: true,
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),
-  make: variationMaker("straight-punch", VARIATIONS),
+  make: variationMaker("straight-punch", makersOf(VARIATIONS)),
   skillGroup: "Strikes", variations: Object.keys(VARIATIONS),
 };
 

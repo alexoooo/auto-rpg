@@ -1,8 +1,10 @@
 import { heldVariations, type BodySpec } from "../../core/bodies/spec/body.ts";
+import type { DataKey } from "../../core/data/store.ts";
 import type { ActionConfig } from "../config.ts";
 import type { Executor } from "./action.ts";
 import type { ExecutorMaking } from "./executor-part.ts";
 import type { PartConfig } from "../../parts/parts.ts";
+import { recordFault } from "./records.ts";
 
 /** The name a decision uses for one held variation, also used in combat reports. */
 export const skillName = (config: PartConfig): string => `${config.kind}/${(config as Varied).variation ?? ""}`;
@@ -17,6 +19,56 @@ export type Variations<V> = Readonly<Record<string, V>>;
 
 /** **An executor's variations** (`Variations`): each its maker. */
 export type ExecutorVariations<C> = Variations<(making: ExecutorMaking, config: C, actions: readonly ActionConfig[]) => Executor>;
+
+/**
+ * **What a variation tuned per body reads**: the records it names (`reads`, mind data by model,
+ * `SkillRecord`), its own or another variation's, which is how two share one; and the bodies that
+ * have them (`bodies`), known before the records load.
+ */
+export interface Recorded {
+  readonly reads: readonly DataKey[];
+  readonly bodies: readonly string[];
+}
+
+/** **A variation tuned per body**: what its part makes of it, `V`, and what it reads (`Recorded`). */
+export interface RecordedVariation<V> extends Recorded {
+  readonly make: V;
+}
+
+/** What a part makes of each of its variations tuned per body (`RecordedVariation`), by name. */
+export const makersOf = <V>(variations: Variations<RecordedVariation<V>>): Variations<V> =>
+  Object.fromEntries(Object.entries(variations).map(([name, one]) => [name, one.make]));
+
+/**
+ * A part's `reads` for its `variations` (`Recorded`): the records of the variation a config names,
+ * and every variation's where it names none, each key once.
+ */
+export function variationReads(variations: Variations<Recorded>): (config: object) => readonly DataKey[] {
+  const every = [...new Set(Object.values(variations).flatMap((one) => one.reads))];
+  return (config) => {
+    const named = (config as Varied).variation;
+    return named !== undefined && Object.hasOwn(variations, named) ? variations[named]!.reads : every;
+  };
+}
+
+/**
+ * A part's `fits` for its `variations` tuned per body (`Recorded`): why a body of `spec` has no
+ * record of a variation of `skill` (its `label`) it runs as `config` names it (the one it names,
+ * else each its character holds), or null (`recordFault`, of that variation's `bodies`, which
+ * names the variation where the skill has several).
+ */
+export function variationRecordFault<T>(skill: string, label: string, variations: Variations<Recorded>, whole: (tuning: T) => boolean): (spec: BodySpec, config: { readonly tuning?: T }) => string | null {
+  const several = Object.keys(variations).length > 1;
+  const faults = new Map(Object.entries(variations).map(([name, one]) => [name, recordFault(several ? `${label} ${name}` : label, one.bodies, whole)]));
+  return (spec, config) => {
+    const named = (config as Varied).variation;
+    for (const variation of named !== undefined ? [named] : heldVariations(spec, skill)) {
+      const fault = faults.get(variation)?.(spec, config) ?? null;
+      if (fault !== null) return fault;
+    }
+    return null;
+  };
+}
 
 /** **A config of a skill with variations**: the variation it runs; absent, the one its body holds where it holds one (`chosenVariation`). */
 export interface Varied {

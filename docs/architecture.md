@@ -272,7 +272,9 @@ given the same groups in what it sees (`Sight`, `sightOf`).
 - **Tuned per body**: a skill that reads a record (`Part.reads`: the blows, step up's and the
   sit-back's poses and timings, the righting's recipe) has its settings as its body's record (`SkillRecord`),
   read as mind data by model from its implementation in `assets/skills/` (`dataOf`). A body with no record
-  does not use the skill. Logic of a character's own is never a branch on its body in shared code but
+  does not use the skill. A skill with several variations names each one's records and the bodies
+  that have them on the variation (`RecordedVariation`, `variationReads`, `variationRecordFault`,
+  `src/skills/framework/variations.ts`), and one naming another's record shares it. Logic of a character's own is never a branch on its body in shared code but
   a variation it chooses (**Strikes**, below). Step up's record may adjust the recovery poses and timings by loadout.
   Implementations register loaders in `data/registration.ts`; an entrant adds its loaders to its
   manifest's `data`. The catalog supplies those loaders to the store (`DataKey`, `keyof DataOf`)
@@ -354,7 +356,7 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   interval its layout names, adds to the trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
   (`PunchRecord`), trained by `research/run-train.py` and exported by `research/skills/strikes/straight-punch/punch-export.mjs`.
   Its `drive` variation begins once the stance is quiet and settled; `from-guard` (`straight-punch/from-guard/`)
-  also waits for the striking arm at its guard and still (`StraightDriveOptions.ready`), with the same record.
+  also waits for the striking arm at its guard and still (`StraightDriveOptions.ready`), and names the drive's record.
 - **Held blows** strike with what the hand holds (`StrikingFace`), naming the mechanism they meet
   with (`ExecutorPart.meets`). The sword thrust (`sword-thrust/index.ts`) is the same straight drive with
   the blade's point, through which `faceAligner` servos the wrist onto the line to the target; the

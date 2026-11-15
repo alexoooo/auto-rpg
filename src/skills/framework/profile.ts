@@ -626,9 +626,12 @@ const NO_EXECUTOR = Object.freeze({}) as ExecutorEntry;
 function readSkillDigest(parts: PartLookup, part: ReturnType<typeof executorPart> | null, spec: BodySpec, executor: ExecutorEntry | null, action: ActionConfig): string {
   const body = spec.model;
   const aim = action.aim ? parts.of("aim", action.aim) : null;
-  const keys = [...new Set([...(executor && part ? part.reads?.(executor) ?? [] : []), ...(action.aim ? aim?.reads?.(action.aim) ?? [] : [])])];
+  const variation = executor ? chosenVariation(spec, executor.kind, executor) : undefined;
+  // The executor's records are asked with the variation its body runs: another variation's record moves no digest.
+  const asked = executor && variation !== undefined ? { ...executor, variation } : executor;
+  const keys = [...new Set([...(asked && part ? part.reads?.(asked) ?? [] : []), ...(action.aim ? aim?.reads?.(action.aim) ?? [] : [])])];
   const data = keys.map(key => digestOf(dataIdentity(key, body)));
-  const { name: _action, executor: _executor, ...does } = action, variation = executor ? chosenVariation(spec, executor.kind, executor) : undefined;
+  const { name: _action, executor: _executor, ...does } = action;
   return digestOf({ action: does, executor: executor && (({ name: _, variation: _variation, ...rest }: ExecutorEntry & Varied) => rest)(executor), ...(variation === undefined ? {} : { variation }), data });
 }
 

@@ -49,14 +49,11 @@ drill's rung at a foe that fights back, from starts drawn at random (`sparring`,
 - **A try's reading does not tell it from the drive.** On the 240 held-out starts a candidate
   that reads 1.08 times the drive's damage a second has a 95 % interval of 0.79 to 1.47, so a try
   a fifth better and one a fifth worse read the same ([the judge](#the-judge-of-a-try)).
-- **A variation's record is its skill's.** Each variation is a maker of its own
-  (`ExecutorVariations`, `src/skills/framework/variations.ts`), so one can run its own executor
-  and layout. The straight punch's two both call one function (`punch`,
-  `src/skills/strikes/straight-punch/index.ts`), which runs one layout (`PUNCH_LAYOUT`) and each
-  body's one record and network (`dataOf("straight-punch/drive")`); `from-guard` adds when its
-  drive may begin. The part names that one record for every variation: what a mind loads
-  (`reads`) and which bodies have the skill (`recordFault`). So a network of a variation's own
-  goes into a record the part names for all of them.
+- **A variation names its record**
+  ([Part 1](#part-1-a-variation-declares-its-record)), so a network of a variation's own goes
+  into a record of its own. The straight punch's two both call one function (`punch`,
+  `src/skills/strikes/straight-punch/index.ts`), which runs one layout (`PUNCH_LAYOUT`);
+  `from-guard` names the drive's record and adds when its drive may begin.
 - **Each try plays again what it is compared with.** `punch-sparring.mjs --bar` plays every
   held-out start by the candidate and by the drive. `npm run evaluate` keeps no row while a build
   input is uncommitted, and a commit finds none of the rows made before it
@@ -387,37 +384,37 @@ unread.
 
 ## Part 1: a variation declares its record
 
-**Where it stands.** A variation is its maker (`ExecutorVariations`). A skill's part names one
-record for all of them: in its `reads`, in its `recordFault` and in the data it registers
-(`straight-punch/data/registration.ts`). `reads` takes a config: a mind loads by it
-(`treeData`, `src/minds/catalog/catalog.ts`), and a strike's digest reads by it beside the
-variation its body runs (`chosenVariation`, in `skillDigest`).
+**Where it stands.** The straight punch's variations declare their records
+([the architecture](../architecture.md#skills)).
 
-**The design.**
+- **A variation is its maker and what it reads** (`RecordedVariation`,
+  `src/skills/framework/variations.ts`): the records it names and the bodies that have them.
+  Naming another's record is how two share one: `from-guard` names the drive's. A skill's part
+  holds what its variations have in common: its label, its effectors, its Option and what it
+  needs of the body.
+- **A record is a variation's on each body** (`straight-punch/<variation>`, a `PunchRecordKey`),
+  registered beside the drive's (`straight-punch/data/registration.ts`).
+- **The part's `reads` gives the records of the variation a config names** (`variationReads`),
+  and every variation's where it names none: a mind loads by it (`treeData`,
+  `src/minds/catalog/catalog.ts`), and a strike's digest asks with the variation its body runs
+  (`skillDigest`). The part's `fits` asks the bodies of the variations a body holds
+  (`variationRecordFault`).
+- **The sparring tool takes the variation it reads and writes** (`punch-sparring.mjs
+  --variation`): the record a search starts from and a form is written from, and the variation a
+  network's file steers and `--commitments` plays.
+- **Each other skill tuned per body has one variation and names its one record on its part**
+  (`recordFault`, `src/skills/framework/records.ts`).
 
-- **A variation is its maker and what it reads**: the records it names and the bodies that have
-  them. Naming another's record is how two share one. A skill's part holds what its variations
-  have in common: its label, its effectors, its Option and what it needs of the body.
-- **A record is a variation's on each body** (`straight-punch/<variation>`), registered by its
-  variation.
-- **The part's `reads` gives the records of the variation a config names**, and every
-  variation's where it names none. A strike's digest asks with the variation its body runs, so a
-  profile moves only with its own variation's record. The part's `fits` asks the bodies of the
-  variations a body holds.
-- **The research tools take the variation they read and write**: the record a search starts from
-  and the variation a network file steers (`punch-sparring.mjs --variation`).
-- **A variation under work plays; every other variation's rows are found**
-  ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
-
-**What it would bring.** A new idea is a new variation: built, read and dropped without moving
-anything installed, several of them side by side. The fingerprint shows a change moved only its
-own variation's cases (`node scripts/fingerprint.mjs --compare <file> --variation
-<skill/variation>`).
-
-**What it would cost.** Nothing is played again: `drive` and `from-guard` name the record and the
-layout they run now, which the fingerprint shows.
+A new idea is a new variation: built, read and dropped without moving anything installed,
+several of them side by side. The fingerprint shows a change moved only its own variation's
+cases (`node scripts/fingerprint.mjs --compare <file> --variation <skill/variation>`).
 
 **Open.**
+
+- **A variation under work plays; every other variation's rows are found**
+  ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
+- Whether the punch's exporter (`punch-export.mjs`) and its trainer take a variation: each
+  writes the drive's record.
 
 - Whether a variation has a row of [the table](../reference/the-table.md) or is read as a subject
   against its skill's row.
@@ -591,11 +588,10 @@ refactor the fingerprint shows. Two choices reach installed skills:
   ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
 - **The judge's larger draw is first.** It waits on nothing: a protocol added beside sparring's.
   With the played rows its drive's side is played once.
-- **Part 1 and the played rows wait on no reading**: every try after them plays only its own
-  variation. Part 1 is the first of the two: it settles which records a subject's mind reads
-  (`reads`), and the store's key covers them
-  ([played rows kept and found](2026-11-14-saved-results.md#the-design)). Whether a row kept
-  before it is found after it is unread.
+- **The played rows wait on no reading**: every try after them plays only its own variation.
+  Which records a subject's mind reads is settled ([Part 1](#part-1-a-variation-declares-its-record),
+  `reads`), and the store's key covers them
+  ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
 - **A kept row waits on the mind's pricing.** What Option Mind prices a strike by is code both
   sides of every comparison run, the sparring foe's among it, so a row kept before a change to
   it is another code's
