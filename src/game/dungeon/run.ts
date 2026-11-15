@@ -370,7 +370,7 @@ export class DungeonRun {
   /**
    * Build `actor`'s body where it waits, holding what its model holds, under its mind (the one the run
    * was given for it, `DungeonRunOptions.mind`, else its model's) with
-   * the assist its character's balance gives it, and watch its blows with everybody's. The mind
+   * the assist its character's steadiness gives it, and watch its blows with everybody's. The mind
    * carries out the orders its team's Commander gives it (`delivered`), its target as the foe.
    * Facing remains independent of movement. It is asked only
    * while its body is at `full` (`levels`).

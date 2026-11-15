@@ -6,7 +6,7 @@ import { cos, sin } from "../../../../core/math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../../../core/math/turn.ts";
 
 /**
- * **What a gait asks of its body's assist** (`Assist`, from the character's balance), each step it
+ * **What a gait asks of its body's assist** (`Assist`, from the character's steadiness), each step it
  * drives the legs: a moment on the root that turns the pelvis to the gait's own, facing its heading,
  * leaning as the gait holds it and banked as it banks into a turn, in `settle` s, as a body whose
  * radius of gyration about its centre of mass is `gyration` m would be turned, less what would lean
@@ -14,7 +14,7 @@ import { spinBetweenToRef, turnAboutToRef } from "../../../../core/math/turn.ts"
  * forward to carry the body along: that pitch is the run's and the walk's own, and an assist that
  * holds it both ways makes a body brake slower and fall as it stops. It gives no force: one across the heading
  * toward the walk asked across it holds nothing more up.
- * What it asks past the assist's ceiling the assist shortens; a body with no balance is asked nothing.
+ * What it asks past the assist's ceiling the assist shortens; a body with no steadiness is asked nothing.
  */
 const GAIT_ASSIST = Object.freeze({ settle: 0.15, gyration: 0.3 });
 

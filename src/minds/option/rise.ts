@@ -10,7 +10,7 @@ import { WHOLE, type Status } from "../choice.ts";
 import { brace } from "./rest.ts";
 import { asking, blocked, READY, type Option, type Situation, type Step } from "./option.ts";
 import { around } from "./strike.ts";
-import { onFeet, STEADY_TRY } from "./rise-memory.ts";
+import { onFeet, REGAIN_TRY } from "./rise-memory.ts";
 import { recorded, type Prior, type Tried } from "./record.ts";
 import { STILL, UNMOVED, type Outcome, type Terms } from "./value.ts";
 import type { NamedSkills } from "./skills.ts";
@@ -30,8 +30,8 @@ function bindingSegments(part: TechniquePart, spec: BodySpec, config: PartConfig
 /** What a way up is taken to do where no drill measured it (`Prior`), set by hand: it runs 5 s and stands the body seven times in ten. */
 const WAY_PRIOR: Prior = deepFreeze({ seconds: 5, done: .7 });
 
-/** What the steady is taken to do, set by hand: it stands a body on its feet ready in its try (`STEADY_TRY`) nine times in ten. */
-const STEADY_PRIOR: Prior = deepFreeze({ seconds: STEADY_TRY, done: .9 });
+/** What the regain is taken to do, set by hand: it stands a body on its feet ready in its try (`REGAIN_TRY`) nine times in ten. */
+const REGAIN_PRIOR: Prior = deepFreeze({ seconds: REGAIN_TRY, done: .9 });
 
 /** What bracing a body until a way up admits it is taken to do where none was measured, set by hand: a quarter second, after which one does. */
 const SETTLE_PRIOR: Prior = deepFreeze({ seconds: .25, done: 1 });
@@ -216,17 +216,17 @@ export const FLATTEN_OPTION = groundKind("flattening", "Flatten", "flatten", nul
 });
 
 /**
- * **The steady**, on its feet while its rise runs (`onFeet`), over the whole body, yielding: priced as
+ * **The regain**, on its feet while its rise runs (`onFeet`), over the whole body, yielding: priced as
  * a way up from where it stands to standing, by its profile where one is measured, by hand else
- * (`groundWay`, `STEADY_PRIOR`), its try's seconds left (`Situation.steadied`); its route from a
+ * (`groundWay`, `REGAIN_PRIOR`), its try's seconds left (`Situation.regained`); its route from a
  * crouch to standing. Its try is noted in the record as it ends: done where its rise is over, not
  * where its try ran out with the rise still on.
  */
-export const STEADY_OPTION = groundKind("steadying", "Steady", "steady", null, (given, config, part) => {
-  const name = part.defaults.kind as string, record = given.record, { way, priced } = groundWay(given, config.skill, name, STEADY_PRIOR);
-  const memory = { id: null as number | null, start: part.starts[0]!,  from: null, steadied: 0 }, sides = bindingSegments(part, given.spec, config.skill), NOT_ON_FEET = blocked("not on its feet in a rise");
+export const REGAIN_OPTION = groundKind("regaining", "Regain", "regain", null, (given, config, part) => {
+  const name = part.defaults.kind as string, record = given.record, { way, priced } = groundWay(given, config.skill, name, REGAIN_PRIOR);
+  const memory = { id: null as number | null, start: part.starts[0]!,  from: null, regained: 0 }, sides = bindingSegments(part, given.spec, config.skill), NOT_ON_FEET = blocked("not on its feet in a rise");
   return [{
-    name: "steady", claims: WHOLE, state: memory, priced,
+    name: "regain", claims: WHOLE, state: memory, priced,
     entry: (now) => { const g = now.ground; return g && onFeet(g) ? READY : NOT_ON_FEET; },
     status(now): Status {
       if (now.rising) return "yields";
@@ -237,14 +237,14 @@ export const STEADY_OPTION = groundKind("steadying", "Steady", "steady", null, (
       const g = at.ground;
       if (!g || !onFeet(g)) return null;
       const expected = way(g.position);
-      return downTerms(at, Math.max(0, expected.seconds - at.steadied), endings(expected, g.position, "standing"));
+      return downTerms(at, Math.max(0, expected.seconds - at.regained), endings(expected, g.position, "standing"));
     },
-    begin() { memory.id = null; memory.steadied = 0; },
+    begin() { memory.id = null; memory.regained = 0; },
     end() { memory.id = null; },
     step(now) {
       // Its try ran out with the rise still on: noted, and begun afresh.
-      if (now.steadied < memory.steadied) record.note(name, now.posture, false);
-      memory.steadied = now.steadied;
+      if (now.regained < memory.regained) record.note(name, now.posture, false);
+      memory.regained = now.regained;
       return asks(now, memory, name, sides);
     },
   }];
@@ -352,7 +352,7 @@ declare module "./parts.ts" {
     readonly "way-up": GroundConfig<"way-up">;
     readonly reposition: GroundConfig<"reposition">;
     readonly flattening: GroundConfig<"flattening">;
-    readonly steadying: GroundConfig<"steadying">;
+    readonly regaining: GroundConfig<"regaining">;
     readonly landing: GroundConfig<"landing">;
     readonly "brace-tumbling": GroundConfig<"brace-tumbling">;
     readonly "brace-down": GroundConfig<"brace-down">;

@@ -60,7 +60,7 @@ export function dummySpec(attacker: BodySpec, part: string = attacker.marks.high
     }],
     joints: [],
     wounds: { hp: derive("HP", "the attacker's hit points", [attacker.wounds.hp], hp => hp), ...groupAs(attacker, part) },
-    attributes: { balance: derive("%", "the attacker's balance", [attacker.attributes.balance], percent => percent),
+    attributes: { steadiness: derive("%", "the attacker's steadiness", [attacker.attributes.steadiness], percent => percent),
       haste: derive("%", "the attacker's haste", [attacker.attributes.haste], percent => percent) },
     down: { kind: "asked", fallen: derive("m", "the attacker's fall bar", [attacker.down.fallen], fallen => fallen) },
     marks: { high: part, middle: attacker.marks.middle.includes(part) ? [part] : [], base: part,

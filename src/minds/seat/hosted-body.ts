@@ -12,7 +12,7 @@ export type HostedBody = PhysicalBody & Pick<Body, "view" | "envelope" | "drive"
 /**
  * **What a body built outside a fight under the command layers takes** (`commandedBody`): their
  * options and what a body is given beside its mind (`Embodying`: its senses, the clock alone
- * unless given; its assist's ceiling, `balanceCeiling`, none unless given; its contact labels;
+ * unless given; its assist's ceiling, `steadinessCeiling`, none unless given; its contact labels;
  * where its order sheets are written).
  */
 export type BodyOptions = LayerOptions & Embodying;

@@ -66,7 +66,7 @@ export async function transferTrial({ hand = 'left', hands = LEANING[CORE_ENGINE
       if (riser.furthest === at + 1 && riser.phase !== 'rise') break;
     }
     return { harness: { kind: 'Node toppled Warrior', engine: world.physics.engine, revision: world.physics.revision,
-      hz: world.hz, actuation: world.actuation, balance: 0, held: 'empty' }, hand, gapBefore, released, clearance, peak, transfer,
+      hz: world.hz, actuation: world.actuation, steadiness: 0, held: 'empty' }, hand, gapBefore, released, clearance, peak, transfer,
       phase: riser.phase, assist: { force: body.assist.meter.force, moment: body.assist.meter.moment } };
   } finally { dispose(); }
 }

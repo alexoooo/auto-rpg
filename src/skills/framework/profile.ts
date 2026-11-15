@@ -9,7 +9,7 @@
  * percept, `sensedPhase`); how the two bodies stood; and the velocity at the start, in the frame of
  * the skill's target (`startVelocity`), or, for a skill with no target, the body's own (forward and
  * to its right of its facing); for a skill begun from a window, where in it the body stood; and
- * the Balance and haste its bodies' characters set, where they were not their models' own
+ * the Steadiness and haste its bodies' characters set, where they were not their models' own
  * (`Levels`). A
  * reading takes the trials nearest the start asked at (`NEAREST`), its velocity and its place in
  * its window within the spans its trials began at (`within`), and its bodies' levels, which are
@@ -126,7 +126,7 @@ type Asked = Omit<Start, "levels">;
 
 /** The numbers a character sets that a trial records of a body (`AttributeSpec`), per cent: each absent where it was its model's own (`characterDefaults`). */
 interface BodyLevels {
-  readonly balance?: number;
+  readonly steadiness?: number;
   readonly haste?: number;
 }
 
@@ -141,7 +141,7 @@ interface Levels {
  * each level, and the span over which trials are taken as alike, per cent. The spans are tuned on
  * no reading: no stored profile holds trials begun at two levels.
  */
-const LEVELS = Object.freeze(((["own", "target"] as const).flatMap((of) => [{ of, level: "balance", span: 2 }, { of, level: "haste", span: 10 }] as const)));
+const LEVELS = Object.freeze(((["own", "target"] as const).flatMap((of) => [{ of, level: "steadiness", span: 2 }, { of, level: "haste", span: 10 }] as const)));
 
 /** A reading of a profile whose trials record no level: asked at none. */
 const NO_LEVELS = new Float64Array(0);
@@ -150,12 +150,12 @@ const NO_LEVELS = new Float64Array(0);
 const ownLevels = (model: string): BodyLevels => characterDefaults(model as BodyModel);
 
 /**
- * **The levels a trial of `own` against `target` records** (`Start.levels`): each body's Balance
+ * **The levels a trial of `own` against `target` records** (`Start.levels`): each body's Steadiness
  * and haste where its character set it apart from its model's own; undefined where none did.
  */
 export function startLevels(own: BodySpec, target: BodySpec | null): Levels | undefined {
   const of = (spec: BodySpec): BodyLevels | undefined => {
-    const defaults = ownLevels(spec.model), set = (["balance", "haste"] as const).filter((level) => spec.attributes[level].value !== defaults[level]);
+    const defaults = ownLevels(spec.model), set = (["steadiness", "haste"] as const).filter((level) => spec.attributes[level].value !== defaults[level]);
     return set.length ? Object.fromEntries(set.map((level) => [level, spec.attributes[level].value])) : undefined;
   };
   const mine = of(own), its = target ? of(target) : undefined;
@@ -239,7 +239,7 @@ const profileText = (value: unknown): boolean => typeof value === "string" && va
 const profilePair = (value: unknown): boolean => Array.isArray(value) && value.length === 2 && value.every(profileNumber);
 const profilePostures = (value: unknown): boolean => profileObject(value) && profileText(value.own) && profileText(value.target);
 const profileLevels = (value: unknown): boolean => profileObject(value) && [value.own, value.target].every((body) => body === undefined
-  || profileObject(body) && [body.balance, body.haste].every((level) => level === undefined || profileNumber(level)));
+  || profileObject(body) && [body.steadiness, body.haste].every((level) => level === undefined || profileNumber(level)));
 const profileTarget = (value: unknown): boolean => profileObject(value) && profileText(value.body) && (value.holds === undefined || profileText(value.holds));
 const profileOrigin = (value: unknown): boolean => profileObject(value)
   && [value.spec, value.skill, value.target, value.commit, value.date].every((one) => one === undefined || profileText(one))

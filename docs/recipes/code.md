@@ -34,7 +34,7 @@ of a test.
 - **Solver conditioning is not anatomy**: an iteration count, inertia floor or damping for the
   solver is named so (`SOLVER`) and kept out of the body's numbers.
 - **An assist is not anatomy**: a force no muscle gives (`Assist`), capped by the character's
-  balance and metered every step. A figure read under an assist names each side's balance.
+  steadiness and metered every step. A figure read under an assist names each side's steadiness.
 - **A muscle's strength and speed serve the owner's goal**: from a source where one pins them,
   tuned for the result asked for where none does, never raised for feel.
 - **Cosmetics never carry authority**: the visible room is not the collision arena

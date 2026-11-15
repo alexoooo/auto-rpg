@@ -13,7 +13,7 @@ import { SIT_BACK, derivedRecipe, stageFaults, type Recipe } from "./stages.ts";
 import { standReady, type GroundReading, type Position } from "../../../../control/ground-reading.ts";
 import { recordFault } from "../../../framework/records.ts";
 import { LIMIT, LOW, SIT_BACK_BODIES, STEP_UP_BODIES, stepUpRecipe, stepUpTuning, validStepUp, type StepUpRise, type StepUpTuning } from "./records.ts";
-import { stanceSteady } from "./steady.ts";
+import { stanceRegain } from "./regain.ts";
 import { REACHED_SECONDS, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "../technique.ts";
 import { technique } from "../bilateral.ts";
 import { type Side, otherSide } from "../../../../core/bodies/bilateral.ts";
@@ -163,7 +163,7 @@ function rollPart(own: OwnBody, view: BodyView, kind: StagedKind, tuning: StepUp
  * **A part of the rise**: step up's route played on from the part's first stage; done at the end
  * of the first cut's stage (`CUTS`) where the body has been read in that cut's posture, slow enough to hand over, for
  * `REACHED_SECONDS`, from that stage on until the next cut's begins; read at none, it plays the
- * route to its end, step up's climb and steadying (`stanceSteady`). It yields only while it lies
+ * route to its end, step up's climb, its regain (`stanceRegain`). It yields only while it lies
  * slack: its climb is its own until the body stands ready or falls.
  */
 function risePart(own: OwnBody, view: BodyView, fitted: MotorAndGuard, kind: StagedKind, tuning: StepUpTuning): TechniqueRun<Side> {
@@ -180,15 +180,15 @@ function risePart(own: OwnBody, view: BodyView, fitted: MotorAndGuard, kind: Sta
   const unrolled = routeRecipes(kind, tuning)[0]!;
   const rise: StepUpRise = stagedRise(own, view, unrolled);
   const motor = carrying(fitted.motor.make(own.built, own.muscles, .1, fitted.posture), ["stance"], "a part of step up's route");
-  const steady = stanceSteady(own, view, motor, tuning.climb);
+  const regain = stanceRegain(own, view, motor, tuning.climb);
   // `cut`: the latest of `cuts` begun, -1 for none.
-  const state = { phase: "rise" as "rise" | "steady", rose: false,
+  const state = { phase: "rise" as "rise" | "regain", rose: false,
     ended: null as TechniqueEnd | null, elapsed: 0, cut: -1, reached: 0, handover: 0,
-    rise: rise.state, steady: steady.state, motor: motor.state };
+    rise: rise.state, regain: regain.state, motor: motor.state };
   const finish = (end: TechniqueEnd) => { state.ended = end; return end; };
   return {
-    state, get phase() { return state.phase === "steady" ? "steady" : rise.state.phase; },
-    get stage() { return state.phase === "steady" ? "steady" : `${rise.state.phase} ${rise.state.stage}`; },
+    state, get phase() { return state.phase === "regain" ? "regain" : rise.state.phase; },
+    get stage() { return state.phase === "regain" ? "regain" : `${rise.state.phase} ${rise.state.stage}`; },
     get yields() { return state.ended !== null || rise.state.phase === "settle"; },
     admits: (g, side) => stagedEntry(kind, tuning, g, side),
     reached: (g, to) => to === "standing" ? standReady({ down: view.down, ground: g }) : readsAt(tuning, g, to),
@@ -232,10 +232,10 @@ function risePart(own: OwnBody, view: BodyView, fitted: MotorAndGuard, kind: Sta
         }
         if (part.to !== "standing") return finish("failed");
         // The rise is over: the stance takes the body from the height it was left at.
-        steady.begin(g);
-        state.phase = "steady";
+        regain.begin(g);
+        state.phase = "regain";
       }
-      const end = steady.step(g, control, dt);
+      const end = regain.step(g, control, dt);
       return end === null ? null : finish(end);
     },
   };

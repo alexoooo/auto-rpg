@@ -334,7 +334,7 @@ test("source imports follow responsibility, runtime and package ownership", () =
     ["src/skills/strikes/straight-punch/index.ts", `import { drive } from "./drive/drive.ts"; import { face } from "../shared/held-face.ts";`],
     ["src/skills/strikes/straight-punch/drive/drive.ts", `import { steer } from "../../shared/steer.ts"; import { push } from "./push.ts";`],
     ["src/skills/locomotion/shared/gaits.ts", `import { WALK_RUN_PART } from "../walk-run/index.ts"; import { STANCE_LOWER } from "./locomotion.ts";`],
-    ["src/skills/recovery/brace/brace/brace.ts", `import { steadying } from "../../steady/steady/steady.ts"; import { MODE } from "../../shared/modes.ts"; import { stanceOf } from "../../../locomotion/shared/locomotion.ts";`],
+    ["src/skills/recovery/brace/brace/brace.ts", `import { regaining } from "../../regain/regain/regain.ts"; import { MODE } from "../../shared/modes.ts"; import { stanceOf } from "../../../locomotion/shared/locomotion.ts";`],
     ["src/skills/recovery/roll/roll/roll.ts", `import { ROLL_BACK } from "../../roll-back/index.ts"; import { PROFILES } from "../../data/profiles.ts";`],
     ["src/skills/guard/rest/index.ts", `import { covering } from "../cover-guard/cover-guard/cover.ts"; import { guardSkill } from "../shared/guard.ts";`],
   ]);
@@ -347,7 +347,7 @@ test("source imports follow responsibility, runtime and package ownership", () =
   assert.deepEqual(probe.ownership.filter((crossing) => crossing.startsWith("src/skills/")), [
     "src/skills/guard/rest/index.ts -> src/skills/guard/cover-guard/cover-guard/cover.ts",
     "src/skills/locomotion/shared/gaits.ts -> src/skills/locomotion/walk-run/index.ts",
-    "src/skills/recovery/brace/brace/brace.ts -> src/skills/recovery/steady/steady/steady.ts",
+    "src/skills/recovery/brace/brace/brace.ts -> src/skills/recovery/regain/regain/regain.ts",
     "src/skills/recovery/roll/roll/roll.ts -> src/skills/recovery/data/profiles.ts",
     "src/skills/recovery/roll/roll/roll.ts -> src/skills/recovery/roll-back/index.ts",
     "src/skills/strikes/bonk/swing/steer.ts -> src/skills/strikes/bonk/index.ts",

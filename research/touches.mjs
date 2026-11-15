@@ -3,12 +3,12 @@ import { isRefused } from "../src/core/refusal.ts";
  * **The touches a body makes** (`watchTouches`, `src/combat/touches.ts`): every segment of each core
  * body read, a touch lasting as long as the two are in contact (`lasts: "contact"`), on the ground
  * or on another body, each priced (`TouchWatch.priced`). The Lab's modes on the Node stand as the
- * page runs them (`labActor`, the loadout the address gives by default, the balance the
- * character's own unless `--balance` gives another), each case in a stand of its own, and three
+ * page runs them (`labActor`, the loadout the address gives by default, the steadiness the
+ * character's own unless `--steadiness` gives another), each case in a stand of its own, and three
  * arena bouts to their verdicts (`buildBout`, `src/evaluation/bout.ts`).
  *
  *   node research/touches.mjs [--case stand,walk,run,shove,fall,bouts] [--model <id>]
- *     [--balance <per cent>] [--floor <J>] [--air <m/s>] [--list]
+ *     [--steadiness <per cent>] [--floor <J>] [--air <m/s>] [--list]
  *
  * The cases, for each model:
  * - `stand`: standing 10 s (`startStance`, no orders).
@@ -18,7 +18,7 @@ import { isRefused } from "../src/core/refusal.ts";
  * - `fall`: standing 2 s, then a shove of 80 N s from the front, and 6 s.
  * - `bouts`: three arena bouts, a pair of bodies heard once, from its earlier body.
  *
- * It prints the harness and each side's balance, then a markdown table for each case. A row is the
+ * It prints the harness and each side's steadiness, then a markdown table for each case. A row is the
  * groups of segments that touched the ground, and in the fall each group (left and right together;
  * a hand that holds, as the hand or as what it holds, whichever shape the touch's point is
  * nearest): its touches, touches a
@@ -44,11 +44,11 @@ import { parseArgs } from "node:util";
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { SIDES } from "../src/game/arena/duel.ts";
 import { airOf } from "../src/game/audio/body-sounds.ts";
-import { balanceCeiling, balancePercent, isBalance, rulebook } from "../src/combat/rulebook.ts";
+import { steadinessCeiling, steadinessPercent, isSteadiness, rulebook } from "../src/combat/rulebook.ts";
 import { watchTouches } from "../src/combat/touches.ts";
 import { PHYSICS_HZ } from "../src/core/world/world.ts";
 import { labActor } from "../src/app/node/game.ts";
-import { loadoutBalance, loadoutSpec } from "../src/game/lab/loadout.ts";
+import { loadoutSteadiness, loadoutSpec } from "../src/game/lab/loadout.ts";
 import { startLocomotion } from "../src/game/lab/locomotion-mode.ts";
 import { MODELS } from "../src/game/lab/scenarios.ts";
 import { labAddress, LAB_MIND } from "../src/app/node/setup.ts";
@@ -67,22 +67,22 @@ function inFrameOf(segment, point) {
   const f = segment.frame, d = [point[0] - f.origin[0], point[1] - f.origin[1], point[2] - f.origin[2]];
   return new Vector3(...[f.x, f.y, f.z].map((a) => d[0] * a[0] + d[1] * a[1] + d[2] * a[2]));
 }
-/** What a per cent of balance is: the arena's, as the Lab's page has it. */
-const RULES = rulebook("arena"), PERCENT = balancePercent(RULES);
+/** What a per cent of steadiness is: the arena's, as the Lab's page has it. */
+const RULES = rulebook("arena"), PERCENT = steadinessPercent(RULES);
 /** The ground's side on the stand, m: the stand's own. */
 const GROUND = 20;
 
 const { values } = parseArgs({ options: {
-  case: { type: "string" }, model: { type: "string" }, balance: { type: "string" },
+  case: { type: "string" }, model: { type: "string" }, steadiness: { type: "string" },
   floor: { type: "string", default: "0.0094" }, air: { type: "string", default: "5" }, list: { type: "boolean", default: false },
 } });
 const kinds = values.case ? values.case.split(",") : KINDS;
 for (const kind of kinds) if (!KINDS.includes(kind)) throw new Error(`no case ${kind}: one of ${KINDS.join(", ")}`);
 const models = MODELS.map((m) => m.id).filter((id) => !values.model || id === values.model);
 if (models.length === 0) throw new Error(`no model ${values.model}: one of ${MODELS.map((m) => m.id).join(", ")}`);
-/** The balance asked, per cent of each body's weight; null is each character's own. */
-const balance = values.balance === undefined ? null : Number(values.balance);
-if (balance !== null && !isBalance(balance)) throw new Error(`a balance is a per cent, none or more, not ${values.balance}`);
+/** The steadiness asked, per cent of each body's weight; null is each character's own. */
+const steadiness = values.steadiness === undefined ? null : Number(values.steadiness);
+if (steadiness !== null && !isSteadiness(steadiness)) throw new Error(`a steadiness is a per cent, none or more, not ${values.steadiness}`);
 /** The energy a touch is counted quiet under, J: a cue of strength 0.0125 of 60 J unless given. */
 const FLOOR = Number(values.floor);
 /** The speed a body's air is counted sounding over, m/s. */
@@ -186,8 +186,8 @@ function breathe(world, body) {
   };
 }
 
-/** The balance of the body of `spec`, per cent of its weight: the one asked, or its character's own. */
-const balanceOf = (spec) => loadoutBalance(balance, spec);
+/** The steadiness of the body of `spec`, per cent of its weight: the one asked, or its character's own. */
+const steadinessOf = (spec) => loadoutSteadiness(steadiness, spec);
 
 /**
  * One of the Lab's modes on a stand of its own: `model` with the loadout its address gives, its
@@ -198,7 +198,7 @@ const balanceOf = (spec) => loadoutBalance(balance, spec);
  */
 async function labRun(kind, model, variant, { start, lead = 0, begin = () => {}, seconds, until = () => false, read }) {
   const spec = loadoutSpec(labAddress(`?model=${model}`)), stand = await coreStand(spec, { groundSize: GROUND });
-  const actor = admitted(labActor(stand.built, stand.world, { mind: LAB_MIND, assist: balanceCeiling(balanceOf(spec), PERCENT), rules: rulebook("arena") }));
+  const actor = admitted(labActor(stand.built, stand.world, { mind: LAB_MIND, assist: steadinessCeiling(steadinessOf(spec), PERCENT), rules: rulebook("arena") }));
   const { body } = actor, { world } = stand, own = { name: model, built: stand.built, body };
   const session = start(actor, stand);
   const heard = listen(world, [own]), breath = breathe(world, { built: stand.built, body });
@@ -265,7 +265,7 @@ const LAB = {
  * other body from the earlier of the two. Its row is the bout's, as `playBout` reads it, and the touches.
  */
 async function boutRun([left, right]) {
-  const recipe = balance === null ? { left, right } : { left, right, balance: { left: balance, right: balance } };
+  const recipe = steadiness === null ? { left, right } : { left, right, steadiness: { left: steadiness, right: steadiness } };
   const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
   const bodies = SIDES.map((side) => ({ name: side, built: duel.duelists[side].built, body: duel.duelists[side].body }));
   const heard = listen(world, bodies, (of, on) => on === null || bodies.indexOf(on.body) > bodies.indexOf(of.body));
@@ -276,7 +276,7 @@ async function boutRun([left, right]) {
     return {
       kind: "bouts", left, right, steps: world.steps, seconds: duel.clock, winner: duel.verdict.winner ?? "none", ending: duel.verdict.ending,
       digest: trace.digest(), fallen: SIDES.filter((side) => duel.duelists[side].body.view.down),
-      balance: SIDES.map((side) => recipe.balance?.[side] ?? duel.duelists[side].built.spec.attributes.balance.value),
+      steadiness: SIDES.map((side) => recipe.steadiness?.[side] ?? duel.duelists[side].built.spec.attributes.steadiness.value),
       touches: heard.touches.map((touch) => ({ ...touch, at: touch.time })), air: breaths.map((breath) => breath.words()),
     };
   } finally { for (const breath of breaths) breath.dispose(); heard.dispose(); dispose(); }
@@ -374,10 +374,10 @@ function printLab(kind, runs) {
 /** The bouts' tables: each bout's row, then each side's feet and its other parts on the ground, on a wall, and the two bodies on each other. */
 function printBouts(bouts) {
   console.log(`\n### bouts\n`);
-  console.log(head(["Bout", "Steps", "Seconds", "Winner", "Ending", "Down", "Digest", "Balance, %: left, right", "Left's air", "Right's air"]));
+  console.log(head(["Bout", "Steps", "Seconds", "Winner", "Ending", "Down", "Digest", "Steadiness, %: left, right", "Left's air", "Right's air"]));
   const name = (bout) => `${bout.left} v ${bout.right}`;
   for (const bout of bouts) {
-    console.log(line([name(bout), bout.steps, bout.seconds.toFixed(2), bout.winner, bout.ending, bout.fallen.join(", ") || "neither", bout.digest, bout.balance.join(", "), ...bout.air]));
+    console.log(line([name(bout), bout.steps, bout.seconds.toFixed(2), bout.winner, bout.ending, bout.fallen.join(", ") || "neither", bout.digest, bout.steadiness.join(", "), ...bout.air]));
   }
   console.log(`\n${head(["Bout", "Of", "On", ...CELLS, "Which"])}`);
   for (const bout of bouts) {
@@ -401,9 +401,9 @@ function printBouts(bouts) {
   }
 }
 
-const own = MODELS.map((m) => `${m.id} ${balance ?? loadoutSpec(labAddress(`?model=${m.id}`)).attributes.balance.value} %`).join(", ");
+const own = MODELS.map((m) => `${m.id} ${steadiness ?? loadoutSpec(labAddress(`?model=${m.id}`)).attributes.steadiness.value} %`).join(", ");
 console.log(`Node core stand (tests/harness/core-stand.mjs), ${CORE_ENGINE}, ${PHYSICS_HZ.value} Hz, a ${GROUND} m ground, one body; the bouts: ${BOUT_HARNESS}. `
-  + `Balance, per cent of the body's weight, on the stand and on each side of a bout: ${own} (${balance === null ? "each character's own" : "as asked"}; at 0 % the assist gives nothing). `
+  + `Steadiness, per cent of the body's weight, on the stand and on each side of a bout: ${own} (${steadiness === null ? "each character's own" : "as asked"}; at 0 % the assist gives nothing). `
   + `Every segment read, a touch lasting as long as the contact; one run a row.`);
 
 for (const kind of kinds) {

@@ -2,7 +2,7 @@ import { mindOf, seatBody, seatCharacter } from "../evaluation.ts";
 import { isRefused } from "../../core/refusal.ts";
 /**
  * **The stand-up target's falls**: every body in every rated loadout (`REPRESENTATIVE`), each
- * shoved sixteen ways (`risingJobs`), calm air, Balance 0 and Grit 0, a 30 s cap, the stand
+ * shoved sixteen ways (`risingJobs`), calm air, Steadiness 0 and Grit 0, a 30 s cap, the stand
  * verified (`docs/reference/rising.md#the-owners-target`). Protocol `fresh`: the same shoved
  * halfway between those directions (`FRESH_OFFSET`). No table cell reads the target: how a mind
  * chains its ways up after a fall is read here, in research. The riser is a stand-up's mind or a whole
@@ -20,12 +20,12 @@ import { type GameContext, mindFaults as contextMindFaults } from "../../game/ar
 /** One of the target's falls. */
 export type TargetCondition = {
   readonly model: HumanoidModel; readonly loadout: Loadout; readonly seed: number; readonly start: "shoved"; readonly degrees: number;
-  readonly balance: number; readonly grit: number; readonly gusts: boolean; readonly target: true;
+  readonly steadiness: number; readonly grit: number; readonly gusts: boolean; readonly target: true;
 };
 
 /** The target's falls with its shoves turned by `offset` degrees. */
-const targetFalls = (offset: number): TargetCondition[] => risingJobs({ target: true, offset }).map(({ model, loadout, seed, start, degrees, balance, grit, gusts }): TargetCondition =>
-  ({ model: model!, loadout: loadout!, seed, start: start as "shoved", degrees: degrees!, balance: balance!, grit: grit!, gusts: gusts!, target: true }));
+const targetFalls = (offset: number): TargetCondition[] => risingJobs({ target: true, offset }).map(({ model, loadout, seed, start, degrees, steadiness, grit, gusts }): TargetCondition =>
+  ({ model: model!, loadout: loadout!, seed, start: start as "shoved", degrees: degrees!, steadiness: steadiness!, grit: grit!, gusts: gusts!, target: true }));
 
 export function createRisingTargetCases(context: GameContext) {
   const mindFaults = contextMindFaults.bind(undefined, context);

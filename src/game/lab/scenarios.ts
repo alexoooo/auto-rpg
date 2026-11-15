@@ -20,7 +20,7 @@ import { attackTargetPart as targetPart } from "./attack-target.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
- * (`setup.ts`); `?play=lab&scenario=…` runs that scenario (`main.ts`), where the loadout, the balance, the mind, the
+ * (`setup.ts`); `?play=lab&scenario=…` runs that scenario (`main.ts`), where the loadout, the steadiness, the mind, the
  * rate, the view and the camera are chosen, and the address keeps them: the mind as a preset's id or
  * its whole tree (`readMind`). Choosing a scenario, or going back to
  * the menu, is a navigation, as every change of screen in the game is.
@@ -120,8 +120,8 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly appearance: Appearance;
   /** The scenario to run; none is the menu. */
   readonly scenario: ScenarioId | null;
-  /** The body's balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`); null is the character's. */
-  readonly balance: number | null;
+  /** The body's steadiness, per cent of its weight, in place of its character's (`AttributeSpec.steadiness`); null is the character's. */
+  readonly steadiness: number | null;
   /** A limb of the body crippled from the start (`crippleLimb`), by its name (`LimbSpec.name`); null, none. */
   readonly crippled: string | null;
   /** A limb of the body cut off from the start (`cutOff`), by its name (`LimbSpec.name`); null, none. */
@@ -244,7 +244,7 @@ export function createLabScenarios(context: GameContext) {
       left: HELD.find((h) => h === query.get("left")) ?? "empty",
       boots: flag(query.get("boots"), worn.boots),
       armour: flag(query.get("armour"), worn.armour),
-      balance: attributes.balance ?? null,
+      steadiness: attributes.steadiness ?? null,
       haste: attributes.haste ?? null,
       crippled: modelSpec(model).wounds.limbs.find((limb) => limb.name === query.get("crippled"))?.name ?? null,
       cut: modelSpec(model).wounds.limbs.find((limb) => limb.name === query.get("cut"))?.name ?? null,
@@ -260,7 +260,7 @@ export function createLabScenarios(context: GameContext) {
 
   /**
    * The address of `address`, keeping whatever else `search` holds. The menu keeps the loadout,
-   * the balance, the mind, the rate, the view and the camera, so going back to it and on to another scenario keeps them too.
+   * the steadiness, the mind, the rate, the view and the camera, so going back to it and on to another scenario keeps them too.
    */
   function labHref(address: LabAddress, search = ""): string {
     const query = new URLSearchParams(playHref("lab", search));

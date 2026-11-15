@@ -27,7 +27,7 @@ const list = (text, allowed, name) => {
 /** Parse only explicit supported controls; the target's physical protocol cannot be overridden. */
 export function risingOptions(args) {
   const options = { starts: ["shoved", "dropped"], models: [...HUMANOID_MODELS], held: ["empty", "club"], seeds: [1, 2, 3, 4, 5, 6],
-    techniques: null, technique: null, after: null, balance: 0, gusts: false, target: false, obstacles: false, workers: Math.max(1, availableParallelism() - 2), out: null };
+    techniques: null, technique: null, after: null, steadiness: 0, gusts: false, target: false, obstacles: false, workers: Math.max(1, availableParallelism() - 2), out: null };
   const specified = new Set();
   for (let i = 0; i < args.length; i++) {
     const key = args[i]; specified.add(key);
@@ -48,19 +48,19 @@ export function risingOptions(args) {
         if (!WAYS_UP.includes(value)) throw new Error(`no way up: ${value}`);
         options[key.slice(2)] = value; break;
       case "--techniques": options.techniques = list(value, WAYS_UP, "techniques"); break;
-      case "--balance": options.balance = Number(value); if (!Number.isFinite(options.balance) || options.balance < 0) throw new Error(`invalid balance: ${value}`); break;
+      case "--steadiness": options.steadiness = Number(value); if (!Number.isFinite(options.steadiness) || options.steadiness < 0) throw new Error(`invalid steadiness: ${value}`); break;
       case "--workers": options.workers = Number(value); if (!Number.isSafeInteger(options.workers) || options.workers < 1) throw new Error(`invalid workers: ${value}`); break;
       case "--out": options.out = value; break;
       default: throw new Error(`unknown option ${key}`);
     }
   }
-  if (options.target && (["--starts", "--models", "--held", "--seeds", "--gusts"].some(key => specified.has(key)) || options.balance !== 0))
-    throw new Error("--target fixes models, loadouts, directions, calm air and Balance 0");
-  if (options.obstacles && (options.target || options.technique || ["--starts", "--models", "--held", "--seeds", "--gusts"].some(key => specified.has(key)) || options.balance !== 0))
-    throw new Error("--obstacles is separate from --target and fixes models, loadouts, directions, calm air and Balance 0");
+  if (options.target && (["--starts", "--models", "--held", "--seeds", "--gusts"].some(key => specified.has(key)) || options.steadiness !== 0))
+    throw new Error("--target fixes models, loadouts, directions, calm air and Steadiness 0");
+  if (options.obstacles && (options.target || options.technique || ["--starts", "--models", "--held", "--seeds", "--gusts"].some(key => specified.has(key)) || options.steadiness !== 0))
+    throw new Error("--obstacles is separate from --target and fixes models, loadouts, directions, calm air and Steadiness 0");
   if (options.after && !options.technique) throw new Error("--after requires --technique");
   if (options.techniques && options.technique) throw new Error("--techniques names the riser's techniques; --technique plays one alone");
-  if (options.technique && (options.target || options.balance !== 0 || options.gusts)) throw new Error("standalone techniques use calm Balance 0 eight-second trials, separately from --target");
+  if (options.technique && (options.target || options.steadiness !== 0 || options.gusts)) throw new Error("standalone techniques use calm Steadiness 0 eight-second trials, separately from --target");
   const fits = (model) => { const technique = TECHNIQUES[options.technique]; return technique.fits(modelSpec(model), technique.defaults, partLookup) === null; };
   if (options.technique && !specified.has("--models")) options.models = options.models.filter(fits);
   if (options.technique && !options.models.every(fits)) throw new Error("technique does not fit every selected model");

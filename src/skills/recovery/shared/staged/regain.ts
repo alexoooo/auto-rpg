@@ -10,20 +10,20 @@ import { standReady, type GroundReading } from "../../../../control/ground-readi
 import { REACHED_SECONDS, type TechniqueEnd } from "../technique.ts";
 import type { BodyControl } from "../../../../core/bodies/body-control.ts";
 
-/** The longest the climb after a rise (`stanceSteady`) may take, s. */
-const STEADY_LIMIT = 3;
+/** The longest the climb after a rise (`stanceRegain`) may take, s. */
+const REGAIN_LIMIT = 3;
 /** How long the climb after a rise may read the body off its feet (`GroundReading.onFeet`: a knee or the trunk down), s, before it has failed. */
-const STEADY_OFF = .3;
+const REGAIN_OFF = .3;
 
 /**
- * **The stance's climb and steadying after a rise**: from the height the rise leaves the body at
+ * **The regain after a rise, the stance's climb**: from the height the rise leaves the body at
  * over its lower sole, the stance's goal raised to standing height over `climb` s on a smoothstep,
  * on both feet, heading the way the pelvis faces. Done once the body has been ready to hand back
- * (`standReady`) `REACHED_SECONDS`; failed once off its feet (`GroundReading.onFeet`) `STEADY_OFF`
+ * (`standReady`) `REACHED_SECONDS`; failed once off its feet (`GroundReading.onFeet`) `REGAIN_OFF`
  * after its first 0.5 s;
- * timed out past `STEADY_LIMIT`.
+ * timed out past `REGAIN_LIMIT`.
  */
-export function stanceSteady(own: OwnBody, view: BodyView, motor: Carrying<"stance">, climb: number) {
+export function stanceRegain(own: OwnBody, view: BodyView, motor: Carrying<"stance">, climb: number) {
   const feet = Object.keys(stanceFeetOf(own.spec));
   const state = { time: 0, off: 0, reached: 0, height: 0, heading: 0 };
   const work = { turn: new Quaternion(), across: new Vector3() };
@@ -43,8 +43,8 @@ export function stanceSteady(own: OwnBody, view: BodyView, motor: Carrying<"stan
     step(g: GroundReading, control: BodyControl, dt: number): TechniqueEnd | null {
       state.time += dt;
       state.off = g.onFeet ? 0 : state.off + dt;
-      if (state.off > STEADY_OFF && state.time > .5) return "failed";
-      if (state.time > STEADY_LIMIT) return "timed-out";
+      if (state.off > REGAIN_OFF && state.time > .5) return "failed";
+      if (state.time > REGAIN_LIMIT) return "timed-out";
       const w = Math.min(1, state.time / climb), smooth = w * w * (3 - 2 * w), top = supportHeight(view) - .03;
       motor.stance.read();
       motor.setStance({ feet, centre: null, height: state.height + (top - state.height) * smooth, heading: state.heading });

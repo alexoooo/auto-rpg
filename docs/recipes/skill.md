@@ -114,7 +114,7 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
   Mind at 120 Hz. The cells' own cases are held out: the confirmation plays them once before a
   record is kept, at 120 and 480 Hz, the worse counting, so a fit to the engine's step is caught.
   A situation the game puts the skill in is a case of its drill; one played only in research is
-  a gap, closed by adding it to the drill. A probe (a rate the game does not run, a Balance or
+  a gap, closed by adding it to the drill. A probe (a rate the game does not run, a Steadiness or
   physique changed, a finer sample of what the drill holds) scores no skill.
 - **One Mind for every body**: Option Mind runs one loop for every body, and everything it does is
   an Option, made and priced the same way, with no special case for any act.

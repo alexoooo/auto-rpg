@@ -290,9 +290,9 @@ export interface AttributeSpec {
   /**
    * How far the character may be held up beyond what its legs give: the most force its assist
    * gives it, per cent of its own weight, with the moment the rulebook gives each per cent
-   * (`Rulebook.balance`, `Assist`). At 0 nothing holds it up that its muscles do not.
+   * (`Rulebook.steadiness`, `Assist`). At 0 nothing holds it up that its muscles do not.
    */
-  readonly balance: Quantity<number>;
+  readonly steadiness: Quantity<number>;
   /**
    * How fast its legs' muscles are beyond its family's: the unloaded speed of the hip's, the knee's,
    * the ankle's and the foot's exertions (all four legs on a quadruped), per cent over its family's. A

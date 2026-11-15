@@ -213,9 +213,9 @@ const SOURCES = Object.freeze({
     for: "A mind sees every other body 0.15 s late, the quick end of a person's response to a seen cue, "
       + "and its own body at once.",
   },
-  "owner-balance": {
+  "owner-steadiness": {
     kind: "tuned",
-    for: "Balance, a character's attribute: the most force its assist gives, a per cent of its weight, "
+    for: "Steadiness, a character's attribute: the most force its assist gives, a per cent of its weight, "
       + "with 0.0026 weight-metres of moment a per cent; every character's is 0.",
   },
   "owner-haste": {
@@ -447,7 +447,7 @@ const SOURCES = Object.freeze({
   "stance-envelope": {
     kind: "asset", file: "assets/skills/locomotion/stance/stance-envelope.json",
     what: "What the core stance held with each body as a fight plays it (in the guard, under its character's "
-      + "balance, with a club and empty-handed) at the game's rate: the gait battery's walks at "
+      + "steadiness, with a club and empty-handed) at the game's rate: the gait battery's walks at "
       + "0.2-0.7 m/s five ways and the turn battery's half-turns at 0.25-4 rad/s both ways, walking at each "
       + "speed up to the fastest walk, begun from 0 to 1.5 s after the walk sets off and under way; how many "
       + "held at each, and the fastest held by the rule of "

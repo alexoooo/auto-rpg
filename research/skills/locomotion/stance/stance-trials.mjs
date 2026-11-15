@@ -9,7 +9,7 @@ import { stockBody } from "../../../../src/app/stock-body.ts";
 import { armed } from "../../../../src/core/bodies/human/grip.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { woodenClub } from "../../../../src/core/bodies/items/club.ts";
-import { balanceCeiling, balancePercent, rulebook } from "../../../../src/combat/rulebook.ts";
+import { steadinessCeiling, steadinessPercent, rulebook } from "../../../../src/combat/rulebook.ts";
 import { GUARD, guardPosture } from "../../../../src/skills/guard/shared/guard.ts";
 import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../../../../src/skills/locomotion/walk-run/walk-run/walk-run.ts";
 import { STANCE_WALK_PART } from "../../../../src/skills/locomotion/stance-walk/index.ts";
@@ -27,9 +27,9 @@ const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
  * `model` on the stand: unarmed, its arms as the stance leaves them and nothing holding it up but its
  * muscles; or, given what its right hand holds (`held`, of `HELD`: "club" or "empty"), as a
  * fight plays it: the club in that hand, the arms in the body's guard (`guardPosture`) and built
- * in it, and its character's balance under it (`balanceCeiling`, the rulebook's per cent).
+ * in it, and its character's steadiness under it (`steadinessCeiling`, the rulebook's per cent).
  * `actuation` is the world's (`createWorld`), and `physique` the body's (`Physique`,
- * `src/core/bodies/human/physique.ts`). `balance` is a per cent of its weight for its assist in place of its character's, which an unarmed
+ * `src/core/bodies/human/physique.ts`). `steadiness` is a per cent of its weight for its assist in place of its character's, which an unarmed
  * stand has none of unless given. With `envelope` it reads its stance's measured envelope
  * (`Body.envelope`) as a game's body does, which caps its walk's pace and turn; else the stance is
  * being measured, and it has none. Its ground is `GROUND` across, so no trial walks off it.
@@ -37,10 +37,10 @@ const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 /** The trials' ground, m across: the fastest run of a battery, 4.5 m/s, set off, held and stopped (some 70 m), stays on it. */
 const GROUND = 200;
 
-async function body(model, stance, hz, held = null, actuation, physique, { balance = null, envelope = false } = {}) {
+async function body(model, stance, hz, held = null, actuation, physique, { steadiness = null, envelope = false } = {}) {
   const spec = held === "club" ? armed(modelSpec(model, physique), "right", woodenClub()) : modelSpec(model, physique);
   const stand = await coreStand(spec, { ground: true, groundSize: GROUND, hz, actuation, ...(held === null ? {} : { posture: guardPosture(spec) }) });
-  const assist = held === null && balance === null ? undefined : balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
+  const assist = held === null && steadiness === null ? undefined : steadinessCeiling(steadiness ?? stand.built.spec.attributes.steadiness.value, steadinessPercent(rulebook("arena")));
   const built = stockBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: !envelope, assist });
   return { stand, body: built, guard: guardPosture(spec), feet: SIDES.map(side => stand.built.segments.get(spec.ends.find(end => end.name === footOn(spec, side)).segment)) };
 }
@@ -49,8 +49,8 @@ async function body(model, stance, hz, held = null, actuation, physique, { balan
 const SETTLE_SECONDS = [0.5, 1, 1.5, 2];
 
 /** Stand 5 s 3 cm low in the guard: the centre's speed as it settles (`SETTLE_SECONDS`), its stop off the soles' middle, its drift over the last 2 s, the feet's slide across the ground and sink. */
-export async function stand({ model, stance, hz = 120, balance = null }) {
-  const { stand, body: b, feet } = await body(model, stance, hz, null, undefined, undefined, { balance });
+export async function stand({ model, stance, hz = 120, steadiness = null }) {
+  const { stand, body: b, feet } = await body(model, stance, hz, null, undefined, undefined, { steadiness });
   let goal = null, from = null;
   b.drive((view) => {
     const s = view.stance;
@@ -76,8 +76,8 @@ export async function stand({ model, stance, hz = 120, balance = null }) {
 }
 
 /** Asked for a place 30 cm out `degrees` about the vertical from forward, 6 s: the stop off the held place, the height's miss, the feet's slide. */
-export async function edge({ model, degrees, stance, hz = 120, balance = null }) {
-  const { stand, body: b, feet } = await body(model, stance, hz, null, undefined, undefined, { balance });
+export async function edge({ model, degrees, stance, hz = 120, steadiness = null }) {
+  const { stand, body: b, feet } = await body(model, stance, hz, null, undefined, undefined, { steadiness });
   const way = degrees * Math.PI / 180;
   let goal = null, from = null;
   b.drive((view) => {
@@ -97,8 +97,8 @@ export async function edge({ model, degrees, stance, hz = 120, balance = null })
 }
 
 /** Step `foot` by (dx, dz) over 0.45 s lifted 5 cm after 1 s, to 6 s (`stepping` in the tests). */
-export async function step({ model, foot, dx, dz, stance, hz = 120, balance = null }) {
-  const { stand, body: b } = await body(model, stance, hz, null, undefined, undefined, { balance });
+export async function step({ model, foot, dx, dz, stance, hz = 120, steadiness = null }) {
+  const { stand, body: b } = await body(model, stance, hz, null, undefined, undefined, { steadiness });
   const other = foot === "left" ? "right" : "left";
   const turnOf = () => stand.built.segments.get(`foot.${foot}`).pose.rotation.clone();
   let goal = null, swing = null, to = null, bearing = null, lifted = null, turned = null;
@@ -139,8 +139,8 @@ export async function step({ model, foot, dx, dz, stance, hz = 120, balance = nu
  * after the stop is asked: the lab's shove after a walk. `apart` is the soles' middles' distance across when shoved, m.
  * With `held` it stands as a fight plays it (`body`).
  */
-export async function shove({ model, impulse, degrees, stance, hz = 120, walked = 0, held = null, watch = 4.5, actuation, physique, balance = null }) {
-  const { stand, body: b, guard, feet } = await body(model, stance, hz, held, actuation, physique, { balance });
+export async function shove({ model, impulse, degrees, stance, hz = 120, walked = 0, held = null, watch = 4.5, actuation, physique, steadiness = null }) {
+  const { stand, body: b, guard, feet } = await body(model, stance, hz, held, actuation, physique, { steadiness });
   let goal = null, pace = null;
   b.drive((view) => {
     const s = view.stance;
@@ -214,8 +214,8 @@ function skillCommand(skill, view, walk, face, dt, posture, keep) {
  * (null if none landed), and the greatest absolute pelvis facing, rad, through travel and rest.
  * `trace` retains each step's motion, stance recovery state and hip rotation readings.
  */
-export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null, wind = null, setOff = 5, rest = 4, balance = null, stride, trace = false }) {
-  const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { balance });
+export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null, wind = null, setOff = 5, rest = 4, steadiness = null, stride, trace = false }) {
+  const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { steadiness });
   const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
   if (isRefused(blowing)) { b.dispose(); stand.dispose(); throw new Error(blowing.refused); }
   const way = degrees * Math.PI / 180, ux = Math.sin(way), uz = Math.cos(way), skill = skillOf(legs, b, stride);
@@ -290,9 +290,9 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
  * quarter round onto it; the walk off the heading goes no faster than the ellipse through `speed`
  * along it and `side` m/s across it (`heldPace`'s, the side way's fastest walk).
  */
-export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique, legs = null, balance = null, onto = null, stride }) {
+export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique, legs = null, steadiness = null, onto = null, stride }) {
   if (!Number.isFinite(rate) || rate <= 0) throw new Error("a turn rate must be finite and positive");
-  const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { balance });
+  const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { steadiness });
   const skill = skillOf(legs, b, stride);
   const round = onto ? Math.PI / 2 : Math.PI;
   let goal = null, heading = 0, turning = false, walking = false, turned = 0;
@@ -347,8 +347,8 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
  * (`skillOf`): whether it fell, when, and the catch steps it took. With `envelope`, the body reads
  * its stance's measured envelope as a game's does (`body`).
  */
-export async function orders({ model, speed, seed, seconds = 30, stance, hz = 120, held = null, actuation, physique, legs = null, balance = null, envelope = false, shoves = 0, stride }) {
-  const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { balance, envelope });
+export async function orders({ model, speed, seed, seconds = 30, stance, hz = 120, held = null, actuation, physique, legs = null, steadiness = null, envelope = false, shoves = 0, stride }) {
+  const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { steadiness, envelope });
   const skill = skillOf(legs, b, stride);
   if (!skill) throw new Error("orders are given to a locomotion skill");
   let state = (seed * 2654435761) % 4294967296;

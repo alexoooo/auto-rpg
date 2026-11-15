@@ -1,6 +1,6 @@
 /**
  * A gait's envelope (`src/control/stance/stance-envelope.ts`): on each core body as a fight plays it
- * with each thing its right hand holds (`HOLDS`: in the guard, under its character's balance), at
+ * with each thing its right hand holds (`HOLDS`: in the guard, under its character's steadiness), at
  * the game's rate, the fastest speed it walks each way (forward, right, back, left) at which every
  * trial held, and walking forward at each speed up to that, the fastest rate its heading turns half
  * round at which every trial held. Each body's readings are over every thing held, and again over
@@ -216,7 +216,7 @@ all = Object.fromEntries(await Promise.all(models.map(async (model) => {
   await Promise.all(pool.map((w) => w.terminate()));
 }
 
-const envelope = { harness: CORE_STANCE_HARNESS, played: "each body built in the guard and holding it, under its character's balance (the rulebook's per cent), with each of `holds` in its right hand"
+const envelope = { harness: CORE_STANCE_HARNESS, played: "each body built in the guard and holding it, under its character's steadiness (the rulebook's per cent), with each of `holds` in its right hand"
   + (walker ? `, walking by the ${legs}` : "") + (TIMES_OF[legs]?.setOff ? `, each walk set off ${TIMES_OF[legs].setOff} s before it is measured and resting ${TIMES_OF[legs].rest} s after` : "")
   + (WINDS.length > 1 ? ", each walk calm and in each of `winds`" : "") + "; each way's and speed's fastest is the fastest at which every trial held, searched down from the fastest, and a level not played through is null",
   ...(walker ? { legs } : {}), ...TIMES_OF[legs], hz, measured: today,

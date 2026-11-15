@@ -17,7 +17,7 @@ import { buildBody, type BuiltBody } from "../../../core/bodies/build/build-body
 import { poseAngles } from "../../../control/kinematics.ts";
 import { guardPosture } from "../../../skills/guard/shared/guard.ts";
 import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
-import { balanceCeiling, balancePercent, rulebook } from "../../../combat/rulebook.ts";
+import { steadinessCeiling, steadinessPercent, rulebook } from "../../../combat/rulebook.ts";
 import { crippleLimb, cutOff } from "../../../combat/pool.ts";
 import { HUMAN_HASTE } from "../../../core/bodies/human/attributes.ts";
 import { createWorld, type World } from "../../../core/world/world.ts";
@@ -69,7 +69,7 @@ const FLOOR = 200;
  * section's in its module, then with the scenario's panels; View has its own section; Restart sits in the transport's bar.
  *
  * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. Its assist
- * (`actor.ts`) has the ceiling its balance buys (`loadoutBalance`), named by the clock. Its mind (`labMind`, `scenarios.ts`)
+ * (`actor.ts`) has the ceiling its steadiness buys (`loadoutSteadiness`), named by the clock. Its mind (`labMind`, `scenarios.ts`)
  * carries out game orders, the scenario's script or stands, and throws no strike the address bars; what it decides
  * is logged (`mind-log.ts`), and the Thinking section shows the log up to the time shown. It is drawn in one
  * of two views: World, the human model's skin (`skin.ts`), wearing the loadout's clothing, or
@@ -92,8 +92,8 @@ const FLOOR = 200;
  * always its own.
  */
 
-/** What a per cent of balance is: the arena's. */
-const RULES = rulebook("arena"), PERCENT = balancePercent(RULES);
+/** What a per cent of steadiness is: the arena's. */
+const RULES = rulebook("arena"), PERCENT = steadinessPercent(RULES);
 
 const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => LabScenario>> = {
   stance: (scene) => stanceScenario(scene),
@@ -176,7 +176,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     readonly puppet: Puppet; readonly follows: Hook;
     /** The pelvis's rotation as built, facing +z: the chase camera reads the body's facing from it. */
     readonly rest: Quaternion;
-    /** Its balance, per cent of its weight, if its assist has one, and its haste, per cent over a person's, if it is hasted: every figure read under them is read beside them. */
+    /** Its steadiness, per cent of its weight, if its assist has one, and its haste, per cent over a person's, if it is hasted: every figure read under them is read beside them. */
     readonly helped: number | null;
     readonly hasted: number | null;
     /** What its mind has done, and the watches that note in it who has the body and what its skills are doing. */
@@ -294,10 +294,10 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const crippled = spec.wounds.limbs.find((limb) => limb.name === to.crippled), cut = spec.wounds.limbs.find((limb) => limb.name === to.cut);
     if (crippled) crippleLimb(built, crippled.name, RULES);
     if (cut) cutOff(built, cut.segments);
-    const balance = built.spec.attributes.balance.value;
+    const steadiness = built.spec.attributes.steadiness.value;
     const log = createMindLog();
     const mind = mindAt(to, spec);
-    const madeActor = labActor(built, world, { mind, rules: RULES, assist: balanceCeiling(balance, PERCENT) });
+    const madeActor = labActor(built, world, { mind, rules: RULES, assist: steadinessCeiling(steadiness, PERCENT) });
     if (isRefused(madeActor)) return madeActor;
     const actor = scope.own(madeActor);
     thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.mind?.skills ?? null, report: actor.mind?.report ?? null }), labStaging(to.scenario)));
@@ -312,7 +312,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const run = scope.own(started);
     scope.forget(actor);
     const loaded: Loaded = {
-      built, view, held: heldView, skin: scope.own(skinSlot(puppet, showView)), appearance: null, run, rest, puppet, follows, helped: actor.body.assist.on ? balance : null,
+      built, view, held: heldView, skin: scope.own(skinSlot(puppet, showView)), appearance: null, run, rest, puppet, follows, helped: actor.body.assist.on ? steadiness : null,
       hasted: built.spec.attributes.haste.value === HUMAN_HASTE.value ? null : built.spec.attributes.haste.value, log, has: scope.own(watchHas(world, actor.body, log)),
       doing: scope.own(watchSkills(world, actor.body, actor.mind.skills, log)),
       sounds, logging, heardTo: -Infinity, dispose: scope.dispose,

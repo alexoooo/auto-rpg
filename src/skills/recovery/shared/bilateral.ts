@@ -39,7 +39,7 @@ export function mirrorPosture(posture: Readonly<Record<string, number>>): Readon
     / (lateral flexion right|rotation right)$/.test(name) ? -value : value]));
 }
 
-/** A technique's `fits`: a body the stance stands on its feet (`soleRefusal`), as a technique's steady and stance do. Experimental techniques stay out of gameplay defaults until their physical evidence qualifies them. */
+/** A technique's `fits`: a body the stance stands on its feet (`soleRefusal`), as a technique's regain and stance do. Experimental techniques stay out of gameplay defaults until their physical evidence qualifies them. */
 const fitsStance = (spec: BodySpec): string | null => soleRefusal(spec);
 
 /** A technique part of `kind` with no settings of its own, fitted to a body the stance stands (`fitsStance`) and, where `fits` is given, that `fits` admits. */

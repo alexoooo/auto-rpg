@@ -1,7 +1,7 @@
 /**
  * **The way-up drill's falls from bouts** (`docs/reference/rising.md#the-way-up-drill`): the riser's
  * mind, its way up ranked first, fights a copy of itself on the open stage, the same body holding
- * the same loadout, Balance 0, nothing ending the bout but the reader. The first side down is the
+ * the same loadout, Steadiness 0, nothing ending the bout but the reader. The first side down is the
  * fall read, from that step: the other side is ordered to stand where it is (`STAND_ORDERS`), the
  * fallen side is given the stand's verification's orders (`standCheck`), and its attempts at its
  * way up are read from its mind's ledger (`groundLedger`), as the fall bed reads them. A bout
@@ -50,7 +50,7 @@ export function boutFallWorld(mind: Json, condition: WayUpBoutCondition, engine:
   const { model, loadout, gap, across } = condition, config = mindOf(mind);
   return { kind: "bout", engine, tape: [],
     recipe: { left: model, right: model, gap, start: { right: { at: [gap / 2, across] } }, capSeconds: BOUT_SECONDS + 1, recoverySeconds: null, entry: [], ends: [],
-      balance: { left: 0, right: 0 }, loadouts: { left: loadout, right: loadout }, minds: { left: config, right: config },
+      steadiness: { left: 0, right: 0 }, loadouts: { left: loadout, right: loadout }, minds: { left: config, right: config },
       ...sideCharacters({ left: model, right: model }, { left: seat, right: seat }) } };
 }
 

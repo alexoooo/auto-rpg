@@ -1,9 +1,9 @@
-import { balanceCeiling, balancePercent, rulebook } from "../src/combat/rulebook.ts";
+import { steadinessCeiling, steadinessPercent, rulebook } from "../src/combat/rulebook.ts";
 /**
  * How long a felled body takes to lie still, and what Rapier does with a limp body put to sleep.
  *
  * **Falls.** Each crypt model with the club, under the crypt's mind (`defaultMind`, with the assist
- * its balance gives under the dungeon's rulebook) and orders to stand, alone on a ground: stood
+ * its steadiness gives under the dungeon's rulebook) and orders to stand, alone on a ground: stood
  * 2 s, then shoved at its root's centre of mass by its whole weight for a quarter second toward
  * each of four bearings and let go limp (`Body.setLevel`) as it is found down, as the crypt lets
  * a fighter out of the fight go; or let go limp standing, as one whose pool ends on its feet. It
@@ -59,7 +59,7 @@ async function fall(model, shove) {
   const world = createWorld(await freshEngine());
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
   const built = buildBody(spec, world, { position: [0, 0, 0] });
-  const assist = balanceCeiling(built.spec.attributes.balance.value, balancePercent(rules));
+  const assist = steadinessCeiling(built.spec.attributes.steadiness.value, steadinessPercent(rules));
   const { body } = createMind(GAME, built, world, defaultMind(model), { rules: rulebook("arena"), name: "probe", assist, orders: () => ({ move: null, face: null }) });
   const segments = [...built.segments.values()], root = rootSegment(built), at = new Vector3(), v = new Vector3();
   const weight = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0) * -built.physics.gravity[1];

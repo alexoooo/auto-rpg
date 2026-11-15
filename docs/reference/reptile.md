@@ -7,7 +7,7 @@ encounters. A tooth wounds by its press (`pointLoadDamage`, `src/combat/rulebook
 
 ## Anatomical model
 
-The reptile is a low, sprawling quadruped, 8 kg with 1 HP and zero balance: a game creature, not a
+The reptile is a low, sprawling quadruped, 8 kg with 1 HP and zero Steadiness: a game creature, not a
 reconstruction of a species. Its geometry is fitted to a grass lizard scan
 ([the grass lizard](#the-grass-lizard)); its relative segment masses, joint limits, torque
 ceilings, unloaded speeds and teeth are the authored quadruped's

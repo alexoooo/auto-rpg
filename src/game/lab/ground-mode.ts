@@ -171,7 +171,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
   const wind = startWind(body.built, world, address.ground.gusts ? labGusts(address.model) : CALM, address.seed);
   if (isRefused(wind)) return wind;
   scope.own(wind);
-  const meter = groundMeter(body, world, body.built.spec.attributes.balance.value);
+  const meter = groundMeter(body, world, body.built.spec.attributes.steadiness.value);
   const round = address.ground.start === "round";
   const state = { actor: actor.state, check: check.state, meter: meter.state, shoving: shoving.state, wind: wind.state, status: "running" as "running" | "landed standing" | "cap" | "round done" | "round ended down", shoved: false,
     falls: [] as RoundFall[], next: round ? ROUND_FIRST : null as number | null, shovedAt: null as number | null, verdictAt: 0, shoves: 0 };

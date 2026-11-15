@@ -26,7 +26,7 @@ for (const gap of gaps) for (const left of HUMANOID_MODELS) for (const right of 
 const started = Date.now();
 const rows = await playBouts(jobs, Number(values.workers ?? defaultLanes()));
 
-console.log(`${BOUT_HARNESS}; ${rows.length} bouts in ${((Date.now() - started) / 1000).toFixed(0)} s; every character's balance as its spec has it`);
+console.log(`${BOUT_HARNESS}; ${rows.length} bouts in ${((Date.now() - started) / 1000).toFixed(0)} s; every character's steadiness as its spec has it`);
 console.log("| Left | Right | Gap, m | Ending | Seconds | Side | Fell | Mean force, weights | Mean moment, N m | Steps over, % | Last second: force, weights | Last second: moment, N m |");
 console.log("|---|---|---|---|---|---|---|---|---|---|---|---|");
 const sides = [];

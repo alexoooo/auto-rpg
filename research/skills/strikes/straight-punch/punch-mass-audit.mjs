@@ -33,7 +33,7 @@ for(const hz of rates)for(const mode of ['free','braced','grounded'])for(const h
  const reference=await pulse(mode,hand,0,hz);
  for(const impulse of [.1,1]){const row=await pulse(mode,hand,impulse,hz);const dv=row.after[2]-reference.after[2];rows.push({...row,reference,deltaVelocity:dv,measuredWindowMass:dv>0?impulse/dv:null});}
 }
-return {harness:{kind:'Node Warrior impulse-response stand',engine:DEFAULT_ENGINE,revision:rows[0].revision,balance:0},windowSeconds:1/120,rows};
+return {harness:{kind:'Node Warrior impulse-response stand',engine:DEFAULT_ENGINE,revision:rows[0].revision,steadiness:0},windowSeconds:1/120,rows};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  const record=await auditPunchMass();writeFileSync(process.argv[2]??'.tmp/punch-mass-audit.json',JSON.stringify(record,null,2)+'\n');

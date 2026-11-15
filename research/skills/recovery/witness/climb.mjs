@@ -1,9 +1,9 @@
 import { stanceFeetOf, stanceSegmentsOf } from "../../../../src/skills/locomotion/shared/stance-feet.ts";
 import { footOn } from "../../../../src/control/support.ts";
 /**
- * **Stand up's steady, for research**: the steady as `standUp` runs it (`src/skills/recovery/shared/stand-up.ts`:
+ * **Stand up's regain, for research**: the regain as `standUp` runs it (`src/skills/recovery/shared/stand-up.ts`:
  * its own motor, the locomotion resumed, the stance's goal), handed back once `standReady` holds
- * `READY` s, with the variants `research/skills/recovery/witness/crouch-steady.mjs` names. `research/skills/recovery/witness/crouch-steady.mjs` runs it
+ * `READY` s, with the variants `research/skills/recovery/witness/crouch-regain.mjs` names. `research/skills/recovery/witness/crouch-regain.mjs` runs it
  * from the placed squat, `research/skills/recovery/witness/rise-witness.mjs` from a witness's hand-over.
  */
 import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
@@ -15,7 +15,7 @@ import { partLookup } from "../../../../src/app/catalog.ts";
 import { standReady } from "../../../../src/control/ground-reading.ts";
 import { footStatesOf, readSupport, withinSupport } from "../../../../src/control/support.ts";
 
-/** How long the steady waits on a ready body before it hands it back, s. */
+/** How long the regain waits on a ready body before it hands it back, s. */
 export const READY = .1;
 /** The combat fold's lowering, m, and the stance's own, m. */
 const FOLD = .5, LOWER = .03;
@@ -31,14 +31,14 @@ export function quintic(x0, v0, x1, T, t) {
 }
 
 /**
- * The steady of `own` as `variant` changes it: `step(dt)` each control step from its first; `control.on`
+ * The regain of `own` as `variant` changes it: `step(dt)` each control step from its first; `control.on`
  * false once handed back, at `control.handBack` s of the world's clock; `control` the trace's readings.
  */
-export function crouchSteady(own, view, variant = {}) {
+export function crouchRegain(own, view, variant = {}) {
   const control = { on: true, t0: null, from: null, mid: null, depth: null, height: null, c0: null, climbed: false, ready: 0, handBack: null,
     lead: 0, steps: 0, asked: null, at: 0, short: 0, path: null, planned: null };
   const fitted = motorAndGuardOf(partLookup, own.spec), legs = locomotion(stanceFeetOf(own.spec), null, { segments: stanceSegmentsOf(own.spec) });
-  const motor = carrying(fitted.motor.make(own.built, own.muscles, variant.servo ?? SERVO_SECONDS, fitted.posture, variant.tuning, own.assist), ["stance"], "the crouch steady");
+  const motor = carrying(fitted.motor.make(own.built, own.muscles, variant.servo ?? SERVO_SECONDS, fitted.posture, variant.tuning, own.assist), ["stance"], "the crouch regain");
   const channels = own.muscles.channels;
   const blend = k => Object.fromEntries(channels.map((c, i) => [c.name, control.from[i] + ((fitted.posture[c.name] ?? 0) - control.from[i]) * k]));
   const feet = footStatesOf(own.built), middle = new Vector3();
@@ -156,7 +156,7 @@ export function crouchSteady(own, view, variant = {}) {
     } };
 }
 
-/** A trace's row: the time, the centre of mass's height's share of standing, the pelvis's uprightness, the fastest arm, trunk and leg segments, m/s; the steady's readings while it runs. */
+/** A trace's row: the time, the centre of mass's height's share of standing, the pelvis's uprightness, the fastest arm, trunk and leg segments, m/s; the regain's readings while it runs. */
 export function traceRow(m, body, control, world) {
   const o = m.observation, fastest = re => Math.max(0, ...o.segments.filter(s => re.test(s.name)).map(s => Math.hypot(...s.velocity)));
   return { t: +world.time.toFixed(2), height: +(o.centre[1] / body.view.standing).toFixed(2), pelvisUp: +m.rootUp.toFixed(2), arms: +fastest(/arm|hand/i).toFixed(2),

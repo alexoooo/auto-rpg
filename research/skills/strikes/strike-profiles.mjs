@@ -18,7 +18,7 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  * `foeAt` and `foePhase`): the range centre to centre, the target's phase and posture, the
  * striker's velocity against the target's (`foeAt.velocity`), and where it stood in its strike's
  * window (`inWindow`); each absent in a record from before the reading held it. With them, the
- * Balance and haste of each body as its row's bout built it, where its character set one apart
+ * Steadiness and haste of each body as its row's bout built it, where its character set one apart
  * from its model's own (`startLevels`): rows played at several levels make one profile, read at
  * the level nearest a body's. A profile keeps
  * the trials that record the most of their start alone: fresh trials replace the older. A record
@@ -77,7 +77,7 @@ const median = (xs) => { const s = [...xs].sort((a, b) => a - b), m = s.length >
 /** Each side's body's spec as the bout builds it (`duelSpec`): its character, the variations it holds, its attributes and its loadout; by what of the recipe it reads. */
 const specs = new Map();
 function specOf(recipe, side = "left") {
-  const key = JSON.stringify([recipe[side], recipe.characters?.[side], recipe.attributes?.[side], recipe.balance?.[side], recipe.haste?.[side],
+  const key = JSON.stringify([recipe[side], recipe.characters?.[side], recipe.attributes?.[side], recipe.steadiness?.[side], recipe.haste?.[side],
     recipe.skills?.[side], recipe.surfaces, recipe.loadouts?.[side]]);
   if (!specs.has(key)) specs.set(key, duelSpec(recipe, side));
   return specs.get(key);

@@ -1,5 +1,5 @@
 /** Residual muscle control around the retained gait, for development and pretraining.
- * Node core stand, explicit engine, 120 Hz, Balance 0, empty hands in guard. Fresh bodies warm
+ * Node core stand, explicit engine, 120 Hz, Steadiness 0, empty hands in guard. Fresh bodies warm
  * through the ordinary gait before each training episode. A from-rest development screen includes
  * that walk-in; complete travel confirmation also requires stops, loadouts and fresh conditions.
  * Configuration's optional `braking` file overrides the running cycle's braking settings.
@@ -37,7 +37,7 @@ import { guardPosture } from '../../../src/skills/guard/shared/guard.ts';
 import { walkRun, WALK_RUN, WALK_RUN_CYCLE } from '../../../src/skills/locomotion/walk-run/walk-run/walk-run.ts';
 import { runCycleSettings } from '../../../src/skills/locomotion/walk-run/walk-run/cycle-run.ts';
 import { legOf } from '../../../src/skills/locomotion/shared/leg.ts';
-import { balanceCeiling, balancePercent, rulebook } from '../../../src/combat/rulebook.ts';
+import { steadinessCeiling, steadinessPercent, rulebook } from '../../../src/combat/rulebook.ts';
 import { learnedRunFeatures, steeringFrom, STEERING_LAYOUT } from './learned-run-steering.mjs';
 import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
 import { act, ask, learnerOf, restart, start } from '../../../src/core/math/learning/learner.ts';
@@ -236,7 +236,7 @@ export async function residualEnvironment(configuration = {}) {
     stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard, engine: o.engine });
     if (o.toeConditioning) await conditionToeStand(stand, o.toeConditioning);
     host = stockBody(stand.built, stand.world, { servoSeconds: .1, measuring: true,
-      assist: balanceCeiling(0, balancePercent(rulebook('arena'))) });
+      assist: steadinessCeiling(0, steadinessPercent(rulebook('arena'))) });
     body = host.commanded; root = rootSegment(body.built);
     const physical = uprightness(body.built);
     runView = Object.create(body.view, { down: { get: () => physical.fallen() } });
@@ -386,7 +386,7 @@ export async function residualEnvironment(configuration = {}) {
       ...(o.bodyVariant ? { bodyVariant: o.bodyVariant } : {}),
       ...(o.toeConditioning ? { toeConditioning: Object.freeze({ ...o.toeConditioning }) } : {}),
       settle: o.settle,
-      actuation: stand.world.actuation, balance: 0, loadout: 'empty', posture: 'guard', fallRule: o.fallRule, actionAt: o.actionAt,
+      actuation: stand.world.actuation, steadiness: 0, loadout: 'empty', posture: 'guard', fallRule: o.fallRule, actionAt: o.actionAt,
       fallPenalty: o.fallPenalty,
       speedReward: o.speedReward,
       ...(o.rewardPace === undefined ? {} : { rewardPace }),

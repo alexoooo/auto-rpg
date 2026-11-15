@@ -9,7 +9,7 @@ import type { World } from "../../core/world/world.ts";
 /**
  * **The lab's wind**: gusts that push a body from outside, to show whether its walk holds up when
  * pushed. It is the lab's disturbance, as a shove is, and not an assist: nothing meters it against
- * the body's balance.
+ * the body's steadiness.
  *
  * Gusts arrive at random, `rate` a second on average (in each physics step, with the chance
  * `rate` times the step), each from a direction drawn at random about up. A gust's force is level,

@@ -5,7 +5,7 @@
  *
  *   node research/oracle.mjs [--left man] [--right woman] [--all] [--gap 4]
  *     [--side left|right|both] [--every 0.5] [--horizon 2] [--seconds 120] [--blind 0] [--nudge 0.5]
- *     [--balance left,right] [--replay] [--workers 14] [--out .tmp/oracle]
+ *     [--steadiness left,right] [--replay] [--workers 14] [--out .tmp/oracle]
  *
  * An instrument, not a mind: it holds the true world, which no mind may. Its forks play the
  * opponent's exact future, so it is clairvoyant; `--blind n` plays each response n times, each fork
@@ -44,12 +44,12 @@ const { values } = parseArgs({ options: {
   all: { type: "boolean", default: false }, gap: { type: "string", default: "4" },
   side: { type: "string", default: "left" }, every: { type: "string", default: "0.5" }, horizon: { type: "string", default: "2" },
   seconds: { type: "string", default: String(CAP_SECONDS) }, blind: { type: "string", default: "0" }, nudge: { type: "string", default: "0.5" },
-  balance: { type: "string" }, replay: { type: "boolean", default: false }, workers: { type: "string" }, out: { type: "string" },
+  steadiness: { type: "string" }, replay: { type: "boolean", default: false }, workers: { type: "string" }, out: { type: "string" },
 } });
 const gap = Number(values.gap), seconds = Number(values.seconds), blind = Number(values.blind), nudge = Number(values.nudge);
 const sides = values.side === "both" ? SIDES : [values.side];
 if (!sides.every((side) => SIDES.includes(side))) throw new Error(`--side is left, right or both, not ${values.side}`);
-const balance = values.balance === undefined ? undefined : (([left, right = left]) => ({ left, right }))(values.balance.split(",").map(Number));
+const steadiness = values.steadiness === undefined ? undefined : (([left, right = left]) => ({ left, right }))(values.steadiness.split(",").map(Number));
 const matchups = values.all ? HUMANOID_MODELS.flatMap((left) => HUMANOID_MODELS.map((right) => ({ left, right }))) : [{ left: values.left, right: values.right }];
 const lanes = Number(values.workers ?? defaultLanes());
 
@@ -88,13 +88,13 @@ async function oracleBout(recipe, side, pool) {
   } finally { dispose(); }
 }
 
-console.log(`${BOUT_HARNESS}; gap ${gap} m, cap ${seconds} s${balance ? `, balance ${balance.left} / ${balance.right} %` : ", every character's own balance"}`);
+console.log(`${BOUT_HARNESS}; gap ${gap} m, cap ${seconds} s${steadiness ? `, steadiness ${steadiness.left} / ${steadiness.right} %` : ", every character's own steadiness"}`);
 console.log(`The search: at every ${values.every} s one of own, attack, hold, close, back, left, right, held for ${values.every} s and then the side's own tactics, valued ${values.horizon} s on; `
   + (blind > 0 ? `blind: each response in ${blind} forks nudged ${nudge} N s at both roots, the mean taken` : "clairvoyant: each response in one fork of the true world")
   + (values.replay ? "; a fork by replay" : "; a fork by a load"));
 
 const started = Date.now();
-const bouts = matchups.flatMap((matchup) => sides.map((side) => ({ recipe: { ...matchup, gap, capSeconds: seconds, ...(balance ? { balance } : {}) }, side })));
+const bouts = matchups.flatMap((matchup) => sides.map((side) => ({ recipe: { ...matchup, gap, capSeconds: seconds, ...(steadiness ? { steadiness } : {}) }, side })));
 // Each bout under its tactics alone, then the oracle's bouts side by side: their trunks in this thread, their forks on the pool.
 const owns = await playBouts(bouts.map(({ recipe }) => ({ recipe })), lanes);
 const pool = rolloutPool(lanes);

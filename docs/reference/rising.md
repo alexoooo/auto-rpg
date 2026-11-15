@@ -17,7 +17,7 @@ npm run evaluate -- way-up [option-drill/<way up> ...] [--protocol fresh | bouts
   way up that fits the body holding its loadout. A way up stuck against an object is read where it
   sticks.
 - **The falls from bouts** (`--protocol bouts`, `src/evaluation/way-up/bouts.ts`): the riser's
-  mind fights a copy of itself on the open stage, the same body holding the same loadout, Balance
+  mind fights a copy of itself on the open stage, the same body holding the same loadout, Steadiness
   0, nothing ending the bout but its reader. The first side down is the fall read, from that
   step: the other side is ordered to stand, the fallen one's stand verified as on the fall bed
   (`standCheck`) and its way up's attempts read from its mind's ledger (`groundLedger`). A bout
@@ -58,7 +58,7 @@ npm run evaluate -- rising-target [riser ...]
   `src/game/lab/ground-mode.ts`). A fall not made is reported as not exercised and excluded from
   recovery statistics.
 - **The conditions**: Node stand, core world, the game's engine (`DEFAULT_ENGINE`), 120 Hz, calm
-  air, Balance 0 and Grit 0, a 30 s cap. A riser is a mind by its preset's or kind's name (`option-drill`, the table's; `option`, the game's), on its own
+  air, Steadiness 0 and Grit 0, a 30 s cap. A riser is a mind by its preset's or kind's name (`option-drill`, the table's; `option`, the game's), on its own
   character, refused on a body it cannot rise as holding the fall's loadout; or the game's Stand
   up (`game`, where none is named), `stand-up` with every technique, or a technique's name, each
   on the drills' mind (`option-drill`).
@@ -72,13 +72,13 @@ npm run evaluate -- rising-target [riser ...]
   after a real fall is a fight's question: no table cell reads the target, and research reads it
   beside the way-up drill. The owner's 10 s a fall (`STAND_WITHIN`) is reported beside it, and is
   the fixed price of a fall in every cell but a way up's.
-  `risingReport` states whether the rows are the target's conditions: every fall once, Balance 0
+  `risingReport` states whether the rows are the target's conditions: every fall once, Steadiness 0
   and Grit 0.
 - **Against people**: young adults rising from the floor at a comfortable rate take 1.4 to 2.6 s
   by starting position, healthy older adults 2.4 to 5.5 s (Alexander et al. 1997), and young
   adults asked for speed stand from prone in about 2 s
   ([Resisting arrest](https://research.bond.edu.au/en/publications/resisting-arrest-analysis-of-different-prone-body-positions-on-ti/),
-  Bond University); the target's clock also holds the landing before the rise and the steadying
+  Bond University); the target's clock also holds the landing before the rise and the regain
   after it.
 
 ## One technique alone

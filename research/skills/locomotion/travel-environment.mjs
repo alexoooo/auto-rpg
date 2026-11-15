@@ -68,7 +68,7 @@ export async function travelEnvironment(configuration) {
   const mind = { ...base, tuning: { ...base.tuning, parts: { ...base.tuning?.parts, legs: { ...GOING,
     gaits: STOCK_GAITS.map(gait => gait.legs.kind === 'walk-run' ? { ...gait, legs: { ...gait.legs, tuning } } : gait) } } } };
   const built = await LONE_WORLD.build({ kind: 'lone', engine: o.engine ?? DEFAULT_ENGINE, lone: {
-    model: o.model, mind, floorSize: 400, balance: 0, heading: heading + yaw, seed: o.seed, loadout,
+    model: o.model, mind, floorSize: 400, steadiness: 0, heading: heading + yaw, seed: o.seed, loadout,
     script: yaw === 0 && lower === 0 ? [] : [{ at: 0, orders: { move: null, face: { x: sin(heading), z: cos(heading) }, ...(lower > 0 ? { lower } : {}) } }],
     ...(o.gusts ? { gusts: true } : {}),
   } });
@@ -258,6 +258,6 @@ export async function travelEnvironment(configuration) {
       program: () => ({ program: episode.program, start: { id: episode.start.id, time: episode.start.time }, began: episode.began, delivered: episode.next,
         warmup: episode.start.kind === 'rest' ? null : { at: episode.start.warmed, orders: go(episode.start.pace) } }),
       dispose: () => built.dispose(), harness: { name: 'Node lone world Option Mind', engine: o.engine ?? DEFAULT_ENGINE,
-        hz: world.hz, balance: 0, model: o.model, loadout, seed: o.seed, heading, gusts: !!o.gusts } };
+        hz: world.hz, steadiness: 0, model: o.model, loadout, seed: o.seed, heading, gusts: !!o.gusts } };
   } catch (error) { built.dispose(); throw error; }
 }

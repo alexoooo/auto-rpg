@@ -25,7 +25,7 @@ import { STAND_ORDERS } from "../minds/orders.ts";
 import type { MindReport } from "../minds/report.ts";
 import { isRefused, type Refused } from "../core/refusal.ts";
 import { constructionScope } from "../core/construction.ts";
-import { balanceCeiling, balancePercent, rulebook } from "../combat/rulebook.ts";
+import { steadinessCeiling, steadinessPercent, rulebook } from "../combat/rulebook.ts";
 import type { BodySpec, SkillChoices } from "../core/bodies/spec/body.ts";
 import { createWorld, type World } from "../core/world/world.ts";
 import { labActor, type Actor } from "../game/lab/actor.ts";
@@ -49,7 +49,7 @@ import { type GameContext } from "../game/arena/context.ts";
  */
 export interface FallCase {
   readonly model: BodyModel;
-  /** Its character's attributes but its balance, which the fall gives (`balance`); none for the body's own. */
+  /** Its character's attributes but its steadiness, which the fall gives (`steadiness`); none for the body's own. */
   readonly character?: AttributeOverrides;
   /** Its character's skills in place of its own (`Character.skills`); none for its own. */
   readonly skills?: SkillChoices;
@@ -62,7 +62,7 @@ export interface FallCase {
   readonly level?: GroundLevel;
   readonly impulse?: number | null;
   readonly gusts?: boolean;
-  readonly balance?: number;
+  readonly steadiness?: number;
   readonly grit?: number;
   readonly factor?: number;
   readonly cap?: number;
@@ -121,9 +121,9 @@ export function checkFall(fall: Pick<FallCase, "target" | "loadout" | "grit" | "
   return null;
 }
 
-/** The attributes `fall`'s body takes: its character's, less the balance the fall gives. */
+/** The attributes `fall`'s body takes: its character's, less the steadiness the fall gives. */
 function characterOf(fall: Pick<FallCase, "character">): AttributeOverrides {
-  const { balance: _, ...character } = fall.character ?? {};
+  const { steadiness: _, ...character } = fall.character ?? {};
   return character;
 }
 
@@ -198,8 +198,8 @@ export function createFall(context: GameContext) {
   function fallStart(fall: FallCase): { address: LabAddress; spec: BodySpec; placement: ReturnType<typeof groundPlacement> } | Refused {
     const refused = checkFall(fall);
     if (refused) return { refused };
-    const defaults = labAddress("?scenario=ground"), balance = fall.balance ?? 0;
-    const address: LabAddress = { ...defaults, model: fall.model as HumanoidModel, ...(fall.character ? { attributes: characterOf(fall) } : {}), ...(fall.skills ? { skills: fall.skills } : {}), right: fall.loadout?.right ?? fall.held ?? "empty", left: fall.loadout?.left ?? "empty", balance, seed: fall.seed,
+    const defaults = labAddress("?scenario=ground"), steadiness = fall.steadiness ?? 0;
+    const address: LabAddress = { ...defaults, model: fall.model as HumanoidModel, ...(fall.character ? { attributes: characterOf(fall) } : {}), ...(fall.skills ? { skills: fall.skills } : {}), right: fall.loadout?.right ?? fall.held ?? "empty", left: fall.loadout?.left ?? "empty", steadiness, seed: fall.seed,
       ground: { ...defaults.ground, level: fall.level ?? "open", start: fall.start, posture: fall.posture ?? "back", degrees: fall.degrees ?? null,
         impulse: fall.impulse ?? null, gusts: fall.gusts ?? false } };
     const factor = fall.factor ?? 1;
@@ -214,7 +214,7 @@ export function createFall(context: GameContext) {
   /**
    * **The Lab's stand bed**, the research rising bed's: `fall`'s world on `engine`, from its start
    * (`fallStart`'s, unless given): the body built in its placement, its mind hosted with the supplied
-   * immutable experiment where given and its balance's assist, and the Stand-up mode started.
+   * immutable experiment where given and its steadiness's assist, and the Stand-up mode started.
    * It ends once the stand is verified or failed (`target`, `obstacle`),
    * else at hand-back or when the run stops; at `FALL_AFTER` s past the cap in any case.
    */
@@ -225,13 +225,13 @@ export function createFall(context: GameContext) {
     if ("refused" in placement) return placement;
     const scope = constructionScope(); let complete = false;
     try {
-    const balance = fall.balance ?? 0, verifying = Boolean(fall.target || fall.obstacle);
+    const steadiness = fall.steadiness ?? 0, verifying = Boolean(fall.target || fall.obstacle);
     const world = scope.own(createWorld(await loadEngine(engine), given.hz === undefined ? {} : { hz: given.hz }));
     addArenaSolids(world.physics);
     const body = scope.own(buildBody(spec, world, placement));
     const address = verifying ? { ...start.address, ground: { ...start.address.ground, impulse: targetImpulse(body) } } : start.address;
     const actor = labActor(context, body, world, { mind: fall.mind, rules: rulebook("arena"),
-      assist: balanceCeiling(balance, balancePercent(rulebook("arena"))),
+      assist: steadinessCeiling(steadiness, steadinessPercent(rulebook("arena"))),
       ...(given.experiment ? { experiment: given.experiment } : {}) });
     if (isRefused(actor)) return actor;
     scope.own(actor);
@@ -306,7 +306,7 @@ export function createFall(context: GameContext) {
     const orders = () => approach && world.time < SHOVED.first
       ? { ...STAND_ORDERS, move: directMovement(approach.x, approach.z), pace: STAND_CHECK.pace } : check?.orders() ?? STAND_ORDERS;
     const fighter = enlist(world, { id: "fall", side: "fall", name: "fall", spec, rules: rulebook("arena"), mind: fall.mind, catalog: GAME, at: [0, 0, 0],
-      senses: scope.own(createSenses(world)), out: () => false, orders, balance: fall.balance ?? 0,
+      senses: scope.own(createSenses(world)), out: () => false, orders, steadiness: fall.steadiness ?? 0,
       ...(environment.solids.length ? { solids: environment.solids } : {}) });
     scope.own(fighter.built);
     const body = scope.own(fighter.body);
@@ -320,7 +320,7 @@ export function createFall(context: GameContext) {
     const wind = startWind(fighter.built, world, fall.gusts ? labGusts(fall.model) : CALM, fall.seed);
     if (isRefused(wind)) return wind;
     scope.own(wind);
-    const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.balance ?? 0) : null;
+    const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.steadiness ?? 0) : null;
     const ledger = groundLedger(context.techniques, fighter.minded.report ?? null, () => world.time);
     const state = { shoves: 0, shovedAt: null as number | null, ended: false, check: check.state, meter: meter?.state ?? null, ledger: ledger.state };
     const result: BuiltFall = {

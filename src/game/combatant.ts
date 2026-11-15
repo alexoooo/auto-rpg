@@ -11,7 +11,7 @@ import { sheetLog, type SheetLog } from "../minds/seat/sheets.ts";
 import type { PhysicalBody } from "../minds/seat/physical-body.ts";
 import type { Fighter } from "../combat/blows.ts";
 import { createPool, type Pool } from "../combat/pool.ts";
-import { balanceCeiling, balancePercent, type Rulebook } from "../combat/rulebook.ts";
+import { steadinessCeiling, steadinessPercent, type Rulebook } from "../combat/rulebook.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 import type { Vec3 } from "../core/quantity.ts";
 import type { World } from "../core/world/world.ts";
@@ -39,15 +39,15 @@ interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdenti
   readonly mind: MindConfig;
   /** The catalog its mind is made from (`Catalog`): the game's, or the toolkit's for the core's own tasks. */
   readonly catalog: Catalog;
-  /** Its balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`). */
-  readonly balance?: number;
+  /** Its steadiness, per cent of its weight, in place of its character's (`AttributeSpec.steadiness`). */
+  readonly steadiness?: number;
   /** Whether its mind's order sheets are written down (`SheetLog`); not unless asked. */
   readonly record?: boolean;
   /** Order sheets to play in place of its mind (`replayedBody`): its mind is not made. */
   readonly replay?: SheetLog;
   /** The host's immutable content fingerprint and complete fight recipe, required for persisted sheets. */
   readonly recording?: { readonly build: string; readonly context: unknown };
-  /** What a per cent of balance is, in place of the rulebook's (`balancePercent`). */
+  /** What a per cent of steadiness is, in place of the rulebook's (`steadinessPercent`). */
   readonly percent?: AssistCeiling;
   /** Its life as the fight counts it, from its pool, as the senses show it: its pool's bar (`Pool.bar`) unless given. */
   life?(pool: Pool): number;
@@ -68,10 +68,10 @@ export interface Combatant extends Fighter {
 /** The complete recording grant can be checked before a body or a world hook is installed. */
 export function combatantRecordingIdentity(world: Pick<World, "hz" | "actuation" | "delay"> & {
   readonly physics: Pick<World["physics"], "engine" | "revision" | "gravity">;
-}, enlisting: Pick<Enlistment, "id" | "side" | "spec" | "at" | "heading" | "rules" | "balance" | "percent" | "recording">): RecordingIdentity {
+}, enlisting: Pick<Enlistment, "id" | "side" | "spec" | "at" | "heading" | "rules" | "steadiness" | "percent" | "recording">): RecordingIdentity {
   const { id, side, spec, rules } = enlisting, heading = enlisting.heading ?? 0;
   if (!Number.isFinite(heading)) throw new Error("invalid combatant heading");
-  const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
+  const assist = steadinessCeiling(enlisting.steadiness ?? spec.attributes.steadiness.value, enlisting.percent ?? steadinessPercent(rules));
   return recordingIdentity(enlisting.recording?.build ?? "", "muscle-sheets/1", {
     context: enlisting.recording?.context, id, side, at: enlisting.at, heading, assist,
     body: JSON.parse(JSON.stringify(spec, (key, value: unknown) => key === "provenance" ? undefined : value)) as unknown,
@@ -82,14 +82,14 @@ export function combatantRecordingIdentity(world: Pick<World, "hz" | "actuation"
 /**
  * **One combatant**: its body built where it stands, in the posture its mind holds (`builtAngles`),
  * its pool under the fight's rules, carried by the fight's senses, and under the mind its config
- * makes, with the assist its balance gives, or played from its order sheets with no mind
+ * makes, with the assist its steadiness gives, or played from its order sheets with no mind
  * (`replayedBody`). Every fight enlists its bodies here, in this order.
  */
 export function enlist(world: World, enlisting: Enlistment): Combatant {
   const { id, side, spec, rules, mind } = enlisting;
   const heading = enlisting.heading ?? 0;
   if (!Number.isFinite(heading)) throw new Error("invalid combatant heading");
-  const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
+  const assist = steadinessCeiling(enlisting.steadiness ?? spec.attributes.steadiness.value, enlisting.percent ?? steadinessPercent(rules));
   const identity = enlisting.record || enlisting.replay ? combatantRecordingIdentity(world, enlisting) : null;
   if (enlisting.replay) requireRecordingIdentity(enlisting.replay.identity, identity!);
   const built = buildBody(spec, world, { position: enlisting.at, joints: builtAngles(enlisting.catalog, spec, mind),

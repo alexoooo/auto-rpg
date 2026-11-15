@@ -7,7 +7,7 @@ import type { Exertion } from "./tables/joint-torques.ts";
 
 /** A human figure's attributes: the figure's. */
 export function humanAttributes(figure: HumanFigure): AttributeSpec {
-  return { balance: figure.balance, haste: figure.haste };
+  return { steadiness: figure.steadiness, haste: figure.haste };
 }
 
 /** A human's haste: its legs' muscles at a person's speed, nothing over it: every character's. */
@@ -30,12 +30,12 @@ export function hasteOver(spec: BodySpec): number {
   return 1 + spec.attributes.haste.value / 100;
 }
 
-/** A human model's balance, per cent of its weight: 0, no assist. */
-export function humanBalance(model: HumanModel): Quantity<number> {
+/** A human model's steadiness, per cent of its weight: 0, no assist. */
+export function humanSteadiness(model: HumanModel): Quantity<number> {
   switch (model) {
-    case "man": return sourced(0, "%", "owner-balance", "Warrior 0");
-    case "woman": return sourced(0, "%", "owner-balance", "Rogue 0");
-    default: { const never: never = model; throw new Error(`no balance for ${String(never)}`); }
+    case "man": return sourced(0, "%", "owner-steadiness", "Warrior 0");
+    case "woman": return sourced(0, "%", "owner-steadiness", "Rogue 0");
+    default: { const never: never = model; throw new Error(`no steadiness for ${String(never)}`); }
   }
 }
 

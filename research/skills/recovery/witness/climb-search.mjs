@@ -1,9 +1,9 @@
 /**
- * **A search for Stand up's steady's climb** (`research/skills/recovery/witness/climb.mjs`, the `ramp` variant): diagonal
+ * **A search for Stand up's regain's climb** (`research/skills/recovery/witness/climb.mjs`, the `ramp` variant): diagonal
  * CMA-ES (`research/cma.mjs`) over the climb's timings, lead, lean and reach, the stance's settings
- * and the servo's constant, scored by the mean time from the steady's start to verified standing
+ * and the servo's constant, scored by the mean time from the regain's start to verified standing
  * (`STAND_CHECK`) over a set of starts, a start not verified within `CAP` s counted at `FAIL`.
- * The starts: the placed squat (`research/skills/recovery/witness/crouch-steady.mjs`) and the witnesses' hand-overs
+ * The starts: the placed squat (`research/skills/recovery/witness/crouch-regain.mjs`) and the witnesses' hand-overs
  * (`research/skills/recovery/witness/rise-witness.mjs`, `assets/skills/recovery/witness/`). Node stand, core world, Rapier,
  * 120 Hz, calm, no assist.
  *
@@ -16,10 +16,10 @@ import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { armedWith } from "../../../../src/core/bodies/items/held.ts";
-import { acceptedSeeds as squatSeeds, steady } from "./crouch-steady.mjs";
+import { acceptedSeeds as squatSeeds, regain } from "./crouch-regain.mjs";
 import { witnessTrial } from "./rise-witness.mjs";
 
-/** A start's cap from the steady's start, and a failure's score, s. */
+/** A start's cap from the regain's start, and a failure's score, s. */
 const CAP = 5, FAIL = 6;
 /** The witnesses whose hand-overs are starts, and how many of each one's accepted seeds. */
 const WITNESSES = [["push-off-bear", 1], ["rock-up-bear", 4]];
@@ -52,14 +52,14 @@ async function starts(model, held) {
   return list;
 }
 
-/** One start's time from the steady's start to verified standing, or `FAIL`. */
+/** One start's time from the regain's start to verified standing, or `FAIL`. */
 async function timeFrom(start, model, held, variant) {
   if (start.kind === "squat") {
-    const r = await steady({ model, held, seed: start.seed, variant });
+    const r = await regain({ model, held, seed: start.seed, variant });
     return r.verified ?? FAIL;
   }
   const { best, seed } = start, handover = best.phases.reduce((s, p) => s + p.duration, 0);
-  const r = await witnessTrial({ move: best.move, model, held, seed, u: best.u, hold: 1, cap: handover + CAP, steady: variant });
+  const r = await witnessTrial({ move: best.move, model, held, seed, u: best.u, hold: 1, cap: handover + CAP, regain: variant });
   return r.verified !== null && !r.fell ? r.verified - r.handover : FAIL;
 }
 

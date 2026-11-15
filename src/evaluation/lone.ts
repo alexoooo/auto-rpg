@@ -39,7 +39,7 @@ export interface LoneCue {
 
 /**
  * One lone body, as plain data: its body, its character's attributes, what it holds, its mind in
- * full, its balance, per cent of its weight, in place of its character's, its script, whether the
+ * full, its steadiness, per cent of its weight, in place of its character's, its script, whether the
  * lab's gusts blow (`labGusts`, scaled by its mass), and the seed of its mind's chance and the gusts (its mind's own
  * where it names none, the gusts' 1).
  */
@@ -54,7 +54,7 @@ export interface LoneCase {
   readonly skills?: SkillChoices;
   readonly loadout?: Loadout;
   readonly mind: MindConfig;
-  readonly balance?: number;
+  readonly steadiness?: number;
   readonly script?: readonly LoneCue[];
   readonly gusts?: true;
   readonly seed?: number;
@@ -96,7 +96,7 @@ export function createLone(context: GameContext) {
       const state = { orders: null as Orders | null, next: 0, steps: 0 };
       const senses = scope.own(createSenses(world));
       const body = enlist(world, { id: "lone", side: "lone", name: "lone", spec, rules: rulebook("arena"),
-        mind: lone.mind, catalog: GAME, at: [0, 0, 0], ...(lone.heading !== undefined ? { heading: lone.heading } : {}), senses, out: () => false, orders: () => state.orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
+        mind: lone.mind, catalog: GAME, at: [0, 0, 0], ...(lone.heading !== undefined ? { heading: lone.heading } : {}), senses, out: () => false, orders: () => state.orders, ...(lone.steadiness !== undefined ? { steadiness: lone.steadiness } : {}),
         ...(lone.seed !== undefined ? { seed: lone.seed } : {}) });
       scope.own(body.body); scope.own(body.built);
       const wind = lone.gusts ? startWind(body.built, world, labGusts(lone.model), lone.seed ?? 1) : null;

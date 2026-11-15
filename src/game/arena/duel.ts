@@ -62,8 +62,8 @@ import { type ArenaSeat as Side, otherSeat as otherSide, ARENA_SEATS as SIDES } 
  *   bar, the senses and the verdict read.
  * - **At the cap** (`CAP_SECONDS`) the fuller life wins, and equal lives draw; under the game's
  *   rules the drain has ended the bout by then.
- * - **Each side's assist** (`Assist`) has the ceiling its balance is: its character's per cent of
- *   its weight (`AttributeSpec.balance`), or the recipe's, at what the rulebook's per cent is, or the recipe's.
+ * - **Each side's assist** (`Assist`) has the ceiling its steadiness is: its character's per cent of
+ *   its weight (`AttributeSpec.steadiness`), or the recipe's, at what the rulebook's per cent is, or the recipe's.
  *   It is withdrawn at the verdict.
  *
  * The world is the caller's, with the arena's solids already in it (`addArenaSolids`); the bout adds
@@ -124,12 +124,12 @@ export interface DuelRecipe {
   readonly senseDelay?: number;
   /** The bout's seed, a 32-bit word, each side's mind drawing from its own (`seedOf` with the side); 0 unless given (`boutSeedOf`). */
   readonly seed?: number;
-  /** Each side's balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`): an experiment's, or a link's. */
-  readonly balance?: { readonly left: number; readonly right: number };
+  /** Each side's steadiness, per cent of its weight, in place of its character's (`AttributeSpec.steadiness`): an experiment's, or a link's. */
+  readonly steadiness?: { readonly left: number; readonly right: number };
   /** Each side's haste, per cent over a person's, in place of its character's (`AttributeSpec.haste`), where its model takes one (`modelHastes`): an experiment's, or a link's. */
   readonly haste?: Readonly<Partial<Record<Side, number>>>;
-  /** What a per cent of balance is, in place of the rulebook's (`Rulebook.balance`): a sweep's. */
-  readonly balancePercent?: AssistCeiling;
+  /** What a per cent of steadiness is, in place of the rulebook's (`Rulebook.steadiness`): a sweep's. */
+  readonly steadinessPercent?: AssistCeiling;
   /** Each side's mind, in place of its model's (`modelInfo`): an experiment's, or a table's row. */
   readonly minds?: Readonly<Record<Side, MindConfig>>;
   /** Seconds continuously down before a fall ends the bout; null continues until injury or the cap. Zero is the reference fall rule. */
@@ -182,9 +182,9 @@ const recipeKey = (recipe: DuelRecipe): string => JSON.stringify(recipe, (_, val
   typeof value === "object" && value !== null && !Array.isArray(value)
     ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : value);
 
-/** `side`'s character in `recipe`: the one it names, else its model's own, with the recipe's balance, haste and attributes over the model's own, and its skills where the recipe names them. */
+/** `side`'s character in `recipe`: the one it names, else its model's own, with the recipe's steadiness, haste and attributes over the model's own, and its skills where the recipe names them. */
 const duelCharacter = (recipe: DuelRecipe, side: Side) => resolveCharacter({ model: recipe[side], ...(recipe.characters?.[side] ? { character: recipe.characters[side] } : {}), attributes: {
-  ...(recipe.balance?.[side] !== undefined ? { balance: recipe.balance[side] } : {}),
+  ...(recipe.steadiness?.[side] !== undefined ? { steadiness: recipe.steadiness[side] } : {}),
   ...(recipe.haste?.[side] !== undefined ? { haste: recipe.haste[side] } : {}), ...recipe.attributes?.[side],
 }, ...(recipe.skills?.[side] ? { skills: recipe.skills[side] } : {}) });
 
@@ -384,7 +384,7 @@ export class Duel {
       const model = recipe[side], config = recipe.minds?.[side] ?? defaultMind(model);
       const enlisting = { id: side, side, spec: duelSpec(recipe, side, characters[side]), at: spawns[side].position, heading: spawns[side].heading, rules: this.rules,
         seed: seedOf(boutSeedOf(recipe), side), phase: phaseOf(SIDES.indexOf(side)), life: (pool: Pool) => this.lifeOf(pool),
-        ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
+        ...(recipe.steadinessPercent ? { percent: recipe.steadinessPercent } : {}),
         ...((hooks.record || hooks.replay) ? { recording: { build: BUILD_IDENTITY, context: this.identity.configuration } } : {}),
       };
       return { side, model, config, enlisting };

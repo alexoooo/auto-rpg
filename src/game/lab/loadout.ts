@@ -10,8 +10,8 @@ import type { LabLoadout } from "./scenarios.ts";
  * A loadout that holds nothing is the model's body itself. Boots and armour are the skin's
  * (`skin.ts`), and make no difference here.
  */
-export function loadoutAttributes(loadout: LabLoadout & { readonly balance?: number | null }): AttributeOverrides {
-  return { ...(loadout.balance != null ? { balance: loadout.balance } : {}), ...(loadout.haste != null ? { haste: loadout.haste } : {}), ...loadout.attributes };
+export function loadoutAttributes(loadout: LabLoadout & { readonly steadiness?: number | null }): AttributeOverrides {
+  return { ...(loadout.steadiness != null ? { steadiness: loadout.steadiness } : {}), ...(loadout.haste != null ? { haste: loadout.haste } : {}), ...loadout.attributes };
 }
 
 /** Construct the Lab's character through the shared resolver, then fit its equipment. */
@@ -20,9 +20,9 @@ export function loadoutSpec(loadout: LabLoadout): BodySpec {
   return withLoadout(own, { left: loadout.left, right: loadout.right });
 }
 
-/** The balance the body of `spec` has, per cent of its weight: `balance`, the address's, or its character's own. */
-export function loadoutBalance(balance: number | null, spec: BodySpec): number {
-  return balance ?? spec.attributes.balance.value;
+/** The steadiness the body of `spec` has, per cent of its weight: `steadiness`, the address's, or its character's own. */
+export function loadoutSteadiness(steadiness: number | null, spec: BodySpec): number {
+  return steadiness ?? spec.attributes.steadiness.value;
 }
 
 /** Admit external Lab attributes and equipment without allocating a world. */

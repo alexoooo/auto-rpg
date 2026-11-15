@@ -62,8 +62,8 @@ export interface HumanFigure {
   readonly speed?: Quantity<number>;
   /** The body's hit points, in the rulebook's unit. */
   readonly hp: Quantity<number>;
-  /** The body's balance, per cent of its weight (`AttributeSpec`). */
-  readonly balance: Quantity<number>;
+  /** The body's steadiness, per cent of its weight (`AttributeSpec`). */
+  readonly steadiness: Quantity<number>;
   /** The body's haste, per cent over a human's speed in its legs' muscles (`AttributeSpec`, `jointSpeed`); 0 is a human's. */
   readonly haste: Quantity<number>;
 }

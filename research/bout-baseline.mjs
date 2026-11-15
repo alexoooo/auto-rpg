@@ -50,7 +50,7 @@ for (const gap of gaps) for (const left of HUMANOID_MODELS) for (const right of 
 
 const started = Date.now();
 const rows = await playBouts(jobs, Number(values.workers ?? defaultLanes()));
-console.log(`${BOUT_HARNESS}; each side's balance its character's; ${rows.length} bouts in ${((Date.now() - started) / 1000).toFixed(0)} s`);
+console.log(`${BOUT_HARNESS}; each side's steadiness its character's; ${rows.length} bouts in ${((Date.now() - started) / 1000).toFixed(0)} s`);
 console.log(`Each right hand holds: ${values.held}.`);
 if (values["never-off"]) console.log("No cut takes a limb off (the sever blow out of reach).");
 if (values.hand) console.log(`Both hands' surfaces ${values.hand} times as stiff.`);

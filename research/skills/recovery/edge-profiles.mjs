@@ -38,8 +38,8 @@ if (isMainThread) {
   await import("../../../tests/harness/preload-data.mjs");
   const { risingJobs } = await import("../../../src/evaluation/rising.ts");
   const offsets = values.offsets.split(",").map(Number);
-  const jobs = offsets.flatMap((offset) => risingJobs({ target: true, offset })).filter((job) => !values.model || job.model === values.model).map(({ model, loadout, seed, start, degrees, balance, grit, gusts }) =>
-    ({ model, loadout, seed, start, degrees, balance, grit, gusts, target: true }));
+  const jobs = offsets.flatMap((offset) => risingJobs({ target: true, offset })).filter((job) => !values.model || job.model === values.model).map(({ model, loadout, seed, start, degrees, steadiness, grit, gusts }) =>
+    ({ model, loadout, seed, start, degrees, steadiness, grit, gusts, target: true }));
   if (!jobs.length) throw new Error(`no profile falls for ${values.model}`);
   const retained = values.model ? JSON.parse(readFileSync(OUT, "utf8")) : null;
   if (retained && JSON.stringify(retained.source.offsets) !== JSON.stringify(offsets)) throw new Error("a body's profile refresh keeps the existing offsets");

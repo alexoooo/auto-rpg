@@ -226,8 +226,8 @@ driven points, a stance goal) into muscle commands.
   Each balance supplies its calibration through its motor; command-layer wiring reads that result.
 - **The assist** (`Assist`, `assist.ts`) is a force at the root and a moment that no muscle gives:
   asked by the mind, shortened to the body's ceiling, applied through the solver step, metered. The
-  ceiling is the character's balance, a per cent of its weight (`Rulebook.balance`,
-  `balanceCeiling`); with none it gives nothing.
+  ceiling is the character's steadiness, a per cent of its weight (`Rulebook.steadiness`,
+  `steadinessCeiling`); with none it gives nothing.
 
 ## Skills
 
@@ -375,7 +375,7 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   **Low support** (`support-fold.ts`) folds the stance onto a planted base for low blows.
 
 **Stand up** (`src/skills/recovery/`). A body down rises by techniques (`TECHNIQUES`): the ways up,
-each with edges (`isWayUp`), and the modes of the ground, with none (brace, land, steady, flatten).
+each with edges (`isWayUp`), and the modes of the ground, with none (brace, land, regain, flatten).
 Each is a ground skill (`groundSkills`, `skills.ts`), an executor holding the whole body and
 asking no stance; a ground action is prepared while its run yields and committed once it does
 not. A way up stuck against an object is let go, ended `obstructed` (`STUCK`): no stage it has not
@@ -592,7 +592,7 @@ The profile model supplies these components:
   trials, a strike's thrown against a foe fighting back (the Strike drill's `sparring` rungs) and a ground Option's tried
   in falls, each keeping what it brought and where it began (the range, the foe's phase,
   both postures, the velocity in its target's frame, `startVelocity`, for a skill begun from
-  a window, where in it the body stood, `placeInWindow`, and the Balance and haste each body's
+  a window, where in it the body stood, `placeInWindow`, and the Steadiness and haste each body's
   character set, where not its model's own, `Start.levels`); a reading takes the trials nearest the
   start asked at, its velocity and place read within the spans its trials began at, its bodies'
   levels their specs' and read so too (`LEVELS`), so a level no trial began at is read at the
@@ -677,7 +677,7 @@ The profile model supplies these components:
   the window they were read in moves with each stride (`atSite`). What strikes share is
   `src/minds/option/strike.ts`, which the kinds call.
 - **The rise** (`src/minds/option/rise.ts`): each way up, reposition and mode of
-  the ground an Option naming its technique (`way-up`, `reposition`, `flattening`, `steadying`,
+  the ground an Option naming its technique (`way-up`, `reposition`, `flattening`, `regaining`,
   `landing`, `brace-tumbling`, `brace-down`), on offer where its skill admits the body as it lies.
   A way up is priced by its profile from where it is begun (seconds, chance, where its failures
   rest), and where it ends by the search; lying is priced by the brace and the ways up that begin
@@ -687,7 +687,7 @@ The profile model supplies these components:
   record (`OptionRecord`), each priced by its profile, else by hand (`Prior`), until its tries move
   it (`recorded`). The
   reader keeps what the rise needs of them (`riseMemory`: whether it runs, the seconds braced
-  tumbling, the steady's try). A character may enter with a partial recovery repertoire; the mind
+  tumbling, the regain's try). A character may enter with a partial recovery repertoire; the mind
   chooses among the techniques that character holds.
 
 **The game's default presets use the Option Mind.** They serve the humanoids and the bodies on

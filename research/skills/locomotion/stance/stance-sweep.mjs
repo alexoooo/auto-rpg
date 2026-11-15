@@ -2,9 +2,9 @@
  * The core stance's batteries over stance tunings (`stance-trials.mjs`), each trial on a
  * worker of its own stand: prints, per tuning and human, what the tests read.
  *
- *   node research/skills/locomotion/stance/stance-sweep.mjs --variants '[{}, {"track": 0.15}]' [--batteries stand,edge,step,walk,shove] [--hz 120] [--workers 14] [--balance 25]
+ *   node research/skills/locomotion/stance/stance-sweep.mjs --variants '[{}, {"track": 0.15}]' [--batteries stand,edge,step,walk,shove] [--hz 120] [--workers 14] [--steadiness 25]
  *
- * `--balance` gives each an assist at that per cent of its weight, where an unarmed stand has none.
+ * `--steadiness` gives each an assist at that per cent of its weight, where an unarmed stand has none.
  *
  * - stand: 5 s 3 cm low in the guard; the centre's speed 0.5, 1, 1.5 and 2 s in (`settle`, mm/s), its
  *   stop off the soles' middle, its drift over the last 2 s, the feet's slide and sink, mm.
@@ -41,17 +41,17 @@ const { values } = parseArgs({ options: {
   hz: { type: "string", default: "120" }, workers: { type: "string" }, models: { type: "string", default: "woman,man" },
   top: { type: "string", default: "60" }, walked: { type: "string", default: "0" },
   speeds: { type: "string", default: "0.2,0.3,0.4,0.5,0.7" }, ways: { type: "string", default: "0,90,180,270,45" },
-  balance: { type: "string" }, gusts: { type: "string" }, orders: { type: "string", default: "0.5,1:1-50" }, shoves: { type: "string", default: "0" },
+  steadiness: { type: "string" }, gusts: { type: "string" }, orders: { type: "string", default: "0.5,1:1-50" }, shoves: { type: "string", default: "0" },
 } });
 const variants = JSON.parse(values.variants), batteries = values.batteries.split(","), hz = Number(values.hz), models = values.models.split(",");
 /** The winds the stop battery's walks are walked in: calm, and the gusts on each seed of `--gusts rate:strength:seeds`. */
 const winds = [null, ...(values.gusts ? (([rate, strength, seeds]) => seeds.split(",").map((seed) => ({ rate: Number(rate), strength: Number(strength), seed: Number(seed) })))(values.gusts.split(":")) : [])];
-const top = Number(values.top), balance = values.balance === undefined ? null : Number(values.balance);
+const top = Number(values.top), steadiness = values.steadiness === undefined ? null : Number(values.steadiness);
 const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
 
 const jobs = [];
 variants.forEach((stance, v) => { for (const model of models) {
-  const add = (trial, extra) => jobs.push({ v, model, trial, stance, hz, balance, ...extra });
+  const add = (trial, extra) => jobs.push({ v, model, trial, stance, hz, steadiness, ...extra });
   if (batteries.includes("stand")) add("stand", {});
   if (batteries.includes("edge")) for (const degrees of [0, 90, 180, 270]) add("edge", { degrees });
   if (batteries.includes("step")) for (const foot of SIDES) for (const [dx, dz] of [[0, 0.15], [0, 0.25], [0, -0.15], [foot === "left" ? -0.1 : 0.1, 0]]) add("step", { foot, dx, dz });
@@ -83,7 +83,7 @@ await workerJobs(jobs, { lanes,
 });
 
 const mm = (x) => (1000 * x).toFixed(1);
-console.log(`${CORE_STANCE_HARNESS} (${CORE_ENGINE}), ${hz} Hz${balance === null ? "" : `, balance ${balance} %`}; ${jobs.length} trials in ${((Date.now() - started) / 1000).toFixed(0)} s`);
+console.log(`${CORE_STANCE_HARNESS} (${CORE_ENGINE}), ${hz} Hz${steadiness === null ? "" : `, steadiness ${steadiness} %`}; ${jobs.length} trials in ${((Date.now() - started) / 1000).toFixed(0)} s`);
 variants.forEach((stance, v) => { for (const model of models) {
   const of = (trial) => jobs.filter((j) => j.v === v && j.model === model && j.trial === trial).map((j) => ({ ...j, speed_: j.speed, ...j.result }));
   const parts = [];

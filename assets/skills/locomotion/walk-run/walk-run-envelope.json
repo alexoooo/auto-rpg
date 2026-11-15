@@ -1,6 +1,6 @@
 {
   "harness": "Node core stand (tests/harness/core-stand.mjs), Rapier",
-  "played": "each body built in the guard and holding it, under its character's balance (the rulebook's per cent), with each of `holds` in its right hand, walking by the walk-run, each walk set off 10 s before it is measured and resting 10 s after, each walk calm and in each of `winds`; each way's and speed's fastest is the fastest at which every trial held, searched down from the fastest, and a level not played through is null",
+  "played": "each body built in the guard and holding it, under its character's steadiness (the rulebook's per cent), with each of `holds` in its right hand, walking by the walk-run, each walk set off 10 s before it is measured and resting 10 s after, each walk calm and in each of `winds`; each way's and speed's fastest is the fastest at which every trial held, searched down from the fastest, and a level not played through is null",
   "legs": "walk-run",
   "setOff": 10,
   "rest": 10,

@@ -10,7 +10,7 @@ import { uprightness } from '../../../src/control/ground.ts';
 import { locomotion } from '../../../src/skills/locomotion/shared/locomotion.ts';
 import { stanceFeetOf, stanceSegmentsOf } from '../../../src/skills/locomotion/shared/stance-feet.ts';
 import { guardPosture } from '../../../src/skills/guard/shared/guard.ts';
-import { balanceCeiling, balancePercent, rulebook } from '../../../src/combat/rulebook.ts';
+import { steadinessCeiling, steadinessPercent, rulebook } from '../../../src/combat/rulebook.ts';
 import { DEFAULT_ENGINE } from '../../../src/core/physics/engines.ts';
 import { massCentreToRef, massOf } from '../../../src/core/bodies/read-motion.ts';
 import { Vector3 } from '../../../src/core/math/vector.ts';
@@ -22,7 +22,7 @@ for (const model of ['man', 'woman', 'skeleton']) {
   const spec = modelSpec(model), guard = guardPosture(spec);
   const stand = await coreStand(spec, { ground: true, posture: { ...guard, 'hip.left abduction': .35, 'hip.right abduction': .35 }, engine: DEFAULT_ENGINE });
   const host = stockBody(stand.built, stand.world, { servoSeconds: .1, measuring: true,
-    assist: balanceCeiling(0, balancePercent(rulebook('arena'))) });
+    assist: steadinessCeiling(0, steadinessPercent(rulebook('arena'))) });
   try {
     const body = host.commanded, parts = [...stand.built.segments.values()], mass = massOf(parts), physical = uprightness(stand.built);
     const legs = locomotion(stanceFeetOf(spec), null, { segments: stanceSegmentsOf(spec), idleFooting: standingFooting(stand.built) });
@@ -44,4 +44,4 @@ for (const model of ['man', 'woman', 'skeleton']) {
     rows.push(row); console.log(JSON.stringify({ ...row, samples: undefined }));
   } finally { host.dispose(); stand.dispose(); }
 }
-writeFileSync(o.out, JSON.stringify({ harness: { name: 'Node core stand', engine: DEFAULT_ENGINE, hz: 120, balance: 0, loadout: 'empty', hipAbduction: .35 }, rows }) + '\n');
+writeFileSync(o.out, JSON.stringify({ harness: { name: 'Node core stand', engine: DEFAULT_ENGINE, hz: 120, steadiness: 0, loadout: 'empty', hipAbduction: .35 }, rows }) + '\n');

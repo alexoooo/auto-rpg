@@ -6,7 +6,7 @@ interface Trail { readonly at: number; readonly position: string; readonly contr
 interface Attempt { readonly at: number; readonly seconds: number; readonly controller: string; readonly end: "hand-back" | "cap" }
 
 /** A run's ground history and assist meter, shared by the Lab readout and the Node bed. */
-export function groundMeter(body: HostedBody, world: World, balance: number) {
+export function groundMeter(body: HostedBody, world: World, steadiness: number) {
   const indices = Object.fromEntries(body.built.spec.segments.map((s, i) => [s.name, i]));
   const state = {
     from: null as number | null, takeover: null as number | null, handback: null as number | null,
@@ -48,7 +48,7 @@ export function groundMeter(body: HostedBody, world: World, balance: number) {
       const sorted = [...state.completions].sort((a, b) => a - b), middle = sorted.length >> 1;
       return { time: body.view.time, down: body.view.down, seconds: state.downSeconds, handback: state.handback,
         controller: body.has,
-        position: ground?.position ?? "standing", loads, balance,
+        position: ground?.position ?? "standing", loads, steadiness,
         trail: [...state.trail], attempts: [...state.attempts], phases: { ...state.phases },
         assist: { forcePeak: state.forcePeak, momentPeak: state.momentPeak, forceImpulse: state.forceImpulse, momentImpulse: state.momentImpulse },
         summary: { falls: state.falls, stood: sorted.length, median: sorted.length ? (sorted.length % 2 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2) : null,

@@ -4,8 +4,8 @@ import { footOn } from "../../../../src/control/support.ts";
  * placed start at rest to verified standing (`STAND_CHECK`) within the target's allowance
  * (`docs/reference/rising.md#the-owners-target`). Node stand, core world, Rapier, 120 Hz, calm, no assist.
  *
- * A candidate is a move's phases, each held for its duration, then the body steadied by the stance
- * as Stand up's steady steadies it (`standUp`, `src/skills/recovery/shared/stand-up.ts`) and handed back
+ * A candidate is a move's phases, each held for its duration, then the body held by the stance
+ * as Stand up's regain holds it (`standUp`, `src/skills/recovery/shared/stand-up.ts`) and handed back
  * once ready (`research/skills/recovery/witness/climb.mjs`). A phase is one of two kinds:
  *
  * - **pose**, open-loop: a posture the pose drive (`poseDrive`) holds at its rate and activation;
@@ -28,10 +28,10 @@ import { footOn } from "../../../../src/control/support.ts";
  *
  *   node research/skills/recovery/witness/rise-witness.mjs --move push-off --out .tmp/rise-witness/push-off
  *     [--model man] [--held empty] [--generations 100] [--workers 16] [--sigma .15] [--cap 8]
- *   node research/skills/recovery/witness/rise-witness.mjs --replay <best.json> [--seeds 4] [--hold 2] [--steady <json>]
+ *   node research/skills/recovery/witness/rise-witness.mjs --replay <best.json> [--seeds 4] [--hold 2] [--regain <json>]
  *
- * `--steady` changes the steady as `research/skills/recovery/witness/crouch-steady.mjs`'s variants do (`research/skills/recovery/witness/climb.mjs`).
- * With `HANDOVER=1` each replay prints the body as the steady takes it; with `TABLE=1`, the steady's trace.
+ * `--regain` changes the regain as `research/skills/recovery/witness/crouch-regain.mjs`'s variants do (`research/skills/recovery/witness/climb.mjs`).
+ * With `HANDOVER=1` each replay prints the body as the regain takes it; with `TABLE=1`, the regain's trace.
  */
 import { parentPort, isMainThread, workerData } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -39,7 +39,7 @@ import { mkdir, readFile, writeFile, appendFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { cmaSearch, workerPool } from "../../../cma.mjs";
-import { crouchSteady, traceRow } from "./climb.mjs";
+import { crouchRegain, traceRow } from "./climb.mjs";
 import "../../../../tests/harness/preload-data.mjs";
 import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
 import poses from "../../../../assets/research/posture-holds.json" with { type: "json" };
@@ -263,7 +263,7 @@ function bearer(own, view) {
 }
 
 /** One trial of `u` from `move`'s start at `seed`: its score, the hand-over and verified times from the start, s. */
-export async function witnessTrial({ move, model = "man", held = "empty", seed, u, hold = 1, cap = 8, trace = false, steady = {} }) {
+export async function witnessTrial({ move, model = "man", held = "empty", seed, u, hold = 1, cap = 8, trace = false, regain = {} }) {
   const spec = bodySpec(model, held), placed = placement(move, spec, seed);
   if ("refused" in placed) return { score: 0, refused: placed.refused };
   const plan = phases(move, spec, u), handover = plan.reduce((s, p) => s + p.duration, 0);
@@ -271,13 +271,13 @@ export async function witnessTrial({ move, model = "man", held = "empty", seed, 
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   const reader = groundReading(built, world.dt);
-  const control = { active: true, time: 0, phase: -1, steady: false, ready: 0, from: null };
+  const control = { active: true, time: 0, phase: -1, regain: false, ready: 0, from: null };
   const body = stockBody(built, world, { servoSeconds: .1 }, [(own, view) => {
-    const drive = poseDrive(own.muscles), bearing = bearer(own, view), steadying = crouchSteady(own, view, steady);
+    const drive = poseDrive(own.muscles), bearing = bearer(own, view), regaining = crouchRegain(own, view, regain);
     const pending = pendingControl(own.muscles.channels.length);
-    control.steadying = steadying.control;
+    control.regaining = regaining.control;
     return { name: `witness:${move}`, has: () => `witness:${move}`, dispose() {}, mind: {
-      state: { control, bearing: bearing.state, steady: steadying.state, pending: pending.state }, wants: () => control.active, begin() {}, end() {}, act: pending.act, interrupt: pending.interrupt,
+      state: { control, bearing: bearing.state, regain: regaining.state, pending: pending.state }, wants: () => control.active, begin() {}, end() {}, act: pending.act, interrupt: pending.interrupt,
       think() {
         const dt = own.dt;
         pending.think();
@@ -292,11 +292,11 @@ export async function witnessTrial({ move, model = "man", held = "empty", seed, 
           }
           control.phase = k;
         } else {
-          const first = !control.steady;
-          control.steady = true;
-          steadying.step(pending.control, dt);
-          if (first && process.env.HANDOVER) handoverState(steadying.control, view, seed);
-          control.active = steadying.control.on;
+          const first = !control.regain;
+          control.regain = true;
+          regaining.step(pending.control, dt);
+          if (first && process.env.HANDOVER) handoverState(regaining.control, view, seed);
+          control.active = regaining.control.on;
         }
         control.time += dt;
       } } };
@@ -309,7 +309,7 @@ export async function witnessTrial({ move, model = "man", held = "empty", seed, 
     while (world.time < cap + (verified === null ? 0 : hold) && (verified === null || world.time - verified < hold)) {
       world.step();
       const m = measure(), g = reader.read();
-      if (process.env.TABLE && control.steady && steps % 6 === 0) table.push(traceRow(m, body, control.steadying, world));
+      if (process.env.TABLE && control.regain && steps % 6 === 0) table.push(traceRow(m, body, control.regaining, world));
       const feet = Math.min(1, g.footLoad[0] + g.footLoad[1]);
       window[steps++ % window.length] = feet * Math.min(1, g.height) * Math.max(0, g.upright) * Math.max(0, 1 - g.velocity.length() / STILL);
       if (steps >= window.length) progress = Math.max(progress, Math.min(...window));
@@ -325,10 +325,10 @@ export async function witnessTrial({ move, model = "man", held = "empty", seed, 
     ...(trace ? { path } : {}) };
 }
 
-/** The body's state as the steady takes it over, to stderr: the centre of mass's lead over the feet's middle and its speeds, its height's share of standing. */
-function handoverState(steady, view, seed) {
+/** The body's state as the regain takes it over, to stderr: the centre of mass's lead over the feet's middle and its speeds, its height's share of standing. */
+function handoverState(regain, view, seed) {
   const g = view.ground;
-  console.error(JSON.stringify({ seed, position: g?.position ?? null, lead: +steady.lead.toFixed(3), height: +(steady.at / view.standing).toFixed(2), speed: g ? +g.velocity.length().toFixed(2) : null }));
+  console.error(JSON.stringify({ seed, position: g?.position ?? null, lead: +regain.lead.toFixed(3), height: +(regain.at / view.standing).toFixed(2), speed: g ? +g.velocity.length().toFixed(2) : null }));
 }
 
 /** A best candidate's phases as plain data, its postures left out. */
@@ -342,12 +342,12 @@ if (!isMainThread && workerData.harness === "rise-witness") {
 } else if (process.argv[1]?.endsWith("rise-witness.mjs")) {
   const { values } = parseArgs({ options: { move: { type: "string" }, out: { type: "string" }, model: { type: "string" }, held: { type: "string" },
     generations: { type: "string" }, workers: { type: "string" }, sigma: { type: "string" }, replay: { type: "string" },
-    seeds: { type: "string" }, hold: { type: "string" }, cap: { type: "string" }, steady: { type: "string" } } });
+    seeds: { type: "string" }, hold: { type: "string" }, cap: { type: "string" }, regain: { type: "string" } } });
   const cap = Number(values.cap ?? 8);
   if (values.replay) {
     const best = JSON.parse(await readFile(values.replay, "utf8")), spec = bodySpec(best.model, best.held);
     for (const seed of acceptedSeeds(best.move, spec, Number(values.seeds ?? 4)))
-      console.log(JSON.stringify(await witnessTrial({ move: best.move, model: best.model, held: best.held, seed, u: best.u, hold: Number(values.hold ?? 2), cap, trace: true, steady: JSON.parse(values.steady ?? "{}") })));
+      console.log(JSON.stringify(await witnessTrial({ move: best.move, model: best.model, held: best.held, seed, u: best.u, hold: Number(values.hold ?? 2), cap, trace: true, regain: JSON.parse(values.regain ?? "{}") })));
   } else {
     const move = values.move, model = values.model ?? "man", held = values.held ?? "empty";
     if (!MOVES[move]) throw new Error(`--move is one of ${Object.keys(MOVES).join(", ")}`);

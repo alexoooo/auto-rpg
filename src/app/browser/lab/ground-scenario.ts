@@ -87,7 +87,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
     level: { name: "Fall environment" }, seconds: { name: "Time down", unit: "s" }, check: { name: "Stand check" }, verified: { name: "Up and quiet", unit: "s from takeover" },
     round: { name: "Round" }, handback: { name: "Time to hand-back", unit: "s" },
     hands: { name: "Hand loads", unit: "body weight" }, feet: { name: "Foot loads", unit: "body weight" },
-    balance: { name: "Balance", unit: "%" }, assist: { name: "Peak help", unit: "N / N m" },
+    steadiness: { name: "Steadiness", unit: "%" }, assist: { name: "Peak help", unit: "N / N m" },
     impulse: { name: "Total help", unit: "N s / N m s" }, totals: { name: "Falls / stood / median / worst" }, status: { name: "Run" } });
   return {
     keys: new Set(),
@@ -178,7 +178,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
             handback: seconds(shown.handback),
             hands: `${load("hand.left")} / ${load("hand.right")}`,
             feet: `${load("foot.left")} / ${load("foot.right")}`,
-            balance: String(shown.balance), assist: `${shown.assist.forcePeak.toFixed(2)} / ${shown.assist.momentPeak.toFixed(2)}`,
+            steadiness: String(shown.steadiness), assist: `${shown.assist.forcePeak.toFixed(2)} / ${shown.assist.momentPeak.toFixed(2)}`,
             impulse: `${shown.assist.forceImpulse.toFixed(2)} / ${shown.assist.momentImpulse.toFixed(2)}`,
             totals: `${summary.falls} / ${summary.stood} / ${seconds(summary.median)} s / ${seconds(summary.worst)} s`, status: shown.status });
           if (shown.status !== "running" && frame === null) player.setPaused(true);

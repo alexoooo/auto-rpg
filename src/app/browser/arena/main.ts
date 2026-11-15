@@ -387,7 +387,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   function setupAddress(): string {
     const models: Matchup = { left: pickers.left.value, right: pickers.right.value };
     const query = new URLSearchParams(location.search);
-    query.delete("balance"); query.delete("haste"); query.delete("held");
+    query.delete("steadiness"); query.delete("haste"); query.delete("held");
     query.set("control", SIDES.map(side => controlPickers[side].value).join(","));
     query.set("level", levelPicker.value); query.delete("recovery");
     for (const side of SIDES) {
@@ -592,7 +592,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         if (given) context.replace(arenaViewSearch(appearanceSearch(caseSearch(given.world.recipe), matchup, appearances), view) + reelAt());
         else {
           const query = new URLSearchParams(location.search);
-          query.delete("balance"); query.delete("haste");
+          query.delete("steadiness"); query.delete("haste");
           for (const side of SIDES) { writeAttributes(query, side, attributes[side]); writeSkills(query, side, skills[side]); }
           query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
           query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
@@ -812,12 +812,12 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       if (looked !== looksSent[row.side]) { looksSent[row.side] = looked; bout.link.input({ kind: "look", side: row.side, ...look }); }
       row.choices.refresh(() => side.menu ?? null, { picks: leads, opens: leads && choosing });
     }
-    // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
+    // While either side is helped, each side's steadiness, per cent of its weight: the link's, or its character's.
     const helped = SIDES.some((side) => news.sides[side].assisted);
-    const balance = SIDES.map((side) => bout!.recipe.balance?.[side] ?? bout!.specs[side].attributes.balance.value);
+    const steadiness = SIDES.map((side) => bout!.recipe.steadiness?.[side] ?? bout!.specs[side].attributes.steadiness.value);
     // While either side is hasted, each side's haste, per cent over a person's, signed.
     const haste = SIDES.map((side) => bout!.specs[side].attributes.haste.value), hasted = haste.some((h) => h !== HUMAN_HASTE.value);
-    clock.textContent = `${(news.verdict?.time ?? news.clock).toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.map(hasteText).join(" / ")} %` : ""}${trial ? " · replay" : ""}`;
+    clock.textContent = `${(news.verdict?.time ?? news.clock).toFixed(1)} s${helped ? ` · steadiness ${steadiness.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.map(hasteText).join(" / ")} %` : ""}${trial ? " · replay" : ""}`;
     // A trial ends where it was scored: its verdict, if any, and its outcome as it was read.
     if (trial && news.done && !trialShown) {
       trialShown = true;

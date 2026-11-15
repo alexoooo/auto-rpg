@@ -23,7 +23,7 @@ export async function edgeTrial(job, given) {
   /** Each ground Option measured and the technique it runs: a way up's and flatten's named as their technique, a brace while tumbling as itself. */
   const skills = new Map();
   for (const option of mind.options ?? controllerOf(mind).defaults.options) {
-    if (!option.skill || option.kind === "brace-down" || option.kind === "steadying" || option.kind === "landing") continue;
+    if (!option.skill || option.kind === "brace-down" || option.kind === "regaining" || option.kind === "landing") continue;
     skills.set(option.kind === "brace-tumbling" ? "brace while tumbling" : option.skill.kind, option.skill);
   }
   const built = await buildFall({ ...job, mind }, DEFAULT_ENGINE);

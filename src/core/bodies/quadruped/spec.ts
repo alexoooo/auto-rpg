@@ -82,7 +82,7 @@ export function reptileSpec(data: QuadrupedData, model: string, source: SourceKe
     wounds: { hp: sourced(1, "HP", "owner-hp-pool", `${model} 1`), vital: data.wounds.vital, whole: data.wounds.whole,
       limbs: data.wounds.limbs.map((limb) => ({ name: limb.name, segments: limb.segments,
         share: sourced(limb.share, "1", "owner-life", `${limb.name}: ${limb.share} of full life`), lost: lostOf(limb.lost) })) },
-    attributes: { balance: q(data.balance, "%", "/balance"), haste: sourced(0, "%", "owner-haste", `${model} 0`) }, substance: "flesh",
+    attributes: { steadiness: q(data.steadiness, "%", "/steadiness"), haste: sourced(0, "%", "owner-haste", `${model} 0`) }, substance: "flesh",
     down: { kind: "low", root: data.down.root, height: q(data.down.height, "1", "/down/height"), up: q(data.down.up, "1", "/down/up") },
     marks: data.marks });
 }

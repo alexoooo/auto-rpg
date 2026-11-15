@@ -318,7 +318,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         walkOn(view);
         return legs.goal(view, goal, dt, context);
       }
-      // What the body's balance gives the run (`gaitAssist`): its pelvis as its stance hip last held it.
+      // What the body's steadiness gives the run (`gaitAssist`): its pelvis as its stance hip last held it.
       aim.heading = h;
       aim.lean = cycle.state.lean;
       aim.bank = cycle.state.bank;

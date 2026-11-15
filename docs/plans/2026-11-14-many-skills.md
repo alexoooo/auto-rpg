@@ -478,7 +478,7 @@ cases (`node scripts/fingerprint.mjs --compare <file> --variation <skill/variati
   from the start it was searched from ([the approaches](../approaches.md#weapon-strikes)).
 - **The layer under a strike reacts to a blow's push only once the body moves.** It holds the
   stance (`stance-balance.ts`), the whole-body solve (`solve.ts`) and the assist (`assist.ts`), a
-  root force and moment metered against the character's Balance
+  root force and moment metered against the character's Steadiness
   ([motor control](../architecture.md#motor-control)), and carries out what a skill asks step by
   step (`LegsGoal`, `StanceGoal`). So each strike's network learns to place the centre of mass
   before its blow.
@@ -559,7 +559,7 @@ drive's, the low end of its interval above 1.5 (`RATE`, `LOW`). What tells "as w
 worse is [the judge's](#the-judge-of-a-try).
 
 **What the assist does to the punch.** The Warrior's installed punch, searched and trained at a
-ceiling of 0, sparred on its 240 held-out starts with the striker's Balance set in the bout's
+ceiling of 0, sparred on its 240 held-out starts with the striker's Steadiness set in the bout's
 recipe. Against 0.01 per cent, where the assist gives under 0.1 N:
 
 - **It lands more, in shrinking steps**: 18, 25 and 29 more at 5, 10 and 25 per cent. The first
@@ -604,7 +604,7 @@ answers its heading and centre asks moves it, as below.
   still-target cell so that how a body throws a move is read apart from what the move brings in a
   fight ([the claim](../recipes/skill.md#the-claim)).
 - How much of the more landed with an assist is the blow held up and how much the stance stepping
-  later, and whether the foe's Balance moves a strike's outcomes as the striker's does.
+  later, and whether the foe's Steadiness moves a strike's outcomes as the striker's does.
 
 ## Other candidates
 

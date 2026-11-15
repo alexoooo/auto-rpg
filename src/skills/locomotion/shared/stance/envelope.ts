@@ -18,7 +18,7 @@ import { envelopeIn } from "../envelope-table.ts";
  * a bend.
  *
  * Measured on the body as a fight plays it, at the rate the asset names: in the guard, under its
- * character's balance, with each thing a fight puts in its right hand. A body holding one of them
+ * character's steadiness, with each thing a fight puts in its right hand. A body holding one of them
  * reads that loadout's own envelope where the asset measured it, and the least of them where not.
  * Another rate, or another thing held, is a body the table did not see. A walk may apply a lower
  * turn ceiling (`turnLimit`), never a higher one.

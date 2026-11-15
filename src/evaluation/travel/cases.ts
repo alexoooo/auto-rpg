@@ -43,7 +43,7 @@ export function createTravelCases(context: GameContext) {
       conditions: cases, seconds: Math.max(...cases.map(c => travelScript(c).end)),
       faults: (value, c, subject) => admission.faults?.(value, { kind: "run", model: c.model }, subject) ?? [],
       world: ([mind], c, engine, [seat]) => ({ kind: "lone", engine, lone: {
-        model: c.model, mind: mindOf(mind), loadout: c.loadout, balance: 0, floorSize: OPEN_FLOOR,
+        model: c.model, mind: mindOf(mind), loadout: c.loadout, steadiness: 0, floorSize: OPEN_FLOOR,
         heading: c.heading, seed: c.seed, script: travelScript(c).cues,
         ...seatCharacter(c.model, seat), ...(c.gusts ? { gusts: true as const } : {}),
       } }), read: readTravel };

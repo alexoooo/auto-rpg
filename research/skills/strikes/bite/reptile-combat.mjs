@@ -11,11 +11,11 @@ export const DEVELOPMENT_GAPS = Object.freeze([1.5, 2, 3, 4]);
 export const CONFIRMATION_GAPS = Object.freeze([1.75, 2.5, 3.5, 4.5]);
 export const HUMANOIDS = Object.freeze(["woman", "man", "skeleton"]);
 
-/** Node Arena Duel, rapier-coordinate, 120 Hz, empty hands, zero balance and unlimited recovery. */
+/** Node Arena Duel, rapier-coordinate, 120 Hz, empty hands, zero steadiness and unlimited recovery. */
 export async function combatTrial({ opponent = "reptile", gap = 2, side = "left", rate = rulebook("arena").pointLoad.rate.value } = {}) {
   const enemy = side === "left" ? "right" : "left", sides = ["left", "right"];
   const recipe = { left: side === "left" ? "reptile" : opponent, right: side === "right" ? "reptile" : opponent,
-    gap, capSeconds: 30, recoverySeconds: null, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } }, balance: { left: 0, right: 0 },
+    gap, capSeconds: 30, recoverySeconds: null, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } }, steadiness: { left: 0, right: 0 },
     rules: { pointLoad: { threshold: sourced(1, "N", "owner-point-load", "shared threshold"),
       rate: sourced(rate, "HP/(N s)", "owner-point-load", "shared calibration") } } };
   const bout = await buildBout(recipe, { engine: BOUT_ENGINE }), { world, duel } = bout;

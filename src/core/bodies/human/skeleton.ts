@@ -34,7 +34,7 @@ import { type Side, SIDES } from "../bilateral.ts";
  *   the art always shows, and for a grip a capsule as wide as its bones.
  * - **It weighs 15 kg** (`owner-skeleton-body`), and its muscle is that mass's at men's shares.
  * - **What the bones do not give** is a placeholder (`skeleton-placeholders`): men's tables for its
- *   muscle and joints, the Warrior's hit points and balance, and the fists thumb up, which the
+ *   muscle and joints, the Warrior's hit points and steadiness, and the fists thumb up, which the
  *   bind's guard shows but no number states.
  *
  * Posture angles are measured from a body's reference pose, so a posture written for the humans
@@ -193,7 +193,7 @@ export function skeletonFigure(): HumanFigure {
     hands: { left: hand("left"), right: hand("right") },
     fitted,
     hp: placeholder(6, "HP", "the Warrior's hit points"),
-    balance: placeholder(0, "%", "the Warrior's balance"), haste: HUMAN_HASTE,
+    steadiness: placeholder(0, "%", "the Warrior's steadiness"), haste: HUMAN_HASTE,
   };
 }
 

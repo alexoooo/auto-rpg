@@ -168,23 +168,23 @@ test("cached support controllers refuse changing colliders and admit identical n
     } finally { stand.dispose(); }
   }
 });
-import { crouchSteady } from "../../research/skills/recovery/witness/climb.mjs";
+import { crouchRegain } from "../../research/skills/recovery/witness/climb.mjs";
 import { pendingControl } from "../../research/minds/pending-control.mjs";
 
-import { steadying } from "../../src/skills/recovery/steady/steady/steady.ts";
+import { regaining } from "../../src/skills/recovery/regain/regain/regain.ts";
 import { motorAndGuardOf } from "../../src/skills/assembly/filled.ts";
-for (const [name, makeSteady] of [["witness crouch", crouchSteady], ["steady mode", (own, view) => steadying(own, view, motorAndGuardOf(partLookup, own.spec))]]) {
+for (const [name, makeRegain] of [["witness crouch", crouchRegain], ["regain mode", (own, view) => regaining(own, view, motorAndGuardOf(partLookup, own.spec))]]) {
 test(`${name} initializes its own stance when it is the first holder`, async () => {
   const stand = await coreStand(stock);
-  let steady, ticks = 0;
+  let regain, ticks = 0;
   const body = stockBody(stand.built, stand.world, { servoSeconds: .1 }, [(own, view) => {
-    steady = makeSteady(own, view);
+    regain = makeRegain(own, view);
     const pending = pendingControl(own.muscles.channels.length);
     return { name: "first recovery", has: () => "first recovery", dispose() {}, mind: {
-      state: { steady: steady.state, pending: pending.state }, wants: () => true, begin() { steady.begin?.(); }, end() {},
+      state: { regain: regain.state, pending: pending.state }, wants: () => true, begin() { regain.begin?.(); }, end() {},
       act: pending.act, interrupt: pending.interrupt,
       think() {
-        pending.think(); steady.step(pending.control, own.dt); ticks++;
+        pending.think(); regain.step(pending.control, own.dt); ticks++;
         assert.ok([...pending.control.muscles.velocity].every(value => !Number.isNaN(value)), "torque-source speeds may be unbounded, but never NaN");
         assert.ok([...pending.control.muscles.activation].every(Number.isFinite));
       },
@@ -193,7 +193,7 @@ test(`${name} initializes its own stance when it is the first holder`, async () 
   try {
     stand.step(3);
     assert.equal(ticks, 3, "the first-holder control steps actually ran");
-    assert.ok(steady.state.legs.reference !== null && Number.isFinite(steady.state.legs.reference), "the private locomotion initializes while the host has never driven");
+    assert.ok(regain.state.legs.reference !== null && Number.isFinite(regain.state.legs.reference), "the private locomotion initializes while the host has never driven");
   } finally { body.dispose(); stand.dispose(); }
 });}
 

@@ -25,10 +25,10 @@ interface Transport {
   /** Show whether a run at `playhead` is paused. */
   showPlayhead(playhead: Playhead): void;
   /**
-   * Show `run`'s recording, `time`, the shown frame's, s, `balance`, its body's, per cent of its
+   * Show `run`'s recording, `time`, the shown frame's, s, `steadiness`, its body's, per cent of its
    * weight, if its assist has one, and `haste`, per cent over a person's, if it is hasted.
    */
-  show(run: ScenarioRun, time: number | null, balance: number | null, haste: number | null): void;
+  show(run: ScenarioRun, time: number | null, steadiness: number | null, haste: number | null): void;
 }
 
 /** Fill `bar`; `label` says what the slider steps through. */
@@ -58,11 +58,11 @@ export function labTransport(bar: HTMLElement, label: string, run: () => Scenari
       paused = isPaused(playhead);
       pause.refresh();
     },
-    show(under, time, balance, haste) {
+    show(under, time, steadiness, haste) {
       const recording = under.recording();
       timeline.max = String(Math.max(0, recording.frames - 1));
       if (document.activeElement !== timeline) timeline.value = String(under.player.shownFrame() ?? recording.live);
-      if (time !== null) clock.textContent = `${under.player.playhead.kind === "replaying" ? "replay " : ""}${time.toFixed(3)} s${balance === null ? "" : ` · balance ${balance} %`}${haste === null ? "" : ` · haste ${hasteText(haste)} %`}`;
+      if (time !== null) clock.textContent = `${under.player.playhead.kind === "replaying" ? "replay " : ""}${time.toFixed(3)} s${steadiness === null ? "" : ` · steadiness ${steadiness} %`}${haste === null ? "" : ` · haste ${hasteText(haste)} %`}`;
     },
   };
 }

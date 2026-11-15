@@ -5,21 +5,21 @@ export interface CharacterAttributes {
   readonly strength: number;
   readonly speed: number;
   readonly hp: number;
-  readonly balance: number;
+  readonly steadiness: number;
   readonly haste: number;
 }
 
 export type AttributeOverrides = Readonly<Partial<CharacterAttributes>>;
 export type AttributeName = keyof CharacterAttributes;
 /** The physical attribute keys, in declaration order. */
-export const ATTRIBUTE_NAMES = Object.freeze(["size", "weight", "strength", "speed", "hp", "balance", "haste"] as const);
+export const ATTRIBUTE_NAMES = Object.freeze(["size", "weight", "strength", "speed", "hp", "steadiness", "haste"] as const);
 
 /** Why an attribute's value cannot build a character; null for a valid value. */
 export function attributeError(name: AttributeName, value: unknown): string | null {
   const label = name === "hp" ? "Hit points" : name[0]!.toUpperCase() + name.slice(1);
   if (typeof value !== "number" || !Number.isFinite(value)) return `${label} must be a finite number.`;
   switch (name) {
-    case "balance": return value >= 0 ? null : "Balance must be zero or greater.";
+    case "steadiness": return value >= 0 ? null : "Steadiness must be zero or greater.";
     case "haste": return value > -100 ? null : "Haste must be greater than −100 %.";
     case "size": case "weight": case "strength": case "speed": case "hp":
       return value > 0 ? null : `${label} must be greater than zero.`;

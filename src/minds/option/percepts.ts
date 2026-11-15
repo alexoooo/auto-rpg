@@ -504,7 +504,7 @@ function downRateAtOf(seen: Seen): (posture: Position) => number {
  * settles: standing on its feet); what its reader keeps
  * of its rise (`Seen.risen`): whether it runs, the ground as its rise reads it (`ground`, none where
  * no rise runs), the seconds the body has been braced tumbling in it (`tumbled`) and the seconds its
- * steady has held it in its try (`steadied`); where
+ * regain has held it in its try (`regained`); where
  * on the ground it stands and the way it faces (`where`: its stance's centre and its heading); what
  * its reader keeps of the stretches it has spent within each foe's reach (`reached`, `reachMemory`); its
  * orders; its focus; how far off the focus is, centre to centre
@@ -528,7 +528,7 @@ const PERCEPTS = Object.freeze({
   rising: { read: (seen) => seen.risen.state.rising } as Percept<boolean>,
   ground: { read: ({ risen, sight }) => risen.state.rising ? sight.view.ground : null } as Percept<GroundReading | null>,
   tumbled: { read: (seen) => seen.risen.state.tumbled } as Percept<number>,
-  steadied: { read: (seen) => seen.risen.state.steadied } as Percept<number>,
+  regained: { read: (seen) => seen.risen.state.regained } as Percept<number>,
   where: { read: ({ sight }) => ({ x: sight.view.stance.centre.x, z: sight.view.stance.centre.z, face: sight.report.legs.heading }) } as Percept<Spot>,
   reached: { read: (seen) => seen.reach } as Percept<ReachMemory>,
   orders: { read: (seen) => seen.orders, cue: ordersAsked } as Percept<Orders | null>,

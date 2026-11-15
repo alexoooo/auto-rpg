@@ -64,7 +64,7 @@ export function combatPressure(state, touching, driven, dt, protocol = COMBAT_PR
 /** One autonomous bout on the actual gameplay engine, with optional ordinary orders before release. */
 export async function combatTrial(config) {
   const recipe = { left: 'man', right: 'man', gap: 4,
-    capSeconds: COMBAT_PROTOCOL.capSeconds, recoverySeconds: null, balance: { left: 0, right: 0 },
+    capSeconds: COMBAT_PROTOCOL.capSeconds, recoverySeconds: null, steadiness: { left: 0, right: 0 },
     loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } }, ...config.recipe,
     minds: { left: combatMind(config.left), right: combatMind(config.right) } };
   const physicsEngine = await loadEngine(config.engine ?? DEFAULT_ENGINE);

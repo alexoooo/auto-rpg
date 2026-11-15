@@ -39,7 +39,7 @@ import { otherSeat as otherSide, type ArenaSeat as Side } from "./seat.ts";
  *   wins; both beaten on one step is a draw.
  * - **At the cap** (`CAP_SECONDS`) the side with more life summed over its bodies wins, and equal
  *   sums draw.
- * - **Each body's assist** has the ceiling its character's balance is, withdrawn at the verdict.
+ * - **Each body's assist** has the ceiling its character's steadiness is, withdrawn at the verdict.
  *
  * The world is the caller's, with the arena's solids already in it; the bout adds its bodies and
  * hooks and takes them away on `dispose`. Everything of it a step changes is the physics' and one

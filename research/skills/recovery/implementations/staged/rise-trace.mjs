@@ -42,7 +42,7 @@ async function traceFall(job) {
   /** What ground action `name` is doing, as its run's state `run` reads: its phase, and in a staged rise the stage. */
   const stageOf = (run, name, fallback) => {
     if (!run) return fallback;
-    // A staged part's state: the roll's has no phase of its own and a rise each way over, a part of the rise's is "rise" or "steady".
+    // A staged part's state: the roll's has no phase of its own and a rise each way over, a part of the rise's is "rise" or "regain".
     const rise = run.rise ?? run.rises?.[run.entry], rising = (run.phase ?? "rise") === "rise";
     if (rising && rise && names[name] && rise.phase === "rise") return names[name][rise.stage] ?? `stage ${rise.stage}`;
     if (rising && rise) return rise.phase;
@@ -91,8 +91,8 @@ async function traceFall(job) {
         seen.from ??= fromOf(mind, action.id);
         seen.run ??= runOf(mind, action.id);
         const stage = action.stage.startsWith("ended:") ? action.stage : stageOf(seen.run, action.action, action.stage);
-        // How the body is as a staged rise hands it to the stance's steadying.
-        if (stage === "steady" && !seen.handed) {
+        // How the body is as a staged rise hands it to the stance's regain.
+        if (stage === "regain" && !seen.handed) {
           const g = built.combatant.body.view.ground;
           seen.handed = g && { height: +g.height.toFixed(3), position: g.position, onFeet: g.onFeet, feet: +(g.footLoad[0] + g.footLoad[1]).toFixed(2),
             speed: +Math.sqrt(g.velocity.lengthSquared()).toFixed(2), upright: +g.upright.toFixed(2) };
@@ -154,8 +154,8 @@ if (isMainThread) {
   const { loadoutKey } = await import("../../../../../src/core/bodies/items/held.ts");
   const jobs = values.offsets.split(",").map(Number).flatMap((offset) => risingJobs({ target: true, offset }))
     .filter((job) => job.model === values.model && (!values.loadout || loadoutKey(job.loadout) === values.loadout) && (!only || only.has(String(job.degrees))))
-    .flatMap(({ model, loadout, start, degrees, balance, grit, gusts }) => seeds.map(seed => ({
-      key: { model, loadout: loadoutKey(loadout), degrees, seed }, fall: { model, loadout, seed, start, degrees, balance, grit, gusts, target: true, mind } })));
+    .flatMap(({ model, loadout, start, degrees, steadiness, grit, gusts }) => seeds.map(seed => ({
+      key: { model, loadout: loadoutKey(loadout), degrees, seed }, fall: { model, loadout, seed, start, degrees, steadiness, grit, gusts, target: true, mind } })));
   const count = Number(values.workers ?? Math.max(1, availableParallelism() - 4));
   const started = Date.now();
   const rows = (await workerJobs(jobs, { lanes: count, create: () => new Worker(new URL(import.meta.url)), result: answer => answer })).flat().sort((a, b) => a.loadout < b.loadout ? -1 : a.loadout > b.loadout ? 1 : a.degrees - b.degrees || a.seed - b.seed);

@@ -1,15 +1,15 @@
 import { footOn } from "../../../../src/control/support.ts";
 /**
- * **Stand up's steady from a crouch** (`standUp`, `src/skills/recovery/shared/stand-up.ts`): the body
+ * **Stand up's regain from a crouch** (`standUp`, `src/skills/recovery/shared/stand-up.ts`): the body
  * placed in the Warrior's stored `squat` (its angles put on each body, seeds 1 up, refused draws
- * skipped), steadied by the stance as the steady steadies it (its own motor, `legs.resume`, the
+ * skipped), held by the stance as the regain holds it (its own motor, `legs.resume`, the
  * stance's goal), handed back once `standReady` holds 0.1 s, the host's stance after; timed to
  * verified standing (`STAND_CHECK`). Node stand, core world, Rapier, 120 Hz, calm, no assist.
  *
- * The steady is `research/skills/recovery/witness/climb.mjs`'s; a variant changes it:
+ * The regain is `research/skills/recovery/witness/climb.mjs`'s; a variant changes it:
  *
  * - `ease`: the posture eased from the crouch's angles to the guard's over `ease` s (smoothstep);
- * - `servo`, `tuning`: the steady's motor's servo time constant and stance settings (`StanceTuning`);
+ * - `servo`, `tuning`: the regain's motor's servo time constant and stance settings (`StanceTuning`);
  * - `ahead`: `{ d, T }`, the centre of mass asked `d` m ahead of the feet's middle for `T` s;
  * - `fold`: `{ T, pitch, response, lumbar, thoracic }`, the stance's supported root pose
  *   (`StanceGoal.pose`) on the combat fold's schedule (`COMBAT_FOLD`), from the crouch's depth to
@@ -25,7 +25,7 @@ import { footOn } from "../../../../src/control/support.ts";
  *   `lean` and `reach` rad, then the height to standing over `T` s (minimum jerk) as they are let
  *   go, the posture from the crouch's angles to the guard's over `Tp` s; with `tuning.ankleSpare`
  *   null the ankles' floor does not lift the plan;
- * - `keep`: s the steady holds the body past ready before it hands it back;
+ * - `keep`: s the regain holds the body past ready before it hands it back;
  * - `path`: `{ T, s, d, lean, reach, Tp, gate, slow, below, flat, stay, top, keepPitch }`, the planned
  *   climb: the centre of mass on a quintic from where it is, at its speed, to `top` (standing) over
  *   the feet's middle (`d` ahead) at rest over `T` s, the pelvis from its pitch to upright, the
@@ -34,8 +34,8 @@ import { footOn } from "../../../../src/control/support.ts";
  *   touching, the centre of mass over them, slower than `slow` and lower than `below` of standing;
  *   `stay` and `keepPitch` hold the centre of mass's place and the pelvis's pitch where they are.
  *
- *   node research/skills/recovery/witness/crouch-steady.mjs [--model man] [--held empty] [--variant '{"ease":0.5}'] [--seeds 8] [--trace <seed>]
- *   node research/skills/recovery/witness/crouch-steady.mjs --search [--generations 40]
+ *   node research/skills/recovery/witness/crouch-regain.mjs [--model man] [--held empty] [--variant '{"ease":0.5}'] [--seeds 8] [--trace <seed>]
+ *   node research/skills/recovery/witness/crouch-regain.mjs --search [--generations 40]
  *
  * `--search` is CMA-ES (`research/cma.mjs`) over `ease`, `servo` and the stance's time constants,
  * track and ankle spare, scored by the mean time to verified over the seeds, a body not verified
@@ -60,7 +60,7 @@ import { observeBody } from "../../../../src/control/observation.ts";
 import { clockSenses } from "../../../../src/core/world/senses.ts";
 import { groundPlacement } from "../../../../src/game/lab/ground-starts.ts";
 import { STAND_CHECK } from "../../../../src/game/lab/ground-mode.ts";
-import { crouchSteady, traceRow } from "./climb.mjs";
+import { crouchRegain, traceRow } from "./climb.mjs";
 
 /** The cap, and a failure's score, s. */
 const CAP = 5, FAIL = 6;
@@ -82,8 +82,8 @@ export function acceptedSeeds(spec, count) {
   return seeds;
 }
 
-/** One steady from the squat at `seed`: when the body is first at 95 % of standing height, handed back and verified, s. */
-export async function steady({ model = "man", held = "empty", seed, variant = {}, trace = false }) {
+/** One regain from the squat at `seed`: when the body is first at 95 % of standing height, handed back and verified, s. */
+export async function regain({ model = "man", held = "empty", seed, variant = {}, trace = false }) {
   const spec = bodySpec(model, held), placed = placement(spec, seed);
   if ("refused" in placed) return { seed, refused: placed.refused };
   const world = createWorld(await loadEngine());
@@ -91,12 +91,12 @@ export async function steady({ model = "man", held = "empty", seed, variant = {}
   const built = buildBody(spec, world, placed);
   let control = null;
   const body = stockBody(built, world, { servoSeconds: .1 }, [(own, view) => {
-    const steadying = crouchSteady(own, view, variant);
+    const regaining = crouchRegain(own, view, variant);
     const pending = pendingControl(own.muscles.channels.length);
-    control = steadying.control;
-    return { name: "crouch steady", has: () => "crouch steady", dispose() {}, mind: {
-      state: { steady: steadying.state, pending: pending.state }, wants: () => control.on, begin() {}, end() {}, act: pending.act, interrupt: pending.interrupt,
-      think() { pending.think(); steadying.step(pending.control, own.dt); },
+    control = regaining.control;
+    return { name: "crouch regain", has: () => "crouch regain", dispose() {}, mind: {
+      state: { regain: regaining.state, pending: pending.state }, wants: () => control.on, begin() {}, end() {}, act: pending.act, interrupt: pending.interrupt,
+      think() { pending.think(); regaining.step(pending.control, own.dt); },
     } };
   }]);
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: [footOn(spec, "left"), footOn(spec, "right")], centre: null, height: view.standing - .03, heading: 0 } }));
@@ -126,24 +126,24 @@ const decode = u => ({ ...(u[4] >= .02 ? { ease: Math.min(1, u[4]) } : {}), serv
 /** The game's settings, the posture eased over 0.5 s. */
 const START = [SEARCH.ul(.3, .1, .8), SEARCH.ul(.15, .06, .6), SEARCH.ul(.15, .06, .6), SEARCH.ul(.2, .08, .5), .5, SEARCH.ul(.1, .04, .3), SEARCH.ul(.01, .005, .3)];
 
-if (!isMainThread && workerData.harness === "crouch-steady") {
+if (!isMainThread && workerData.harness === "crouch-regain") {
   parentPort.on("message", async ({ id, x }) => {
-    try { const r = await steady({ model: workerData.model, held: workerData.held, seed: x.seed, variant: decode(x.u) }); parentPort.postMessage({ id, r: { t: r.verified ?? FAIL } }); }
+    try { const r = await regain({ model: workerData.model, held: workerData.held, seed: x.seed, variant: decode(x.u) }); parentPort.postMessage({ id, r: { t: r.verified ?? FAIL } }); }
     catch (error) { parentPort.postMessage({ id, r: { t: FAIL, error: String(error?.stack ?? error) } }); }
   });
-} else if (process.argv[1]?.endsWith("crouch-steady.mjs")) {
+} else if (process.argv[1]?.endsWith("crouch-regain.mjs")) {
   const { values } = parseArgs({ options: { model: { type: "string" }, held: { type: "string" }, variant: { type: "string" }, seeds: { type: "string" },
     trace: { type: "string" }, search: { type: "boolean" }, generations: { type: "string" }, workers: { type: "string" } } });
   const model = values.model ?? "man", held = values.held ?? "empty", variant = JSON.parse(values.variant ?? "{}");
   const seeds = acceptedSeeds(bodySpec(model, held), Number(values.seeds ?? 8));
   const fmt = v => v === null ? "-" : v.toFixed(2);
   if (values.trace) {
-    const r = await steady({ model, held, seed: Number(values.trace), variant, trace: true });
+    const r = await regain({ model, held, seed: Number(values.trace), variant, trace: true });
     console.table(r.rows);
     console.log(`at 95 % ${fmt(r.climbed)} s, handed back ${fmt(r.handBack)} s, verified ${fmt(r.verified)} s${r.fell ? ", fell" : ""}`);
   } else if (values.search) {
     const { cmaSearch, workerPool } = await import("../../../cma.mjs");
-    const pool = workerPool(new URL(import.meta.url), { harness: "crouch-steady", model, held }, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
+    const pool = workerPool(new URL(import.meta.url), { harness: "crouch-regain", model, held }, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
     let result;
     try {
     result = await cmaSearch({ n: START.length, start: START, sigma: .15, lambda: 12, generations: Number(values.generations ?? 40), seed: 7,
@@ -153,7 +153,7 @@ if (!isMainThread && workerData.harness === "crouch-steady") {
     console.log(JSON.stringify(decode(result.best.u)), result.best.r.ts.map(fmt).join(" "));
   } else {
     const rows = [];
-    for (const seed of seeds) rows.push(await steady({ model, held, seed, variant }));
+    for (const seed of seeds) rows.push(await regain({ model, held, seed, variant }));
     const stood = rows.filter(r => r.verified !== null).map(r => r.verified).sort((a, b) => a - b), m = stood.length;
     const median = m ? (stood[(m - 1) >> 1] + stood[m >> 1]) / 2 : null;
     console.log(`${model} ${held} ${JSON.stringify(variant)}: stood ${m} of ${rows.length}, median ${fmt(median)} s; ${rows.map(r => `${r.seed}: ${fmt(r.verified)}`).join(", ")}`);

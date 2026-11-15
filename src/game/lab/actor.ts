@@ -53,7 +53,7 @@ interface ActorOptions {
   readonly rules: Rulebook;
   /** Its mind. */
   readonly mind: MindConfig;
-  /** The most its assist gives it (`balanceCeiling`); none unless given. */
+  /** The most its assist gives it (`steadinessCeiling`); none unless given. */
   readonly assist?: AssistCeiling;
   /** An experiment's settings of its command layers (`Experiment`): a stance's tuning, the envelope measured; none unless given. */
   readonly experiment?: Experiment;

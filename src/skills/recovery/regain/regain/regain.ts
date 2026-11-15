@@ -23,12 +23,12 @@ import type { BodyControl } from "../../../../core/bodies/body-control.ts";
 const CLIMB = deepFreeze({ seconds: .6, response: .08, below: .9 });
 
 /**
- * **The steady**: a body on its feet held by its own stance (its mind's motor, `fitted`, carrying the
+ * **The regain**: a body on its feet held by its own stance (its mind's motor, `fitted`, carrying the
  * stance alone), standing in place at its heading, and climbed to standing height from a quiet
  * crouch (`CLIMB`). Its memory is the climb's, the motor's and the legs'.
  */
-export function steadying(own: OwnBody, view: BodyView, fitted: MotorAndGuard) {
-  const motor = carrying(fitted.motor.make(own.built, own.muscles, SERVO_SECONDS, fitted.posture, undefined, own.assist), ["stance"], "the steady");
+export function regaining(own: OwnBody, view: BodyView, fitted: MotorAndGuard) {
+  const motor = carrying(fitted.motor.make(own.built, own.muscles, SERVO_SECONDS, fitted.posture, undefined, own.assist), ["stance"], "the regain");
   const feet = stanceFeetOf(own.spec), legs = locomotion(feet, null, { segments: stanceSegmentsOf(own.spec) }), both = Object.keys(feet);
   const state = {
     begun: null as number | null,
@@ -37,7 +37,7 @@ export function steadying(own: OwnBody, view: BodyView, fitted: MotorAndGuard) {
     motor: motor.state, legs: legs.state,
   };
   const turn = new Quaternion(), up = new Vector3(), climbPose: Record<string, number> = {};
-  /** The steady's goal this step: `goal`, or the climb's while it runs (`CLIMB`), beginning it where the body allows. */
+  /** The regain's goal this step: `goal`, or the climb's while it runs (`CLIMB`), beginning it where the body allows. */
   const climbing = (goal: StanceGoal, dt: number): StanceGoal => {
     const c = state.climb, r = motor.stance.reading, h = legs.heading, top = supportHeight(view) - STANCE_LOWER;
     if (c.done) return { ...goal, height: top };
@@ -65,13 +65,13 @@ export function steadying(own: OwnBody, view: BodyView, fitted: MotorAndGuard) {
     state,
     /** Forget what its motor had under way (`Carrying.reset`). */
     reset(): void { motor.reset(); },
-    /** Begin steadying the body where it stands: no climb yet, the guard's posture, the legs at the body's heading. */
+    /** Begin where the body stands: no climb yet, the guard's posture, the legs at the body's heading. */
     begin(): void {
       state.begun = view.time;
       state.climb.on = false; state.climb.done = false; motor.setPosture(fitted.posture);
       motor.stance.read(); legs.resume({ ...view, born: Math.min(view.born, state.begun ?? view.born), stance: motor.stance.reading });
     },
-    /** Steady the body a step of `dt` s; whether it is climbing. */
+    /** Hold the body a step of `dt` s; whether it is climbing. */
     step(control: BodyControl, dt: number): boolean {
       state.begun ??= view.time;
       motor.stance.read();

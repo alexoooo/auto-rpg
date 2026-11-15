@@ -74,13 +74,13 @@ export interface Rulebook {
    */
   readonly pointLoad: { readonly threshold: Quantity<number>; readonly rate: Quantity<number> };
   /**
-   * **What a per cent of balance is** (`AttributeSpec.balance`): the most an assist gives a
+   * **What a per cent of steadiness is** (`AttributeSpec.steadiness`): the most an assist gives a
    * body for each per cent, a force in the body's own weights, which is a hundredth by the
    * meaning of a per cent, and the moment that goes with it, in its weights times a metre. Both
    * are ceilings on what the assist gives through the solver step (`Assist`), not an impulse
    * before it.
    */
-  readonly balance: { readonly force: Quantity<number>; readonly moment: Quantity<number> };
+  readonly steadiness: { readonly force: Quantity<number>; readonly moment: Quantity<number> };
   /**
    * **Reaction time**, s: how late a mind sees every other body (`createSenses`); its own body at
    * once. The same for both sides, converted to steps at the world's rate (`reactionSteps`).
@@ -134,9 +134,9 @@ const RULES: Omit<Rulebook, "mode"> = Object.freeze({
     threshold: sourced(1, "N", "owner-point-load", "the shared minimum piercing load"),
     rate: sourced(.2, "HP/(N s)", "owner-point-load", "shared calibration for the 30 s reptile injury target"),
   }),
-  balance: Object.freeze({
-    force: sourced(0.01, "1", "owner-balance", "a per cent of the body's weight"),
-    moment: sourced(0.0026, "m", "owner-balance", "and 0.0026 weight-metres with each per cent"),
+  steadiness: Object.freeze({
+    force: sourced(0.01, "1", "owner-steadiness", "a per cent of the body's weight"),
+    moment: sourced(0.0026, "m", "owner-steadiness", "and 0.0026 weight-metres with each per cent"),
   }),
   reaction: sourced(0.15, "s", "owner-reaction-time", "every other body seen 0.15 s late"),
 });
@@ -196,20 +196,20 @@ export function pointLoadDamage(rules: Rulebook, impulse: number, seconds: numbe
   return rules.pointLoad.rate.value * Math.max(0, impulse - rules.pointLoad.threshold.value * seconds);
 }
 
-/** What a per cent of balance is under `rules`, as a ceiling. */
-export function balancePercent(rules: Rulebook): AssistCeiling {
-  return { force: rules.balance.force.value, moment: rules.balance.moment.value };
+/** What a per cent of steadiness is under `rules`, as a ceiling. */
+export function steadinessPercent(rules: Rulebook): AssistCeiling {
+  return { force: rules.steadiness.force.value, moment: rules.steadiness.moment.value };
 }
 
-/** A balance is a finite per cent, none or more. */
-export function isBalance(balance: number): boolean {
-  return Number.isFinite(balance) && balance >= 0;
+/** A steadiness is a finite per cent, none or more. */
+export function isSteadiness(steadiness: number): boolean {
+  return Number.isFinite(steadiness) && steadiness >= 0;
 }
 
-/** The most an assist gives a body whose balance is `balance` per cent of its weight, each per cent being `percent`. */
-export function balanceCeiling(balance: number, percent: AssistCeiling): AssistCeiling {
-  if (!isBalance(balance)) throw new Error(`a balance is a finite per cent >= 0, not ${balance}`);
-  return { force: balance * percent.force, moment: balance * percent.moment };
+/** The most an assist gives a body whose steadiness is `steadiness` per cent of its weight, each per cent being `percent`. */
+export function steadinessCeiling(steadiness: number, percent: AssistCeiling): AssistCeiling {
+  if (!isSteadiness(steadiness)) throw new Error(`a steadiness is a finite per cent >= 0, not ${steadiness}`);
+  return { force: steadiness * percent.force, moment: steadiness * percent.moment };
 }
 
 /** The rules of `mode`, with `override` in place of any of them. */

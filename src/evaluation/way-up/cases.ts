@@ -3,7 +3,7 @@
  * falls, every body (`HUMANOID_MODELS`) in every rated loadout (`REPRESENTATIVE`) shoved sixteen ways
  * (`risingJobs`) on the open floor and again beside each obstacle level (`GROUND_LEVELS`: a column,
  * a wall, a tomb, a bench), on the fall bed every mind is felled on (`buildFall`), calm air,
- * Balance 0 and Grit 0, a 30 s cap. Protocol `fresh`: the same shoved halfway between those
+ * Steadiness 0 and Grit 0, a 30 s cap. Protocol `fresh`: the same shoved halfway between those
  * directions (`FRESH_OFFSET`), the drill's training twin (`Cases.twin`). Protocol `bouts`: falls
  * from bouts, the riser's mind fighting a copy of itself until a side falls (`./bouts.ts`), its
  * twin `bouts-fresh`. The riser is a mind with
@@ -27,7 +27,7 @@ import { BOUT_PLACES, BOUT_SECONDS, boutFallWorld, boutFalls, readBoutFall, TWIN
 /** One of the drill's falls: a body holding a loadout, shoved at `degrees` from +z on a level. */
 export type WayUpCondition = {
   readonly model: HumanoidModel; readonly loadout: Loadout; readonly seed: number; readonly start: "shoved"; readonly degrees: number;
-  readonly level: GroundLevel; readonly balance: number; readonly grit: number; readonly gusts: boolean; readonly target: boolean; readonly obstacle: boolean;
+  readonly level: GroundLevel; readonly steadiness: number; readonly grit: number; readonly gusts: boolean; readonly target: boolean; readonly obstacle: boolean;
 };
 
 /** Any case of the drill: a shoved fall, or a bout's (`WayUpBoutCondition`). */
@@ -41,8 +41,8 @@ export type WayUpReading = FallReading & { readonly way: string | null };
 
 /** The drill's falls with their shoves turned by `offset` degrees: the stand-up target's on the open floor, then beside each obstacle (`risingJobs`' `obstacles`). */
 const wayUpFalls = (offset: number): WayUpCondition[] => [...risingJobs({ target: true, offset }), ...risingJobs({ obstacles: true, offset })]
-  .map(({ model, loadout, seed, degrees, level, balance, grit, gusts, target, obstacle }): WayUpCondition =>
-    ({ model: model!, loadout: loadout!, seed, start: "shoved", degrees: degrees!, level: level ?? "open", balance: balance!, grit: grit!, gusts: gusts!,
+  .map(({ model, loadout, seed, degrees, level, steadiness, grit, gusts, target, obstacle }): WayUpCondition =>
+    ({ model: model!, loadout: loadout!, seed, start: "shoved", degrees: degrees!, level: level ?? "open", steadiness: steadiness!, grit: grit!, gusts: gusts!,
       target: Boolean(target), obstacle: Boolean(obstacle) }));
 
 export function createWayUpCases(context: GameContext) {

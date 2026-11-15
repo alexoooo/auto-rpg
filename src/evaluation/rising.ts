@@ -71,7 +71,7 @@ type TrailEntry = { at: number; phase: string; position: string; height: number;
 type TechniqueResult = RisingJob & {
   factor: number; destination?: string; reached: boolean; survived: boolean; end: string; phase: string | null; seconds: number;
   endedAt?: number; candidateBegun?: boolean; trail: TrailEntry[]; saturation: Record<string, { peak: number; saturatedSeconds: number }>;
-  predecessor?: string | null; predecessorSeconds?: number; balance?: number; assist?: { force: number; moment: number }; error?: string;
+  predecessor?: string | null; predecessorSeconds?: number; steadiness?: number; assist?: { force: number; moment: number }; error?: string;
 };
 
 /** What the bed plays: its starts, bodies, loadouts, seeds and riser, or a fixed suite (`target`, `obstacles`). */
@@ -83,7 +83,7 @@ interface RisingOptions {
   readonly techniques?: readonly TechniqueName[] | null;
   readonly technique?: TechniqueName | null;
   readonly after?: TechniqueName | null;
-  readonly balance?: number;
+  readonly steadiness?: number;
   readonly gusts?: boolean;
   readonly target?: boolean;
   /** The target's shoves turned this far, degrees: its fresh falls (`FRESH_OFFSET`). */
@@ -113,9 +113,9 @@ export function risingJobs(options: RisingOptions): (RisingJob & { id: number })
   const jobs: RisingJob[] = [], techniques = options.techniques ? { techniques: options.techniques } : {};
   if (options.target) {
     for (const model of HUMANOID_MODELS) for (const loadout of REPRESENTATIVE) for (let direction = 0; direction < 16; direction++)
-      jobs.push({ model, loadout, seed: 1, start: "shoved", degrees: direction * 22.5 + (options.offset ?? 0), balance: 0, grit: 0, gusts: false, target: true, ...techniques });
+      jobs.push({ model, loadout, seed: 1, start: "shoved", degrees: direction * 22.5 + (options.offset ?? 0), steadiness: 0, grit: 0, gusts: false, target: true, ...techniques });
   } else for (const model of options.models!) for (const held of options.held!) for (const seed of options.seeds!) for (const start of options.starts!) {
-    const common: RisingJob = { model, held, seed, start, balance: options.balance ?? 0, grit: 0, gusts: options.gusts ?? false, target: false, ...techniques,
+    const common: RisingJob = { model, held, seed, start, steadiness: options.steadiness ?? 0, grit: 0, gusts: options.gusts ?? false, target: false, ...techniques,
       ...(options.technique ? { technique: options.technique, after: options.after ?? null } : {}) };
     if (start === "shoved") for (let direction = 0; direction < 8; direction++) jobs.push({ ...common, degrees: direction * 45 });
     else if (start === "placed") for (const posture of groundPostures(modelSpec(model))) jobs.push({ ...common, posture });
@@ -158,7 +158,7 @@ export function createRising(context: GameContext) {
    * search has what it scores.
    */
   async function risingTrial(job: RisingJob, { stop }: { stop?: (world: World, built: BuiltBody, actor: Actor) => boolean } = {}): Promise<RisingRow> {
-    const rejected = (error: string): RisingRow => ({ ...job, balance: job.balance ?? 0, status: "rejected start", stood: false,
+    const rejected = (error: string): RisingRow => ({ ...job, steadiness: job.steadiness ?? 0, status: "rejected start", stood: false,
       handback: null, verified: null, error, trail: [], attempts: [], phases: {}, assist: null });
     const refused = checkFall(job);
     if (refused) return rejected(refused);
@@ -178,10 +178,10 @@ export function createRising(context: GameContext) {
         phases, attempts };
     }
     const fall: FallCase = { ...job, model: job.model!, start: job.start!, mind: job.mind ?? risingMind(job.techniques) };
-    const balance = job.balance ?? 0;
+    const steadiness = job.steadiness ?? 0;
     const start = fallStart(fall);
     if (isRefused(start)) return rejected(start.refused);
-    if ("refused" in start.placement) return { ...job, balance, status: "rejected start", stood: false, handback: null, verified: null, error: start.placement.refused, trail: [], attempts: [], phases: {}, assist: null };
+    if ("refused" in start.placement) return { ...job, steadiness, status: "rejected start", stood: false, handback: null, verified: null, error: start.placement.refused, trail: [], attempts: [], phases: {}, assist: null };
     const built = await buildStandFall(fall, DEFAULT_ENGINE, { start });
     if (isRefused(built)) return rejected(built.refused);
     try {
@@ -191,7 +191,7 @@ export function createRising(context: GameContext) {
         built.afterStep();
       }
       const cap = Math.min(30, job.cap ?? 30);
-      return { ...job, balance, cap, ...(built.reading() as unknown as RisingRow) };
+      return { ...job, steadiness, cap, ...(built.reading() as unknown as RisingRow) };
     } finally { built.dispose(); }
   }
 
@@ -303,7 +303,7 @@ export function createRising(context: GameContext) {
         seconds: control.ended === null ? cap : control.ended - control.candidateFrom!,
         endedAt: control.ended ?? world.time, candidateBegun: control.candidateFrom !== null, trail, saturation,
         predecessor: control.predecessor, predecessorSeconds: control.predecessorSeconds,
-        balance: 0, assist: { force: body.assist.given.force.length(), moment: body.assist.given.moment.length() } };
+        steadiness: 0, assist: { force: body.assist.given.force.length(), moment: body.assist.given.moment.length() } };
     } finally { lifetime.dispose(); }
   }
 
@@ -311,7 +311,7 @@ export function createRising(context: GameContext) {
    * The bed's report: by start, body and loadout, the falls stood (verified on a fixed suite, else
    * handed back), within `STAND_WITHIN` and 12 s, the failure-inclusive median (a fall not stood counts at its
    * cap) and the mean, the stand-up's value, and each technique's attempts. On the stand-up
-   * target, whether the rows are its conditions: every fall of the target once, Balance 0 and Grit 0
+   * target, whether the rows are its conditions: every fall of the target once, Steadiness 0 and Grit 0
    * (`conditions`).
    */
   function risingReport(rows: readonly RisingRow[], target = false) {
@@ -348,14 +348,14 @@ export function createRising(context: GameContext) {
     if (target) {
       const fallOf = (row: RisingRow) => `${row.model}/${row.loadout ? loadoutKey(row.loadout) : row.held}/${row.degrees}`;
       const expected = risingJobs({ target: true, offset }).map(fallOf).sort(), actual = rows.map(fallOf).sort();
-      conditions = { completeUniqueDirections: JSON.stringify(actual) === JSON.stringify(expected), balanceZero: rows.every(row => row.balance === 0), gritZero: rows.every(row => row.grit === 0) };
+      conditions = { completeUniqueDirections: JSON.stringify(actual) === JSON.stringify(expected), steadinessZero: rows.every(row => row.steadiness === 0), gritZero: rows.every(row => row.grit === 0) };
     }
     const standalone = rows.length > 0 && rows.every(row => row.technique);
     const obstacles = rows.length > 0 && rows.every(row => row.obstacle);
     return { harness: "Node stand, core World, Rapier, 120 Hz", mode: target ? "owner target" : obstacles ? "obstacle falls" : standalone ? "standalone technique" : "everyday bed", cap: standalone ? 8 : 30,
       groups, conditions, techniques: [...attempts.values()].map(({ seconds, ...stats }) => ({ ...stats, meanSeconds: seconds / stats.begun })),
       claims: { beatsSupportRecovery: "requires comparison with the saved reference on identical cases",
-        assist: { balances: [...new Set(rows.map(row => row.balance))], grits: [...new Set(rows.map(row => row.grit))], forceImpulse: rows.reduce((sum, row) => sum + (row.assist?.forceImpulse ?? 0), 0),
+        assist: { steadinesses: [...new Set(rows.map(row => row.steadiness))], grits: [...new Set(rows.map(row => row.grit))], forceImpulse: rows.reduce((sum, row) => sum + (row.assist?.forceImpulse ?? 0), 0),
           momentImpulse: rows.reduce((sum, row) => sum + (row.assist?.momentImpulse ?? 0), 0) } }, rows };
   }
 

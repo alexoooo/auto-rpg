@@ -29,7 +29,7 @@ const limbChoices = (spec: BodySpec) => [{ value: null, name: "None" }, ...spec.
  */
 export function characterSection(page: LabPage): readonly Control[] {
   const attributes = attributeEditor({ model: page.shown.model, attributes: loadoutAttributes(page.shown) }, {
-    apply: values => page.load({ ...page.shown, attributes: values, balance: null, haste: null }),
+    apply: values => page.load({ ...page.shown, attributes: values, steadiness: null, haste: null }),
   });
   let key = JSON.stringify([page.shown.model, loadoutAttributes(page.shown)]);
   const attributeControl: Control = { element: attributes.element, refresh() {

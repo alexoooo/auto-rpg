@@ -30,7 +30,7 @@
  *
  * A trial may name what the body holds (`loadout`, empty hands where it names none), the lab's
  * gusts (`gusts`, `labGusts`: the Warrior's, scaled by the body's mass) and the seed of its mind's chance and the gusts (`seed`). Calm
- * air, no balance unless its character has one. A change here is a new protocol.
+ * air, no assist unless its character has Steadiness. A change here is a new protocol.
  */
 import { mindOf, seatCharacter } from "../evaluation.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
