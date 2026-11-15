@@ -3,7 +3,7 @@
  * tree's `solveReach` (`src/control/kinematics.ts`). In a bout a change of the solve is
  * another bout; on the bed two solves answer the same questions.
  *
- * The questions are `tests/fixtures/reach-solves.json`: every solve of one arena bout, the
+ * The questions are `research/reach-solves.json`: every solve of one arena bout, the
  * Warrior against the Rogue, in the order they were asked, each `{ hand, chain, angles, free,
  * tasks }`: the hand's segment and the chain's joints by name, the angles the solve started
  * from, its freedoms and its tasks. They are the Rogue's right arm's, three a step (the step
@@ -41,7 +41,7 @@ export const AT_PLACE = 1e-4;
  * solve ended (`ReachEnd`), and how far its farthest point is left from its place, m.
  */
 export async function reachBed() {
-  const asked = JSON.parse(await readFile(new URL("../tests/fixtures/reach-solves.json", import.meta.url), "utf8"));
+  const asked = JSON.parse(await readFile(new URL("./reach-solves.json", import.meta.url), "utf8"));
   const stand = await coreStand(humanSpec(MODEL), { ground: false, pinned: "lowerTrunk" });
   const chains = new Map(), at = new Vector3();
   const solves = asked.map(({ hand, chain: names, angles, free, tasks }) => {
