@@ -41,7 +41,7 @@ import { seatBody, sideCharacters, type BoutTiming, type Cases, type Json, type 
 import { drillOf, effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
 import type { Rail } from "../../game/arena/rail.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
-import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
+import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
 import { between } from "../twin.ts";
 
@@ -409,7 +409,7 @@ const SPARRING_LAID = deepFreeze({ ...STOMPING_SAMPLED, targets: FOES, trials: 2
 
 export const createStrikeCases = perContext((context: GameContext) => {
   const { treeObeys, controllers: CONTROLLERS, minds: MINDS } = context.catalog;
-  const mindFaults = contextMindFaults.bind(undefined, context);
+  const mindFaults = mindFaultsOf(context);
   const { opponentOf, DRILL_OPPONENTS } = createDrillOpponents(context);
 
   /** The right side's seat where its opponent is a preset a person may pick (`opponentOf`): its character as the preset gives it; none for a drill opponent. */

@@ -14,7 +14,7 @@ import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject }
 import { readCover, type CoverReading } from "./read.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { between } from "../twin.ts";
-import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
+import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 
 /** What the subject holds in its right hand: nothing, a club or a sword. */
 type CoverHeld = "empty" | "club" | "sword";
@@ -57,7 +57,7 @@ const STANDING = deepFreeze({ kind: "stand" });
 
 export const createCoverCases = perContext((context: GameContext) => {
   const { treeObeys, controllers: CONTROLLERS } = context.catalog;
-  const mindFaults = contextMindFaults.bind(undefined, context);
+  const mindFaults = mindFaultsOf(context);
   const { opponentOf } = createDrillOpponents(context);
 
   /** Why `value` is no subject, or what keeps its mind from `model` holding `loadout` (`mindFaults`). */

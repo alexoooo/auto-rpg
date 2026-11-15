@@ -32,7 +32,7 @@ import { LEVELS } from "../../game/dungeon/run.ts";
 import { CRYPT_CAP, floorRows, type BuiltCrypt, type CryptCase, type CryptLayout, type CryptLeg, type CryptReading } from "../crypt.ts";
 import type { Cases, Json, Reader, Subject } from "../evaluation.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
-import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
+import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 
 /** The situations, in their order. */
 const SITUATIONS = ["reversal", "lone", "following", "crossing", "passage", "fallen"] as const;
@@ -180,7 +180,7 @@ const readCrypt = (built: BuiltCrypt): Reader<CryptReading> =>
 export const createCrowdCases = perContext((context: GameContext) => {
   const { defaultMind } = context;
   const { controllers: CONTROLLERS } = context.catalog;
-  const mindFaults = contextMindFaults.bind(undefined, context);
+  const mindFaults = mindFaultsOf(context);
 
   /** Why `value` is no mind, or what keeps it from the member's body holding what its model holds (`mindFaults`). */
   function faultsOf(value: Json, subject?: Subject): readonly string[] {

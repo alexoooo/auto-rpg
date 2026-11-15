@@ -19,7 +19,7 @@ import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject }
 
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { createDrillOpponents } from "../drill-opponents.ts";
-import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
+import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 
 /**
@@ -46,7 +46,7 @@ export type CourtReading = { readonly arrived: number | null; readonly contactSt
 
 export const createCourtCases = perContext((context: GameContext) => {
   const { controllers: CONTROLLERS } = context.catalog;
-  const mindFaults = contextMindFaults.bind(undefined, context);
+  const mindFaults = mindFaultsOf(context);
   const { MOVES, STANDS } = createDrillOpponents(context);
 
   /** Why `value` is no mind, or what keeps it from sword and buckler on `model` (`mindFaults`). */

@@ -15,7 +15,7 @@ import type { HumanoidModel } from "../../core/bodies/models.ts";
 import { FALL_AFTER, FALL_CAP, fallCases, type BuiltFall, type FallReading } from "../fall.ts";
 import type { Cases, Json } from "../evaluation.ts";
 import { FRESH_OFFSET, risingJobs } from "../rising.ts";
-import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
+import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 
 /** One of the target's falls. */
 export type TargetCondition = {
@@ -28,7 +28,7 @@ const targetFalls = (offset: number): TargetCondition[] => risingJobs({ target: 
   ({ model: model!, loadout: loadout!, seed, start: start as "shoved", degrees: degrees!, steadiness: steadiness!, grit: grit!, gusts: gusts!, target: true }));
 
 export const createRisingTargetCases = perContext((context: GameContext) => {
-  const mindFaults = contextMindFaults.bind(undefined, context);
+  const mindFaults = mindFaultsOf(context);
 
   /** `conditions` risen by a riser on its own character, refused where its mind does not fit the body holding the fall's loadout. */
   function targetCases(play: Json, conditions: readonly TargetCondition[]): Cases<TargetCondition, FallReading, BuiltFall> {

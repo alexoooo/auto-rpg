@@ -14,7 +14,7 @@ import type { Loadout } from "../../core/bodies/items/held.ts";
 import type { HumanoidModel } from "../../core/bodies/models.ts";
 import { isRefused } from "../../core/refusal.ts";
 import type { GroundLevel } from "../../game/lab/ground-environment.ts";
-import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
+import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 import type { TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { mindOf, seatBody, seatCharacter, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { FALL_AFTER, FALL_CAP, fallCases, readFall, type BuiltFall, type FallReading } from "../fall.ts";
@@ -46,7 +46,7 @@ const wayUpFalls = (offset: number): WayUpCondition[] => [...risingJobs({ target
       target: Boolean(target), obstacle: Boolean(obstacle) }));
 
 export const createWayUpCases = perContext((context: GameContext) => {
-  const mindFaults = contextMindFaults.bind(undefined, context);
+  const mindFaults = mindFaultsOf(context);
   const parts = context.catalog.partLookup;
 
   /** Why a way-up subject cannot rise on `condition`'s body holding its loadout: its way up does not fit it, or its mind does not. */

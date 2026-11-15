@@ -13,7 +13,7 @@ import type { BodyModel } from "../../core/bodies/models.ts";
 import { readBout, type BoutReading } from "../contest.ts";
 import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
-import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
+import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
 
 /**
@@ -42,7 +42,7 @@ export type MatchCondition = { readonly left: BodyModel; readonly right: BodyMod
 
 export const createMatchCases = perContext((context: GameContext) => {
   const { controllers: CONTROLLERS } = context.catalog;
-  const mindFaults = contextMindFaults.bind(undefined, context);
+  const mindFaults = mindFaultsOf(context);
 
   /** Both minds occupy both bodies in a complete pair; each body must fit and allow its named calibration. */
   function faultsOf(value: Json, condition: MatchCondition, subject?: Subject): readonly string[] {

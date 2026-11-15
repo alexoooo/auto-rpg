@@ -27,9 +27,29 @@ export function perContext<T>(make: (context: GameContext) => T): (context: Game
 }
 
 /** Why a mind cannot run on this body or satisfy the scenario's entry rules. */
-export function mindFaults(context: GameContext, config: MindConfig, spec: BodySpec, { entry = [] }: { readonly entry?: readonly EntryRule[] } = {}): readonly string[] {
+function mindFaults(context: GameContext, config: MindConfig, spec: BodySpec, { entry = [] }: { readonly entry?: readonly EntryRule[] } = {}): readonly string[] {
   const faults = context.catalog.treeFaults(config);
   if (faults.length > 0) return faults;
   const refused = context.catalog.stageRefusal(spec, config, entry);
   return refused === null ? faults : [`the mind cannot play this body: ${refused}`];
 }
+
+/**
+ * `mindFaults` for a context, each answer kept by the mind's config, the body's spec and the entry
+ * rules: a list of cases asks the same mind of the same body once a condition. For callers whose
+ * configs and specs are never changed in place.
+ */
+export const mindFaultsOf = perContext((context) => {
+  const kept = new WeakMap<MindConfig, WeakMap<BodySpec, Map<string, readonly string[]>>>();
+  return (config: MindConfig, spec: BodySpec, { entry = [] }: { readonly entry?: readonly EntryRule[] } = {}): readonly string[] => {
+    if (typeof config !== "object" || config === null) return mindFaults(context, config, spec, { entry });
+    let bySpec = kept.get(config);
+    if (!bySpec) kept.set(config, bySpec = new WeakMap());
+    let byEntry = bySpec.get(spec);
+    if (!byEntry) bySpec.set(spec, byEntry = new Map());
+    const rules = entry.join(" ");
+    let faults = byEntry.get(rules);
+    if (!faults) byEntry.set(rules, faults = mindFaults(context, config, spec, { entry }));
+    return faults;
+  };
+});

@@ -34,7 +34,7 @@ import { FIGHT_ENTRY, describeMind } from "../../minds/catalog/catalog.ts";
 import { createLocomotionCases, type LocomotionCondition } from "../locomotion/cases.ts";
 import { createRisingTargetCases, type TargetCondition } from "../rising-target/cases.ts";
 import { createStrikeCases, type StillCondition, type StrikeSubject } from "../strike/cases.ts";
-import { type GameContext, mindFaults as contextMindFaults, perContext } from "../../game/arena/context.ts";
+import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 
 /** The body every competence is read on. */
@@ -75,7 +75,7 @@ const FIGHTS = deepFreeze({ loadouts: REPRESENTATIVE, gaps: [3, 4, 5], capSecond
 
 export const createBaselineCases = perContext((context: GameContext) => {
   const { minds: MINDS } = context.catalog;
-  const mindFaults = contextMindFaults.bind(undefined, context);
+  const mindFaults = mindFaultsOf(context);
   const { LOCOMOTION_CASES } = createLocomotionCases(context);
   const { RISING_TARGET_CASES } = createRisingTargetCases(context);
   const { STRIKE_CASES } = createStrikeCases(context);
