@@ -289,12 +289,23 @@ deleted.
   deeper one, a middle mode for targets up to 4 cm past the arm (the drive's own turn and lean,
   the arm at 0.10 s: 0.74 to 0.78 m fell short, 0.01 to 0.11 hp). Between 0.65 and 0.90 m the
   stroke lands 13 of 22 at 0.5 hp, a median 0.63; against the guard 9 of 21, 0.40.
-- **Why fast and heavy do not meet in the arm.** A freedom holds through a blow with its muscles'
-  strength at its own speed (`MuscleDriver.bounds`, `strengthAt`: Hill's force and velocity), so
-  an elbow extending at 30 rad/s holds almost nothing and the fist meets the target with the hand
-  and forearm alone; the arm is heavy only where it is nearly still. The best blows land late in
-  the extension, the elbow bent 30 to 50 degrees, slowing and holding while the fist still runs 6
-  to 7 m/s: 0.8 to 1.5 hp. Bent 60 to 75 degrees (the shoulder brought too near), under 3 kg and
+- **Why fast and heavy do not meet in the arm.** A freedom holds through a blow with the ceilings
+  its muscles had the step before (`holdsOf`, `MuscleDriver.bounds`). Under the world's symmetric
+  law, the game's and the drills', both ceilings are the strength of the side the motor was asked
+  toward, at the freedom's speed (Hill's force and velocity), so what holds the elbow is which way
+  its motor was pushing at that step, not how fast it ran. The stroke asks the elbow for 40 rad/s
+  of extension: run past that (the motor braking, its flexors lengthening) it holds about 104 N m
+  either way; short of it (the motor still driving, its extensors shortening) about 10. Traced at
+  one range, two blows 5 mm apart: the elbow at 41 rad/s held 104 N m, 8.9 kg behind the fist,
+  1.54 hp; at 30 rad/s, 11 N m, 1.7 kg, 0.16 hp. On the dense sweep (`HOLDS` in `strike-bouts`),
+  the 32 blows whose elbow held over 50 N m: 25 at 0.5 hp, a median 0.77, 20 kg; the 72 held under
+  it: 20 at 0.5 hp, a median 0.33, 2.6 kg, the fist as fast or faster (5.3 against 4.4 m/s). Under
+  the directional law the elbow's hold against a blow pressing it bent is its extensors' own,
+  about 7 N m, at either speed: the heavy fast blows are the symmetric law's, the braking side's
+  ceiling held both ways (`driver.ts` calls that law a comparison control). Whether the stroke
+  should time its elbow to brake at the touch, or the law change, is the owner's to decide; neither
+  is done. The best blows land late in the extension, the elbow bent 30 to 50 degrees, slowing
+  and holding while the fist still runs 6 to 7 m/s: 0.8 to 1.5 hp. Bent 60 to 75 degrees (the shoulder brought too near), under 3 kg and
   0.3 to 0.6 hp; under 22 degrees, the fist past its peak, about 0.3 hp. Hence each regime's 10 cm.
   Read nothing on the sweep's share (13 of 22): the fist steered more loosely (its pose solved
   0.4 to 0.8 m ahead, the arm's freedoms to 100 rad/s: the fist no faster, 6 to 7 m/s, the arm's
@@ -335,7 +346,7 @@ deleted.
 | 1. Watch it, one bout | bout read, gate passed; the owner's look to come |
 | 2. Its own record | done: step 1's bouts replay to the bit, the fingerprint moves no pose |
 | 3. Timing and the walk, before the blow | built (`onStep`, `deeper`, `Window.through`); the layout waits on step 4 |
-| 4. The weight check | why it grazes is found (the fist ends short); no leg carries the body in; `moving`'s own stroke, the trunk first where the arm does not reach: blows of 0.5 hp from 0.62 to 0.87 m, the strict band 4 cm (the owner's number, 15 to 20 cm wanted); no bouts or Mind work until it is met |
+| 4. The weight check | why it grazes is found (the fist ends short); no leg carries the body in; `moving`'s own stroke, the trunk first where the arm does not reach: blows of 0.5 hp from 0.62 to 0.87 m, the strict band 4 cm (the owner's number, 15 to 20 cm wanted); no bouts or Mind work until it is met; why one range gives anything is found (the elbow's hold is which way its motor pushed the step before the touch), the choice put to the owner |
 | 5. Train it | not begun |
 | 6. The bout and the owner's eye | not begun |
 | 7. Land | not begun |

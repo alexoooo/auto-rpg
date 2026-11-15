@@ -158,7 +158,16 @@ if (isMainThread) {
         for (; heard < duel.blows.length; heard++) {
           const blow = duel.blows[heard];
           for (const s of SIDES) for (const part of blow.sides)
-            if (part.fighter === duel.duelists[s].id && part.segment.startsWith("hand.")) arms.set(blow, armAt(duel.duelists[s].body, part.segment, blow.normal));
+            if (part.fighter === duel.duelists[s].id && part.segment.startsWith("hand.")) {
+              const shape = armAt(duel.duelists[s].body, part.segment, blow.normal);
+              // With HOLDS, each freedom of the striking arm and the trunk as the blow's step left it: its speed, rad/s, and its muscles' ceilings either way, N m (`bounds`).
+              if (process.env.HOLDS) {
+                const m = duel.duelists[s].body.muscles, hand = part.segment.slice(5);
+                shape.holds = m.channels.flatMap((c, i) => c.name.includes(`.${hand} `) && /^(shoulder|elbow|wrist)/.test(c.name) || /^(thoracic|lumbar) /.test(c.name)
+                  ? [[c.name, +m.speed(i).toFixed(1), +m.bounds.negative[i].toFixed(0), +m.bounds.positive[i].toFixed(0), +m.strength(i, -1).toFixed(0), +m.strength(i, 1).toFixed(0)]] : []);
+              }
+              arms.set(blow, shape);
+            }
         }
         for (const side of SIDES) {
           const t = track[side], me = duel.duelists[side], report = me.minded.skills.report;
