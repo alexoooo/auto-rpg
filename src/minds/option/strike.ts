@@ -140,14 +140,16 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   /**
    * What its entry reads of its limbs at the target the situation names (`targetOf`), once a step
    * for each focus: the chooser weighs every foe's situation in a step, each with its own focus.
+   * It is kept against the body's reading of that step (`StepReading`), so it is no state: a time
+   * comes round again in a bout put back to a save, and what was read at it before is stale.
    */
-  const offers = new Map<string | null, { time: number; target: TargetRef | null; ready: Limb | null; placed: Limb | null }>();
+  const offers = new Map<string | null, { stamp: number; time: number; target: TargetRef | null; ready: Limb | null; placed: Limb | null }>();
   const offer = (now: Situation) => {
-    const focus = now.focus?.id ?? null;
+    const focus = now.focus?.id ?? null, stamp = now.sight.view.reading.stamp;
     let offered = offers.get(focus);
-    if (!offered) offers.set(focus, offered = { time: NaN, target: null, ready: null, placed: null });
-    if (offered.time === now.time) return offered;
-    offered.time = now.time; offered.target = targetOf(now);
+    if (!offered) offers.set(focus, offered = { stamp: -1, time: NaN, target: null, ready: null, placed: null });
+    if (offered.stamp === stamp && offered.time === now.time) return offered;
+    offered.stamp = stamp; offered.time = now.time; offered.target = targetOf(now);
     const scanned = offered.target === null ? { ready: null, placed: null } : scan(now, offered.target);
     offered.ready = scanned.ready; offered.placed = scanned.placed;
     return offered;

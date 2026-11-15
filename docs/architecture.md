@@ -806,7 +806,10 @@ the bit in Node and in the page (`buildBout`, `src/evaluation/bout.ts`).
   is the loading bout's own: its settings are that bout's, and its memory is the save's where it
   is built as the save's was, so a strike under a research tuning, steered or not, carries on from
   a save its record's own made. What the save's mind had decided and not yet done (the orders and
-  commands on their way) is done as decided. A save carries the shape each
+  commands on their way) is done as decided. A bout put back to a save of its own plays on as it
+  did from there before: what a part keeps outside its state it keeps against the body's reading
+  of the step (`StepReading`), which no load brings round again, never against the time alone.
+  A save carries the shape each
   part of the bout's memory was built in (`shapesOf`, `stateShape`): each side's mind's, its
   body's and its pool's, the world's, the senses', the blow watch's, the Commanders' and the
   bout's own. A part this code builds otherwise refuses the save, named with the build it was

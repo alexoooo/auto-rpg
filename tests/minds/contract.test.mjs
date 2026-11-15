@@ -214,6 +214,22 @@ test("a bout's save loads under another tuning of its striker's punch, and plays
   } finally { original.dispose(); under.dispose(); fresh.dispose(); elsewhere.dispose(); }
 });
 
+test("a bout put back to its own save plays on as it did from there before", async () => {
+  const cases = EVALUATIONS.strike.protocols.fights, [subject] = EVALUATIONS.strike.subjects(["option/straight-punch"]);
+  const condition = cases.conditions.find((one) => one.model === "man" && one.mark === "middle" && one.hand === "left" && one.moment === 1 && one.gap === 3);
+  const world = cases.world([subject.value], condition, cases.engine ?? DEFAULT_ENGINE, [subject]), bout = await BOUT_WORLD.build(world, {});
+  try {
+    BOUT_WORLD.start(bout, world);
+    const saved = bout.duel.save();
+    bout.world.step(2);
+    const straight = bout.duel.save();
+    bout.world.step(2);
+    assert.deepEqual(bout.duel.load(saved), []);
+    bout.world.step(2);
+    assert.deepEqual(bout.duel.save(), straight);
+  } finally { bout.dispose(); }
+});
+
 
 test("a bout whose minds' menus are read every step plays as it does unread", async () => {
   const recipe = { ...recipeOf("?matchup=man,man&control=option,option&left.loadout=empty,sword&right.loadout=empty,sword", { left: {}, right: {} }, "open"), capSeconds: 4 };
