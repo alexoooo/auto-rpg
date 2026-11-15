@@ -927,11 +927,11 @@ renderer, character assets and gameplay resources for the screen's lifetime.
   Arena and Dungeon share flame volumes (`fire.ts`), navigation paths (`movement-routes.ts`) and
   pointer-coordinate conversion (`picking.ts`).
   Contact wounds become worker damage cues (`damage-cues.ts`) whenever a blow takes life. Arena,
-  crowd fights and Crypt draw the same brief contact burst (`damage-flashes.ts`), refreshing each
-  struck part's flash on repeated damage and fading on the displayed frame clock. Crypt sends
-  cues only for contacts in sight.
-  Floating numbers show actual HP lost, accumulating repeated wounds to the same part while the
-  number remains visible; positive losses below a tenth display as `<0.1`.
+  crowd fights and Crypt share contact effects (`damage-flashes.ts`), refreshing each struck part's
+  marker on repeated damage and fading on the displayed frame clock. Crypt sends cues only for
+  contacts in sight. Wounds to the same fighter and part accumulate until a 0.7-second gap between
+  contacts. A total below 0.1 HP draws a tiny pale-gold spark; at 0.1 HP it becomes a brighter
+  burst with a floating number showing the accumulated HP lost.
   While the Arena's end rules drain life, red screen edges pulse on the bout's clock, both health
   bars glow; the cue clears at the verdict or when leaving the bout.
 - **Player input** (`src/app/browser/ui/player-controls.ts`): Arena and Dungeon share click and held-pointer
