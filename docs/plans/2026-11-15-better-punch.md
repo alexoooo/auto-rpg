@@ -104,12 +104,13 @@ No code. Minutes.
 
 Code. Hours.
 
-- **`straight-punch/moving`, registered**: `moving.json` holding today's punch exactly (`drive`'s
-  settings with `MOVING` over them, `drive`'s network as its start), its meta and loader.
+- **`straight-punch/moving`, registered**: `moving.json` holding today's punch exactly, each
+  body's (`drive`'s settings with no hip turn and no wait for a quiet stance, its schedule
+  without the legs' pushes it never threw, `drive`'s network as its start), its meta and loader.
   `moving` reads it, not `drive`'s.
-- **The tools take the variation**: the exporter (`punch-export.mjs`), the trainer's mind
-  (`presetMind`, `research/case-learning-environment.mjs`), so that training writes `moving`'s
-  record and never `drive`'s.
+- **The tools take the variation**: the trainer already does (an environment's `character` is a
+  seat, `{ "variations": ["straight-punch/moving"] }`); the exporter writes `moving`'s record with
+  `--out`, and takes a network alone with step 3's layout.
 - **Checks**: the fingerprint is unchanged (the punch is the same numbers); asking for the
   table's saved rows plays nothing (a stale row is read, the owner's first obstacle).
 
@@ -206,7 +207,7 @@ deleted.
 | Step | State |
 | --- | --- |
 | 1. Watch it, one bout | bout read, gate passed; the owner's look to come |
-| 2. Its own record | not begun |
+| 2. Its own record | done: step 1's bouts replay to the bit, the fingerprint moves no pose |
 | 3. Timing and the walk, before the blow | not begun |
 | 4. The weight check | not begun |
 | 5. Train it | not begun |

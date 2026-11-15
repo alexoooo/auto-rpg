@@ -1,7 +1,8 @@
 import { bodyRecords } from "../../../framework/records.ts";
 import type { DataLoaders } from "../../../../core/data/store.ts";
 
-/** The straight punch's per-body settings and networks, each record registered as its variation's (`straight-punch/<variation>`): the drive's. */
+/** The straight punch's per-body settings and networks, each record registered as its variation's (`straight-punch/<variation>`). */
 export const STRAIGHT_PUNCH_DATA = {
   "straight-punch/drive": bodyRecords(() => import("./drive.ts").then((m) => m.STRAIGHT_PUNCH_RECORDS)),
+  "straight-punch/moving": bodyRecords(() => import("./moving.ts").then((m) => m.MOVING_PUNCH_RECORDS)),
 } satisfies DataLoaders;
