@@ -14,6 +14,7 @@ import type { AttributeOverrides } from "../../core/bodies/character-attributes.
 import { EMPTY_LOADOUT, withLoadout, type Loadout } from "../../core/bodies/items/held.ts";
 import { combatantRecordingIdentity, enlist, type Combatant } from "../combatant.ts";
 import type { SheetLog } from "../../minds/seat/sheets.ts";
+import type { BodyMemory } from "../../minds/seat/physical-body.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
 import { isOrders, sameOrders, type Orders } from "../../minds/orders.ts";
 import { createSenses, type SensesHub } from "../../core/world/senses.ts";
@@ -25,7 +26,7 @@ import { reactionSteps, rulebook, type Rulebook, type RulebookOverride } from ".
 import type { BodySpec, SkillChoices } from "../../core/bodies/spec/body.ts";
 import { derive, type Vec3 } from "../../core/quantity.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
-import { loadState, saveState, type Saved } from "../../core/state.ts";
+import { loadState, saveState, stateShape, type Saved } from "../../core/state.ts";
 import type { World } from "../../core/world/world.ts";
 import { sensedBounds } from "../../skills/locomotion/shared/navigation/sensed-bounds.ts";
 import { arenaSolids } from "./solids.ts";
@@ -226,12 +227,19 @@ interface OrdersRecording {
 const loadoutIn = (recipe: DuelRecipe, side: Side): Loadout =>
   recipe.loadouts?.[side] ?? (recipe.minds?.[side] ? EMPTY_LOADOUT : modelLoadout(recipe[side]));
 
-/** A bout at a step, whole: whose bout it is, the physics' bytes and every module's memory. Plain data. */
+/** The protocol of a bout's save (`DuelSave`). */
+const SAVE_PROTOCOL = "arena-save/2";
+
+/**
+ * A bout at a step, whole: whose bout it is, the physics' bytes, every module's memory and the
+ * shape each part of that memory was built in (`shapesOf`). Plain data.
+ */
 interface DuelSave {
   readonly identity: RecordingIdentity;
   readonly recipe: DuelRecipe;
   readonly physics: Uint8Array;
   readonly state: Saved;
+  readonly shapes: Readonly<Record<string, string>>;
 }
 
 /**
@@ -261,10 +269,38 @@ interface DuelState {
 }
 
 interface SideState {
-  readonly body: object;
+  readonly body: BodyMemory;
   /** Its mind's memory above its body's (`Minded.state`). */
   readonly mind: object;
   readonly pool: object;
+}
+
+/** A side's mind's memory: above its body's (`SideState.mind`) and within it (the body's `mind`). */
+const mindMemory = (side: SideState): readonly object[] => [side.mind, side.body.mind];
+
+/** The name of `side`'s mind's memory among a bout's parts (`shapesOf`). */
+const mindPart = (side: Side): string => `${side}'s mind`;
+
+/**
+ * **The shape each part of a bout's memory is built in** (`stateShape`), by the part's name: each
+ * side's mind's (`mindMemory`), its body's without it and its pool's, the world's, the senses', the
+ * blow watch's, the Commanders' and the bout's own slots. A save carries them (`DuelSave.shapes`)
+ * and loads part by part (`Duel.load`).
+ */
+function shapesOf(state: DuelState): Readonly<Record<string, string>> {
+  const { world, senses, watch, left, right, commanders } = state;
+  const shapes: Record<string, string> = {
+    "the bout": stateShape(state, [world, senses, watch, left, right, ...(commanders ? [commanders] : [])]),
+    "the world": stateShape(world), "the senses": stateShape(senses), "the blow watch": stateShape(watch),
+    ...(commanders ? { "the Commanders": stateShape(commanders) } : {}),
+  };
+  for (const side of SIDES) {
+    const memory = mindMemory(state[side]);
+    shapes[`${side}'s body`] = stateShape(state[side].body, memory);
+    shapes[`${side}'s pool`] = stateShape(state[side].pool);
+    shapes[mindPart(side)] = stateShape(memory);
+  }
+  return Object.freeze(shapes);
 }
 
 /** What a page hears of a bout. */
@@ -297,6 +333,8 @@ export class Duel {
   private readonly watch: BlowWatch;
   private readonly judging: Hook;
   private readonly identity: RecordingIdentity;
+  /** The shape each part of its memory was built in (`shapesOf`). */
+  private readonly shapes: Readonly<Record<string, string>>;
   /** The teams of one the recipe's Commanders lead (`DuelRecipe.commanders`), by side. */
   private readonly teams: Readonly<Partial<Record<Side, TeamOfOne>>>;
   /** What carries the recipe's rail, where it names one. */
@@ -414,6 +452,7 @@ export class Duel {
       ...(led.length ? { commanders: Object.fromEntries(led.map(([side, team]) => [side, team.state])) } : {}),
       ...(recipe.shove ? { shove: { at: null } } : {}),
     };
+    this.shapes = shapesOf(this.state);
     this.judging = lifetime.own(world.afterStep(() => this.judge()));
     this.rail = lifetime.own(recipe.rail ? carryOnRail(world, duelists[recipe.rail.side].built, recipe.rail, () => this.clock) : null);
     this.shoving = lifetime.own(recipe.shove ? shoveOnCue(world, duelists[recipe.shove.side].built, recipe.shove, this.state.shove!, () => this.clock) : null);
@@ -466,20 +505,29 @@ export class Duel {
   }
 
   /** The bout as the last step left it: what `load` puts back, here or in any bout of this recipe. */
-  save(): DuelSave { return { identity: { ...this.identity, protocol: "arena-save/1" }, recipe: this.recipe, physics: this.world.physics.save(), state: saveState(this.state) }; }
+  save(): DuelSave { return { identity: { ...this.identity, protocol: SAVE_PROTOCOL }, recipe: this.recipe, physics: this.world.physics.save(), state: saveState(this.state), shapes: this.shapes }; }
 
   /**
    * Put the bout where `saved` left one of this recipe: the next step is the step that followed
-   * the save. The page's hooks hear nothing of it.
+   * the save. The page's hooks hear nothing of it. A save loads on whatever build made it, part by
+   * part (`shapesOf`): a part whose memory this code builds otherwise refuses the save, named, but
+   * for a mind's, which stays as built and starts fresh from the saved bodies; that takes a bout
+   * that has not stepped. The sides whose minds started fresh are returned.
    */
-  load(saved: DuelSave): void {
+  load(saved: DuelSave): readonly Side[] {
     // Two bouts of different bodies can have worlds of the same counts, which the physics would take.
     if (recipeKey(saved.recipe) !== recipeKey(this.recipe)) throw new Error("that save is of another bout's recipe");
-    requireRecordingIdentity(saved.identity, { ...this.identity, protocol: "arena-save/1" });
+    const build = requireRecordingIdentity(saved.identity, { ...this.identity, protocol: SAVE_PROTOCOL });
+    const fresh = SIDES.filter((side) => saved.shapes[mindPart(side)] !== this.shapes[mindPart(side)]), minds = fresh.map(mindPart);
+    const otherwise = Object.keys(this.shapes).find((part) => saved.shapes[part] !== this.shapes[part] && !minds.includes(part));
+    if (otherwise !== undefined) throw new Error(`that save's memory of ${otherwise} is built otherwise by this code; it was saved on ${build}`);
+    if (fresh.length > 0 && this.steps > 0)
+      throw new Error(`that save's memory of ${minds.join(" and ")} is built otherwise by this code; a bout that has not stepped loads it, the mind starting fresh`);
     this.world.physics.load(saved.physics);
-    loadState(this.state, saved.state);
+    loadState(this.state, saved.state, fresh.flatMap((side) => mindMemory(this.state[side])));
     this.senses.show();
     this.world.loaded();
+    return fresh;
   }
 
   /** Step the world until the verdict, or `seconds` more; returns the verdict, if there is one. */

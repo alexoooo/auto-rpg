@@ -10,7 +10,7 @@ import type { Catalog } from "../catalog/catalog.ts";
 import { bodyHost } from "./host.ts";
 import { mirrorDriven, type Embodying } from "./embodiment.ts";
 import { isMindPlace, saidNow, type At, type MindPlace, type MindRecipe, type SaidReport, type Seat } from "./apart.ts";
-import { physicalBody, type HeldReading, type PhysicalBody } from "./physical-body.ts";
+import { physicalBody, type BodyMemory, type HeldReading, type PhysicalBody } from "./physical-body.ts";
 import type { Orders } from "../orders.ts";
 import type { Senses } from "../../core/bodies/senses.ts";
 import type { SheetLog } from "./sheets.ts";
@@ -108,7 +108,7 @@ interface EmbodiedApart {
   /** What its mind publishes, as it said it with its last answer, its menu asked for when read (`MindReport`). */
   readonly report: MindReport;
   /** The body's memory: what is kept here, the mind's kept where it runs. */
-  readonly state: object;
+  readonly state: BodyMemory;
   dispose(): void;
 }
 

@@ -72,14 +72,55 @@ export function saveState(root: object): Saved {
 }
 
 /**
+ * **The shape of the state under `root`**, 16 hex digits: each record's keys, each container's
+ * kind and length, each value's kind and where two slots hold one object; never a value. A state's
+ * shape moves as it is stepped (a slot filled, a list grown), so two states are compared as built:
+ * of one shape there, their code keeps the same memory, and a save of one fits the other. What
+ * hangs on an object of `except` is left out.
+ */
+export function stateShape(root: object, except: readonly object[] = []): string {
+  let a = 0x811c9dc5, b = 0x9e3779b9;
+  const put = (text: string): void => {
+    for (let i = 0; i < text.length; i++) { const code = text.charCodeAt(i); a = Math.imul(a ^ code, 0x01000193); b = Math.imul(b ^ code, 0x85ebca6b) + 0x9e3779b9 | 0; }
+    a = Math.imul(a ^ 0x1f, 0x01000193);
+  };
+  const seen = new Map<object, number>(), out = new Set(except);
+  const walk = (value: unknown): void => {
+    if (value === null || typeof value !== "object") { put(value === null ? "null" : typeof value); return; }
+    if (out.has(value)) { put("out"); return; }
+    const met = seen.get(value);
+    if (met !== undefined) { put(`@${met}`); return; }
+    seen.set(value, seen.size);
+    if (value instanceof Vector3) put("vector");
+    else if (value instanceof Quaternion) put("turn");
+    else if (isTyped(value)) put(`${value.constructor.name}${value.length}`);
+    else if (Array.isArray(value)) { put(`[${value.length}`); for (const item of value) walk(item); }
+    else if (value instanceof Map) { put(`map${value.size}`); for (const [key, item] of value) { put(String(key)); walk(item); } }
+    else if (value instanceof Set) { put(`set${value.size}`); for (const key of value) put(String(key)); }
+    else {
+      const keys = Object.keys(value).sort();
+      put(`{${keys.length}`);
+      for (const key of keys) { put(key); walk((value as Record<string, unknown>)[key]); }
+    }
+  };
+  walk(root);
+  return (a >>> 0).toString(16).padStart(8, "0") + (b >>> 0).toString(16).padStart(8, "0");
+}
+
+/**
  * Put `saved` (a `saveState`) into the state under `live`, in place: an object of `live`'s that
  * is of the saved one's kind, not frozen and not already filled is filled, and any other slot is
- * given a new one; two slots that shared an object at the save share one after.
+ * given a new one; two slots that shared an object at the save share one after. An object of
+ * `kept` stays as it is, whatever was saved in its slot: a part of the state that does not load.
  */
-export function loadState(live: object, saved: Saved): void {
-  const made = new Map<object, unknown>(), filled = new Set<object>();
+export function loadState(live: object, saved: Saved, kept: readonly object[] = []): void {
+  const made = new Map<object, unknown>(), filled = new Set<object>(), stays = new Set(kept);
   const usable = (was: unknown): was is object => typeof was === "object" && was !== null && !filled.has(was) && !Object.isFrozen(was);
   const fill = (was: unknown, value: unknown): unknown => {
+    if (typeof was === "object" && was !== null && stays.has(was)) {
+      if (typeof value === "object" && value !== null) made.set(value, was);
+      return was;
+    }
     if (value === null || typeof value !== "object") return value;
     if (made.has(value)) return made.get(value);
     const keep = <T extends object>(out: T): T => { made.set(value, out); filled.add(out); return out; };

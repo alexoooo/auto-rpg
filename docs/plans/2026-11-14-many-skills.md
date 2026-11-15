@@ -321,14 +321,14 @@ Part 2's search starts from the per-span form with its asks fitted
   each play about 3,500 decisions' worth of steps a second, by arithmetic: about a fifteenth of
   them are the trainer's. How the rest divides among the walk in, the play on, the foe's mind
   and the learner's update is unread.
-- **A bout's save loads into the bout that made it.** `Duel.save` gives the physics and every
-  module's memory, and `Duel.load` puts them into a bout of the same recipe on the same build
-  (`recipeKey`, `src/game/arena/duel.ts`; `requireRecordingIdentity`,
-  `src/core/world/recording.ts`). A recipe holds each side's mind, skills and Commander
-  (`DuelRecipe.minds`, `skills`, `commanders`). So a save refuses a bout whose striker runs a
-  tuning or another variation, one whose drill Commander asks another limb or another moment
-  (`striker`, `src/evaluation/strike/cases.ts`), and a build of another commit or of uncommitted
-  work. A network file that answers the steer's requests as a trainer does plays one recipe
+- **A bout's save loads into a bout of its recipe, on whatever build made it.** `Duel.save`
+  gives the physics and every module's memory, and `Duel.load` puts them into a bout of the same
+  recipe (`recipeKey`, `src/game/arena/duel.ts`), part by part: a mind whose memory the code
+  builds otherwise now starts fresh from the saved bodies, and any other part built otherwise
+  refuses ([the architecture](../architecture.md#bouts-tapes-and-replay)). A recipe holds each
+  side's mind, skills and Commander (`DuelRecipe.minds`, `skills`, `commanders`). So a save
+  refuses a bout whose striker runs a tuning or another variation, and one whose drill Commander
+  asks another limb or another moment (`striker`, `src/evaluation/strike/cases.ts`). A network file that answers the steer's requests as a trainer does plays one recipe
   whatever its weights: the drive's with `steered` set (`playOne`), which is another recipe than
   the drive itself plays. A fork by a load costs the steps played from it and no more
   (`rollout`, `research/rollouts.mjs`).
@@ -357,8 +357,9 @@ Part 2's search starts from the per-span form with its asks fitted
   gap, limb, moment and draw. It is a state a fight came to, and stays a start whatever changes
   after it. Where it came from is kept on it and gates nothing.
 - **A start loads wherever each part of it fits**
-  ([profiles and saves](2026-11-14-profiles-and-saves.md#the-design)): the bodies, and each
-  module's memory that still has the shape saved. The build is no part of what a load refuses.
+  ([the architecture](../architecture.md#bouts-tapes-and-replay)): the bodies where their memory
+  has the shape saved, and a mind's memory where it has, the mind starting fresh where it has
+  not. The build is no part of what a load refuses.
 - **A start is played again when it is asked**, as a played row is
   ([the code recipe](../recipes/code.md#code)): where there is reason
   to believe the fights the minds make now come to other moments.
@@ -373,7 +374,7 @@ unread.
 - **A start under another striker.** A tuning changes the shape of no memory, so a load that
   takes a save whose recipe differs in the striker's tuning alone serves a search's candidates
   and reads a network file beside the drive itself. A variation of its own loads where a save
-  loads what fits ([profiles and saves](2026-11-14-profiles-and-saves.md#the-design)), and at a
+  loads what fits ([the architecture](../architecture.md#bouts-tapes-and-replay)), and at a
   moment the mind's own action is under way in the striker's memory; where it cannot load, its
   trial is a fight played from its start.
 - **One fight for several starts.** Whether the fight before a moment is the same play
@@ -610,10 +611,10 @@ refactor the fingerprint shows. Two choices reach installed skills:
   start is the per-span fit with its asks' rows fitted. What it makes waits on Part 1 to be
   installed beside the drive, and on a steer that chooses a record's layer by the drive's age.
 - **A stance that knows of a blow waits on a reading that shows a strike needs it.**
-- **The kept starts wait on a save that loads where its parts fit**, the build no part of what
-  it refuses ([profiles and saves](2026-11-14-profiles-and-saves.md#the-design)), and on a load
-  under a striker's tuning to serve a search. Without the second a bank serves a comparison of
-  network files: one beside the installed network as a file, both under the steered recipe. The
+- **The kept starts wait on a load under a striker's tuning** to serve a search: a save loads
+  where its parts fit, the build no part of what it refuses
+  ([the architecture](../architecture.md#bouts-tapes-and-replay)). Without that load a bank
+  serves a comparison of network files: one beside the installed network as a file, both under the steered recipe. The
   larger measure of a fight waits on the kept starts.
 - **Another base waits on Part 2**: until a strike's layout holds no reading of the legs, a base
   other than the stance makes each strike's network a seed to retrain

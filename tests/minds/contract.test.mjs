@@ -170,6 +170,29 @@ test("a fresh bout load restores the whole published Mind report before another 
   } finally { original.dispose(); fork.dispose(); }
 });
 
+test("a bout's save made on another build loads its bodies, and starts fresh a mind whose memory is built otherwise", async () => {
+  const recipe = { ...recipeOf("?matchup=man,man&control=option,option&left.loadout=empty,empty&right.loadout=empty,empty", { left: {}, right: {} }, "open"),
+    commanders: { left: { kind: "drill", after: 0 } } };
+  const original = await buildBout(recipe), fork = await buildBout(recipe), woken = await buildBout(recipe);
+  const report = (bout, side) => structuredClone(reportNow(bout.duel.duelists[side].minded.report));
+  try {
+    const built = report(woken, "left");
+    original.world.step(120);
+    const saved = original.duel.save(), elsewhere = { ...saved, identity: { ...saved.identity, build: `git:${"0".repeat(40)}` } };
+    const otherwise = (part) => ({ ...elsewhere, shapes: { ...elsewhere.shapes, [part]: "built otherwise" } });
+    assert.notDeepEqual(report(original, "left"), built, "the fixture's mind must have left the memory it was built with");
+    assert.deepEqual(fork.duel.load(elsewhere), []);
+    assert.deepEqual(woken.duel.load(otherwise("left's mind")), ["left"]);
+    assert.deepEqual(woken.duel.save().physics, saved.physics);
+    assert.deepEqual(report(woken, "left"), built);
+    assert.deepEqual(report(woken, "right"), report(original, "right"));
+    assert.throws(() => woken.duel.load(otherwise("left's body")), /left's body is built otherwise.*saved on git:0{40}/);
+    original.world.step(60); fork.world.step(60); woken.world.step(60);
+    assert.deepEqual(fork.duel.save(), original.duel.save());
+    assert.throws(() => fork.duel.load(otherwise("left's mind")), /left's mind is built otherwise.*has not stepped/);
+  } finally { original.dispose(); fork.dispose(); woken.dispose(); }
+});
+
 
 test("a bout whose minds' menus are read every step plays as it does unread", async () => {
   const recipe = { ...recipeOf("?matchup=man,man&control=option,option&left.loadout=empty,sword&right.loadout=empty,sword", { left: {}, right: {} }, "open"), capSeconds: 4 };

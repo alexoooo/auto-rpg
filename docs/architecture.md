@@ -801,10 +801,19 @@ the bit in Node and in the page (`buildBout`, `src/evaluation/bout.ts`).
   `GAME_ENDS`). Both on one step is a draw; at the cap the fuller life wins.
 - **Tape** (`Duel.tape`): every order with its step; recipe and tape are the whole bout
   (`Duel.play`). **Order sheets** (`SheetLog`) replay a bout with no mind (`replayedBody`).
-- **Save** (`Duel.save`, `Duel.load`) loads only into a bout of the same recipe and build
-  (`RecordingIdentity`). A build is the commit it was built from (`BUILD_IDENTITY_FORM`); with a
-  build input not committed, a mark no other build shares, made once a process and handed to its
-  workers.
+- **Save** (`Duel.save`, `Duel.load`) loads into a bout of the same recipe and physical conditions
+  (`RecordingIdentity`), on whatever build made it, part by part. A save carries the shape each
+  part of the bout's memory was built in (`shapesOf`, `stateShape`): each side's mind's, its
+  body's and its pool's, the world's, the senses', the blow watch's, the Commanders' and the
+  bout's own. A part this code builds otherwise refuses the save, named with the build it was
+  saved on, and the physics refuses a world built otherwise (`PhysicsWorld.load`). A mind's memory
+  built otherwise is not loaded: the mind stays as built and starts fresh from the saved bodies,
+  in a bout that has not stepped, and `load` returns the sides it did so for. A shape is read as
+  built, so memory that code reshapes only once it has stepped is not told apart.
+- **A recording keeps the build it was made on** and is played by the code that loads it
+  (`requireRecordingIdentity`): its protocol, its recipe and its physical conditions are what
+  refuse it. A build is the commit it was built from (`BUILD_IDENTITY_FORM`); with a build input
+  not committed, a mark no other build shares, made once a process and handed to its workers.
 
 ## Evaluations
 

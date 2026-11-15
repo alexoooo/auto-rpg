@@ -1,25 +1,17 @@
-# Profiles and saves found by the question they answer
+# A character's numbers in a profile's trials
 
-Notes on how the game finds a strike's profile, a bout's save and a recording. Each is found by
-the question it answers, as a played row is
-([the architecture](../architecture.md#evaluations)). No try of a skill waits on them:
-every try reads played rows. A profile is found so
-([the architecture](../architecture.md#minds)); a save and a recording are not, and a
-number a character sets is no coordinate of a trial.
+Notes on how a strike's profile reads a number a character sets. A profile is found by the
+question it answers, as a played row is
+([the architecture](../architecture.md#minds)), and a bout's save loads on whatever build
+made it ([the architecture](../architecture.md#bouts-tapes-and-replay)). A number a
+character sets is no coordinate of a trial. No try of a skill waits on it: every try reads
+played rows.
 
 ## Goal
 
 - **A number a character sets is a condition of a profile's trials.**
-- **A save and a recording load across commits**, each part of them that fits.
-- **A result says where it came from**, so a reader can judge it.
 
 ## Where it stands
-
-Some results are found by the question they answer and reused across every change: a saved
-reading (its subject and protocol, the newest read, `resultOf`, `src/evaluation/results.ts`), a
-skill's record and its network (the body's model, `recordFault`,
-`src/skills/framework/records.ts`), the stance's envelope and calibration (the body's model,
-`assets/skills/locomotion/stance/`), and a profile.
 
 **A profile is found by its question** (`Measured`, `src/skills/framework/profile.ts`): its skill
 and variation as the body's character holds it (`strikeSkill`, `techniqueSkill`), a strike's
@@ -39,15 +31,6 @@ and is read as measured at the defaults: every stored trial began at its bodies'
 trial records none of those numbers. A strike thrown holding what none of its profiles was
 measured holding has no profile, and is priced by its prior.
 
-**Keyed by the build.** The build's identity is the commit checked out, and a mark made anew by
-each run where a build input is uncommitted (`currentBuildIdentity`,
-`scripts/build-identity.mjs`).
-
-| Saved | Where | What a new commit costs |
-| --- | --- | --- |
-| A bout's save and its tape | `Duel` (`requireRecordingIdentity`, `src/core/world/recording.ts`) | the save refuses to load |
-| A body's recorded commands, a mind's replay log | `src/game/combatant.ts`, `src/minds/seat/replay.ts`, `research/bout-pool.mjs` | the recording refuses |
-
 Sparring the Warrior's punch at a Balance of 0.01 per cent, where the assist gives under 0.1 N,
 takes 3.6 times the life it takes at 0 on the same 240 starts, and holds less than half the
 table's value
@@ -55,11 +38,6 @@ table's value
 a reading of fights in which neither mind read a profile at that Balance.
 
 ## The design
-
-| Saved | Found by |
-| --- | --- |
-| A profile, a saved reading, a record, the stance's envelope | as now |
-| A bout's save and its tape | its recipe |
 
 **A number a character sets is a condition of a trial.** A profile's trial records where it
 began: the range, the closing and across velocities and the place in a window (`Start`,
@@ -72,22 +50,12 @@ read at its nearest measured edge (`within`).
 - **A sparring run that draws each trial's levels from a range measures them with the same
   trials**, where a decision needs it.
 
-**A save loads what fits.** A save restores the bodies and the minds' memory. Where a body's parts
-or a mind's memory no longer have the shape saved, that part cannot load: the bodies refuse with
-the part named, and a mind starts fresh. A tape played on other code plays what that code does,
-and says the commit it was recorded on.
-
-**What it would bring.**
-
-- A character's foe models it as measured at its own Balance, haste or scale.
-- A save and a recording load across commits.
+**What it would bring.** A character's foe models it as measured at its own Balance, haste or
+scale.
 
 ## What it would cost what is saved
 
-Nothing is played.
-
-- **The profiles stay as they are**: a trial with no level is one at the defaults.
-- **Saves and recordings made before it load where they fit.**
+Nothing is played. The profiles stay as they are: a trial with no level is one at the defaults.
 
 ## Open
 
@@ -102,14 +70,11 @@ Nothing is played.
 
 ## To pick it up
 
-- **The build's identity**: `scripts/build-identity.mjs`, `src/core/world/recording.ts`.
-- **Profiles**: `src/skills/framework/profile.ts`, `src/minds/option/strike.ts`,
-  `src/minds/option/percepts.ts`, `research/skills/strikes/strike-profiles.mjs`,
-  `research/skills/recovery/edge-profiles.mjs`, `tests/skills/profiles.test.mjs`.
-- **Saves and recordings**: `src/game/arena/duel.ts`, `src/game/combatant.ts`,
-  `src/minds/seat/replay.ts`.
+`src/skills/framework/profile.ts`, `src/minds/option/strike.ts`, `src/minds/option/percepts.ts`,
+`research/skills/strikes/strike-profiles.mjs`, `research/skills/recovery/edge-profiles.mjs`,
+`tests/skills/profiles.test.mjs`.
 
 ## Completion
 
-What lands puts the keys into [the architecture](../architecture.md). These notes are deleted
-once it has landed or been dropped.
+What lands puts a start's coordinates into [the architecture](../architecture.md). These notes
+are deleted once it has landed or been dropped.

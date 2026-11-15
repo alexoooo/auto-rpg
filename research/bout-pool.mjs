@@ -21,7 +21,9 @@ export async function playBouts(jobs, lanes = defaultLanes(), onRow = () => {}) 
     result: ({ result }, _job, id) => {
       const identity = result?.recording?.identity;
       if (typeof identity?.configuration !== "string") throw new Error("bout worker returned no recording identity");
-      requireRecordingIdentity(identity, { build: BUILD_IDENTITY, protocol: ORDERS_PROTOCOL, configuration: identity.configuration });
+      // A recording is taken from any build; a pool's rows are its own build's.
+      if (requireRecordingIdentity(identity, { build: BUILD_IDENTITY, protocol: ORDERS_PROTOCOL, configuration: identity.configuration }) !== BUILD_IDENTITY)
+        throw new Error("a bout worker played on another build than its pool's");
       onRow(result, id);
       return result;
     } });
