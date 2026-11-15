@@ -43,6 +43,14 @@ walk, coordinated with them only indirectly, and trained to punch that way.
 > We shouldn't have any rules that prevent a Mind from doing what it wants, the mind alone should
 > decide the behaviors of the body.
 
+> One number until it is met: on the standing-target sweep, how wide is the range where a clean
+> blow takes at least 0.5 hp? It is 2 cm now. No bouts and no Mind work until it is 15–20 cm and
+> includes where the fighters stand.
+
+The sweep: `strike-bouts.mjs --drill stand`, `moving`'s window opened so it fires where it stands
+(`inside`, `reach` 0.3, `band` 1), start gaps 0.55 to 1.25 m every 1.25 cm; the number is the
+widest run of trunk-apart ranges whose every punch takes 0.5 hp.
+
 Said before: a separate punch "to be able to see v1 vs v2 in a fight"; of the installed one, "it
 kind of looked like dive jumping into the punch but in a very clumsy way which didn't look like a
 serious punch".
@@ -265,7 +273,20 @@ deleted.
   the arm straight short of the target. Read nothing: the chest and waist turned to their stops,
   the arm held until the trunk brought the shoulder near (the lean moves the shoulder nowhere: the
   stance keeps the weight over the feet).
-- **In the bar's bouts the stroke is not yet better.** At the record's window it fires from 0.82
+- **The trunk carries the shoulder in only before the arm is thrown.** Its turn and lean bring the
+  shoulder 0.10 to 0.12 m nearer in 0.14 s (the lean is most of the weight: with none, no blow
+  anywhere takes 0.5 hp). An arm thrown while the trunk turns stalls the turn (the trunk's 49 N m
+  against the throw) and pushes the shoulder back 1 to 5 cm; its fist goes low and ends short. So
+  the stroke decides at the fire: the arm at once where the straight arm reaches, else the trunk
+  first and the arm 0.14 s after. Swept (77 punches): **15 take 0.5 hp, from 0.62 to 0.87 m; in
+  0.67 to 0.87 m, 11 of 18, a median about 0.6 hp; the strict band is 4 cm** (0.83 to 0.87), the
+  dips at 0.72 to 0.74 m (the turned shoulder too near, the elbow bent 64 to 74 degrees, under a
+  kilogram) and 0.78 to 0.82; past 0.88 m none reaches. Read nothing: launching on the shoulder's
+  distance or its closing rate (it launches mid-turn), a turn scaled to the range, no lean or a
+  deeper one. Against `drill-guard` 12 of 42 first touches are the guard's hands and forearms;
+  touches on a guard are driven through (`ContactTarget.guard`), 9 to 12 blows of 0.5 hp, the strict
+  band 7 cm (0.74 to 0.81).
+- **In the bar's bouts the stroke was not better** (read before the trunk went first). At the record's window it fires from 0.82
   to 1.05 m trunk to trunk and ends short (a median 0.25 m), 1 landed of 196; its window set where
   the arm reaches (`inside`, `reach` 0.62, `band` 0.02) it commits 14 in 6.9 bout-minutes, all
   touching, none landed, the elbow bent past 70 degrees at most touches. A window 2 cm wide is a rule
@@ -282,7 +303,7 @@ deleted.
 | 1. Watch it, one bout | bout read, gate passed; the owner's look to come |
 | 2. Its own record | done: step 1's bouts replay to the bit, the fingerprint moves no pose |
 | 3. Timing and the walk, before the blow | built (`onStep`, `deeper`, `Window.through`); the layout waits on step 4 |
-| 4. The weight check | why it grazes is found (the fist ends short); no leg carries the body in; `moving`'s own stroke lands 0.55 to 0.86 hp where the straight arm reaches, not yet in bouts; next: the Mind chooses where to throw it, priced by range |
+| 4. The weight check | why it grazes is found (the fist ends short); no leg carries the body in; `moving`'s own stroke, the trunk first where the arm does not reach: blows of 0.5 hp from 0.62 to 0.87 m, the strict band 4 cm (the owner's number, 15 to 20 cm wanted); no bouts or Mind work until it is met |
 | 5. Train it | not begun |
 | 6. The bout and the owner's eye | not begun |
 | 7. Land | not begun |

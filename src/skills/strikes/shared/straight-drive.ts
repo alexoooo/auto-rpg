@@ -231,6 +231,8 @@ export interface StrokeAt {
   readonly since: number;
   readonly touched: number | null;
   readonly guard: Pose;
+  /** What the stroke keeps from step to step of one commit: empty at its start. */
+  readonly kept: Record<string, number>;
   /**
    * The arm's pose that puts its striking point `out(apart, along)` m from the shoulder on the line
    * to the target (`apart` m from it, the striking point now `along` m along it), the elbow drawn
@@ -519,6 +521,9 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
   technique.read(body.view);
   // With `inside`, the trunk alone stands out ahead, and the foe's guards are not counted.
   const trunk = bodyClearance(body.built.spec), ahead = settings.inside ? () => trunk : bodyAhead(body.built.spec);
+  // What a stroke keeps through one commit, by the live action it is thrown in (`StrokeAt.kept`).
+  const strokeKept = new WeakMap<object, Record<string, number>>();
+  const keptOf = (live: object) => { let kept = strokeKept.get(live); if (!kept) strokeKept.set(live, kept = {}); return kept; };
   const guards = new Map<BodySpec, ReadonlySet<string>>();
   const without = (foe: BodySense | null): ReadonlySet<string> | undefined => {
     if (!settings.inside || !foe) return undefined;
@@ -602,7 +607,9 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
           motion.touching = (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0;
         }
       } else if (live.phase === "commit") {
-        const touching = (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0;
+        // A stroke of its own is touched by the body it is thrown at, not by a guard it drives through.
+        const feedback = view.effectors[live.request.effector]?.feedback, met = feedback?.contact?.target;
+        const touching = (feedback?.impulse ?? 0) > 0 && !(stroke && met?.kind === "body" && met.guard);
         if (touching && !motion.touching && motion.touched === null) motion.touched = view.time;
         motion.touching = touching;
         const over = stroke ? stroke.done(live.time, motion.touched === null ? null : view.time - motion.touched)
@@ -620,7 +627,7 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
       const pushes: MusclePush[] = [];
       const touched = motion.touched === null ? null : view.time - motion.touched;
       let posture = live.phase === "commit" ? stroke
-        ? stroke.drive({ view, hand: live.hand, since: live.time, touched, guard, reach: (out, turned) => technique.reach(view, live.hand, out, turned) }, pushes)
+        ? stroke.drive({ view, hand: live.hand, since: live.time, touched, guard, kept: keptOf(live), reach: (out, turned) => technique.reach(view, live.hand, out, turned) }, pushes)
         : technique.drive(view, live.hand, live.time, pushes, policy)
         : live.phase === "prepare" ? technique.chamber(view, live.hand) ?? guard : guard;
       const aligner = aligners[live.hand], at = faces?.[live.hand] && view.effectors[`hand.${live.hand}`]?.points[faces[live.hand]!.point];

@@ -177,7 +177,9 @@ if (isMainThread) {
                 (attempt.trace ??= []).push([+(duel.clock - attempt.commit).toFixed(3), +speed.toFixed(2),
                   ...Object.keys(angles).filter((name) => name.includes(`.${hand} `) && /^(elbow|shoulder)/.test(name) || /^(thoracic|lumbar) (rotation|flexion)/.test(name))
                     .map((name) => `${name.includes(".") ? name.split(" ").slice(1).join(" ") : name} ${angles[name].toFixed(2)}`),
-                  `to aim ${Math.hypot(fist.x - action.aim[0], fist.y - action.aim[1], fist.z - action.aim[2]).toFixed(3)}`]);
+                  `to aim ${Math.hypot(fist.x - action.aim[0], fist.y - action.aim[1], fist.z - action.aim[2]).toFixed(3)}`,
+                  ...(() => { const s = me.body.built.segments.get(`upperArm.${hand}`).pose.position, c = me.body.view.stance.centre;
+                    return [`shoulder to aim ${Math.hypot(s.x - action.aim[0], s.y - action.aim[1], s.z - action.aim[2]).toFixed(3)}`, `centre to aim ${Math.hypot(c.x - action.aim[0], c.z - action.aim[2]).toFixed(3)}`]; })()]);
               }
             }
             // The fist's nearest pass to its aim while committed: how far, and which way it is off (up, to its right, past along the line from the head), m.
