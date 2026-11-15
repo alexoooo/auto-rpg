@@ -70,9 +70,9 @@ In order; each is a row of the table, one question or one part of a plan, taken 
 owner's request. What each part waits on is in
 [the skills' notes](plans/2026-11-14-many-skills.md#how-the-parts-depend).
 
-1. **The judge's larger draw, then a strike made by search**
-   ([the judge](plans/2026-11-14-many-skills.md#the-judge-of-a-try),
-   [the search](plans/2026-11-14-many-skills.md#part-2-a-strike-made-by-search-apart-from-the-legs)).
+1. **A strike made by search**, judged on sparring's larger held-out draw
+   ([the search](plans/2026-11-14-many-skills.md#part-2-a-strike-made-by-search-apart-from-the-legs),
+   [the judge](plans/2026-11-14-many-skills.md#the-judge-of-a-try)).
 2. **Saves that load across commits**, which the starts kept from fights wait on
    ([their notes](plans/2026-11-14-profiles-and-saves.md),
    [kept starts](plans/2026-11-14-many-skills.md#starts-kept-from-fights)).
@@ -102,7 +102,7 @@ Each holds its goal, where it stands and the questions open
 | [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | an overhead club strike at the head with either hand, with and without the buckler: the buckler cell, then a learned steer |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
-| [Many skills, faster](plans/2026-11-14-many-skills.md) | the steer's readings are read: a layer for each of three spans of the stroke, asking the stance for nothing, lands 93 of the 240 held-out sparring starts the steered punch lands 105 of, the punch's asks of the stance hold about a quarter of its damage, and sparring's commitments leave 16 of the 20 fights' read outside their ranges; first a judge that screens a try on landings paired by start and accepts on a larger held-out draw; starts kept from fights, a trial loaded where its strike is asked; then a strike made by search with no training run, reading no leg and keeping its asks of the stance, by one tool for every strike and body |
+| [Many skills, faster](plans/2026-11-14-many-skills.md) | the steer's readings are read: a layer for each of three spans of the stroke over 16 inputs that hold no leg, its asks of the stance fitted, deals 0.98 times the installed punch's damage a second on the judge's 2,400 held-out starts (95 % 0.92 to 1.05), and sparring's commitments leave 16 of the 20 fights' read outside their ranges; a judge that screens a try on landings paired by start and accepts on the larger held-out draw; starts kept from fights, a trial loaded where its strike is asked; then a strike made by search with no training run, reading no leg and keeping its asks of the stance, by one tool for every strike and body |
 | [Profiles and saves found by the question they answer](plans/2026-11-14-profiles-and-saves.md) | a save and a recording that load across commits; a character's numbers conditions of a profile's trials |
 | [The base under a fight](plans/2026-11-14-fighting-base.md) | what a fight asks of standing and stepping, read as cases on the stance; then a second balance beside it, one actor trained once on one body, which a strike apart from the legs lets a character choose |
 
