@@ -31,6 +31,8 @@ export const LOCOMOTION_FIGURES: readonly Figure<LocomotionReading>[] = [
   { name: "stopped", unit: "share of walks, runs and turns standing still at the end", kind: "rate", better: "higher", of: only(["walk", "run", "turn"], (r) => r.stopped) },
   { name: "top speed", unit: "m/s over a second of a run or a turn, the median", kind: "median", better: "higher", of: only(["run", "turn"], (r) => r.top) },
   { name: "shoves held", unit: "share of shoves, standing and after a walk", kind: "rate", better: "higher", of: only(["shove", "shoved-walk"], (r) => !r.fell) },
+  { name: "steps arrived", unit: "share of steps that came to stand at their place while ordered there", kind: "rate", better: "higher", of: only(["step"], (r) => (r.arrived ?? null) !== null) },
+  { name: "step time", unit: "s from a step's order to standing at its place, the median of those that arrived", kind: "median", better: "lower", of: only(["step"], (r) => r.arrived ?? null) },
 ];
 
 /** What `condition` was, in a few words. */
@@ -47,6 +49,7 @@ const trialText = (condition: LocomotionCondition): string => {
     case "run-route": return `run round a corner ${condition.way > 0 ? "right" : "left"}`;
     case "run-moved": return `run to a goal moved ${condition.way > 0 ? "right" : "left"}`;
     case "walk-run": return "run from a walk";
+    case "step": return `step ${condition.distance} m ${condition.way}° at ${condition.pace} m/s`;
     default: { const never: never = condition; throw new Error(`no locomotion trial ${JSON.stringify(never)}`); }
   }
 };

@@ -12,12 +12,15 @@ import { workerJobs } from "../../worker-jobs.mjs";
  * where its Option noted it done and the body is then where it goes (a way up's edge, on its feet
  * for one to standing; flatten's lie; a brace's, where a way up is begun next); else it ended down
  * where the body lies then (`Trial.end`).
- * Each profile names what it was measured on: the body as the fall builds it, the technique's
- * config, the world's rate and the command's delay. Node, core world, the gameplay engine, 120 Hz.
+ * Each profile names what it was measured on: the body's model and what it holds, the technique
+ * as the body holds it, the world's rate and the command's delay; and where it came from
+ * (`Origin`): its body's and its technique's digests, and the commit, whether a build input
+ * differed from it, and the day of the oldest fall read. Node, core world, the gameplay engine, 120 Hz.
  *
  *   node research/skills/recovery/edge-profiles.mjs [--model <model>] [--offsets 5.625,16.875] [--workers N] [--write]
  *     [--rows <trials.jsonl>]
- * Raw falls and their trials are cached in .tmp/edge-profiles, or --rows, on the same build.
+ * Raw falls and their trials are kept in .tmp/edge-profiles, or --rows, each with the build and
+ * the time it was played, and found by the fall whatever build that was.
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -42,24 +45,25 @@ if (isMainThread) {
   if (retained && JSON.stringify(retained.source.offsets) !== JSON.stringify(offsets)) throw new Error("a body's profile refresh keeps the existing offsets");
   const count = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
   // Each fall's trials kept by its place among the falls, so the profiles do not depend on which worker ends first.
-  const cacheId = createHash("sha256").update(JSON.stringify([BUILD_IDENTITY, values.model ?? null, offsets])).digest("hex").slice(0, 20);
+  const cacheId = createHash("sha256").update(JSON.stringify([values.model ?? null, offsets])).digest("hex").slice(0, 20);
   const rowsFile = values.rows ?? `.tmp/edge-profiles/${cacheId}.jsonl`, cached = new Map();
   if (existsSync(rowsFile)) for (const line of readFileSync(rowsFile, "utf8").trim().split("\n").filter(Boolean)) {
     const row = JSON.parse(line);
-    if (row.build === BUILD_IDENTITY) cached.set(JSON.stringify(row.job), row.result);
+    cached.set(JSON.stringify(row.job), row);
   }
   mkdirSync(dirname(rowsFile), { recursive: true });
-  const started = Date.now(), byFall = [], queue = [];
+  const started = Date.now(), byFall = [], played = [], queue = [];
   for (const [i, job] of jobs.entries()) {
     const saved = cached.get(JSON.stringify(job));
-    if (saved) byFall[i] = saved;
+    if (saved) { byFall[i] = saved.result; played[i] = { build: saved.build, date: saved.date }; }
     else queue.push([i, job]);
   }
   const reused = jobs.length - queue.length;
   await workerJobs(queue, { lanes: count, create: () => new Worker(new URL(import.meta.url)),
     result: ([i, result]) => {
       byFall[i] = result;
-      appendFileSync(rowsFile, JSON.stringify({ build: BUILD_IDENTITY, job: jobs[i], result }) + "\n");
+      played[i] = { build: BUILD_IDENTITY, date: new Date().toISOString() };
+      appendFileSync(rowsFile, JSON.stringify({ ...played[i], job: jobs[i], result }) + "\n");
       return result;
     } });
   const all = byFall.flatMap(result => result.trials);
@@ -68,16 +72,19 @@ if (isMainThread) {
   for (const p of sorted) {
     const byFrom = new Map();
     for (const t of p.trials) { const f = byFrom.get(t.start.postures.own) ?? { n: 0, done: 0, seconds: 0 }; f.n++; f.done += t.done ? 1 : 0; f.seconds += t.seconds; byFrom.set(t.start.postures.own, f); }
-    console.log(`${p.label} ${p.measured.spec}: ${[...byFrom].map(([from, f]) => `from ${from} ${f.done}/${f.n} done, ${(f.seconds / f.n).toFixed(2)} s`).join("; ")}`);
+    console.log(`${p.label}${p.measured.holds ? ` holding ${p.measured.holds}` : ""}: ${[...byFrom].map(([from, f]) => `from ${from} ${f.done}/${f.n} done, ${(f.seconds / f.n).toFixed(2)} s`).join("; ")}`);
   }
   const { modelSpec } = await import("../../../src/core/bodies/models.ts");
   const body = values.model ? modelSpec(values.model).model : null;
-  const refreshed = sorted.map((p) => ({ measured: p.measured, target: null, trials: p.trials }));
+  // The profiles say where their oldest fall came from: its build's commit, whether a build input differed from it, and its day.
+  const oldest = played.reduce((first, one) => one.date < first.date ? one : first), commit = /^git:([0-9a-f]+)/.exec(oldest.build)?.[1];
+  const origin = { ...(commit ? { commit, changed: oldest.build.includes("+uncommitted:") } : {}), date: oldest.date.slice(0, 10) };
+  const refreshed = sorted.map((p) => ({ measured: p.measured, target: null, from: { ...p.from, ...origin }, trials: p.trials }));
   const out = { source: { script: "research/skills/recovery/edge-profiles.mjs", engine: DEFAULT_ENGINE, falls: "rising-target", offsets },
     profiles: [...(retained?.profiles.filter((p) => p.measured.body !== body) ?? []), ...refreshed] };
   // A trial a line: the file stays readable at a few thousand trials.
   const text = `{\n  "source": ${JSON.stringify(out.source)},\n  "profiles": [\n${out.profiles.map((p) =>
-    `    { "measured": ${JSON.stringify(p.measured)}, "target": null, "trials": [\n${p.trials.map((t) => `      ${JSON.stringify(t)}`).join(",\n")}\n    ] }`).join(",\n")}\n  ]\n}\n`;
+    `    { "measured": ${JSON.stringify(p.measured)}, "target": null, "from": ${JSON.stringify(p.from ?? {})}, "trials": [\n${p.trials.map((t) => `      ${JSON.stringify(t)}`).join(",\n")}\n    ] }`).join(",\n")}\n  ]\n}\n`;
   if (values.write) writeFileSync(OUT, text);
 } else {
   parentPort.on("message", async ([i, job]) => parentPort.postMessage([i, await edgeTrial(job)]));

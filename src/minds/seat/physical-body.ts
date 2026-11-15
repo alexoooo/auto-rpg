@@ -25,15 +25,19 @@ export interface PhysicalBody {
   readonly down: boolean;
   readonly has: string;
   readonly level: BodyLevel;
-  readonly state: object;
+  /** Its memory (`Embodied.state`) and what it reads of itself. */
+  readonly state: BodyMemory;
   observe(): BodyObservation;
   setLevel(level: BodyLevel): void;
   /** Releases control; the builder owns physical-body disposal. */
   dispose(): void;
 }
 
+/** **A body's memory under a mind** (`Embodied.state`): its mind's own under `mind`, beside its muscles', its assist's and the rest. */
+export interface BodyMemory { readonly mind: object; readonly [part: string]: unknown }
+
 /** Adapt an embodied mind, observed on its own senses, without constructing any stance, skill or motion controller. */
-export function physicalBody(built: BuiltBody, own: HeldReading, world: World, has: () => string, state: object, dispose: () => void): PhysicalBody {
+export function physicalBody(built: BuiltBody, own: HeldReading, world: World, has: () => string, state: BodyMemory, dispose: () => void): PhysicalBody {
   const read = physicalReading(built), physical = read();
   const hook = world.beforeStep(() => { if (own.muscles.level === "full") read(); });
   return {

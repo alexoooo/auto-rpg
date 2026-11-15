@@ -12,7 +12,8 @@
  * node research/skills/recovery/implementations/staged/rise-search.mjs --model man --loadout empty,club --generations 8 --lambda 8 --workers 8 --out .tmp/rise-search/best.json
  * --resume <checkpoint.json> continues a search. --confirm <out.json> plays the search's best and
  * the body's records on the cells' own falls at 120 and 480 Hz, the worse counting (`confirmRow`).
- * Scored candidates are kept beside --out as .trials.jsonl on the same build.
+ * Scored candidates are kept beside --out as .trials.jsonl, each with the build it was scored on,
+ * and found by their trials and tuning whatever build that was.
  * A pass stops after eight minutes or before another generation projects past ten.
  */
 import '../../../../../tests/harness/preload-data.mjs';
@@ -78,7 +79,7 @@ mkdirSync(dirname(values.out),{recursive:true});
 const names=trials.map(one=>one.name),cacheFile=`${values.out}.trials.jsonl`,cache=new Map();
 if(existsSync(cacheFile)) for(const line of readFileSync(cacheFile,'utf8').trim().split('\n').filter(Boolean)) {
   const row=JSON.parse(line);
-  if(row.build===BUILD_IDENTITY&&row.mode==='drill') cache.set(JSON.stringify([row.names,row.tuning]),row.result);
+  if(row.mode==='drill') cache.set(JSON.stringify([row.names,row.tuning]),row.result);
 }
 /** A candidate: every twin trial played on its tuning, its score the cells' value negated, none counting at -Infinity. */
 const score=async tuning=>{

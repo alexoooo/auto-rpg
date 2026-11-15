@@ -104,8 +104,8 @@ effector segment (`BodyView.pointMotion`).
   Warrior, the Rogue, the Skeleton, the rat and the reptile), the one a model alone stands for and
   whose label names the model on a page (`modelLabel`). Each variation held is a skill of
   its own to its mind: its executor runs that variation (`Varied.variation`), named by the
-  variation too where the body holds several of the skill, and is measured as it is held alone
-  (`skillDigest`). A bout's recipe carries each side's model, its character where it is not the model's own
+  variation too where the body holds several of the skill, and its profile is found by the skill
+  and variation (`strikeSkill`, `src/skills/framework/profile.ts`). A bout's recipe carries each side's model, its character where it is not the model's own
   (`DuelRecipe.characters`) and its skills (`DuelRecipe.skills`); the Arena's matchup names
   characters (`matchup=warrior,rogue`, a model's name standing for its own), and the Arena sets the skills by its panel and its link
   (`left.skills=straight-punch/drive,straight-punch/from-guard,stomp/stomp`, `src/game/skill-link.ts`). The physical keys and validation live in the body domain; editor labels,
@@ -272,7 +272,9 @@ given the same groups in what it sees (`Sight`, `sightOf`).
 - **Tuned per body**: a skill that reads a record (`Part.reads`: the blows, step up's and the
   sit-back's poses and timings, the righting's recipe) has its settings as its body's record (`SkillRecord`),
   read as mind data by model from its implementation in `assets/skills/` (`dataOf`). A body with no record
-  does not use the skill. Logic of a character's own is never a branch on its body in shared code but
+  does not use the skill. A skill with several variations names each one's records and the bodies
+  that have them on the variation (`RecordedVariation`, `variationReads`, `variationRecordFault`,
+  `src/skills/framework/variations.ts`), and one naming another's record shares it. Logic of a character's own is never a branch on its body in shared code but
   a variation it chooses (**Strikes**, below). Step up's record may adjust the recovery poses and timings by loadout.
   Implementations register loaders in `data/registration.ts`; an entrant adds its loaders to its
   manifest's `data`. The catalog supplies those loaders to the store (`DataKey`, `keyof DataOf`)
@@ -342,7 +344,7 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   `assets/skills/strikes/<skill>/<variation>.json`, by model, its data `dataOf("<skill>/<variation>")`.
   A skill's part fits only a body whose character has the skill and runs the variation it chose
   (`variationFault`, `heldVariation`, `src/skills/framework/variations.ts`), so the Option Mind
-  offers only the character's skills; a strike's digest names its variation (`skillDigest`).
+  offers only the character's skills; a strike's profile is found by its skill and variation (`strikeSkill`).
   Every skill part is a skill a character chooses so, whatever its role (`Part.variations`): the
   guards, Move and the paw gaits, the gaits, low support, the recovery techniques and the
   navigations as the strikes. Each but a strike has one variation, named as its skill
@@ -354,7 +356,7 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   interval its layout names, adds to the trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
   (`PunchRecord`), trained by `research/run-train.py` and exported by `research/skills/strikes/straight-punch/punch-export.mjs`.
   Its `drive` variation begins once the stance is quiet and settled; `from-guard` (`straight-punch/from-guard/`)
-  also waits for the striking arm at its guard and still (`StraightDriveOptions.ready`), with the same record.
+  also waits for the striking arm at its guard and still (`StraightDriveOptions.ready`), and names the drive's record.
 - **Held blows** strike with what the hand holds (`StrikingFace`), naming the mechanism they meet
   with (`ExecutorPart.meets`). The sword thrust (`sword-thrust/index.ts`) is the same straight drive with
   the blade's point, through which `faceAligner` servos the wrist onto the line to the target; the
@@ -459,7 +461,9 @@ research settings belong to `LayerOptions` in `src/control/body.ts`.
   its config may name (`PartLookup`), the seed (its only chance, through `randomStream`), its phase,
   the rules, its orders, an experiment's settings, and one way to take the body (`take`).
 - **Senses** (`Senses`, `senses.ts`): the clock, its side and life, and every other body
-  (`BodySense`), read once before any mind (`createSenses`), others late by `Rulebook.reaction`.
+  (`BodySense`), read once before any mind (`createSenses`), others late by `Rulebook.reaction`,
+  which the senses name (`Senses.reaction`): a profile is read at it, whatever the age of what a
+  body just added is shown.
 - **What a mind builds**: the command layers (`commandedMind`), sub-minds that take the body in rank
   order (`SubMind`, `hosting`), or its own computation. The bare entrant reads network inputs
   directly and saves pending pulls for its next `act`; `observeBody` supplies detached inspection.
@@ -574,13 +578,25 @@ The profile model supplies these components:
 - **Percepts** (`PERCEPTS`) and **predictions** (`PREDICTIONS`) are read into the `Situation`
   the first time a step asks for each and kept for the step (`perceiver`); predictions price from
   measured profiles (`Profile`, `src/skills/framework/profile.ts`),
-  a stale one unread and a model with none priced by its prior. A measured predictor may receive
+  a stale one unread and a model with none priced by its prior. A profile is found by the question
+  it answers (`Measured`): its skill and variation as the body's character holds it (`strikeSkill`,
+  `techniqueSkill`), a strike's limb, the body's model and what it holds (`holdsOf`); a strike's is
+  the one measured against the body it strikes, that body's model holding what it holds, else one
+  against its model, else the first, read scaled (`profileAgainst`). It is read only at the world's
+  rate, the mind's rate, the command's delay and the senses' reaction time it was measured at
+  (`staleness`). Where it came from (`Origin`: the digests of its body, its skill and the body
+  struck, its commit and day) is kept on it and gates nothing, so a retrained network or a tuned
+  setting keeps its profile until its tool measures it again. A foe
+  is modelled by the profiles of the skills its character holds (`profilesOn`). A measured predictor may receive
   immutable ground profiles (`edges`) for the skill settings an experiment runs. A profile is a sample of
   trials, a strike's thrown against a foe fighting back (the Strike drill's `sparring` rungs) and a ground Option's tried
   in falls, each keeping what it brought and where it began (the range, the foe's phase,
-  both postures, the velocity in its target's frame, `startVelocity`, and, for a skill begun from
-  a window, where in it the body stood, `placeInWindow`); a reading takes the trials nearest the
-  start asked at, its velocity and place read within the spans its trials began at, and a
+  both postures, the velocity in its target's frame, `startVelocity`, for a skill begun from
+  a window, where in it the body stood, `placeInWindow`, and the Balance and haste each body's
+  character set, where not its model's own, `Start.levels`); a reading takes the trials nearest the
+  start asked at, its velocity and place read within the spans its trials began at, its bodies'
+  levels their specs' and read so too (`LEVELS`), so a level no trial began at is read at the
+  nearest one did and a trial that records none began at its bodies' models' own, and a
   rate of blows reads each trial's run and its limb's way back to its guard. A blow the foe has not
   begun reaches the body only after the foe's latency (`Pressure.latency`: its rethink, its
   command's delay and its fastest blow), spent as the body stays within its reach and restored as
@@ -795,10 +811,26 @@ the bit in Node and in the page (`buildBout`, `src/evaluation/bout.ts`).
   `GAME_ENDS`). Both on one step is a draw; at the cap the fuller life wins.
 - **Tape** (`Duel.tape`): every order with its step; recipe and tape are the whole bout
   (`Duel.play`). **Order sheets** (`SheetLog`) replay a bout with no mind (`replayedBody`).
-- **Save** (`Duel.save`, `Duel.load`) loads only into a bout of the same recipe and build
-  (`RecordingIdentity`). A build is the commit it was built from (`BUILD_IDENTITY_FORM`); with a
-  build input not committed, a mark no other build shares, made once a process and handed to its
-  workers.
+- **Save** (`Duel.save`, `Duel.load`) loads into a bout of the same recipe less its minds and the
+  same physical conditions (`RecordingIdentity`), on whatever build made it, part by part. A mind
+  is the loading bout's own: its settings are that bout's, and its memory is the save's where it
+  is built as the save's was, so a strike under a research tuning, steered or not, carries on from
+  a save its record's own made. What the save's mind had decided and not yet done (the orders and
+  commands on their way) is done as decided. A bout put back to a save of its own plays on as it
+  did from there before: what a part keeps outside its state it keeps against the body's reading
+  of the step (`StepReading`), which no load brings round again, never against the time alone.
+  A save carries the shape each
+  part of the bout's memory was built in (`shapesOf`, `stateShape`): each side's mind's, its
+  body's and its pool's, the world's, the senses', the blow watch's, the Commanders' and the
+  bout's own. A part this code builds otherwise refuses the save, named with the build it was
+  saved on, and the physics refuses a world built otherwise (`PhysicsWorld.load`). A mind's memory
+  built otherwise is not loaded: the mind stays as built and starts fresh from the saved bodies,
+  in a bout that has not stepped, and `load` returns the sides it did so for. A shape is read as
+  built, so memory that code reshapes only once it has stepped is not told apart.
+- **A recording keeps the build it was made on** and is played by the code that loads it
+  (`requireRecordingIdentity`): its protocol, its recipe and its physical conditions are what
+  refuse it. A build is the commit it was built from (`BUILD_IDENTITY_FORM`); with a build input
+  not committed, a mark no other build shares, made once a process and handed to its workers.
 
 ## Evaluations
 
@@ -822,22 +854,41 @@ a target guards only on the rung that tests the guard (`guarding`, `drill-guard`
 read how well a body throws a strike. What the strike brings against a foe fighting back is read
 sparring: from starts drawn at random, as `sampled` draws them, at each of the game's foes under
 Option Mind fighting from the start (`sparring`, with each hand at each mark, its training twin
-`sparring-twin` drawn on another stream and `sparring-drawn`, ten times its starts on a third, for
-a trainer to draw from; `sparring-laid`, with each foot at a foe laid down), from which alone the strikes' profiles are built
+`sparring-twin` drawn on another stream, `sparring-drawn`, ten times its starts on a third, for
+a trainer to draw from, and `sparring-judge`, ten times its starts on a fourth that no search and
+no trainer plays, for a variation to be judged on beside the one it would replace; `sparring-laid`, with each foot at a foe laid down), from which alone the strikes' profiles are built
 (`research/skills/strikes/strike-profiles.mjs`): the starts are drawn, so a strike the Mind
 seldom chooses is measured as often as one it favours. A fight is read in fights, a bout of
 Option Mind against Option Mind in which the drill throws the strike in place of the blow the Mind
 was about to begin, and only what follows that moment is the trial's: `fight` (the Warrior's
 first four such moments) and `fights` (every striker's body, starting gaps of 3, 4 and 5 m, the
-first eight). No table cell reads either: a cell is its skill on its own merit.
+first eight). `fights-twin`, `fights-drawn` and `fights-judge` are fights drawn at random as
+sparring's starts are: each trial a fight of its own from a gap drawn between 3 and 5 m, its limb,
+mark and moment by turns, on a stream for ranking, one ten times larger for a search to draw from
+and one as large held out to judge on. A protocol of fights names its opening (`Cases.opening`),
+the fight before the drill's moment, and research keeps a bout saved at its end and plays a trial
+from there (`research/starts.mjs`, `.cache/starts/`). No table cell reads any of them: a cell is
+its skill on its own merit.
 
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)
   the question, subjects, figures and a drill trial's `outcome`.
-- **A case's key** is the digest of everything it plays but its code; a row (`Row`) is found again
-  by its key while runs work on one commit (`.tmp/evaluations/<id>/<commit>/`, `rows.ts`). A run on
-  another commit, or with a build input not committed, plays every case. `--write`
-  keeps the run's results in `assets/evaluations/<id>.json` (`results.ts`): each subject's newest
+- **A case's key** is the digest of the question it answers: everything it plays but its code,
+  and what its world's bodies load of mind data, each seated model's row of every record and
+  profile the parts they run read (`WorldKind.loads`, `loadsOf`, `world-builders.ts`). A row
+  (`Row`) is kept with where it came from (`RowOrigin`: its commit, whether a build input differed
+  from it, when it was played) in `.cache/evaluations/<id>/` (`rows.ts`,
+  `scripts/evaluation-rows.mjs`), outside Git and outside what `npm run clean` deletes, and is
+  found again by its key whatever commit it was played on. So a record or a profile changed under
+  a subject plays its cases, and a change to the code plays none: the newest row of a key stands,
+  a report names the oldest row it read, and a run plays a few of the rows it found from other
+  code again and says how many read as kept by their traces (`drawFound`), which gates nothing.
+  `--fresh` plays a named subject's cases again where their row is not of the code now. Two rows
+  of one key that read differently from one commit with no build input changed stop a run: a
+  play that does not repeat. A research judge finds what its candidate is read beside in the same
+  store (`punch-sparring.mjs --bar`, the drive's side). `--write`
+  keeps the run's results in `assets/evaluations/<id>.json` (`results.ts`), from rows of the
+  commit it names alone: each subject's newest
   reading on a protocol (its figures and, for a drill, a short row of numbers a trial, by its
   condition's name), each earlier reading a table cell's baseline names, and a contest's standings
   (`standings.ts`). Nothing a trial played is kept: the Arena plays a trial again from its subject

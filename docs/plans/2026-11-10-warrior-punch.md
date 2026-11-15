@@ -64,10 +64,20 @@ remaining not-begun conditions on the Rogue and Skeleton, other strikes, walk an
 
 ### Why the punch does not land in fights
 
-With every strike priced from sparring, the empty-handed Warrior reaches its moment in 10 of the
-48 `fights` trials and lands 2: four miss, three end outside the window, one is refused and 38
-are unreached. That is the saved `fights` reading, the one its Ratings page shows; `fight` is not
-read so.
+A strike is priced from its sparring at the body it strikes (`profileAgainst`,
+`src/skills/framework/profile.ts`), from a bout's start, and its foe is modelled by the strikes
+its character holds (`profilesOn`). So priced, the empty-handed Warrior lands 1 of the 8 `fight`
+trials, one ending outside the window and six unreached, and 6 of the 48 `fights` trials: 18
+miss, four are guarded, four end outside the window, two fall and 14 are unreached. The Rogue's
+punch reaches 2 of its 48 `fights` moments and lands none; the Skeleton's lands 5, 30 unreached.
+Neither reading is saved.
+
+The saved `fights` reading, the one its Ratings page shows, is of fights with the Warrior's
+punch priced from its sparring at a Rogue whatever body it struck: at a Warrior that reads 0.060
+of its life a second for the left hand, where its sparring at a Warrior reads 0.111, and the
+mind held out of reach. In it the Warrior reaches its moment in 10 of the 48 trials and lands 2:
+four miss, three end outside the window, one is refused and 38 are unreached. The strikes'
+profiles are of sparring against a mind that priced so.
 
 The diagnosis below is of fights with each strike priced by its standing-target profile, as the
 saved `fight` reading is. In them the empty-handed Warrior lands 2 of 8 reached trials in
@@ -198,8 +208,8 @@ Skeleton causes; held items; Option Mind’s own punch choice and combat footwor
 
 **The punch from its guard.** The straight punch’s `from-guard` variation
 (`src/skills/strikes/straight-punch/from-guard/`), which commits only with the striking arm at its
-guard and still, has a profile of its own: a strike's profile is keyed by its digest, which names
-its variation (`skillDigest`). Its arm waits about 0.1 s a punch before the drive begins on the
+guard and still, has a profile of its own: a strike's profile is found by its skill and
+variation (`strikeSkill`). Its arm waits about 0.1 s a punch before the drive begins on the
 Warrior and the Rogue.
 
 In `fights`, with every strike priced from sparring, Option Mind begins few punches: of the 144

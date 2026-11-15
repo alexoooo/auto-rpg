@@ -14,7 +14,7 @@ import type { Senses } from "../../core/bodies/senses.ts";
 import type { MindConstruction } from "../mind.ts";
 import { answer, think } from "../execution.ts";
 import { mirrorBody, mirrorStatics, mirrorWriter, type MirrorStatics, type MirrorWriter } from "./mirror-channel.ts";
-import type { HeldReading } from "./physical-body.ts";
+import type { BodyMemory, HeldReading } from "./physical-body.ts";
 import type { SheetLog } from "./sheets.ts";
 
 type MindMaker<M extends MindConstruction = MindConstruction> = (own: OwnBody) => M;
@@ -27,7 +27,7 @@ interface Embodied<M extends MindConstruction = MindConstruction> {
   /** What its maker made of it: the `Mind`, its name, who has the body and its disposal. */
   readonly construction: M;
   /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, the mind's own, what its mind has asked and not yet answered (`Mirror.command`) and what its senses last showed it (`Mirror.seen`). */
-  readonly state: object;
+  readonly state: BodyMemory;
   /** Stop driving: the mind lets go (`MindConstruction.dispose`), its observers stop, and the motors are released. */
   dispose(): void;
 }

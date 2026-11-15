@@ -45,16 +45,18 @@ export function workerPool(url, workerData, count) {
 }
 
 /**
- * Search `n` numbers from `start` (the cube's middle if not given) at step `sigma`, `lambda`
+ * Search `n` numbers from `start` (the cube's middle if not given) at step `sigma`, each
+ * coordinate's first step that times its `spread` (one where none is given), `lambda`
  * candidates a generation for `generations`, each scored by `score(u)` (a promise of an object
  * with a `score`, the higher the better). `onGeneration(entry, search)` hears each generation's
  * best, median and step, with the search's best so far and its mean. Returns the best
  * (`{ score, u, r, g }`), the last mean and the log.
  */
-export async function cmaSearch({ n, start, sigma = 0.25, lambda, generations, seed = 1, score, onGeneration, resume }) {
+export async function cmaSearch({ n, start, sigma = 0.25, spread, lambda, generations, seed = 1, score, onGeneration, resume }) {
   if (!Number.isSafeInteger(n) || n < 1 || !Number.isSafeInteger(lambda) || lambda < 2
     || !Number.isSafeInteger(generations) || generations < 0 || !(sigma > 0) || !Number.isFinite(sigma)
-    || (start && (!Array.isArray(start) || start.length !== n || Array.from(start).some(v => !Number.isFinite(v))))) throw new Error('invalid CMA configuration');
+    || (start && (!Array.isArray(start) || start.length !== n || Array.from(start).some(v => !Number.isFinite(v))))
+    || (spread && (!Array.isArray(spread) || spread.length !== n || Array.from(spread).some(v => !Number.isFinite(v) || v <= 0)))) throw new Error('invalid CMA configuration');
   if (resume && (resume.version !== 1 || resume.n !== n || resume.lambda !== lambda)) throw new Error('incompatible CMA checkpoint');
   if (resume && (![resume.mean, resume.covariance, resume.ps, resume.pc].every(a => Array.isArray(a) && a.length === n && Array.from(a).every(Number.isFinite))
     || resume.covariance.some(v => v <= 0) || !Number.isFinite(resume.sigma) || resume.sigma <= 0
@@ -64,7 +66,7 @@ export async function cmaSearch({ n, start, sigma = 0.25, lambda, generations, s
   const random = () => { state = (state + 0x6d2b79f5) >>> 0; let t = state; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const gauss = () => { let u = 0; while (!u) u = random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * random()); };
   let m = start ? start.map((v) => Math.min(1, Math.max(0, v))) : new Array(n).fill(0.5);
-  const C = resume ? [...resume.covariance] : new Array(n).fill(1), mu = lambda >> 1;
+  const C = resume ? [...resume.covariance] : spread ? spread.map(v => v * v) : new Array(n).fill(1), mu = lambda >> 1;
   const weights = Array.from({ length: mu }, (_, i) => Math.log(mu + 0.5) - Math.log(i + 1)), total = weights.reduce((a, b) => a + b);
   for (let i = 0; i < mu; i++) weights[i] /= total;
   const mueff = 1 / weights.reduce((a, w) => a + w * w, 0);

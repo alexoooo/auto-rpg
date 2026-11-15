@@ -6,7 +6,7 @@ import { resolveCharacter, resolveCharacterChecked } from "../../src/core/bodies
 import { MINDS, treeLookup } from "../../src/app/catalog.ts";
 import { skillsOf } from "../../src/minds/option/skills.ts";
 import { limbAction } from "../../src/minds/option/kinds.ts";
-import { skillDigest } from "../../src/skills/framework/profile.ts";
+import { skillDigest, strikeSkill } from "../../src/skills/framework/profile.ts";
 import { readSkills, writeSkills } from "../../src/game/skill-link.ts";
 import { allParts, partLookup, GAME } from "../../src/app/catalog.ts";
 import { BODY_MODELS, modelHolds } from "../../src/core/bodies/models.ts";
@@ -134,10 +134,13 @@ test("a character holding two variations of a skill strikes by each, and each re
   assert.deepEqual(both.executors.map((one) => [one.name, one.variation]), [["straight-punch/drive", "drive"], ["straight-punch/from-guard", "from-guard"]]);
   assert.deepEqual(both.actions.map((one) => [one.name, one.executor]), [["straight-punch/drive", "straight-punch/drive"], ["straight-punch/from-guard", "straight-punch/from-guard"]]);
   const digest = ({ spec, made }, action, limb) => skillDigest(parts, spec, made.executors, limbAction(action, limb));
+  const found = ({ spec, made }, action, limb) => strikeSkill(spec, made.executors, limbAction(action, limb));
   for (const variation of ["drive", "from-guard"]) {
     const alone = punches([`straight-punch/${variation}`]);
     assert.deepEqual(alone.executors.map((one) => one.name), ["straight-punch"], "one variation of a skill is named by the skill");
     const held = both.actions.find((one) => one.executor.endsWith(variation));
+    assert.equal(found(both, held, "hand.right"), `straight-punch/${variation}`, `${variation}'s profile is found by its skill and variation beside another`);
+    assert.equal(found(alone, alone.actions[0], "hand.right"), `straight-punch/${variation}`, `${variation}'s profile is found by its skill and variation held alone`);
     assert.equal(digest(both, held, "hand.right"), digest(alone, alone.actions[0], "hand.right"), `${variation} measures alike whether held alone or beside another`);
   }
   assert.notEqual(digest(both, both.actions[0], "hand.right"), digest(both, both.actions[1], "hand.right"), "two variations are two skills to a profile");

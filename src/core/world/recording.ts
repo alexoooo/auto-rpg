@@ -29,11 +29,15 @@ export function recordingIdentity(build: string, protocol: string, configuration
   return Object.freeze({ build, protocol, configuration: recordingKey(configuration) });
 }
 
-/** Refuse incompatible persisted input before it changes a world or contributes a result. */
-export function requireRecordingIdentity(value: unknown, expected: RecordingIdentity): void {
-  if (typeof value !== "object" || value === null) throw new Error("this recording has no build and protocol identity; make a new recording");
-  const identity = value as Partial<RecordingIdentity>;
+/**
+ * Refuse persisted input of another protocol, other physical conditions or another recipe before
+ * it changes a world or contributes a result. A recording made on another build is taken: this
+ * build's code plays it, and the build it was made on is given back, for a reader to say.
+ */
+export function requireRecordingIdentity(value: unknown, expected: RecordingIdentity): string {
+  const identity = typeof value === "object" && value !== null ? value as Partial<RecordingIdentity> : {};
+  if (typeof identity.build !== "string" || !BUILD_IDENTITY_FORM.test(identity.build)) throw new Error("this recording has no build and protocol identity; make a new recording");
   if (identity.protocol !== expected.protocol) throw new Error(`this recording uses another protocol; expected ${expected.protocol}`);
-  if (identity.build !== expected.build) throw new Error("this recording was made on another build; rerun its recipe on this build");
   if (identity.configuration !== expected.configuration) throw new Error("this recording belongs to different physical conditions or a different recipe");
+  return identity.build;
 }

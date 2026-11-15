@@ -42,8 +42,10 @@ the goal began. The empty-handed cell reads 0.256 hp a second traded, better tha
 every Warrior punch trial begins across the three loadouts. The drill keeps its ordered facing
 on the final approach and positions an unbegun strike again when admission is lost
 ([its notes](plans/2026-11-10-warrior-punch.md#why-the-close-trials-do-not-begin)). With every
-strike priced from sparring, the punch lands 2 of the 10 `fights` trials it reaches, 38 of the 48
-moments unreached; `fight` is not read so. Its saved reading, 2 of 8 reached, the same count as
+strike priced from its sparring at the body it strikes, the punch lands 1 of the 8 `fight`
+trials, six unreached, and 6 of the 48 `fights` trials, 14 unreached; neither reading is saved.
+The saved `fights` reading, 2 landed of 10 reached, is of the punch priced from its sparring at a
+Rogue whatever body it struck. Its saved `fight` reading, 2 of 8 reached, the same count as
 at the goal’s start, and 13 of 42 in `fights` against 12 at the start, are of fights with each
 strike priced by its standing-target profile. So are the traces, which identify punch delivery
 and balance, guard and blow interceptions, moving foes and failed drill positioning
@@ -64,15 +66,29 @@ The standing goal behind it: every cell of the table raised from its baseline, a
 
 ## Next
 
-In order; each is a row of the table or one question, taken up on the owner's request.
+In order; each is a row of the table, one question or one part of a plan, taken up on the
+owner's request. What each part waits on is in
+[the skills' notes](plans/2026-11-14-many-skills.md#how-the-parts-depend).
 
-1. **The Warrior's bonk with the buckler**, which never meets the head
+1. **A strike made by search**, judged on sparring's larger held-out draw
+   ([the search](plans/2026-11-14-many-skills.md#part-2-a-strike-made-by-search-apart-from-the-legs),
+   [the judge](plans/2026-11-14-many-skills.md#the-judge-of-a-try)).
+2. **The fights' drawn rungs played from kept starts**
+   ([their notes](plans/2026-11-14-many-skills.md#starts-kept-from-fights)): the bank is built
+   and reads the `fights` trials as they read played whole; its three drawn rungs are unplayed.
+3. **The base under a fight**: a second balance, which waits on a strike apart from the legs;
+   a fight's cases are built and the stance is read on them
+   ([its notes](plans/2026-11-14-fighting-base.md#where-it-stands)).
+4. **The strikes' profiles measured again**, their foe a mind that fights as it does now: one
+   that prices a strike by its profile against the body it strikes from a bout's start, and
+   models its foe by the strikes its character holds.
+5. **The Warrior's bonk with the buckler**, which never meets the head
    ([its plan](plans/2026-11-05-warrior-bonk.md)).
-2. **The Warrior's thrust**: the grip's geometry before another search
+6. **The Warrior's thrust**: the grip's geometry before another search
    ([the approaches](approaches.md#weapon-strikes)).
-3. **The Warrior's start from a stand**: a controller that places feet by balance under the run
+7. **The Warrior's start from a stand**: a controller that places feet by balance under the run
    ([its plan](plans/2026-11-05-warrior-travel.md)).
-4. **Blows in fights**: Option Mind's footwork, places round the foe chosen by its reach and
+8. **Blows in fights**: Option Mind's footwork, places round the foe chosen by its reach and
    striking arc, so the blows that land in the drill land in a bout.
 
 ## Parked plans
@@ -86,10 +102,9 @@ Each holds its goal, where it stands and the questions open
 | [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | an overhead club strike at the head with either hand, with and without the buckler: the buckler cell, then a learned steer |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
-| [Many skills, faster](plans/2026-11-14-many-skills.md) | the steer's readings are read: a layer for each of three spans of the stroke, asking the stance for nothing, lands 93 of the 240 held-out sparring starts the steered punch lands 105 of, the punch's asks of the stance hold about a quarter of its damage, and sparring's commitments leave 16 of the 20 fights' read outside their ranges; first a judge that screens a try on landings paired by start and accepts on a larger held-out draw; starts kept from fights, a trial loaded where its strike is asked; then a variation that declares its record, and a strike made by search with no training run, reading no leg and keeping its asks of the stance, by one tool for every strike and body |
-| [Played rows kept and found](plans/2026-11-14-saved-results.md) | one store of played rows for an evaluation and a research judge, found by the question a row answers, the records its subjects load in its key, kept uncommitted and across commits; what is under work plays and everything else is found |
-| [Profiles and saves found by the question they answer](plans/2026-11-14-profiles-and-saves.md) | a profile found by its skill, variation and body, a character's numbers conditions of its trials; a save and a recording that load across commits |
-| [The base under a fight](plans/2026-11-14-fighting-base.md) | what a fight asks of standing and stepping, read as cases on the stance; then a second balance beside it, one actor trained once on one body, which a strike apart from the legs lets a character choose |
+| [Many skills, faster](plans/2026-11-14-many-skills.md) | the steer's readings are read: a layer for each of three spans of the stroke over 16 inputs that hold no leg, its asks of the stance fitted, deals 0.98 times the installed punch's damage a second on the judge's 2,400 held-out starts (95 % 0.92 to 1.05), and sparring's commitments leave 16 of the 20 fights' read outside their ranges; a judge that screens a try on landings paired by start and accepts on the larger held-out draw; starts kept from fights, a trial loaded where its strike is asked; then a strike made by search with no training run, reading no leg and keeping its asks of the stance, by one tool for every strike and body |
+| [A character's numbers in a profile's trials](plans/2026-11-14-profiles-and-saves.md) | Balance, haste and the physique's scales as conditions of a profile's trials |
+| [The base under a fight](plans/2026-11-14-fighting-base.md) | what a fight asks of standing and stepping, the stance's reading on its cases; a second balance beside it, one actor trained once on one body, which a strike apart from the legs lets a character choose |
 
 ## Waiting on the owner
 

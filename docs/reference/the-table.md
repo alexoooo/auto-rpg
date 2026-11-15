@@ -96,7 +96,7 @@ keeps it. `--fresh` plays the readings of the cells asked for (`--body`, `--skil
 again on the code now, and prints under each a line comparing it with the reading it replaced
 (`replaced`), paired the way the baseline is: the version before against the version now, which
 the baseline is not after a cell's first change. Both play one reading at a time, each to evaluate's budget (10 minutes; the table takes no `--budget` of its own): a pass keeps every
-trial it plays (`.tmp/evaluations/`) and every complete unit in its result, names a reading that failed at its end and
+trial it plays (`.cache/evaluations/`) and every complete unit in its result, names a reading that failed at its end and
 plays the rest, and with `--baseline` names a cell's baseline as soon as its reading is whole.
 Passes are repeated until none plays. Node, core world, 120 Hz, each command 1 step late
 (`COMMAND_DELAY`). A reading that is not whole cannot become a baseline.

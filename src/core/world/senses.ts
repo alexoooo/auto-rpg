@@ -169,6 +169,7 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
         get out() { return sensed.out(); },
         get life() { return sensed.life?.() ?? 1; },
         ...(clock === undefined ? {} : { begins: clock.begins, ends: clock.ends }),
+        reaction: delay / world.hz,
         others: entry.others,
       };
       if (sensed.solids) Object.defineProperty(senses, "solids", { enumerable: true, get: () => sensed.solids });

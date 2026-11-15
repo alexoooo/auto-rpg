@@ -20,7 +20,7 @@ A part describes a design under consideration; nothing in it is built.
 - **A strike is made by search**, with no training run where a search and a correction do, by
   one tool for every strike and body it is named.
 - **Nothing is computed again routinely**: what is under work plays, and every other played row is
-  found ([played rows kept and found](2026-11-14-saved-results.md)).
+  found ([the architecture](../architecture.md#evaluations)).
 
 ## Where the time goes
 
@@ -34,8 +34,8 @@ half days a run. A run is one try.
 
 **Days: a measure that does not say what a fight does.** The Warrior's empty-handed punch is on
 the mark in 78 of 96 trials at a still target
-([the punch's notes](2026-11-10-warrior-punch.md#where-it-stands)). In `fights` it lands 2 of
-the 10 trials it reaches, 38 of the 48 moments unreached; with each strike priced by its
+([the punch's notes](2026-11-10-warrior-punch.md#where-it-stands)). In `fights` it lands 6 of
+its 48 trials, 14 of the moments unreached; with each strike priced by its
 standing-target profile it lands 13 of the 42 it reaches
 ([why](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)). Each of those fights'
 commitments that is read holds an input outside every range the drill plays
@@ -49,21 +49,16 @@ drill's rung at a foe that fights back, from starts drawn at random (`sparring`,
 - **A try's reading does not tell it from the drive.** On the 240 held-out starts a candidate
   that reads 1.08 times the drive's damage a second has a 95 % interval of 0.79 to 1.47, so a try
   a fifth better and one a fifth worse read the same ([the judge](#the-judge-of-a-try)).
-- **A variation's record is its skill's.** Each variation is a maker of its own
-  (`ExecutorVariations`, `src/skills/framework/variations.ts`), so one can run its own executor
-  and layout. The straight punch's two both call one function (`punch`,
-  `src/skills/strikes/straight-punch/index.ts`), which runs one layout (`PUNCH_LAYOUT`) and each
-  body's one record and network (`dataOf("straight-punch/drive")`); `from-guard` adds when its
-  drive may begin. The part names that one record for every variation: what a mind loads and what
-  a profile's digest covers (`reads`; `skillDigest`, `src/skills/framework/profile.ts`), and
-  which bodies have the skill (`recordFault`). So a network of a variation's own goes into a
-  record the part names for all of them, and each change to it moves the drive's profile.
-- **Each try plays again what it is compared with.** `punch-sparring.mjs --bar` plays every
-  held-out start by the candidate and by the drive. `npm run evaluate` keeps no row while a build
-  input is uncommitted, and a commit finds none of the rows made before it
-  ([played rows](2026-11-14-saved-results.md#where-it-stands)).
-- **Each trial of a search and of the judge is played from its start**: the wait, the walk into
-  the window and the play on to its reader's end, beside the stroke
+- **A variation names its record**
+  ([Part 1](#part-1-a-variation-declares-its-record)), so a network of a variation's own goes
+  into a record of its own. The straight punch's two both call one function (`punch`,
+  `src/skills/strikes/straight-punch/index.ts`), which runs one layout (`PUNCH_LAYOUT`);
+  `from-guard` names the drive's record and adds when its drive may begin.
+- **Each try plays its own side.** `punch-sparring.mjs --bar` plays every held-out start by the
+  candidate and finds the drive's rows on them; `npm run evaluate` keeps its rows uncommitted
+  and across commits ([the architecture](../architecture.md#evaluations)).
+- **Each sparring trial of a search and of the judge is played from its start**: the wait, the
+  walk into the window and the play on to its reader's end, beside the stroke
   ([starts kept from fights](#starts-kept-from-fights)).
 - **A strike is tied to the legs and the footwork.** Among its 59 inputs the straight punch's
   network reads 20 leg-joint angles and speeds and four readings of the stance (each foot's
@@ -82,7 +77,14 @@ drill's rung at a foe that fights back, from starts drawn at random (`sparring`,
 
 ## The readings that come first
 
-They say whether Part 2 holds, and they wait on no part.
+They say whether Part 2 holds, and they wait on no part. Each is of minds that priced a strike
+from its sparring at one body whatever body it struck. A strike is priced from its sparring at
+the body it strikes (`profileAgainst`, `src/skills/framework/profile.ts`), from a bout's start,
+and its foe is modelled by the strikes it holds. Read so, the drive lands 107 of the 240
+held-out starts, falls 3 times, loses 0.072 life a trial and reads 0.0898 of the table's value a
+trial, and the installed network as a file reads as the drive does on every start. The per-span
+fits are read so ([the form the search starts from](#the-readings-that-come-first), below); no
+other form of the table is, and its ranks are of the pricing before.
 
 **Where it stands.**
 
@@ -163,10 +165,26 @@ They say whether Part 2 holds, and they wait on no part.
   intervals reach about a quarter to a third either way, and `fit-aged`, `fit-spans`,
   `no-stance-asks` and `blind-legs` overlap one another.
 
-**A form unread.** `fit-spans` with its heading and centre rows fitted as its pushes are, where
-the forms read leave them at zero. It is the form Part 2's search starts from, and it says how
-much of the per-span fit's shortfall is the asks. It is one more form of the tool's mode
-(`FORMS`) and one `--bar`.
+**The form the search starts from.** `fit-spans-asks` is `fit-spans` with each span's heading and
+centre rows fitted as its pushes are, where the other fits leave them at zero
+(`--network fit-spans-asks --out <file>`). On the twin's training half (1,441 decisions on its
+127 starts) it holds 0.74, 0.69 and 0.77 of the variance of the heading, the centre ahead and the
+centre across, and 0.44 to 0.67 of each push's. Read as a strike is priced now, beside the drive
+(`--bar <file>`, and `--bar <file> --on judge`):
+
+| File | Starts | Landed, the drive's | Only it, only the drive | Sign test p | Damage a second, times the drive's (95 %) | Falls, the drive's | Value, the drive's |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `fit-spans` | 240 held out | 107, 107 | 21, 21 | 1.000 | 0.9771 (0.7537 to 1.2876) | 1, 3 | 0.0838, 0.0898 |
+| `fit-spans-asks` | 240 held out | 125, 107 | 28, 10 | 0.0051 | 1.1767 (0.9267 to 1.5237) | 0, 3 | 0.1099, 0.0898 |
+| `fit-spans-asks` | 2,400, the judge's draw | 1,166, 1,126 | 198, 158 | 0.039 | 0.9809 (0.9154 to 1.0480) | 12, 20 | 0.0864, 0.0879 |
+
+- **A layer for each of three spans, over 16 inputs that hold no leg and no reading of the
+  stance, deals the drive's damage a second**, within a tenth either way on the judge's draw. It
+  lands a little more and falls less.
+- **The 240 starts misled by a fifth**: 1.18 there is 0.98 on ten times the starts.
+- **`fit-spans` read 0.69 of the drive as the minds priced before and reads 0.98 now**, on the
+  same 240 starts. The table above is of that pricing, and what it says of one form beside
+  another is unread as a strike is priced now.
 
 **What they read.** Each is a network file read on the held-out sparring starts beside the drive
 (`punch-sparring.mjs --bar <file>`). The tool plays a file that names its `actions` and `layers`
@@ -213,8 +231,7 @@ another's reading.
   decisions (`RIDGE`). `fit-spans` cuts three spans at the thirds of the decisions by the drive's
   age (`SPANS`).
 
-The per-span form holds most of the steered landings, 93 of 105, and about two thirds of the
-damage a second. Part 2's search starts from that form
+Part 2's search starts from the per-span form with its asks fitted
 ([its design](#part-2-a-strike-made-by-search-apart-from-the-legs)).
 
 **Two readings that play no network file.**
@@ -243,13 +260,23 @@ damage a second. Part 2's search starts from that form
 
 **Where it stands.**
 
-- **The judge reads damage dealt a second** against the drive's on the 240 held-out starts the
-  Warrior is admitted to, each start played by both, its interval a paired bootstrap over the
-  starts (`bar`, `punch-sparring.mjs`). Beside it, it prints how many starts each side lands,
-  how many only one side lands with the exact two-sided sign test's p on those two counts, and
-  each side's seconds to play.
+- **The judge reads damage dealt a second** against the drive's on held-out starts the Warrior
+  is admitted to, its interval a paired bootstrap over the starts (`bar`, `punch-sparring.mjs`):
+  the 240 of `sparring` (`--bar <file>`), or the 2,400 of `sparring-judge` (`--bar <file> --on
+  judge`), ten times sparring's starts on a stream of its own that no search and no trainer
+  plays (`SPARRING_JUDGE`, `src/evaluation/strike/cases.ts`). The candidate plays each start and
+  the drive's side is found ([the architecture](../architecture.md#evaluations)). Beside it, it
+  prints how many starts each side lands, how many only one side lands with the exact two-sided
+  sign test's p on those two counts, and each side's seconds to play.
 - **At 240 starts it does not tell a fifth better from a fifth worse**: a candidate that reads
-  1.08 times the drive has an interval of 0.79 to 1.47.
+  1.08 times the drive has an interval of 0.79 to 1.47, and the per-span fit with its asks
+  fitted reads 1.18 there and 0.98 on the judge's draw
+  ([the form the search starts from](#the-readings-that-come-first)).
+- **At 2,400 it tells a tenth**: `from-guard` reads 0.9928 times the drive, 95 % 0.9137 to
+  1.0794. It lands 1,083 against 1,126, 147 starts landed by it alone and 190 by the drive alone
+  (sign test p 0.022), and falls 9 times against 20.
+- **A side of the judge's draw plays in 470 to 490 s on 30 workers**, the drive's and a network
+  file's alike; the drive's side found takes 14 s.
 - **Landings paired by start tell more at the same count of starts.** A reading of the drive
   beside `from-guard` on 240 sparring starts has 125 landings against 116, and of the starts
   where only one lands, 13 the drive's against 4 `from-guard`'s (exact two-sided sign test
@@ -265,24 +292,8 @@ damage a second. Part 2's search starts from that form
 - **A try is screened on landings paired by start**: the starts where only the candidate lands
   against those where only the drive does, by an exact sign test, beside the falls. `--bar`
   prints them with its bar.
-- **A variation is accepted on value**, damage dealt a second, on a held-out draw of ten times
-  sparring's starts: a protocol on a stream of its own, drawn as `sparring-drawn` is, that no
-  search and no trainer plays. An interval narrows with the square root of its starts, to about a
-  third as wide, by arithmetic.
-- **The drive's side of that draw is played once and found after**
-  ([played rows kept and found](2026-11-14-saved-results.md#the-design)): it is half of each
-  comparison's play.
-
-**What it would cost.** Ten times the starts is ten times the play: at most about four
-core-hours a side, by the arithmetic of [a try's comparison](#the-readings-that-come-first). By
-the seconds a side of 240 starts took played on 30 workers, it is about 9 minutes for the
-drive's side and 12 to 13 for a network file's.
-
-**It comes before Part 2's search.** A search gains by steps smaller than the judge's interval
-at 240 starts: the settings' search read 1.08 times the drive, 0.79 to 1.47, and the steer's
-readings do not tell one form from the next
-([what they say](#the-readings-that-come-first)). The larger draw is a protocol and no part of
-a search, and a comparison on it is minutes.
+- **A variation is accepted on value**, damage dealt a second, on the judge's draw
+  (`--on judge`).
 
 **Open.**
 
@@ -296,10 +307,35 @@ a search, and a comparison on it is minutes.
 
 **Where it stands.**
 
-- **A search's and the judge's trial is played from its start.** `playOne` makes the trial's
-  world, and `playCase` (`src/evaluation/play.ts`) or `steeredTrial` builds it and plays it from
-  the drill's first step to its reader's end (`punch-sparring.mjs`): the wait and the walk into
-  the window, the stroke, and the play on that the value reads.
+- **A sparring trial of a search and of the judge is played from its start.** `playOne` makes
+  the trial's world, and `playCase` (`src/evaluation/play.ts`) or `steeredTrial` builds it and
+  plays it from the drill's first step to its reader's end (`punch-sparring.mjs`): the wait and
+  the walk into the window, the stroke, and the play on that the value reads.
+- **A fight's trial is played from a start kept of it** (`research/starts.mjs`). A protocol
+  names its opening (`Cases.opening`: a fight while its drill's phase is `fighting`). `makeStart`
+  plays a trial's bout to the step its opening ends, saving it every 120 steps, puts it back to
+  the last save before, plays to two steps short of that end and saves there; played on, the
+  opening must end at the step it did. `startBank` keeps the save by its condition under its
+  evaluation, protocol and subject (`.cache/starts/`, outside Git), with where it came from, and
+  keeps a fight that never comes to its moment as no start. `playFrom` builds the trial's world,
+  puts a fresh reader beside it, loads the save and plays to the reader's end.
+- **A trial from its start reads what the whole trial reads.** Of the Warrior's punch's 48
+  `fights` trials, 34 come to their moments and 14 do not; each of the 34 played from its start
+  ends in the reading its whole trial ends in, to the last figure. Played whole the 48 take 350
+  core-seconds, their starts 323 to make, and the 34 from their starts 28: under a second a
+  trial against seven. A start is 311 KiB kept.
+- **Three rungs of fights are drawn for it** (`FIGHTS_TWIN`, `FIGHTS_DRAWN`, `FIGHTS_JUDGE`,
+  `src/evaluation/strike/cases.ts`): `fights-twin`, 960 fights a body, each from a gap drawn to
+  the millimetre between 3 and 5 m, its limb, mark and moment by turns, so no two trials share
+  what came before their moments; `fights-drawn`, ten times as many on a stream of its own for a
+  search to draw from; `fights-judge`, ten times as many on another that no search plays. The
+  Warrior's punch is asked at 240 of the twin's and 2,400 of each of the others. None is
+  played: how many come to their moments, and what the punch lands of them, is unread.
+- **The punch's tool plays them** (`punch-sparring.mjs`): `--bar <candidate> --on fights-twin`
+  and `--on fights-judge` make the starts the bank lacks by the drive's own bouts, then play the
+  candidate and the drive from the same saves; `--search --draws fights` draws a generation's
+  starts from `fights-drawn` and ranks on `fights-twin`. A candidate is the drive under other
+  settings; a variation of its own is refused there.
 - **The trainer keeps starts for its own run.** A learning environment given a `pool` plays each
   fresh draw to its learner's first decision, saves the world there and loads it for every
   episode begun from it (`WorldKind.save`, `research/case-learning-environment.mjs`). The saves
@@ -310,28 +346,34 @@ a search, and a comparison on it is minutes.
   each play about 3,500 decisions' worth of steps a second, by arithmetic: about a fifteenth of
   them are the trainer's. How the rest divides among the walk in, the play on, the foe's mind
   and the learner's update is unread.
-- **A bout's save loads into the bout that made it.** `Duel.save` gives the physics and every
-  module's memory, and `Duel.load` puts them into a bout of the same recipe on the same build
-  (`recipeKey`, `src/game/arena/duel.ts`; `requireRecordingIdentity`,
-  `src/core/world/recording.ts`). A recipe holds each side's mind, skills and Commander
-  (`DuelRecipe.minds`, `skills`, `commanders`). So a save refuses a bout whose striker runs a
-  tuning or another variation, one whose drill Commander asks another limb or another moment
-  (`striker`, `src/evaluation/strike/cases.ts`), and a build of another commit or of uncommitted
-  work. A network file that answers the steer's requests as a trainer does plays one recipe
-  whatever its weights: the drive's with `steered` set (`playOne`), which is another recipe than
-  the drive itself plays. A fork by a load costs the steps played from it and no more
+- **A bout's save loads into a bout of its recipe less its minds, on whatever build made it.**
+  `Duel.save` gives the physics and every module's memory, and `Duel.load` puts them into a bout
+  of the same bodies, skills, Commanders and conditions (`src/game/arena/duel.ts`), part by part:
+  a mind is the loading bout's own, its memory the save's where it is built as the save's was,
+  fresh from the saved bodies where it is not, and any other part built otherwise refuses
+  ([the architecture](../architecture.md#bouts-tapes-and-replay)). So a save the drive's own bout
+  made loads under a striker's tuning: the punch tuned with its network kept, tuned with none, and
+  steered by a trainer or a network's file (`playOne`) each build their memory as the drive's bout
+  does, and load its save mid-bout. On a `still` trial, a bout built under each of the 15 searched
+  settings moved a third of its range and loaded with the drive's opening save ends in the
+  reading a fresh bout under that setting ends in; 11 of the 15 move the reading. A save still
+  refuses a bout whose striker's character holds another variation (`DuelRecipe.skills`), and one
+  whose drill Commander asks another limb or another moment (`striker`,
+  `src/evaluation/strike/cases.ts`). A fork by a load costs the steps played from it and no more
   (`rollout`, `research/rollouts.mjs`).
 - **The rung that reads a fight's commitments is small.** The Warrior's punch is asked at 48
   trials of `fights`: three gaps, two hands and eight moments the mind's own fight comes to
-  (`FIGHTS`, `src/evaluation/strike/cases.ts`). It reaches 42 of them and lands 13
-  ([the punch's notes](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)): 19
-  to 46 in a hundred at 95 %, by arithmetic, each moment counted as a fight of its own.
+  (`FIGHTS`, `src/evaluation/strike/cases.ts`). It reaches 34 of them and lands 6: 7 to 35 in a
+  hundred at 95 %, by arithmetic, each moment counted as a fight of its own.
 
 **The design.**
 
-- **A start is a trial of a fight saved at its moment**: the trial's own bout, its gap, its limb
-  and its moment drawn, played to the step its drill takes over (`reached`,
-  `src/minds/command/drill.ts`) and saved there, kept with its condition.
+- **A start is a trial of a fight saved two steps before its moment**: the trial's own bout, its
+  gap, its limb and its moment drawn, played to the step its drill takes over (`reached`,
+  `src/minds/command/drill.ts`), kept with its condition. Two steps before, so that a reader put
+  beside the loaded bout sees the fight's last step before it sees the drill's first.
+- **Each start is a fight of its own**, at a gap of its own: an interval drawn over starts is
+  drawn over fights.
 - **A trial is a start loaded and played on**: from the moment, through the drill's positioning
   and the stroke, to its reader's end. The fight before the moment is played once, for the bank.
 - **Both sides of a comparison play from one world.** A candidate and what it is read beside
@@ -346,73 +388,80 @@ a search, and a comparison on it is minutes.
   gap, limb, moment and draw. It is a state a fight came to, and stays a start whatever changes
   after it. Where it came from is kept on it and gates nothing.
 - **A start loads wherever each part of it fits**
-  ([profiles and saves](2026-11-14-profiles-and-saves.md#the-design)): the bodies, and each
-  module's memory that still has the shape saved. The build is no part of what a load refuses.
+  ([the architecture](../architecture.md#bouts-tapes-and-replay)): the bodies where their memory
+  has the shape saved, and a mind's memory where it has, the mind starting fresh where it has
+  not. The build is no part of what a load refuses.
 - **A start is played again when it is asked**, as a played row is
-  ([played rows kept and found](2026-11-14-saved-results.md#the-design)): where there is reason
+  ([the code recipe](../recipes/code.md#code)): where there is reason
   to believe the fights the minds make now come to other moments.
 
-**What it would cost.** A start's fight is played to its moment once: at most 30 s, about 17
-core-seconds at sparring's cost, which is unread for a fight of two of the game's minds. A
-thousand starts are at most about five core-hours, by arithmetic. What a save takes on disk is
-unread.
+**What it costs.** A start's fight is played to its moment once: about seven core-seconds on
+the `fights` trials read. The twin's 240 fights for the Warrior's punch are about half a
+core-hour and the judge's 2,400 about five, by arithmetic, and a bank of 2,400 starts about
+0.7 GiB.
 
 **Open.**
 
-- **A start under another striker.** A tuning changes the shape of no memory, so a load that
-  takes a save whose recipe differs in the striker's tuning alone serves a search's candidates
-  and reads a network file beside the drive itself. A variation of its own loads where a save
-  loads what fits ([profiles and saves](2026-11-14-profiles-and-saves.md#the-design)), and at a
-  moment the mind's own action is under way in the striker's memory; where it cannot load, its
-  trial is a fight played from its start.
+- **The drawn rungs are unplayed, and the tool's way to them is unrun**: `--on fights-twin`,
+  `--on fights-judge` and `--draws fights` have played nothing, so the bank holds nothing. How
+  many of the twin's fights come to their moments, what the drive lands of them, and whether a
+  candidate steered by a network's file or a trainer reads from a start as it does played whole
+  are unread. The 34 read are the drive's own, made and played by `makeStart` and `playFrom`.
+- **A start under another variation.** A save loads under a striker's tuning and under a
+  network's file. A variation of its own is its character's skill, which a load holds to
+  (`DuelRecipe.skills`), and at a moment the mind's own action is under way in the striker's
+  memory; its trial is a fight played from its start, which the tool does not play beside a
+  kept one.
+- **What a start carries of the mind that made it.** A candidate loaded two steps before a moment
+  does what the save's mind had decided and not yet done: the orders and commands on their way,
+  and the moment's own action where the drill carries it on. On the `still` trials read, that
+  moved no reading from a fresh bout's; it is unread at a fight's moment.
 - **One fight for several starts.** Whether the fight before a moment is the same play
   whichever limb and moment its drill asks. Where it is, a load across the Commander's limb and
-  moment makes a start of each moment a fight comes to: six to eight of a fight's 30 s
-  ([the punch's notes](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)).
-- **Where a start is saved.** At the moment, it serves a candidate that moves where its strike
-  begins (`reach`, `band` and `pace` are among `SEARCHED`). At the strike's first decision, as
-  the trainer's pool saves it, it leaves out the positioning as well and serves only a candidate
-  that keeps the window.
-- **How starts are counted.** The moments of one fight share its history, so an interval is
-  drawn over fights where one drawn over moments would read too narrow.
-- **Which fights the bank holds**: the matchups, the loadouts and the gaps, beside the open
-  stage's 3, 4 and 5 m that `fights` plays.
-- **What it saves a try**: the share of a trial that is its walk in and of a fight that is before
-  its moment, each unread.
+  moment makes a start of each moment a fight comes to, and a bank costs a fraction of its
+  fights.
+- **Which fights the bank holds**: the matchups and the loadouts, beside the open stage's gaps
+  of 3 to 5 m.
+- **A walker's reach of its fellows is kept by the step's time alone** (`REACHES`,
+  `src/skills/locomotion/shared/navigation/crowd.ts`), as the strike option's reading of its
+  limbs was: a bout put back to a save could meet it stale. No reading shows it.
 
 ## Part 1: a variation declares its record
 
-**Where it stands.** A variation is its maker (`ExecutorVariations`). A skill's part names one
-record for all of them: in its `reads`, in its `recordFault` and in the data it registers
-(`straight-punch/data/registration.ts`). `reads` takes a config: a mind loads by it
-(`treeData`, `src/minds/catalog/catalog.ts`), and a strike's digest reads by it beside the
-variation its body runs (`chosenVariation`, in `skillDigest`).
+**Where it stands.** The straight punch's variations declare their records
+([the architecture](../architecture.md#skills)).
 
-**The design.**
+- **A variation is its maker and what it reads** (`RecordedVariation`,
+  `src/skills/framework/variations.ts`): the records it names and the bodies that have them.
+  Naming another's record is how two share one: `from-guard` names the drive's. A skill's part
+  holds what its variations have in common: its label, its effectors, its Option and what it
+  needs of the body.
+- **A record is a variation's on each body** (`straight-punch/<variation>`, a `PunchRecordKey`),
+  registered beside the drive's (`straight-punch/data/registration.ts`).
+- **The part's `reads` gives the records of the variation a config names** (`variationReads`),
+  and every variation's where it names none: a mind loads by it (`treeData`,
+  `src/minds/catalog/catalog.ts`), and a strike's digest asks with the variation its body runs
+  (`skillDigest`). The part's `fits` asks the bodies of the variations a body holds
+  (`variationRecordFault`).
+- **The sparring tool takes the variation it reads and writes** (`punch-sparring.mjs
+  --variation`): the record a search starts from and a form is written from, and the variation a
+  network's file steers and `--commitments` plays.
+- **Each other skill tuned per body has one variation and names its one record on its part**
+  (`recordFault`, `src/skills/framework/records.ts`).
 
-- **A variation is its maker and what it reads**: the records it names and the bodies that have
-  them. Naming another's record is how two share one. A skill's part holds what its variations
-  have in common: its label, its effectors, its Option and what it needs of the body.
-- **A record is a variation's on each body** (`straight-punch/<variation>`), registered by its
-  variation.
-- **The part's `reads` gives the records of the variation a config names**, and every
-  variation's where it names none. A strike's digest asks with the variation its body runs, so a
-  profile moves only with its own variation's record. The part's `fits` asks the bodies of the
-  variations a body holds.
-- **The research tools take the variation they read and write**: the record a search starts from
-  and the variation a network file steers (`punch-sparring.mjs --variation`).
-- **A variation under work plays; every other variation's rows are found**
-  ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
-
-**What it would bring.** A new idea is a new variation: built, read and dropped without moving
-anything installed, several of them side by side. The fingerprint shows a change moved only its
-own variation's cases (`node scripts/fingerprint.mjs --compare <file> --variation
-<skill/variation>`).
-
-**What it would cost.** Nothing is played again: `drive` and `from-guard` name the record and the
-layout they run now, which the fingerprint shows.
+A new idea is a new variation: built, read and dropped without moving anything installed,
+several of them side by side. The fingerprint shows a change moved only its own variation's
+cases (`node scripts/fingerprint.mjs --compare <file> --variation <skill/variation>`).
 
 **Open.**
+
+- **A variation's record of its own in a case's key.** A key covers each seated body's row of
+  every record its mind's tree names (`treeData`, `loadsOf`), and a skill's part named without a
+  variation reads every variation's (`variationReads`): a record of a new variation's own plays,
+  once, each case of that body whose mind names the skill, the other variations' among them.
+  Narrowing it to the variation the body holds is unbuilt.
+- Whether the punch's exporter (`punch-export.mjs`) and its trainer take a variation: each
+  writes the drive's record.
 
 - Whether a variation has a row of [the table](../reference/the-table.md) or is read as a subject
   against its skill's row.
@@ -436,13 +485,18 @@ layout they run now, which the fingerprint shows.
 - **A strike's window says where it may begin** (`strikeWindow`, `quietToStrike`,
   `src/skills/strikes/shared/strike-window.ts`); the drill brings the striker into it
   (`straightSpot`, `src/minds/command/drill.ts`).
-- **The search moves settings alone.** `punch-sparring.mjs --search` moves the 15 of `SEARCHED`
-  and plays each candidate by its tuning. A network reaches a trial as a file's path, steering as
-  a trainer does (`policyOf`, `steeredTrial`).
-- **The search scores the same starts in every generation**: every third twin start the Warrior
-  is admitted to (`--every`). A PPO run on the twin's 127 training starts learned them: it reads
-  1.84 times the drive on them and 0.77 on the half it never played
-  (`punch-sparring.mjs --bar <policy> --on train`, `--on dev`).
+- **The search moves the settings and a correction together.** `punch-sparring.mjs --search`
+  moves the 15 of `SEARCHED`; with `--steer <spans file>` it moves with them each span's rows of
+  the eight pushes and the three asks over the fit's 16 inputs and a bias, 561 weights from the
+  file's own (`weightsOf`, `candidateAt`), and the punch is steered by the spans. A candidate's
+  network reaches a trial with its settings, as a file's content (`policyOf`, `steeredTrial`).
+- **A generation is scored on starts drawn anew** from `sparring-drawn`, the same for each of its
+  candidates (`--starts`). The search's start and then its mean every few generations play the
+  twin, and the best of those readings is the search's best (`--rank`). A PPO run on the twin's
+  127 training starts learned them: it reads 1.84 times the drive on them and 0.77 on the half
+  it never played (`punch-sparring.mjs --bar <policy> --on train`, `--on dev`).
+- **No search of a correction has run.** The tool's search is played for four generations of four
+  candidates on eight starts, which says it runs and resumes and nothing of what it finds.
 
 **The design.**
 
@@ -462,7 +516,7 @@ layout they run now, which the fingerprint shows.
   holds about half of what three spans hold.
 - **One search moves the schedule's settings and the correction's weights together.** A
   candidate's network goes to a trial with its settings. The search starts from the per-span
-  fit with its asks' rows fitted ([a form unread](#the-readings-that-come-first)).
+  fit with its asks' rows fitted ([its readings](#the-readings-that-come-first)).
 - **A record's network chosen by the drive's age.** A file of spans is the tool's
   (`punch-sparring.mjs`): a record holds one network, and the steer runs it at every decision.
   A variation made in the per-span form needs the steer to choose its layer by the drive's age.
@@ -531,8 +585,9 @@ answers its heading and centre asks moves it, as below.
 **Open.**
 
 - Whether a linear correction holds what the open-loop schedule loses: 1.5 cm of foot took a bonk
-  from 96 to 63 J. For the punch the per-span fit holds 0.69 of the drive's damage a second
-  while asking the stance for nothing; whether a search from it reaches the drive is unread.
+  from 96 to 63 J. For the punch the per-span fit with its asks fitted holds the drive's damage
+  a second, 0.98 times it, 95 % 0.92 to 1.05 on the judge's draw; whether a search from it
+  passes the drive is unread.
 - Whether the search reaches a good correction at a search's budget: 561 weights and biases for
   16 inputs, 8 pushes, 3 asks and 3 spans, by arithmetic, against the 15 settings it moves now,
   whose search ran 16 generations of 16 candidates on 80 starts.
@@ -581,23 +636,17 @@ refactor the fingerprint shows. Two choices reach installed skills:
 
 ## How the parts depend
 
-- **The steer's readings are read** on the tool's mode (`--network`). Each `--bar` of them plays
-  the drive's side once more until the judge finds its rows
-  ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
-- **The judge's larger draw is first.** It waits on nothing: a protocol added beside sparring's.
-  With the played rows its drive's side is played once.
-- **Part 1 and the played rows wait on no reading**: every try after them plays only its own
-  variation.
-- **Part 2's search waits on the judge's larger draw**, which tells its best from its start; on
-  the per-span fit with its asks' rows fitted, its start; and on a candidate's network going to
-  a trial with its settings. What it makes waits on Part 1 to be installed beside the drive,
-  and on a steer that chooses a record's layer by the drive's age.
+- **The steer's readings are read** on the tool's mode (`--network`). Each `--bar` of them
+  finds the drive's side ([the architecture](../architecture.md#evaluations)).
+- **A kept row waits on the mind's pricing.** What Option Mind prices a strike by is code both
+  sides of every comparison run, the sparring foe's among it, so a row kept before a change to
+  it is another code's: its subject is played again (`--fresh`).
+- **Part 2's search waits on nothing**: the judge's draw tells its best from its start, and its
+  start is the per-span fit with its asks' rows fitted. What it makes waits on Part 1 to be
+  installed beside the drive, and on a steer that chooses a record's layer by the drive's age.
 - **A stance that knows of a blow waits on a reading that shows a strike needs it.**
-- **The kept starts wait on a save that loads where its parts fit**, the build no part of what
-  it refuses ([profiles and saves](2026-11-14-profiles-and-saves.md#the-design)), and on a load
-  under a striker's tuning to serve a search. Without the second a bank serves a comparison of
-  network files: one beside the installed network as a file, both under the steered recipe. The
-  larger measure of a fight waits on the kept starts.
+- **The larger measure of a fight waits on the bank's first play**: the starts are made by the
+  drive's own bouts the first time a rung is asked (`--bar <candidate> --on fights-twin`).
 - **Another base waits on Part 2**: until a strike's layout holds no reading of the legs, a base
   other than the stance makes each strike's network a seed to retrain
   ([the base under a fight](2026-11-14-fighting-base.md#the-design)).
@@ -611,8 +660,10 @@ refactor the fingerprint shows. Two choices reach installed skills:
   layer computes, `src/core/math/learning/recovery-network.ts`; what an output asks,
   `src/skills/strikes/shared/steer.ts`.
 - **The judge**: `bar` in `punch-sparring.mjs`; sparring's draws (`SPARRING`, `SPARRING_TWIN`,
-  `SPARRING_DRAWN`) in `src/evaluation/strike/cases.ts`.
-- **Kept starts**: a bout's save and load, `Duel` in `src/game/arena/duel.ts`; a fork by a load,
+  `SPARRING_DRAWN`, `SPARRING_JUDGE`) in `src/evaluation/strike/cases.ts`.
+- **Kept starts**: the bank, `research/starts.mjs`; the drawn rungs, `FIGHTS_TWIN` and
+  `drawnFights` in `src/evaluation/strike/cases.ts`; a bout's save and load, `Duel` in
+  `src/game/arena/duel.ts`; a fork by a load,
   `research/rollouts.mjs`; the trainer's pool, `research/case-learning-environment.mjs`; a
   fight's moments, `FIGHTS` in `src/evaluation/strike/cases.ts` and `reached` in
   `src/minds/command/drill.ts`.

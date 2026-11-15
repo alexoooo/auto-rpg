@@ -363,6 +363,9 @@ interface Ending {
 /** A laid target lies once its middle trunk's centre is under this share of its height as built (`Ending.laid`): a body folded sitting holds it above. */
 const LIES = 1 / 3;
 
+/** Where the striker's drill is (`drillTask`), as its Commander says of its member; lost where it says nothing yet. */
+export const drillOf = (duel: BuiltBout["duel"]): ReturnType<typeof drillTask> => drillTask(duel.commanded("left")?.task ?? "lost");
+
 /**
  * The reader of a trial in which the striker, the bout's left side, asks one action with `limb` at
  * the right side's `mark`, ending as `ending` says, a hand's judged by `bar`, its side led by the
@@ -534,7 +537,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   };
   return {
     afterStep() {
-      const drill = drillTask(duel.commanded("left")?.task ?? "lost");
+      const drill = drillOf(duel);
       if (drill.phase === "fighting") {
         fought = true;
         for (const one of skills.report.actions) before.add(one.id);

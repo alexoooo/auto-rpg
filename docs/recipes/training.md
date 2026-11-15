@@ -147,8 +147,8 @@ A run's output goes to `.tmp/<task>/`: checkpoints, traces, screens, rejected ca
 `research/runs/<task>/` keeps only what a later run reads (a selected model with its
 normalisation and configuration, rows a comparison reuses) and a README naming each file. A file
 loose in `research/runs/`, a folder there with no README or an entry its README does not name, or
-a folder over 1,000 files or 1 GB fails `tests/workspace.test.mjs`. `npm run evaluate` caches
-played rows in `.tmp/evaluations/<id>/<commit>/`, found again only on that commit; its results are what it keeps, a few numbers a trial in
+a folder over 1,000 files or 1 GB fails `tests/workspace.test.mjs`. `npm run evaluate` keeps
+played rows in `.cache/evaluations/<id>/`, found again by key whatever commit they were played on; its results are a few numbers a trial in
 `assets/evaluations/<id>.json`, committed with the change they read.
 
 When a checkpoint is chosen, copy its `model-<n>.zip`, `normalize-<n>.pkl`, `policy-<n>.json`,

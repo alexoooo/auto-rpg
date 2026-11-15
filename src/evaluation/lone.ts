@@ -126,6 +126,7 @@ export function createLone(context: GameContext) {
   /** The lone-body world kind: built by `buildLone`, its one body traced, played by the world's clock. */
   const LONE_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "lone" }>, BuiltLone> = {
     build: (world, options) => buildLone(world.lone, world.engine, options?.hz === undefined ? {} : { hz: options.hz }),
+    loads: ({ lone }) => ({ models: [lone.model], keys: GAME.treeData(lone.mind) }),
     traced: (built) => [built.body.built],
     clock: (built) => built.world.time,
     hosted: (built) => [built.body.minded],

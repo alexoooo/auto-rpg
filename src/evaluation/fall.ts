@@ -351,6 +351,7 @@ export function createFall(context: GameContext) {
   /** The fall world kind: built by `buildFall`, its one body traced, played by the world's clock. */
   const FALL_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "fall" }>, BuiltFall> = {
     build: (world, options) => buildFall(world.fall, world.engine, options?.hz === undefined ? {} : { hz: options.hz }),
+    loads: ({ fall }) => ({ models: [fall.model], keys: GAME.treeData(fall.mind) }),
     traced: (built) => [built.body],
     clock: (built) => built.world.time,
   };

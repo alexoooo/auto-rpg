@@ -3,8 +3,8 @@
  * starts drawn at random, moving or still, `sampled`), at one lying (`stomping`, and from starts
  * drawn at random, `stomping-sampled`), a club's blow at one's head (`bonk`), at one
  * carried past on a rail (`moving`), at one walked to from farther (`walk`), at a drill opponent stepping in and out (`stepping`), guarding
- * (`guarding`) or punching back (`punching`), in a fight's moment (`fight`, and over many fights,
- * `fights`), or from starts drawn at random at a foe that fights back (`sparring`, and at one laid
+ * (`guarding`) or punching back (`punching`), in a fight's moment (`fight`, over many fights,
+ * `fights`, and in fights drawn at random, `fights-twin`), or from starts drawn at random at a foe that fights back (`sparring`, and at one laid
  * down, `sparring-laid`). The rungs at a target ask how well the body throws the strike; what the
  * strike brings against a foe fighting back is another question, and a profile is that one's
  * answer, measured on the sparring rungs. The striker is the
@@ -38,7 +38,7 @@ import { modelHolding, modelSpec } from "../../core/bodies/models.ts";
 import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { seatBody, sideCharacters, type BoutTiming, type Cases, type Json, type Seat, type Subject } from "../evaluation.ts";
-import { effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
+import { drillOf, effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
 import type { Rail } from "../../game/arena/rail.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
@@ -316,6 +316,52 @@ const onOtherBodies = <P extends { readonly models: readonly BodyModel[] }>(rung
 const FIGHTS = deepFreeze({ ...FIGHT, models: [...STRIKERS], feet: [...SIDES] as Hand[], gaps: [3, 4, 5], moments: [1, 2, 3, 4, 5, 6, 7, 8] });
 
 /**
+ * **Fights drawn**, the `fights-twin` rung: the many fights' moments (`FIGHTS`), each in a fight of
+ * its own, begun from a gap drawn at random between `gaps`, m, so that no two trials share what
+ * came before their moments. On each body, `trials` fights drawn in turn from one stream (`seed`),
+ * the same for every body (`drawnFights`). It is the draw research ranks on; `fights` stays the
+ * rung a fight is read on.
+ */
+const FIGHTS_TWIN = deepFreeze({ ...FIGHTS, gaps: [3, 5], seed: 2, trials: 960 });
+
+/**
+ * **The fights' training draws**, `fights-drawn`: ten times the twin's fights on a stream of their
+ * own, for a search and a trainer to draw from, so that no fight recurs often enough to be learned
+ * for itself.
+ */
+const FIGHTS_DRAWN = deepFreeze({ ...FIGHTS_TWIN, seed: 3, trials: FIGHTS_TWIN.trials * 10 });
+
+/**
+ * **The fights' larger held-out draw**, `fights-judge`: ten times the twin's fights on a stream of
+ * their own, which no search and no trainer plays, for a variation to be judged on beside the one
+ * it would replace.
+ */
+const FIGHTS_JUDGE = deepFreeze({ ...FIGHTS_TWIN, seed: 4, trials: FIGHTS_TWIN.trials * 10 });
+
+/**
+ * **A drawn fights rung's trials** (`FIGHTS_TWIN`): on each body against each foe, `trials` fights,
+ * each from a gap drawn to the millimetre; its limbs, its hands then its feet, by turns, its marks
+ * by turns of them and its moments by turns of those. A gap that a trial of the same limb, mark
+ * and moment already has is drawn again, so every trial is a fight of its own.
+ */
+function drawnFights(protocol: typeof FIGHTS_TWIN): FightCondition[] {
+  const conditions: FightCondition[] = [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...protocol.feet.map((foot) => ({ foot }))];
+  const [low, high] = protocol.gaps, kinds = limbs.length * protocol.marks.length * protocol.moments.length;
+  for (const model of protocol.models) for (const foe of protocol.foes) {
+    const stream = randomStream(protocol.seed), had = new Set<string>();
+    for (let k = 0; k < protocol.trials; k++) {
+      const limb = limbs[k % limbs.length]!, turn = Math.floor(k / limbs.length), mark = protocol.marks[turn % protocol.marks.length]!;
+      const moment = protocol.moments[Math.floor(turn / protocol.marks.length) % protocol.moments.length]!;
+      let gap: number;
+      do gap = Math.round((low! + stream.next() * (high! - low!)) * 1000) / 1000; while (had.has(`${k % kinds} ${gap}`));
+      had.add(`${k % kinds} ${gap}`);
+      conditions.push({ model, foe, mark, ...limb, moment, gap });
+    }
+  }
+  return conditions;
+}
+
+/**
  * **The foe a strike's profile is measured against**: Option Mind as the game fights with it
  * (`MINDS.option`), fighting from the start: it guards, steps and strikes as it would in a bout.
  */
@@ -341,6 +387,14 @@ const SPARRING_TWIN = deepFreeze({ ...SPARRING, seed: 2 });
  * twin and the rung stay out of training, to rank and to judge by.
  */
 const SPARRING_DRAWN = deepFreeze({ ...SPARRING, seed: 3, trials: SPARRING.trials * 10 });
+
+/**
+ * **Sparring's larger held-out draw**, `sparring-judge`: ten times its starts on a stream of their
+ * own, which no search and no trainer plays. A variation is judged on it beside the one it would
+ * replace (`punch-sparring.mjs --bar --on judge`): an interval over ten times the starts is about
+ * a third as wide.
+ */
+const SPARRING_JUDGE = deepFreeze({ ...SPARRING, seed: 4, trials: SPARRING.trials * 10 });
 
 /**
  * **Sparring at a foe laid down**, the `sparring-laid` rung: the stomping rung's sampled starts
@@ -458,9 +512,9 @@ export function createStrikeCases(context: GameContext) {
     };
   }
 
-  function fightCases(protocol: typeof FIGHT & { readonly feet?: readonly Hand[]; readonly gaps?: readonly number[] }): Cases<StrikeCondition, StrikeReading> {
-    const conditions: FightCondition[] = [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
-    for (const model of protocol.models) for (const foe of protocol.foes) for (const gap of protocol.gaps ?? [undefined]) for (const mark of protocol.marks) for (const limb of limbs)
+  function fightCases(protocol: typeof FIGHT & { readonly feet?: readonly Hand[]; readonly gaps?: readonly number[] }, drawn?: readonly FightCondition[]): Cases<StrikeCondition, StrikeReading> {
+    const conditions: FightCondition[] = drawn ? [...drawn] : [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
+    if (!drawn) for (const model of protocol.models) for (const foe of protocol.foes) for (const gap of protocol.gaps ?? [undefined]) for (const mark of protocol.marks) for (const limb of limbs)
       for (const moment of protocol.moments) conditions.push({ model, foe, mark, ...limb, moment, ...(gap === undefined ? {} : { gap }) });
     return {
       arity: 1,
@@ -478,6 +532,8 @@ export function createStrikeCases(context: GameContext) {
             ...(gap === undefined ? {} : { gap }) } };
       },
       read: (built, condition) => readStrike(built, condition, protocol),
+      // The fight before the moment is the subject's own bout, whatever the drill then asks.
+      opening: (built) => drillOf(built.duel).phase === "fighting",
     };
   }
 
@@ -492,10 +548,13 @@ export function createStrikeCases(context: GameContext) {
   const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ ...twinned("still", atEveryFoe(STILL)), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
     sparring: { ...stillCases(SPARRING, sampledConditions(SPARRING)), twin: "sparring-twin" }, "sparring-twin": stillCases(SPARRING_TWIN, sampledConditions(SPARRING_TWIN)),
     "sparring-drawn": stillCases(SPARRING_DRAWN, sampledConditions(SPARRING_DRAWN)),
+    "sparring-judge": stillCases(SPARRING_JUDGE, sampledConditions(SPARRING_JUDGE)),
     "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
     "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT), fights: fightCases(FIGHTS),
+    "fights-twin": fightCases(FIGHTS_TWIN, drawnFights(FIGHTS_TWIN)), "fights-drawn": fightCases(FIGHTS_DRAWN, drawnFights(FIGHTS_DRAWN)),
+    "fights-judge": fightCases(FIGHTS_JUDGE, drawnFights(FIGHTS_JUDGE)),
     letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), ...twinned("stomping", STOMPING),
     "stomping-sampled": stillCases(STOMPING_SAMPLED, sampledConditions(STOMPING_SAMPLED)),
     ...twinned("still-bodies", atEveryFoe(onOtherBodies(STILL))), ...twinned("walk-bodies", atEveryFoe(onOtherBodies(WALK))), "fight-bodies": fightCases(onOtherBodies(FIGHT)),

@@ -8,18 +8,26 @@
  * foe, centre to centre across the ground, m; the foe's phase as the striker sensed it (the `phase`
  * percept, `sensedPhase`); how the two bodies stood; and the velocity at the start, in the frame of
  * the skill's target (`startVelocity`), or, for a skill with no target, the body's own (forward and
- * to its right of its facing); and, for a skill begun from a window, where in it the body stood. A
+ * to its right of its facing); for a skill begun from a window, where in it the body stood; and
+ * the Balance and haste its bodies' characters set, where they were not their models' own
+ * (`Levels`). A
  * reading takes the trials nearest the start asked at (`NEAREST`), its velocity and its place in
- * its window within the spans its trials began at (`within`). A
- * skill with no foe, a ground edge, begins at no range, clear. A profile names what it was measured
- * on (`Measured`) and the body it was measured against (`Target`, none for a skill with no foe); one
- * read for another body, skill, rate or reaction time is stale (`staleness`), and a chooser prices
- * that skill by hand.
+ * its window within the spans its trials began at (`within`), and its bodies' levels, which are
+ * their specs', within those its trials began at (`LEVELS`). A
+ * skill with no foe, a ground edge, begins at no range, clear. A profile is found by the question
+ * it answers (`Measured`): its skill and variation, the limb that throws it, its body's model and
+ * what that body holds, the world's rates and the senses' reaction time; and by the body it was
+ * measured against (`Target`, none for a skill with no foe). The code it was measured on is no
+ * part of what finds it: a retrained network or a tuned setting leaves it read until its own tool
+ * measures it again, a number its character sets is read at the nearest its trials began at, and
+ * where it came from is kept on it (`Origin`). One read for another body, loadout, rate or reaction time is stale (`staleness`),
+ * and a chooser prices that skill by hand.
  *
  * Each dataset owner declares and loads its profiles. Readers use `readProfile`; identity
  * selects the loaded data each provider declares relevant to a subject (`dataIdentity`).
  */
-import { dataIdentity, type DataKey } from "../../core/data/store.ts";
+import { dataIdentity, type DataKey, type DataLoader } from "../../core/data/store.ts";
+import { characterDefaults, type BodyModel } from "../../core/bodies/models.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { hypot } from "../../core/math/real.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
@@ -28,16 +36,19 @@ import type { PartConfig } from "../../parts/parts.ts";
 import { chosenVariation, type Varied } from "./variations.ts";
 
 /**
- * What a profile was measured on: its model and the digest of that body's spec
- * (`specDigest`), its skill's digest (`skillDigest`, `techniqueDigest`), the world's rate, Hz,
- * how late its senses showed the other body, s (null for a skill that reads none), the rate its
- * mind's driver ran at, Hz, where that is not the world's (`rateOf`, `LayerOptions.every`), and the
- * steps its body's command waited (`World.delay`), where there were any (`delayOf`).
+ * **The question a profile answers**, which it is found by: its body's model and what that body
+ * held (`holdsOf`; absent, nothing), its skill as its character holds it (`skill/variation`,
+ * `strikeSkill`, `techniqueSkill`), the limb a strike was thrown with (absent for a skill thrown
+ * with none), the world's rate, Hz, how late its senses showed the other body, s (null for a skill
+ * that reads none), the rate its mind's driver ran at, Hz, where that is not the world's (`rateOf`,
+ * `LayerOptions.every`), and the steps its body's command waited (`World.delay`), where there were
+ * any (`delayOf`).
  */
 export interface Measured {
   readonly body: string;
-  readonly spec: string;
+  readonly holds?: string;
   readonly skill: string;
+  readonly limb?: string;
   readonly hz: number;
   readonly reaction: number | null;
   readonly rate?: number;
@@ -50,10 +61,31 @@ const delayOf = (measured: Measured): number => measured.delay ?? 0;
 /** **The rate the mind's driver ran at** where `measured` was measured, Hz: its `rate`, else the world's. */
 const rateOf = (measured: Measured): number => measured.rate ?? measured.hz;
 
-/** The body a profile was measured against: its model and its spec's digest (`specDigest`). */
+/** The body a profile was measured against: its model and what it held (`holdsOf`; absent, nothing). */
 interface Target {
   readonly body: string;
-  readonly spec: string;
+  readonly holds?: string;
+}
+
+/**
+ * **Where a profile came from**, which finds and refuses none: the digests of its body's spec, of
+ * its skill and of the spec of the body it was measured against, as its trials were played
+ * (`specDigest`, `skillDigest`, `techniqueDigest`); and the commit its trials were played on,
+ * whether a build input differed from it, and the day, where its tool knew them.
+ */
+export interface Origin {
+  readonly spec?: string;
+  readonly skill?: string;
+  readonly target?: string;
+  readonly commit?: string;
+  readonly changed?: boolean;
+  readonly date?: string;
+}
+
+/** **What a body of `spec` holds**, each item's name by the segment that holds it, in the segments' order by name; undefined with nothing. */
+export function holdsOf(spec: Pick<BodySpec, "held">): string | undefined {
+  const held = spec.held ?? [];
+  return held.length ? held.map((one) => `${one.segment}:${one.item.name}`).sort().join(",") : undefined;
 }
 
 /**
@@ -76,7 +108,9 @@ export const STANDING: Postures = Object.freeze({ own: "standing", target: "stan
  * the body's own (forward and to its right), absent where its drill did not record it, read as
  * still; and, for a skill begun from a window (`Window`), where in it the body stood
  * (`placeInWindow`: the target's offset from the window's middle, ahead and to the right, m),
- * absent where it begins from none or its drill did not record it, read as at the middle.
+ * absent where it begins from none or its drill did not record it, read as at the middle. A trial
+ * records as well the levels its bodies began at (`Levels`); a reading is asked at none, its
+ * bodies' levels being their specs' (`Asked`).
  */
 interface Start {
   readonly range: number;
@@ -84,7 +118,53 @@ interface Start {
   readonly postures?: Postures;
   readonly velocity?: readonly [number, number];
   readonly window?: readonly [number, number];
+  readonly levels?: Levels;
 }
+
+/** Where a reading is asked at: a start less its bodies' levels, which the reading takes from their specs. */
+type Asked = Omit<Start, "levels">;
+
+/** The numbers a character sets that a trial records of a body (`AttributeSpec`), per cent: each absent where it was its model's own (`characterDefaults`). */
+interface BodyLevels {
+  readonly balance?: number;
+  readonly haste?: number;
+}
+
+/** **The levels a trial's bodies began at** (`BodyLevels`): the body whose skill it is, `own`, and the body it struck, `target`; each absent where every level was its model's own. */
+interface Levels {
+  readonly own?: BodyLevels;
+  readonly target?: BodyLevels;
+}
+
+/**
+ * **The levels a start is compared by**, beside its range, its velocity and its place: each body's
+ * each level, and the span over which trials are taken as alike, per cent. The spans are tuned on
+ * no reading: no stored profile holds trials begun at two levels.
+ */
+const LEVELS = Object.freeze(((["own", "target"] as const).flatMap((of) => [{ of, level: "balance", span: 2 }, { of, level: "haste", span: 10 }] as const)));
+
+/** A reading of a profile whose trials record no level: asked at none. */
+const NO_LEVELS = new Float64Array(0);
+
+/** A model's own levels (`characterDefaults`): what a body's trial that records none began at. */
+const ownLevels = (model: string): BodyLevels => characterDefaults(model as BodyModel);
+
+/**
+ * **The levels a trial of `own` against `target` records** (`Start.levels`): each body's Balance
+ * and haste where its character set it apart from its model's own; undefined where none did.
+ */
+export function startLevels(own: BodySpec, target: BodySpec | null): Levels | undefined {
+  const of = (spec: BodySpec): BodyLevels | undefined => {
+    const defaults = ownLevels(spec.model), set = (["balance", "haste"] as const).filter((level) => spec.attributes[level].value !== defaults[level]);
+    return set.length ? Object.fromEntries(set.map((level) => [level, spec.attributes[level].value])) : undefined;
+  };
+  const mine = of(own), its = target ? of(target) : undefined;
+  return mine || its ? { ...(mine ? { own: mine } : {}), ...(its ? { target: its } : {}) } : undefined;
+}
+
+/** **A start's levels** in `LEVELS`' order: those it records, and `defaults` where it records none. */
+const levelsAt = (levels: Levels | undefined, defaults: Float64Array): Float64Array =>
+  Float64Array.from(LEVELS, ({ of, level }, k) => levels?.[of]?.[level] ?? defaults[k]!);
 
 /** Still, or at the window's middle: the velocity and the place a start that records none is read at. */
 const STILL: readonly [number, number] = Object.freeze([0, 0]) as readonly [number, number];
@@ -143,8 +223,13 @@ export interface Profile {
   /** The body it was measured against; null for a skill with no foe. */
   readonly target: Target | null;
   readonly trials: readonly Trial[];
-  /** The limbs a strike's trials were thrown with (effector segments, `hand.right`), which a foe's strikes are modelled by; absent for a skill thrown with none. */
-  readonly limbs?: readonly string[];
+  /** Where it came from (`Origin`); absent where its tool kept none. */
+  readonly from?: Origin;
+}
+
+/** A profiles' loader whose identity for a body is the profiles measured on it (`dataIdentity`): its own strikes', and what a foe of that body is modelled by. */
+export function bodyProfiles(load: () => Promise<unknown>): DataLoader {
+  return Object.assign(load, { identity: (data: unknown, body: string) => (data as readonly Profile[]).filter((profile) => profile.measured.body === body) });
 }
 
 const profileObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -153,9 +238,14 @@ const profileNonnegative = (value: unknown): boolean => profileNumber(value) && 
 const profileText = (value: unknown): boolean => typeof value === "string" && value.length > 0;
 const profilePair = (value: unknown): boolean => Array.isArray(value) && value.length === 2 && value.every(profileNumber);
 const profilePostures = (value: unknown): boolean => profileObject(value) && profileText(value.own) && profileText(value.target);
-const profileTarget = (value: unknown): boolean => profileObject(value) && profileText(value.body) && profileText(value.spec);
+const profileLevels = (value: unknown): boolean => profileObject(value) && [value.own, value.target].every((body) => body === undefined
+  || profileObject(body) && [body.balance, body.haste].every((level) => level === undefined || profileNumber(level)));
+const profileTarget = (value: unknown): boolean => profileObject(value) && profileText(value.body) && (value.holds === undefined || profileText(value.holds));
+const profileOrigin = (value: unknown): boolean => profileObject(value)
+  && [value.spec, value.skill, value.target, value.commit, value.date].every((one) => one === undefined || profileText(one))
+  && (value.changed === undefined || typeof value.changed === "boolean");
 const profileMeasured = (value: unknown): boolean => profileTarget(value) && profileObject(value)
-  && profileText(value.skill) && profileNumber(value.hz) && value.hz > 0
+  && profileText(value.skill) && (value.limb === undefined || profileText(value.limb)) && profileNumber(value.hz) && value.hz > 0
   && (value.reaction === null || profileNonnegative(value.reaction))
   && (value.rate === undefined || profileNumber(value.rate) && value.rate > 0)
   && (value.delay === undefined || profileNonnegative(value.delay) && Number.isSafeInteger(value.delay));
@@ -164,6 +254,7 @@ const profileTrial = (value: unknown): boolean => profileObject(value) && profil
   && (value.start.postures === undefined || profilePostures(value.start.postures))
   && (value.start.velocity === undefined || profilePair(value.start.velocity))
   && (value.start.window === undefined || profilePair(value.start.window))
+  && (value.start.levels === undefined || profileLevels(value.start.levels))
   && typeof value.done === "boolean" && typeof value.down === "boolean"
   && profileNonnegative(value.dealt) && profileNonnegative(value.taken) && profileNonnegative(value.seconds)
   && (value.recovers === null || profileNonnegative(value.recovers))
@@ -175,7 +266,7 @@ const profileTrial = (value: unknown): boolean => profileObject(value) && profil
 export const validProfiles = (value: unknown): value is readonly Profile[] => Array.isArray(value) && value.every(profile => profileObject(profile)
   && profileMeasured(profile.measured) && (profile.target === null || profileTarget(profile.target))
   && Array.isArray(profile.trials) && profile.trials.every(profileTrial)
-  && (profile.limbs === undefined || Array.isArray(profile.limbs) && profile.limbs.every(profileText)));
+  && (profile.from === undefined || profileOrigin(profile.from)));
 
 /**
  * **What a skill is expected to bring from a start** (`ProfileReading.expect`), in life, a share
@@ -212,9 +303,9 @@ export interface ProfileReading {
   /** The farthest range it reads at for a body in `phase`, m: its farthest trial's start; -Infinity with none. */
   reach(phase: string): number;
   /** What it expects from `at` against `struck` (none for a skill with no foe): its trials nearest `at` (`NEAREST`), within its reach; null beyond, or asked at a progress, what letting it go there cost. */
-  expect(at: Start & { readonly progress?: number }, struck: BodySpec | null): Expected | null;
+  expect(at: Asked & { readonly progress?: number }, struck: BodySpec | null): Expected | null;
   /** What it expects from `at` to take of `struck`'s life a second: its nearest trials' dealt over their cycle, null where it expects nothing. */
-  rate(at: Start, struck: BodySpec | null): number | null;
+  rate(at: Asked, struck: BodySpec | null): number | null;
   /** The most of `struck`'s life a second it takes from any start of its trials for a body in `phase` (`rate` there); 0 with none. */
   peak(phase: string, struck: BodySpec): number;
   /** The fewest seconds it runs from any start of its trials for a body in `phase` where it takes life: its fastest blow; Infinity with none. */
@@ -228,7 +319,7 @@ export interface ProfileReading {
  * first and ties together, until there are `trials` of them, so a lone trial is read with its
  * neighbours; nearness the distance in range over `range` m, in velocity over `speed` m/s and in
  * the place in its window over `place` m together, each the span over which trials are taken as
- * alike. Tuned: about a stride's worth of neighbours on the range a strike's window spans, a step's
+ * alike, and in its bodies' levels where its profile's trials record any (`LEVELS`). Tuned: about a stride's worth of neighbours on the range a strike's window spans, a step's
  * change of pace, and a quarter of the depth of a stomp's window.
  */
 const NEAREST = Object.freeze({ trials: 10, range: .1, speed: .25, place: .1 });
@@ -267,7 +358,8 @@ type Read = readonly [number, number, number, number];
  * **Trials sorted by the range they began at**, with their starts in arrays made once, so the
  * nearest to a start are found by walking out from its range (`nearestOf`); and the span of their
  * starts' velocities, closing and across, and of their places in their window, ahead and aside
- * (`low`, `high`, in that order, `Read`), which a start is read within (`within`).
+ * (`low`, `high`, in that order, `Read`), which a start is read within (`within`). Where its
+ * profile's trials record levels, each trial's (`levels.at`, in `LEVELS`' order) and their spans.
  */
 interface Sample {
   readonly trials: readonly Trial[];
@@ -280,18 +372,24 @@ interface Sample {
   readonly distances: Float64Array;
   readonly low: Read;
   readonly high: Read;
+  readonly levels: { readonly at: readonly Float64Array[]; readonly low: Float64Array; readonly high: Float64Array } | null;
 }
 
-function sampleOf(trials: readonly Trial[]): Sample {
+/** `trials` as a sample; with `defaults`, the levels a trial that records none began at, its trials' levels beside. */
+function sampleOf(trials: readonly Trial[], defaults: Float64Array | null): Sample {
   const sorted = [...trials].sort((a, b) => a.start.range - b.start.range), n = sorted.length;
   const range = new Float64Array(n), closing = new Float64Array(n), across = new Float64Array(n), ahead = new Float64Array(n), aside = new Float64Array(n);
   const low: [number, number, number, number] = [Infinity, Infinity, Infinity, Infinity], high: [number, number, number, number] = [-Infinity, -Infinity, -Infinity, -Infinity];
+  const levels = defaults && { at: LEVELS.map(() => new Float64Array(n)), low: new Float64Array(LEVELS.length).fill(Infinity), high: new Float64Array(LEVELS.length).fill(-Infinity) };
   sorted.forEach((trial, i) => {
+    if (levels) levelsAt(trial.start.levels, defaults).forEach((level, k) => {
+      levels.at[k]![i] = level; levels.low[k] = Math.min(levels.low[k]!, level); levels.high[k] = Math.max(levels.high[k]!, level);
+    });
     const velocity = trial.start.velocity ?? STILL, place = trial.start.window ?? STILL, at: Read = [velocity[0], velocity[1], place[0], place[1]];
     range[i] = trial.start.range; closing[i] = at[0]; across[i] = at[1]; ahead[i] = at[2]; aside[i] = at[3];
     for (const k of [0, 1, 2, 3] as const) { low[k] = Math.min(low[k], at[k]); high[k] = Math.max(high[k], at[k]); }
   });
-  return { trials: sorted, range, closing, across, ahead, aside, low, high, distances: new Float64Array(n) };
+  return { trials: sorted, range, closing, across, ahead, aside, low, high, levels, distances: new Float64Array(n) };
 }
 
 /**
@@ -300,17 +398,22 @@ function sampleOf(trials: readonly Trial[]): Sample {
  * nothing the nearest measured one does not: read as it is, its distance would outweigh the
  * range's and take the few trials begun at the sample's extreme, from whatever range they began at.
  */
-function within(sample: Sample, at: Start, read: Nearest["read"]): void {
+function within(sample: Sample, at: Asked, read: Nearest["read"]): void {
   const velocity = at.velocity ?? STILL, closing = velocity[0], across = velocity[1],
     window = at.window ?? STILL, ahead = window[0], aside = window[1], { low, high } = sample;
   read[0] = Math.min(high[0], Math.max(low[0], closing)); read[1] = Math.min(high[1], Math.max(low[1], across));
   read[2] = Math.min(high[2], Math.max(low[2], ahead)); read[3] = Math.min(high[3], Math.max(low[3], aside));
 }
 
-/** How far `sample`'s trial `i` lies from a start at `range` read at `read` (`within`), each part over its span (`NEAREST`). */
-const apart = (sample: Sample, i: number, range: number, read: Read): number =>
-  hypot(hypot((sample.range[i]! - range) / NEAREST.range, (sample.closing[i]! - read[0]) / NEAREST.speed, (sample.across[i]! - read[1]) / NEAREST.speed),
+/** How far `sample`'s trial `i` lies from a start at `range` read at `read` (`within`) and, where its trials record levels, at `levels`, each part over its span (`NEAREST`, `LEVELS`). */
+function apart(sample: Sample, i: number, range: number, read: Read, levels: Float64Array): number {
+  const near = hypot(hypot((sample.range[i]! - range) / NEAREST.range, (sample.closing[i]! - read[0]) / NEAREST.speed, (sample.across[i]! - read[1]) / NEAREST.speed),
     (sample.ahead[i]! - read[2]) / NEAREST.place, (sample.aside[i]! - read[3]) / NEAREST.place);
+  if (!sample.levels) return near;
+  let squared = near * near;
+  for (let k = 0; k < LEVELS.length; k++) { const by = (sample.levels.at[k]![i]! - levels[k]!) / LEVELS[k]!.span; squared += by * by; }
+  return Math.sqrt(squared);
+}
 
 /** The first index of `sample` whose range is at least `range`. */
 function firstFrom(sample: Sample, range: number): number {
@@ -323,10 +426,10 @@ function firstFrom(sample: Sample, range: number): number {
 const BEST = new Float64Array(NEAREST.trials);
 
 /** A nearest query's clamped coordinates, bounds and visited interval, held through aggregation. */
-interface Nearest { from: number; to: number; bound: number; readonly read: [number, number, number, number]; visitedFrom: number; visitedTo: number }
+interface Nearest { from: number; to: number; bound: number; readonly read: [number, number, number, number]; readonly levels: Float64Array; visitedFrom: number; visitedTo: number }
 
 /** One query's work; nested queries use a frame of their own until the outer aggregation ends. */
-const nearestWork = (): Nearest => ({ from: 0, to: 0, bound: 0, read: [0, 0, 0, 0], visitedFrom: 0, visitedTo: 0 });
+const nearestWork = (): Nearest => ({ from: 0, to: 0, bound: 0, read: [0, 0, 0, 0], levels: new Float64Array(LEVELS.length), visitedFrom: 0, visitedTo: 0 });
 const QUERY_WORK = { depth: 0, frames: [nearestWork()] };
 
 /** Keep distance `d` among the nearest `want`, returning how many have been found. */
@@ -339,15 +442,17 @@ function keepNearest(d: number, found: number, want: number): number {
 }
 
 /**
- * **The trials of `sample` nearest `at`** (`NEAREST`): the span of its indices `[from, to)` that
- * holds them, and the distance the farthest of them lies at (`bound`), each in the span within it;
- * written into `near`; false where `sample` is empty.
+ * **The trials of `sample` nearest `at`** (`NEAREST`), its bodies at the levels `asked`: the span
+ * of its indices `[from, to)` that holds them, and the distance the farthest of them lies at
+ * (`bound`), each in the span within it; written into `near`; false where `sample` is empty. A
+ * level is read within the span its trials began at, as a velocity is (`within`).
  */
-function nearestOf(sample: Sample, at: Start, near: Nearest): boolean {
+function nearestOf(sample: Sample, at: Asked, asked: Float64Array, near: Nearest): boolean {
   const n = sample.range.length;
   if (n === 0) return false;
-  const read = near.read;
+  const read = near.read, levels = near.levels;
   within(sample, at, read);
+  if (sample.levels) for (let k = 0; k < LEVELS.length; k++) levels[k] = Math.min(sample.levels.high[k]!, Math.max(sample.levels.low[k]!, asked[k]!));
   const want = Math.min(NEAREST.trials, n);
   let found = 0;
   // Out from the range asked, each way, until the range alone puts a trial past the farthest kept.
@@ -355,12 +460,12 @@ function nearestOf(sample: Sample, at: Start, near: Nearest): boolean {
   let visitedFrom = start, visitedTo = start;
   for (let i = start; i < n; i++) {
     if (found === want && (sample.range[i]! - at.range) / NEAREST.range > BEST[want - 1]!) break;
-    const distance = sample.distances[i] = apart(sample, i, at.range, read);
+    const distance = sample.distances[i] = apart(sample, i, at.range, read, levels);
     found = keepNearest(distance, found, want); visitedTo = i + 1;
   }
   for (let i = start - 1; i >= 0; i--) {
     if (found === want && (at.range - sample.range[i]!) / NEAREST.range > BEST[want - 1]!) break;
-    const distance = sample.distances[i] = apart(sample, i, at.range, read);
+    const distance = sample.distances[i] = apart(sample, i, at.range, read, levels);
     found = keepNearest(distance, found, want); visitedFrom = i;
   }
   const bound = BEST[want - 1]! + TIE, span = bound * NEAREST.range;
@@ -370,14 +475,14 @@ function nearestOf(sample: Sample, at: Start, near: Nearest): boolean {
 }
 
 /** Each trial of `sample` in `nearest`'s span within its bound, by `each`. */
-function eachNearest(sample: Sample, at: Start, each: (trial: Trial) => void): number {
+function eachNearest(sample: Sample, at: Asked, asked: Float64Array, each: (trial: Trial) => void): number {
   const depth = QUERY_WORK.depth++, near = QUERY_WORK.frames[depth] ??= nearestWork();
   try {
-    if (!nearestOf(sample, at, near)) return 0;
+    if (!nearestOf(sample, at, asked, near)) return 0;
     let n = 0;
     for (let i = near.from; i < near.to; i++) {
       // The tie tolerance can admit trials beyond the interval visited before pruning.
-      const distance = i >= near.visitedFrom && i < near.visitedTo ? sample.distances[i]! : apart(sample, i, at.range, near.read);
+      const distance = i >= near.visitedFrom && i < near.visitedTo ? sample.distances[i]! : apart(sample, i, at.range, near.read, near.levels);
       if (distance <= near.bound) { each(sample.trials[i]!); n++; }
     }
     return n;
@@ -394,9 +499,9 @@ interface Phase {
 }
 
 /** **The hit points `sample`'s trials nearest `at` deal, and their cycle**, s: the mean seconds they ran and, of those that recorded it, until their limb was back (`Trial.recovers`). */
-function cycleAt(sample: Sample, at: Start): { readonly dealt: number; readonly cycle: number; readonly seconds: number } | null {
+function cycleAt(sample: Sample, at: Asked, asked: Float64Array): { readonly dealt: number; readonly cycle: number; readonly seconds: number } | null {
   let dealt = 0, seconds = 0, recovered = 0, recovers = 0;
-  const n = eachNearest(sample, at, (trial) => {
+  const n = eachNearest(sample, at, asked, (trial) => {
     dealt += trial.dealt; seconds += trial.seconds;
     if (trial.recovers !== null) { recovered++; recovers += trial.recovers; }
   });
@@ -407,6 +512,19 @@ function cycleAt(sample: Sample, at: Start): { readonly dealt: number; readonly 
 export function profileReading(profile: Profile, striker: BodySpec, postures: Postures = STANDING): ProfileReading {
   const own = striker.wounds.hp.value;
   const trials = profile.trials.filter((trial) => startedAt(trial.start, postures));
+  // The levels a trial that records none began at, its bodies' models' own: read only where a trial records one.
+  const defaults = trials.some((trial) => trial.start.levels) ? levelsAt({ own: ownLevels(profile.measured.body), target: ownLevels((profile.target ?? profile.measured).body) }, NO_LEVELS) : null;
+  const askedAt = new WeakMap<BodySpec, Float64Array>();
+  let askedAlone: Float64Array | null = null;
+  /** The levels a reading against `struck` is asked at, in `LEVELS`' order: the striker's and `struck`'s, as their specs have them. */
+  const asked = (struck: BodySpec | null): Float64Array => {
+    if (!defaults) return NO_LEVELS;
+    const known = struck ? askedAt.get(struck) : askedAlone;
+    if (known) return known;
+    const made = Float64Array.from(LEVELS, ({ of, level }, k) => of === "own" ? striker.attributes[level].value : struck ? struck.attributes[level].value : defaults[k]!);
+    if (struck) askedAt.set(struck, made); else askedAlone = made;
+    return made;
+  };
   const phaseOf = (phase: string): string => trials.some((trial) => trial.start.phase === phase) ? phase : "clear";
   const phases = new Map<string, Phase>();
   /** The trials a body in `phase` reads (`phaseOf`); found once a phase. */
@@ -418,7 +536,7 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
     for (const trial of of) if (trial.letGo) byProgress.set(trial.letGo.progress, [...byProgress.get(trial.letGo.progress) ?? [], trial]);
     let reach = -Infinity;
     for (const trial of run) reach = Math.max(reach, trial.start.range);
-    const made: Phase = { run: sampleOf(run), letGo: new Map([...byProgress].map(([progress, those]) => [progress, sampleOf(those)])), reach };
+    const made: Phase = { run: sampleOf(run, defaults), letGo: new Map([...byProgress].map(([progress, those]) => [progress, sampleOf(those, defaults)])), reach };
     phases.set(phase, made);
     return made;
   };
@@ -427,7 +545,7 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
     if (of.extremes) return of.extremes;
     let peak = 0, fastest = Infinity;
     for (const trial of of.run.trials) {
-      const at = cycleAt(of.run, trial.start);
+      const at = cycleAt(of.run, trial.start, defaults ? levelsAt(trial.start.levels, defaults) : NO_LEVELS);
       if (!at || at.dealt <= 0 || at.cycle <= 0) continue;
       peak = Math.max(peak, at.dealt / at.cycle); fastest = Math.min(fastest, at.seconds);
     }
@@ -442,7 +560,8 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
       const shares = new Map<string, number>();
       let done = 0, dealt = 0, seconds = 0, recovered = 0, recovers = 0, down = 0;
       const exits: Record<string, number> = {}, exited: Record<string, number> = {};
-      const n = eachNearest(of.run, at, (trial) => {
+      const levels = asked(struck);
+      const n = eachNearest(of.run, at, levels, (trial) => {
         if (trial.done) done++;
         if (trial.down) down++;
         dealt += trial.dealt; seconds += trial.seconds;
@@ -451,7 +570,7 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
         for (const key in trial.exit) { exits[key] = (exits[key] ?? 0) + trial.exit[key]!; exited[key] = (exited[key] ?? 0) + 1; }
       });
       if (n === 0) return null;
-      const letGo = at.progress === undefined ? null : letGoAt(of, at, at.progress);
+      const letGo = at.progress === undefined ? null : letGoAt(of, at, levels, at.progress);
       return { done: done / n, dealt: struck ? dealt / n / struck.wounds.hp.value : 0, seconds: seconds / n, recovers: recovered ? recovers / recovered : 0, down: down / n,
         ends: [...shares].map(([end, count]) => ({ at: end, share: count / n })),
         ...(letGo ? { letGo: { seconds: letGo.seconds, taken: letGo.taken / own } } : {}), ...(Object.keys(exits).length ? { exit: Object.fromEntries(Object.keys(exits).map(key => [key, exits[key]! / exited[key]!])) } : {}) };
@@ -459,7 +578,7 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
     rate(at, struck) {
       const of = read(at.phase);
       if (at.range > of.reach) return null;
-      const cycle = cycleAt(of.run, at);
+      const cycle = cycleAt(of.run, at, asked(struck));
       return cycle ? cycle.cycle > 0 ? (struck ? cycle.dealt / struck.wounds.hp.value : 0) / cycle.cycle : 0 : null;
     },
     peak: (phase, struck) => extremes(phase).peak / struck.wounds.hp.value,
@@ -468,19 +587,20 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
       const target = profile.target;
       if (!target || !struck) return null;
       const body = struck.model;
-      return body !== target.body ? `measured against ${target.body}, read against ${body}` : specDigest(struck) !== target.spec ? `measured against another ${body}` : null;
+      return body !== target.body ? `measured against ${target.body}, read against ${body}`
+        : holdsOf(struck) !== target.holds ? `measured against a ${body} holding ${target.holds ?? "nothing"}` : null;
     },
   };
   return reading;
 }
 
 /** **What letting go at `progress` cost** from `at`: of the trials of `of` let go at the progress nearest it, the mean of those nearest `at`; null where none was let go. */
-function letGoAt(of: Phase, at: Start, progress: number): { readonly seconds: number; readonly taken: number } | null {
+function letGoAt(of: Phase, at: Asked, asked: Float64Array, progress: number): { readonly seconds: number; readonly taken: number } | null {
   let nearest: number | null = null;
   for (const one of of.letGo.keys()) if (nearest === null || Math.abs(one - progress) < Math.abs(nearest - progress)) nearest = one;
   if (nearest === null) return null;
   let seconds = 0, taken = 0;
-  const n = eachNearest(of.letGo.get(nearest)!, at, (trial) => { seconds += trial.letGo!.seconds; taken += trial.letGo!.taken; });
+  const n = eachNearest(of.letGo.get(nearest)!, at, asked, (trial) => { seconds += trial.letGo!.seconds; taken += trial.letGo!.taken; });
   return n === 0 ? null : { seconds: seconds / n, taken: taken / n };
 }
 
@@ -535,9 +655,10 @@ function digestOf(value: unknown): string {
 const SPEC_DIGESTS = new WeakMap<BodySpec, string>();
 
 /**
- * **A body's spec's digest** (`digestOf`): what a profile measured on it names. Its wounds are
- * left out: they are how the rules read a blow on it (`src/combat/pool.ts`), not how it moves; and
- * its skills: a strike's digest names the variation it runs (`skillDigest`).
+ * **A body's spec's digest** (`digestOf`): where a profile measured on it came from
+ * (`Origin.spec`). Its wounds are left out: they are how the rules read a blow on it
+ * (`src/combat/pool.ts`), not how it moves; and its skills: a strike's digest names the variation
+ * it runs (`skillDigest`).
  */
 export const specDigest = (spec: BodySpec): string => {
   let digest = SPEC_DIGESTS.get(spec);
@@ -545,15 +666,32 @@ export const specDigest = (spec: BodySpec): string => {
   return digest;
 };
 
+/** The executor among `executors` that `action` names; undefined where it names none of them. */
+const executorOf = (executors: readonly ExecutorEntry[], action: ActionConfig): ExecutorEntry | undefined => executors.find((entry) => entry.name === action.executor);
+
 /**
- * **A strike's digest** on a body of `spec`: what it does, not what it is called: its action's
+ * **The skill a strike's profile is found by** (`Measured.skill`): the skill `action`'s executor
+ * among `executors` runs and the variation of it a body of `spec` runs (`chosenVariation`), as its
+ * character holds it (`skill/variation`, `BodySpec.skills`); the action's executor's name where it
+ * names none of them.
+ */
+export function strikeSkill(spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig): string {
+  const executor = executorOf(executors, action);
+  return executor ? `${executor.kind}/${chosenVariation(spec, executor.kind, executor) ?? ""}` : action.executor;
+}
+
+/** **The skill a ground technique's profile is found by** (`Measured.skill`): `technique`'s kind and the variation of it a body of `spec` runs, as its character holds it (`skill/variation`). */
+export const techniqueSkill = (spec: BodySpec, technique: PartConfig): string => `${technique.kind}/${chosenVariation(spec, technique.kind, technique) ?? ""}`;
+
+/**
+ * **A strike's digest** on a body of `spec`, where its profile came from (`Origin.skill`): what it does, not what it is called: its action's
  * config and its executor's (the one the action names), each without its name, the variation of
  * the executor's skill it runs (`chosenVariation`), and the body's own
  * row of each record the executor reads (`Part.reads`: an executor's data is its skills' records by
  * model, `SkillRecord`), as the mind holds them, so another body's row moves no digest.
  */
 export function skillDigest(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig): string {
-  const executor = executors.find((entry) => entry.name === action.executor) ?? NO_EXECUTOR;
+  const executor = executorOf(executors, action) ?? NO_EXECUTOR;
   let byExecutor = SKILL_DIGESTS.get(action);
   if (!byExecutor) SKILL_DIGESTS.set(action, byExecutor = new WeakMap());
   let bySpec = byExecutor.get(executor);
@@ -576,22 +714,30 @@ const NO_EXECUTOR = Object.freeze({}) as ExecutorEntry;
 function readSkillDigest(parts: PartLookup, part: ReturnType<typeof executorPart> | null, spec: BodySpec, executor: ExecutorEntry | null, action: ActionConfig): string {
   const body = spec.model;
   const aim = action.aim ? parts.of("aim", action.aim) : null;
-  const keys = [...new Set([...(executor && part ? part.reads?.(executor) ?? [] : []), ...(action.aim ? aim?.reads?.(action.aim) ?? [] : [])])];
+  const variation = executor ? chosenVariation(spec, executor.kind, executor) : undefined;
+  // The executor's records are asked with the variation its body runs: another variation's record moves no digest.
+  const asked = executor && variation !== undefined ? { ...executor, variation } : executor;
+  const keys = [...new Set([...(asked && part ? part.reads?.(asked) ?? [] : []), ...(action.aim ? aim?.reads?.(action.aim) ?? [] : [])])];
   const data = keys.map(key => digestOf(dataIdentity(key, body)));
-  const { name: _action, executor: _executor, ...does } = action, variation = executor ? chosenVariation(spec, executor.kind, executor) : undefined;
+  const { name: _action, executor: _executor, ...does } = action;
   return digestOf({ action: does, executor: executor && (({ name: _, variation: _variation, ...rest }: ExecutorEntry & Varied) => rest)(executor), ...(variation === undefined ? {} : { variation }), data });
 }
 
-/** A ground technique's digest: its config and the body's records its part reads. */
+/** A ground technique's digest, where its profile came from (`Origin.skill`): its config and the body's records its part reads. */
 export function techniqueDigest(parts: PartLookup, spec: BodySpec, technique: PartConfig): string {
   const keys = parts.of("technique", technique).reads?.(technique) ?? [];
   const body = spec.model, data = keys.map((key) => digestOf(dataIdentity(key, body)));
   return data.length ? digestOf({ technique, data }) : digestOf(technique);
 }
 
-/** What a profile of a skill of digest `skill`, read by a body of `spec` at `hz`, its senses `reaction` s late (null for none), its mind's driver at `rate` Hz, its command `delay` steps late, must have been measured on. */
-export const measuredOn = (spec: BodySpec, skill: string, hz: number, reaction: number | null, rate: number, delay: number): Measured =>
-  ({ body: spec.model, spec: specDigest(spec), skill, hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) });
+/**
+ * The question (`Measured`) a profile of `skill` (`strikeSkill`, `techniqueSkill`) thrown with `limb` (null with none) answers for
+ * a body of `spec` at `hz`, its senses `reaction` s late (null for none), its mind's driver at `rate` Hz, its command `delay` steps late.
+ */
+export function measuredOn(spec: BodySpec, skill: string, limb: string | null, hz: number, reaction: number | null, rate: number, delay: number): Measured {
+  const holds = holdsOf(spec);
+  return { body: spec.model, ...(holds === undefined ? {} : { holds }), skill, ...(limb === null ? {} : { limb }), hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) };
+}
 
 /** **Whether a reaction time `now` s reads as `was` s** at `hz`: within half a step, or either unknown. */
 export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= .5 / hz;
@@ -600,8 +746,8 @@ export const sameReaction = (was: number | null, now: number | null, hz: number)
 export function staleness(profile: Profile, now: Measured): string | null {
   const was = profile.measured;
   if (was.body !== now.body) return `measured on ${was.body}, read on ${now.body}`;
-  if (was.spec !== now.spec) return `measured on another ${now.body}`;
-  if (was.skill !== now.skill) return "measured on another version of the skill";
+  if (was.holds !== now.holds) return `measured holding ${was.holds ?? "nothing"}, read holding ${now.holds ?? "nothing"}`;
+  if (was.skill !== now.skill || was.limb !== now.limb) return `measured of ${was.skill}${was.limb ? ` with ${was.limb}` : ""}`;
   if (was.hz !== now.hz) return `measured at ${was.hz} Hz, read at ${now.hz} Hz`;
   if (rateOf(was) !== rateOf(now)) return `measured with its mind at ${rateOf(was)} Hz, read at ${rateOf(now)} Hz`;
   if (delayOf(was) !== delayOf(now)) return `measured with its command ${delayOf(was)} steps late, read ${delayOf(now)} steps late`;
@@ -610,42 +756,65 @@ export function staleness(profile: Profile, now: Measured): string | null {
   return null;
 }
 
-/** A profile looked up for a skill (`profileFor`), and why it is stale where it is. */
+/** A skill's profiles looked up (`profilesFor`): those measured as it is read (`fresh`), one a body it was measured against; and, with none, why (`stale`). */
 interface Found {
-  readonly profile: Profile;
+  readonly fresh: readonly Profile[];
   readonly stale: string | null;
 }
 
 /**
- * **The profile of the skill `now` names** among `profiles`: the one measured as it is read, else
- * one on its body, else any of the skill's, with why it is stale; null where the skill was never
- * measured.
+ * **The profiles of the skill and limb `now` names** among `profiles`: each measured as it is
+ * read, one a body it was measured against (`profileAgainst` reads the struck body's); with none,
+ * why one on its body, else any of the skill's, is stale; null where the skill was never measured
+ * with that limb.
  */
-export function profileFor(profiles: readonly Profile[], now: Measured): Found | null {
+export function profilesFor(profiles: readonly Profile[], now: Measured): Found | null {
+  const fresh: Profile[] = [];
   let body: Profile | null = null, any: Profile | null = null;
   for (const profile of profiles) {
-    if (profile.measured.skill !== now.skill) continue;
-    if (staleness(profile, now) === null) return { profile, stale: null };
-    if (profile.measured.body === now.body) body ??= profile;
+    if (profile.measured.skill !== now.skill || profile.measured.limb !== now.limb) continue;
+    if (staleness(profile, now) === null) fresh.push(profile);
+    else if (profile.measured.body === now.body) body ??= profile;
     any ??= profile;
   }
+  if (fresh.length) return { fresh, stale: null };
   const found = body ?? any;
-  return found ? { profile: found, stale: staleness(found, now) } : null;
+  return found ? { fresh, stale: staleness(found, now) } : null;
 }
 
 /**
- * **The profiles among `profiles` measured on a body of `spec`** at `hz` with senses `reaction` s
- * late, a mind's driver at `rate` Hz and its command `delay` steps late, of any skill (`fresh`): what a
- * foe of that body is measured to deal; and, for none, why (`stale`): the first measured on its
- * body that is stale (`staleness`), or none measured on it.
+ * **The profile among one skill's `profiles` that a body of `struck` is read by**: the one
+ * measured against its model holding what it holds (`holdsOf`); else the first against its model
+ * holding otherwise, else the first of any, read scaled (`ProfileReading.scaled`). A skill with no
+ * foe has one, read with none struck. Null with none.
+ */
+export function profileAgainst(profiles: readonly Profile[], struck: BodySpec | null): Profile | null {
+  if (!struck) return profiles[0] ?? null;
+  const body = struck.model, holds = holdsOf(struck);
+  let another: Profile | null = null;
+  for (const profile of profiles) {
+    if (!profile.target || profile.target.body === body && profile.target.holds === holds) return profile;
+    if (profile.target.body === body) another ??= profile;
+  }
+  return another ?? profiles[0] ?? null;
+}
+
+/**
+ * **The profiles among `profiles` of the skills a body of `spec` holds** (`BodySpec.skills`),
+ * measured on its model holding what it holds at `hz` with senses `reaction` s late, a mind's
+ * driver at `rate` Hz and its command `delay` steps late (`fresh`): what a foe of that body is
+ * measured to deal; and, for none, why (`stale`): the first of a skill it holds, measured on its
+ * model, that is stale (`staleness`), or none measured of them.
  */
 export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null, rate: number, delay: number): { readonly fresh: readonly Profile[]; readonly stale: string } {
-  const body = spec.model, digest = specDigest(spec), fresh: Profile[] = [];
+  const body = spec.model, held = spec.skills ?? [], fresh: Profile[] = [];
   let stale: string | null = null;
   for (const profile of profiles) {
-    const why = staleness(profile, { body, spec: digest, skill: profile.measured.skill, hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) });
+    const was = profile.measured;
+    if (!held.includes(was.skill)) continue;
+    const why = staleness(profile, measuredOn(spec, was.skill, was.limb ?? null, hz, reaction, rate, delay));
     if (why === null) fresh.push(profile);
-    else if (profile.measured.body === body) stale ??= why;
+    else if (was.body === body) stale ??= why;
   }
-  return { fresh, stale: stale ?? `no fight measured the strikes of a ${body}` };
+  return { fresh, stale: stale ?? `no fight measured the strikes a ${body} holds` };
 }
