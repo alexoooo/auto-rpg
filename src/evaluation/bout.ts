@@ -52,6 +52,8 @@ export function createBout(context: GameContext) {
       if (world.timing && options?.hz !== undefined && options.hz !== world.timing.hz) return Promise.resolve({ refused: "a recorded bout's rate cannot be overridden" });
       return buildBout(world.recipe, { engine: world.engine, ...world.timing ?? (options?.hz === undefined ? {} : { hz: options.hz }) });
     },
+    loads: ({ recipe }) => ({ models: SIDES.map((side) => recipe[side]),
+      keys: SIDES.flatMap((side) => context.catalog.treeData(recipe.minds?.[side] ?? context.defaultMind(recipe[side]))) }),
     start: (built, world) => built.duel.play(world.tape),
     traced: (built) => SIDES.map((side) => built.duel.duelists[side].built),
     clock: (built) => built.duel.clock,

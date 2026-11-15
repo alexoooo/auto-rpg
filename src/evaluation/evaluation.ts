@@ -6,6 +6,7 @@
 import type { Refused } from "../core/refusal.ts";
 import type { DuelRecipe, OrdersEntry } from "../game/arena/duel.ts";
 import type { EngineName } from "../core/physics/engines.ts";
+import type { DataKey } from "../core/data/store.ts";
 
 import type { BuiltBout } from "./bout.ts";
 import type { BuiltCrypt, CryptCase } from "./crypt.ts";
@@ -153,14 +154,25 @@ export type CaseWorld = { readonly kind: "bout"; readonly engine: EngineName; re
 export type BuiltCase = BuiltBout | BuiltFall | BuiltCrypt | BuiltLone | BuiltTechnique;
 
 /**
+ * **What a case's world loads** (`WorldKind.loads`): the models of the bodies it seats, and the
+ * mind data the parts they run read.
+ */
+export interface WorldLoads {
+  readonly models: readonly string[];
+  readonly keys: readonly DataKey[];
+}
+
+/**
  * **A kind of case world**: how a world of it is built, what it is handed once its reader is made
  * (a bout its tape), the bodies a case's digest traces (`traceOf`), the simulated seconds it has
- * played.
+ * played, and the mind data it loads.
  * `playCase` steps every kind the same way.
  */
 export interface WorldKind<W extends CaseWorld = CaseWorld, B extends { readonly world: { step(): void }; dispose(): void } = BuiltCase> {
   /** `world` built, at `hz` control steps a second where the kind takes a rate (a bout's), else at the world's own. */
   build(world: W, options?: { readonly hz?: number }): Promise<B | Refused>;
+  /** What `world` loads, read of its plain data before it is built: a kept row's key covers it (`loadsOf`, `world-builders.ts`). */
+  loads(world: W): WorldLoads;
   start?(built: B, world: W): void;
   traced(built: B): readonly BuiltBody[];
   clock(built: B): number;

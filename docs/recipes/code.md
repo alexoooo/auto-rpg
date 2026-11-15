@@ -66,6 +66,12 @@ of a test.
 - **Two watchers on one body**: set a flag in the callback; act on it at the next control step.
 - **Every page is in `vite.config.ts`'s `rollupOptions.input`**; one missing works in dev and is
   absent from `dist`.
+- **A played row is found by the question it answers**, never by the code it was played on:
+  nothing a tool keeps holds the commit or the build in what finds it, and a row says where it
+  came from (its commit, whether a build input differed from it, when). What is under work plays
+  and everything else is found; a row is played again when there is reason to believe it
+  misleads a decision (`npm run evaluate -- <id> <subject> --fresh`). A result (`--write`) is
+  made from rows of the commit it names ([the architecture](../architecture.md#evaluations)).
 - **Comments say what the code is**, and why where not obvious. Name the construct, not a line
   number. A comment about a code path is a hypothesis until the path has run. A comment in `src/`
   carries no date, commit hash, plan citation or "the owner": `tests/documents.test.mjs`.

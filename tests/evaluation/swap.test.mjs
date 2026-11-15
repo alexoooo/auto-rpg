@@ -138,14 +138,17 @@ test("custom subjects retain execution scope through normalization", async () =>
 
 test("a run's rows refuse incomplete or conflicting cases", async () => {
   const { indexRows } = await import("../../src/evaluation/rows.ts");
-  const row = { key: "case", reading: { met: true }, digest: "trace", played: 0, fault: null };
+  const row = { key: "case", reading: { met: true }, digest: "trace", played: 0, fault: null, from: { commit: "one", changed: false, date: "2026-01-01T00:00:00.000Z" } };
   assert.deepEqual([...indexRows([{ name: "first", rows: [row] }, { name: "again", rows: [row] }])], [["case", row]]);
-  for (const field of ["reading", "digest", "fault"]) {
+  for (const field of ["reading", "digest", "fault", "played", "from"]) {
     const partial = { ...row }; delete partial[field];
     assert.throws(() => indexRows([{ name: `missing-${field}`, rows: [partial] }]), /not whole/);
   }
   assert.throws(() => indexRows([{ name: "first", rows: [row] }, { name: "other", rows: [{ ...row, reading: { met: false } }] }]),
     /case case reads differently in first and other/);
+  // A row of other code is a change between them: the newest stands, in whatever order they are read.
+  const later = { ...row, reading: { met: false }, from: { commit: "two", changed: false, date: "2026-01-02T00:00:00.000Z" } };
+  assert.deepEqual([...indexRows([{ name: "later", rows: [later] }, { name: "first", rows: [row] }])], [["case", later]]);
 });
 
 test("a table cell is valued only on every protocol case with none faulted", async () => {

@@ -23,7 +23,7 @@
  * Each dataset owner declares and loads its profiles. Readers use `readProfile`; identity
  * selects the loaded data each provider declares relevant to a subject (`dataIdentity`).
  */
-import { dataIdentity, type DataKey } from "../../core/data/store.ts";
+import { dataIdentity, type DataKey, type DataLoader } from "../../core/data/store.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { hypot } from "../../core/math/real.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
@@ -173,6 +173,11 @@ export interface Profile {
   readonly trials: readonly Trial[];
   /** Where it came from (`Origin`); absent where its tool kept none. */
   readonly from?: Origin;
+}
+
+/** A profiles' loader whose identity for a body is the profiles measured on it (`dataIdentity`): its own strikes', and what a foe of that body is modelled by. */
+export function bodyProfiles(load: () => Promise<unknown>): DataLoader {
+  return Object.assign(load, { identity: (data: unknown, body: string) => (data as readonly Profile[]).filter((profile) => profile.measured.body === body) });
 }
 
 const profileObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);

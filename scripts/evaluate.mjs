@@ -1,13 +1,14 @@
 import { isRefused } from "../src/core/refusal.ts";
 import "../tests/harness/preload-data.mjs";
 /**
- * **Evaluate**: an evaluation's cases for its subjects, each played only where no row has its key,
- * on worker threads; then what the complete rows give each subject, and the evaluation's summary.
+ * **Evaluate**: an evaluation's cases for its subjects, each played only where no row has its key
+ * (`scripts/evaluation-rows.mjs`), on worker threads; then what the complete rows give each subject,
+ * and the evaluation's summary.
  * `--write` keeps what they give as the evaluation's results (`src/evaluation/results.ts`).
  *
  *   npm run evaluate -- <evaluation> [subject ...] [--subjects <id> ...] [--mind <file.json>] [--protocol <name>]
  *     [--against default|<id> ...] [--previous <id>] [--ablate <slot>=<JSON> ...] [--shard k/n] [--workers N] [--engine <name>]
- *     [--case-minutes 30] [--write] [--json <file>]
+ *     [--case-minutes 30] [--fresh] [--write] [--json <file>]
  *   npm run match -- <mind> <mind> [...]: the same for `match`
  *   npm run evaluate -- tournament --notes: the tournament's standings into assets/minds/notes.json
  *   npm run evaluate -- table [...]: the table of every body, loadout and skill (`scripts/table.mjs`)
@@ -18,10 +19,15 @@ import "../tests/harness/preload-data.mjs";
  * same skills (`variedSubjects`): `strike option/straight-punch+straight-punch/from-guard`. `--against` plays each subject against a panel (the
  * evaluation's own, `default`, or the ids given, one per flag) and not the panel among itself; an evaluation
  * whose schedule is a panel is played no other way. Rows are kept as they come in
- * `.tmp/evaluations/<evaluation>/<commit>/` (every file there is read, so machines on one commit
- * merge by copying), work `npm run clean` deletes once a day untouched, and found again by key: a
- * run on another commit finds none of them. Where a build input differs from the commit or is
- * untracked, no row is kept or found and every case plays. `--previous` names the
+ * `.cache/evaluations/<evaluation>/` (every file there is read, so machines merge by copying),
+ * each with the commit it was played on, whether a build input differed from it, and when; and
+ * found again by key, whatever commit that was. A key covers the case's world and what its bodies
+ * load of mind data (`loadsOf`), so a record or profile changed under a subject plays its cases
+ * and a change to the code plays none: the report names the oldest row it read, and a few of the
+ * rows found from other code are played again and compared by their traces (`drawFound`), which says
+ * whether they are the code's now and gates nothing. `--fresh` plays the named subjects' cases
+ * again where their row is not of the code now (this commit's, no build input changed); a
+ * baseline's and a panel's are found. `--previous` names the
  * first subject's baseline, another mind or a mind given whole as a JSON file: against a panel it is
  * the baseline of the panel report, and in a battery the subject's figures are read against it,
  * condition by condition. `--ablate` makes the first subject the `--previous` mind with one slot or
@@ -33,22 +39,22 @@ import "../tests/harness/preload-data.mjs";
  * `--engine` (or `CORE_ENGINE`) picks the engine unless the protocol fixes one; the game's, `DEFAULT_ENGINE`, where neither does.
  * `--write` keeps each subject's reading as its newest result on the protocol, with a trial's row
  * where the evaluation names outcomes or the table reads the subject (`keep`), and a contest's
- * standings where the run plays every pair: refused unless a unit is complete and no build input
- * differs from the commit, before or after the run, so the commit a result names is its code's.
+ * standings where the run plays every pair: refused unless a unit is complete, no build input
+ * differs from the commit, before or after the run, and every row it reads is of that code
+ * (`--fresh` plays the others again), so the commit a result names is its code's.
  */
-import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { availableParallelism, hostname } from "node:os";
+import { readFileSync, writeFileSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { Worker } from "node:worker_threads";
 import { DEFAULT_ENGINE, isEngineName } from "../src/core/physics/engines.ts";
 import { recordingKey } from "../src/core/world/recording.ts";
-import { EVALUATIONS, tableCells } from "../src/app/node/evaluation.ts";
+import { EVALUATIONS, loadsOf, tableCells } from "../src/app/node/evaluation.ts";
 import { MINDS } from "../src/app/catalog.ts";
 import { caseName, harnessOf, rounded, roundedEstimate, withResult, withStandings } from "../src/evaluation/results.ts";
-import { indexRows } from "../src/evaluation/rows.ts";
+import { oldestOf } from "../src/evaluation/rows.ts";
 import { standingsOf } from "../src/evaluation/standings.ts";
 import { keep } from "../src/evaluation/table/judge.ts";
 import { COMMAND_DELAY } from "../src/core/world/world.ts";
@@ -58,24 +64,13 @@ import { scheduleName } from "../src/evaluation/schedule.ts";
 import { ratedNotes } from "../src/evaluation/tournament/notes.ts";
 import { BUILD_IDENTITY, uncommittedInputs } from "./build-identity.mjs";
 import { resultsOf, writeResults } from "./evaluation-results.mjs";
+import { drawFound, originText, rowStore } from "./evaluation-rows.mjs";
 import { belongsTo, resolveSubjects, subjectOf } from "./evaluation-subjects.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 /** The lanes a run takes unless told: all but two of the machine's threads. */
 const defaultLanes = () => Math.max(1, availableParallelism() - 2);
-
-/** Every `.jsonl` file in `directory`, by name, with its text. */
-const filesIn = (directory) => existsSync(directory)
-  ? readdirSync(directory).filter((name) => name.endsWith(".jsonl")).sort().map((name) => ({ name: join(directory, name), text: readFileSync(join(directory, name), "utf8") }))
-  : [];
-
-const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
-
-/** The commit checked out, or null outside a repository. */
-function commitOf() {
-  try { return git("rev-parse", "HEAD"); } catch { return null; }
-}
 
 const NOTES = join(ROOT, "assets/minds/notes.json");
 
@@ -163,7 +158,7 @@ async function main() {
   const { values, positionals } = parseArgs({ allowPositionals: true, options: {
     subjects: { type: "string", multiple: true }, mind: { type: "string", multiple: true }, protocol: { type: "string" }, previous: { type: "string" },
     shard: { type: "string" }, workers: { type: "string" }, engine: { type: "string" }, "case-minutes": { type: "string", default: "30" },
-    write: { type: "boolean" }, json: { type: "string" }, against: { type: "string", multiple: true }, notes: { type: "boolean" },
+    write: { type: "boolean" }, fresh: { type: "boolean" }, json: { type: "string" }, against: { type: "string", multiple: true }, notes: { type: "boolean" },
     until: { type: "string" }, budget: { type: "string", default: "10" }, ablate: { type: "string", multiple: true },
   } });
   const [id, ...named] = positionals;
@@ -206,28 +201,30 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   const subjects = [...mine.filter((one, k) => mine.findIndex((other) => other.id === one.id) === k), ...panel];
   const rule = evaluation.analysis.settle;
   if (counterpart.size > 0 && !rule) throw new Error(`${id} has no rule to settle a comparison on`);
-  const selected = casesOf(evaluation, protocol, subjects, { engine, schedule });
+  const selected = casesOf(evaluation, protocol, subjects, { engine, schedule, loads: loadsOf });
   if (isRefused(selected)) throw new Error(selected.refused);
   const { units, dropped } = selected;
   const pairs = [...counterpart].filter(([subject, other]) => !panelIds.has(subject) && !panelIds.has(other));
-  const paired = pairs.length > 0 ? casesOf(evaluation, protocol, subjects, { engine, schedule: { kind: "pairs", pairs } }) : { units: [] };
+  const paired = pairs.length > 0 ? casesOf(evaluation, protocol, subjects, { engine, schedule: { kind: "pairs", pairs }, loads: loadsOf }) : { units: [] };
   if (isRefused(paired)) throw new Error(paired.refused);
   const headToHead = paired.units;
   const slots = slotsOf(units, counterpart, schedule.panel ?? []), order = playOrder(slots, headToHead, [...units, ...headToHead]);
   const defined = new Map([...units, ...headToHead].map((unit, k) => [unit[0].key, k]));
-  // Rows are kept under the commit they are played on, and only where it is the code they play.
-  const commit = commitOf(), changed = commit ? uncommittedInputs() : [];
-  const working = commit && changed.length === 0 ? join(ROOT, ".tmp/evaluations", id, commit.slice(0, 12)) : null;
-  if (!working) console.log(`${commit ? `${changed.length} build inputs differ from the commit` : "no commit"}: no row is kept or found, and every case plays`);
-  const rows = indexRows((working ? filesIn(working) : []).map(({ name, text }) => ({ name, rows: text.split("\n").filter(Boolean).map((line) => JSON.parse(line)) })));
+  // Rows are found by key, whatever commit they were played on, and kept as they come.
+  const store = rowStore(id, shards > 1 ? `-${shardAt}of${shards}` : ""), { rows, commit, changed } = store;
+  // A subject named fresh plays again: a row of its cases stands only where it is of the code now.
+  const fresh = new Set(values.fresh ? chosen.map((one) => one.id) : []);
+  const again = values.fresh ? [...new Set(order.flat().filter((one) => (one.subjects.length === 0 || one.subjects.some((seated) => fresh.has(seated)))
+    && rows.has(one.key) && !store.current(rows.get(one.key))).map((one) => one.key))] : [];
+  for (const key of again) rows.delete(key);
 
   // Play what has no row: this shard's units, in the play order, until the budget is spent or, asked, the verdict settles.
   const shard = order.filter((_, k) => k % shards === shardAt - 1), lanes = Number(values.workers ?? defaultLanes()), budget = Number(values.budget);
   if (!(budget > 0)) throw new Error("--budget is minutes, more than 0");
   const toPlay = shard.flat().filter((one) => !rows.has(one.key)).length, reused = shard.flat().length - toPlay;
-  console.log(`${evaluation.title}: ${protocol}; ${harness}; ${order.length} units, ${toPlay} cases to play, ${reused} found${shards > 1 ? `; shard ${shardAt}/${shards}` : ""}`);
+  console.log(`${evaluation.title}: ${protocol}; ${harness}; ${order.length} units, ${toPlay} cases to play${again.length > 0 ? ` (${again.length} of them again, --fresh)` : ""}, ${reused} found${shards > 1 ? `; shard ${shardAt}/${shards}` : ""}`);
   if (toPlay > 0) console.log(`about ${(toPlay / REFERENCE_RATE).toFixed(0)} min at the 10-hour tournament's rate (${REFERENCE_RATE} bouts a minute); the budget is ${budget} min${values.until ? ", or until the verdict settles" : ""}`);
-  const file = working && join(working, `${hostname()}${shards > 1 ? `-${shardAt}of${shards}` : ""}.jsonl`), lost = [];
+  const lost = [], now = new Set();
   let played = 0, spent = false;
   const started = Date.now(), deadline = started + budget * 60_000;
   /** Whether, asked to stop when settled, the verdict is reached, or every pair is read and it never will be. */
@@ -236,21 +233,20 @@ async function runProtocol(evaluation, id, protocol, named, values) {
     const { read, settled } = verdictOf(slots, rows, evaluation.figures, rule);
     return settled.verdict !== null || read === slots.length;
   };
+  const spawn = (listen) => {
+    const worker = new Worker(new URL("./evaluate-worker.mjs", import.meta.url));
+    worker.on("message", listen.answer);
+    worker.on("error", (error) => listen.lost(String(error?.stack ?? error)));
+    worker.on("exit", (code) => listen.lost(`its worker exited (${code})`));
+    return { post: (job) => worker.postMessage(job), terminate: () => void worker.terminate() };
+  };
   if (toPlay > 0) {
-    if (working) mkdirSync(working, { recursive: true });
     await runEvaluation(shard, rows, {
-      evaluation: id, protocol, lanes, minutes: Number(values["case-minutes"]),
+      evaluation: id, protocol, lanes, minutes: Number(values["case-minutes"]), spawn,
       stop: () => (spent ||= Date.now() >= deadline) || settledNow(),
-      spawn: (listen) => {
-        const worker = new Worker(new URL("./evaluate-worker.mjs", import.meta.url));
-        worker.on("message", listen.answer);
-        worker.on("error", (error) => listen.lost(String(error?.stack ?? error)));
-        worker.on("exit", (code) => listen.lost(`its worker exited (${code})`));
-        return { post: (job) => worker.postMessage(job), terminate: () => void worker.terminate() };
-      },
       onRow: (row) => {
-        if (file) appendFileSync(file, JSON.stringify(row) + "\n");
-        rows.set(row.key, row);
+        store.keep(row);
+        now.add(row.key);
         if (++played === Math.min(lanes, toPlay) && toPlay > played)
           console.log(`about ${(((Date.now() - started) / played) * (toPlay - played) / 60_000).toFixed(1)} min more for ${toPlay - played} cases`);
       },
@@ -260,10 +256,13 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   // The complete units in their definition's order, which neither the play order nor the keys change: a summary's digest reads them so.
   const complete = order.filter((unit) => unit.every((one) => rows.has(one.key))).sort((a, b) => defined.get(a[0].key) - defined.get(b[0].key));
   console.log(`${played} played in ${((Date.now() - started) / 1000).toFixed(0)} s; ${lost.length} lost; commit ${commit ?? "unknown"}; build ${BUILD_IDENTITY}`);
+  const oldest = oldestOf(complete.flat().map((one) => rows.get(one.key)));
+  if (oldest && !now.has(oldest.key) && !store.current(oldest)) console.log(`the oldest row read was played on ${originText(oldest.from)}`);
+  await checkFound(shard.flat().filter((one) => !now.has(one.key)), store, { evaluation: id, protocol, lanes, minutes: Number(values["case-minutes"]), spawn, stop: () => spent || Date.now() >= deadline });
   if (complete.length < order.length) console.log(`${complete.length} of ${order.length} units have every row${spent ? "; the budget ran out" : ""}${lost.length ? "; run again to retry the lost" : ""}`);
 
   const date = new Date().toISOString().slice(0, 10);
-  const head = { evaluation: id, protocol, engine, harness, commit, date, schedule: [schedule, ...pairs.length ? [{ kind: "pairs", pairs }] : []].map(scheduleName).join("; "),
+  const head = { evaluation: id, protocol, engine, harness, commit, date, oldest: oldest?.from ?? null, schedule: [schedule, ...pairs.length ? [{ kind: "pairs", pairs }] : []].map(scheduleName).join("; "),
     subjects: subjects.map((subject) => ({ id: subject.id, label: subject.label })) };
   const lines = complete.flat().map(({ subjects: seated, condition, world, key }) => ({ subjects: seated, condition, world, ...rows.get(key) }));
   const { faults } = tableOf(subjects, complete, rows), figures = figuresOf(evaluation, subjects, complete, rows);
@@ -297,6 +296,8 @@ async function runProtocol(evaluation, id, protocol, named, values) {
     if (lines.length === 0) throw new Error("a result needs a complete unit");
     const differ = [...new Set([...changed, ...uncommittedInputs()])];
     if (differ.length > 0) throw new Error(`a result's code is its commit's: these build inputs differ or are untracked:\n${differ.join("\n")}`);
+    const other = complete.flat().filter((one) => !store.current(rows.get(one.key)));
+    if (other.length > 0) throw new Error(`a result's code is its commit's: ${other.length} of its ${complete.flat().length} rows were played on other code, the oldest on ${originText(oldest.from)}; --fresh plays them again`);
     const read = { commit: commit.slice(0, 8), date, harness };
     let results = resultsOf(id);
     if (cases.arity === 2) {
@@ -314,6 +315,19 @@ async function runProtocol(evaluation, id, protocol, named, values) {
     writeResults(id, results);
     console.log(`kept in assets/evaluations/${id}.json`);
   }
+}
+
+/** Play a few of `found` (cases whose rows this run found) again and say how many read as kept (`drawFound`), unless the run is to stop. */
+async function checkFound(found, store, playing) {
+  const { drawn, of } = drawFound(found, store);
+  if (drawn.length === 0 || playing.stop()) return;
+  const differ = [];
+  let same = 0, lost = 0;
+  await runEvaluation(drawn.map((one) => [one]), new Map(), { ...playing,
+    onRow: (row) => { if (row.digest === store.rows.get(row.key).digest) same++; else differ.push(drawn.find((one) => one.key === row.key)); },
+    onLost: () => { lost++; } });
+  console.log(`${drawn.length} of the ${of} rows found from other code played again: ${same} read as kept${lost > 0 ? `, ${lost} lost` : ""}`);
+  for (const one of differ) console.log(`  reads differently now: ${one.subjects.join(" v ") || "no subject"} on ${recordingKey(one.condition)}, kept on ${originText(store.rows.get(one.key).from)}; --fresh plays its subject's cases again`);
 }
 
 /**

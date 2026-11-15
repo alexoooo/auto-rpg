@@ -46,11 +46,12 @@ interface CaseJob {
 }
 
 /**
- * A case's key: the digest of everything it plays. The world holds every subject's value in full
- * and no index or label, so adding a subject changes no other key. The code it runs on is not in
- * it: a run keeps its rows under the commit it plays (`scripts/evaluate.mjs`).
+ * A case's key: the digest of the question it answers. The world holds every subject's value in
+ * full and no index or label, so adding a subject changes no other key; `loads` is what the world's
+ * bodies load of mind data (`loadsOf`, `world-builders.ts`), where the run finds rows by it. The
+ * code it runs on is not in it: a kept row says where it came from (`RowOrigin`, `rows.ts`).
  */
-const keyOf = (fields: { evaluation: string; play: Json; engine: EngineName; world: CaseWorld; seconds: number }): string =>
+const keyOf = (fields: { evaluation: string; play: Json; engine: EngineName; world: CaseWorld; seconds: number; loads?: Json }): string =>
   sha256Text(recordingKey(fields)).slice(0, 32);
 
 /** `world` with a bout's reaction time and seed written in its recipe (`senseDelayOf`, `boutSeedOf`), so its key names them. */
@@ -70,10 +71,12 @@ export const senseDelaysOf = (units: readonly Unit[]): number[] =>
  * The cases of `evaluation` on `protocol` for `subjects`, unit by unit, in the definition's order:
  * arity 0 each condition; 1 each subject on each condition it fits; 2 each pair `schedule` makes
  * on each condition both fit, the first on the left then the second. Beside them, each condition a subject or pair does not fit, and why
- * (`Dropped`). Refused for a subject that fits no condition, or a pair that share none.
+ * (`Dropped`). Refused for a subject that fits no condition, or a pair that share none. `loads`
+ * is given by a run that keeps or finds rows, which needs the mind data loaded: each key then
+ * covers what its world loads. A reader of conditions and worlds alone gives none.
  */
 export function casesOf(evaluation: Evaluation, protocol: string, subjects: readonly Subject[],
-  { engine, schedule }: { engine: EngineName; schedule: Schedule }): { readonly units: Unit[]; readonly dropped: Dropped[] } | Refused {
+  { engine, schedule, loads }: { engine: EngineName; schedule: Schedule; loads?: (world: CaseWorld) => Json }): { readonly units: Unit[]; readonly dropped: Dropped[] } | Refused {
   const cases = evaluation.protocols[protocol];
   if (!cases) return { refused: `${evaluation.id} has no protocol ${protocol}: ${Object.keys(evaluation.protocols).join(", ")}` };
   const make = (seated: readonly Subject[], condition: Json): Case | Refused => {
@@ -83,7 +86,7 @@ export function casesOf(evaluation: Evaluation, protocol: string, subjects: read
       return { refused: "a case's timing must match its protocol" };
     const world = named(made);
     return { subjects: seated.map((subject) => subject.id), condition, world, seconds: cases.seconds,
-      key: keyOf({ evaluation: evaluation.id, play: cases.play, engine, world, seconds: cases.seconds }) };
+      key: keyOf({ evaluation: evaluation.id, play: cases.play, engine, world, seconds: cases.seconds, ...(loads ? { loads: loads(world) } : {}) }) };
   };
   const faults = (subject: Subject, condition: Json) => cases.faults?.(subject.value, condition, subject) ?? [];
   for (const subject of subjects) if (cases.arity > 0 && cases.conditions.every((condition) => faults(subject, condition).length > 0))

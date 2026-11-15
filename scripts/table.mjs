@@ -16,8 +16,8 @@
  *
  * A reading is its subject's newest result on its drill and protocol, shown with the commit and
  * date it was read at; it stands until it is asked for again. `--play` plays each reading with no
- * whole result (`npm run evaluate -- <drill> <subject> --protocol <p> --write`); a whole one
- * stands, so a change to the code plays nothing. `--fresh` plays the readings of the cells asked
+ * whole result (`npm run evaluate -- <drill> <subject> --protocol <p> --fresh --write`: its rows
+ * are of the commit it names); a whole one stands, so a change to the code plays nothing. `--fresh` plays the readings of the cells asked
  * for again on the code now. Each reading plays to evaluate's budget and keeps its complete units, so a
  * pass always keeps what it played; one that fails is named at the end and the rest still play.
  * `--baseline` names each reading now as its cell's baseline, where the cell has none, as soon as
@@ -81,8 +81,8 @@ function evidenceOf(readings) {
 
 /**
  * Whether `trials` answer every case `named`, as the judge reads whole (`valueOf`): a faulted trial
- * answers none, so `--play` asks for its reading again, and evaluate plays the trial once its code,
- * and so its key, has changed.
+ * answers none, so `--play` asks for its reading again, and evaluate plays the trial again on
+ * another commit (`--fresh`).
  */
 function wholeOn(trials, named) {
   const read = new Set(trials.filter(trial => trial.kept !== null).map(trial => trial.at));
@@ -211,7 +211,7 @@ export function main() {
       if (fault || stands) continue;
       console.log(`playing ${key}`);
       try {
-        execFileSync(process.execPath, [join(ROOT, "scripts/evaluate.mjs"), reading.drill, reading.subject, "--protocol", reading.protocol, "--write", ...(values.workers ? ["--workers", values.workers] : [])], { cwd: ROOT, stdio: "inherit" });
+        execFileSync(process.execPath, [join(ROOT, "scripts/evaluate.mjs"), reading.drill, reading.subject, "--protocol", reading.protocol, "--fresh", "--write", ...(values.workers ? ["--workers", values.workers] : [])], { cwd: ROOT, stdio: "inherit" });
       } catch (error) { failed.push(`${key}: ${error instanceof Error ? error.message : String(error)}`); }
       // What this reading kept is read again at once, so its cells' baselines are kept before the next reading plays.
       stores.delete(reading.drill);

@@ -53,6 +53,9 @@
  * (`fit-spans`): it steers the punch on its record's settings, answering each of its requests as a
  * trainer does.
  * A candidate file is `{ "variation": "drive", "tuning": { ... }, "keepsNetwork": true }`, or a search's out file, its best.
+ * The candidate plays every start; the installed drive it is read beside is the Strike drill's
+ * case on each start, found in the store of played rows where a row has its key and played and
+ * kept where none does (`driveOn`, `scripts/evaluation-rows.mjs`).
  * With `keepsNetwork` (`--keeps-network`), the record's network still steers the tuned punch.
  *
  * Harness: Node, the Strike drill's bout world (`playCase`) on Rapier (`DEFAULT_ENGINE`), 120 Hz.
@@ -67,7 +70,10 @@ import "../../../../tests/harness/preload-data.mjs";
 import { cmaSearch, workerPool } from "../../../cma.mjs";
 import { withTuning } from "../../../drill-trials.mjs";
 import { heldOut, learnerIn } from "../../../case-learning-environment.mjs";
-import { BOUT_WORLD, EVALUATIONS, playCase } from "../../../../src/app/node/evaluation.ts";
+import { BOUT_WORLD, EVALUATIONS, loadsOf, playCase, playRow } from "../../../../src/app/node/evaluation.ts";
+import { casesOf } from "../../../../src/evaluation/run.ts";
+import { oldestOf } from "../../../../src/evaluation/rows.ts";
+import { drawFound, originText, rowStore } from "../../../../scripts/evaluation-rows.mjs";
 import { recoveryNetwork } from "../../../../src/core/math/learning/recovery-network.ts";
 import { answer, pending } from "../../../../src/core/math/learning/learner.ts";
 import { DEFAULT_ENGINE } from "../../../../src/core/physics/engines.ts";
@@ -193,11 +199,18 @@ async function playOne({ protocol, variation, tuning, keepsNetwork, policy, keep
     if (played.refused) throw new Error(played.refused);
     r = played.reading;
   }
-  const outcome = evaluation.outcome(r).label, judged = keep({ judge: "strike" }, r);
-  const dealt = Object.values(r.dealt).reduce((sum, x) => sum + x, 0);
-  return { outcome, dealt, taken: r.taken, trade: strikeTrade(r), down: r.down, value: trialValue("strike", { kept: judged, outcome }, FALL_PRICE),
-    ...(commits ? { commitment: commitmentOf(kept, keptAt, r.committed) } : kept ? { kept } : {}) };
+  return { ...readOf(r), ...(commits ? { commitment: commitmentOf(kept, keptAt, r.committed) } : kept ? { kept } : {}) };
 }
+
+/** What the judge reads of a trial's reading `r`: its outcome, the life dealt and taken, its trade, whether it ended down, and its value as the table values it. */
+function readOf(r) {
+  const outcome = EVALUATIONS.strike.outcome(r).label, judged = keep({ judge: "strike" }, r);
+  const dealt = Object.values(r.dealt).reduce((sum, x) => sum + x, 0);
+  return { outcome, dealt, taken: r.taken, trade: strikeTrade(r), down: r.down, value: trialValue("strike", { kept: judged, outcome }, FALL_PRICE) };
+}
+
+/** A case of the Strike drill played as its row (`playRow`), as `npm run evaluate` plays it. */
+const playKept = ({ protocol, key, condition, world, seconds }) => playRow(key, world, seconds, (built) => EVALUATIONS.strike.protocols[protocol].read(built, condition));
 
 /**
  * The commitment of a trial's punch: the layout's inputs at the first decision of the swing begun
@@ -218,7 +231,7 @@ function commitmentOf(kept, keptAt, committed) {
 
 if (!isMainThread && workerData?.punchSparring) {
   parentPort.on("message", async ({ id, x }) => {
-    let r; try { r = x.ping ? {} : await playOne(x); } catch (error) { r = { error: String(error?.stack ?? error) }; }
+    let r; try { r = x.ping ? {} : x.row ? await playKept(x.row) : await playOne(x); } catch (error) { r = { error: String(error?.stack ?? error) }; }
     parentPort.postMessage({ id, r });
   });
 }
@@ -263,14 +276,43 @@ function signTest(a, b) {
   return Math.min(1, 2 * sum);
 }
 
+/**
+ * The installed drive's trials on `conditions` of `protocol`: each the Strike drill's case of
+ * `option/straight-punch` there, found in the store of played rows by its key (`casesOf`,
+ * `rowStore`), and played and kept where no row has it. Beside them, how many were found, the
+ * oldest row read, and how many of a few found rows played again read as kept (`drawFound`).
+ */
+async function driveOn(pool, protocol, conditions) {
+  const evaluation = EVALUATIONS.strike, cases = evaluation.protocols[protocol];
+  const scheduled = casesOf(evaluation, protocol, evaluation.subjects([subjectName("drive")]), { engine: cases.engine ?? DEFAULT_ENGINE, schedule: { kind: "all" }, loads: loadsOf });
+  if (scheduled.refused) throw new Error(scheduled.refused);
+  const store = rowStore("strike"), by = new Map(scheduled.units.flat().map((one) => [one.condition, one]));
+  const asked = conditions.map((condition) => {
+    if (!by.has(condition)) throw new Error(`the drive is not admitted to ${JSON.stringify(condition)}`);
+    return by.get(condition);
+  });
+  const play = async (one) => {
+    const row = await pool.evaluate({ row: { protocol, key: one.key, condition: one.condition, world: one.world, seconds: one.seconds } });
+    if (row.error) throw new Error(row.error);
+    return row;
+  };
+  const found = asked.filter((one) => store.rows.has(one.key)), { drawn, of } = drawFound(found, store), oldest = oldestOf(found.map((one) => store.rows.get(one.key)));
+  const [again] = await Promise.all([Promise.all(drawn.map(play)), ...asked.filter((one) => !store.rows.has(one.key)).map(async (one) => store.keep(await play(one)))]);
+  const rows = asked.map((one) => store.rows.get(one.key)), faulted = rows.find((row) => row.fault !== null);
+  if (faulted) throw new Error(`the drive's case ${faulted.key}: ${faulted.fault.message}`);
+  return { played: rows.map((row) => readOf(row.reading)), lines: [
+    `  the drive's side: ${found.length} of ${asked.length} rows found${oldest && !store.current(oldest) ? `, the oldest played on ${originText(oldest.from)}` : ""}`,
+    ...(drawn.length > 0 ? [`  ${drawn.length} of the ${of} rows found from other code played again: ${again.filter((row) => row.digest === store.rows.get(row.key).digest).length} read as kept`] : [])] };
+}
+
 async function bar(path, workers, on, variation) {
   const candidate = candidateIn(path, variation), protocol = on === "held-out" ? "sparring" : "sparring-twin";
   const conditions = trialsOf(protocol, candidate.variation).filter((condition) => on === "held-out" || on === "twin" || heldOut(condition) === (on === "dev"));
   const pool = workerPool(fileURLToPath(import.meta.url), { punchSparring: true }, workers);
   try {
     await Promise.all(Array.from({ length: workers }, () => pool.evaluate({ ping: true })));
-    const timed = async (side) => { const begun = performance.now(), played = await playAll(pool, protocol, side, conditions); return [played, (performance.now() - begun) / 1000]; };
-    const [[mine, mineSeconds], [drive, driveSeconds]] = [await timed(candidate), await timed({ variation: "drive" })];
+    const timed = async (play) => { const begun = performance.now(), played = await play(); return [played, (performance.now() - begun) / 1000]; };
+    const [[mine, mineSeconds], [{ played: drive, lines }, driveSeconds]] = [await timed(() => playAll(pool, protocol, candidate, conditions)), await timed(() => driveOn(pool, protocol, conditions))];
     const ratio = rateOf(mine) / rateOf(drive), random = stream(1), ratios = [];
     for (let k = 0; k < 2000; k++) {
       const picks = conditions.map(() => Math.floor(random() * conditions.length));
@@ -293,6 +335,7 @@ async function bar(path, workers, on, variation) {
     console.log(`  landed by one side only: the candidate ${onlyMine}, the drive ${onlyDrive}; exact two-sided sign test p ${signTest(onlyMine, onlyDrive).toPrecision(4)}`);
     console.log(`  damage ratio ${ratio.toFixed(4)} (95 % ${low.toFixed(4)} to ${high.toFixed(4)})`);
     console.log(`  wall-clock to play: the candidate ${mineSeconds.toFixed(1)} s, the drive ${driveSeconds.toFixed(1)} s (${workers} workers, their start not among them)`);
+    for (const line of lines) console.log(line);
     console.log(pass ? "PASS" : "FAIL");
   } finally { await pool.terminate(); }
 }

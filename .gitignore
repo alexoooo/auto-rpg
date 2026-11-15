@@ -10,6 +10,10 @@ dist/
 .cache/art/
 public/assets/generated/
 
+# The evaluations' played rows, found again by key whatever commit they were played on
+# (scripts/evaluation-rows.mjs). `npm run clean` leaves them.
+.cache/evaluations/
+
 # Disposable work: probes, logs, before-readings, screenshots in .tmp/<task>/, worktrees in
 # .tmp/worktrees/<name>/. `npm run clean` deletes what is a day old.
 .tmp/

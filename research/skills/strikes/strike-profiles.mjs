@@ -34,7 +34,8 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  * A profile is of one limb, as one Option strikes with one (`limbAction`), and names it
  * (`Measured.limb`) beside its skill as the body holds it (`strikeSkill`). Where it came from
  * (`Origin`) is the digests of its body, of the action struck with that limb and of the body
- * struck, and its runs' commit and day where they share one.
+ * struck, and its rows' commit and day where they share one (`RowOrigin`, each row's own), with
+ * whether a build input differed from that commit under any of them.
  *
  *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/strike-profiles.mjs <run.json> ... [--write]
  *
@@ -124,10 +125,11 @@ for (const path of paths) {
     const struck = specOf(recipe, "right"), held = holdsOf(struck), target = { body: struck.model, ...(held === undefined ? {} : { holds: held }) };
     const measured = measuredOn(spec, strikeSkill(spec, executors, limbed), drill.effector, hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
     const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector} on ${struck.model}`,
-      digests: { spec: specDigest(spec), skill: skillDigest(partLookup, spec, executors, limbed), target: specDigest(struck) }, commits: new Set(), dates: new Set(), trials: [] };
+      digests: { spec: specDigest(spec), skill: skillDigest(partLookup, spec, executors, limbed), target: specDigest(struck) }, commits: new Set(), dates: new Set(), changed: false, trials: [] };
     profiles.set(key, profile);
-    profile.commits.add(header.commit ?? null);
-    profile.dates.add(header.date ?? null);
+    profile.commits.add(row.from.commit);
+    profile.dates.add(row.from.date.slice(0, 10));
+    profile.changed ||= row.from.changed;
     const r = row.reading;
     if (r.foePhase === undefined) throw new Error(`${path}: no foePhase in its readings; play its rung again`);
     if (r.foePhase === null || r.foeAt === null || r.began === null) continue;
@@ -161,7 +163,7 @@ const order = (a, b) => (a.start.postures?.target ?? "").localeCompare(b.start.p
 const shared = (values) => values.size === 1 ? [...values][0] ?? undefined : undefined;
 const made = [...profiles.values()].map((profile) => {
   const commit = shared(profile.commits), date = shared(profile.dates);
-  return { measured: profile.measured, target: profile.target, from: { ...profile.digests, ...(commit === undefined ? {} : { commit }), ...(date === undefined ? {} : { date }) }, trials: [...profile.trials].sort(order) };
+  return { measured: profile.measured, target: profile.target, from: { ...profile.digests, ...(commit === undefined ? {} : { commit, changed: profile.changed }), ...(date === undefined ? {} : { date }) }, trials: [...profile.trials].sort(order) };
 });
 for (const profile of profiles.values()) {
   const m = profile.measured, run = profile.trials.filter((t) => !t.letGo), lets = profile.trials.length - run.length;

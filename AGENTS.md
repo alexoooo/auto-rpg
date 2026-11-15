@@ -13,7 +13,7 @@ npm test                  # the gate
 npm run build             # type-check, then the bundle
 npm run pull:merge        # fetch, merge, validate once, commit; -- --continue after resolving conflicts
 npm run match -- <a> <b>  # two minds, each on each side, one digest
-npm run evaluate -- <id>  # an evaluation's cases where no row has them; --write keeps its results
+npm run evaluate -- <id>  # an evaluation's cases where no row has them; --fresh plays its subjects' again; --write keeps its results
 npm run evaluate -- table                         # the grid from saved results: every cell's value against its baseline; plays nothing
 npm run evaluate -- table --body <model> --skill <name> [--by <field>]   # a row's lines from saved results, its outcomes by a condition's field; plays nothing
 npm run evaluate -- table [--play] [--baseline]   # --play plays only what has no result; --baseline names a cell's first reading

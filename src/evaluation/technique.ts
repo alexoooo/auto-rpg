@@ -8,7 +8,8 @@ import { commandedBody } from "../minds/seat/host.ts";
 import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
 import { loadEngine } from "../core/physics/engines.ts";
 import { withLoadout, type Held } from "../core/bodies/items/held.ts";
-import { motorAndGuardOf } from "../skills/assembly/filled.ts";
+import { filledOf, motorAndGuardOf } from "../skills/assembly/filled.ts";
+import { guardConfigs } from "../skills/assembly/guards.ts";
 import { poseDrive, type TechniqueEnd, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/shared/technique.ts";
 import type { GroundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";
@@ -226,9 +227,15 @@ export function createTechnique(context: GameContext) {
     } finally { if (!complete) scope.dispose(); }
   }
 
-  /** The technique world kind: built by `buildTechnique`, its one body traced, played by the world's clock. */
+  /** The technique world kind: built by `buildTechnique`, its one body traced, played by the world's clock; it loads what its chain's techniques, its motor and its guards read. */
   const TECHNIQUE_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "technique" }>, BuiltTechnique> = {
     build: (world) => buildTechnique(world.technique, world.engine),
+    loads: ({ technique: one }) => {
+      const spec = techniqueSpec(one), { treeData } = context.catalog;
+      return { models: [one.model], keys: [
+        ...one.chain.flatMap((name) => TECHNIQUES[name] ? treeData(one.configs?.[name] ?? TECHNIQUES[name].defaults) : []),
+        ...treeData(filledOf(partLookup, spec, "motor")), ...guardConfigs(partLookup, spec).flatMap(treeData)] };
+    },
     traced: (built) => [built.body],
     clock: (built) => built.world.time,
   };

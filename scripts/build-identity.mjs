@@ -52,7 +52,7 @@ function buildInputs() {
 }
 
 /** The commit checked out, or null outside a repository. */
-function commitOf() {
+export function commitOf() {
   try { return execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return null; }
 }
 

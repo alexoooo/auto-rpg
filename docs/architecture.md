@@ -840,10 +840,22 @@ first eight). No table cell reads either: a cell is its skill on its own merit.
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)
   the question, subjects, figures and a drill trial's `outcome`.
-- **A case's key** is the digest of everything it plays but its code; a row (`Row`) is found again
-  by its key while runs work on one commit (`.tmp/evaluations/<id>/<commit>/`, `rows.ts`). A run on
-  another commit, or with a build input not committed, plays every case. `--write`
-  keeps the run's results in `assets/evaluations/<id>.json` (`results.ts`): each subject's newest
+- **A case's key** is the digest of the question it answers: everything it plays but its code,
+  and what its world's bodies load of mind data, each seated model's row of every record and
+  profile the parts they run read (`WorldKind.loads`, `loadsOf`, `world-builders.ts`). A row
+  (`Row`) is kept with where it came from (`RowOrigin`: its commit, whether a build input differed
+  from it, when it was played) in `.cache/evaluations/<id>/` (`rows.ts`,
+  `scripts/evaluation-rows.mjs`), outside Git and outside what `npm run clean` deletes, and is
+  found again by its key whatever commit it was played on. So a record or a profile changed under
+  a subject plays its cases, and a change to the code plays none: the newest row of a key stands,
+  a report names the oldest row it read, and a run plays a few of the rows it found from other
+  code again and says how many read as kept by their traces (`drawFound`), which gates nothing.
+  `--fresh` plays a named subject's cases again where their row is not of the code now. Two rows
+  of one key that read differently from one commit with no build input changed stop a run: a
+  play that does not repeat. A research judge finds what its candidate is read beside in the same
+  store (`punch-sparring.mjs --bar`, the drive's side). `--write`
+  keeps the run's results in `assets/evaluations/<id>.json` (`results.ts`), from rows of the
+  commit it names alone: each subject's newest
   reading on a protocol (its figures and, for a drill, a short row of numbers a trial, by its
   condition's name), each earlier reading a table cell's baseline names, and a contest's standings
   (`standings.ts`). Nothing a trial played is kept: the Arena plays a trial again from its subject

@@ -2,7 +2,7 @@
 
 Notes on how the game finds a strike's profile, a bout's save and a recording. Each is found by
 the question it answers, as a played row is
-([played rows kept and found](2026-11-14-saved-results.md)). No try of a skill waits on them:
+([the architecture](../architecture.md#evaluations)). No try of a skill waits on them:
 every try reads played rows. A profile is found so
 ([the architecture](../architecture.md#minds)); a save and a recording are not, and a
 number a character sets is no coordinate of a trial.

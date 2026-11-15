@@ -4,8 +4,8 @@ import { workerJobs } from "./worker-jobs.mjs";
  * the Arena plays them unless asked (`Duel`: the game's 120 s cap, recovery left to continue, the
  * fuller bar winning at the cap), each pair at every gap asked and from both sides. Every bout is
  * kept, one JSON line each, so a run plays only the bouts it has not played before; a bout is
- * keyed by its two minds' configs, gap, cap and actual source/engine identity. `--epoch`
- * names an independent repeated run.
+ * keyed by its two minds' configs, gap, cap and engine, whatever build played it, and keeps the
+ * build it was played on (`build`). `--epoch` names an independent repeated run.
  *
  * Ratings are Bradley-Terry fits on the Elo scale (400 points a factor of ten in odds), the pool's
  * mean at 1000:
@@ -90,7 +90,7 @@ if (!isMainThread) {
 
   mkdirSync(dirname(store), { recursive: true });
   const rows = existsSync(store) ? readFileSync(store, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)) : [];
-  const identity = hashOf({ build: BUILD_IDENTITY, engine: BOUT_ENGINE, hz: 120, cap, close: CLOSE, protocol: "empty-hand-league/2" });
+  const identity = hashOf({ engine: BOUT_ENGINE, hz: 120, cap, close: CLOSE, protocol: "empty-hand-league/3" });
   const keyOf = (ha, hb, gap) => `${identity}|${epoch}|${ha}|${hb}|${gap}`;
   const played = new Set(rows.filter((r) => r.identity === identity && r.epoch === epoch && r.cap === cap).map((r) => keyOf(r.ha, r.hb, r.gap)));
 

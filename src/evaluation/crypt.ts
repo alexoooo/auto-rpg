@@ -18,7 +18,7 @@ import { characterSkills, type BodyModel } from "../core/bodies/models.ts";
 import type { SkillChoices } from "../core/bodies/spec/body.ts";
 import type { World } from "../core/world/world.ts";
 import { distance, type Door, type DungeonMap, type DungeonObstacle, type Point } from "../game/dungeon/map.ts";
-import { DungeonRun, prepareDungeonCharacters } from "../game/dungeon/run.ts";
+import { DungeonRun, prepareDungeonCharacters, runParticipants } from "../game/dungeon/run.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
 import { type GameContext } from "../game/arena/context.ts";
 
@@ -234,6 +234,12 @@ export function createCrypt(context: GameContext) {
    */
   const CRYPT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "crypt" }>, BuiltCrypt> = {
     build: (world) => buildCrypt(world.crypt, world.engine),
+    loads: ({ crypt }) => {
+      const [hero, ...companions] = crypt.party;
+      const fielded = runParticipants(cryptMap(crypt.layout), { ...(hero ? { hero: hero.model } : {}), companions: companions.map((member) => member.model) });
+      return { models: fielded.map((participant) => participant.model),
+        keys: fielded.flatMap((participant) => context.catalog.treeData(participant.side === "party" && crypt.mind ? crypt.mind : context.defaultMind(participant.model))) };
+    },
     traced: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.built] : []),
     clock: (built) => built.world.time,
     hosted: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.minded] : []),

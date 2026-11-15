@@ -20,7 +20,7 @@ A part describes a design under consideration; nothing in it is built.
 - **A strike is made by search**, with no training run where a search and a correction do, by
   one tool for every strike and body it is named.
 - **Nothing is computed again routinely**: what is under work plays, and every other played row is
-  found ([played rows kept and found](2026-11-14-saved-results.md)).
+  found ([the architecture](../architecture.md#evaluations)).
 
 ## Where the time goes
 
@@ -54,10 +54,9 @@ drill's rung at a foe that fights back, from starts drawn at random (`sparring`,
   into a record of its own. The straight punch's two both call one function (`punch`,
   `src/skills/strikes/straight-punch/index.ts`), which runs one layout (`PUNCH_LAYOUT`);
   `from-guard` names the drive's record and adds when its drive may begin.
-- **Each try plays again what it is compared with.** `punch-sparring.mjs --bar` plays every
-  held-out start by the candidate and by the drive. `npm run evaluate` keeps no row while a build
-  input is uncommitted, and a commit finds none of the rows made before it
-  ([played rows](2026-11-14-saved-results.md#where-it-stands)).
+- **Each try plays its own side.** `punch-sparring.mjs --bar` plays every held-out start by the
+  candidate and finds the drive's rows on them; `npm run evaluate` keeps its rows uncommitted
+  and across commits ([the architecture](../architecture.md#evaluations)).
 - **Each trial of a search and of the judge is played from its start**: the wait, the walk into
   the window and the play on to its reader's end, beside the stroke
   ([starts kept from fights](#starts-kept-from-fights)).
@@ -272,8 +271,7 @@ damage a second. Part 2's search starts from that form
   search and no trainer plays. An interval narrows with the square root of its starts, to about a
   third as wide, by arithmetic.
 - **The drive's side of that draw is played once and found after**
-  ([played rows kept and found](2026-11-14-saved-results.md#the-design)): it is half of each
-  comparison's play.
+  ([the architecture](../architecture.md#evaluations)): it is half of each comparison's play.
 
 **What it would cost.** Ten times the starts is ten times the play: at most about four
 core-hours a side, by the arithmetic of [a try's comparison](#the-readings-that-come-first). By
@@ -351,7 +349,7 @@ a search, and a comparison on it is minutes.
   ([profiles and saves](2026-11-14-profiles-and-saves.md#the-design)): the bodies, and each
   module's memory that still has the shape saved. The build is no part of what a load refuses.
 - **A start is played again when it is asked**, as a played row is
-  ([played rows kept and found](2026-11-14-saved-results.md#the-design)): where there is reason
+  ([the code recipe](../recipes/code.md#code)): where there is reason
   to believe the fights the minds make now come to other moments.
 
 **What it would cost.** A start's fight is played to its moment once: at most 30 s, about 17
@@ -411,8 +409,11 @@ cases (`node scripts/fingerprint.mjs --compare <file> --variation <skill/variati
 
 **Open.**
 
-- **A variation under work plays; every other variation's rows are found**
-  ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
+- **A variation's record of its own in a case's key.** A key covers each seated body's row of
+  every record its mind's tree names (`treeData`, `loadsOf`), and a skill's part named without a
+  variation reads every variation's (`variationReads`): a record of a new variation's own plays,
+  once, each case of that body whose mind names the skill, the other variations' among them.
+  Narrowing it to the variation the body holds is unbuilt.
 - Whether the punch's exporter (`punch-export.mjs`) and its trainer take a variation: each
   writes the drive's record.
 
@@ -583,19 +584,13 @@ refactor the fingerprint shows. Two choices reach installed skills:
 
 ## How the parts depend
 
-- **The steer's readings are read** on the tool's mode (`--network`). Each `--bar` of them plays
-  the drive's side once more until the judge finds its rows
-  ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
+- **The steer's readings are read** on the tool's mode (`--network`). Each `--bar` of them
+  finds the drive's side ([the architecture](../architecture.md#evaluations)).
 - **The judge's larger draw is first.** It waits on nothing: a protocol added beside sparring's.
-  With the played rows its drive's side is played once.
-- **The played rows wait on no reading**: every try after them plays only its own variation.
-  Which records a subject's mind reads is settled ([Part 1](#part-1-a-variation-declares-its-record),
-  `reads`), and the store's key covers them
-  ([played rows kept and found](2026-11-14-saved-results.md#the-design)).
+  Its drive's side is played once and found after.
 - **A kept row waits on the mind's pricing.** What Option Mind prices a strike by is code both
   sides of every comparison run, the sparring foe's among it, so a row kept before a change to
-  it is another code's
-  ([what is under work plays](2026-11-14-saved-results.md#the-design)).
+  it is another code's: its subject is played again (`--fresh`).
 - **Part 2's search waits on the judge's larger draw**, which tells its best from its start; on
   the per-span fit with its asks' rows fitted, its start; and on a candidate's network going to
   a trial with its settings. What it makes waits on Part 1 to be installed beside the drive,
