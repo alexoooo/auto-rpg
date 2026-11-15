@@ -313,7 +313,9 @@ deleted.
   turn leaves it differs) and a quarter of its fist's speed off the line. Read on the dense sweep,
   not kept: a fist nearer the target than 0.25 to 0.35 m at the fire drawn back first (near 21 of
   33, 10 of 29, 25 of 40: not by the room given); the arm's pose solved 0.01 to 0.015 s ahead in
-  place of 0.02 (far 21 to 23 of 48, near and between to 0 to 6, the trunk stiffened with it). Against `drill-guard` 12 of 42 first touches are the guard's hands and forearms;
+  place of 0.02 (far 21 to 23 of 48, near and between to 0 to 6, the trunk stiffened with it); far, the arm thrown once the shoulder is
+  6 to 8 cm inside the straight arm after 0.10 to 0.12 s, at 0.18 to 0.20 s at the latest (42 to 46
+  of 105). Against `drill-guard` 12 of 42 first touches are the guard's hands and forearms;
   touches on a guard are driven through (`ContactTarget.guard`), 9 to 12 blows of 0.5 hp, the strict
   band 7 cm (0.74 to 0.81).
 - **In the bar's bouts the stroke was not better** (read before the trunk went first). At the record's window it fires from 0.82
