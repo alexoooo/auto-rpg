@@ -313,7 +313,7 @@ async function driveOn(pool, protocol, conditions) {
   };
   const found = asked.filter((one) => store.rows.has(one.key)), { drawn, of } = drawFound(found, store), oldest = oldestOf(found.map((one) => store.rows.get(one.key)));
   const [again] = await Promise.all([Promise.all(drawn.map(play)), ...asked.filter((one) => !store.rows.has(one.key)).map(async (one) => store.keep(await play(one)))]);
-  const rows = asked.map((one) => store.rows.get(one.key)), faulted = rows.find((row) => row.fault !== null);
+  const rows = asked.map((one) => store.rows.get(one.key)), faulted = [...rows, ...again].find((row) => row.fault !== null);
   if (faulted) throw new Error(`the drive's case ${faulted.key}: ${faulted.fault.message}`);
   return { played: rows.map((row) => readOf(row.reading)), lines: [
     `  the drive's side: ${found.length} of ${asked.length} rows found${oldest && !store.current(oldest) ? `, the oldest played on ${originText(oldest.from)}` : ""}`,
