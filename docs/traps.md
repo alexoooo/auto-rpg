@@ -58,9 +58,12 @@ its kind or running those tools.
 - **Git Bash dies in its own startup at times**, leaving `bash.exe.stackdump` in the repository
   root (every frame in `msys-2.0.dll`, the runtime's fatal-error exit), which fails
   `tests/workspace.test.mjs`. Many bash launches at once or in quick succession are the common
-  thread; a long script with quotes and backticks in a quoted heredoc is safer written to a file
-  first. A dump's first lines and time, and what was running, are read before `npm run clean`
+  thread. A dump's first lines and time, and what was running, are read before `npm run clean`
   deletes it; the remedy left is a newer Git for Windows.
+- **A shell rewrites quotes, backticks and `$` in text passed inline** (`node -e`, a heredoc,
+  `git commit -m`): an edit script or a commit message is written to a file with the file tool,
+  then run or passed by path (`node <file>`, `git commit -F <file>`). One file is edited with the
+  edit tool, not a script.
 - **A background wait ends on its own**: a watcher loop outlives the tool that started it, so it
   gets a timeout or an exit condition, and its pattern must be able to match (a training run's
   checkpoints are named by decisions, `model-12060672`, not round millions).
