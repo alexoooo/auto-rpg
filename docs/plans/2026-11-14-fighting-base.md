@@ -45,6 +45,8 @@ request by a brief of its own. A run that travels is in
   ([the punch's notes](2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)). Each
   of the 20 commitments read holds a centre velocity outside every range the drill plays
   ([the comparison](2026-11-10-warrior-punch.md#what-a-fight-asks-that-the-drill-does-not)).
+  Those fights are of minds that priced a strike from its sparring at one body whatever body it
+  struck; none is read as a strike is priced now.
 - **What is made on the stance is the stance's.** A change to the controller under a trained
   actor makes it a seed to retrain
   ([the training recipe](../recipes/training.md#before-the-first-run)). The punch's network reads

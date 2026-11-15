@@ -7,8 +7,8 @@ every try reads played rows. They describe a design under consideration; nothing
 
 ## Goal
 
-- **A profile is found by its skill, its variation and the body's model**, and a number a
-  character sets is a condition of its trials.
+- **A profile is found by its skill, its variation and the body's model**, a strike's also by
+  the model of the body it strikes, and a number a character sets is a condition of its trials.
 - **A save and a recording load across commits**, each part of them that fits.
 - **A result says where it came from**, so a reader can judge it.
 
@@ -33,9 +33,13 @@ each run where a build input is uncommitted (`currentBuildIdentity`,
 **Keyed by an exact digest.** A strike's profile is found by a digest of the body's whole spec but
 its wounds and skills (`specDigest`), of the skill's config and the body's row of each record it
 reads (`skillDigest`), and by the rate, the reaction time, the mind's rate and the command delay
-(`measuredOn`, `src/skills/framework/profile.ts`). A technique's profile is found by its config
-and the body's whole row of each record (`techniqueDigest`). So a retrained network, a tuned
-setting or a number a character sets (Balance, haste, the physique's scales) loses the profile.
+(`measuredOn`, `src/skills/framework/profile.ts`). A strike has a profile for each body it was
+sparred against, and is read by the one against the body it strikes: the one whose target has
+that body's spec digest, else one against another of its model, else the first, read scaled
+(`profileAgainst`). A technique's profile is found by its config and the body's whole row of each
+record (`techniqueDigest`). So a retrained network, a tuned setting or a number a character sets
+(Balance, haste, the physique's scales) loses the profile; such a number set on the struck body
+leaves the strike read by its profile against that body's model, as scaled.
 
 A profile not found is not read. The body's own mind prices its strike by a prior set by hand
 (`profilesFor`, `src/skills/framework/profile.ts`), and a foe's mind models it as its own strikes
@@ -49,7 +53,8 @@ The profile measured at 0 is a far better guess there than the prior.
 
 | Saved | Found by |
 | --- | --- |
-| A strike's or technique's profile | its skill and variation, and the body's model |
+| A technique's profile | its skill and variation, and the body's model |
+| A strike's profile | its skill and variation, the body's model and the model of the body it strikes |
 | A saved reading, a record, the stance's envelope | as now |
 | A bout's save and its tape | its recipe |
 

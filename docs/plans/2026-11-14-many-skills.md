@@ -82,7 +82,9 @@ drill's rung at a foe that fights back, from starts drawn at random (`sparring`,
 
 ## The readings that come first
 
-They say whether Part 2 holds, and they wait on no part.
+They say whether Part 2 holds, and they wait on no part. Each is of minds that priced a strike
+from its sparring at one body whatever body it struck. A strike is priced from its sparring at
+the body it strikes (`profileAgainst`, `src/skills/framework/profile.ts`), and none is read so.
 
 **Where it stands.**
 
@@ -587,7 +589,14 @@ refactor the fingerprint shows. Two choices reach installed skills:
 - **The judge's larger draw is first.** It waits on nothing: a protocol added beside sparring's.
   With the played rows its drive's side is played once.
 - **Part 1 and the played rows wait on no reading**: every try after them plays only its own
-  variation.
+  variation. Part 1 is the first of the two: it settles which records a subject's mind reads
+  (`reads`), and the store's key covers them
+  ([played rows kept and found](2026-11-14-saved-results.md#the-design)). Whether a row kept
+  before it is found after it is unread.
+- **A kept row waits on the mind's pricing.** What Option Mind prices a strike by is code both
+  sides of every comparison run, the sparring foe's among it, so a row kept before a change to
+  it is another code's
+  ([what is under work plays](2026-11-14-saved-results.md#the-design)).
 - **Part 2's search waits on the judge's larger draw**, which tells its best from its start; on
   the per-span fit with its asks' rows fitted, its start; and on a candidate's network going to
   a trial with its settings. What it makes waits on Part 1 to be installed beside the drive,
