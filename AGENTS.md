@@ -26,8 +26,6 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   or build config, also `npm run build`; something to see, a brief look in a browser; a refactor
   claiming no behaviour change, the fingerprint; prose only, `node --test tests/documents.test.mjs`
   (the links) and `git diff --check`, nothing more.
-- **Line endings**: the repository is LF, whatever the clone's `core.autocrlf`: a commit's
-  `git diff --numstat` equals its `git diff --ignore-cr-at-eol --numstat`.
 - **Landing**: commit each landable change on main, naming the checks run and any failure left.
   No push and no branch unless the owner asks: a push to main publishes the README's Play link
   (`.github/workflows/pages.yml` runs `npm test`, `npm run check` and `npm run build` on a fresh

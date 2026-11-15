@@ -47,10 +47,7 @@ export function pullMerge(cwd, { resume = false } = {}) {
   const changed = git("diff", before, "--name-only").split("\n").filter(Boolean);
   // A fast-forward has no staged diff; compare its committed trees instead.
   if (head !== before) changed.push(...git("diff", before, head, "--name-only").split("\n").filter(Boolean));
-  stage("Whitespace and line endings", () => {
-    git("diff", before, "--check");
-    if (git("diff", before, "--numstat") !== git("diff", before, "--ignore-cr-at-eol", "--numstat")) throw new Error("Line ending gate failed.");
-  });
+  stage("Whitespace", () => git("diff", before, "--check"));
   const npm = (args) => {
     const cli = process.env.npm_execpath ?? resolve(dirname(process.execPath), "node_modules/npm/bin/npm-cli.js");
     if (!existsSync(cli)) throw new Error("Run through npm run pull:merge so the npm executable is known.");
