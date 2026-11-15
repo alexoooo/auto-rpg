@@ -28,8 +28,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   (the links) and `git diff --check`, nothing more.
 - **Landing**: commit each landable change on main, naming the checks run and any failure left.
   No push and no branch unless the owner asks: a push to main publishes the README's Play link
-  (`.github/workflows/pages.yml` runs `npm test`, `npm run check` and `npm run build` on a fresh
-  checkout).
+  (`.github/workflows/pages.yml` runs `npm run build` and `npm test` on a fresh checkout).
 - **Pull and merge** with `npm run pull:merge`; resolve conflicts by meaning, stage only those
   files and `-- --continue`. Never stash or commit unrelated work.
 - **Servers**: leave none running. Port 5180 may be the owner's: never restart or kill it; use

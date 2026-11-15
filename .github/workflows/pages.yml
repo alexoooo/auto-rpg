@@ -19,10 +19,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
-      - name: Install test tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes ripgrep
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -33,11 +29,10 @@ jobs:
           path: .cache/art
           key: art-linux-${{ hashFiles('assets/art/**', 'assets/character-lab/*.blend', 'scripts/art/**', 'scripts/character-lab/realistic/morph_export.py', 'scripts/character-lab/realistic/phases.py', 'package-lock.json') }}
           restore-keys: art-linux-
-      - run: npm run assets
+      # The build makes the assets, type-checks and bundles.
+      - run: npm run build -- --base=/auto-rpg/
       - run: npm run assets:check
       - run: npm test
-      - run: npm run check
-      - run: npm run build -- --base=/auto-rpg/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
