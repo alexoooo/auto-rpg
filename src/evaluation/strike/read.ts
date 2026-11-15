@@ -334,11 +334,13 @@ function dealtIn(r: Pick<StrikeReading, "dealt">): number {
  * **What a blow's value is made of**: the life its trial took from the target less the life the
  * striker lost (`net`, hit points), and its action's cycle, from its start until the limb was back
  * at its guard (`recovers`), or to the trial's end where it was not (`cycle`, s), before a fall's
- * rise is added. None for a trial whose action did not begin.
+ * rise is added. None for a trial whose action did not begin, or began on the step its trial
+ * ended: a cycle of no length is no action played.
  */
 export function strikeTrade(r: Pick<StrikeReading, "began" | "ended" | "recovers" | "seconds" | "dealt" | "taken">): { readonly net: number; readonly cycle: number } | null {
   if (r.began === null) return null;
-  return { net: dealtIn(r) - r.taken, cycle: (r.ended !== null && r.recovers !== null ? r.ended + r.recovers : r.seconds) - r.began };
+  const cycle = (r.ended !== null && r.recovers !== null ? r.ended + r.recovers : r.seconds) - r.began;
+  return cycle > 0 ? { net: dealtIn(r) - r.taken, cycle } : null;
 }
 
 /**

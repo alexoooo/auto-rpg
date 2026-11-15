@@ -169,6 +169,17 @@ test("a table cell is valued only on every protocol case with none faulted", asy
 });
 
 
+test("a strike begun on its trial's last step is worth nothing, not a division by its cycle of no length", async () => {
+  const { keep, trialValue, FALL_PRICE } = await import("../../src/evaluation/table/judge.ts");
+  // The reading a search's candidate made: its punch begun at the trial's longest, abandoned there.
+  const reading = { outcome: "abandoned", began: 30, ended: null, recovers: null, seconds: 30, taken: 0.0176, dealt: { head: 0.0009 }, down: false, hit: null };
+  const kept = keep({ judge: "strike" }, reading);
+  assert.deepEqual(kept.slice(0, 2), [null, null], "an action of no length has no trade");
+  assert.equal(trialValue("strike", { kept, outcome: reading.outcome }, FALL_PRICE), 0);
+  const played = keep({ judge: "strike" }, { ...reading, began: 29.5 });
+  assert.ok(Math.abs(trialValue("strike", { kept: played, outcome: reading.outcome }, FALL_PRICE) - (0.0009 - 0.0176) / 0.5) < 1e-3, "half a second of it is its trade over that cycle");
+});
+
 test("Cover requires an attempted attack before untouched can pass", async () => {
   const { readCover } = await import("../../src/evaluation/cover/read.ts");
   const { modelSpec } = await import("../../src/core/bodies/models.ts");
