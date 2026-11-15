@@ -24,7 +24,8 @@ hero selection art (`src/app/browser/dungeon/setup.ts`). The radio labels remain
 The roster offers Warrior and Rogue; companions use the same roster. Skeleton remains an
 enemy with its own attributes and mind settings.
 
-**Source.** Generated with the built-in image generation tool from the prompts below.
+**Source.** Generated with the built-in image generation tool from the base prompts below;
+the Rogue's bow uses the edit prompt after its base prompt.
 Each image is resized to 512 × 768 and encoded with Sharp as WebP at quality 80, effort 6.
 The committed WebPs are the delivery assets; regenerating them is optional.
 
@@ -34,8 +35,14 @@ The committed WebPs are the delivery assets; regenerating them is optional.
 Use case: stylized-concept. Asset type: portrait illustration for a dark medieval fantasy game's Warrior hero selection card, vertical 2:3. Primary request: original hand-painted Warrior character art. Subject: one adult human male warrior, strong build, short dark hair, weathered face, practical dark steel breastplate and pauldrons over charcoal leather, muted bronze trim, sword held low. Composition: single character centered, head to knees, head fully visible with generous headroom, calm confident ready stance facing viewer at slight three-quarter angle. Scene: shadowy gothic crypt suggested with loose painterly shapes. Lighting: warm ivory light on face and steel, restrained ember rim light, near-black brown edges. Style: rich detailed painterly fantasy book cover illustration, visible brush texture, grounded anatomy, atmospheric and elegant. Constraints: readable silhouette at small size, no text, no logos, no border, no UI, no skeletons, no 3D render, no photographic look.
 ```
 
-### Rogue prompt
+### Rogue base prompt
 
 ```text
 Use case: stylized-concept. Asset type: portrait illustration for a dark medieval fantasy game's Rogue hero selection card, vertical 2:3. Primary request: original hand-painted Rogue character art. Subject: one adult human female rogue, athletic build, dark hair partly tucked into a charcoal hood, alert self-assured face clearly visible, practical fitted dark leather armour with subtle steel shoulder and forearm protection, worn leather straps, dagger held low. Composition: single character centered, head to knees, head fully visible with generous headroom, poised ready stance facing viewer at slight three-quarter angle. Scene: shadowy gothic crypt suggested with loose painterly shapes. Lighting: warm ivory light on face and leather, restrained ember rim light, near-black brown edges. Style: rich detailed painterly fantasy book cover illustration, visible brush texture, grounded anatomy, atmospheric and elegant. Palette: charcoal, weathered brown leather, muted bronze, faded burgundy accents. Constraints: readable silhouette at small size, no text, no logos, no border, no UI, no skeletons, no 3D render, no photographic look.
+```
+
+### Rogue bow edit prompt
+
+```text
+Use case: precise-object-edit. Input image: edit target, the existing Rogue hero portrait. Replace the dagger in her hand with a clearly recognizable medieval wooden recurve bow held naturally at rest, rising alongside her body so the bow and its taut bowstring are visible in the upper two thirds of this selection-card portrait. Adjust only the hand grip and arm position as needed for a believable bow hold. Keep the same woman, face, hood, dark leather armour, burgundy cloth, anatomy, gothic crypt background, warm lighting, painterly brushwork, framing, and vertical 2:3 composition. Preserve her face unobstructed. The bow should read clearly at small UI size. Remove the dagger entirely. No arrows being fired, no drawn-bow combat pose. No text, UI, labels, border, logo, or watermark.
 ```
