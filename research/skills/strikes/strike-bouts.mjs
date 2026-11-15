@@ -127,19 +127,48 @@ if (isMainThread) {
           from: duel.duelists[side].body.view.stance.recoveries, downAt: null, wounds: [], struck: 0 };
         byId[side].set(action.id, attempt); track[side].attempts.push(attempt); return attempt;
       };
+      // The striking arm's shape at each blow of a fist, by the blow: the elbow's bend, the shoulder-to-fist line against the blow's normal, and how far the fist is from the shoulder.
+      const arms = new Map(); let heard = 0;
+      const armAt = (body, hand, normal) => {
+        const at = (name) => body.built.segments.get(name).pose.position, side = hand.slice(hand.indexOf(".") + 1);
+        const upper = at(`upperArm.${side}`), fore = at(`forearm.${side}`), fist = at(hand);
+        const a = [fore.x - upper.x, fore.y - upper.y, fore.z - upper.z], b = [fist.x - fore.x, fist.y - fore.y, fist.z - fore.z], c = [fist.x - upper.x, fist.y - upper.y, fist.z - upper.z];
+        const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2], len = (u) => Math.sqrt(dot(u, u));
+        return { bend: Math.acos(Math.max(-1, Math.min(1, dot(a, b) / len(a) / len(b)))) * 180 / Math.PI,
+          line: Math.acos(Math.max(-1, Math.min(1, Math.abs(dot(c, normal)) / len(c) / len(normal)))) * 180 / Math.PI, out: len(c),
+          // The normal's tilt from level, and the level line's turn from the fist's level line, deg; and the fist's line's own tilt (down is negative).
+          tilt: Math.asin(Math.min(1, Math.abs(normal[1]) / len(normal))) * 180 / Math.PI,
+          turn: Math.acos(Math.max(-1, Math.min(1, Math.abs(c[0] * normal[0] + c[2] * normal[2]) / Math.hypot(c[0], c[2]) / Math.hypot(normal[0], normal[2]) || 0))) * 180 / Math.PI,
+          dip: Math.asin(c[1] / len(c)) * 180 / Math.PI };
+      };
       while (!duel.verdict && duel.clock < seconds) {
         world.step();
+        for (; heard < duel.blows.length; heard++) {
+          const blow = duel.blows[heard];
+          for (const s of SIDES) for (const part of blow.sides)
+            if (part.fighter === duel.duelists[s].id && part.segment.startsWith("hand.")) arms.set(blow, armAt(duel.duelists[s].body, part.segment, blow.normal));
+        }
         for (const side of SIDES) {
           const t = track[side], me = duel.duelists[side], report = me.minded.skills.report;
           if (!report.actions.length) t.idle += world.dt;
           for (const action of report.actions) {
             t.phases[action.phase] += world.dt;
             const attempt = attemptOf(side, action); attempt.contacts = structuredClone(action.contacts);
+            // The fist's nearest pass to its aim while committed: how far, and which way it is off (up, to its right, past along the line from the head), m.
+            if (action.phase === "commit" && action.aim && action.effector.startsWith("hand.")) {
+              const fist = me.body.built.segments.get(action.effector).pose.position, [ax, ay, az] = action.aim, head = me.body.view.head;
+              const d = [fist.x - ax, fist.y - ay, fist.z - az], gone = Math.hypot(...d), fl = Math.hypot(ax - head.x, az - head.z), f = [(ax - head.x) / fl, (az - head.z) / fl];
+              if (!(attempt.miss?.gone <= gone)) attempt.miss = { gone, up: d[1], right: d[0] * f[1] - d[2] * f[0], past: d[0] * f[0] + d[2] * f[1], at: duel.clock - attempt.commit };
+            }
             if (action.phase === "commit" && attempt.commit === null) {
               attempt.commit = duel.clock; attempt.committed = true; attempt.from = me.body.view.stance.recoveries;
               attempt.airborne = Object.values(me.body.view.stance.ends).some(end => end.touching === false);
               const hand = attempt.effector === "hand.left" ? "left" : attempt.effector === "hand.right" ? "right" : null;
               attempt.leadUp = hand !== null && me.body.view.stance.ends[footOn(me.body.built.spec, hand === "left" ? "right" : "left")]?.touching === false;
+              const foe = duel.duelists[side === "left" ? "right" : "left"].body.view, mine = me.body.view;
+              attempt.apart = Math.hypot(foe.stance.centre.x - mine.stance.centre.x, foe.stance.centre.z - mine.stance.centre.z);
+              attempt.heads = Math.hypot(foe.head.x - mine.head.x, foe.head.z - mine.head.z);
+              attempt.pace = Math.hypot(mine.stance.velocity.x, mine.stance.velocity.z);
             }
           }
           for (const record of report.ledger) if (record.sequence > t.sequence) {
@@ -164,6 +193,9 @@ if (isMainThread) {
               if (!mine || !theirs) continue;
               if (blow.time <= attempt.ended + AFTER && mine.segment === attempt.effector && theirs.damage > 0)
                 attempt.wounds.push({ time: blow.time, body: theirs.fighter, part: theirs.segment, damage: theirs.damage, energy: blow.energy });
+              if (blow.time <= attempt.ended + AFTER && mine.segment === attempt.effector)
+                (attempt.touches ??= []).push({ after: blow.time - attempt.commit, part: theirs.segment, kind: blow.kind, damage: theirs.damage,
+                  kg: theirs.kg, own: mine.kg, closing: blow.closing ?? null, energy: blow.energy ?? null, arm: arms.get(blow) ?? null });
               if (blow.time <= until) attempt.struck += mine.damage;
             }
           }

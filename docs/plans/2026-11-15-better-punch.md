@@ -208,6 +208,21 @@ deleted.
   lifts (`onStep` 0.5) 2 of 154; the walk sent 0.3 m deeper (`deeper` 0.3) 5 of 185; both 1 of
   141. The rule did what it says (126 of 141 thrown as the lead foot lifted); neither lever adds
   weight to a blow of the arm and the trunk. Both stay in the code, unset in `moving`'s record.
+- **Why a committed punch grazes** (the same bouts, `strike-bouts.mjs` reading each fist's
+  contacts, the arm's shape at each and the fist's nearest pass to its aim): **the fist ends
+  short**. Its nearest pass falls a median 0.24 m short of the aim along the line (`moving`; 0.17
+  the installed punch), true up and down and left and right; every blow that landed passed within
+  0.2 m, and of `moving`'s 127 that ended further off none did. A short fist meets what stands out:
+  the guard's upper arms, the side of the head, the chest edge on, its line slanted. Where the
+  shoulder-to-fist line meets the surface square (within 20 degrees), the fist meets it with a
+  median 4.8 kg and 19 J (to 88 J); slanted past 40 degrees, more than half its contacts, 0.8 kg
+  and 0.9 J: the graze. The cause is the reach: the fighters stand 0.9 m apart, trunk to trunk,
+  each window keeping the two bodies clear with the guards counted (`clearAhead`); from there the
+  foe's chest is about 0.77 m from the striking shoulder and the Warrior's arm is 0.61 m. Firing
+  nearer (the guards left out of the clearance), aiming deeper (`reach`), the walk sent deeper
+  on the approach, all read nothing: nearer, the arm is cramped and meets the guard; the walk
+  arrives stopped (0.2 m/s at the fire) whatever its spot. **The body must travel some 0.15 to 0.2
+  m toward the foe in the blow's 0.18 s**: a step into the punch.
 - **The risk**: `moving`'s weight came from the legs it no longer drives. Whether walking into
   the punch on the step raises what its landed blows take in a bout is read
   at step 4, before any training. The bar is the installed punch in bouts, where the owner sees
@@ -220,7 +235,7 @@ deleted.
 | 1. Watch it, one bout | bout read, gate passed; the owner's look to come |
 | 2. Its own record | done: step 1's bouts replay to the bit, the fingerprint moves no pose |
 | 3. Timing and the walk, before the blow | built (`onStep`, `deeper`, `Window.through`); the layout waits on step 4 |
-| 4. The weight check | neither lever adds weight; in work: why a committed blow grazes, and the lever that follows |
+| 4. The weight check | neither lever adds weight; why it grazes is found (the fist ends short); in work: a step into the punch, asked of the stance (`SwingGoal`) |
 | 5. Train it | not begun |
 | 6. The bout and the owner's eye | not begun |
 | 7. Land | not begun |
