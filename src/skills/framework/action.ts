@@ -44,6 +44,12 @@ export interface Window {
   readonly across: readonly [number, number];
   readonly facing: number;
   readonly speed: number;
+  /**
+   * How far past where the body stands for it a walk under way goes toward its target while the
+   * action is live, m: an action thrown on the way (one that leaves the legs to a walk) sends the
+   * body into it. None where absent.
+   */
+  readonly through?: number;
 }
 
 /**

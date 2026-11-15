@@ -8,8 +8,9 @@
  *
  * `--holds left=straight-punch/moving` has that side's body hold the variation in place of its
  * character's own of the skill (`characterSkills`), one flag a side; each action is then read
- * apart by side: begun, committed, committed with a foot off the ground, landed, and the damage
- * its landed blows took (the wounds its effector dealt, a blow's sum).
+ * apart by side: begun, committed, committed with a foot off the ground (the lead foot, the one
+ * opposite the striking hand, among them), touched (a wound dealt at all), landed (at least
+ * `LANDED`), and the damage its touching blows took (the wounds its effector dealt, a blow's sum).
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -20,6 +21,12 @@ import { parseArgs } from "node:util";
 const AFTER = .25;
 /** Falls are read for two seconds from commitment; stance recovery continues one second past ending. */
 const DOWN = 2, RECOVERY = 1;
+/**
+ * A landed blow takes at least this much life, HP: half a solid punch (a hit point is 100 J of blunt
+ * blow, `Rulebook.unit`), a twelfth of a Warrior's. The owner: "a gentle accidental graze to me is
+ * not a 'landed punch'".
+ */
+const LANDED = .5;
 /** Saved results use explicit per-hand equipment and the neutral action protocol. */
 const SCHEMA = 3;
 
@@ -86,10 +93,11 @@ if (isMainThread) {
       const theirs = sides.filter(one => one.side === side).flatMap(one => one.attempts), names = [...new Set(theirs.map(attempt => attempt.action))].sort();
       for (const name of names) {
         const all = theirs.filter(attempt => attempt.action === name), committed = all.filter(attempt => attempt.committed);
-        const landed = committed.filter(attempt => attempt.wounds.length > 0), damage = landed.map(attempt => sum(attempt.wounds.map(wound => wound.damage)));
-        console.log(`  ${side} (${holds[side] ?? "own"}) ${name}: begun ${all.length}, committed ${committed.length}, with a foot off the ground ${committed.filter(attempt => attempt.airborne).length}, `
-          + `landed ${landed.length} (${(landed.length / minutes).toFixed(1)} a minute), damage a landed blow median ${median(damage)?.toFixed(3) ?? "none"}, `
-          + `mean ${damage.length ? (sum(damage) / damage.length).toFixed(3) : "none"}, total ${sum(damage).toFixed(2)}; down within ${DOWN} s ${committed.filter(attempt => attempt.down).length}`);
+        const touched = committed.filter(attempt => attempt.wounds.length > 0), damage = touched.map(attempt => sum(attempt.wounds.map(wound => wound.damage)));
+        const landed = damage.filter(hp => hp >= LANDED);
+        console.log(`  ${side} (${holds[side] ?? "own"}) ${name}: begun ${all.length}, committed ${committed.length}, with a foot off the ground ${committed.filter(attempt => attempt.airborne).length} (the lead ${committed.filter(attempt => attempt.leadUp).length}), `
+          + `touched ${touched.length}, landed ${landed.length} (${(landed.length / minutes).toFixed(1)} a minute, each at least ${LANDED} hp), damage a touching blow median ${median(damage)?.toFixed(3) ?? "none"}, `
+          + `total ${sum(damage).toFixed(2)}; down within ${DOWN} s ${committed.filter(attempt => attempt.down).length}`);
       }
     }
   }
@@ -98,6 +106,7 @@ if (isMainThread) {
   const [{ buildBout }, { BOUT_ENGINE }] = await Promise.all([import("../../../src/app/node/evaluation.ts"), import("../../bout.mjs")]);
   const { SIDES } = await import("../../../src/game/arena/duel.ts");
   const { characterSkills } = await import("../../../src/core/bodies/models.ts");
+  const { footOn } = await import("../../../src/control/support.ts");
   parentPort.on("message", async ({ left, right, gap, held, seconds, holds }) => {
     let dispose;
     try {
@@ -129,6 +138,8 @@ if (isMainThread) {
             if (action.phase === "commit" && attempt.commit === null) {
               attempt.commit = duel.clock; attempt.committed = true; attempt.from = me.body.view.stance.recoveries;
               attempt.airborne = Object.values(me.body.view.stance.ends).some(end => end.touching === false);
+              const hand = attempt.effector === "hand.left" ? "left" : attempt.effector === "hand.right" ? "right" : null;
+              attempt.leadUp = hand !== null && me.body.view.stance.ends[footOn(me.body.built.spec, hand === "left" ? "right" : "left")]?.touching === false;
             }
           }
           for (const record of report.ledger) if (record.sequence > t.sequence) {

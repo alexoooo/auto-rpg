@@ -35,6 +35,8 @@ interface StrikeStand {
   readonly clear: number;
   /** The body the target is on, where it is on one (`Window.on`). */
   readonly on?: string;
+  /** How far past its spot toward the target a walk goes while its blow is live, m (`Window.through`). */
+  readonly through?: number;
 }
 
 /**
@@ -64,7 +66,8 @@ export function strikeWindow(view: BodyView, at: readonly [number, number, numbe
   // Entry permits the configured approach speed and a modest bearing error before settling.
   const near = Math.max(stand.standOff + ahead, stand.clear + CROWDED);
   const window = { at, along: [near - CROWDED, near + stand.band] as const,
-    across: [across - stand.aside, across + stand.aside] as const, facing: .4, speed: stand.pace, ...(stand.on === undefined ? {} : { on: stand.on }) };
+    across: [across - stand.aside, across + stand.aside] as const, facing: .4, speed: stand.pace, ...(stand.on === undefined ? {} : { on: stand.on }),
+    ...(stand.through === undefined ? {} : { through: stand.through }) };
   if (!withinActionWindow(view, window, heading) || stand.poised && !quietToStrike(view)) return { kind: "position", window };
   return { kind: "ready", window };
 }

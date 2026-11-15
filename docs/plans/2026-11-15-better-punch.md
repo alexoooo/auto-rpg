@@ -60,7 +60,11 @@ It is **done** when, on the Warrior:
    words: "it needs to land dramatically stronger (currently it mostly jsut graxes dealing < 0.1
    damage) and dramatically more often", and then: "at least 5x more blows, and at least 2x damage
    per blow. that's what i would be happy with". So, **in the same bouts: at least five times the
-   installed punch's landed blows, and at least twice the median hp a landed blow takes**. Counts first: begun, thrown
+   installed punch's landed blows, and at least twice the median hp a landed blow takes**. And:
+   "if it can do even 20 [a minute] that would be amazing ... I want landing a blow to mean
+   landing a blow. A gentle accidental graze to me is not a 'landed punch'". **A landed blow
+   takes at least 0.5 hp** (`LANDED`, `strike-bouts.mjs`): half a solid punch (a hit point is
+   100 J of blunt blow, `Rulebook.unit`), a twelfth of a Warrior's 6. Counts first: begun, thrown
    with a foot swinging, landed, missed, guarded, fell; then hp a landed blow, kg behind the fist
    and J on the mark.
 3. **The Warrior holds it in the game.**
@@ -189,14 +193,20 @@ deleted.
   (`research/skills/strikes/strike-bouts.mjs --models man --held empty --holds <side>=straight-punch/moving`).
   The installed punch committed 163, 16 with a foot off the ground, landed 102 (11.9 a minute),
   a median 0.058 and 0.051 hp a landed blow, none fell. `moving` committed 159, 96 with a foot
-  off the ground, landed 67 (7.8 a minute), a median 0.034 and 0.023 hp, 11 fell within 2 s. The
-  bar is then about 60 landed a minute and a median about 0.11 hp a landed blow. In the match
+  off the ground, touched 67 (7.8 a minute), a median 0.034 and 0.023 hp, 11 fell within 2 s.
+  **Landed (at least 0.5 hp): the installed punch 14 (1.6 a minute), `moving` 6 (0.7)**; the
+  median committed punch takes 0.015 hp and 0. Every other blow of either is a graze. In the match
   (`npm run match -- option option+straight-punch/moving`) the installed punch's Warrior won 5 of
   the 6 bare-fisted Warrior bouts.
 - **The installed punch in fights**: over 1,869 kept fight moments it lands 375, misses 752,
   meets the guard 370, never gets into its window 213 and falls 68.
 - **Retraining the installed punch's network read flat** (0.95 of where it began): a run is not
   assumed to beat where it starts.
+- **Step 3's levers, read at step 4** (the same six bouts, `moving`'s landed blows in about 8.5
+  bout-minutes each): as it was 6 of 159 committed, the heaviest 1.25 hp; fired as the lead foot
+  lifts (`onStep` 0.5) 2 of 154; the walk sent 0.3 m deeper (`deeper` 0.3) 5 of 185; both 1 of
+  141. The rule did what it says (126 of 141 thrown as the lead foot lifted); neither lever adds
+  weight to a blow of the arm and the trunk. Both stay in the code, unset in `moving`'s record.
 - **The risk**: `moving`'s weight came from the legs it no longer drives. Whether walking into
   the punch on the step raises what its landed blows take in a bout is read
   at step 4, before any training. The bar is the installed punch in bouts, where the owner sees
@@ -208,8 +218,8 @@ deleted.
 | --- | --- |
 | 1. Watch it, one bout | bout read, gate passed; the owner's look to come |
 | 2. Its own record | done: step 1's bouts replay to the bit, the fingerprint moves no pose |
-| 3. Timing and the walk, before the blow | not begun |
-| 4. The weight check | not begun |
+| 3. Timing and the walk, before the blow | built (`onStep`, `deeper`, `Window.through`); the layout waits on step 4 |
+| 4. The weight check | **stopped at its gate**: neither lever adds weight; the next step is the owner's |
 | 5. Train it | not begun |
 | 6. The bout and the owner's eye | not begun |
 | 7. Land | not begun |

@@ -21,6 +21,7 @@ import { keepsWalk, steerChannels, steerFeatures, stanceAsks, steerPushes, type 
 import type { StrikingFace } from "./held-face.ts";
 import { act, ask, learnerOf, start, stop } from "../../../core/math/learning/learner.ts";
 import { legOf } from "../../locomotion/shared/leg.ts";
+import { footOn } from "../../../control/support.ts";
 
 import { fistOn } from "../../../core/bodies/human/endpoints.ts";
 import { heldFrame } from "../../../core/bodies/build/rigid.ts";
@@ -62,7 +63,11 @@ const turnSense = (hand: Side): 1 | -1 => hand === "right" ? -1 : 1;
  * (`LegsGoal.heading`) and a shift of its centre from the support's middle (`LegsGoal.centre`),
  * and keeps a walk under way or halts it in place of `halts` (`keepsWalk`), as its layout lays
  * the steer out (`StraightDriveOptions.layout`); the steer is its trainer's to set, and none
- * at the drive's start.
+ * at the drive's start. With `onStep`, admitted and settled, it fires as the foot opposite the
+ * striking hand leaves the ground, so the fist lands as that foot does, or `onStep` s after it
+ * was admitted, whichever is first. With `deeper`, its window sends a walk under way `deeper` m
+ * past its spot toward the target while its blow is live (`Window.through`), so the body travels
+ * into the blow.
  */
 export interface StraightDrive {
   readonly pace: number;
@@ -86,6 +91,8 @@ export interface StraightDrive {
   readonly recover: number;
   readonly halts?: boolean;
   readonly fire?: number;
+  readonly onStep?: number;
+  readonly deeper?: number;
   readonly steered?: boolean;
   readonly timed?: { readonly left: readonly TimedPush[]; readonly right: readonly TimedPush[] };
 }
@@ -95,7 +102,7 @@ const REQUIRED = ["pace", "reach", "band", "settle", "through", "hips", "turn", 
 
 /** Every setting a straight drive may name (`StraightDrive`). */
 export const STRAIGHT_DRIVE_KEYS: readonly (keyof StraightDrive)[] = Object.freeze([...REQUIRED, "aside", "squared", "poised", "above", "halts",
-  "fire", "steered", "timed"]);
+  "fire", "onStep", "deeper", "steered", "timed"]);
 
 /**
  * Whether `settings`, some of a straight drive's, are each valid: finite and not negative but the
@@ -108,6 +115,8 @@ export function validStraightDrivePart(settings: Partial<StraightDrive>): boolea
     && (["pace", "reach", "band", "longest"] as const).every((key) => settings[key] === undefined || settings[key] > 0)
     && flag(settings.halts) && flag(settings.squared) && flag(settings.poised) && flag(settings.steered)
     && (settings.fire === undefined || Number.isFinite(settings.fire) && settings.fire >= 0)
+    && (settings.onStep === undefined || Number.isFinite(settings.onStep) && settings.onStep >= 0)
+    && (settings.deeper === undefined || Number.isFinite(settings.deeper) && settings.deeper >= 0)
     && (settings.aside === undefined || Number.isFinite(settings.aside) && settings.aside > 0)
     && (settings.above === undefined || Number.isFinite(settings.above))
     && (settings.timed === undefined || HANDS.every((hand) => Array.isArray(settings.timed![hand]) && settings.timed![hand].every(validPush)));
@@ -421,7 +430,8 @@ function driveReadiness(view: BodyView, technique: ReturnType<typeof straightTec
   const reach = technique.standOff(hand, at[1] - view.head.y);
   if (!technique.heightFits(hand, at[1] - view.head.y)) return { kind: "blocked", reason: "target is outside the arm's height band" };
   return strikeWindow(view, at, heading, { standOff: reach, band: settings.band, aside: settings.aside ?? settings.band,
-    across: settings.squared ? technique.state.shoulders[hand][0] : 0, pace: settings.pace, poised: settings.poised === true, clear, ...(on === undefined ? {} : { on }) });
+    across: settings.squared ? technique.state.shoulders[hand][0] : 0, pace: settings.pace, poised: settings.poised === true, clear, ...(on === undefined ? {} : { on }),
+    ...(settings.deeper ? { through: settings.deeper } : {}) });
 }
 
 /**
@@ -506,8 +516,10 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
         live.stage = "settle";
         const quiet = leavesLegs || quietToStrike(view);
         live.quiet = quiet ? live.quiet + dt : 0;
+        // With `onStep`, the drive waits for the lead foot to leave the ground, so the fist lands as it does.
+        const stepped = settings.onStep === undefined || live.time >= settings.onStep || view.stance.ends[footOn(body.built.spec, otherSide(live.hand))]?.touching === false;
         if (live.time >= PREPARE_LIMIT) release({ kind: "stalled", reason: "settling deadline" });
-        else if (quiet && live.quiet >= settings.settle) {
+        else if (quiet && live.quiet >= settings.settle && stepped) {
           live.phase = "commit"; live.stage = "swing"; live.time = 0; technique.enter("swing");
           motion.began = view.time; motion.touched = null; motion.face = atan2(motion.target[0] - view.head.x, motion.target[2] - view.head.z);
           motion.touching = (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0;

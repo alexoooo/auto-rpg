@@ -12,6 +12,7 @@ import { clinched, record, upOrDown, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { claimsLegs } from "../../skills/framework/intent.ts";
+import { hypot } from "../../core/math/real.ts";
 
 /** How long a strike may wait to be admitted before it is given up, s. */
 const PATIENCE = 2;
@@ -91,7 +92,7 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * a body down reads no window, so its site there is this spot moved as its focus has moved since,
  * and where it is in the window (`place`), as it was.
  */
-interface Stood { readonly focus: string; readonly spot: Spot; readonly place: [number, number] | null; readonly foe: readonly [number, number] }
+interface Stood { readonly focus: string; readonly spot: Spot; readonly place: [number, number] | null; readonly foe: readonly [number, number]; readonly through: number }
 
 export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure, name = action.name): StrikeOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null,
@@ -236,6 +237,11 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
           const stood = kept.stood?.focus === focus ? kept.stood : null;
           kept.spot = stood && foe ? { x: stood.spot.x + foe.centre.x - stood.foe[0], z: stood.spot.z + foe.centre.z - stood.foe[1], face: stood.spot.face,
             ...(stood.spot.facing === undefined ? {} : { facing: stood.spot.facing }) } : null;
+          // Its blow live, the walk is sent its window's `through` past the spot toward the focus, so the body travels into the blow.
+          if (kept.spot && foe && stood && stood.through > 0 && running && !at.sight.view.down) {
+            const dx = foe.centre.x - kept.spot.x, dz = foe.centre.z - kept.spot.z, apart = hypot(dx, dz);
+            if (apart > 0) kept.spot = { ...kept.spot, x: kept.spot.x + dx / apart * stood.through, z: kept.spot.z + dz / apart * stood.through };
+          }
           kept.place = stood ? stood.place : null;
         } else {
           const { ready, placed } = offer(at);
@@ -244,7 +250,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
           kept.spot = window ? windowSpot(at.sight.view, window, at.sight.report.legs.heading, side, kept.beside) : null;
           kept.place = window && kept.spot ? placeInWindow(window, kept.spot.x, kept.spot.z, kept.spot.face) : null;
           if (kept.spot && foe) kept.stood = { focus: foe.id, spot: { x: kept.spot.x, z: kept.spot.z, face: kept.spot.face, ...(kept.spot.facing === undefined ? {} : { facing: kept.spot.facing }) },
-            place: kept.place, foe: [foe.centre.x, foe.centre.z] };
+            place: kept.place, foe: [foe.centre.x, foe.centre.z], through: window?.through ?? 0 };
         }
       }
       return kept.spot;
