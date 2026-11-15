@@ -352,6 +352,12 @@ deleted.
   reckoning the turn); its network's steer (`steered` false), none of 31, 2.2 kg, the wrist the
   same. So its weight is a straight arm and a wrist braked at the touch, which the hips' turn and
   the network's steer time together, and the symmetric law prices.
+- **`moving`'s stroke with the hips' turn** (read, not kept: the legs taken from the walk, `hips`
+  0.6 and `halts` as the drive has them, its window opened; 160 gaps at a target that stands):
+  from 0.74 to 0.845 m, 27 of 42 at 0.5 hp, a median 0.71 to 0.90 by 3.5 cm, against 23 of 42 with
+  the legs taken and no turn (0.38 to 0.65); past 0.88 m none in either, the arm straight and the
+  fist at 1 m/s short of the target. Taking the legs stops the walk the variation is for: whether
+  `moving` asks the legs for a turn is the owner's.
 - **In the bar's bouts the stroke was not better** (read before the trunk went first). At the record's window it fires from 0.82
   to 1.05 m trunk to trunk and ends short (a median 0.25 m), 1 landed of 196; its window set where
   the arm reaches (`inside`, `reach` 0.62, `band` 0.02) it commits 14 in 6.9 bout-minutes, all
@@ -369,7 +375,7 @@ deleted.
 | 1. Watch it, one bout | bout read, gate passed; the owner's look to come |
 | 2. Its own record | done: step 1's bouts replay to the bit, the fingerprint moves no pose |
 | 3. Timing and the walk, before the blow | built (`onStep`, `deeper`, `Window.through`); the layout waits on step 4 |
-| 4. The weight check | why it grazes is found (the fist ends short); no leg carries the body in; `moving`'s own stroke, the trunk first where the arm does not reach: blows of 0.5 hp from 0.62 to 0.87 m, the strict band 4 cm (the owner's number, 15 to 20 cm wanted); no bouts or Mind work until it is met; why one range gives anything is found (the elbow's hold is which way its motor pushed the step before the touch); braking it at the touch read nothing; the law and the pricing, and the body's travel, put to the owner |
+| 4. The weight check | why it grazes is found (the fist ends short); no leg carries the body in; `moving`'s own stroke, the trunk first where the arm does not reach: blows of 0.5 hp from 0.62 to 0.87 m, the strict band 4 cm (the owner's number, 15 to 20 cm wanted); no bouts or Mind work until it is met; why one range gives anything is found (the elbow's hold is which way its motor pushed the step before the touch); braking it at the touch read nothing; the installed punch's weight is a straight arm and a braked wrist, timed by its hips' turn and its network's steer; the hips' turn helps `moving` from 0.74 to 0.845 m only, and takes the legs; the law and the pricing, the body's travel and a turn asked of the legs put to the owner |
 | 5. Train it | not begun |
 | 6. The bout and the owner's eye | not begun |
 | 7. Land | not begun |
