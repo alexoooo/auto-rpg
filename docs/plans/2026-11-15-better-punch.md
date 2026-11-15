@@ -284,7 +284,20 @@ deleted.
   kilogram) and 0.78 to 0.82; past 0.88 m none reaches. Read nothing: launching on the shoulder's
   distance or its closing rate (it launches mid-turn), a turn scaled to the range, no lean or a
   deeper one, a middle mode for targets up to 4 cm past the arm (the drive's own turn and lean,
-  the arm at 0.10 s: 0.74 to 0.78 m fell short, 0.01 to 0.11 hp). Against `drill-guard` 12 of 42 first touches are the guard's hands and forearms;
+  the arm at 0.10 s: 0.74 to 0.78 m fell short, 0.01 to 0.11 hp). Between 0.65 and 0.90 m the
+  stroke lands 13 of 22 at 0.5 hp, a median 0.63; against the guard 9 of 21, 0.40.
+- **Why fast and heavy do not meet in the arm.** A freedom holds through a blow with its muscles'
+  strength at its own speed (`MuscleDriver.bounds`, `strengthAt`: Hill's force and velocity), so
+  an elbow extending at 30 rad/s holds almost nothing and the fist meets the target with the hand
+  and forearm alone; the arm is heavy only where it is nearly still. The best blows land late in
+  the extension, the elbow bent 30 to 50 degrees, slowing and holding while the fist still runs 6
+  to 7 m/s: 0.8 to 1.5 hp. Bent 60 to 75 degrees (the shoulder brought too near), under 3 kg and
+  0.3 to 0.6 hp; under 22 degrees, the fist past its peak, about 0.3 hp. Hence each regime's 10 cm.
+  Read nothing on the sweep's share (13 of 22): the fist steered more loosely (its pose solved
+  0.4 to 0.8 m ahead, the arm's freedoms to 100 rad/s: the fist no faster, 6 to 7 m/s, the arm's
+  hold lost, 6 of 21); every trunk freedom the stroke does not drive held from the throw (the
+  shoulder's 5 cm recoil gone, 11 of 22); that and the trunk frozen where it stands at a throw
+  launched as the shoulder comes within reach (13 of 29, a median 0.43). Against `drill-guard` 12 of 42 first touches are the guard's hands and forearms;
   touches on a guard are driven through (`ContactTarget.guard`), 9 to 12 blows of 0.5 hp, the strict
   band 7 cm (0.74 to 0.81).
 - **In the bar's bouts the stroke was not better** (read before the trunk went first). At the record's window it fires from 0.82
