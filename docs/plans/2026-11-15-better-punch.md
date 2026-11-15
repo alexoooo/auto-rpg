@@ -74,15 +74,17 @@ It is **done** when, on the Warrior:
 - **Every step changes `moving`** (its code, its record, its layout or its network) or is a look
   that takes minutes. A report names the files of `moving` that changed, or says none did.
 - **Nothing re-measures or re-fits the installed punch.** Its readings are saved; they are read.
-- **A run over half an hour starts on the owner's word**, given its price and what will be
-  different in the game when it ends.
-- **Short of the bar is not thrown away; spinning wheels is what stops.** In the owner's words:
-  "if you don't get all the way there, then that doesn't mean that you need to throw away all of
-  your work. it's fine if you discover something that allows us to proceed furhter. but the one
-  thing i don't want, is just to spin our wheels for many more horus and achieve nothing". A step
-  that falls short keeps what it built and reports what it found and what that opens. A step
-  that finds nothing new stops the work; the next step is then the owner's, not a wider search,
-  a longer run or a new tool.
+- **The work goes on until the bar is met or the owner stops it.** In the owner's words: "i
+  didn't ask to try one thing and then stop. i asked for a better punch." A lever that adds
+  nothing is written down in a line and the next lever is tried; no gate hands the work back.
+- **A run over half an hour is announced** with its price and what will be different in the game
+  when it ends, and stops at a plateau.
+- **Short of the bar is not thrown away; spinning wheels is what is avoided.** In the owner's
+  words: "if you don't get all the way there, then that doesn't mean that you need to throw away
+  all of your work. it's fine if you discover something that allows us to proceed furhter. but
+  the one thing i don't want, is just to spin our wheels for many more horus and achieve
+  nothing". Each lever is read in the bar's bouts within minutes; a lever is not re-tuned and
+  re-read in circles, and the installed punch is never the thing worked on.
 - **Counts before ratios.**
 
 ## The steps
@@ -142,11 +144,10 @@ No training. Minutes.
 
 - **Read the fixed rule** of step 3: in the Arena, watched; and one bout, v2 against v1, its
   counts and the kg and J of its landed blows.
-- **Gate**: the median hp of its landed blows against the installed punch's in step 1's bout, the
-  bar twice (done, 2). Training is not counted on to raise the weight: where walking into the
-  punch on the step brings it up, training goes on from it; where it brings nothing, the work
-  stops here, before any training, with what was found, and the owner chooses what next (a gait
-  that steps in, trained once for every strike, among the ways).
+- **Read**: the median hp of its landed blows against the installed punch's in step 1's bout, the
+  bar twice (done, 2). Training is not counted on to raise the weight: where a lever brings it up,
+  training goes on from it; where none does, the next lever is found by reading why a committed
+  blow grazes (range at the fire, what the fist meets, its speed at contact) and built.
 
 ### 5. Train it
 
@@ -219,7 +220,7 @@ deleted.
 | 1. Watch it, one bout | bout read, gate passed; the owner's look to come |
 | 2. Its own record | done: step 1's bouts replay to the bit, the fingerprint moves no pose |
 | 3. Timing and the walk, before the blow | built (`onStep`, `deeper`, `Window.through`); the layout waits on step 4 |
-| 4. The weight check | **stopped at its gate**: neither lever adds weight; the next step is the owner's |
+| 4. The weight check | neither lever adds weight; in work: why a committed blow grazes, and the lever that follows |
 | 5. Train it | not begun |
 | 6. The bout and the owner's eye | not begun |
 | 7. Land | not begun |
