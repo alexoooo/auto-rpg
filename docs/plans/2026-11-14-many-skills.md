@@ -396,22 +396,26 @@ Part 2's search starts from the per-span form with its asks fitted
   to believe the fights the minds make now come to other moments.
 
 **What it costs.** A start's fight is played to its moment once: about seven core-seconds on
-the `fights` trials read. The twin's 240 fights for the Warrior's punch are about half a
-core-hour and the judge's 2,400 about five, by arithmetic, and a bank of 2,400 starts about
-0.7 GiB.
+the `fights` trials read. The twin's 240 fights for the Warrior's punch took 0.6
+core-hours and keep 55 to 60 MiB; the judge's 2,400 are about six core-hours and 0.6 GiB, by
+arithmetic. A trial from its start is about a core-second.
 
 **Open.**
 
-- **The drawn rungs are unplayed, and the tool's way to them is unrun**: `--on fights-twin`,
-  `--on fights-judge` and `--draws fights` have played nothing, so the bank holds nothing. How
-  many of the twin's fights come to their moments, what the drive lands of them, and whether a
-  candidate steered by a network's file or a trainer reads from a start as it does played whole
-  are unread. The 34 read are the drive's own, made and played by `makeStart` and `playFrom`.
+- **Of the drawn rungs only the twin is played**, for the Warrior's punch. Of its 240 fights
+  178 come to their moments on the stance and 194 on the stance's footwork
+  (`--holds stance/footwork`). On the footwork the drive lands 41 of the 194, and the per-span
+  fit, steered from the same starts, deals 0.87 times its damage a second (95 % 0.60 to 1.26)
+  and lands 41 (`--bar <fit> --holds stance/footwork --on fights-twin`). `fights-drawn` and
+  `fights-judge` are unplayed, and so is `--draws fights`. Whether a candidate steered by a
+  network's file or a trainer reads from a start as it does played whole is unread: the 34 read
+  so are the drive's own, made and played by `makeStart` and `playFrom`.
 - **A start under another variation.** A save loads under a striker's tuning and under a
   network's file. A variation of its own is its character's skill, which a load holds to
   (`DuelRecipe.skills`), and at a moment the mind's own action is under way in the striker's
   memory; its trial is a fight played from its start, which the tool does not play beside a
-  kept one.
+  kept one. A body that holds another balance is played from starts kept of its own fights,
+  the drive beside it holding the balance too (`--holds`).
 - **What a start carries of the mind that made it.** A candidate loaded two steps before a moment
   does what the save's mind had decided and not yet done: the orders and commands on their way,
   and the moment's own action where the drill carries it on. On the `still` trials read, that
@@ -641,15 +645,18 @@ refactor the fingerprint shows. Two choices reach installed skills:
 - **A kept row waits on the mind's pricing.** What Option Mind prices a strike by is code both
   sides of every comparison run, the sparring foe's among it, so a row kept before a change to
   it is another code's: its subject is played again (`--fresh`).
-- **Part 2's search waits on nothing**: the judge's draw tells its best from its start, and its
-  start is the per-span fit with its asks' rows fitted. What it makes waits on Part 1 to be
+- **Part 2's search is played on the balance the punch will fight on**, since what a search
+  makes belongs to the base it was played on: the stance's footwork (`--holds stance/footwork`),
+  on the fights' draws. Its start is the per-span fit with its asks' rows fitted. What it makes waits on Part 1 to be
   installed beside the drive, and on a steer that chooses a record's layer by the drive's age.
 - **A stance that knows of a blow waits on a reading that shows a strike needs it.**
-- **The larger measure of a fight waits on the bank's first play**: the starts are made by the
-  drive's own bouts the first time a rung is asked (`--bar <candidate> --on fights-twin`).
-- **Another base waits on Part 2**: until a strike's layout holds no reading of the legs, a base
-  other than the stance makes each strike's network a seed to retrain
-  ([the base under a fight](2026-11-14-fighting-base.md#the-design)).
+- **The larger measure of a fight waits on the judge's draw's first play**: the starts are made
+  by the drive's own bouts the first time a rung is asked (`--bar <candidate> --on fights-judge`).
+- **An actor under the strikes waits on Part 2**: until a strike's layout holds no reading of
+  the legs, a base that moves the legs otherwise than the stance makes each strike's network a
+  seed to retrain ([the base under a fight](2026-11-14-fighting-base.md#the-design)). The
+  stance's footwork, a rule of the stance's own, leaves the installed punch as it reads on the
+  stance ([where it stands](2026-11-14-fighting-base.md#where-it-stands)).
 
 ## To pick it up
 

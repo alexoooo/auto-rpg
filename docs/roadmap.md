@@ -70,15 +70,17 @@ In order; each is a row of the table, one question or one part of a plan, taken 
 owner's request. What each part waits on is in
 [the skills' notes](plans/2026-11-14-many-skills.md#how-the-parts-depend).
 
-1. **A strike made by search**, judged on sparring's larger held-out draw
-   ([the search](plans/2026-11-14-many-skills.md#part-2-a-strike-made-by-search-apart-from-the-legs),
-   [the judge](plans/2026-11-14-many-skills.md#the-judge-of-a-try)).
-2. **The fights' drawn rungs played from kept starts**
-   ([their notes](plans/2026-11-14-many-skills.md#starts-kept-from-fights)): the bank is built
-   and reads the `fights` trials as they read played whole; its three drawn rungs are unplayed.
-3. **The base under a fight**: a second balance, which waits on a strike apart from the legs;
-   a fight's cases are built and the stance is read on them
+1. **The base under a fight**: the stance is a skill a character holds in a variation, and its
+   `footwork` variation is read beside it on a fight's cases; no character holds it. An actor
+   that corrects the stance is the next size
    ([its notes](plans/2026-11-14-fighting-base.md#where-it-stands)).
+2. **A strike made by search**, on the balance the punch will fight on and the fights' draws
+   ([the search](plans/2026-11-14-many-skills.md#part-2-a-strike-made-by-search-apart-from-the-legs),
+   [its brief](briefs/punch-fights-search.md)).
+3. **The fights' drawn rungs played from kept starts**
+   ([their notes](plans/2026-11-14-many-skills.md#starts-kept-from-fights)): the bank is built
+   and reads the `fights` trials as they read played whole; of its three drawn rungs the twin
+   is played.
 4. **The strikes' profiles measured again**, their foe a mind that fights as it does now: one
    that prices a strike by its profile against the body it strikes from a bout's start, and
    models its foe by the strikes its character holds.
