@@ -223,6 +223,19 @@ deleted.
   on the approach, all read nothing: nearer, the arm is cramped and meets the guard; the walk
   arrives stopped (0.2 m/s at the fire) whatever its spot. **The body must travel some 0.15 to 0.2
   m toward the foe in the blow's 0.18 s**: a step into the punch.
+- **No leg the game has carries the body into the blow in time.** In the 0.2 s from the fire the
+  centre of mass goes nowhere toward the foe: the installed punch's 0.00 m (its legs brace against
+  the throw), `moving`'s -0.01 (the arm's throw, some 4 kg at 7 m/s, pushes a body on free legs
+  back). Of `moving`'s 370 punches read, the 7 that travelled 5 cm or more landed 2; none of the
+  222 that went back did. The fighters already stand at the window's distance, so a punch fires
+  standing, not out of an approach. Asked of the legs, through a claim the arbiter carried to the
+  stance while no action held it: a step of the foot opposite the hand, 0.25 m toward the target
+  (lifted at once, its capture point at the landing; or as a walk's step, a double support with the
+  capture point carried forward and the other foot pushing off; the drive fired as the foot left
+  the ground): the foot stepped (a median 0.18 m) and the body stayed, -0.01 m, more falls; the
+  weight carried over that foot through the drive (`StanceGoal.centre`): -0.01 m. None kept.
+  What carries a body 0.15 m in 0.2 s is a push-off of some 0.75 g: a leg action the stance does
+  not have.
 - **The risk**: `moving`'s weight came from the legs it no longer drives. Whether walking into
   the punch on the step raises what its landed blows take in a bout is read
   at step 4, before any training. The bar is the installed punch in bouts, where the owner sees
@@ -235,7 +248,7 @@ deleted.
 | 1. Watch it, one bout | bout read, gate passed; the owner's look to come |
 | 2. Its own record | done: step 1's bouts replay to the bit, the fingerprint moves no pose |
 | 3. Timing and the walk, before the blow | built (`onStep`, `deeper`, `Window.through`); the layout waits on step 4 |
-| 4. The weight check | neither lever adds weight; why it grazes is found (the fist ends short); in work: a step into the punch, asked of the stance (`SwingGoal`) |
+| 4. The weight check | why it grazes is found (the fist ends short; the body must travel into the blow); no leg the game has carries it there in time; next: a push-off into the blow |
 | 5. Train it | not begun |
 | 6. The bout and the owner's eye | not begun |
 | 7. Land | not begun |

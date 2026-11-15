@@ -169,6 +169,8 @@ if (isMainThread) {
               attempt.apart = Math.hypot(foe.stance.centre.x - mine.stance.centre.x, foe.stance.centre.z - mine.stance.centre.z);
               attempt.heads = Math.hypot(foe.head.x - mine.head.x, foe.head.z - mine.head.z);
               attempt.pace = Math.hypot(mine.stance.velocity.x, mine.stance.velocity.z);
+              attempt.fired = [mine.stance.centre.x, mine.stance.centre.z, foe.stance.centre.x, foe.stance.centre.z];
+              if (hand) { attempt.foot = footOn(me.body.built.spec, hand === "left" ? "right" : "left"); const s = mine.stance.ends[attempt.foot].middle; attempt.sole = [s.x, s.z]; }
             }
           }
           for (const record of report.ledger) if (record.sequence > t.sequence) {
@@ -177,6 +179,16 @@ if (isMainThread) {
             attempt.contacts = structuredClone(record.contacts); attempt.record = structuredClone(record); t.sequence = record.sequence;
           }
           for (const attempt of t.attempts) if (attempt.commit !== null) {
+            // How far its centre of mass travelled toward the foe's (as the foe stood at the fire) in the 0.2 s from the fire, m.
+            if (attempt.fired && attempt.travel === undefined && duel.clock - attempt.commit >= .2) {
+              const [x, z, fx, fz] = attempt.fired, d = Math.hypot(fx - x, fz - z), c = me.body.view.stance.centre;
+              attempt.travel = d > 0 ? ((c.x - x) * (fx - x) + (c.z - z) * (fz - z)) / d : 0;
+            }
+            // How far the foot opposite the striking hand went toward the foe in the 0.3 s from the fire, m.
+            if (attempt.sole && attempt.stepped === undefined && duel.clock - attempt.commit >= .3) {
+              const [x, z, fx, fz] = attempt.fired, d = Math.hypot(fx - x, fz - z), s = me.body.view.stance.ends[attempt.foot].middle;
+              attempt.stepped = d > 0 ? ((s.x - attempt.sole[0]) * (fx - x) + (s.z - attempt.sole[1]) * (fz - z)) / d : 0;
+            }
             if (attempt.ended === null || duel.clock <= attempt.ended + RECOVERY) attempt.recoveries = me.body.view.stance.recoveries - attempt.from;
             if (!attempt.down && duel.clock <= attempt.commit + DOWN && me.body.view.down) { attempt.down = true; attempt.downAt = duel.clock; }
           }
