@@ -302,9 +302,20 @@ deleted.
   it: 20 at 0.5 hp, a median 0.33, 2.6 kg, the fist as fast or faster (5.3 against 4.4 m/s). Under
   the directional law the elbow's hold against a blow pressing it bent is its extensors' own,
   about 7 N m, at either speed: the heavy fast blows are the symmetric law's, the braking side's
-  ceiling held both ways (`driver.ts` calls that law a comparison control). Whether the stroke
-  should time its elbow to brake at the touch, or the law change, is the owner's to decide; neither
-  is done. The best blows land late in the extension, the elbow bent 30 to 50 degrees, slowing
+  ceiling held both ways (`driver.ts` calls that law a comparison control). Whether the law or
+  the pricing change is the owner's to decide; neither is done. Read nothing on the dense sweep,
+  not kept: the elbow asked to brake once the fist is within 5 to 20 cm of the target along its
+  line (asked for 0, 20, 30 or 35 rad/s in place of 40). At 5 cm and 35 rad/s, 47 of 105 at 0.5
+  hp, a median 0.47 (near 16 of 33, between 11 of 24, far 20 of 48), 62 elbows held; against
+  `drill-guard` 44 of 99, a median 0.43, beside 41 of 99 and 0.41 unbraked; at 0, every
+  elbow held and 40 of 101, the fist slowed to 3.9 m/s; from 10 cm on, fewer, from 15 cm at 0
+  rad/s none. An elbow held gives 5 to 8 kg, not 20: of the blows whose elbow held, the heavy
+  (12 kg and more) and the light (under 6) hold alike in every freedom; the heavy land with the
+  arm straighter (bent 25 degrees against 30 to 41) and the waist still bending forward (8 rad/s,
+  holding 165 N m against 91 to 113). The installed punch's heavy blows are another case: at a
+  standing target (0.87 to 0.98 m, 23 of 28 at 0.5 hp, a median 0.82, 10.6 kg at 5.6 m/s) every
+  freedom is loose at the touch, the elbow too (17 N m), and the arm all but straight (bent 4
+  degrees), so a blow along it turns the elbow little. The best blows land late in the extension, the elbow bent 30 to 50 degrees, slowing
   and holding while the fist still runs 6 to 7 m/s: 0.8 to 1.5 hp. Bent 60 to 75 degrees (the shoulder brought too near), under 3 kg and
   0.3 to 0.6 hp; under 22 degrees, the fist past its peak, about 0.3 hp. Hence each regime's 10 cm.
   Read nothing on the sweep's share (13 of 22): the fist steered more loosely (its pose solved
@@ -346,7 +357,7 @@ deleted.
 | 1. Watch it, one bout | bout read, gate passed; the owner's look to come |
 | 2. Its own record | done: step 1's bouts replay to the bit, the fingerprint moves no pose |
 | 3. Timing and the walk, before the blow | built (`onStep`, `deeper`, `Window.through`); the layout waits on step 4 |
-| 4. The weight check | why it grazes is found (the fist ends short); no leg carries the body in; `moving`'s own stroke, the trunk first where the arm does not reach: blows of 0.5 hp from 0.62 to 0.87 m, the strict band 4 cm (the owner's number, 15 to 20 cm wanted); no bouts or Mind work until it is met; why one range gives anything is found (the elbow's hold is which way its motor pushed the step before the touch), the choice put to the owner |
+| 4. The weight check | why it grazes is found (the fist ends short); no leg carries the body in; `moving`'s own stroke, the trunk first where the arm does not reach: blows of 0.5 hp from 0.62 to 0.87 m, the strict band 4 cm (the owner's number, 15 to 20 cm wanted); no bouts or Mind work until it is met; why one range gives anything is found (the elbow's hold is which way its motor pushed the step before the touch); braking it at the touch read nothing; the law and the pricing, and the body's travel, put to the owner |
 | 5. Train it | not begun |
 | 6. The bout and the owner's eye | not begun |
 | 7. Land | not begun |
