@@ -43,14 +43,19 @@
  * by the last span whose `from` its drive's age has reached; `fit-spans-asks` fits each span's
  * heading and centre rows as it does its pushes, where the other fits leave them at zero.
  *
- *   node research/skills/strikes/straight-punch/punch-sparring.mjs --search --out <file.json> [--variation drive] [--keeps-network | --steer <spans.json>] [--draws sparring|fights] [--starts 80] [--rank 4] [--lambda 16] [--sigma 0.2] [--step 0.05] [--patience 8] [--hours H] [--workers N] [--resume]
- *   node research/skills/strikes/straight-punch/punch-sparring.mjs --bar <candidate.json> [--variation drive] [--on held-out|judge|twin|dev|train|fights-twin|fights-judge] [--workers N]
+ *   node research/skills/strikes/straight-punch/punch-sparring.mjs --search --out <file.json> [--variation drive] [--holds <skill/variation> ...] [--keeps-network | --steer <spans.json>] [--draws sparring|fights] [--starts 80] [--rank 4] [--lambda 16] [--sigma 0.2] [--step 0.05] [--patience 8] [--hours H] [--workers N] [--resume]
+ *   node research/skills/strikes/straight-punch/punch-sparring.mjs --bar <candidate.json> [--variation drive] [--holds <skill/variation> ...] [--on held-out|judge|twin|dev|train|fights-twin|fights-judge] [--workers N]
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --network <form> --out <file.json> [--variation drive] [--workers N]
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --commitments [--variation drive] [--out <file.json>] [--workers N]
  *
  * `--variation` names the variation a mode reads and writes: the record a search starts from, a
  * tuning is laid over and a form is written from (the one its part names for it,
  * `PUNCH_PART.reads`), and the variation a network's file steers and `--commitments` plays.
+ *
+ * `--holds`, one or more, names variations a search's and a bar's candidate's body holds in place
+ * of its character's own of those skills (`stance/footwork`, the balance under the punch). On whole
+ * trials the drive it is read beside holds the character's own; from starts kept, which are then
+ * the holding body's own fights, the drive holds them too.
  *
  * `--commitments` reads whether sparring's commitments cover a fight's: it plays the Warrior's
  * `sparring`, `sparring-twin` and `fights` trials steered by the record's network and keeps, of each
@@ -118,8 +123,14 @@ const SEARCHED = Object.freeze([
   ["reach", 0.6, 0.95], ["band", 0.02, 0.15], ["pace", 0.3, 1.5], ["scale", 0, 1], ["speed", 0.5, 1.5],
 ]);
 
-/** The subject a candidate plays as: Option Mind's straight punch, running its variation. */
-const subjectName = (variation) => variation === "drive" ? `option/${SKILL}` : `option/${SKILL}+${SKILL}/${variation}`;
+/**
+ * The subject a candidate plays as: Option Mind's straight punch, running its variation, its body
+ * holding `holds` (each a `skill/variation`, `--holds`) in place of its character's own of those
+ * skills. The trials it is admitted to are the game's, which holds none, and so is the drive it
+ * is read beside on whole trials. A start kept is the holding body's own fight, a save loading
+ * only into the character that made it, and the drive read beside it there holds them too.
+ */
+const subjectName = (variation, holds = []) => [`option/${SKILL}`, ...(variation === "drive" ? [] : [`${SKILL}/${variation}`]), ...holds].join("+");
 
 /** The Warrior's record of `variation`, the one its part names for it (`PUNCH_PART.reads`): the settings a search starts from and a tuning is laid over, and the network that steers it. */
 const recordOf = (variation) => dataOf(PUNCH_PART.reads({ kind: SKILL, variation })[0])[BODY];
@@ -199,20 +210,20 @@ async function steeredTrial(cases, world, condition, value, act, saved) {
   } finally { built.dispose(); }
 }
 
-/** The starts kept of `variation`'s trials of `protocol` (`startBank`), opened once. */
+/** The starts kept of `variation`'s trials of `protocol`, its body holding `holds` (`startBank`), opened once. */
 const banks = new Map();
-function bankOf(protocol, variation) {
-  const key = `${protocol} ${variation}`;
-  if (!banks.has(key)) banks.set(key, startBank("strike", protocol, subjectName(variation)));
+function bankOf(protocol, variation, holds) {
+  const key = `${protocol} ${subjectName(variation, holds)}`;
+  if (!banks.has(key)) banks.set(key, startBank("strike", protocol, subjectName(variation, holds)));
   return banks.get(key);
 }
 
-/** The start of `variation`'s trial of `protocol` at `condition`, made by the variation's own bout as the game has it (`makeStart`) and kept. */
-async function keepStart({ protocol, variation, condition }) {
-  const evaluation = EVALUATIONS.strike, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects([subjectName(variation)]);
+/** The start of `variation`'s trial of `protocol` at `condition`, made by the variation's own bout as the game has it, its body holding `holds` (`makeStart`), and kept. */
+async function keepStart({ protocol, variation, holds, condition }) {
+  const evaluation = EVALUATIONS.strike, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects([subjectName(variation, holds)]);
   const world = cases.world([subject.value], condition, cases.engine ?? DEFAULT_ENGINE, [subject]);
   if (world.refused) throw new Error(world.refused);
-  bankOf(protocol, variation).keep(condition, await makeStart(BOUT_WORLD, cases, world));
+  bankOf(protocol, variation, holds).keep(condition, await makeStart(BOUT_WORLD, cases, world));
   return {};
 }
 
@@ -226,9 +237,9 @@ async function keepStart({ protocol, variation, condition }) {
  * from the start kept of it (`bankOf`): the variation's own fight up to its moment, whatever the
  * candidate.
  */
-async function playOne({ protocol, variation, tuning, keepsNetwork, policy, keeps, commits, started, condition }) {
-  const evaluation = EVALUATIONS.strike, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects([subjectName(variation)]);
-  const saved = started ? bankOf(protocol, variation).read(condition).saved : null;
+async function playOne({ protocol, variation, holds, tuning, keepsNetwork, policy, keeps, commits, started, condition }) {
+  const evaluation = EVALUATIONS.strike, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects([subjectName(variation, holds)]);
+  const saved = started ? bankOf(protocol, variation, holds).read(condition).saved : null;
   const value = policy || keeps ? withTuning(subject.value, { ...tuning, steered: true })
     : tuning ? withTuning(subject.value, tuning, keepsNetwork ? { keepsNetwork: true } : {}) : subject.value;
   const world = cases.world([value], condition, cases.engine ?? DEFAULT_ENGINE, [subject]);
@@ -283,23 +294,23 @@ if (!isMainThread && workerData?.punchSparring) {
 }
 
 /** Every trial of `conditions` played by a candidate on `pool`: from its start kept, where `protocol`'s trials have an opening (`startsOn`). */
-async function playAll(pool, protocol, { variation, tuning, keepsNetwork, policy }, conditions) {
+async function playAll(pool, protocol, { variation, holds, tuning, keepsNetwork, policy }, conditions) {
   const started = opens(protocol);
   return Promise.all(conditions.map(async (condition) => {
-    const r = await pool.evaluate({ protocol, variation, tuning, keepsNetwork, policy, started, condition });
+    const r = await pool.evaluate({ protocol, variation, holds, tuning, keepsNetwork, policy, started, condition });
     if (r.error) throw new Error(r.error);
     return r;
   }));
 }
 
 /**
- * The trials of `conditions` (`variation`'s, of `protocol`) that have a start: each one's start
+ * The trials of `conditions` (`variation`'s, of `protocol`, its body holding `holds`) that have a start: each one's start
  * made by the variation's own bout and kept where the bank holds nothing of it (`keepStart`), and
  * those whose fights came to their moments. Beside them, what to print of the bank.
  */
-async function startsOn(pool, protocol, variation, conditions) {
-  const bank = bankOf(protocol, variation), unplayed = conditions.filter((condition) => bank.kept(condition) === null), begun = performance.now();
-  await Promise.all(unplayed.map(async (condition) => { const r = await pool.evaluate({ start: { protocol, variation, condition } }); if (r.error) throw new Error(r.error); }));
+async function startsOn(pool, protocol, variation, holds, conditions) {
+  const bank = bankOf(protocol, variation, holds), unplayed = conditions.filter((condition) => bank.kept(condition) === null), begun = performance.now();
+  await Promise.all(unplayed.map(async (condition) => { const r = await pool.evaluate({ start: { protocol, variation, holds, condition } }); if (r.error) throw new Error(r.error); }));
   const started = conditions.filter((condition) => bank.kept(condition) === "start");
   return { started, lines: [`  starts: ${started.length} of ${conditions.length} ${protocol} fights came to their moments; ${unplayed.length} played now${unplayed.length > 0 ? `, in ${((performance.now() - begun) / 1000).toFixed(1)} s` : ""}, the rest found`] };
 }
@@ -378,19 +389,19 @@ const ON = Object.freeze({
 /** Whether `protocol`'s trials have an opening (`Cases.opening`), and so are played from starts kept of them (`startsOn`). */
 const opens = (protocol) => EVALUATIONS.strike.protocols[protocol].opening !== undefined;
 
-async function bar(path, workers, on, variation) {
+async function bar(path, workers, on, variation, holds) {
   if (!Object.hasOwn(ON, on)) throw new Error(`--on ${on}: one of ${Object.keys(ON).join(", ")}`);
-  const candidate = candidateIn(path, variation), { protocol, name, own = () => true } = ON[on];
+  const candidate = { ...candidateIn(path, variation), holds }, { protocol, name, own = () => true } = ON[on];
   if (opens(protocol) && candidate.variation !== "drive") throw new Error(`a start of ${protocol} is the drive's own fight, which a bout of ${candidate.variation} does not load: a variation of its own is read beside the drive on whole trials`);
   const asked = trialsOf(protocol, candidate.variation).filter(own);
   const pool = workerPool(fileURLToPath(import.meta.url), { punchSparring: true }, workers);
   try {
     await Promise.all(Array.from({ length: workers }, () => pool.evaluate({ ping: true })));
     // From starts kept, the drive's side is the drive loaded as the candidate is, from the same saves.
-    const kept = opens(protocol) ? await startsOn(pool, protocol, "drive", asked) : null, conditions = kept ? kept.started : asked;
+    const kept = opens(protocol) ? await startsOn(pool, protocol, "drive", holds, asked) : null, conditions = kept ? kept.started : asked;
     const timed = async (play) => { const begun = performance.now(), played = await play(); return [played, (performance.now() - begun) / 1000]; };
     const [[mine, mineSeconds], [{ played: drive, lines }, driveSeconds]] = [await timed(() => playAll(pool, protocol, candidate, conditions)),
-      await timed(async () => kept ? { played: await playAll(pool, protocol, { variation: "drive" }, conditions), lines: kept.lines } : driveOn(pool, protocol, conditions))];
+      await timed(async () => kept ? { played: await playAll(pool, protocol, { variation: "drive", holds }, conditions), lines: kept.lines } : driveOn(pool, protocol, conditions))];
     const ratio = rateOf(mine) / rateOf(drive), random = stream(1), ratios = [];
     for (let k = 0; k < 2000; k++) {
       const picks = conditions.map(() => Math.floor(random() * conditions.length));
@@ -402,7 +413,7 @@ async function bar(path, workers, on, variation) {
     const begun = (played) => played.filter((one) => one.trade).length, landed = (played) => played.filter((one) => one.outcome === "landed").length;
     const value = (played) => played.reduce((sum, one) => sum + (one.value ?? 0), 0) / played.length;
     const pass = ratio >= RATE && low > LOW && taken(mine) <= taken(drive) && falls(mine) <= falls(drive);
-    console.log(`Warrior, ${name}, ${conditions.length} starts; candidate ${path} (${candidate.variation}${candidate.tuning ? ", tuned" : ""}${candidate.policy ? ", its policy steering" : ""}) against the drive`);
+    console.log(`Warrior, ${name}, ${conditions.length} starts; candidate ${path} (${candidate.variation}${candidate.tuning ? ", tuned" : ""}${candidate.policy ? ", its policy steering" : ""}${holds.length > 0 ? `, holding ${holds.join(", ")}` : ""}) against the drive`);
     console.log(`  damage dealt per second: ${rateOf(mine).toFixed(3)} against ${rateOf(drive).toFixed(3)}, ratio ${ratio.toFixed(2)} (95 % ${low.toFixed(2)} to ${high.toFixed(2)}); bar ${RATE}, low end above ${LOW}`);
     console.log(`  life taken a trial: ${taken(mine).toFixed(3)} against ${taken(drive).toFixed(3)}; falls ${falls(mine)} against ${falls(drive)}`);
     console.log(`  beside: begun ${begun(mine)} against ${begun(drive)}, landed ${landed(mine)} against ${landed(drive)}, the table's value a trial ${value(mine).toFixed(4)} against ${value(drive).toFixed(4)}`);
@@ -462,7 +473,7 @@ const DRAWS = Object.freeze({ sparring: { drawn: "sparring-drawn", twin: "sparri
  * (`best`), what the search moves a steer from (`steer`), the hours it has run and its state to
  * resume from.
  */
-async function search({ out, variation, keepsNetwork, steer, draws, starts, rank, lambda, sigma, step, patience, hours, workers, resume }) {
+async function search({ out, variation, holds, keepsNetwork, steer, draws, starts, rank, lambda, sigma, step, patience, hours, workers, resume }) {
   if (steer && keepsNetwork) throw new Error("a search moves a steer's weights (--steer) or keeps the record's network (--keeps-network)");
   if (!Object.hasOwn(DRAWS, draws)) throw new Error(`--draws ${draws}: one of ${Object.keys(DRAWS).join(", ")}`);
   const rungs = DRAWS[draws];
@@ -477,14 +488,15 @@ async function search({ out, variation, keepsNetwork, steer, draws, starts, rank
   const startsOf = (g) => { const random = stream(g + 1), left = drawn.slice(); return Array.from({ length: Math.min(starts, left.length) }, () => left.splice(Math.floor(random() * left.length), 1)[0]); };
   const scored = (played) => ({ score: played.reduce((sum, one) => sum + (one.value ?? 0), 0) / played.length, rate: rateOf(played),
     landed: played.filter((one) => one.outcome === "landed").length, falls: played.filter((one) => one.down).length });
-  const onTwin = async (u) => scored(await playAll(pool, rungs.twin, candidateAt(u, variation, keepsNetwork, from), twin));
+  const candidate = (u) => ({ ...candidateAt(u, variation, keepsNetwork, from), holds });
+  const onTwin = async (u) => scored(await playAll(pool, rungs.twin, candidate(u), twin));
   const reading = (r) => `${r.score.toFixed(4)} (dealt/s ${r.rate.toFixed(3)}, landed ${r.landed} of ${twin.length}, falls ${r.falls})`;
   const start = [...startOf(variation), ...new Array(moved).fill(0.5)];
   let conditions = null, drawnFor = -1;
   try {
     // Drawn fights are played from starts kept of them: the variation's own fights, each to its moment.
     if (opens(rungs.drawn)) for (const rung of [rungs.twin, rungs.drawn]) {
-      const kept = await startsOn(pool, rung, variation, rung === rungs.twin ? twin : drawn);
+      const kept = await startsOn(pool, rung, variation, holds, rung === rungs.twin ? twin : drawn);
       if (rung === rungs.twin) twin = kept.started; else drawn = kept.started;
       for (const line of kept.lines) console.log(line);
     }
@@ -498,7 +510,7 @@ async function search({ out, variation, keepsNetwork, steer, draws, starts, rank
       ...(saved?.checkpoint ? { resume: saved.checkpoint } : {}),
       score: async (u) => {
         if (drawnFor !== generation) { conditions = startsOf(generation); drawnFor = generation; }
-        return scored(await playAll(pool, rungs.drawn, candidateAt(u, variation, keepsNetwork, from), conditions));
+        return scored(await playAll(pool, rungs.drawn, candidate(u), conditions));
       },
       onGeneration: async (entry, { mean, checkpoint }) => {
         generation = entry.g + 1;
@@ -508,7 +520,7 @@ async function search({ out, variation, keepsNetwork, steer, draws, starts, rank
           if (r.score > best.score) { best = { score: r.score, u: mean.slice(), r, g: entry.g }; sinceBest = 0; } else sinceBest++;
           ranked = `; its mean on the twin ${reading(r)}, the best ${best.score.toFixed(4)} ${best.g < 0 ? "the start's" : `generation ${best.g + 1}'s`}, ${sinceBest} readings since it`;
         }
-        write({ variation, keepsNetwork, steer: from, searched: SEARCHED, starts, rank, best, sinceBest, hours: spent(), checkpoint, at: new Date().toISOString() });
+        write({ variation, holds, keepsNetwork, steer: from, searched: SEARCHED, starts, rank, best, sinceBest, hours: spent(), checkpoint, at: new Date().toISOString() });
         console.log(`generation ${generation}, ${spent().toFixed(2)} h: this ${entry.best}, median ${entry.median}, sigma ${entry.sigma}${ranked}`);
         return sinceBest < patience && !(spent() >= hours);
       } });
@@ -735,7 +747,7 @@ const FORMS = {
 };
 
 if (isMainThread) {
-  const { values } = parseArgs({ options: { search: { type: "boolean" }, bar: { type: "string" }, out: { type: "string" }, variation: { type: "string", default: "drive" },
+  const { values } = parseArgs({ options: { search: { type: "boolean" }, bar: { type: "string" }, out: { type: "string" }, variation: { type: "string", default: "drive" }, holds: { type: "string", multiple: true, default: [] },
     "keeps-network": { type: "boolean" }, steer: { type: "string" }, on: { type: "string", default: "held-out" }, draws: { type: "string", default: "sparring" }, starts: { type: "string", default: "80" }, rank: { type: "string", default: "4" },
     lambda: { type: "string", default: "16" }, sigma: { type: "string", default: "0.2" }, step: { type: "string", default: "0.05" }, patience: { type: "string", default: "8" }, hours: { type: "string" },
     workers: { type: "string", default: String(Math.max(1, availableParallelism() - 2)) }, resume: { type: "boolean" }, network: { type: "string" }, commitments: { type: "boolean" } } });
@@ -745,8 +757,8 @@ if (isMainThread) {
     if (!form || !values.out) throw new Error(`--network <${Object.keys(FORMS).join("|")}> --out <file.json>`);
     writeFileSync(values.out, `${JSON.stringify(await form(Number(values.workers), values.variation))}\n`);
     console.log(`wrote ${values.out}`);
-  } else if (values.bar) await bar(values.bar, Number(values.workers), values.on, values.variation);
-  else if (values.search && values.out) await search({ out: values.out, variation: values.variation, keepsNetwork: !!values["keeps-network"], steer: values.steer, draws: values.draws, starts: Number(values.starts), rank: Number(values.rank),
+  } else if (values.bar) await bar(values.bar, Number(values.workers), values.on, values.variation, values.holds);
+  else if (values.search && values.out) await search({ out: values.out, variation: values.variation, holds: values.holds, keepsNetwork: !!values["keeps-network"], steer: values.steer, draws: values.draws, starts: Number(values.starts), rank: Number(values.rank),
     lambda: Number(values.lambda), sigma: Number(values.sigma), step: Number(values.step), patience: Number(values.patience), hours: values.hours === undefined ? Infinity : Number(values.hours),
     workers: Number(values.workers), resume: !!values.resume });
   else throw new Error("--search --out <file.json>, --bar <candidate.json>, --network <form> --out <file.json>, or --commitments");

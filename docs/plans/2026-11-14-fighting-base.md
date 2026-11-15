@@ -102,6 +102,13 @@ of it is. Each part is taken up on the owner's request by a brief of its own. A 
   and the Skeleton's 0.4 m steps arrive in 55 of 80. Straight ahead and straight back it loses
   what the stance does (1.9 and 2.6 s). On the Stand drill's three rungs it reads as the stance
   does. It reads the stance's envelope; its own is unmeasured.
+- **The installed punch is not told apart on the footwork.** On the Warrior's 240 sparring
+  starts it deals 0.95 times the damage a second it deals on the stance (95 % 0.69 to 1.34),
+  lands 104 against 107 and falls in none against 3
+  (`node research/skills/strikes/straight-punch/punch-sparring.mjs --bar <file> --holds stance/footwork`,
+  the file holding `{ "variation": "drive" }`). Of the 240 fights drawn of `fights-twin`, 194
+  come to their moment on it, and a save of a fight loads only into the character that made it,
+  so a body holding the footwork is played from starts kept of its own fights.
 - **Inside a strike's trial the same step is read by its blow**: the drill Commander orders a
   place to bring the striker into its window, slowing the pace as it closes (`approachPace`,
   `src/skills/intent/action-window.ts`), the reading keeps when it is ready there
