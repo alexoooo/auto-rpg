@@ -1,12 +1,14 @@
 import { hypot } from "../../core/math/real.ts";
 import type { GroundPoint } from "../../skills/framework/movement.ts";
 import type { Orders } from "../orders.ts";
+import type { TeamLevel } from "./team.ts";
 
-/** Release an approach to the ordered foe once in range, leaving the Mind its local combat footwork. */
-export function releaseCombatApproach(orders: Orders, from: GroundPoint, target: { readonly id: string; readonly at: GroundPoint } | null): Orders {
+/** Release an unobstructed approach to the ordered foe once in range, leaving the Mind its local combat footwork. */
+export function releaseCombatApproach(orders: Orders, from: GroundPoint, target: { readonly id: string; readonly at: GroundPoint } | null,
+  ground: Pick<TeamLevel, "passes">): Orders {
   const move = orders.move;
   if (!target || move?.kind !== "range" || move.focus !== orders.foe || target.id !== orders.foe
-    || hypot(from.x - target.at.x, from.z - target.at.z) > move.far) return orders;
+    || hypot(from.x - target.at.x, from.z - target.at.z) > move.far || !ground.passes(from, target.at, 0)) return orders;
   const { move: _, ...remaining } = orders;
   return remaining;
 }

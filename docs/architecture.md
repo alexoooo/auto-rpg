@@ -710,6 +710,13 @@ keeps its memory in `state`, and gives each member orders (`TeamDecision`). A pe
 (`commands.ts`) reaches it at once. Its host asks it once a step, after the senses and before every
 mind.
 
+Combat approach orders remain active until the member is within range with an unobstructed
+ground segment to its foe (`releaseCombatApproach`). Range navigation chooses a reachable spot
+with an unobstructed line to its focus before reporting arrival, so obstacles between bodies
+keep the approach active.
+An unreachable route is retried when its movement request changes, including small changes to a
+tracked destination; only successful routes can be kept while the destination moves.
+
 The level answers the exit once the team has seen its cell (`TeamLevel.exit`) and a route's
 length for a body's radius, doors opened (`TeamLevel.route`). A sensed foe carries its share of
 life (`SensedBody.life`); a member carries its Mind's prospects (`MemberView.prospects`,

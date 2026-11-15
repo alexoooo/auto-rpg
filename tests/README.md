@@ -245,6 +245,8 @@ or exact saved-state compatibility.
 | `ordered facing keeps route facing on a long trip and takes over before stopping` | A short backing correction faced its route and stopped facing away; preserving explicit facing for an entire trip also prevented the forward-only run from running to a distant place. Punch drills cover the short correction but never the long trip's route-facing policy. |
 | `fallen footprints retain observed elevation through navigation memory` | A fixed world height made an elevated fallen body disappear from navigation at its supporting level. |
 | `a changed destination retains a planned route while locomotion is unavailable` | Reproduce a dragged destination clearing the navigation report during an unavailable movement step. Check the updated route around a wall and suppressed movement together; skill drills do not check paths reported between movement steps. |
+| `a combat approach stays routed until the target is unobstructed` | Rootbound's sarcophagus separated bodies already within melee range, but delivery dropped the approach and navigation reported arrival. Check that the order remains active and its route reaches an unobstructed attack spot; open-ground skill drills do not exercise this handoff. |
+| `a moved destination retries an unreachable route within the tracking distance` | A punch-position trace retained an unreachable route after its requested spot changed. Reproduce a spot moving from a wall's clearance into open ground without moving the walker; a successful-route tracking check cannot expose a cached failure. |
 
 [layer-lifetimes.test.mjs](layer-lifetimes.test.mjs) checks ownership and settlement that ordinary
 completed bouts do not exercise:

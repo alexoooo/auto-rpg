@@ -296,6 +296,7 @@ export class DungeonRun {
   /** The party's Commander and the enemies', and the orders each last gave by member id: a body given none stands. */
   private readonly team: Commander;
   private readonly foes: Commander;
+  private readonly groundLevel: TeamLevel;
   private get given(): Map<string, Orders> { return this.state.given; }
   /** The levels' rule with its lines that let a held body go `AHEAD_METRES` farther: where an enemy is built (`wake`). */
   private readonly ahead: LevelRule;
@@ -317,7 +318,8 @@ export class DungeonRun {
     this.senses = this.lifetime.own(createSenses(this.world, reactionSteps(this.rules.reaction.value, this.world.hz)));
     this.state.senses = this.senses.state;
     this.level = this.lifetime.own(dungeonSolids(this.map, this.world.physics));
-    this.team = createCommander(context.commanders, { level: this.ground((places) => { this.visible = this.sight(places); }) }, options.party ?? RUN_COMMANDERS.party);
+    this.groundLevel = this.ground((places) => { this.visible = this.sight(places); });
+    this.team = createCommander(context.commanders, { level: this.groundLevel }, options.party ?? RUN_COMMANDERS.party);
     this.foes = createCommander(context.commanders, { level: this.ground(() => {}) }, options.enemies ?? RUN_COMMANDERS.enemies);
     this.state.team = this.team.state; this.state.foes = this.foes.state;
     // As the step is prepared, before any body's own hooks, so each body's mind reads this step's orders.
@@ -594,12 +596,12 @@ export class DungeonRun {
 
   /**
    * The orders `actor`'s mind is given now: its Commander's, but with no movement once it stands
-   * within the band of the foe it attacks, where its mind's own footwork takes over.
+   * within the band of the foe it attacks with an unobstructed approach, where its mind's own footwork takes over.
    */
   private delivered(actor: DungeonActor): Orders {
     const orders = this.given.get(actor.id) ?? STAND_ORDERS;
     const foe = orders.foe === undefined ? undefined : this.actors.find((other) => other.id === orders.foe);
-    return releaseCombatApproach(orders, actor.feet(), foe ? { id: foe.id, at: foe.feet() } : null);
+    return releaseCombatApproach(orders, actor.feet(), foe ? { id: foe.id, at: foe.feet() } : null, this.groundLevel);
   }
 
   /** The map's sight index, made again once another door has opened. */

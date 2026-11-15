@@ -67,8 +67,9 @@ type PlaceSearch = (here: GroundPoint, aim: GroundPoint, solids: readonly SolidS
 
 /**
  * **A walker**: a navigator (`Navigator`) for a body of `spec` that keeps a route to a place it
- * finds by `search`, and for a range finds the nearest open spot by visibility routes. It owns
- * geometry and progress memory; requesters retain facing and their priorities.
+ * finds by `search`, and for a range finds the nearest open spot with an unobstructed line to its
+ * focus, by visibility routes. It owns geometry and progress memory; requesters retain facing and
+ * their priorities.
  */
 export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
   const baseRadius = bodyClearance(spec) + NAV.margin, carriedRadius = heldClearance(spec);
@@ -123,7 +124,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     const following = request?.kind === "place" && previous?.kind === "place" && request.near === previous.near
       && request.points.length >= previous.points.length && previous.points.every((p, i) => apart(p, request.points[i]!) < NAV.moved);
     const changed = !same && !following;
-    if (!same) state.request = request && copyMovement(request);
+    if (!same) { state.request = request && copyMovement(request); state.failure = null; }
     if (changed) { state.stood = false; state.route = []; state.failure = null; state.waypoint = 0; state.goal = null; state.offset = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time; }
     const elapsed = state.lastTime === null ? dt : view.time - state.lastTime;
     state.lastTime = view.time;
@@ -217,7 +218,9 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       case "range": {
         if (!focus) { state.route = []; update("lost-focus", null, null); return { move: null, face: null }; }
         const target = { x: focus.centre.x, z: focus.centre.z }, distance = apart(here, target);
-        if (distance >= request.near && distance <= request.far) { state.route = []; state.progress = null; state.bestRemaining = null; state.lastProgress = view.time;
+        const rangeSolids = solids;
+        const clearToFocus = (point: GroundPoint) => clearStep(atHeight(point, centre.y), atHeight(target, centre.y), 0, rangeSolids);
+        if (distance >= request.near && distance <= request.far && clearToFocus(here)) { state.route = []; state.progress = null; state.bestRemaining = null; state.lastProgress = view.time;
           const correction = (distance - (request.near + request.far) / 2) / NAV.rangeResponse;
           const dx = (focus.velocity?.x ?? 0) + (distance > 0 ? (target.x - here.x) * correction / distance : 0);
           const dz = (focus.velocity?.z ?? 0) + (distance > 0 ? (target.z - here.z) * correction / distance : 0);
@@ -231,20 +234,20 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
         near = Math.min(.15, (request.far - request.near) / 2);
         // The nearest spot, where no side is asked and it is open and straight ahead, is the one a search would find.
         const nearest = { x: target.x + range * sin(bearing), z: target.z + range * cos(bearing) };
-        if (!request.side && clearanceExit(atHeight(nearest, centre.y), radius, solids) === null && clearStep(atHeight(here, centre.y), atHeight(nearest, centre.y), radius, solids)) {
+        if (!request.side && clearToFocus(nearest) && clearanceExit(atHeight(nearest, centre.y), radius, solids) === null && clearStep(atHeight(here, centre.y), atHeight(nearest, centre.y), radius, solids)) {
           state.offset = { x: nearest.x - target.x, z: nearest.z - target.z }; goal = nearest; planned = [nearest]; break;
         }
         // Else the spot kept goes where the foe goes: it stays at the range, on the side it was chosen on, while it is open and the route still reaches it.
         const kept = state.offset && { x: target.x + state.offset.x, z: target.z + state.offset.z };
         if (kept && apart(kept, target) >= request.near && apart(kept, target) <= request.far
-          && clearanceExit(atHeight(kept, centre.y), radius, solids) === null && reaches(kept)) { goal = kept; break; }
+          && clearToFocus(kept) && clearanceExit(atHeight(kept, centre.y), radius, solids) === null && reaches(kept)) { goal = kept; break; }
         let best: GroundPoint | null = null, bestCost = Infinity;
         router.ready(here, solids, radius, centre.y); readied = true;
         for (let i = 0; i < NAV.rangeSamples; i++) {
           const offset = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 2 * 3.141592653589793 / NAV.rangeSamples;
           const candidate = { x: target.x + range * sin(bearing + offset), z: target.z + range * cos(bearing + offset) };
           const preference = request.side && Math.sign(offset) !== request.side ? NAV.sideCost : 0;
-          if (apart(here, candidate) + preference >= bestCost) continue;
+          if (apart(here, candidate) + preference >= bestCost || !clearToFocus(candidate)) continue;
           const route = router.route(candidate);
           if (!route.length) continue;
           let cost = 0, previous = here;

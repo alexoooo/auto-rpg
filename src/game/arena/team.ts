@@ -69,7 +69,7 @@ export function teamOfOne(duel: Duel, side: Side, config: CommanderConfig, comma
     if (orders && !sameOrders(state.orders, orders)) state.orders = JSON.parse(JSON.stringify(orders)) as Orders;
     const given = state.orders;
     if (given) duel.order(side, releaseCombatApproach(given, current.members[0]!.at,
-      current.others.find(target => target.id === given.foe) ?? null));
+      current.others.find(target => target.id === given.foe) ?? null, OPEN_GROUND));
   });
   return team;
 }

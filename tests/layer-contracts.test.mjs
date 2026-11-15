@@ -24,6 +24,10 @@ import { walker } from "../src/minds/option/walk.ts";
 import { locomotion } from "../src/skills/locomotion/shared/locomotion.ts";
 import { orderedIntent } from "../src/minds/ordered.ts";
 import { facesTravel } from "../src/skills/framework/intent.ts";
+import { releaseCombatApproach } from "../src/minds/command/delivery.ts";
+import { referenceChamber } from "../src/game/dungeon/reference.ts";
+import { dungeonSolids } from "../src/game/dungeon/solids.ts";
+import { clearSegment } from "../src/game/dungeon/map.ts";
 
 test("physics refuses different gravity and rate before changing the destination", async () => {
   const engine = await freshEngine();
@@ -202,6 +206,47 @@ test("a changed destination retains a planned route while locomotion is unavaila
   }
 });
 
+
+test("a combat approach stays routed until the target is unobstructed", () => {
+  const map = referenceChamber(), solids = dungeonSolids(map).sensedSolids;
+  const from = { x: 12.8, z: 5.65 }, target = { id: "hero", at: { x: 12.8, z: 7.44 } };
+  const move = { kind: "range", focus: target.id, near: 1.44, far: 1.8 }, orders = { foe: target.id, move, face: null };
+  const ground = { passes: (from, to, radius) => clearSegment(map, from, to, radius, true) };
+  assert.equal(ground.passes(from, target.at, 0), false, "the sarcophagus must separate the bodies within melee range");
+  assert.equal(releaseCombatApproach(orders, from, target, ground), orders, "an obstructed approach must stay ordered");
+  const navigation = VISIBILITY_NAVIGATION.make(modelSpec("skeleton"), VISIBILITY_NAVIGATION.defaults);
+  const sight = { view: { time: 0, stance: { centre: new Vector3(from.x, 1, from.z), velocity: new Vector3(), support: new Vector3() },
+    senses: { side: "enemy", solids, others: [{ id: target.id, side: "party", spec: modelSpec("man"),
+      centre: new Vector3(target.at.x, 1, target.at.z), velocity: new Vector3(), out: false, down: false, segments: new Map() }] } },
+    report: { legs: { heading: 0 } } };
+  navigation.step(sight, move, { envelope: null, stopping: 1, lag: 0 }, 1, 1 / 120);
+  assert.equal(navigation.report.status, "moving");
+  const route = navigation.report.route;
+  assert.ok(route.length > 1, "the approach must go around the sarcophagus");
+  assert.ok(ground.passes(route.at(-1), target.at, 0), "the chosen spot must expose the target");
+  let previous = [from.x, 1, from.z];
+  for (const point of route) {
+    const next = [point.x, 1, point.z];
+    assert.ok(clearStep(previous, next, bodyClearance(modelSpec("skeleton")), solids), "each route leg must clear the obstacle");
+    previous = next;
+  }
+  assert.deepEqual(releaseCombatApproach(orders, route.at(-1), target, ground), { foe: target.id, face: null });
+});
+
+test("a moved destination retries an unreachable route within the tracking distance", () => {
+  const navigation = VISIBILITY_NAVIGATION.make(modelSpec("man"), VISIBILITY_NAVIGATION.defaults);
+  const solids = [{ name: "wall", kind: "box", centre: [0, 1, 3], size: [2, 2, 2] }];
+  const sight = { view: { time: 0, stance: { centre: new Vector3(0, 1, 0), velocity: new Vector3() },
+    senses: { side: "party", others: [], solids } }, report: { legs: { heading: 0 } } };
+  const gait = { envelope: null, stopping: 1, lag: 0 }, request = z => ({ kind: "place", points: [{ x: 0, z }], near: .04 });
+  navigation.step(sight, request(1.8), gait, 1, 1 / 120);
+  assert.equal(navigation.report.status, "unreachable", "the first spot must not fit in front of the wall");
+  sight.view.time += 1 / 120;
+  const step = navigation.step(sight, request(1.55), gait, 1, 1 / 120);
+  assert.equal(navigation.report.status, "moving");
+  assert.deepEqual(navigation.report.route, [{ x: 0, z: 1.55 }]);
+  assert.ok(step.move, "the changed reachable destination must receive a walk");
+});
 
 test("walking preserves requested world velocity while facing turns", () => {
   const legs = locomotion({ "foot.left": "left", "foot.right": "right" }, null, {
