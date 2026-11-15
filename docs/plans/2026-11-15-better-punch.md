@@ -49,7 +49,10 @@ walk, coordinated with them only indirectly, and trained to punch that way.
 
 The sweep: `strike-bouts.mjs --drill stand`, `moving`'s window opened so it fires where it stands
 (`inside`, `reach` 0.3, `band` 1), start gaps 0.55 to 1.25 m every 1.25 cm; the number is the
-widest run of trunk-apart ranges whose every punch takes 0.5 hp.
+widest run of trunk-apart ranges whose every punch takes 0.5 hp. A lever is read on the dense
+sweep: 100 start gaps from 0.75 to 1.00 m (the trunks 0.65 to 0.90 m apart at the fire), half a
+minute; the share taking 0.5 hp near (0.65 to 0.72 m), between (0.72 to 0.78) and far (0.78 to
+0.90). A sweep of 22 moves some 2 of 22 by itself.
 
 Said before: a separate punch "to be able to see v1 vs v2 in a fight"; of the installed one, "it
 kind of looked like dive jumping into the punch but in a very clumsy way which didn't look like a
@@ -299,7 +302,18 @@ deleted.
   shoulder's 5 cm recoil gone, 11 of 22); that and the trunk frozen where it stands at a throw
   launched as the shoulder comes within reach (13 of 29, a median 0.43); the trunk stopped and held
   as the shoulder comes 4 or 6 cm inside the straight arm, the arm thrown 0.02 or 0.03 s after (10
-  of 23, 12 of 22). Against `drill-guard` 12 of 42 first touches are the guard's hands and forearms;
+  of 23, 12 of 22). Those shares are too few to tell such levers apart.
+- **On the dense sweep, the stroke as it stands**: 45 of 105 take 0.5 hp, a median 0.44; near
+  17 of 33, between 10 of 24, far 18 of 48. The strict band is 2 cm. **One range gives anything**:
+  start gaps 2.5 mm apart, the commit at the same instant, give 1.50, 0.34, 0.16, 0.40, 1.54 hp at
+  0.80 m. Near, the poor blows touch 0.017 to 0.025 s after the fire at 2.4 to 3 m/s, the fist
+  starting on the target (the heads 0.78 to 0.83 m apart against 0.76 for the good, at 7.6 m/s);
+  far, every blow is fast but the kg behind the fist runs 1.4 to 20 at the same bend, and a poor one
+  (traced) had its shoulder 3 cm further at the throw (0.585 against 0.555 m: where the trunk's
+  turn leaves it differs) and a quarter of its fist's speed off the line. Read on the dense sweep,
+  not kept: a fist nearer the target than 0.25 to 0.35 m at the fire drawn back first (near 21 of
+  33, 10 of 29, 25 of 40: not by the room given); the arm's pose solved 0.01 to 0.015 s ahead in
+  place of 0.02 (far 21 to 23 of 48, near and between to 0 to 6, the trunk stiffened with it). Against `drill-guard` 12 of 42 first touches are the guard's hands and forearms;
   touches on a guard are driven through (`ContactTarget.guard`), 9 to 12 blows of 0.5 hp, the strict
   band 7 cm (0.74 to 0.81).
 - **In the bar's bouts the stroke was not better** (read before the trunk went first). At the record's window it fires from 0.82
