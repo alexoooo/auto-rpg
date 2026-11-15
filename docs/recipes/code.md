@@ -12,9 +12,7 @@ of a test.
   which, runtime-neutral code outside `node/` and `browser/`, exact arithmetic (`EXACT_MATH`),
   engine access and what a Mind may read and do.
 - **A Mind is an entrant** ([adding one](../architecture.md#adding-an-entrant)); it imports
-  published library APIs and itself, never another entrant. `node scripts/entrant-check.mjs`
-  names a change an entrant's, the toolkit's or mixed; an entrant's change touches its own files
-  and its registry line; a toolkit change names its moved fingerprint cases.
+  published library APIs and itself, never another entrant.
 - **Simulation code uses the core's vectors** and plain poses; drawing code uses Babylon's, and a
   page poses a puppet from the simulated poses. A module that does both is split.
 - **A spec's number is a `Quantity`** read from a `SOURCES` entry (`src/core/sources.ts`: a paper,

@@ -26,7 +26,6 @@
     "@dimforge/rapier3d-simd-compat": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.12.tgz"
   },
   "devDependencies": {
-    "@babel/generator": "8.1.0",
     "@babel/parser": "8.1.0",
     "@babylonjs/ktx2decoder": "9.35.0",
     "@gltf-transform/core": "4.5.1",

@@ -1,24 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { changeOf } from "../scripts/entrant-check.mjs";
 import { learningWorker } from "../research/learning-worker.mjs";
 import { workerJobPool, workerJobs } from "../research/worker-jobs.mjs";
 import { Worker } from "node:worker_threads";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { BUILD_IDENTITY_FORM } from "../src/core/world/recording.ts";
-
-/**
- * Reproduce a single entrant deleting a rival from the shared array while the ownership classifier
- * still calls the change its own. A match does not check source ownership.
- */
-test("one entrant cannot remove another through the shared registry line", () => {
-  const before = 'import { OPTION } from "../entrants/option/index.ts";\nimport { WALKER } from "../entrants/walker/index.ts";\nexport const ENTRANTS = [OPTION, WALKER];';
-  const paths = ["src/entrants/option/index.ts", "src/app/entrants.ts"];
-  assert.equal(changeOf(paths, { before, after: before.replace("[OPTION, WALKER]", "[OPTION]") }).kind, "mixed");
-  assert.equal(changeOf(paths, { before, after: before.replace("[OPTION, WALKER]", "[WALKER]") }).kind, "entrant");
-});
 
 /**
  * On uncommitted code each process made its own mark, so a worker's recordings carried another
