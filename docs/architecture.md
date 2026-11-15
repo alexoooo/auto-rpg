@@ -801,8 +801,12 @@ the bit in Node and in the page (`buildBout`, `src/evaluation/bout.ts`).
   `GAME_ENDS`). Both on one step is a draw; at the cap the fuller life wins.
 - **Tape** (`Duel.tape`): every order with its step; recipe and tape are the whole bout
   (`Duel.play`). **Order sheets** (`SheetLog`) replay a bout with no mind (`replayedBody`).
-- **Save** (`Duel.save`, `Duel.load`) loads into a bout of the same recipe and physical conditions
-  (`RecordingIdentity`), on whatever build made it, part by part. A save carries the shape each
+- **Save** (`Duel.save`, `Duel.load`) loads into a bout of the same recipe less its minds and the
+  same physical conditions (`RecordingIdentity`), on whatever build made it, part by part. A mind
+  is the loading bout's own: its settings are that bout's, and its memory is the save's where it
+  is built as the save's was, so a strike under a research tuning, steered or not, carries on from
+  a save its record's own made. What the save's mind had decided and not yet done (the orders and
+  commands on their way) is done as decided. A save carries the shape each
   part of the bout's memory was built in (`shapesOf`, `stateShape`): each side's mind's, its
   body's and its pool's, the world's, the senses', the blow watch's, the Commanders' and the
   bout's own. A part this code builds otherwise refuses the save, named with the build it was

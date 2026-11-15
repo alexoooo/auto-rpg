@@ -228,11 +228,12 @@ const loadoutIn = (recipe: DuelRecipe, side: Side): Loadout =>
   recipe.loadouts?.[side] ?? (recipe.minds?.[side] ? EMPTY_LOADOUT : modelLoadout(recipe[side]));
 
 /** The protocol of a bout's save (`DuelSave`). */
-const SAVE_PROTOCOL = "arena-save/2";
+const SAVE_PROTOCOL = "arena-save/3";
 
 /**
- * A bout at a step, whole: whose bout it is, the physics' bytes, every module's memory and the
- * shape each part of that memory was built in (`shapesOf`). Plain data.
+ * A bout at a step, whole: whose bodies and conditions it is of (`identity`: its recipe less its
+ * minds), the recipe that played it, the physics' bytes, every module's memory and the shape each
+ * part of that memory was built in (`shapesOf`). Plain data.
  */
 interface DuelSave {
   readonly identity: RecordingIdentity;
@@ -333,6 +334,8 @@ export class Duel {
   private readonly watch: BlowWatch;
   private readonly judging: Hook;
   private readonly identity: RecordingIdentity;
+  /** What a save of it loads into (`load`): its recipe less its minds, and its physical conditions. */
+  private readonly saved: RecordingIdentity;
   /** The shape each part of its memory was built in (`shapesOf`). */
   private readonly shapes: Readonly<Record<string, string>>;
   /** The teams of one the recipe's Commanders lead (`DuelRecipe.commanders`), by side. */
@@ -372,9 +375,10 @@ export class Duel {
       senseDelay: senseDelayOf(recipe), seed: boutSeedOf(recipe), recoverySeconds: recipe.recoverySeconds === null ? null : recipe.recoverySeconds ?? 0,
       loadouts: { left: loadoutIn(recipe, "left"), right: loadoutIn(recipe, "right") },
       minds: { left: recipe.minds?.left ?? defaultMind(recipe.left), right: recipe.minds?.right ?? defaultMind(recipe.right) },
-    })) as unknown;
-    this.identity = recordingIdentity(BUILD_IDENTITY, ORDERS_PROTOCOL, { recipe: effective, solids,
-      engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation, delay: world.delay });
+    })) as Record<string, unknown>;
+    const conditions = { solids, engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation, delay: world.delay };
+    this.identity = recordingIdentity(BUILD_IDENTITY, ORDERS_PROTOCOL, { recipe: effective, ...conditions });
+    this.saved = recordingIdentity(BUILD_IDENTITY, SAVE_PROTOCOL, { recipe: { ...effective, minds: null }, ...conditions });
     this.rules = rulebook("arena", recipe.rules);
     const enlistments = SIDES.map(side => {
       const model = recipe[side], config = recipe.minds?.[side] ?? defaultMind(model);
@@ -504,20 +508,23 @@ export class Duel {
     queued.splice(0, queued.length, ...tape.map(({ step, side, orders }) => ({ step, side, orders: JSON.parse(JSON.stringify(orders)) as Orders | null })));
   }
 
-  /** The bout as the last step left it: what `load` puts back, here or in any bout of this recipe. */
-  save(): DuelSave { return { identity: { ...this.identity, protocol: SAVE_PROTOCOL }, recipe: this.recipe, physics: this.world.physics.save(), state: saveState(this.state), shapes: this.shapes }; }
+  /** The bout as the last step left it: what `load` puts back, here or in any bout of these bodies and conditions. */
+  save(): DuelSave { return { identity: this.saved, recipe: this.recipe, physics: this.world.physics.save(), state: saveState(this.state), shapes: this.shapes }; }
 
   /**
-   * Put the bout where `saved` left one of this recipe: the next step is the step that followed
-   * the save. The page's hooks hear nothing of it. A save loads on whatever build made it, part by
-   * part (`shapesOf`): a part whose memory this code builds otherwise refuses the save, named, but
-   * for a mind's, which stays as built and starts fresh from the saved bodies; that takes a bout
-   * that has not stepped. The sides whose minds started fresh are returned.
+   * Put the bout where `saved` left one of its recipe less its minds: the same bodies, rules,
+   * Commanders and physical conditions. With the minds it was saved under, the next step is the
+   * step that followed the save. A mind is this bout's own, whatever mind played the save: its
+   * settings are this bout's, and its memory is the save's where it is built as the save's was, so
+   * a strike under another tuning carries on from where the save left its bodies and its mind. The
+   * page's hooks hear nothing of it. A save loads on whatever build made it, part by part
+   * (`shapesOf`): a part whose memory this code builds otherwise refuses the save, named, but for a
+   * mind's, which stays as built and starts fresh from the saved bodies; that takes a bout that has
+   * not stepped. The sides whose minds started fresh are returned.
    */
   load(saved: DuelSave): readonly Side[] {
     // Two bouts of different bodies can have worlds of the same counts, which the physics would take.
-    if (recipeKey(saved.recipe) !== recipeKey(this.recipe)) throw new Error("that save is of another bout's recipe");
-    const build = requireRecordingIdentity(saved.identity, { ...this.identity, protocol: SAVE_PROTOCOL });
+    const build = requireRecordingIdentity(saved.identity, this.saved);
     const fresh = SIDES.filter((side) => saved.shapes[mindPart(side)] !== this.shapes[mindPart(side)]), minds = fresh.map(mindPart);
     const otherwise = Object.keys(this.shapes).find((part) => saved.shapes[part] !== this.shapes[part] && !minds.includes(part));
     if (otherwise !== undefined) throw new Error(`that save's memory of ${otherwise} is built otherwise by this code; it was saved on ${build}`);

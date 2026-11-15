@@ -1,4 +1,4 @@
-import { buildBout } from "../../src/app/node/evaluation.ts";
+import { BOUT_WORLD, buildBout, EVALUATIONS } from "../../src/app/node/evaluation.ts";
 import { risingJobs } from "../../src/evaluation/rising.ts";
 import { DEFAULT_ENGINE } from "../../src/core/physics/engines.ts";
 import { recipeOf } from "../../src/app/node/setup.ts";
@@ -191,6 +191,27 @@ test("a bout's save made on another build loads its bodies, and starts fresh a m
     assert.deepEqual(fork.duel.save(), original.duel.save());
     assert.throws(() => fork.duel.load(otherwise("left's mind")), /left's mind is built otherwise.*has not stepped/);
   } finally { original.dispose(); fork.dispose(); woken.dispose(); }
+});
+
+test("a bout's save loads under another tuning of its striker's punch, and plays on as a bout built under it", async () => {
+  const cases = EVALUATIONS.strike.protocols.still, [subject] = EVALUATIONS.strike.subjects(["option/straight-punch"]);
+  const [condition, further] = cases.conditions.filter((one) => one.model === "man" && one.mark === "middle" && one.across === 0 && one.gap >= .9);
+  const tuned = { ...subject.value, mind: { ...subject.value.mind, options: subject.value.mind.options.map((option) =>
+    option.skill?.kind !== "straight-punch" ? option : { ...option, skill: { ...option.skill, keepsNetwork: true, tuning: { hips: .2 } } }) } };
+  const build = async (value, at) => {
+    const world = cases.world([value], at, cases.engine ?? DEFAULT_ENGINE, [subject]), built = await BOUT_WORLD.build(world, {});
+    BOUT_WORLD.start(built, world);
+    return built;
+  };
+  const original = await build(subject.value, condition), under = await build(tuned, condition), fresh = await build(tuned, condition), elsewhere = await build(tuned, further);
+  try {
+    const saved = original.duel.save();
+    assert.deepEqual(under.duel.load(saved), []);
+    assert.throws(() => elsewhere.duel.load(saved), /different physical conditions or a different recipe/);
+    for (const bout of [original, under, fresh]) bout.world.step(90);
+    assert.deepEqual(under.duel.save().physics, fresh.duel.save().physics);
+    assert.notDeepEqual(original.duel.save().physics, fresh.duel.save().physics, "the fixture's tuning must move the bodies");
+  } finally { original.dispose(); under.dispose(); fresh.dispose(); elsewhere.dispose(); }
 });
 
 
