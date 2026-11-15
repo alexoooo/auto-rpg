@@ -459,7 +459,9 @@ research settings belong to `LayerOptions` in `src/control/body.ts`.
   its config may name (`PartLookup`), the seed (its only chance, through `randomStream`), its phase,
   the rules, its orders, an experiment's settings, and one way to take the body (`take`).
 - **Senses** (`Senses`, `senses.ts`): the clock, its side and life, and every other body
-  (`BodySense`), read once before any mind (`createSenses`), others late by `Rulebook.reaction`.
+  (`BodySense`), read once before any mind (`createSenses`), others late by `Rulebook.reaction`,
+  which the senses name (`Senses.reaction`): a profile is read at it, whatever the age of what a
+  body just added is shown.
 - **What a mind builds**: the command layers (`commandedMind`), sub-minds that take the body in rank
   order (`SubMind`, `hosting`), or its own computation. The bare entrant reads network inputs
   directly and saves pending pulls for its next `act`; `observeBody` supplies detached inspection.

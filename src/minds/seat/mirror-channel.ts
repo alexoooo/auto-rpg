@@ -52,7 +52,7 @@ export interface MirrorStatics {
 
 /** What the mirror learns as the world meets it: another body's name in a contact, a body or an object its senses show. */
 type Told =
-  | { readonly kind: "senses"; readonly side: string; readonly begins: number | undefined; readonly ends: number | undefined; readonly solids: readonly SolidSense[] | undefined }
+  | { readonly kind: "senses"; readonly side: string; readonly begins: number | undefined; readonly ends: number | undefined; readonly reaction: number | undefined; readonly solids: readonly SolidSense[] | undefined }
   | { readonly kind: "body"; readonly id: number; readonly name: string }
   | { readonly kind: "other"; readonly key: number; readonly id: string; readonly side: string; readonly spec: BodySpec }
   | { readonly kind: "object"; readonly key: number; readonly id: string; readonly owner: string | null; readonly points: Readonly<Record<string, Vec3>> }
@@ -173,7 +173,7 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
   const own = new Set(statics.segments.map((segment) => segment.id)), named = new Set<number>(own);
   const others = new Map<string, number>(), objects = new Map<string, number>();
   // What the senses last told of what seldom changes: the side, the fight's start and end, the solids granted.
-  let side: string | null = null, begins: number | undefined, ends: number | undefined, solids: readonly SolidSense[] | undefined;
+  let side: string | null = null, begins: number | undefined, ends: number | undefined, reaction: number | undefined, solids: readonly SolidSense[] | undefined;
   const v = new Vector3();
   let k = 0;
   // The array the writing before last filled, the next writing's.
@@ -232,9 +232,9 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
     }
   };
   const writeSenses = (senses: Senses) => {
-    if (senses.side !== side || senses.begins !== begins || senses.ends !== ends || senses.solids !== solids) {
-      side = senses.side; begins = senses.begins; ends = senses.ends; solids = senses.solids;
-      channel.told.push({ kind: "senses", side, begins, ends, solids });
+    if (senses.side !== side || senses.begins !== begins || senses.ends !== ends || senses.reaction !== reaction || senses.solids !== solids) {
+      side = senses.side; begins = senses.begins; ends = senses.ends; reaction = senses.reaction; solids = senses.solids;
+      channel.told.push({ kind: "senses", side, begins, ends, reaction, solids });
     }
     room(1); put(senses.others.length);
     for (const other of senses.others) {
@@ -495,6 +495,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
           senses.side = told.side;
           if (told.begins === undefined) delete senses.begins; else senses.begins = told.begins;
           if (told.ends === undefined) delete senses.ends; else senses.ends = told.ends;
+          if (told.reaction === undefined) delete senses.reaction; else senses.reaction = told.reaction;
           if (told.solids !== undefined && clock.solids === undefined) Object.defineProperty(senses, "solids", { enumerable: true, get: () => clock.solids });
           clock.solids = told.solids;
           break;

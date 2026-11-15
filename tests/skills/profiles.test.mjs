@@ -6,6 +6,9 @@ import { readFileSync } from "node:fs";
 import { resolveCharacter } from "../../src/core/bodies/models.ts";
 import { profileAgainst, profilesFor, skillDigest, specDigest } from "../../src/skills/framework/profile.ts";
 import { record } from "../../src/minds/option/value.ts";
+import { buildBout } from "../../src/app/node/evaluation.ts";
+import { recipeOf } from "../../src/app/node/setup.ts";
+import { reportNow } from "../../src/minds/seat/apart.ts";
 
 /**
  * Every measured profile (`assets/skills/strikes/strike-profiles/strike-profiles.json`) is of a skill the game has, on a body
@@ -51,6 +54,23 @@ test("a strike is read by its profile measured against the body it strikes", () 
   }
   assert.ok(read > skills.size, `the stored profiles reached a skill measured against several bodies: ${read} readings of ${skills.size} skills`);
   assert.deepEqual(wrong, [], "strikes read by a profile measured against another body than the one struck");
+});
+
+/**
+ * **A bout's first decisions read each strike's measured profile**: a profile is measured at the
+ * senses' reaction time (`Senses.reaction`), and a foe carried for less than that is shown as it
+ * stood when the bout began. Read at how old that showing was, every strike was priced by hand
+ * ("measured with senses 0.15 s late, read 0 s late") until the bout was 0.15 s old.
+ */
+test("a bout's first decision prices a measured strike by its profile", async () => {
+  const recipe = recipeOf("?matchup=man,man&control=option,option&left.loadout=empty,empty&right.loadout=empty,empty", { left: {}, right: {} }, "open");
+  const bout = await buildBout(recipe);
+  try {
+    bout.world.step(1);
+    const profiles = reportNow(bout.duel.duelists.left.minded.report).engagement?.details?.find((detail) => detail.label === "Profiles")?.value;
+    assert.ok(profiles?.includes("straight-punch"), "the fixture's mind must have decided and said how it prices its punch");
+    assert.doesNotMatch(profiles, /measured with senses/, "a strike priced by hand for the age of what the senses show at a bout's start");
+  } finally { bout.dispose(); }
 });
 
 /**

@@ -74,10 +74,9 @@ owner's request. What each part waits on is in
    drive on the 240 held-out sparring starts (`punch-sparring.mjs --bar`). Each is last read with
    a strike priced from its sparring at one body whatever body it struck
    ([the punch's notes](plans/2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)).
-2. **Option Mind's pricing, before a played row is kept**: a bout's first decision reads its
-   senses 0 s late and prices every strike by hand; a foe is modelled by every strike measured on
-   its body, two of the punch a hand on the Warrior, whichever it holds. Then whether the strikes'
-   profiles are measured again, their foe a mind that fights as it does now.
+2. **Option Mind's pricing, before a played row is kept**: a foe is modelled by every strike
+   measured on its body, two of the punch a hand on the Warrior, whichever it holds. Then whether
+   the strikes' profiles are measured again, their foe a mind that fights as it does now.
 3. **A variation declares its record**
    ([the skills' notes](plans/2026-11-14-many-skills.md#part-1-a-variation-declares-its-record)).
 4. **Played rows kept and found** ([its notes](plans/2026-11-14-saved-results.md)).

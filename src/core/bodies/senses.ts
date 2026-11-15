@@ -20,6 +20,12 @@ export interface Senses {
   readonly begins?: number;
   /** When the fight's clock gives its verdict at the latest, s of the world's clock: absent where no clock ends it. */
   readonly ends?: number;
+  /**
+   * How late it shows another body once it has carried it that long, s (`createSenses`'s delay):
+   * the reaction time a profile is measured at. A body carried for less is shown as it stood when
+   * it was added (`BodySense.time`). Absent where a caller supplies readings of its own.
+   */
+  readonly reaction?: number;
   /** Every other body the senses carry, as they pass it (`createSenses`): in the order added. */
   readonly others: readonly BodySense[];
   /** Explicitly permitted external objects, including separate equipment and research targets. */

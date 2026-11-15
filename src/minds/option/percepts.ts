@@ -125,8 +125,13 @@ export function bearingAround(body: BodySense, x: number, z: number): number {
   return atan2(ahead.z * to.x - ahead.x * to.z, ahead.x * to.x + ahead.z * to.z);
 }
 
-/** How late the senses show the focus, s: the senses' time less the focus's; null with no focus, or one sensed without its time. */
-const reactionOf = ({ focus, sight }: Seen): number | null => focus?.time === undefined ? null : sight.view.senses.time - focus.time;
+/**
+ * How late the senses show the focus, s: their reaction time (`Senses.reaction`), which a body
+ * carried for less is also read at, as each profile's fights began; where they name none, the
+ * senses' time less the focus's. Null with no focus, or one sensed without its time.
+ */
+const reactionOf = ({ focus, sight }: Seen): number | null =>
+  focus?.time === undefined ? null : sight.view.senses.reaction ?? sight.view.senses.time - focus.time;
 
 /** What a prior was measured on: nothing; it is set by hand. */
 const BY_HAND: Measured = Object.freeze({ body: "", spec: "", skill: "by hand", hz: 0, reaction: null });
