@@ -297,7 +297,9 @@ deleted.
   0.4 to 0.8 m ahead, the arm's freedoms to 100 rad/s: the fist no faster, 6 to 7 m/s, the arm's
   hold lost, 6 of 21); every trunk freedom the stroke does not drive held from the throw (the
   shoulder's 5 cm recoil gone, 11 of 22); that and the trunk frozen where it stands at a throw
-  launched as the shoulder comes within reach (13 of 29, a median 0.43). Against `drill-guard` 12 of 42 first touches are the guard's hands and forearms;
+  launched as the shoulder comes within reach (13 of 29, a median 0.43); the trunk stopped and held
+  as the shoulder comes 4 or 6 cm inside the straight arm, the arm thrown 0.02 or 0.03 s after (10
+  of 23, 12 of 22). Against `drill-guard` 12 of 42 first touches are the guard's hands and forearms;
   touches on a guard are driven through (`ContactTarget.guard`), 9 to 12 blows of 0.5 hp, the strict
   band 7 cm (0.74 to 0.81).
 - **In the bar's bouts the stroke was not better** (read before the trunk went first). At the record's window it fires from 0.82
