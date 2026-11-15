@@ -46,7 +46,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 | [the skill recipe](docs/recipes/skill.md) | how a skill has been made and trained, and what was found on the way. Read before work on a skill, an Option, a body's control, a table cell or a training run |
 | [the approaches](docs/approaches.md) | what each approach to travel, standing up, weapon strikes, guarding and minds has done and has not, with its evidence commits. Read before work on any of those |
 | [the code recipe](docs/recipes/code.md) | simulation and source boundaries, code conventions. Read before changing code |
-| [the traps](docs/traps.md) | what has bitten in Babylon, Rapier, a browser and the tools on Windows. Read before code that calls Rapier or Babylon, handles a pointer or is checked in a browser |
+| [the traps](docs/traps.md) | what has bitten in Babylon, Rapier, a browser and the tools on Windows. Read its tools section every session; the rest before code that calls Rapier or Babylon, handles a pointer or is checked in a browser |
 | [the test rules](tests/README.md) | what a test may be; each test's own reason is the comment above it. Read before changing a test |
 | [the architecture](docs/architecture.md) | the layers, their contracts, where each lives |
 | `docs/plans/` | the work in hand: the owner's goal in the owner's words and where the work stands. Deleted when it lands, what worked moved into its recipe |
