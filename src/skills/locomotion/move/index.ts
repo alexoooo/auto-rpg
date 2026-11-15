@@ -18,7 +18,7 @@ import { GAIT_CHOICES, type MoveRuleConfig } from "./move-rule-part.ts";
 export const GOING: MoveConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
 
 /**
- * **Move** (`move`, `skills/locomotion/move.ts`): of its gaits (`gaits`, the stock ones, `STOCK_GAITS`, where
+ * **Move** (`move`, `skills/locomotion/shared/move.ts`): of its gaits (`gaits`, the stock ones, `STOCK_GAITS`, where
  * it names none), the one of the first of `rules` that holds, or `otherwise`'s.
  */
 export interface MoveConfig extends Varied {

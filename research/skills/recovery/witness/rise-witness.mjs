@@ -5,7 +5,7 @@ import { footOn } from "../../../../src/control/support.ts";
  * (`docs/reference/rising.md#the-owners-target`). Node stand, core world, Rapier, 120 Hz, calm, no assist.
  *
  * A candidate is a move's phases, each held for its duration, then the body held by the stance
- * as Stand up's regain holds it (`standUp`, `src/skills/recovery/shared/stand-up.ts`) and handed back
+ * as Stand up's regain holds it (`regaining`, `src/skills/recovery/regain/regain/regain.ts`) and handed back
  * once ready (`research/skills/recovery/witness/climb.mjs`). A phase is one of two kinds:
  *
  * - **pose**, open-loop: a posture the pose drive (`poseDrive`) holds at its rate and activation;

@@ -95,8 +95,8 @@ export function fixedWork(rows: number, columns: number): FixedWork {
 }
 
 /**
- * `dampedSolve` of `J` (`rows` by `columns`, its rows end to end) and `y`, into `x`:
- * J' (J J' + d^2 E)^-1 y, by `solveSymmetric`'s Cholesky.
+ * The damped solve of `J` (`rows` by `columns`, its rows end to end) and `y`, into `x`:
+ * J' (J J' + d^2 E)^-1 y, by Cholesky.
  */
 function dampedSolveTo(work: FixedWork, J: ArrayLike<number>, y: ArrayLike<number>, rows: number, columns: number, damping: number, x: Float64Array): void {
   const { G, L, z, w } = work, d2 = damping * damping;

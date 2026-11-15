@@ -21,7 +21,7 @@ import type { Side } from "../../../core/bodies/bilateral.ts";
  * a new character or rate, or Restart -- starts a new run on a new body in a new world.
  */
 export interface LabScenario {
-  /** What it puts in the HUD, built with the lab's controls (`hud/controls.ts`); the shell places each list. */
+  /** What it puts in the HUD, built with the lab's controls (`ui/controls.ts`); the shell places each list. */
   readonly panels: Readonly<Partial<Record<ScenarioPanel, readonly Control[]>>>;
   /** The keys it takes while it runs (`KeyboardEvent.code`); the shell holds them as a level. */
   readonly keys: ReadonlySet<string>;

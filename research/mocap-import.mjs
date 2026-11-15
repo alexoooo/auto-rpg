@@ -5,7 +5,7 @@
  * from one foot's landing to the other's, at each of `PHASES` even shares of the step,
  *
  * - the swinging thigh's lean from straight down, forward and out to its own side of the way the
- *   pelvis faces, in the world (`swingHip`, `swingSpread`'s frame);
+ *   pelvis faces, in the world (`swingHip`'s frame);
  * - each knee's flexion and each ankle's dorsiflexion (the foot's angle to the shank, less that
  *   angle with the shank upright and the sole flat: the foot then falls from the ankle to the toe by
  *   the height between where the two rest on the floor);

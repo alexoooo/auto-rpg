@@ -1,5 +1,5 @@
 /**
- * **The Rise drill's cases**: an edge of the game's Stand up (`STAND_UP`, `stand-up.ts`) played
+ * **The Rise drill's cases**: an edge of the game's Stand up played
  * alone on a body (`technique.ts`), begun once its entry admits the body. Rung `placed`: from each
  * position the edge is begun from, placed there at rest (`groundPlacement`, a seed moving its joints).
  * Rung `moving`: after the edges before it on the route, from the nearest begun lying, placed there

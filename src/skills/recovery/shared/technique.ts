@@ -34,7 +34,7 @@ export interface TechniqueRun<Start extends string = string> {
   forget?(): void;
 }
 /**
- * **A technique**: a part of role `technique` that a stand-up routes through (`standUp`): the start identifiers
+ * **A technique**: a part of role `technique` that a stand-up routes through: the start identifiers
  * its implementation understands, the positions it takes the body between, and its run on a body.
  */
 export interface TechniquePart<C extends PartConfig = PartConfig> extends Part<C> {

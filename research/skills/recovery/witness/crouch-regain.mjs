@@ -1,6 +1,6 @@
 import { footOn } from "../../../../src/control/support.ts";
 /**
- * **Stand up's regain from a crouch** (`standUp`, `src/skills/recovery/shared/stand-up.ts`): the body
+ * **Stand up's regain from a crouch** (`regaining`, `src/skills/recovery/regain/regain/regain.ts`): the body
  * placed in the Warrior's stored `squat` (its angles put on each body, seeds 1 up, refused draws
  * skipped), held by the stance as the regain holds it (its own motor, `legs.resume`, the
  * stance's goal), handed back once `standReady` holds 0.1 s, the host's stance after; timed to

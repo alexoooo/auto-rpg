@@ -12,7 +12,7 @@ export const GAIT_CHOICES = STOCK_GAITS.map((gait): [GaitName, string] => [gait.
 interface RuleConfig extends PartConfig { readonly gait: GaitName }
 
 /**
- * **A kind of Move rule** (`move`, `skills/locomotion/move.ts`): a part of role `move-rule` that owns its
+ * **A kind of Move rule** (`move`, `skills/locomotion/shared/move.ts`): a part of role `move-rule` that owns its
  * config's type, keys and faults, and makes the rule that chooses the `gait`th of its Move's gaits.
  */
 export interface MoveRulePart<C extends RuleConfig = RuleConfig> extends Part<C> {

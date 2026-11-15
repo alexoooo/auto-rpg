@@ -177,7 +177,7 @@ export function steerFeatures(body: Body, view: BodyView, hand: Side, channels: 
 }
 
 /**
- * `steer` (`punchActions` levels, -1 to 1, in `channels`' outputs and senses) added to the pushes
+ * `steer` (levels, -1 to 1, in `channels`' outputs and senses) added to the pushes
  * the drive asks of the channels its outputs push, in place: each pushed channel's net level, its
  * sign the sense, no more than flat out. A channel the drive does not push is left to what holds it
  * (the posture, the stance): a push of any level takes a channel from them.

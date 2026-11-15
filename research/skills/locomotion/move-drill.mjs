@@ -8,7 +8,7 @@
  * maximises `-lost`; a record is kept on the row's own cases at 120 and 480 Hz, the worse counting
  * (`confirmMove`).
  *
- * A candidate's settings (`MoveSettings`): `legs`, Move's legs in place of those the body fits
+ * A candidate's settings: `legs`, Move's legs in place of those the body fits
  * (`withLegs`); `gaits`, by a stock gait's name, research tuning over its own (`withGaitTuning`: the
  * run's `walk`, `run`, `braking`, `stride`, `learned`); `stance`, the stance's tuning over its
  * body's calibration (`withStanceTuning`).

@@ -36,7 +36,7 @@ import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
 import { cmaSearch } from "../../../cma.mjs";
 import { confirmRow, drillTrials, rowOf, scoreOn, subjectOf, trialPool, withTuning } from "../../../drill-trials.mjs";
 
-/** The pushed channels, as the punch's ceiling pushes them (`punch-ceiling.mjs`): the trunk, both legs and the striking arm; with `wrist`, its wrist's too. */
+/** The pushed channels: the trunk, both legs and the striking arm; with `wrist`, its wrist's too. */
 export function ceilingChannels(hand, wrist = false) {
   return ["thoracic rotation right", "lumbar rotation right", "thoracic flexion", "lumbar flexion",
     ...SIDES.flatMap((side) => [`hip.${side} flexion`, `hip.${side} abduction`, `hip.${side} internal rotation`, `knee.${side} flexion`, `ankle.${side} dorsiflexion`]),

@@ -1,7 +1,7 @@
 import { stanceFeetOf, stanceSegmentsOf } from "../../../../src/skills/locomotion/shared/stance-feet.ts";
 import { footOn } from "../../../../src/control/support.ts";
 /**
- * **Stand up's regain, for research**: the regain as `standUp` runs it (`src/skills/recovery/shared/stand-up.ts`:
+ * **Stand up's regain, for research**: the regain as the game runs it (`regaining`, `src/skills/recovery/regain/regain/regain.ts`:
  * its own motor, the locomotion resumed, the stance's goal), handed back once `standReady` holds
  * `READY` s, with the variants `research/skills/recovery/witness/crouch-regain.mjs` names. `research/skills/recovery/witness/crouch-regain.mjs` runs it
  * from the placed squat, `research/skills/recovery/witness/rise-witness.mjs` from a witness's hand-over.
