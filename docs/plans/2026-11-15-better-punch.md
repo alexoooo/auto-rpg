@@ -101,6 +101,10 @@ It is **done** when, on the Warrior:
 - **The work goes on until the bar is met or the owner stops it.** In the owner's words: "i
   didn't ask to try one thing and then stop. i asked for a better punch." A lever that adds
   nothing is written down in a line and the next lever is tried; no gate hands the work back.
+  The work runs unattended: "there is no such thing as 'stop for a question for me'". Where a
+  choice would be the owner's, the agent takes the one it would recommend, writes the choice and
+  its reason in the plan, and goes on; the owner overrules after. A reviewing session's note is
+  weighed, never a reason to stop.
 - **A run over half an hour is announced** with its price and what will be different in the game
   when it ends, and stops at a plateau.
 - **Short of the bar is not thrown away; spinning wheels is what is avoided.** In the owner's
@@ -175,7 +179,7 @@ No training. Minutes.
 
 ### 5. Train it
 
-A run, on the owner's word.
+A run, announced with its price, begun without waiting.
 
 - **Its environment** (`environments/moving.json`): Option Mind's Warrior holding `moving`, on
   sparring's and the fights' cases, where the walk goes on under the blow; each episode from the
@@ -191,8 +195,8 @@ A run, on the owner's word.
   best is installed in `moving`'s record at once, so the owner can watch it in the Arena while the
   run goes on.
 - **Gate**: the chosen checkpoint lands more than step 4's fixed rule on the held-out cases,
-  paired, its blows no lighter, toward five times the installed punch's landed blows. On a plateau (5 M decisions with no kept gain) the run stops and
-  the report goes to the owner.
+  paired, its blows no lighter, toward five times the installed punch's landed blows. On a plateau (5 M decisions with no kept gain) the run stops, is
+  written down, and the next lever is taken.
 
 ### 6. The bout and the owner's eye
 
@@ -375,6 +379,15 @@ deleted.
   it graze, not its 4.5 kg at a target that stands.
 
 ## Where the work stands
+
+**Choices taken by the agent** (the owner overrules after):
+
+- **The symmetric law stays.** Under the directional, both punches fall to almost nothing (0 of
+  34, 6 of 110) and every skill trained so far would be retrained; the weight it gives is the
+  game's as it plays now.
+- **Next, `moving`'s stroke gets a learned steer, and is trained** (step 5), in place of more
+  hand levers (some fifteen read inside the noise). The installed punch's weight is its
+  network's: with its steer off it lands none of 31. `moving`'s stroke has none.
 
 | Step | State |
 | --- | --- |
