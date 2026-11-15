@@ -304,7 +304,13 @@ deleted.
   the directional law the elbow's hold against a blow pressing it bent is its extensors' own,
   about 7 N m, at either speed: the heavy fast blows are the symmetric law's, the braking side's
   ceiling held both ways (`driver.ts` calls that law a comparison control). Whether the law or
-  the pricing change is the owner's to decide; neither is done. Read nothing on the dense sweep,
+  the pricing change is the owner's to decide; neither is done. Under the directional law
+  (`ACTUATION` in `strike-bouts`, the game unchanged), at a target that stands: `drive` lands none
+  of 34 (23 of 31 under the symmetric), 9 touching at all, 5.5 kg, its arm straight short of the
+  target (the law moves the arm too, not only the hold), the elbow holding 8 and 30 N m the two
+  ways, the wrist 3 and 10, 14 and 7; `moving`'s stroke, 6 of 110 at 0.5 hp, a median 0.23 (45 of
+  105 and 0.44), 2.7 kg against 4.4, the fist as fast (5.2 m/s), the side a blow presses holding
+  little (the elbow 8 N m against 104 the other way, the wrist 12 and 10). Read nothing on the dense sweep,
   not kept: the elbow asked to brake once the fist is within 5 to 20 cm of the target along its
   line (asked for 0, 20, 30 or 35 rad/s in place of 40). At 5 cm and 35 rad/s, 47 of 105 at 0.5
   hp, a median 0.47 (near 16 of 33, between 11 of 24, far 20 of 48), 62 elbows held; against

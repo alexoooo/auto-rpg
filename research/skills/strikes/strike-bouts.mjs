@@ -125,7 +125,8 @@ if (isMainThread) {
         commanders: { left: { kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, ...(drill.pace === undefined ? { walking: true } : { pace: drill.pace }) } } } : {};
       const recipe = { left, right, gap, capSeconds: seconds, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } },
         ...(Object.keys(skills).length ? { skills } : {}), ...drilled };
-      const bout = await buildBout(recipe, { engine: BOUT_ENGINE }); dispose = bout.dispose;
+      // With ACTUATION (`symmetric` or `directional`), the world's muscle law (`World.actuation`); else the world's own.
+      const bout = await buildBout(recipe, { engine: BOUT_ENGINE, ...(process.env.ACTUATION ? { actuation: process.env.ACTUATION } : {}) }); dispose = bout.dispose;
       const { world, duel } = bout, track = Object.fromEntries(SIDES.map(side => [side, {
         side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, attempts: [], sequence: 0,
       }]));
