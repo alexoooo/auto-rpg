@@ -153,7 +153,12 @@ if (isMainThread) {
           turn: Math.acos(Math.max(-1, Math.min(1, Math.abs(c[0] * normal[0] + c[2] * normal[2]) / Math.hypot(c[0], c[2]) / Math.hypot(normal[0], normal[2]) || 0))) * 180 / Math.PI,
           dip: Math.asin(c[1] / len(c)) * 180 / Math.PI };
       };
+      // With HOLDS, each side's hands' and upper arms' velocities before the step, world m/s: a blow's speeds are read from them, not from the step that met it.
+      const before = new Map();
       while (!duel.verdict && duel.clock < seconds) {
+        if (process.env.HOLDS) for (const s of SIDES) for (const name of ["hand.left", "hand.right", "upperArm.left", "upperArm.right"]) {
+          const v = new Vector3(); duel.duelists[s].body.built.segments.get(name).body.linearVelocityToRef(v); before.set(`${s} ${name}`, v);
+        }
         world.step();
         for (; heard < duel.blows.length; heard++) {
           const blow = duel.blows[heard];
@@ -165,6 +170,10 @@ if (isMainThread) {
                 const m = duel.duelists[s].body.muscles, hand = part.segment.slice(5);
                 shape.holds = m.channels.flatMap((c, i) => c.name.includes(`.${hand} `) && /^(shoulder|elbow|wrist)/.test(c.name) || /^(thoracic|lumbar) /.test(c.name)
                   ? [[c.name, +m.speed(i).toFixed(1), +m.bounds.negative[i].toFixed(0), +m.bounds.positive[i].toFixed(0), +m.strength(i, -1).toFixed(0), +m.strength(i, 1).toFixed(0)]] : []);
+                // The fist's and the upper arm's speeds along the blow's normal the step before it, m/s, the fist's way positive.
+                const along = (name) => { const v = before.get(`${s} ${name}`), n = blow.normal; return (v.x * n[0] + v.y * n[1] + v.z * n[2]) / Math.hypot(n[0], n[1], n[2]); };
+                const fist = along(part.segment), sign = Math.sign(fist) || 1;
+                shape.speeds = { fist: +(fist * sign).toFixed(2), shoulder: +(along(`upperArm.${hand}`) * sign).toFixed(2) };
               }
               arms.set(blow, shape);
             }

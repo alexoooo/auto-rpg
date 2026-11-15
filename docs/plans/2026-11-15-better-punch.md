@@ -260,7 +260,8 @@ deleted.
   weight carried over that foot through the drive (`StanceGoal.centre`): -0.01 m. None kept.
   What carries a body 0.15 m in 0.2 s is a push-off of some 0.75 g: a leg action the stance does
   not have.
-- **The installed stroke's ceiling is under the bar.** Thrown by `moving` at a target that stands
+- **The drive's stroke as `moving` threw it falls under the bar** (`moving`'s record: no hip turn,
+  the legs left to the walk, no quiet stance; not the installed punch, below). At a target that stands
   (the Strike drill's Commander and `drill-stand`, its window opened so it fires where it stands,
   `strike-bouts.mjs --drill stand`), 0.84 m apart, 25 punches: a median 0.27 hp, the best 0.70. It
   meets the target either fast (5 to 6 m/s) and light (about 1 kg) or held (15 to 24 kg) and slowed
@@ -312,10 +313,7 @@ deleted.
   rad/s none. An elbow held gives 5 to 8 kg, not 20: of the blows whose elbow held, the heavy
   (12 kg and more) and the light (under 6) hold alike in every freedom; the heavy land with the
   arm straighter (bent 25 degrees against 30 to 41) and the waist still bending forward (8 rad/s,
-  holding 165 N m against 91 to 113). The installed punch's heavy blows are another case: at a
-  standing target (0.87 to 0.98 m, 23 of 28 at 0.5 hp, a median 0.82, 10.6 kg at 5.6 m/s) every
-  freedom is loose at the touch, the elbow too (17 N m), and the arm all but straight (bent 4
-  degrees), so a blow along it turns the elbow little. The best blows land late in the extension, the elbow bent 30 to 50 degrees, slowing
+  holding 165 N m against 91 to 113). The best blows land late in the extension, the elbow bent 30 to 50 degrees, slowing
   and holding while the fist still runs 6 to 7 m/s: 0.8 to 1.5 hp. Bent 60 to 75 degrees (the shoulder brought too near), under 3 kg and
   0.3 to 0.6 hp; under 22 degrees, the fist past its peak, about 0.3 hp. Hence each regime's 10 cm.
   Read nothing on the sweep's share (13 of 22): the fist steered more loosely (its pose solved
@@ -340,6 +338,20 @@ deleted.
   of 105). Against `drill-guard` 12 of 42 first touches are the guard's hands and forearms;
   touches on a guard are driven through (`ContactTarget.guard`), 9 to 12 blows of 0.5 hp, the strict
   band 7 cm (0.74 to 0.81).
+- **The installed punch is heavy at a target that stands, and by the same law.** `drive`'s
+  standing sweep (`HOLDS`, 100 gaps): it fires from 0.87 to 0.98 m, 23 of 31 at 0.5 hp, a median
+  0.80, all 14 between 0.88 and 0.95 m; 10.6 kg behind the fist at 4.3 m/s (5.5 between 0.88 and
+  0.92), the shoulder coming on at 0.7 m/s. The arm meets the target all but straight (bent 4
+  degrees, the blow along it, the elbow holding 0 to 45 N m), and the wrist holds 35 N m in
+  flexion and 39 in radial deviation either way: each motor braking the wrist's swing, the side
+  pressed by the blow 1 to 4 N m of its own. Each of its parts removed from its record in turn,
+  the record put back after: its legs' timed pushes or its quiet stance, the sweep the same to the
+  bit (at a target that stands, its stance is already quiet; its legs' schedule moves nothing);
+  its hips' turn (`hips` 0), 5 of 30, a median 0.13, 1.1 kg, the wrist's motors still driving
+  (0 to 7 N m) and the shoulder faster (1.2 m/s; it fires nearer, 0.76 to 0.87 m, its window
+  reckoning the turn); its network's steer (`steered` false), none of 31, 2.2 kg, the wrist the
+  same. So its weight is a straight arm and a wrist braked at the touch, which the hips' turn and
+  the network's steer time together, and the symmetric law prices.
 - **In the bar's bouts the stroke was not better** (read before the trunk went first). At the record's window it fires from 0.82
   to 1.05 m trunk to trunk and ends short (a median 0.25 m), 1 landed of 196; its window set where
   the arm reaches (`inside`, `reach` 0.62, `band` 0.02) it commits 14 in 6.9 bout-minutes, all
