@@ -17,7 +17,7 @@ const registry = (characters) => ({ characters: { rogue: { model: "woman", label
  * model, so no fight can show a second one being refused or a wrong one standing for its model.
  */
 test("a model carries as many characters as the registry lists, one of them its own", () => {
-  const two = registry({ warrior: { model: "man", label: "Warrior", skills: ["straight-punch/drive"] }, brawler: { model: "man", label: "Brawler", skills: ["straight-punch/from-guard"] } });
+  const two = registry({ warrior: { model: "man", label: "Warrior", skills: ["straight-punch/drive"] }, brawler: { model: "man", label: "Brawler", skills: ["straight-punch/moving"] } });
   assert.equal(registryError(two), null, "two characters on the man");
   assert.match(registryError(registry({ warrior: { model: "woman", label: "Warrior", skills: [] } })), /man's character warrior is no character on it/);
   assert.match(registryError(registry({ warrior: { model: "man", label: "Warrior", skills: ["straight-punch"] } })), /character warrior: skills: straight-punch is not skill\/variation/);

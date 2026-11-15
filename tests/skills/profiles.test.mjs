@@ -59,7 +59,7 @@ test("a strike is read by its profile measured against the body it strikes", () 
  * **A foe is modelled by the strikes its character holds** (`profilesOn`): the stored profiles hold
  * a model's punch in two variations, and its character holds one. Found by the body's digest, which
  * leaves its skills out, a Warrior holding `straight-punch/drive` was modelled as throwing
- * `straight-punch/from-guard` beside it.
+ * `straight-punch/moving` beside it.
  */
 test("a foe is modelled by the profiles of the skills its character holds", () => {
   const { profiles } = JSON.parse(readFileSync(new URL("../../assets/skills/strikes/strike-profiles/strike-profiles.json", import.meta.url), "utf8"));

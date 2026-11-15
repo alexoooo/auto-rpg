@@ -79,7 +79,7 @@ function variationsFault(variations: readonly string[], offered: Readonly<Record
 
 /**
  * **`evaluation` with its subjects' variations chosen by name**: a name ending in one or more
- * `+<skill>/<variation>` (`option/straight-punch+straight-punch/from-guard`) is each subject the
+ * `+<skill>/<variation>` (`option/straight-punch+straight-punch/moving`) is each subject the
  * name before them gives, its bodies' characters holding those variations in place of their own of
  * the same skills (`Subject.variations`), its id the name's and its label saying so. A skill
  * `offered` lists no variation of is refused, as is a variation it does not offer.

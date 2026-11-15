@@ -160,12 +160,12 @@ const punches = (skills) => {
  * held cannot show a second one's executor shadowing or renaming it.
  */
 test("a character holding two variations of a skill strikes by each, and each reads as it does alone", () => {
-  const both = punches(["straight-punch/drive", "straight-punch/from-guard"]);
-  assert.deepEqual(both.executors.map((one) => [one.name, one.variation]), [["straight-punch/drive", "drive"], ["straight-punch/from-guard", "from-guard"]]);
-  assert.deepEqual(both.actions.map((one) => [one.name, one.executor]), [["straight-punch/drive", "straight-punch/drive"], ["straight-punch/from-guard", "straight-punch/from-guard"]]);
+  const both = punches(["straight-punch/drive", "straight-punch/moving"]);
+  assert.deepEqual(both.executors.map((one) => [one.name, one.variation]), [["straight-punch/drive", "drive"], ["straight-punch/moving", "moving"]]);
+  assert.deepEqual(both.actions.map((one) => [one.name, one.executor]), [["straight-punch/drive", "straight-punch/drive"], ["straight-punch/moving", "straight-punch/moving"]]);
   const digest = ({ spec, made }, action, limb) => skillDigest(parts, spec, made.executors, limbAction(action, limb));
   const found = ({ spec, made }, action, limb) => strikeSkill(spec, made.executors, limbAction(action, limb));
-  for (const variation of ["drive", "from-guard"]) {
+  for (const variation of ["drive", "moving"]) {
     const alone = punches([`straight-punch/${variation}`]);
     assert.deepEqual(alone.executors.map((one) => one.name), ["straight-punch"], "one variation of a skill is named by the skill");
     const held = both.actions.find((one) => one.executor.endsWith(variation));
@@ -187,9 +187,9 @@ test("a character's skills are a list of skill/variation, none twice, carried wh
   assert.match(resolveCharacterChecked({ model: "man", skills: ["stomp/stomp", "stomp/stomp"] }).refused, /twice/);
   assert.match(resolveCharacterChecked({ model: "man", skills: { "straight-punch": "drive" } }).refused, /a list/);
   const query = new URLSearchParams();
-  writeSkills(query, "left", ["straight-punch/drive", "straight-punch/from-guard"]);
-  assert.equal(query.get("left.skills"), "straight-punch/drive,straight-punch/from-guard");
-  assert.deepEqual(readSkills(query, "left"), ["straight-punch/drive", "straight-punch/from-guard"]);
+  writeSkills(query, "left", ["straight-punch/drive", "straight-punch/moving"]);
+  assert.equal(query.get("left.skills"), "straight-punch/drive,straight-punch/moving");
+  assert.deepEqual(readSkills(query, "left"), ["straight-punch/drive", "straight-punch/moving"]);
   writeSkills(query, "left", []);
   assert.deepEqual(readSkills(query, "left"), [], "an empty value holds no skill");
   writeSkills(query, "left", undefined);

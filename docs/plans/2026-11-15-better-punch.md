@@ -101,7 +101,10 @@ Where something is still computed again, or a stale entry is refused:
   step to the mark is a median 0.23 s against 1.59; its fist is as fast (7.1 m/s) with 1.4 kg
   behind it against 4.5. A drill's strike order stands the legs (`strike`,
   `src/minds/command/drill.ts`), so the rung reads its blow at a walk's end, not under a
-  walk. No character holds it, it has no profile, and it is unread sparring and in fights.
+  walk. Sparring, on the three bodies' 720 starts, 0.454 land (95 % 0.418 to 0.491), 0.806 are
+  admitted and 0.008 fall, a median 0.38 kg behind the fist and 4.0 J on the mark
+  (`npm run evaluate -- strike option/straight-punch+straight-punch/moving --protocol sparring`);
+  its profiles are measured from those. No character holds it, and it is unread in fights.
 - **A layout names any of the steer's inputs and outputs** (`SteerLayout`, `checkedLayout`,
   `steer.ts`), so a punch with other inputs is a layout of its own.
 - **The bonk's footwork is 1.36 s of its 1.9 s** (`Swing.footing`;
@@ -213,14 +216,14 @@ Where something is still computed again, or a stale entry is refused:
   `src/skills/framework/variations.ts`): its code in its own folder
   (`src/skills/strikes/straight-punch/<variation>/`), its record its own
   (`straight-punch/<variation>`, `straight-punch/data/registration.ts`), held by a character
-  beside the installed one (`left.skills=straight-punch/drive,straight-punch/from-guard`). The
+  beside the installed one (`left.skills=straight-punch/drive,straight-punch/moving`). The
   fingerprint shows it moved only its own cases
   (`node scripts/fingerprint.mjs --compare <file> --variation <skill/variation>`).
-- **The straight punch's three variations run one code**: each calls one function (`punch`,
+- **The straight punch's two variations run one code**: each calls one function (`punch`,
   `src/skills/strikes/straight-punch/index.ts`) on one layout (`PUNCH_LAYOUT`), over the
   executor the sword thrust shares (`straightDriveExecutor`,
-  `src/skills/strikes/shared/straight-drive.ts`). `from-guard` and `moving` name the
-  installed punch's record; the one adds when its drive may begin, the other leaves the legs.
+  `src/skills/strikes/shared/straight-drive.ts`). `moving` names the installed punch's record
+  and leaves the legs.
 - **The tools are the installed punch's**: `punch-sparring.mjs` holds the Warrior, the straight
   punch and its record (`BODY`, `SKILL`, `record`, `bar`) and takes a variation
   (`--variation`); on the fights' rungs it refuses a variation of its own; the exporter

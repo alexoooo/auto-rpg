@@ -302,7 +302,7 @@ path for Node, its workers and a page; `scripts/evaluate.mjs` runs it.
   none. `--fresh` plays a named subject's cases again. `--write` keeps the run's results in
   `assets/evaluations/<id>.json` (`results.ts`), from rows of the commit it names alone.
 - **A subject's variations**: a subject name may end in one or more `+<skill>/<variation>`
-  (`option+straight-punch/from-guard`); its bodies' characters then hold those variations in place
+  (`option+straight-punch/moving`); its bodies' characters then hold those variations in place
   of their own. Two variations of one skill are read against each other as two subjects on the
   same cases, one the other's `--previous`.
 - **Drills**: a drill's trials pass or fail, its rungs its protocols. A drill's struck target

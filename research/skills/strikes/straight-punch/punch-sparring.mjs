@@ -2,7 +2,7 @@
  * **A straight punch searched and judged sparring**: the Warrior's punch against Option Mind
  * fighting back, from the Strike drill's drawn starts (`sparring`, `src/evaluation/strike/cases.ts`).
  *
- * A candidate is a variation of the straight punch (`drive`, `from-guard`) and, where it names
+ * A candidate is a variation of the straight punch (`drive`, `moving`) and, where it names
  * them, settings as the punch's research tuning over the body's record (`withTuning`; unsteered,
  * since a tuned punch runs no network, unless it `keepsNetwork`). `--search` moves the settings of `SEARCHED` by diagonal
  * CMA (`cma.mjs`) from the body's record. With `--steer <spans.json>` it moves a correction with

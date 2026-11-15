@@ -181,11 +181,6 @@ export interface StraightDriveOptions {
   /** Its steer from what it reads, where a network steers it. */
   readonly policy?: (features: readonly number[]) => number[];
   /**
-   * Whether `hand`'s arm, its stance quiet and settled, may begin its drive from where `view` has
-   * it, `posture` being what preparation asks of it (the chamber or the guard); always where absent.
-   */
-  readonly ready?: (view: BodyView, hand: Side, posture: Pose) => boolean;
-  /**
    * Whether it leaves the legs to whatever walks them: it needs and holds its hand and the trunk
    * and no legs, gives the legs no goal (no stand, halt or height, no turn of the hips and no
    * shift of the weight, whatever its steer asks of the stance), and begins its drive `settle` s
@@ -440,7 +435,7 @@ function driveReadiness(view: BodyView, technique: ReturnType<typeof straightTec
  */
 export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly string[], settings: StraightDrive,
   resolve: TargetResolver, options: StraightDriveOptions): Executor {
-  const { label, faces, requireArmAim = false, policy, ready, leavesLegs = false } = options;
+  const { label, faces, requireArmAim = false, policy, leavesLegs = false } = options;
   if (!validStraightDrive(settings)) throw new Error(`invalid ${label} settings`);
   const technique = straightTechnique(body, guard, settings, options, { trained: policy !== undefined }), motion = technique.state;
   technique.read(body.view);
@@ -512,7 +507,7 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
         const quiet = leavesLegs || quietToStrike(view);
         live.quiet = quiet ? live.quiet + dt : 0;
         if (live.time >= PREPARE_LIMIT) release({ kind: "stalled", reason: "settling deadline" });
-        else if (quiet && live.quiet >= settings.settle && (!ready || ready(view, live.hand, technique.chamber(view, live.hand) ?? guard))) {
+        else if (quiet && live.quiet >= settings.settle) {
           live.phase = "commit"; live.stage = "swing"; live.time = 0; technique.enter("swing");
           motion.began = view.time; motion.touched = null; motion.face = atan2(motion.target[0] - view.head.x, motion.target[2] - view.head.z);
           motion.touching = (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0;
