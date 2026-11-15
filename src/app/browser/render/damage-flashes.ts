@@ -11,8 +11,8 @@ import type { DamageCue } from "../../worker/damage-cues.ts";
 /** A tight contact burst, m across, held long enough to read a hit at real speed. */
 const DIAMETER = .28, SECONDS = .18;
 
-/** Light contacts are half-size strokes, briefly held before fading, s, without a number below this HP. */
-const SPARK_SCALE = .5, SPARK_SECONDS = .2, SPARK_HOLD = .05, NUMBER_MINIMUM = .1;
+/** Light contacts are half-size translucent strokes, briefly held before fading, s, without a number below this HP. */
+const SPARK_SCALE = .5, SPARK_OPACITY = .45, SPARK_SECONDS = .2, SPARK_HOLD = .05, NUMBER_MINIMUM = .1;
 
 /** Minimum burst diameter in CSS pixels; the half-size spark retains visible strokes when zoomed out. */
 const MIN_DIAMETER_PIXELS = 20;
@@ -83,7 +83,7 @@ export function damageFlashes(scene: Scene) {
   sparkContext.moveTo(47, 62); sparkContext.lineTo(18, 32);
   sparkContext.moveTo(64, 48); sparkContext.lineTo(64, 10);
   sparkContext.moveTo(81, 62); sparkContext.lineTo(113, 36);
-  sparkContext.strokeStyle = "#302214"; sparkContext.lineWidth = 26; sparkContext.stroke();
+  sparkContext.strokeStyle = "#302214"; sparkContext.lineWidth = 20; sparkContext.stroke();
   sparkContext.strokeStyle = "#ffe1a3"; sparkContext.lineWidth = 16; sparkContext.stroke();
   const sparkTexture = new DynamicTexture("damage spark", sparkCanvas, scene, false);
   sparkTexture.hasAlpha = true; sparkTexture.update();
@@ -132,7 +132,7 @@ export function damageFlashes(scene: Scene) {
         if (age >= 1) { mesh.dispose(false, false); number?.dispose(); state.flashes.delete(key); continue; }
         const light = damage < NUMBER_MINIMUM, seconds = light ? SPARK_SECONDS : SECONDS;
         mesh.setEnabled(elapsed < seconds);
-        mesh.visibility = Math.max(0, light ? 1 - Math.max(0, elapsed - SPARK_HOLD) / (seconds - SPARK_HOLD) : 1 - elapsed / seconds);
+        mesh.visibility = Math.max(0, light ? SPARK_OPACITY * (1 - Math.max(0, elapsed - SPARK_HOLD) / (seconds - SPARK_HOLD)) : 1 - elapsed / seconds);
         if (camera) Vector3.TransformCoordinatesToRef(mesh.position, camera.getViewMatrix(), cameraPoint);
         const depth = camera?.mode === Camera.PERSPECTIVE_CAMERA ? Math.abs(cameraPoint.z) : 1;
         const minimum = pixelsAtUnitDepth > 0 ? MIN_DIAMETER_PIXELS * depth / (DIAMETER * pixelsAtUnitDepth) : 0;
