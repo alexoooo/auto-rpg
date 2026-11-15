@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { Session } from "node:inspector/promises";
 import { fileURLToPath } from "node:url";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
@@ -106,16 +106,10 @@ function allocationOf(profile) {
 /**
  * KiB a body's step allocates in `fixture` (`tests/harness/step-allocation.mjs`), read in a process
  * of its own: what a step allocates depends on how far V8 has optimized the code it runs, so a
- * reading after another fixture in one process reads less than one alone.
+ * reading after another fixture in one process reads less than one alone. It is a promise, so
+ * several are read at once.
  */
 export function stepAllocation(fixture, ...args) {
-  const child = spawnSync(process.execPath, [ALLOCATION, fixture, ...args], { encoding: "utf8" });
-  if (child.status !== 0) throw new Error(child.stderr);
-  return Number(child.stdout);
-}
-
-/** `stepAllocation` read in a process of its own without waiting on it: several at once. */
-export function stepAllocationAsync(fixture, ...args) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [ALLOCATION, fixture, ...args]);
     let out = "", err = "";

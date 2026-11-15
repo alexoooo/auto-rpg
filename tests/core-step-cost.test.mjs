@@ -5,12 +5,13 @@
  * reading in a process of its own (`stepAllocation`): two skeletons standing, the Warrior lying
  * under its ground reader, the Skeleton rising from a stand-up target fall under its stand's
  * verification, and each game mind fighting itself (`GAME_MINDS`). Node, the core world, Rapier,
- * 120 Hz.
+ * 120 Hz. Every reading is started as the file loads, so the file takes its longest reading and
+ * not their sum.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { availableParallelism } from "node:os";
-import { stepAllocation, stepAllocationAsync } from "./harness/garbage.mjs";
+import { stepAllocation } from "./harness/garbage.mjs";
 import { partOf, MINDS } from "../src/app/catalog.ts";
 import { controlsFor } from "../src/app/node/setup.ts";
 import { BODY_MODELS } from "../src/core/bodies/models.ts";
@@ -35,13 +36,28 @@ const GAME_MINDS = Object.keys(MINDS).filter((id) => partOf(MINDS[id].config).st
   return [];
 });
 
+/** A reading under way: a failure is its test's to report when it awaits it, not an unhandled one before. */
+const started = (reading) => { reading.catch(() => {}); return reading; };
+
+/** Each fixture's reading, KiB a body a step; `minds` is `GAME_MINDS`' in their order, a lane short of the machine's at once. */
+const READING = {
+  standing: started(stepAllocation("standing")), array: started(stepAllocation("standing-array")),
+  down: started(stepAllocation("down")), fall: started(stepAllocation("fall")),
+  minds: started((async () => {
+    const lanes = Math.max(1, availableParallelism() - 1), readings = [];
+    for (let k = 0; k < GAME_MINDS.length; k += lanes)
+      readings.push(...await Promise.all(GAME_MINDS.slice(k, k + lanes).map(({ id, model, held }) => stepAllocation("mind", id, model, held))));
+    return readings;
+  })()),
+};
+
 /**
  * Two skeletons standing under the command layers: the control path every body runs. It grew from
  * 106 to 126 KiB a body a step unseen, most of it the arbiter's per-step iterators and a closure
  * per muscle channel.
  */
-test("a_standing_body_s_step_allocates_no_more_than_its_ceiling", () => {
-  const kib = stepAllocation("standing");
+test("a_standing_body_s_step_allocates_no_more_than_its_ceiling", async () => {
+  const kib = await READING.standing;
   assert.ok(kib <= CEILING.standing, `${kib.toFixed(0)} KiB a body a step, over ${CEILING.standing}`);
 });
 
@@ -51,9 +67,7 @@ test("a_standing_body_s_step_allocates_no_more_than_its_ceiling", () => {
  */
 test("every_game_mind_s_step_allocates_no_more_than_the_ceiling", async () => {
   assert.ok(GAME_MINDS.length > 0, "the fixture found a game mind with a body to fight in");
-  const lanes = Math.max(1, availableParallelism() - 1), readings = [];
-  for (let k = 0; k < GAME_MINDS.length; k += lanes)
-    readings.push(...await Promise.all(GAME_MINDS.slice(k, k + lanes).map(({ id, model, held }) => stepAllocationAsync("mind", id, model, held))));
+  const readings = await READING.minds;
   const over = GAME_MINDS.map((mind, k) => ({ ...mind, kib: readings[k] })).filter(({ kib }) => !(kib <= CEILING.mind));
   assert.deepEqual(over.map(({ id, model, held, kib }) => `${id} on ${model} holding ${held}: ${kib.toFixed(0)} KiB a body a step`), [],
     `over the ceiling of ${CEILING.mind}`);
@@ -63,8 +77,8 @@ test("every_game_mind_s_step_allocates_no_more_than_the_ceiling", async () => {
  * The Warrior lying under its ground reader: every fixed support read each step, a path the
  * standing and bout fixtures do not reach.
  */
-test("a_down_body_s_step_allocates_no_more_than_its_ceiling", () => {
-  const kib = stepAllocation("down");
+test("a_down_body_s_step_allocates_no_more_than_its_ceiling", async () => {
+  const kib = await READING.down;
   assert.ok(kib <= CEILING.down, `${kib.toFixed(0)} KiB a body a step, over ${CEILING.down}`);
 });
 
@@ -73,8 +87,8 @@ test("a_down_body_s_step_allocates_no_more_than_its_ceiling", () => {
  * every step. Wait for the actual takeover when the bed needs another shove. Reproduces the
  * deep-frozen observation built each step to read three numbers (674 KiB on `9acd8a3e`).
  */
-test("a_rising_body_s_step_allocates_no_more_than_its_ceiling", () => {
-  const kib = stepAllocation("fall");
+test("a_rising_body_s_step_allocates_no_more_than_its_ceiling", async () => {
+  const kib = await READING.fall;
   assert.ok(kib <= CEILING.fall, `${kib.toFixed(0)} KiB a body a step, over ${CEILING.fall}`);
 });
 
@@ -82,8 +96,8 @@ test("a_rising_body_s_step_allocates_no_more_than_its_ceiling", () => {
  * The positive control: a 4096-element array made each step must read at least half its size, so a
  * meter that reads nothing cannot pass the ceilings.
  */
-test("the_meter_sees_an_array_made_in_a_step", () => {
-  const plain = stepAllocation("standing"), more = stepAllocation("standing-array");
+test("the_meter_sees_an_array_made_in_a_step", async () => {
+  const plain = await READING.standing, more = await READING.array;
   // The two bodies share the array's 32 KiB a step: 16 a body, read to within about 2 by the
   // profiler's sampling, so half of it is the least the meter may see.
   assert.ok(more - plain >= 8, `${(more - plain).toFixed(1)} KiB a body a step more`);
