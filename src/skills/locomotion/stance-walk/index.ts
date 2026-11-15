@@ -2,10 +2,9 @@ import { variationFault, variedMake, type Varied } from "../../framework/variati
 import { fitsAll } from "../../../parts/parts.ts";
 import type { Body } from "../../../control/body.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
-import { standingFooting } from "../../../control/support.ts";
+import { fitsSoles, standingFooting } from "../../../control/support.ts";
 import type { GaitPart } from "../../framework/locomotion-part.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "../shared/stance-feet.ts";
-import { fitsSoles } from "../../../control/stance/stance-balance.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { locomotion, validCarriage, validTurnLimit, validTurnStartup, type Carriage, type TurnStartup } from "../shared/locomotion.ts";
 

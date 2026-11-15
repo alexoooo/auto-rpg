@@ -373,6 +373,9 @@ function walkHeight(feet: readonly FootState[], ux: number, uz: number, v: numbe
   return low;
 }
 
+/** How much further one foot's first landing is the walk's way than the other's, m, under which a walk starts as if they were as far (`startingSide`). */
+const START_EVEN = .01;
+
 /**
  * The foot a walk at `walk`, world (x, z), m/s, facing `heading`, starts with: the one behind, if
  * the feet stand split fore and aft by more than a sole's length and the walk goes ahead or back;
@@ -380,11 +383,28 @@ function walkHeight(feet: readonly FootState[], ux: number, uz: number, v: numbe
  * goes on from the foot ahead the way it goes: started on its side, the foot ahead steps back
  * beside the other, and a leg reaching ahead with its heel down drags back on it, the knee straight
  * under the body's weight.
+ *
+ * `toward` (`StanceTuning.startsToward`), it is first the foot whose landing is the further the
+ * walk's way from where it stands. A first landing is the other sole's middle, the walk's distance
+ * over a swing on and the step's width out to its own side (`walkStep`), so the left's is further
+ * than the right's by twice what the feet stand wider than the step's width, times the walk's
+ * share to the right, and the right stands ahead of the left, times its share ahead. Feet wider
+ * than a walk's steps so start a walk to a side with the foot that trails, which comes in the
+ * walk's way as the weight goes the walk's way off it; started on the walk's own side, that foot
+ * comes in against the walk, the weight going against it first. Within `START_EVEN` the two are
+ * as far, and the rule above chooses.
  */
-function startingSide(feet: readonly FootState[], walk: readonly [number, number], heading: number): Side {
+function startingSide(feet: readonly FootState[], walk: readonly [number, number], heading: number, tuning: GaitTuning, toward: boolean): Side {
   const left = feet.find((f) => f.side === "left")!, right = feet.find((f) => f.side === "right")!, { front, heel } = right.ends;
   const fx = sin(heading), fz = cos(heading), sole = hypot(front.middle.x - heel.middle.x, front.middle.z - heel.middle.z);
   const split = (right.middle.x - left.middle.x) * fx + (right.middle.z - left.middle.z) * fz, ahead = walk[0] * fx + walk[1] * fz;
+  const pace = hypot(walk[0], walk[1]);
+  if (toward && pace > 0) {
+    const aside = walk[0] * fz - walk[1] * fx, T = stepSeconds(right, pace, tuning), W = stepWidth(right, Math.abs(aside), T, tuning);
+    const wide = (right.middle.x - left.middle.x) * fz - (right.middle.z - left.middle.z) * fx;
+    const further = ((wide - W) * aside + split * ahead) / pace;
+    if (Math.abs(further) > START_EVEN) return further > 0 ? "left" : "right";
+  }
   if (ahead !== 0 && Math.abs(split) > sole) return split * ahead > 0 ? "left" : "right";
   return walk[0] * cos(heading) - walk[1] * sin(heading) < 0 ? "left" : "right";
 }
@@ -410,8 +430,8 @@ function startingSide(feet: readonly FootState[], walk: readonly [number, number
  * lands leaning from `held`, the height the plan holds them at (`landingLeanOf`).
  */
 function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
-  tuning: GaitTuning, hip: number, held: number, bend: number | null, last: Side | null, under?: Underway, plan?: StepPlan): SwingGoal {
-  const side: Side = under ? named(feet, under.foot).side : last ? otherSide(last) : startingSide(feet, walk, heading);
+  tuning: GaitTuning, hip: number, held: number, bend: number | null, last: Side | null, toward: boolean, under?: Underway, plan?: StepPlan): SwingGoal {
+  const side: Side = under ? named(feet, under.foot).side : last ? otherSide(last) : startingSide(feet, walk, heading, tuning, toward);
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The pelvis's right across the ground at the heading the step lands facing: +x at heading 0.
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
@@ -537,11 +557,11 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
  * cannot, and a recovery's catches it (`ownStep`). By bisection, to `PACE_STEP`.
  */
 function reachablePace(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, pace: readonly [number, number], heading: number,
-  tuning: GaitTuning, hip: number, bend: number | null, last: Side | null): [number, number] | null {
+  tuning: GaitTuning, hip: number, bend: number | null, last: Side | null, toward: boolean): [number, number] | null {
   const plan: StepPlan = { within: true };
   const reaches = (x: number, z: number): boolean => {
     if (tuning.transfer && last) transferStep(feet, centre, velocity, g, [x, z], heading, tuning, hip, hip, bend, last, undefined, plan);
-    else walkStep(feet, centre, velocity, g, [x, z], heading, tuning, hip, hip, bend, last, undefined, plan);
+    else walkStep(feet, centre, velocity, g, [x, z], heading, tuning, hip, hip, bend, last, toward, undefined, plan);
     return plan.within;
   };
   if (reaches(pace[0], pace[1])) return [pace[0], pace[1]];
@@ -634,7 +654,7 @@ export function aimRecovery(s: Stance): void {
  * lifted is not taken, and no step settles the walk's end: it steps only to catch the body.
  */
 export function ownStep(s: Stance, heading: number, hip: number, halted: boolean): void {
-  const { feet, rest, state } = s, { reading, pace, step, gait } = state, { recovery, bend } = s.tuning, hips = hip - state.crouch;
+  const { feet, rest, state } = s, { reading, pace, step, gait } = state, { recovery, bend, startsToward } = s.tuning, hips = hip - state.crouch;
   if (halted && reading.own && !step.recovering && reading.phase === "shift") {
     reading.own = null;
     reading.phase = "stand";
@@ -646,7 +666,7 @@ export function ownStep(s: Stance, heading: number, hip: number, halted: boolean
     if (walk || (state.stride && recovery && outside(feet, reading.centre, carried, gravityOf(s), hold) > recovery.margin + held)) {
       // Walking, or stopping a walk still under way: its steps keep their alternation, each at the
       // pace the leg can take it (`reachablePace`), which the walk's pace goes on from.
-      const reach = reachablePace(feet, reading.centre, reading.velocity, gravityOf(s), pace, heading, gait, hips, bend, state.stride);
+      const reach = reachablePace(feet, reading.centre, reading.velocity, gravityOf(s), pace, heading, gait, hips, bend, state.stride, startsToward);
       if (reach) {
         pace[0] = reach[0];
         pace[1] = reach[1];
@@ -662,7 +682,7 @@ export function ownStep(s: Stance, heading: number, hip: number, halted: boolean
       } else {
         reading.own = gait.transfer && state.stride
           ? transferStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, state.stride)
-          : walkStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, state.stride);
+          : walkStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, state.stride, startsToward);
         step.recovering = false;
         reading.strides += 1;
       }
@@ -690,7 +710,7 @@ export function ownStep(s: Stance, heading: number, hip: number, halted: boolean
       const aimed = transferStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, null, under);
       reading.own = step.swing = { ...reading.own, to: aimed.to, capture: aimed.capture!, lean: aimed.lean };
     } else {
-      const aimed = walkStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, null, under);
+      const aimed = walkStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, null, startsToward, under);
       reading.own = step.swing = { ...reading.own, to: aimed.to, lean: aimed.lean };
     }
   }

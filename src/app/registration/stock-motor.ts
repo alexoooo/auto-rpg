@@ -1,10 +1,6 @@
-import { stanceCalibration } from "../../skills/locomotion/shared/stance/calibration.ts";
-import { stanceBalance } from "../../control/stance/stance-balance.ts";
+import { STANCE_BALANCE } from "../../skills/locomotion/stance/index.ts";
 import { wholeBodyMotor, wholeBodyMotorPart } from "../../control/whole-body-motor.ts";
-import { stanceEnvelope } from "../../skills/locomotion/shared/stance/envelope.ts";
 
-/** The stock stance uses its measured locomotion envelope. */
-export const STANCE_BALANCE = stanceBalance(stanceEnvelope, spec => stanceCalibration(spec.model) ?? {});
 export const WHOLE_BODY_MOTOR = wholeBodyMotorPart(STANCE_BALANCE.defaults);
 
 /** Stock standing probes select the same calibrated balance as game composition. */

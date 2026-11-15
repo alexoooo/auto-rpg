@@ -224,6 +224,11 @@ export function soleRefusal(spec: BodySpec): string | null {
   return refused;
 }
 
+/** A part's `fits` for a body the stance stands: a left and a right foot, each with a box sole (`soleRefusal`). */
+export function fitsSoles(spec: BodySpec): string | null {
+  return soleRefusal(spec);
+}
+
 /** `soleRefusal`, read anew. */
 function soleRefusalOf(spec: BodySpec): string | null {
   const feet = stanceFeet(spec);

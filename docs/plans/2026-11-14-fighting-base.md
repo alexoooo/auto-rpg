@@ -19,9 +19,10 @@ of it is. Each part is taken up on the owner's request by a brief of its own. A 
 
 ## Where it stands
 
-- **The base is the stance under the whole-body solve** (`src/control/stance/stance-balance.ts`,
+- **The base is the stance under the whole-body solve** (`src/control/stance/`,
   `src/control/solve.ts`; [motor control](../architecture.md#motor-control)), the one balance
-  registered (`BALANCES`, `src/app/registration/balances.ts`). A balance is a part that makes the
+  registered (`BALANCES`, `src/app/registration/balances.ts`), a skill each character holds in a
+  variation (`stance/stance`, `src/skills/locomotion/stance/index.ts`). A balance is a part that makes the
   control carrying out a stance goal (`BalancePart`, `BalanceMaker`,
   `src/control/balance-part.ts`): which feet bear, where the centre of mass goes, the pelvis's
   heading, a walk and a foot's swing (`StanceGoal`, `src/control/stance/goal.ts`).
@@ -88,6 +89,19 @@ of it is. Each part is taken up on the owner's request by a brief of its own. A 
   arrives in 11 of 40, and at 0.3 m/s in 37. With empty hands its centre of mass first goes 2 to
   8 cm the other way, as the weight shifts, for most of a second.
   The three bodies lose 2.9, 2.8 and 2.7 s (Warrior, Rogue, Skeleton).
+- **The stance starts a sideways walk with the foot on the walk's side, which comes in against
+  the walk.** The feet stand wider than a walk's steps (the Warrior's 0.40 m against 0.20), so
+  that foot's first landing is nearer the other, and the weight goes the other way first
+  (`startingSide`, `src/control/stance/gait.ts`).
+- **The stance's `footwork` variation starts with the foot whose first landing is the further
+  the walk's way** (`StanceTuning.startsToward`), and no character holds it. Read beside the
+  stance (`npm run evaluate -- locomotion option option+stance/footwork --protocol step`), 447
+  of the 480 steps arrive, a median 2.0 s after the order, 2 fall and the mean lost is 1.8 s.
+  To a side 117 of 120 arrive, on the diagonals 222 of 240, forward and back 108 of 120; the
+  Warrior's 0.2 m step at 0.7 m/s arrives in 40 of 40. The three bodies lose 1.7, 1.7 and 2.2 s,
+  and the Skeleton's 0.4 m steps arrive in 55 of 80. Straight ahead and straight back it loses
+  what the stance does (1.9 and 2.6 s). On the Stand drill's three rungs it reads as the stance
+  does. It reads the stance's envelope; its own is unmeasured.
 - **Inside a strike's trial the same step is read by its blow**: the drill Commander orders a
   place to bring the striker into its window, slowing the pace as it closes (`approachPace`,
   `src/skills/intent/action-window.ts`), the reading keeps when it is ready there
@@ -102,9 +116,11 @@ valued as the walk is: the seconds lost against the order, a fall at its price. 
 reading on them ([where it stands](#where-it-stands)) is the baseline every base is read
 beside, by the same commands.
 
-**A second balance beside the stance.** A part of role `balance`, registered beside the stance
-and chosen by a body's config, that carries out the stance goals it is given. What a skill asks
-of the legs it asks as now (`LegsGoal`, `src/skills/framework/skill.ts`).
+**A second base beside the stance.** A variation of the stance that a character holds in the
+stance's place (`VARIATIONS`, `src/skills/locomotion/stance/index.ts`), carrying out the stance
+goals it is given. What a skill asks of the legs it asks as now (`LegsGoal`,
+`src/skills/framework/skill.ts`). The `footwork` variation is the first, a rule of the
+controller's; the actor below is the next.
 
 - **One actor, trained once on one body with no foe**: under shoves drawn as a twin of the
   Stand drill's rungs would be (`Cases.twin`, `src/evaluation/twin.ts`; the drill names none),
@@ -146,11 +162,13 @@ step of one body costs, and how many decisions the actor takes.
 
 ## Open
 
-- **Why a step to a side arrives in half its trials.** In the Warrior's steps traced, a centre
-  that misses its place passes within 6 to 15 cm of it and goes on. Whether that is the pace it
-  is asked (a Commander slows a pace as the place closes, and the script's is flat), where the
-  swing foot is placed, or the navigator's stop is unread: the trials are read by their figures
-  alone.
+- **Why a step ahead or back still loses two seconds.** In the Warrior's steps traced, a walk's
+  first step is planned at the pace the walk starts from, near nought, and lands beside the
+  bearing foot, most of a second spent narrowing the feet in place; and as the place closes the
+  navigator's ask falls to nought for a tick or two mid-step (`slowFrom`,
+  `src/skills/locomotion/shared/travel.ts`), the walk stopping and starting again. What each
+  costs is unread.
+- **Why the Skeleton's 0.4 m steps arrive less often than the others'**, on either variation.
 - **Whether a step's place is given from where the body's centre stands.** The script's is from
   where the body is put, and a standing body's centre of mass is ahead of that (the Warrior's
   by 6.5 cm), so a forward step is that much shorter than its name and a back step longer. The
@@ -175,8 +193,8 @@ step of one body costs, and how many decisions the actor takes.
 
 ## To pick it up
 
-- **The stance**: `src/control/stance/` (`stance-balance.ts`, `goal.ts`, `stance-tuning.ts`,
-  `stance-envelope.ts`); the solve over it, `src/control/solve.ts` and `bearing.ts`; a balance's
+- **The stance**: `src/control/stance/` (`stance.ts`, `gait.ts`, `goal.ts`, `stance-tuning.ts`,
+  `stance-envelope.ts`), its part and variations `src/skills/locomotion/stance/index.ts`; the solve over it, `src/control/solve.ts` and `bearing.ts`; a balance's
   contract, `src/control/balance-part.ts`, and its registry,
   `src/app/registration/balances.ts`.
 - **What asks it**: `LegsGoal` in `src/skills/framework/skill.ts`; a strike's asks,

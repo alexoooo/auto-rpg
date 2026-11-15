@@ -220,8 +220,12 @@ driven points, a stance goal) into muscle commands.
   patches within friction and centre of pressure, and gives each limb its inverse dynamics; what the
   patches miss is asked of the assist.
 - **Balance** is a part of role `balance` (`BALANCES`); the game's is the stance
-  (`stance-balance.ts`): the centre of mass kept inside the support by forces the ground can give,
-  steps placed from the capture point, a body without box soles refused. What a body was measured
+  (`STANCE_BALANCE`, `src/skills/locomotion/stance/index.ts`, its control `stance/`): the centre of
+  mass kept inside the support by forces the ground can give, steps placed from the capture point, a
+  body without box soles refused. It is a skill a character holds in a variation, each the settings
+  it runs over its body's calibration (`StanceTuning`): `stance`, as calibrated, and `footwork`, whose
+  walk starts with the foot whose first landing is the further the walk's way (`startsToward`,
+  `startingSide`, `stance/gait.ts`). What a body was measured
   to hold is its envelope, read by model from its implementation in `assets/skills/locomotion/`.
   Each balance supplies its calibration through its motor; command-layer wiring reads that result.
 - **The assist** (`Assist`, `assist.ts`) is a force at the root and a moment that no muscle gives:
@@ -303,7 +307,7 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   case environment on `option-drill`, the run gait steered, `gaitLearningMind`), each episode
   valued as the cell values its trial (`Evaluation.terms`, `ordersValue`, a fall at `FALL_PRICE`).
   A gait's settings reach a drill case as its research `tuning` (`withGaitTuning`), a stance's as
-  its balance's (`withStanceTuning`, `stanceBalance`); the walk's and the run's searches and screens
+  its balance's (`withStanceTuning`, `STANCE_BALANCE`); the walk's and the run's searches and screens
   play their rows' twins so (`research/skills/locomotion/move-drill.mjs`), checkpoints among them
   (`travel-screen.mjs`), ranked by the time they lose. The earlier
   `research/skills/locomotion/travel-environment.mjs` trains
@@ -346,9 +350,9 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   (`variationFault`, `heldVariation`, `src/skills/framework/variations.ts`), so the Option Mind
   offers only the character's skills; a strike's profile is found by its skill and variation (`strikeSkill`).
   Every skill part is a skill a character chooses so, whatever its role (`Part.variations`): the
-  guards, Move and the paw gaits, the gaits, low support, the recovery techniques and the
-  navigations as the strikes. Each but a strike has one variation, named as its skill
-  (`walk-run/walk-run`), made by its part's `index.ts` (`variedMake`, a guard's `guardVariations`, a
+  guards, Move and the paw gaits, the gaits, the stance, low support, the recovery techniques and the
+  navigations as the strikes. Each but a strike and the stance (`stance/stance`, `stance/footwork`)
+  has one variation, named as its skill (`walk-run/walk-run`), made by its part's `index.ts` (`variedMake`, a guard's `guardVariations`, a
   technique's `technique`); a body built without a character (`humanoidSpec`) holds none, so
   whatever runs skills is built from its model's character (`modelSpec`).
 - **The straight punch** (`straight-punch/index.ts`, its drive `shared/straight-drive.ts`) drives the arm flat out at a contact pose solved

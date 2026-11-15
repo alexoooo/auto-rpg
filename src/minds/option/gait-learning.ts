@@ -21,7 +21,7 @@ export function withGaitTuning(preset: OptionMindConfig, gait: string, tuning: o
 
 /**
  * **A stance given research settings**: `preset` on the whole-body motor whose balance is the
- * stance, `tuning` over its body's calibration (`stanceBalance`), as a search over the stance's
+ * stance, `tuning` over its body's calibration (`STANCE_BALANCE`), as a search over the stance's
  * settings scores it in a drill.
  */
 export const withStanceTuning = (preset: OptionMindConfig, tuning: StanceTuning): OptionMindConfig =>

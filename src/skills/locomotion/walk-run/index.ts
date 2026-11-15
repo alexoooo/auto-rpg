@@ -7,7 +7,7 @@ import { SIDES } from "../../../core/bodies/bilateral.ts";
 import { dataOf } from "../../../core/data/store.ts";
 import type { GaitPart } from "../../framework/locomotion-part.ts";
 import type { SkillRecords } from "../../framework/records.ts";
-import { fitsSoles } from "../../../control/stance/stance-balance.ts";
+import { fitsSoles } from "../../../control/support.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { runCycleSettings, validRunCycle, type RunCycleSettings } from "./walk-run/cycle-run.ts";

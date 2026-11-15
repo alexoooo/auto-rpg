@@ -477,7 +477,7 @@ cases (`node scripts/fingerprint.mjs --compare <file> --variation <skill/variati
   declared path is too slow, 4 to 6 m/s against 6.8, and a schedule played open-loop works only
   from the start it was searched from ([the approaches](../approaches.md#weapon-strikes)).
 - **The layer under a strike reacts to a blow's push only once the body moves.** It holds the
-  stance (`stance-balance.ts`), the whole-body solve (`solve.ts`) and the assist (`assist.ts`), a
+  stance (`src/control/stance/`), the whole-body solve (`solve.ts`) and the assist (`assist.ts`), a
   root force and moment metered against the character's Steadiness
   ([motor control](../architecture.md#motor-control)), and carries out what a skill asks step by
   step (`LegsGoal`, `StanceGoal`). So each strike's network learns to place the centre of mass

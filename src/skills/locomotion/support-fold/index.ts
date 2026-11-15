@@ -2,7 +2,7 @@ import { variationFault, variedMake, type Varied } from "../../framework/variati
 import { fitsAll } from "../../../parts/parts.ts";
 import type { Body } from "../../../control/body.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
-import { fitsSoles } from "../../../control/stance/stance-balance.ts";
+import { fitsSoles } from "../../../control/support.ts";
 import { supportFold } from "./support-fold/support-fold.ts";
 import type { LowSupportPart } from "../../framework/low-support.ts";
 

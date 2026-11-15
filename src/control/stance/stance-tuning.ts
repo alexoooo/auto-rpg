@@ -32,6 +32,11 @@ export interface StanceTuning {
   readonly gait?: GaitTuning;
   /** A bearing foot whose ankle would pass its stop rolls onto its front edge; false holds it flat (the control). */
   readonly heelOff?: boolean;
+  /**
+   * Whether a walk starts with the foot whose first landing is the further the walk's way from
+   * where it stands (`startingSide`); false or none, with the one on the side the walk goes.
+   */
+  readonly startsToward?: boolean;
 }
 
 /** The settings of a walk's steps. */
@@ -210,6 +215,7 @@ export interface ResolvedStance {
   readonly track: number;
   readonly soleMargin: number;
   readonly heelOff: boolean;
+  readonly startsToward: boolean;
 }
 
 export function resolveStance(tuning: StanceTuning): ResolvedStance {
@@ -222,5 +228,6 @@ export function resolveStance(tuning: StanceTuning): ResolvedStance {
     track: tuning.track ?? STANCE_TRACK,
     soleMargin: tuning.soleMargin ?? SOLE_MARGIN,
     heelOff: tuning.heelOff ?? true,
+    startsToward: tuning.startsToward ?? false,
   };
 }
