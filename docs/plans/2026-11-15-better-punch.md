@@ -283,7 +283,8 @@ deleted.
   dips at 0.72 to 0.74 m (the turned shoulder too near, the elbow bent 64 to 74 degrees, under a
   kilogram) and 0.78 to 0.82; past 0.88 m none reaches. Read nothing: launching on the shoulder's
   distance or its closing rate (it launches mid-turn), a turn scaled to the range, no lean or a
-  deeper one. Against `drill-guard` 12 of 42 first touches are the guard's hands and forearms;
+  deeper one, a middle mode for targets up to 4 cm past the arm (the drive's own turn and lean,
+  the arm at 0.10 s: 0.74 to 0.78 m fell short, 0.01 to 0.11 hp). Against `drill-guard` 12 of 42 first touches are the guard's hands and forearms;
   touches on a guard are driven through (`ContactTarget.guard`), 9 to 12 blows of 0.5 hp, the strict
   band 7 cm (0.74 to 0.81).
 - **In the bar's bouts the stroke was not better** (read before the trunk went first). At the record's window it fires from 0.82
