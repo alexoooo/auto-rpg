@@ -182,7 +182,16 @@ deleted.
 - **`moving` as it stands**: the installed punch's settings and network with the legs let go.
   On the walk rung it lands 83 of 96 where `drive` lands 70, a median 0.23 s to the mark against
   1.59, the fist 7.1 m/s with 1.4 kg behind it against 4.5. In sparring on three bodies 0.454 of
-  720 land, 0.008 fall, a median 0.38 kg and 4.0 J. It has never been watched or read in a bout.
+  720 land, 0.008 fall, a median 0.38 kg and 4.0 J.
+- **Step 1's bouts, the bar's baseline**: six Warrior bouts with bare fists, `moving` on each
+  side in turn, 515 s
+  (`research/skills/strikes/strike-bouts.mjs --models man --held empty --holds <side>=straight-punch/moving`).
+  The installed punch committed 163, 16 with a foot off the ground, landed 102 (11.9 a minute),
+  a median 0.058 and 0.051 hp a landed blow, none fell. `moving` committed 159, 96 with a foot
+  off the ground, landed 67 (7.8 a minute), a median 0.034 and 0.023 hp, 11 fell within 2 s. The
+  bar is then about 60 landed a minute and a median about 0.11 hp a landed blow. In the match
+  (`npm run match -- option option+straight-punch/moving`) the installed punch's Warrior won 5 of
+  the 6 bare-fisted Warrior bouts.
 - **The installed punch in fights**: over 1,869 kept fight moments it lands 375, misses 752,
   meets the guard 370, never gets into its window 213 and falls 68.
 - **Retraining the installed punch's network read flat** (0.95 of where it began): a run is not
@@ -196,7 +205,7 @@ deleted.
 
 | Step | State |
 | --- | --- |
-| 1. Watch it, one bout | not begun |
+| 1. Watch it, one bout | bout read, gate passed; the owner's look to come |
 | 2. Its own record | not begun |
 | 3. Timing and the walk, before the blow | not begun |
 | 4. The weight check | not begun |

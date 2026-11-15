@@ -5,6 +5,11 @@
  * Node core world, Rapier, 120 Hz, the arena's rulebook; one sequential loop per worker.
  *
  * node research/skills/strikes/strike-bouts.mjs --models man --gaps 3 --held empty --seconds 8 --workers 1
+ *
+ * `--holds left=straight-punch/moving` has that side's body hold the variation in place of its
+ * character's own of the skill (`characterSkills`), one flag a side; each action is then read
+ * apart by side: begun, committed, committed with a foot off the ground, landed, and the damage
+ * its landed blows took (the wounds its effector dealt, a blow's sum).
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -22,7 +27,10 @@ if (isMainThread) {
   const { values } = parseArgs({ options: {
     models: { type: "string" }, gaps: { type: "string", default: "3,4,5" }, held: { type: "string", default: "club" },
     seconds: { type: "string", default: "120" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
+    holds: { type: "string", multiple: true, default: [] },
   } });
+  const holds = Object.fromEntries(values.holds.map(one => one.split("=")));
+  if (Object.keys(holds).some(side => side !== "left" && side !== "right")) throw new Error("--holds is <left|right>=<skill/variation>");
   const { HUMANOID_MODELS } = await import("../../../src/core/bodies/models.ts");
   const models = values.models?.split(",") ?? HUMANOID_MODELS, gaps = values.gaps.split(",").map(Number), seconds = Number(values.seconds);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), helds = values.held.split(",");
@@ -30,8 +38,8 @@ if (isMainThread) {
     || !Number.isFinite(seconds) || seconds <= 0 || !Number.isSafeInteger(lanes) || lanes < 1 || helds.some(held => !["club", "empty"].includes(held)))
     throw new Error("invalid models, gaps, seconds, workers or held selection");
   const jobs = [];
-  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds });
-  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds}`;
+  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds });
+  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.holds)}`;
   const loaded = new Map(values.load ? JSON.parse(await readFile(values.load, "utf8")) : []);
   for (const job of jobs) {
     job.result = loaded.get(key(job));
@@ -73,15 +81,29 @@ if (isMainThread) {
         + `stance recovery ${mine.filter(attempt => attempt.recoveries > 0).length}, down within ${DOWN} s ${mine.filter(attempt => attempt.down).length}; `
         + `correlated effector wound records ${sum(mine.map(attempt => attempt.wounds.length))}`);
     }
+    const minutes = sum(bouts.map(bout => bout.seconds)) / 60;
+    for (const side of ["left", "right"]) {
+      const theirs = sides.filter(one => one.side === side).flatMap(one => one.attempts), names = [...new Set(theirs.map(attempt => attempt.action))].sort();
+      for (const name of names) {
+        const all = theirs.filter(attempt => attempt.action === name), committed = all.filter(attempt => attempt.committed);
+        const landed = committed.filter(attempt => attempt.wounds.length > 0), damage = landed.map(attempt => sum(attempt.wounds.map(wound => wound.damage)));
+        console.log(`  ${side} (${holds[side] ?? "own"}) ${name}: begun ${all.length}, committed ${committed.length}, with a foot off the ground ${committed.filter(attempt => attempt.airborne).length}, `
+          + `landed ${landed.length} (${(landed.length / minutes).toFixed(1)} a minute), damage a landed blow median ${median(damage)?.toFixed(3) ?? "none"}, `
+          + `mean ${damage.length ? (sum(damage) / damage.length).toFixed(3) : "none"}, total ${sum(damage).toFixed(2)}; down within ${DOWN} s ${committed.filter(attempt => attempt.down).length}`);
+      }
+    }
   }
   console.log(`${jobs.length} bouts, ${played.length} played, in ${((Date.now() - started) / 1000).toFixed(1)} s`);
 } else {
   const [{ buildBout }, { BOUT_ENGINE }] = await Promise.all([import("../../../src/app/node/evaluation.ts"), import("../../bout.mjs")]);
   const { SIDES } = await import("../../../src/game/arena/duel.ts");
-  parentPort.on("message", async ({ left, right, gap, held, seconds }) => {
+  const { characterSkills } = await import("../../../src/core/bodies/models.ts");
+  parentPort.on("message", async ({ left, right, gap, held, seconds, holds }) => {
     let dispose;
     try {
-      const recipe = { left, right, gap, capSeconds: seconds, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } } };
+      const skills = Object.fromEntries(Object.entries(holds).map(([side, variation]) => [side, characterSkills(side === "left" ? left : right, [variation])]));
+      const recipe = { left, right, gap, capSeconds: seconds, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } },
+        ...(Object.keys(skills).length ? { skills } : {}) };
       const bout = await buildBout(recipe, { engine: BOUT_ENGINE }); dispose = bout.dispose;
       const { world, duel } = bout, track = Object.fromEntries(SIDES.map(side => [side, {
         side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, attempts: [], sequence: 0,
@@ -106,6 +128,7 @@ if (isMainThread) {
             const attempt = attemptOf(side, action); attempt.contacts = structuredClone(action.contacts);
             if (action.phase === "commit" && attempt.commit === null) {
               attempt.commit = duel.clock; attempt.committed = true; attempt.from = me.body.view.stance.recoveries;
+              attempt.airborne = Object.values(me.body.view.stance.ends).some(end => end.touching === false);
             }
           }
           for (const record of report.ledger) if (record.sequence > t.sequence) {
