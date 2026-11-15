@@ -9,6 +9,10 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { BUILD_IDENTITY_FORM } from "../src/core/world/recording.ts";
 
+/**
+ * Reproduce a single entrant deleting a rival from the shared array while the ownership classifier
+ * still calls the change its own. A match does not check source ownership.
+ */
 test("one entrant cannot remove another through the shared registry line", () => {
   const before = 'import { OPTION } from "../entrants/option/index.ts";\nimport { WALKER } from "../entrants/walker/index.ts";\nexport const ENTRANTS = [OPTION, WALKER];';
   const paths = ["src/entrants/option/index.ts", "src/app/entrants.ts"];
@@ -16,6 +20,11 @@ test("one entrant cannot remove another through the shared registry line", () =>
   assert.equal(changeOf(paths, { before, after: before.replace("[OPTION, WALKER]", "[WALKER]") }).kind, "entrant");
 });
 
+/**
+ * On uncommitted code each process made its own mark, so a worker's recordings carried another
+ * build's identity and were refused. Start a process with no inherited identity and verify its
+ * worker thread and child process read the one it made.
+ */
 test("a build's identity is one for the process, its worker threads and the processes it starts", () => {
   // A process with no identity of its parent's makes one; with a build input not committed, each make differs.
   const module = JSON.stringify(pathToFileURL(fileURLToPath(new URL("../scripts/build-identity.mjs", import.meta.url))).href);
@@ -35,6 +44,10 @@ test("a build's identity is one for the process, its worker threads and the proc
   assert.deepEqual({ thread, child }, { thread: main, child: main });
 });
 
+/**
+ * Reproduce a background environment failure discarded while no request waits; the next trainer
+ * request must receive that failure. Skill outcomes do not establish worker error delivery.
+ */
 test("idle learning-worker errors survive until the next protocol request", async () => {
   const worker = new EventEmitter(); let posted = false; worker.postMessage = () => { posted = true; };
   const server = learningWorker(worker);
@@ -44,6 +57,10 @@ test("idle learning-worker errors survive until the next protocol request", asyn
   assert.equal(posted, false);
 });
 
+/**
+ * Reproduce a rejected posture job leaving its worker message listener alive and preventing child
+ * exit. The check asserts every owned worker is terminated before failure reaches the caller.
+ */
 test("a reported research job failure closes every worker before rejecting", async () => {
   const workers = [];
   await assert.rejects(workerJobs([0, 1], { lanes: 2, create: () => {
@@ -55,6 +72,9 @@ test("a reported research job failure closes every worker before rejecting", asy
 });
 
 
+/**
+ * Closing a pool left queued promises pending and admitted subsequent work.
+ */
 test("closing research workers settles queued work and refuses work after close", async () => {
   const workers = [];
   const pool = workerJobPool({ lanes: 1, create: () => {
@@ -68,6 +88,11 @@ test("closing research workers settles queued work and refuses work after close"
   await assert.rejects(pool.run([2]), /worker pool closed/);
 });
 
+/**
+ * A worker exit after its sibling completes settles the remaining job and terminates both workers.
+ * The fixture requests that exit from the completion callback; skill outcomes do not establish
+ * worker cleanup.
+ */
 test("research worker exit after a completed sibling rejects and closes all workers", async () => {
   const workers = [], completed = [];
   await assert.rejects(workerJobs([0, 1], { lanes: 2, create: () => {

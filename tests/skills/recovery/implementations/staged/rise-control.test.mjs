@@ -9,6 +9,12 @@ import { takesOf } from "../../../../../src/skills/recovery/shared/staged/bearin
 import { servoAsk } from "../../../../../src/control/servo.ts";
 import { Vector3 } from "../../../../../src/core/math/vector.ts";
 
+/**
+ * A compound joint pose with nonzero rates distinguishes joint-angle accelerations from motor-axis
+ * accelerations. Check the coordinate mapping against the servo calculation for ordinary bearing
+ * and weight transfer; standing up eventually does not establish the correctness of this
+ * calculation.
+ */
 test("bearing posture accelerations use the joint turning map, including damping and transfer", async () => {
   const stand = await coreStand(modelSpec("man"), { gravity: false, ground: false, posture: {
     "shoulder.left flexion": .6, "shoulder.left abduction": .8, "shoulder.left internal rotation": .4,

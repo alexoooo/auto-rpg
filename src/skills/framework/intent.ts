@@ -90,7 +90,7 @@ export interface SelectedAsk {
 }
 
 /** Whether `claims` hold the legs, the whole body holding every resource. */
-const claimsLegs = (claims: readonly Resource[]): boolean => hasResource(claims, LEG_RESOURCE) || hasResource(claims, BODY_RESOURCE);
+export const claimsLegs = (claims: readonly Resource[]): boolean => hasResource(claims, LEG_RESOURCE) || hasResource(claims, BODY_RESOURCE);
 
 /**
  * **The intent of a set selected** (`SelectedAsk`, a mind's intent as the options it selected): the

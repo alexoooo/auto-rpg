@@ -5,6 +5,12 @@ import { HUMANOID_MODELS, modelSpec } from '../src/core/bodies/models.ts';
 import { SIT_BACK, stageFaults } from '../src/skills/recovery/shared/staged/stages.ts';
 import { stepUpRecipe, stepUpTuningWith } from '../src/skills/recovery/shared/staged/records.ts';
 
+/**
+ * The Skeleton roll search decoded hip flexion below its anatomical minimum, so candidate trials
+ * threw rather than testing a roll. Check both decoded endpoints through the staged recipe's
+ * admission on each humanoid and each searched recovery; successful drill trials do not cover the
+ * search's range.
+ */
 test('searched recovery angles remain inside the body ranges at both decoded endpoints', () => {
   for (const model of HUMANOID_MODELS) for (const skill of ['roll', 'sit-back']) {
     const search = searchOn(skill, model), spec = modelSpec(model), start = startOf(skill, model);

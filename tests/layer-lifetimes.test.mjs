@@ -5,8 +5,11 @@ import { replyBox } from "../src/app/apart/box.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";
 import { mindThreads } from "../src/app/apart/host.ts";
 import { runLanes } from "../src/evaluation/lanes.ts";
-import { standingFoot, forearmChain, scaling, standingHuman } from "../src/app/browser/physics-bench/cases.ts";
 
+/**
+ * Converting a BigInt counter before taking its offset lost ring positions beyond exact Number
+ * representation.
+ */
 test("reply boxes preserve FIFO beyond exact Number counters", () => {
   const box = replyBox(64), counters = new BigInt64Array(box.buffer, 0, 2);
   counters.fill(2n ** 53n + 1n);
@@ -16,6 +19,9 @@ test("reply boxes preserve FIFO beyond exact Number counters", () => {
   assert.equal(box.take(), null);
 });
 
+/**
+ * A failed stop post prevented disposal of later links.
+ */
 test("mind thread disposal stops every link when its first post throws", () => {
   const failure = new Error("stop post failed"), stopped = [];
   const links = [0, 1].map(index => ({
@@ -28,6 +34,9 @@ test("mind thread disposal stops every link when its first post throws", () => {
   assert.deepEqual(stopped, [0, 1]);
 });
 
+/**
+ * A fatal answer rejected while a sibling still owned its worker.
+ */
 test("a fatal lane answer closes pending siblings before rejection", async () => {
   const failure = new Error("answer failed"), stopped = [], answers = [];
   let made = 0;
@@ -43,6 +52,9 @@ test("a fatal lane answer closes pending siblings before rejection", async () =>
   assert.deepEqual(stopped.sort(), [0, 1]);
 });
 
+/**
+ * Spawn-time loss was discarded and synchronous sends retained timeout state.
+ */
 test("a lane retains loss reported during spawn and clears synchronous post failures", async () => {
   const lost = [], stopped = [];
   await runLanes([0], { lanes: 1, minutes: 1,
@@ -59,23 +71,9 @@ test("a lane retains loss reported during spawn and clears synchronous post fail
   assert.deepEqual(stopped, [0, 1]);
 });
 
-test("every browser physics benchmark disposes after its first prepare fails", () => {
-  const failure = new Error("prepare failed"), acquired = [], disposed = [];
-  const make = scene => {
-    const id = acquired.length; acquired.push(id);
-    return { segments: scene.models.reduce((sum, model) => sum + model.segments.length, 0),
-      prepare() { throw failure; }, dispose() { disposed.push(id); } };
-  };
-  const settings = { hz: 120 };
-  for (const run of [() => standingFoot(make, settings), () => forearmChain(make, settings),
-    () => scaling(make, settings, "standing", 1), () => standingHuman(make, settings)]) {
-    assert.throws(run, error => error === failure);
-  }
-  assert.deepEqual(acquired, [0, 1, 2, 3]);
-  assert.deepEqual(disposed, acquired);
-});
-
-
+/**
+ * A late construction callback and local warm-up abandoned completed hosted minds.
+ */
 test("late Arena callbacks and local Dungeon warming release every hosted mind", async () => {
   await import("./harness/preload-data.mjs");
   const [{ CONTEXT }, { freshEngine }, { createWorld }, { Duel }, { TeamBout }, { createDungeonRun }] = await Promise.all([
@@ -115,6 +113,9 @@ test("late Arena callbacks and local Dungeon warming release every hosted mind",
 });
 
 
+/**
+ * Startup failures after stage creation left its resources live and its request unanswered.
+ */
 test("a worker startup frame failure reports its error and disposes the completed stage", async () => {
   let disposed = 0, listener;
   const posts = [], failure = new Error("initial frame failed");
@@ -137,6 +138,11 @@ test("a worker startup frame failure reports its error and disposes the complete
   } finally { hook.deregister(); delete globalThis.__lifetimeStage; }
 });
 
+/**
+ * Transport suppressed changed gait values. A report's owners now replace a value that changes
+ * (`gaitLimits`), so the thread sends a field by identity: a replaced gait value crosses, and one
+ * said already does not.
+ */
 test("mind threads send a gait value replaced since it was last said", async () => {
   // A report's owners replace a value that changes (`gaitLimits`, `src/skills/framework/arbiter.ts`); the thread sends each field whose value is new.
   let gaits = [{ envelope: null, stopping: 1, lag: 0 }];
@@ -163,6 +169,9 @@ test("mind threads send a gait value replaced since it was last said", async () 
 });
 
 
+/**
+ * Worker time was omitted and zero-step presentation batches were divided into timing figures.
+ */
 test("frame measurement retains worker cost and excludes interpolation-only batches", async () => {
   const previous = { document: globalThis.document, window: globalThis.window };
   const element = () => ({ style: {}, dataset: {}, setAttribute() {}, append() {}, addEventListener() {}, remove() {} });
@@ -191,6 +200,9 @@ test("frame measurement retains worker cost and excludes interpolation-only batc
   } finally { hook.deregister(); globalThis.document = previous.document; globalThis.window = previous.window; }
 });
 
+/**
+ * Valid zero-length capsules reached a renderer that rejected their coincident endpoints.
+ */
 test("the shape renderer draws an admitted capsule with coincident endpoints", async () => {
   const [{ NullEngine }, { Scene }, { Color3 }, { modelSpec }, { puppetBody }, { drawBody }] = await Promise.all([
     import("@babylonjs/core/Engines/nullEngine.js"), import("@babylonjs/core/scene.js"), import("@babylonjs/core/Maths/math.color.js"),

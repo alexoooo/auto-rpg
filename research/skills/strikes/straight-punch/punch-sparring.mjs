@@ -53,7 +53,7 @@
  * `PUNCH_PART.reads`), and the variation a network's file steers and `--commitments` plays.
  *
  * `--holds`, one or more, names variations a search's and a bar's candidate's body holds in place
- * of its character's own of those skills (`stance/footwork`, the balance under the punch). On whole
+ * of its character's own of those skills (`stance-walk/footwork`, the walk under the punch). On whole
  * trials the drive it is read beside holds the character's own; from starts kept, which are then
  * the holding body's own fights, the drive holds them too.
  *

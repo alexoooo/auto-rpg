@@ -7,6 +7,8 @@
  *   headings, slugged as GitHub slugs them (`anchorsOf`). A citation with `@commit` after the path
  *   is read as the path. A link to anything but Markdown checks only that the target exists.
  * - `commentMarks`: no comment in `src/` holds one of `MARKS`.
+ * - `unjustifiedTests`: every test below `tests/` has a comment directly above it, which says what
+ *   failure the test reproduces and why nothing else shows it.
  *
  * Read from the text alone, without a parser, so the whole repository reads in well under a second.
  */
@@ -216,7 +218,35 @@ export function commentMarks(files, read, marks = MARKS) {
   return found;
 }
 
-/** The repository's files, tracked or new, that are on disk: its broken citations and its comments' marks. */
+/** A test file, and a line that begins a test in one. */
+const TEST_FILE = /^tests\/.*\.test\.mjs$/;
+const TEST_CALL = /^\s*test\(\s*(?:(["'`])(.*?)\1)?/;
+
+/**
+ * **The tests of `files` with no comment directly above them**: each a sentence naming the file,
+ * the line and the test. A comment is above a test where it ends on the line before the test
+ * begins. `read` gives a file's text.
+ */
+export function unjustifiedTests(files, read) {
+  const found = [];
+  for (const file of files) {
+    if (!TEST_FILE.test(file)) continue;
+    const code = read(file), ends = new Set(), within = new Set();
+    for (const comment of commentsOf(code)) {
+      const last = comment.line + comment.text.split("\n").length - 1;
+      ends.add(last);
+      for (let line = comment.line + 1; line <= last; line++) within.add(line);
+    }
+    code.split(/\r?\n/).forEach((text, i) => {
+      const call = TEST_CALL.exec(text);
+      if (!call || within.has(i + 1) || ends.has(i)) return;
+      found.push(`${file}:${i + 1} has no comment above it saying what failure it reproduces: ${call[2] ?? "a test"}`);
+    });
+  }
+  return found;
+}
+
+/** The repository's files, tracked or new, that are on disk: its broken citations, its comments' marks and its tests with no comment above. */
 export function repositoryDocuments() {
   const listed = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { cwd: ROOT, encoding: "utf8" });
   const files = listed.split("\n").filter((file) => file && statSync(`${ROOT}/${file}`, { throwIfNoEntry: false })?.isFile());
@@ -225,5 +255,5 @@ export function repositoryDocuments() {
     if (!texts.has(file)) texts.set(file, readFileSync(`${ROOT}/${file}`, "utf8"));
     return texts.get(file);
   };
-  return { citations: brokenCitations(files, read), marks: commentMarks(files, read) };
+  return { citations: brokenCitations(files, read), marks: commentMarks(files, read), tests: unjustifiedTests(files, read) };
 }

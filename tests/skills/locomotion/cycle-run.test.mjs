@@ -10,6 +10,12 @@ import { runCycle } from "../../../src/skills/locomotion/walk-run/walk-run/cycle
 import { WALK_RUN_CYCLE } from "../../../src/skills/locomotion/walk-run/walk-run/walk-run.ts";
 import { legOf } from "../../../src/skills/locomotion/shared/leg.ts";
 
+/**
+ * Cadence advances the reference faster or slower while its feed-forward velocity can retain the
+ * unscaled rate. Two servo times separate that velocity from pose feedback on a real body, then
+ * compare it with the reference's finite difference. A locomotion drill can hide the missing
+ * factor through pose feedback.
+ */
 test("run cadence scales clip feedforward with the reference phase", async () => {
   const spec = modelSpec("man");
   const stand = await coreStand(spec, { gravity: false, ground: false, posture: guardPosture(spec), engine: "rapier-coordinate" });

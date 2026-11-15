@@ -59,6 +59,8 @@ function gaitFaults(config: MoveConfig): readonly string[] {
 const VARIATIONS = {
   move(body: Body, config: MoveConfig, legs: Legs): Locomotion {
     const walked = gaitsOf(config).filter(gait => legs.parts.of("gait", gait.legs).fits(body.built.spec, gait.legs, legs.parts) === null), names = walked.map((gait) => gait.name), built = new Map<string, Locomotion>();
+    // Made where nothing asked its fit first (a lab's legs of one gait alone): the refusal its fit gives, not a walk with no gait.
+    if (walked.length === 0) throw new Error(`${body.built.spec.model} has no enabled gait to move by`);
     const gaits = walked.map((gait): MoveGait => {
       const of: PartConfig = gait.legs, key = JSON.stringify(of);
       if (!built.has(key)) built.set(key, legs.make(body, of));
@@ -77,7 +79,8 @@ export const MOVE_PART = deepFreeze<LocomotionPart<MoveConfig>>({
   role: "locomotion", label: "Move", stage: "game", defaults: GOING, keys: { kind: true, variation: true, gaits: true, rules: true, otherwise: true },
   fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
   slots: [slotList("rules", "When", "move-rule")],
-  children: config => Array.isArray(config.gaits) ? config.gaits.map((gait, i) => ({ path: ["gaits", i, "legs"], role: "gait", config: gait?.legs })) : [],
+  // A gait of its own list the body does not fit is passed over, as a stock one is: it walks by those that fit (`fits`).
+  children: config => Array.isArray(config.gaits) ? config.gaits.map((gait, i) => ({ path: ["gaits", i, "legs"], role: "gait", config: gait?.legs, picked: true as const })) : [],
   // The stock gaits' legs, where it names no gaits of its own.
   supplies: config => config.gaits == null ? STOCK_GAITS.map((gait) => ({ role: "gait" as const, config: gait.legs })) : [],
   fits: (spec, config, parts) => {

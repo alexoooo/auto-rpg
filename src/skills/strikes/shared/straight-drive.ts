@@ -4,7 +4,7 @@ import { supportHeight } from "../../../control/support-reference.ts";
 import { Vector3 } from "../../../core/math/vector.ts";
 import type { Body, BodyView } from "../../../control/body.ts";
 import { bodyEffectors, copyFreedoms, type Freedom } from "../../../control/effectors.ts";
-import { intoFrameToRef, pointAtToRef, reachWork, solveReach } from "../../../control/kinematics.ts";
+import { chainTo, intoFrameToRef, pointAtToRef, reachWork, solveReach } from "../../../control/kinematics.ts";
 import type { MusclePush } from "../../../control/motor.ts";
 import type { Pose } from "../../../core/bodies/spec/pose.ts";
 import { atan2, cos, hypot, sin } from "../../../core/math/real.ts";
@@ -185,6 +185,16 @@ export interface StraightDriveOptions {
    * it, `posture` being what preparation asks of it (the chamber or the guard); always where absent.
    */
   readonly ready?: (view: BodyView, hand: Side, posture: Pose) => boolean;
+  /**
+   * Whether it leaves the legs to whatever walks them: it needs and holds its hand and the trunk
+   * and no legs, gives the legs no goal (no stand, halt or height, no turn of the hips and no
+   * shift of the weight, whatever its steer asks of the stance), and begins its drive `settle` s
+   * after it starts, whatever the stance does under it; of the guard it returns to and of its
+   * schedule's pushes (`StraightDrive.timed`) it asks its own arm's and the trunk's channels,
+   * and none of a limb the body bears on (`BodySpec.ends`): a schedule's drive of the hips, the
+   * knees and the ankles is not thrown. Absent, it has the legs and stands on them.
+   */
+  readonly leavesLegs?: true;
 }
 
 /**
@@ -423,20 +433,22 @@ function driveReadiness(view: BodyView, technique: ReturnType<typeof straightTec
  * **A straight drive's executor**, the straight punch's and the sword thrust's: an instance owns
  * settling, its committed drive and its bounded guard return. Its skill gives it what it is
  * called, its steer's layout and the network that steers it, the faces its hands strike with,
- * and when its arm may begin the drive (`StraightDriveOptions`). With a held face, from its chamber
+ * when its arm may begin the drive, and whether it has the legs or leaves them to a walk
+ * (`StraightDriveOptions`). With a held face, from its chamber
  * through its drive, the wrist turns the face onto the line from it to the target, facing first
  * (`faceAligner`), and the schedule's and the solve's pushes leave the wrist to it.
  */
 export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly string[], settings: StraightDrive,
   resolve: TargetResolver, options: StraightDriveOptions): Executor {
-  const { label, faces, requireArmAim = false, policy, ready } = options;
+  const { label, faces, requireArmAim = false, policy, ready, leavesLegs = false } = options;
   if (!validStraightDrive(settings)) throw new Error(`invalid ${label} settings`);
   const technique = straightTechnique(body, guard, settings, options, { trained: policy !== undefined }), motion = technique.state;
   technique.read(body.view);
   const ahead = bodyAhead(body.built.spec);
   const alignerOf = (hand: Side) => faces?.[hand] ? faceAligner(body.built.spec, hand, faces[hand]!) : null;
   const aligners = { left: alignerOf("left"), right: alignerOf("right") }, aimed = new Vector3(), toward = new Float64Array(3);
-  const sides = { left: [segmentResource("hand.left"), TRUNK_RESOURCE, LEG_RESOURCE], right: [segmentResource("hand.right"), TRUNK_RESOURCE, LEG_RESOURCE] } as const;
+  const held = (hand: Side) => leavesLegs ? [segmentResource(`hand.${hand}`), TRUNK_RESOURCE] : [segmentResource(`hand.${hand}`), TRUNK_RESOURCE, LEG_RESOURCE];
+  const sides = { left: held("left"), right: held("right") } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
     if (effector === "hand.right") return "right";
@@ -448,8 +460,14 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
   const release = (ending: ActionEnding) => {
     const live = state.live!; live.phase = "release"; live.stage = "return"; live.time = 0; live.ending = ending; technique.enter("return");
   };
+  /** The channels of the limbs the body bears on, the striking hand's own arm apart: each end's chain from the joint it begins at. */
+  const borneOf = (hand: Side): ReadonlySet<string> => new Set((body.built.spec.ends ?? []).filter((end) => end.segment !== `hand.${hand}`).flatMap((end) => {
+    const chain = chainTo(body.built, body.built.segments.get(end.segment)!), from = "from" in end ? chain.findIndex((joint) => joint.spec.name === end.from) : 0;
+    return chain.slice(Math.max(0, from)).flatMap((joint) => joint.dofs.map((_dof, k) => channelName(joint, k)));
+  }));
+  const borne = leavesLegs ? { left: borneOf("left"), right: borneOf("right") } : null;
   const sparse = (posture: Pose, hand: Side): Pose => Object.fromEntries(Object.entries(posture)
-    .filter(([channel]) => !channel.includes(`.${otherSide(hand)} `)));
+    .filter(([channel]) => !channel.includes(`.${otherSide(hand)} `) && !borne?.[hand].has(channel)));
   return {
     state,
     needs(_action, effector) { return sides[sideOf(effector)]; },
@@ -491,7 +509,7 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
       live.time += dt;
       if (live.phase === "prepare") {
         live.stage = "settle";
-        const quiet = quietToStrike(view);
+        const quiet = leavesLegs || quietToStrike(view);
         live.quiet = quiet ? live.quiet + dt : 0;
         if (live.time >= PREPARE_LIMIT) release({ kind: "stalled", reason: "settling deadline" });
         else if (quiet && live.quiet >= settings.settle && (!ready || ready(view, live.hand, technique.chamber(view, live.hand) ?? guard))) {
@@ -525,15 +543,19 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
         for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
         aligner.ask(view, toward, posture as Record<string, number>, pushes);
       }
+      const hand = faces?.[live.hand] ? handConfiguration(body.built.spec, `hand.${live.hand}`, "grip")
+        : closesToStrike(body.built.spec, live.hand) ? handConfiguration(body.built.spec, `hand.${live.hand}`, "fist") : null;
+      if (borne) for (let k = pushes.length - 1; k >= 0; k--) if (borne[live.hand].has(pushes[k]!.channel)) pushes.splice(k, 1);
+      const arm = { posture: sparse(posture, live.hand), pushes, ...(hand ? { configurations: { [`hand.${live.hand}`]: hand } } : {}) };
+      // The legs left to whatever walks them: the arm and the trunk, and no goal of the legs.
+      if (leavesLegs) return arm;
       const sense = technique.sense[live.hand], shift: [number, number] = [0, 0];
       const turn = live.phase === "commit" ? stanceAsks(technique.steeredChannels[live.hand], motion.learner.outputs, motion.face, sense, shift) : 0;
       // The hips turned from the legs' heading, and the weight moved from the middle of the soles the stance stands on.
       const steer = live.phase === "commit" ? sense * settings.hips + turn : 0, support = view.stance.support;
       // A walk under way kept where the steer keeps it (`keepsWalk`), else stood, and halted where the steer or `halts` says.
       const keeps = live.phase === "commit" ? keepsWalk(technique.steeredChannels[live.hand], motion.learner.outputs) : null;
-      const hand = faces?.[live.hand] ? handConfiguration(body.built.spec, `hand.${live.hand}`, "grip")
-        : closesToStrike(body.built.spec, live.hand) ? handConfiguration(body.built.spec, `hand.${live.hand}`, "fist") : null;
-      return { posture: sparse(posture, live.hand), pushes, ...(hand ? { configurations: { [`hand.${live.hand}`]: hand } } : {}),
+      return { ...arm,
         legs: { ...(keeps ? {} : { walk: null }), face: motion.face, ...((keeps === null ? settings.halts : !keeps) ? { halt: true } : {}), height: supportHeight(view) - live.lower,
           ...(steer ? { heading: around.heading + steer } : {}),
           ...(shift[0] === 0 && shift[1] === 0 ? {} : { centre: [support.x + shift[0], support.z + shift[1]] as const }) } };

@@ -2,14 +2,16 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { surface } from "./contact.mjs";
 
 /**
- * What the checks read off a human model's skin (`docs/art/characters.md#what-the-checks-read`). A length along
- * the hand is in metres on the hand the grips are authored on, whose middle knuckle is `hand` from its wrist;
- * another model's hand scales it. A place along the forearm is a share of it, 0 at the elbow and 1 at the wrist.
+ * What the checks read off a human model's skin. A length along
+ * the hand is in metres on the hand the grips are authored on, the man's, whose middle knuckle is `hand` from its
+ * wrist (the woman's is 0.09919 m); another model's hand scales it, as the generator scales the grips (`handScale`,
+ * `scripts/character-lab/realistic/motion.py`). A place along the forearm is a share of it, 0 at the elbow and 1 at the wrist.
  */
 const SKIN = Object.freeze({
   hand: .1209,
   /** The palm's pad: bound to the hand by more than `weight`, between `from` and `to` along the hand, and facing
-   * the palm's way by more than the cosine `facing`. */
+   * the palm's way by more than the cosine `facing`. A grip's line crosses the palm 0.095 m from the wrist, at a
+   * radius of 0.018 m (`point(s, x, .095, .046)`, `motion.py`). */
   palm: Object.freeze({ weight: .6, from: .055, to: .115, facing: .25 }),
   /** A digit's pad: bound to its two outer bones by more than `weight`, and facing the palm's way by more than the
    * cosine `facing`. */

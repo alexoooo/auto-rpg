@@ -53,10 +53,31 @@ const VARIATIONS = {
 
 /**
  * **The stomp** (`stompExecutor`): a stroke of either foot down from a high chamber on a body lying
- * ahead, its settings its body's record (`assets/skills/strikes/stomp/stomp.json`, `dataOf("stomp/stomp")`; the Warrior's,
- * [stomp settings](../../../../docs/reference/front-kicks.md#stomp-settings)): a body with none
+ * ahead, its settings its body's record (`assets/skills/strikes/stomp/stomp.json`, `dataOf("stomp/stomp")`): a body with none
  * does not throw it. A research `tuning` sets settings over the record's, all of them where the
  * body has none.
+ *
+ * Where the Warrior's and the Rogue's records differ from `STOMP_PATH`, each is set for a blow down
+ * on a body lying ahead, the stroke and window searched on the Strike drill's `stomping` rung
+ * (`research/skills/skill-search.mjs`, each row's `made`), the Rogue's `across` and `returnNear`
+ * the Warrior's scaled by its stature:
+ * - `over` 1 or near it: the chamber over the target, so the stroke comes down on it.
+ * - `windup` and `soleTurn` 0: a stroke straight down, the sole level with the pelvis; a turned
+ *   sole meets the trunk with its toes.
+ * - `lift` higher: a long stroke down, short of where the chamber leaves the hip's reach.
+ * - `top` 0.4: the height band low over the sole, a lying body's trunk and never a standing one's.
+ * - `alongNear` and `alongFar` further ahead: places where both feet stand clear of a lying
+ *   body's splayed limbs.
+ * - `contactSpeed` 8 to 10 m/s, `swingSeconds` and `chamberSeconds` under 0.3 s: a fast stroke
+ *   down.
+ * - `brace` over 0: braced before contact, more mass is behind the foot.
+ * - `returnNear` wider: the leg comes to rest short of the chamber after a blow, and a nearer
+ *   mark stalls the return.
+ *
+ * So set, the Warrior's blows at a lying Warrior carry 15 to 52 J on that rung (Node, core world,
+ * `rapier-coordinate`, 120 Hz, each command a step late). Braced at contact alone and with a
+ * slower stroke (`brace` 0, `contactSpeed` 7 m/s, `swingSeconds` 0.25 s, `chamberSeconds` 0.6 s,
+ * `lift` 0.7 m, `over` 1), they carry 9.7 to 26.6 J.
  */
 export const STOMP_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Stomp", stage: "experimental", defaults: { kind: "stomp" },

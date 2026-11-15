@@ -8,6 +8,11 @@ import { guardPosture } from "../../src/skills/guard/shared/guard.ts";
 import { readTravel } from "../../src/evaluation/travel/read.ts";
 import { TRAVEL, travelScript } from "../../src/evaluation/travel/protocol.ts";
 
+/**
+ * The travel reader misses physical toe-only support, losing entry, first-leg coverage and quiet
+ * standing. Replay the observed contact topology through the whole reading and exclude detached
+ * toes; a gait drill cannot isolate reader arithmetic from controller behaviour.
+ */
 test("travel reads attached toe support for entry, stepping and quiet standing", async () => {
   const spec = passiveToeBody(modelSpec("man"));
   const stand = await coreStand(spec, { gravity: false, ground: false, posture: guardPosture(spec), engine: "rapier-coordinate" });

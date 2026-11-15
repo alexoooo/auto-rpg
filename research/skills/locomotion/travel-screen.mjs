@@ -1,5 +1,5 @@
 /**
- * **The run's checkpoints screened on its drill** ([the training recipe](../../../docs/recipes/training.md#choosing-a-checkpoint)):
+ * **The run's checkpoints screened on its drill** ([the skill recipe](../../../docs/recipes/skill.md#choosing-a-checkpoint)):
  * each candidate of a manifest, a walk and run record's settings with a checkpoint's travel actor
  * in them, played as the run gait's research tuning (`move-drill.mjs`) on the training twin of the
  * body's run row at the game's rate, 120 Hz, the cell's own subject (`option-drill`), and ranked

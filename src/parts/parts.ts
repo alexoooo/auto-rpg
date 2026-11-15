@@ -80,8 +80,12 @@ export interface Part<C extends PartConfig = PartConfig> extends Edited<C> {
 
   // The parts its config holds (`heldBy`).
   readonly slots: readonly Slot[];
-  /** Configured parts outside its slots, each with its role and where it is in the config. */
-  children?(config: C): readonly { readonly path: readonly (string | number)[]; readonly role: Role; readonly config: unknown }[];
+  /**
+   * Configured parts outside its slots, each with its role and where it is in the config. One it
+   * picks among by the body (`picked`) is passed over on a body it does not fit, as a skill in an
+   * optional slot is (`Slot.skills`), and is its part's to answer for (`fits`).
+   */
+  children?(config: C): readonly { readonly path: readonly (string | number)[]; readonly role: Role; readonly config: unknown; readonly picked?: true }[];
   /**
    * The parts it runs that `config` does not say (`Supplied`): what an empty slot runs, a default
    * where the config names none, and each part it picks among by the body. This is the one place

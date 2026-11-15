@@ -29,6 +29,10 @@ import { referenceChamber } from "../src/game/dungeon/reference.ts";
 import { dungeonSolids } from "../src/game/dungeon/solids.ts";
 import { clearSegment } from "../src/game/dungeon/map.ts";
 
+/**
+ * Same-topology worlds accepted incompatible snapshots, contradicting their public gravity and
+ * configured rate; compare the complete destination snapshot after refusal.
+ */
 test("physics refuses different gravity and rate before changing the destination", async () => {
   const engine = await freshEngine();
   const make = (hz, gravity) => {
@@ -55,6 +59,10 @@ const hull = (centre, turn = Quaternion.Identity()) => ({ kind: "hull", points: 
   return q([point.x, point.y, point.z]);
 }))) });
 
+/**
+ * Face distances rejected a clear capsule at a hull corner, and face normals missed separated
+ * rotated hull edges; retain intersecting controls beside the observed fixtures.
+ */
 test("convex clearance separates rounded corners and edge-cross-edge hulls", () => {
   const cube = { kind: "hull", points: [-1, 1].flatMap(x => [-1, 1].flatMap(y => [-1, 1].map(z => q([x, y, z])))) };
   const spec = (a, b) => ({ joints: [], segments: [{ name: "a", shape: a }, { name: "b", shape: b }] });
@@ -69,6 +77,10 @@ test("convex clearance separates rounded corners and edge-cross-edge hulls", () 
   assert.deepEqual(bodyIntersections(spec(hull([0, 0, 0]), hull([0, 0, 0], turn))), ["a intersects b"]);
 });
 
+/**
+ * A two-axis frame accepted diagonal second axes because each axis was checked only against its
+ * own copy.
+ */
 test("two-freedom joints refuse nonorthogonal axes", () => {
   const original = modelSpec("man").joints.find(joint => joint.dofs.length === 2);
   assert.ok(original, "the fixture needs a joint with exactly two freedoms");
@@ -77,6 +89,9 @@ test("two-freedom joints refuse nonorthogonal axes", () => {
   assert.equal(jointKinematics(original).dofs.length, 2);
 });
 
+/**
+ * Cached equipment and the canonical up vector permitted mutation shared by subsequent callers.
+ */
 test("completed equipment and canonical up cannot contaminate shared constants", () => {
   const loadout = { left: "empty", right: "sword" }, spec = modelHolding("man", loadout);
   assert.ok(Object.isFrozen(spec) && Object.isFrozen(spec.held) && Object.isFrozen(spec.held[0].item));
@@ -86,6 +101,9 @@ test("completed equipment and canonical up cannot contaminate shared constants",
   assert.deepEqual([Vector3.UpReadOnly.x, Vector3.UpReadOnly.y, Vector3.UpReadOnly.z], [0, 1, 0]);
 });
 
+/**
+ * A second allocation failure left the first rigid body without a returned owner.
+ */
 test("failed body construction removes every completed segment", async () => {
   const world = createWorld(await freshEngine());
   const add = world.physics.addBody.bind(world.physics), remove = world.physics.removeBody.bind(world.physics);
@@ -99,6 +117,10 @@ test("failed body construction removes every completed segment", async () => {
   } finally { world.dispose(); }
 });
 
+/**
+ * Inherited object keys prevented valid body identifiers from entering the senses; restore and
+ * compare their complete saved frames.
+ */
 test("senses admit opaque prototype names and restore their complete frames", async () => {
   const stand = await coreStand(modelSpec("man")), hub = createSenses(stand.world);
   try {
@@ -113,6 +135,10 @@ test("senses admit opaque prototype names and restore their complete frames", as
   } finally { hub.dispose(); stand.dispose(); }
 });
 
+/**
+ * Fit accepted an absent declared endpoint and refused a valid renamed one; rectangular patches
+ * also require their constructor's box shape.
+ */
 test("paw admission consumes its declared support point and patch", () => {
   const stock = modelSpec("reptile");
   const spec = structuredClone(stock), paw = spec.ends.find(end => end.kind === "paw");
@@ -126,6 +152,10 @@ test("paw admission consumes its declared support point and patch", () => {
   assert.match(fitsPaws(spec), /rectangular support sole needs a box/);
 });
 
+/**
+ * Command equality dropped consumed response, firm, unbend, origin and drift fields before the
+ * real motor received them.
+ */
 test("command layers deliver changed tracking, bracing and moving-frame goals", async () => {
   const stand = await coreStand(modelSpec("man")), received = [], stock = stockMotor();
   const motor = { ...stock, make(...args) {
@@ -145,6 +175,9 @@ test("command layers deliver changed tracking, bracing and moving-frame goals", 
   } finally { embodied.dispose(); stand.dispose(); }
 });
 
+/**
+ * Aliased remembered orders hid a provider's pace change and delayed the next decision.
+ */
 test("pacing detects changed orders from a provider reusing its object", () => {
   let driver, decisions = 0;
   const view = { time: 0, resumed: false }, orders = { face: null, pace: 1 };
@@ -157,6 +190,9 @@ test("pacing detects changed orders from a provider reusing its object", () => {
   assert.equal(decisions, 2);
 });
 
+/**
+ * Valid zero pace hung the pressure loop; tiny positive pace made its work unbounded.
+ */
 test("walk pricing refuses zero pace and bounds tiny-pace pressure sampling", () => {
   let samples = 0;
   const spec = modelSpec("man"), gait = { name: "walk" };
@@ -173,6 +209,10 @@ test("walk pricing refuses zero pace and bounds tiny-pace pressure sampling", ()
   assert.ok(samples < 100, `a walk at a tiny pace sampled the focus ${samples} times`);
 });
 
+/**
+ * A fixed world height made an elevated fallen body disappear from navigation at its supporting
+ * level.
+ */
 test("fallen footprints retain observed elevation through navigation memory", () => {
   const spec = modelSpec("man"), segment = spec.segments[0];
   const other = { id: "fallen", down: true, out: false, spec, centre: new Vector3(0, 2.2, 0),
@@ -183,6 +223,11 @@ test("fallen footprints retain observed elevation through navigation memory", ()
 });
 
 
+/**
+ * Reproduce a dragged destination clearing the navigation report during an unavailable movement
+ * step. Check the updated route around a wall and suppressed movement together; skill drills do
+ * not check paths reported between movement steps.
+ */
 test("a changed destination retains a planned route while locomotion is unavailable", () => {
   const navigation = VISIBILITY_NAVIGATION.make(modelSpec("man"), VISIBILITY_NAVIGATION.defaults),
     solids = [{ name: "wall", kind: "box", centre: [0, 1, 3], size: [2, 2, 2] }],
@@ -207,6 +252,11 @@ test("a changed destination retains a planned route while locomotion is unavaila
 });
 
 
+/**
+ * Rootbound's sarcophagus separated bodies already within melee range, but delivery dropped the
+ * approach and navigation reported arrival. Check that the order remains active and its route
+ * reaches an unobstructed attack spot; open-ground skill drills do not exercise this handoff.
+ */
 test("a combat approach stays routed until the target is unobstructed", () => {
   const map = referenceChamber(), solids = dungeonSolids(map).sensedSolids;
   const from = { x: 12.8, z: 5.65 }, target = { id: "hero", at: { x: 12.8, z: 7.44 } };
@@ -233,6 +283,11 @@ test("a combat approach stays routed until the target is unobstructed", () => {
   assert.deepEqual(releaseCombatApproach(orders, route.at(-1), target, ground), { foe: target.id, face: null });
 });
 
+/**
+ * A punch-position trace retained an unreachable route after its requested spot changed. Reproduce
+ * a spot moving from a wall's clearance into open ground without moving the walker; a
+ * successful-route tracking check cannot expose a cached failure.
+ */
 test("a moved destination retries an unreachable route within the tracking distance", () => {
   const navigation = VISIBILITY_NAVIGATION.make(modelSpec("man"), VISIBILITY_NAVIGATION.defaults);
   const solids = [{ name: "wall", kind: "box", centre: [0, 1, 3], size: [2, 2, 2] }];
@@ -248,6 +303,11 @@ test("a moved destination retries an unreachable route within the tracking dista
   assert.ok(step.move, "the changed reachable destination must receive a walk");
 });
 
+/**
+ * Updating the facing before converting the moving-frame velocity rotated a fixed world order.
+ * Compare the complete stance command during the observed simultaneous walk and turn; movement
+ * drills hide the small per-step rotation.
+ */
 test("walking preserves requested world velocity while facing turns", () => {
   const legs = locomotion({ "foot.left": "left", "foot.right": "right" }, null, {
     turnLimit: 1, segments: { left: "foot.left", right: "foot.right" },
@@ -263,6 +323,11 @@ test("walking preserves requested world velocity while facing turns", () => {
     height: 1, heading: dt, walk: [0, 1] } });
 });
 
+/**
+ * A short backing correction faced its route and stopped facing away; preserving explicit facing
+ * for an entire trip also prevented the forward-only run from running to a distant place. Punch
+ * drills cover the short correction but never the long trip's route-facing policy.
+ */
 test("ordered facing keeps route facing on a long trip and takes over before stopping", () => {
   const sight = { report: { legs: { heading: 0 } } }, face = { x: 0, z: 1 };
   for (const move of [{ kind: "place", points: [{ x: 0, z: -10 }], near: .04 },

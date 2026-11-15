@@ -13,6 +13,7 @@ import { handConfigurationRefusal, holdsNothing } from "../../reach/hand.ts";
 import { DRIVE_BODIES, type PunchRecordKey } from "./data/records.ts";
 import { makersOf, variationFault, variationMaker, variationReads, variationRecordFault, type ExecutorVariations, type RecordedVariation, type Varied, type Variations } from "../../framework/variations.ts";
 import { fromGuard } from "./from-guard/from-guard.ts";
+import { MOVING } from "./moving/moving.ts";
 
 /** How the straight punch's steer reads and pushes: its networks' inputs and outputs (`assets/skills/strikes/straight-punch/drive.layout.json`). */
 export const PUNCH_LAYOUT: SteerLayout = deepFreeze(checkedLayout(layoutFile as SteerLayout));
@@ -33,31 +34,40 @@ interface Config extends Varied {
 }
 
 /**
- * A straight punch on `making`'s body: the straight drive with its fist, as the body's record of
- * `key` has it (its variation's, `dataOf`), its drive begun when `ready` says where given.
+ * How a variation throws the punch its record has: when its drive may begin (`ready`), the settings
+ * it sets over the record's (`over`), and whether it leaves the legs to a walk (`leavesLegs`).
  */
-function punch(key: PunchRecordKey, { body, guard, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[], ready?: StraightDriveOptions["ready"]) {
-  const record = dataOf(key)[body.built.spec.model], settings = { ...record?.settings, ...config.tuning } as StraightDrive;
+type How = Pick<StraightDriveOptions, "ready" | "leavesLegs"> & { readonly over?: Partial<StraightDrive> };
+
+/**
+ * A straight punch on `making`'s body: the straight drive with its fist, as the body's record of
+ * `key` has it (its variation's, `dataOf`), thrown as `how` says (`How`).
+ */
+function punch(key: PunchRecordKey, { body, guard, aim }: ExecutorMaking, config: Config, actions: readonly ActionConfig[], how: How = {}) {
+  const record = dataOf(key)[body.built.spec.model], settings = { ...record?.settings, ...how.over, ...config.tuning } as StraightDrive;
   const network = config.tuning === undefined || config.keepsNetwork ? record?.network : null;
   return straightDriveExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim),
-    { label: "straight punch", layout: PUNCH_LAYOUT, ...(network ? { policy: recoveryNetwork(network) } : {}), ...(ready ? { ready } : {}) });
+    { label: "straight punch", layout: PUNCH_LAYOUT, ...(network ? { policy: recoveryNetwork(network) } : {}), ...(how.ready ? { ready: how.ready } : {}),
+      ...(how.leavesLegs ? { leavesLegs: true as const } : {}) });
 }
 
 /**
  * A variation of the straight punch: the punch as the record of `key` has it on each of `bodies`
- * (`Recorded`), its drive begun when `ready` says of its body where given.
+ * (`Recorded`), thrown as `how` says of its body where given (`How`).
  */
-const variation = (key: PunchRecordKey, bodies: readonly string[], ready?: (body: ExecutorMaking["body"]) => StraightDriveOptions["ready"]): RecordedVariation<ExecutorVariations<Config>[string]> =>
-  ({ reads: [key], bodies, make: (making, config, actions) => punch(key, making, config, actions, ready?.(making.body)) });
+const variation = (key: PunchRecordKey, bodies: readonly string[], how?: (body: ExecutorMaking["body"]) => How): RecordedVariation<ExecutorVariations<Config>[string]> =>
+  ({ reads: [key], bodies, make: (making, config, actions) => punch(key, making, config, actions, how?.(making.body)) });
 
 /**
- * The straight punch's variations: the drive, begun once the stance is quiet and settled; and
- * from its guard (`from-guard/`), begun only once the striking arm is also at its guard and still,
- * which names the drive's record and so shares it.
+ * The straight punch's variations: the drive, begun once the stance is quiet and settled; from its
+ * guard (`from-guard/`), begun only once the striking arm is also at its guard and still; and on
+ * the move (`moving/`), thrown by the arm and the trunk on legs it leaves to a walk. Each names the
+ * drive's record and so shares it.
  */
 const VARIATIONS: Variations<RecordedVariation<ExecutorVariations<Config>[string]>> = {
   drive: variation("straight-punch/drive", DRIVE_BODIES),
-  "from-guard": variation("straight-punch/drive", DRIVE_BODIES, fromGuard),
+  "from-guard": variation("straight-punch/drive", DRIVE_BODIES, (body) => ({ ready: fromGuard(body) })),
+  moving: variation("straight-punch/drive", DRIVE_BODIES, () => ({ over: MOVING, leavesLegs: true })),
 };
 
 /** A straight punch owns its body fit; its settings are its body's record of its variation, its variation its character's. */

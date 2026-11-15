@@ -17,12 +17,14 @@ export interface Gait {
 
 /**
  * **The stock gaits**, by name: the game's controllers and their searched settings, none of them a
- * person's to tune. Braced is the stance's walk (`StanceWalkConfig`), the fighting step; the run
- * is the walk and run (`WalkRunConfig`) by its body's record. Move changes between them on the
- * move (`move`).
+ * person's to tune. Braced is the stance's walk (`StanceWalkConfig`), the fighting step; the
+ * footwork is that walk's other variation, started with the other foot; the run is the walk and
+ * run (`WalkRunConfig`) by its body's record. A body walks by those whose variation its character
+ * holds, and Move changes between them on the move (`move`).
  */
 const GAITS: Readonly<Record<string, { readonly label: string; readonly legs: ConfigFor<"gait"> }>> = deepFreeze({
-  "braced": { label: "Braced", legs: { kind: "stance-walk" } },
+  "braced": { label: "Braced", legs: { kind: "stance-walk", variation: "stance-walk" } },
+  "footwork": { label: "Footwork", legs: { kind: "stance-walk", variation: "footwork" } },
   "run": { label: "Run", legs: { kind: "walk-run" } },
 });
 

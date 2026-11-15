@@ -29,6 +29,13 @@ import { PAW_MOVE } from "../../src/skills/locomotion/paw-move/index.ts";
 /** The command's delay a world is made with to show it: more than one step, so its ring is read through. */
 const SHOWN_DELAY = 2;
 
+/**
+ * Detect body-declared actuators omitted by bilateral hand discovery and pose encoding; check
+ * muscle activation, assist force and segment configuration requests at exact queue positions;
+ * check that suspension discards old commands and saving restores in-flight values. A body can
+ * meet a skill's outcome with an early, late or stale command, so a drill cannot establish this
+ * timing contract.
+ */
 test("a body's command is applied the world's delay after it is sent, none before, none again after its level leaves full, and across a save and load", async () => {
   // A body-declared actuator away from a bilateral hand name, with its own configuration names.
   const stock = modelSpec("man");
@@ -92,6 +99,12 @@ test("a body's command is applied the world's delay after it is sent, none befor
   embodied.dispose(); world.dispose();
 });
 
+/**
+ * Detect extra or reordered force resets after loading into a fresh world, which alter Rapier's
+ * saved modification flags despite matching body poses. Compare whole saved worlds across steps
+ * with a nonzero force, an explicit zero ask and an untouched body; a skill drill does not
+ * establish exact saved continuation.
+ */
 test("a fresh physics fork resets exactly the forces pending at its save", async () => {
   const engine = await freshEngine();
   const make = () => {
@@ -118,6 +131,11 @@ test("a fresh physics fork resets exactly the forces pending at its save", async
   } finally { original.world.dispose(); fork.world.dispose(); }
 });
 
+/**
+ * Detect decider and skill memory saved only through a separate controller result. Load the
+ * published Mind state into a fresh commanded mind and verify its decider continues from the saved
+ * count; a whole-bout fork can hide the omission by saving a second memory root.
+ */
 test("a commanded Mind restores its driver's memory from its own state", async () => {
   const make = async () => {
     const stand = await coreStand(modelSpec("man"));
@@ -142,6 +160,11 @@ test("a commanded Mind restores its driver's memory from its own state", async (
   } finally { original.dispose(); fork.dispose(); }
 });
 
+/**
+ * Detect replay admission rejecting valid configured gait names, including paw gaits and an
+ * entrant-defined name, while stock gaits survive. Capability drills give live orders directly and
+ * do not establish that saved orders pass the external recording validator.
+ */
 test("recorded orders accept configured gait names across JSON transport", () => {
   const stock = MOVE_PART.gaits(MOVE_PART.defaults);
   assert.ok(stock.length > 0, "the fixture needs a registered gait for its custom name");
@@ -155,6 +178,12 @@ test("recorded orders accept configured gait names across JSON transport", () =>
 });
 
 
+/**
+ * Reproduce the answered report kept outside the saved graph, and profile engagement details kept
+ * in unsaved situation closures. Compare the complete published report immediately after loading
+ * into a fresh same-recipe bout, before another decision can hide the stale data; physics-only
+ * replay diagnostics miss this observable failure.
+ */
 test("a fresh bout load restores the whole published Mind report before another decision", async () => {
   const recipe = { ...recipeOf("?matchup=man,man&control=option,option&left.loadout=empty,empty&right.loadout=empty,empty", { left: {}, right: {} }, "open"),
     commanders: { left: { kind: "drill", after: 0 } } };
@@ -170,6 +199,14 @@ test("a fresh bout load restores the whole published Mind report before another 
   } finally { original.dispose(); fork.dispose(); }
 });
 
+/**
+ * Reproduce a save refused by every build but the one that made it, which kept no bout's start
+ * across a commit. Load one bout's save under another build's name into fresh bouts of its recipe:
+ * one continues to the same whole save as the original; one whose saved mind is named as built
+ * otherwise keeps that mind as built over the saved physics and the other side's saved report; a
+ * body named so, and a mind named so in a bout that has stepped, refuse with the part named. A
+ * fork on its own build never meets another build's save.
+ */
 test("a bout's save made on another build loads its bodies, and starts fresh a mind whose memory is built otherwise", async () => {
   const recipe = { ...recipeOf("?matchup=man,man&control=option,option&left.loadout=empty,empty&right.loadout=empty,empty", { left: {}, right: {} }, "open"),
     commanders: { left: { kind: "drill", after: 0 } } };
@@ -193,6 +230,14 @@ test("a bout's save made on another build loads its bodies, and starts fresh a m
   } finally { original.dispose(); fork.dispose(); woken.dispose(); }
 });
 
+/**
+ * Reproduce a save refused as another bout's recipe by a bout whose striker runs a tuning, which
+ * kept a search's candidate from a start a fight was saved at. Load the opening save of a Strike
+ * drill's still trial into a bout of that trial built under a tuned punch: it loads with no mind
+ * started fresh, and 90 steps on its bodies are a fresh tuned bout's to the bit and not the
+ * untuned bout's; a bout of another trial refuses the save. A save loaded only into its own recipe
+ * never meets a mind under other settings.
+ */
 test("a bout's save loads under another tuning of its striker's punch, and plays on as a bout built under it", async () => {
   const cases = EVALUATIONS.strike.protocols.still, [subject] = EVALUATIONS.strike.subjects(["option/straight-punch"]);
   const [condition, further] = cases.conditions.filter((one) => one.model === "man" && one.mark === "middle" && one.across === 0 && one.gap >= .9);
@@ -214,6 +259,13 @@ test("a bout's save loads under another tuning of its striker's punch, and plays
   } finally { original.dispose(); under.dispose(); fresh.dispose(); elsewhere.dispose(); }
 });
 
+/**
+ * Reproduce a strike option's reading of its limbs kept by the step's time alone, which a bout put
+ * back to a save met again as stale: the aim was not asked, its hold was not made, and a start
+ * made of a fight by putting it back parted from the fight. Save a `fights` trial at its first
+ * step, play four steps, put the bout back and play two: its whole save is the one it made two
+ * steps on the first time. A load into a fresh bout never meets a time twice.
+ */
 test("a bout put back to its own save plays on as it did from there before", async () => {
   const cases = EVALUATIONS.strike.protocols.fights, [subject] = EVALUATIONS.strike.subjects(["option/straight-punch"]);
   const condition = cases.conditions.find((one) => one.model === "man" && one.mark === "middle" && one.hand === "left" && one.moment === 1 && one.gap === 3);
@@ -231,6 +283,14 @@ test("a bout put back to its own save plays on as it did from there before", asy
 });
 
 
+/**
+ * Reproduce a menu read that changed the mind it read: a blow's readiness asks its aim, and the
+ * surface aim held each opening it found, so a Commander's or a screen's read made holds the mind
+ * had not, and its later blows aimed elsewhere (found at 60 Hz, `fd0a953b`; with reads keeping,
+ * the sword bout below plays other poses). The aims now keep nothing when a menu asks
+ * (`keepingNothing`). Every pose of an Option Mind sword bout read every step against the bout
+ * unread; a drill always has its reader, so it cannot compare.
+ */
 test("a bout whose minds' menus are read every step plays as it does unread", async () => {
   const recipe = { ...recipeOf("?matchup=man,man&control=option,option&left.loadout=empty,sword&right.loadout=empty,sword", { left: {}, right: {} }, "open"), capSeconds: 4 };
   // Every pose of the bout, with each side's menu read between steps where `reading`, as a Commander or a screen reads it.
@@ -250,6 +310,14 @@ test("a bout whose minds' menus are read every step plays as it does unread", as
   assert.deepEqual({ digest: read.digest, steps: read.steps }, { digest: unread.digest, steps: unread.steps });
 });
 
+/**
+ * Reproduce a report owner writing into a value the mind has said: navigation moved its route's
+ * end round a corner in place, which changed the published route after the answer (seed 10's hero,
+ * 6.5 s in). At every answer compare the published report with a whole copy of the live one; an
+ * Option Mind bout, a stand-up fall with its release and resume, and a Crypt route between them
+ * change every field the decision and the skills write. A drill reads the live skills, not what
+ * the mind said, so it cannot see the stale report.
+ */
 test("a mind's report is what it said at its answer, through a sword bout, a fall it rises from and a Crypt run", async () => {
   const [{ CONTEXT }, { evaluationApplication }, { gameApplication }, { SAID_FIELDS }] = await Promise.all([
     import("../../src/app/node/context.ts"), import("../../src/app/evaluation.ts"), import("../../src/app/game.ts"), import("../../src/minds/seat/apart.ts")]);
@@ -310,6 +378,12 @@ test("a mind's report is what it said at its answer, through a sword bout, a fal
 });
 
 
+/**
+ * Reproduce generalized recovery discovery treating a reposition as an ascent, suppressing its own
+ * transitions and changing brace admission. Construct the real fallback alone at an uncovered
+ * ready start and verify registered ascent declarations drive discovery/replacement, including an
+ * entrant-owned kind; a full bout can avoid the fallback and conceal the defect.
+ */
 test("a fallback recovery Option does not count its own transition as an ordinary ascent", async () => {
   const { GAME } = await import("../../src/app/catalog.ts");
   const { catalogOf } = await import("../../src/minds/catalog/catalog.ts");
@@ -336,6 +410,11 @@ test("a fallback recovery Option does not count its own transition as an ordinar
 });
 
 
+/**
+ * A valid numeric order reached the script but received zero obedience value without a
+ * calibration, so the chooser held still; trace the measured actor through selection to its first
+ * landing. Calibrated drills do not reach this path.
+ */
 test("a measured Lab script follows an explicit numeric walk without a gait envelope", async () => {
   const [{ LAB_MIND }, { labActor }, { startLocomotion }, { trackOf }] = await Promise.all([
     import("../../src/app/node/setup.ts"), import("../../src/app/node/game.ts"),

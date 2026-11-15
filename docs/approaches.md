@@ -1,78 +1,13 @@
 # Approaches
 
-What each approach to a goal can and cannot do, and why. Read a goal's section before choosing
-how to reach it ([the skill recipe](recipes/skill.md#the-approach)). Each entry names the mechanism, the constraint, its
-cause and the commits that show it (`git show <commit>` reads the story). An entry changes only
-when new evidence contradicts it, cited the same way; a cleanup never removes one.
+What each approach to travel, standing up, weapon strikes, guarding and minds has done and has
+not, and why. Each entry names the mechanism, what it could not do, the cause and the commits
+that show it (`git show <commit>` reads the story). An entry changes only when new evidence
+contradicts it, cited the same way. What holds for every skill, for judging one and for unarmed
+strikes is in [the skill recipe](recipes/skill.md), at the step it informs.
 
 Confidence: *repeated* (shown three or more times), *shown* (once or twice, plainly), *suspected*
 (the cause inferred, not isolated).
-
-## Every skill
-
-- **A change to the body, its muscles, contacts, the engine, the rate or the command delay voids
-  every schedule, record, trained actor and profile on that body.** Toes took the run from 4.5 to
-  0.7 m/s and step-up from 56 to 0 of 64 (`d22b1c7a`, `735962c8`, `9e7d7603`); the run's legs took
-  step-up from 47 to 14 of 64 (`5e9208e9`); the Rogue's elbows, doubled for her stand-up, took her
-  punch to 0 of 30 (`de9d8496`). *Repeated.*
-- **Readings and training count only on the game's engine, rate and command delay.** Stand-up was
-  tuned on parent-axis `rapier` for a month while the game ran `rapier-coordinate`; on the game's
-  engine 153 of 160 became 67 of 80 (`66a46676`, `4acb557d`). *Shown.*
-- **A controller tuned to one strength or speed cannot use more of either**: its activations
-  overdrive or mistime the larger muscle. Grit as a strength surge and Haste as faster muscles add
-  nothing to a controller that was not searched or trained across the attribute's range
-  (`94a3f567`, `b21d6687`, `e8d6c775`, `1f6b963b`). *Repeated.*
-- **Learning that worked: one PPO actor correcting a native controller that already succeeds on
-  some cases, trained 20 to 50 M decisions.** The run (`1e4dd787`, 4.64 m/s), the punch
-  (`35b6998e`, 8 of 60 to 92 %), the club drive (`4a2354fe`, 91 %). The same trainer on a seed that
-  succeeds on none stays flat: the sword thrust three times (`7cd65504`, `39588333`, `d70fdeeb`),
-  the Rogue's club (`e0bbce4a`), the Skeleton's punch (`8ed9abf4`). Another skill's or body's
-  network starts behind scratch (`d6154220`, `e0bbce4a`); per-phase actors in short blocks met none
-  of seven gates (`7db04797`). [The training recipe](recipes/training.md) holds the steps.
-  *Repeated.*
-- **Most failed training runs were environment defects, not learning**: actions applied a decision
-  late (`5e20a7f2`), inputs clipped by a narrower normalisation (`d7a61762`, `ca7203c0`), a reader
-  starting after the action (`7db22ea2`). Parity and timing are checked before a run. *Repeated.*
-- **A whole-fight learned policy (PPO, NEAT, evolution, cloning) never passed a bar against a
-  designed mind**; learning won only on single skills (`58afe766`, `c83e592d`). Shown on the earlier
-  golem physics; untested on Rapier. *Repeated.*
-
-## Judging a skill or a mind
-
-- **A fixed pass-or-fail number set without a baseline throws away gains and gets moved to fit**:
-  travel blocks were rejected one after another at none of seven gates (`7db04797`); the stomp's
-  bar went from 6.4 to 3.0 m/s within an hour of landing none (`bcd4f589`, `1d958355`); the club's
-  bar moved five times, among them `41766c12`. A skill is read by its value against the version
-  before ([the skill recipe](recipes/skill.md#what-a-change-is-kept-on)). *Repeated.*
-- **A test that asks a skill what it does not offer scores the test, and its zeros read as a
-  missing skill.** The Strike drill ordered every blow at each mark with each hand while a blow
-  not begun counted 0, so half of a reading or more was orders the Option does not take: the
-  Warrior's punch, offered at the middle mark with an empty hand, read 0.444 with them and 0.888
-  without (`9dd4c338`, `0b866060`), and a punch at the head was built to fill the zeros and then
-  called the straight punch's limit (`e0851a10`, `68f37a1b`, withdrawn in `046bb933`). A strike's
-  cases are the ones its Option offers (`caseFaults`). Read a low cell's outcomes by mark and
-  hand (`--by`) before working on the blow. *Shown.*
-- **A strike bar that reads speed or touch alone accepts nudges, chops and bent-arm pushes**: a
-  blow's worth is the mass behind the fist (`54a592aa`, `127eb165`, `ed11435a`). Since `3d6b1a01`
-  `landed` counts any completed touch with the striking face, in the drill and the training reward,
-  so a strike reading from before it is not compared with one after. *Repeated.*
-- **A strike scored on energy alone yields a motion the owner rejects** (the club jab, the flailing
-  swing, `a6e778e2`, `abfa50e3`). The score holds the form from the first search, and the form
-  allows the mechanism that makes the speed (`5b1d36c6`). *Repeated.*
-- **A rating that a health lead at the time cap can win measures not falling and static blocking,
-  not fighting**: the embodied policy, the arena path fighters (591 of 600 at the cap), the
-  10-hour tournament (65 %), Vanguard, the Option Mind twin match (88 of 120 drained, `57874d73`).
-  Fight quality reads wounds dealt and is watched. *Repeated.*
-- **Mirror and self-play pools rank a mind by its own shape**: the league-trained mind first in
-  mirrors, 13th of 14 on the game's pairs (`87b74cb6`). A mind is read against the bodies and minds
-  the game draws. *Repeated.*
-- **Bout wins and Elo do not measure a strike**: tuned so, a search tunes spacing while the blow
-  stays a nudge (Puncher, Vanguard's 80 to 100 variants). *Shown.*
-- **More blocks are not more wins**: a hand at cover is a hand not countering (`8b3c65b8`,
-  `1500f2da`). A guard is judged on life kept and taken. *Repeated.*
-- **A threat reader is measured against the blow's truth before a guard is tuned on it**: the
-  golem's stroke reader read "idle" on 82 % of asks after weeks of parry tuning (`ef839a1e`).
-  *Repeated.*
 
 ## Travel
 
@@ -110,8 +45,8 @@ steps and walks to about 1.7 m/s straight (`af46f126`, `62c7a814`).
 - **Timing a gait faster than its controller places feet falls** (Haste: `f1014a27`, `65e674be`,
   `b21d6687`). *Repeated.*
 - **A gait is in the game only when the game chooses it**: an installed run went unchosen until the
-  Braced walk's price and the lowering wrapper were fixed (`b61f11d6`). Read the Dungeon's or the
-  Lab's gait choice. *Shown.*
+  Braced walk's price and the lowering wrapper were fixed (`b61f11d6`). The Dungeon's and the
+  Lab's gait choice shows it. *Shown.*
 
 ## Standing up
 
@@ -123,7 +58,7 @@ it was deleted without a reading (`a107a3ee`), not ruled out.
 
 - **A rise of timed poses cannot be made fast by changing its times**: its stages wait on balance,
   so shorter stages fall more and a gain on one set of falls is lost on the next (`7f3ebcdb`,
-  `14ccd6d1`, `1a4cfa67`, `e8d6c775`). Change the route or the controller. *Repeated.*
+  `14ccd6d1`, `1a4cfa67`, `e8d6c775`). *Repeated.*
 - **Every route stalls moving the weight from hands and knees onto feet under the centre of mass;
   without toes no controller here makes it** (`63b74deb`, `13684ff1`, `9e7d7603`). *Repeated.*
 - **More strength does not shorten a rise**: the joints run well under their strength (`317fbf13`,
@@ -132,8 +67,8 @@ it was deleted without a reading (`a107a3ee`), not ruled out.
   `4316eaa2`). *Shown.*
 - **A stage machine advancing on contacts stands none of the target's falls** (`415480c6`,
   `9d1571a6`, `a19748a0`). *Repeated.*
-- **An open-loop rise searched on one fall fails falls 1 to 2 degrees away** (`58f10e91`). Any
-  searched rise is read on the whole target and on fresh falls. *Repeated.*
+- **An open-loop rise searched on one fall fails falls 1 to 2 degrees away** (`58f10e91`).
+  *Repeated.*
 - **A rise from the back by poses alone stands none**: only a bearing phase carrying the centre of
   mass over the feet rises from there (`58f10e91`, `2f7404b8`). *Shown.*
 - **Rapier cannot carry a light hinged toe under body weight**, at 120 or 480 Hz (`15e820ce`,
@@ -141,27 +76,6 @@ it was deleted without a reading (`a107a3ee`), not ruled out.
 - **The Rogue cannot press her chest up**: elbow extension 23 to 27 N m against the Warrior's 57;
   ten stage changes stood no more (`bff75d1b`). Her rise needs stronger arms or a route that does
   not push up on them. *Shown.*
-
-## Unarmed strikes
-
-Works: **a timed push schedule searched by CMA-ES as the seed, steered by a residual PPO actor that
-adds to its pushes and asks the stance**: 8 of 60 held-out places landed by the schedule, 92 %
-steered (`35b6998e`). The stomp: a chamber, a braced stroke and a square-up step (`41c828d4`).
-
-- **A tracking controller cannot throw a blow at a person's speed**: effector paths, whole-body and
-  greedy solves, an arm-tracking layer and a point-driven fist reached 4 to 6 m/s against 6.8; the
-  tracker lags by its response time and a blow happens inside that lag (`13439495`, `62420987`,
-  `127eb165`, `7d9ee206`, `a340fbac`, `87d13005`). *Repeated.*
-- **An open-loop push schedule lands only within about 2 cm of its searched distance**: it is a
-  seed, never a skill to ship across places (`166c1e54`). *Repeated.*
-- **A push on a leg bearing the body moves nothing**: a striker's legs are asked through the stance
-  (`0b5af8eb`, `7d9ee206`). *Shown.*
-- **A light body cannot meet a mass-scaled strike bar by more speed**: the Skeleton's fist meets
-  0.09 to 0.22 kg whatever its speed (`0c3b4599`, `168a82e6`, `2793a30c`, `ed11435a`). It needs a
-  different act or a different bar. *Repeated.*
-- **The learned punch's window (0.89 to 1.01 m) is not where fighters stand** (about 0.6 m, the
-  foe's guard over the mark); training on fight moments failed twice (`d664e869`, `d11e7e9d`,
-  `843a8f8b`). Footwork and openings come before another punch run. *Suspected.*
 
 ## Weapon strikes
 
@@ -188,8 +102,7 @@ ward (below).
 - **A swung sword cut fails on its edge's orientation, not on speed**: with the wrist turning the
   edge onto its path through the stroke, the grip lays the blade square to the hand
   (`13ad8999`, `8b2fee9e`, `9ca0a63d`). The game strikes with the sword by the thrust alone. The
-  thrust is suspected of failing on the same grip; the grip or the wrist's range comes before
-  another search. *Suspected.*
+  thrust is suspected of failing on the same grip. *Suspected.*
 
 ## Guarding
 
@@ -200,13 +113,28 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
 - **A cover that waits to see the blow arrives late**: the threat shows 0.14 to 0.16 s before
   impact and the hand needs about 0.3 s (`00dd461a`). A guard is placed before the blow shows.
   *Repeated.*
+- **More blocks are not more wins**: a hand at cover is a hand not countering (`8b3c65b8`,
+  `1500f2da`). A guard is judged on life kept and taken. *Repeated.*
+- **A threat reader is measured against the blow's truth before a guard is tuned on it**: the
+  golem's stroke reader read "idle" on 82 % of asks after weeks of parry tuning (`ef839a1e`).
+  *Repeated.*
 
 ## Minds
 
 - **A mind cannot fight better than its skills deliver**: with blows that do not land or wound, no
-  chooser, reward or league fixes the fight (`747e9f47`: the punch landed 0 of 16 in fights). Read
-  a skill's land rate and energy on its fight rung before working on the chooser. *Repeated.*
+  chooser, reward or league fixes the fight (`747e9f47`: the punch landed 0 of 16 in fights).
+  *Repeated.*
 - **An objective that charges contact without paying damage teaches stand-off** (`a9c7a28c`,
   `c8e7e39a`, `e5196c3c`). *Repeated.*
 - **The tree chooser at 100 runs costs about twice the step budget**; fewer runs fit it and stand up
   from fewer falls (`7f562d22`). *Shown.*
+- **A whole-fight learned policy (PPO, NEAT, evolution, cloning) never passed a bar against a
+  designed mind**; learning won only on single skills (`58afe766`, `c83e592d`). Shown on the earlier
+  golem physics; untested on Rapier. *Repeated.*
+- **A rating that a health lead at the time cap can win measures not falling and static blocking,
+  not fighting**: the embodied policy, the arena path fighters (591 of 600 at the cap), the
+  10-hour tournament (65 %), Vanguard, the Option Mind twin match (88 of 120 drained, `57874d73`).
+  Fight quality reads wounds dealt and is watched. *Repeated.*
+- **Mirror and self-play pools rank a mind by its own shape**: the league-trained mind first in
+  mirrors, 13th of 14 on the game's pairs (`87b74cb6`). A mind is read against the bodies and minds
+  the game draws. *Repeated.*

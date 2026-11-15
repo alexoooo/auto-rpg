@@ -11,6 +11,10 @@ const { slotsOf } = await import("../../src/evaluation/compare.ts");
 /** Sword strikes expose loadout widening when added to a calibrated bare-hand source. */
 const SWORD_STRIKES = MINDS.option.config.options.filter(option => option.kind === "strike-sword-thrust");
 
+/**
+ * Prevent an ablated configuration from expanding to bodies/loadouts outside its source
+ * calibration or leaving unpaired work in a comparison.
+ */
 test("CLI ablations inherit calibrated bodies and loadouts before scheduling paired cases", () => {
   const evaluation = EVALUATIONS.tournament, panel = "option/man/empty,empty";
   assert.ok(SWORD_STRIKES.length > 0, "Option Mind has a sword blow to widen with");
@@ -42,6 +46,10 @@ test("CLI ablations inherit calibrated bodies and loadouts before scheduling pai
   }
 });
 
+/**
+ * Check court/crowd admission, including refusal when a named calibration fits no protocol case.
+ * These schedule paths differ from tournament subject expansion.
+ */
 test("mind batteries admit only a named calibration's bodies and preserve that scope through CLI ablations", () => {
   for (const evaluation of [EVALUATIONS.court, EVALUATIONS.crowd]) {
     const cases = subjects => casesOf(evaluation, evaluation.defaultProtocol, subjects,
@@ -84,6 +92,10 @@ test("mind batteries admit only a named calibration's bodies and preserve that s
   }
 });
 
+/**
+ * Apply calibration scope to both bodies of each complete match unit, without changing recipes,
+ * keys or pairing. Checking only one participant admits an invalid comparison.
+ */
 test("a match admits complete pairs within named calibrations and preserves the scope of ablations", () => {
   const evaluation = EVALUATIONS.match;
   const cases = subjects => casesOf(evaluation, "standard", subjects,
@@ -105,6 +117,10 @@ test("a match admits complete pairs within named calibrations and preserves the 
   assert.deepEqual(cases(resolveSubjects(evaluation, ["option"], "swap-skeleton", ["rate=30"]).subjects), { refused: `Skeleton calibration with rate=30 fits no condition of match standard: ${unavailable}` });
 });
 
+/**
+ * Detect a stale panel identifier that throws during subject resolution before a requested
+ * evaluation can play.
+ */
 test("every evaluation's default panel names entrants it has", () => {
   const panels = Object.values(EVALUATIONS).filter((evaluation) => evaluation.analysis?.panel?.length);
   assert.ok(panels.length > 0, "an evaluation has a default panel");
@@ -112,6 +128,12 @@ test("every evaluation's default panel names entrants it has", () => {
     assert.doesNotThrow(() => evaluation.subjects([id]), `${evaluation.id}'s panel names ${id}`);
 });
 
+/**
+ * The falls, the Rise drill and the baseline's stand-up were pinned to parent-axis `rapier` while
+ * the game runs `DEFAULT_ENGINE`, so stand-up was tuned and graded on physics play never uses.
+ * Read every registered protocol's engine and the stand's default; a drill plays on whatever
+ * engine its protocol names and cannot detect the mismatch.
+ */
 test("every evaluation protocol and the Node stand play on the game's engine", async () => {
   const { DEFAULT_ENGINE } = await import("../../src/core/physics/engines.ts");
   const protocols = Object.values(EVALUATIONS).flatMap((evaluation) => Object.entries(evaluation.protocols).map(([protocol, cases]) => ({ at: `${evaluation.id}/${protocol}`, engine: cases.engine })));
@@ -121,6 +143,9 @@ test("every evaluation protocol and the Node stand play on the game's engine", a
 });
 
 
+/**
+ * Custom subject adapters lost body restrictions and attributes.
+ */
 test("custom subjects retain execution scope through normalization", async () => {
   const scope = { models: ["man"], character: { strength: 1.1 } };
   const choice = { id: "independent", label: "Independent", value: MINDS.option.config, ...scope };
@@ -136,6 +161,10 @@ test("custom subjects retain execution scope through normalization", async () =>
   assert.deepEqual({ models: strike.models, character: strike.character }, scope);
 });
 
+/**
+ * Incomplete rows were admitted, and of two rows that read one case differently on one commit the
+ * first was taken without agreement.
+ */
 test("a run's rows refuse incomplete or conflicting cases", async () => {
   const { indexRows } = await import("../../src/evaluation/rows.ts");
   const row = { key: "case", reading: { met: true }, digest: "trace", played: 0, fault: null, from: { commit: "one", changed: false, date: "2026-01-01T00:00:00.000Z" } };
@@ -151,6 +180,9 @@ test("a run's rows refuse incomplete or conflicting cases", async () => {
   assert.deepEqual([...indexRows([{ name: "later", rows: [later] }, { name: "first", rows: [row] }])], [["case", later]]);
 });
 
+/**
+ * One passing row satisfied a full run cell; null fault readings were dereferenced.
+ */
 test("a table cell is valued only on every protocol case with none faulted", async () => {
   const { keep, valueOf } = await import("../../src/evaluation/table/judge.ts");
   const { caseName } = await import("../../src/evaluation/results.ts");
@@ -169,6 +201,10 @@ test("a table cell is valued only on every protocol case with none faulted", asy
 });
 
 
+/**
+ * A search's candidate began its punch on a trial's last step: the trade's cycle was nought, the
+ * trial's value no number, and the search ended on it two hours in.
+ */
 test("a strike begun on its trial's last step is worth nothing, not a division by its cycle of no length", async () => {
   const { keep, trialValue, FALL_PRICE } = await import("../../src/evaluation/table/judge.ts");
   // The reading a search's candidate made: its punch begun at the trial's longest, abandoned there.
@@ -180,6 +216,9 @@ test("a strike begun on its trial's last step is worth nothing, not a division b
   assert.ok(Math.abs(trialValue("strike", { kept: played, outcome: reading.outcome }, FALL_PRICE) - (0.0009 - 0.0176) / 0.5) < 1e-3, "half a second of it is its trade over that cycle");
 });
 
+/**
+ * An opponent that never attacked produced a passing untouched result.
+ */
 test("Cover requires an attempted attack before untouched can pass", async () => {
   const { readCover } = await import("../../src/evaluation/cover/read.ts");
   const { modelSpec } = await import("../../src/core/bodies/models.ts");

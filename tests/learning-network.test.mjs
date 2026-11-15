@@ -2,6 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { networkFaults, recoveryNetwork } from "../src/core/math/learning/recovery-network.ts";
 
+/**
+ * Reproduce a null first layer throwing before a configuration refusal can be returned. A trained
+ * policy contains valid shapes and cannot establish malformed-record admission.
+ */
 test("malformed learned layers return faults instead of throwing while inspecting shape", () => {
   for (const layers of [[null], [undefined], [{ weights: [null], bias: [0] }], [{ weights: [[1]], bias: null }], [{ weights: [[1, , 2]], bias: [0] }]]) {
     const found = networkFaults({ actions: 1, layers });
@@ -9,6 +13,11 @@ test("malformed learned layers return faults instead of throwing while inspectin
   }
 });
 
+/**
+ * Reproduce exported inference omitting the trainer's observation clamp, including a non-saturated
+ * final action, and preserve its pre-tanh action bound. Successful drills do not establish
+ * export/trainer equivalence.
+ */
 test("learned inference retains clipped observation and action preprocessing", () => {
   const actor = { actions: 1, layers: [{ weights: [[.01]], bias: [0] }], normalization: { mean: [2], scale: [2], clip: 10 }, actionLimit: 3 };
   const run = recoveryNetwork(actor);

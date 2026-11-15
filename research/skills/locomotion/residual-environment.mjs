@@ -20,6 +20,13 @@
  * `warmPolicy` answers the learner during moving-start setup; `stopOnReset` issues a stop
  * after that reached state is restored, leaving the episode budget entirely for braking.
  * `paceRelativeShare` widens shortfall credit with the movement controller's commanded pace.
+ * `referencePolicy` and `referenceScale` keep a calibrated actor's joint corrections fixed while a
+ * steering actor learns the cycle's other controls; that actor also drives the warm-up.
+ * `entry: first-lift` hands over to the run on the first clear swing after facing settles (the
+ * default, `landing`, on a walking landing). `trim` says when the cycle's integral speed correction
+ * accumulates: `continuous` (the default), `at-pace` only while the reference pace equals the
+ * order, `after-pace` from when it first reaches it. `actuationTrace` keeps each leg channel's
+ * command, activation, delivered mean torque and bounds beside the reference pace, trim and lean.
  */
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';

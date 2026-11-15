@@ -32,11 +32,6 @@ export interface StanceTuning {
   readonly gait?: GaitTuning;
   /** A bearing foot whose ankle would pass its stop rolls onto its front edge; false holds it flat (the control). */
   readonly heelOff?: boolean;
-  /**
-   * Whether a walk starts with the foot whose first landing is the further the walk's way from
-   * where it stands (`startingSide`); false or none, with the one on the side the walk goes.
-   */
-  readonly startsToward?: boolean;
 }
 
 /** The settings of a walk's steps. */
@@ -93,6 +88,11 @@ export interface GaitTuning {
    * rolled foot's ankle is held as the heel-off holds it.
    */
   readonly preswing?: { readonly knee: number; readonly seconds: number };
+  /**
+   * Whether a walk starts with the foot whose first landing is the further the walk's way from
+   * where it stands (`startingSide`); false or none, with the one on the side the walk goes.
+   */
+  readonly startsToward?: boolean;
 }
 
 /** The settings of a step taken to catch a push. */
@@ -162,7 +162,7 @@ export const STANCE_GAIT: GaitTuning = Object.freeze({ seconds: 0.3, lift: 0.05,
 export function validGaitTuning(gait: GaitTuning): boolean {
   if (!gait || typeof gait !== "object" || Array.isArray(gait)) return false;
   const keys = ["seconds", "lift", "width", "longest", "reserve", "effort", "clearance", "accel", "crouch", "horizon"] as const;
-  if (Object.keys(gait).some(key => !keys.some(known => known === key) && key !== "transfer" && key !== "preswing")) return false;
+  if (Object.keys(gait).some(key => !keys.some(known => known === key) && key !== "transfer" && key !== "preswing" && key !== "startsToward")) return false;
   if (!keys.every(key => Number.isFinite(gait[key]))) return false;
   return gait.seconds > 0 && gait.longest > 0 && gait.accel > 0 && gait.horizon > 0
     && gait.lift >= 0 && gait.width >= 0 && gait.clearance >= 0 && gait.crouch >= 0
@@ -170,7 +170,8 @@ export function validGaitTuning(gait: GaitTuning): boolean {
     && (gait.transfer === undefined || Number.isFinite(gait.transfer) && gait.transfer >= 0)
     && (gait.preswing === undefined || gait.preswing !== null && typeof gait.preswing === "object" && !Array.isArray(gait.preswing)
       && Object.keys(gait.preswing).every(key => key === "knee" || key === "seconds") && Number.isFinite(gait.preswing.knee) && gait.preswing.knee >= 0
-      && Number.isFinite(gait.preswing.seconds) && gait.preswing.seconds > 0);
+      && Number.isFinite(gait.preswing.seconds) && gait.preswing.seconds > 0)
+    && (gait.startsToward === undefined || typeof gait.startsToward === "boolean");
 }
 
 /**
@@ -215,7 +216,6 @@ export interface ResolvedStance {
   readonly track: number;
   readonly soleMargin: number;
   readonly heelOff: boolean;
-  readonly startsToward: boolean;
 }
 
 export function resolveStance(tuning: StanceTuning): ResolvedStance {
@@ -228,6 +228,5 @@ export function resolveStance(tuning: StanceTuning): ResolvedStance {
     track: tuning.track ?? STANCE_TRACK,
     soleMargin: tuning.soleMargin ?? SOLE_MARGIN,
     heelOff: tuning.heelOff ?? true,
-    startsToward: tuning.startsToward ?? false,
   };
 }

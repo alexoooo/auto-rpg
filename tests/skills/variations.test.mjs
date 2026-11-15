@@ -24,6 +24,12 @@ import { navigationRepertoire } from "../../src/skills/assembly/navigations.ts";
 import { legsOf, motorOf } from "../../src/skills/assembly/filled.ts";
 import { describeMind } from "../../src/minds/catalog/catalog.ts";
 
+/**
+ * Removing a gait, low support or recovery prevented startup, while club blow was absent from the
+ * default repertoire. Check admission, the constructed gait list on humanoids and bodies on paws,
+ * native gaits without an automatic policy, and the selected experimental blow; the complete
+ * default repertoire hides these failures.
+ */
 test("deselecting an optional skill leaves the remaining combat repertoire usable", async () => {
   const base = withLoadout(resolveCharacter({ model: "man" }).spec, { left: "empty", right: "empty" });
   for (const dropped of ["support-fold/support-fold", "staged-roll/staged-roll", "walk-run/walk-run", "stance-walk/stance-walk"]) {
@@ -64,6 +70,11 @@ test("deselecting an optional skill leaves the remaining combat repertoire usabl
   assert.deepEqual(parts.selected("guard", club).map(one => one.kind), ["cover-guard", "shield-guard", "lowered"], "one applicable guard does not exclude another");
 });
 
+/**
+ * Stage preference discarded lowered arms when cover was also selected. Construct the real Options
+ * and skills, select each guard, check the actual commanded posture, and restore the chosen
+ * controller through saved memory; a default fight can keep choosing cover and hide the exclusion.
+ */
 test("the mind can choose every enabled guard and restore the chosen posture", async () => {
   const spec = withLoadout(resolveCharacter({ model: "man" }).spec, { left: "empty", right: "empty" });
   const stand = await coreStand(spec), actor = stockBody(stand.built, stand.world, { servoSeconds: .1 });
@@ -88,11 +99,19 @@ test("the mind can choose every enabled guard and restore the chosen posture", a
   } finally { skills?.release(actor.view, "replaced"); actor.dispose(); stand.dispose(); }
 });
 
+/**
+ * A fixed default planner ignored the other enabled navigation. Check both planners are offered
+ * with every enabled gait, each owns its route, and restoring memory restores the active planner's
+ * report; a successful route with one planner cannot establish the other's availability.
+ */
 test("selected navigation choices keep separate routes and restore the active planner", () => {
   const spec = resolveCharacter({ model: "man" }).spec, configs = parts.selected("navigation", spec), navigation = navigationRepertoire(parts, spec, configs);
   const given = { spec, parts, legs: parts.fitting("locomotion", spec), sites: { all: [], names: [] }, walk: {} };
   const options = WALK_OPTION.make(WALK_OPTION.defaults, given);
-  assert.equal(options.length, configs.length * parts.of("locomotion", given.legs).gaits(given.legs).length, "each enabled planner is paired with each enabled gait");
+  // The gaits its legs go by that the man's character holds: Move lists every stock gait, a body walks by those it holds.
+  const enabled = parts.of("locomotion", given.legs).gaits(given.legs, spec, parts).filter(gait => parts.any(gait.legs).fits(spec, gait.legs, parts) === null);
+  assert.ok(enabled.length > 1, "the fixture holds more than one gait");
+  assert.equal(options.length, configs.length * enabled.length, "each enabled planner is paired with each enabled gait");
   const sight = { view: { time: 0, stance: { centre: { x: 0, y: 1, z: 0 }, velocity: { x: 0, y: 0, z: 0 } },
     senses: { side: "party", others: [], solids: [] } }, report: { legs: { heading: 0 } } };
   const gait = { envelope: null, stopping: 1, lag: 0 }, request = x => ({ kind: "place", points: [{ x, z: 6 }], near: .1 });
@@ -109,6 +128,12 @@ test("selected navigation choices keep separate routes and restore the active pl
   assert.deepEqual(navigation.report, expected, "saved memory includes the active planner and its route");
 });
 
+/**
+ * Disabling cover left Fight without a fitted guard because the enabled lowered arms were
+ * experimental. Check startup admission and construction's posture on each humanoid, retaining
+ * every enabled guard and supplying no disabled replacement; ordinary fights retain cover and
+ * cannot expose this selection failure.
+ */
 test("a character without cover can start with its enabled lowered arms", () => {
   for (const model of ["man", "woman", "skeleton"]) {
     const base = withLoadout(resolveCharacter({ model }).spec, { left: "empty", right: "empty" });
@@ -129,6 +154,11 @@ const punches = (skills) => {
   return { spec, made, executors: made.executors.filter((one) => one.kind === "straight-punch"), actions: made.actions.filter((one) => one.name.startsWith("straight-punch")) };
 };
 
+/**
+ * Two variations of one skill must be two executors and two actions, each measured as it is when
+ * held alone, so holding a second never voids the first's profiles. A fight with one variation
+ * held cannot show a second one's executor shadowing or renaming it.
+ */
 test("a character holding two variations of a skill strikes by each, and each reads as it does alone", () => {
   const both = punches(["straight-punch/drive", "straight-punch/from-guard"]);
   assert.deepEqual(both.executors.map((one) => [one.name, one.variation]), [["straight-punch/drive", "drive"], ["straight-punch/from-guard", "from-guard"]]);
@@ -147,6 +177,11 @@ test("a character holding two variations of a skill strikes by each, and each re
   assert.deepEqual(punches([]).executors, [], "a character holding no punch has none");
 });
 
+/**
+ * Refuse a bare skill, a duplicate and the old map before construction, and keep a link's list as
+ * written, empty or absent apart; a fight built from a resolved character never meets these
+ * inputs.
+ */
 test("a character's skills are a list of skill/variation, none twice, carried whole by a link", () => {
   assert.match(resolveCharacterChecked({ model: "man", skills: ["straight-punch"] }).refused, /not skill\/variation/);
   assert.match(resolveCharacterChecked({ model: "man", skills: ["stomp/stomp", "stomp/stomp"] }).refused, /twice/);
@@ -161,6 +196,11 @@ test("a character's skills are a list of skill/variation, none twice, carried wh
   assert.equal(readSkills(query, "left"), undefined, "no value is the character's own");
 });
 
+/**
+ * Each skill part of every role must fit some character that holds it and refuse the same body
+ * once its character drops it; the shipped characters hold everything they run, so no fight shows
+ * a guard, gait, technique or navigation run without being held.
+ */
 test("every skill part, whatever its role, runs only on a body whose character holds it", () => {
   const roles = new Set();
   for (const [kind, part] of Object.entries(allParts())) {

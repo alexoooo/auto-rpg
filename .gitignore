@@ -48,9 +48,5 @@ __pycache__/
 # committed, and garbage wherever they lie: `npm run clean` deletes them.
 *.stackdump
 
-# Research runs: what a later run reads, each folder's README.md naming it (AGENTS.md).
+# Research runs: what a later run reads, each folder's README.md naming it (docs/recipes/skill.md, What to keep).
 /research/runs/
-
-# The stand-up research's recorded frames and run logs, kept beside its code (research/stand-controller/).
-/research/stand-controller/c/view/*.json
-/research/stand-controller/**/runs/

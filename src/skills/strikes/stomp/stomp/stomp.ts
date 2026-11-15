@@ -19,13 +19,65 @@ import { withinActionWindow } from "../../../intent/action-window.ts";
 import { segmentOf } from "../../../../core/bodies/spec/body.ts";
 import { type Side, otherSide } from "../../../../core/bodies/bilateral.ts";
 
-/** The stomp's settings: the keys every body's record holds, each record whole, and the values the records share outside each body's stroke and window: `docs/reference/front-kicks.md#execution-settings`. */
-export const STOMP_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
-  lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, brace: 0, soleTurn: .2,
-  prepareLimit: 4, returnLimit: 2, near: .04, returnNear: .04, hover: .08, slow: .3, hold: .05, followSeconds: .04,
+/**
+ * **The stomp's settings**: the keys every body's record holds, each record whole, and the values
+ * the records share outside each body's stroke and window. Control data, not anatomy; seconds,
+ * metres, radians and m/s. A stomp runs in stages: setup squares the stance in one step; transfer
+ * moves the centre of mass inside the bearing sole; unload holds the free foot over where it stood
+ * at zero ground load; the stroke runs the effector tracker shared with punching; the return
+ * starts at rest, carried with the hip; placement and recentring end it. A return that lets the
+ * centre of mass off the bearing foot ends the stomp (`interrupted`); a deadline ends it as
+ * `stalled`.
+ */
+export const STOMP_PATH = Object.freeze({
+  /** The deadline to square the stance. */
+  setupLimit: 8,
+  /** How far the pelvis is lowered and pitched from the transfer to the return. */
+  lower: .05, lean: 0,
+  /** The deadline to shift the weight and unload the foot, and the time a pitch is asked over. */
+  transferLimit: 6, transferSeconds: .2,
+  /** The most centre-of-mass speed at which the stance counts as quiet. */
+  transferSlow: .12,
+  /** The chamber's height over the strike point, and how far it is drawn back along the heading. */
+  lift: .45, windup: .15,
+  /** The tracker's paths to the chamber, down the stroke, and back. */
+  chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6,
+  /** The foot's asked speed at the end of the stroke. */
+  contactSpeed: 2,
+  /** How long before the stroke's path ends the leg is driven firm; 0 braces the held contact alone. */
+  brace: 0,
+  /** The sole's turn during the stroke, as a share of a quarter turn. */
+  soleTurn: .2,
+  /** Deadlines to reach the chamber and to return from the stroke. */
+  prepareLimit: 4, returnLimit: 2,
+  /** A place is reached within `near`, slower than `slow`, held `hold`; the return is done within `returnNear` of the chamber. */
+  near: .04, returnNear: .04,
+  /** The lifted foot's height over where it stood, before the chamber and before a set-down. */
+  hover: .08,
+  slow: .3, hold: .05,
+  /** The follow-through after contact. */
+  followSeconds: .04,
+  /** The longest a contact is held, the farthest the foot travels in it, and the least cosine between the stroke and the surface's normal. */
   impactSeconds: .04, impactTravel: .04, normalAlignment: .5,
-  response: .1, placeSeconds: 1, placeLimit: 6, placement: .02, placementSpeed: .1, rotationError: .001,
-  recenterLimit: 4, over: 0, top: 1, alongNear: .25, alongFar: .65, across: .16, facing: .4, admitSpeed: .5 });
+  /** The muscles' tracking response, apart from a path's duration. */
+  response: .1,
+  /** The flat-foot placement's path and deadline. */
+  placeSeconds: 1, placeLimit: 6,
+  /** The most landing error and foot speed a placement accepts. */
+  placement: .02, placementSpeed: .1,
+  /** The most 1 minus the absolute quaternion dot between the placed sole and where it stood. */
+  rotationError: .001,
+  /** The deadline for quiet double support with the centre of mass back between the feet. */
+  recenterLimit: 4,
+  /** Where the chamber sits across the ground, as a share of the way from the strike point to the target: 0 over the foot, 1 over the target. */
+  over: 0,
+  /** The height band's top over the stomping sole, as a share of the leg's reach (hip to sole); its bottom is `near` under the sole. */
+  top: 1,
+  /** The window: the target this far ahead of the stomping sole, and within `across` either side of it. */
+  alongNear: .25, alongFar: .65, across: .16,
+  /** The most the heading may differ from the target's bearing, and the most ground speed the window admits. */
+  facing: .4, admitSpeed: .5,
+});
 export type StompTuning = {
   readonly [K in keyof typeof STOMP_PATH]: number;
 };

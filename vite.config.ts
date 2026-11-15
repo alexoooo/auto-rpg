@@ -49,11 +49,8 @@ export default defineConfig({
     warmup: { clientFiles: ["./app.ts", "./arena/main.ts", "./dungeon/main.ts", "./lab/main.ts"] },
   },
   preview: { headers: ISOLATED },
-  // MuJoCo ships its .wasm beside its ESM bundle; Vite must not try to inline it.
-  assetsInclude: ["**/*.wasm"],
-  // MuJoCo's threaded build starts its pthreads as module workers of its own ES module (top-level
-  // await included), which the default `iife` worker format cannot bundle; the world's worker
-  // (`src/app/browser/worker/world.worker.ts`) loads its engine and minds' data as chunks, which it cannot either.
+  // The world's worker (`src/app/browser/worker/world.worker.ts`) loads its engine and minds' data
+  // as chunks, which the default `iife` worker format cannot bundle.
   worker: { format: "es", plugins: () => [identity()] },
   build: {
     outDir: "../../../dist",
@@ -64,7 +61,6 @@ export default defineConfig({
     rollupOptions: { input: {
       index: sourcePath("./src/app/browser/index.html"),
       characterLab: sourcePath("./src/app/browser/character-lab/index.html"),
-      physicsBench: sourcePath("./src/app/browser/physics-bench/index.html"),
     } },
   },
 });

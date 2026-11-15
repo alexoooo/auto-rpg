@@ -5,6 +5,12 @@ import { readFileSync } from "node:fs";
 import { buildFall, risingReport } from "../../src/app/node/evaluation.ts";
 import { DEFAULT_ENGINE } from "../../src/core/physics/engines.ts";
 
+/**
+ * The Warrior club-and-buckler fresh fixture
+ * (`evaluation/fixtures/warrior-club-buckler-falls.jsonl`) contains an unproduced fall that was
+ * counted against recovery; verify its exclusion from the counts and the mean time to stand.
+ * Drills do not establish fixture coverage or report arithmetic.
+ */
 test("Warrior unproduced fall is excluded from recovery statistics", () => {
   // The Warrior's sixteen fresh falls holding the club and the buckler, each a played row's condition and reading.
   const rows = readFileSync(new URL("./fixtures/warrior-club-buckler-falls.jsonl", import.meta.url), "utf8").trim().split("\n").map(JSON.parse);
@@ -17,6 +23,11 @@ test("Warrior unproduced fall is excluded from recovery statistics", () => {
 });
 
 
+/**
+ * The shove observed in the Warrior club-and-buckler fixture, held once, must produce a fall with
+ * escalating retries, so the fixture holds no unproduced fall. Drills do not establish fixture
+ * coverage.
+ */
 test("held Warrior club-and-buckler shove escalates to an actual fall", async () => {
   const { MINDS } = await import("../../src/app/catalog.ts");
   const built = await buildFall({model:"man", loadout:{left:"buckler",right:"club"}, seed:1, start:"shoved", degrees:213.75, steadiness:0, grit:0, gusts:false, target:true, mind:MINDS.option.config}, DEFAULT_ENGINE);

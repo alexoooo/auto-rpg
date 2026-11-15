@@ -6,7 +6,9 @@
  * before its opening ends (`makeStart`), kept with its condition and where it came from
  * (`startBank`). A trial played from it (`playFrom`) is a bout of the trial's world loaded with
  * the save, a fresh reader beside it, played to the reader's end: the opening is played once, for
- * the bank, and a trial costs the steps after it.
+ * the bank, and a trial costs the steps after it. A trainer's start is kept the same way, saved
+ * at its learner's first decision, the play before it being the same whatever network then
+ * answers (`case-learning-environment.mjs`).
  *
  * For the subject that made the start, the trial reads what the whole trial reads. A candidate
  * that is the subject under other settings of its mind loads it too (`Duel.load`), so a candidate
@@ -102,8 +104,9 @@ export async function playFrom(kind, cases, world, condition, saved, after) {
 /**
  * **The starts kept of `subject`'s trials of `evaluation`'s `protocol`**, each by its condition:
  * what is `kept` of one (`start`; `none` where its opening came to no start; null where it has
- * not been played), `read`, a start as kept (`{ condition, from, step, saved }`), and `keep`, which
- * keeps what `makeStart` made of one with where it came from (the commit checked out, whether a
+ * not been played), `read`, a start as kept (`{ condition, from, step, saved }`, and what else
+ * its maker kept of it), and `keep`, which keeps what was made of one (`makeStart`'s, or a
+ * trainer's with its learner's inputs) with where it came from (the commit checked out, whether a
  * build input differed from it, and when).
  */
 export function startBank(evaluation, protocol, subject) {
@@ -113,11 +116,11 @@ export function startBank(evaluation, protocol, subject) {
   return {
     kept: (condition) => existsSync(fileOf(condition, "start")) ? "start" : existsSync(fileOf(condition, "none")) ? "none" : null,
     read: (condition) => deserialize(gunzipSync(readFileSync(fileOf(condition, "start")))),
-    keep(condition, { step, saved }) {
+    keep(condition, start) {
       if (!origin) { const commit = commitOf(); origin = { commit, changed: commit !== null && uncommittedInputs().length > 0 }; }
-      const from = { ...origin, date: new Date().toISOString() }, file = fileOf(condition, saved === null ? "none" : "start"), part = `${file}.${process.pid}-${threadId}.part`;
+      const from = { ...origin, date: new Date().toISOString() }, file = fileOf(condition, start.saved === null ? "none" : "start"), part = `${file}.${process.pid}-${threadId}.part`;
       mkdirSync(folder, { recursive: true });
-      writeFileSync(part, saved === null ? `${JSON.stringify({ condition, from })}\n` : gzipSync(serialize({ condition, from, step, saved })));
+      writeFileSync(part, start.saved === null ? `${JSON.stringify({ condition, from })}\n` : gzipSync(serialize({ condition, from, ...start })));
       renameSync(part, file);
     },
   };

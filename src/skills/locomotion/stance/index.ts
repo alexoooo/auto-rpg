@@ -18,10 +18,9 @@ interface StanceBalanceConfig extends Varied { readonly kind: "stance"; readonly
 
 /**
  * The stance's variations, each the settings it runs over its body's calibration (`StanceTuning`):
- * the stance as it is calibrated; and the footwork, a fight's short steps, whose walk starts with
- * the foot that steps its way (`StanceTuning.startsToward`).
+ * the stance as it is calibrated. How its walk steps is a gait's (`GaitTuning`), not a stance's.
  */
-const VARIATIONS: Variations<StanceTuning> = deepFreeze({ stance: {}, footwork: { startsToward: true } });
+const VARIATIONS: Variations<StanceTuning> = deepFreeze({ stance: {} });
 
 /** Whether `config` tunes the stance: a research tuning with a setting in it. */
 const tuned = (config: StanceBalanceConfig): boolean => Object.keys(config.tuning ?? {}).length > 0;
@@ -34,7 +33,7 @@ const tuned = (config: StanceBalanceConfig): boolean => Object.keys(config.tunin
  */
 export const STANCE_BALANCE = deepFreeze<BalancePart<StanceBalanceConfig>>({
   role: "balance", label: "Stance", stage: "game", fields: [], slots: [], defaults: { kind: "stance" }, keys: { kind: true, variation: true, tuning: true },
-  tuning: ["seconds", "track", "soleMargin", "kneeBend", "ankleSpare", "supportInset", "recovery", "gait", "heelOff", "startsToward"],
+  tuning: ["seconds", "track", "soleMargin", "kneeBend", "ankleSpare", "supportInset", "recovery", "gait", "heelOff"],
   reference: { fits: fitsSoles, read: standingHeight },
   fits: fitsAll(fitsSoles, variationFault("stance", "stance", VARIATIONS)),
   faults: (config) => config.tuning === undefined ? []

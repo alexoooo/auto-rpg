@@ -8,6 +8,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { brokenLinks, repositoryLinks } from "../scripts/links.mjs";
 
+/**
+ * Prove the research-import scanner follows re-exports and destructured exports and detects both
+ * missing modules and missing exported names.
+ */
 test("broken_links_are_the_missing_module_and_the_missing_name_and_nothing_present", () => {
   const tree = {
     "research/a.mjs": [
@@ -28,6 +32,10 @@ test("broken_links_are_the_missing_module_and_the_missing_name_and_nothing_prese
   ]);
 });
 
+/**
+ * Catch stale JavaScript research/CLI imports outside the TypeScript compilation before someone
+ * starts a run that cannot load.
+ */
 test("every_research_script_and_script_imports_what_exists", () => {
   const broken = repositoryLinks();
   assert.deepEqual(broken, [], `${broken.length} broken imports:\n${broken.join("\n")}`);

@@ -39,7 +39,7 @@ export interface Senses {
  * its life as a whole, never a part's hit points. A planner's choice of foe reads `side`, `out` and `centre`
  * (`nearestFoe`, `targets.ts`), and the edge of a foe's reach the spec with what the body holds
  * (`placedReach`); the segments' poses, velocities and spins are what a mind that attacks a moving
- * body, blocks or parries reads (`docs/roadmap.md`, The AI).
+ * body, blocks or parries reads.
  */
 export interface BodySense {
   readonly id: string;

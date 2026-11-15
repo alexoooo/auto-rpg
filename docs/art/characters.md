@@ -88,23 +88,6 @@ that the wrists keep their area (`wristAreaRatio`) and the forearms their girth
 other (`surfaceIndex`, `meshCrossesSurface`, `skinPart`). They are sampled surface checks, not
 proof of clearance between samples; a person looks as well.
 
-### What the checks read
-
-The checks find their regions on the skin in the rest pose (`skinRegions`,
-`scripts/character-lab/validation.mjs`), by the numbers of `SKIN`:
-
-| Field | Value |
-|---|---|
-| `hand` | 0.1209 m, the man's wrist to middle knuckle (the woman's is 0.09919 m). The generator authors the grips on this hand and scales them to each model's (`handScale`, `scripts/character-lab/realistic/motion.py`); the checks scale their lengths along the hand the same way |
-| `palm` | the skin bound to the hand by more than 0.6, from 0.055 to 0.115 m along the hand from the wrist, whose normal has a cosine above 0.25 with the palm's. A grip's line crosses the palm 0.095 m from the wrist, with a radius of 0.018 m (`point(s, x, .095, .046)` in `motion.py`) |
-| `pad` | a digit's pad is the skin bound to its two outer bones by more than 0.65, whose normal has a cosine above 0.05 with the palm's |
-| `wrist` | the skin from 0.72 to 1.02 of the way from the elbow to the wrist, within 0.07 m of the forearm's axis. Its area is read at 0.77, 0.84, 0.91 and 0.98, over the skin within 0.027 of each |
-| `forearm` | the skin from 0.2 to 0.75 of the way from the elbow to the wrist, between 0.015 and 0.065 m from the axis |
-| `patch` | a pad's contact is read at the distance a tenth of the way up its order from the nearest (`contactPatch`) |
-| `part` | a triangle belongs to a part of the body when each corner is bound to the part's bones by more than 0.65 (`skinPart`) |
-
-The surface index's cell is `CELL`, 0.12 m, which changes how fast it answers and not what.
-
 `node scripts/fingerprint.mjs --character` prints a hash of what these checks measure on both
 models, at three frames of every clip: a change to the checks that is meant to change nothing
 leaves it as it was.

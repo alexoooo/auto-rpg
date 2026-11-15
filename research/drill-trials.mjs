@@ -102,8 +102,7 @@ export async function confirm(cell, valueOf, { rates = CONFIRM_RATES, play = pla
 
 /**
  * **A body's row of `skill`**: the table's cells of that body and skill, one a loadout the body
- * does it holding ([the skill recipe](../docs/recipes/skill.md#one-row-one-question): a run works
- * one row); the one cell of `loadout` where it is given.
+ * does it holding; the one cell of `loadout` where it is given.
  */
 export function rowOf({ body, skill, loadout }) {
   if (loadout !== undefined) return [cellOf({ body, skill, loadout })];

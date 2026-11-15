@@ -1,5 +1,19 @@
 
-/** Righting by routes, placing the paws and rising (`rightingByRoutes`): `docs/reference/reptile.md#controller-settings`. */
+/**
+ * Righting by routes, placing the paws and rising (`rightingByRoutes`). Times are seconds, lengths
+ * metres, angles radians, heights relative to the reference centre of mass.
+ * - `rightingGain`, `rightingDamping`, `rightingEpsilon`: the upright-error moment projected onto
+ *   loaded hips, bounded by their muscles.
+ * - `foldHip`, `foldKnee`, `plantedKnee`, `sweepYaw`, `wrappedHip`, `unwindHip`: a wrapped paw
+ *   moved around a trunk end before unfolding.
+ * - `recoveryServo`, `placementServo`, `placementError`, `foldWait`: holding and moving legs
+ *   tracked apart; actual joint arrival and paw clearance required.
+ * - `pressWait`, `pressLever`, `pressDepth`: a bounded joint servo lowers a paw; the lever is a
+ *   controller approximation, not anatomy.
+ * - `routeLimit`, `recoveryLimit`: try the other trunk end; time out.
+ * - `recoveryPath`, `recoveryHeight`, `recoveredSpeed`, `recovered`: done on quiet four-sole
+ *   support at height.
+ */
 export const REPTILE_RECOVERY = Object.freeze({
   recoveryPath: .5, recovered: .5, recoveredSpeed: .1, recoveryHeight: .8,
   rightingGain: 8, rightingDamping: 4, rightingEpsilon: .000001,

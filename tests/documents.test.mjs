@@ -4,15 +4,21 @@
  * out of the repository and the missing reference target, and the comment marks exactly the date,
  * the commit hash, the plan and analysis citations and "the owner" in a comment of `src/`;
  * everything else planted, in code, strings, regular expressions, template literals, fenced blocks
- * and code spans, passes. On this repository there are none.
+ * and code spans, passes. The tests with no comment above are exactly the bare one and the one
+ * whose comment is a line away. On this repository there are none of any.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { anchorsOf, brokenCitations, commentMarks, repositoryDocuments } from "../scripts/documents.mjs";
+import { anchorsOf, brokenCitations, commentMarks, repositoryDocuments, unjustifiedTests } from "../scripts/documents.mjs";
 
 /** The documents folder, spelled so this file's own text cites nothing. */
 const D = "docs/";
 
+/**
+ * Check heading normalization, duplicate suffixes and explicit anchors used when resolving
+ * Markdown links. A scanner with incorrect anchor generation rejects working links or accepts
+ * broken ones.
+ */
 test("anchors_are_github_slugs_a_repeated_heading_numbered", () => {
   const markdown = [
     "# The `run` cycle: v2.0",
@@ -25,6 +31,10 @@ test("anchors_are_github_slugs_a_repeated_heading_numbered", () => {
   assert.deepEqual([...anchorsOf(markdown)], ["the-run-cycle-v20", "héros--foes--set", "twice", "twice-1", "kept-here", "linked-heading"]);
 });
 
+/**
+ * Prove that citation traversal finds missing files, missing anchors and escaping paths while
+ * respecting code fences and reference links.
+ */
 test("broken_citations_are_the_missing_file_heading_and_target_and_nothing_present", () => {
   const tree = {
     [`${D}a.md`]: ["# A", "## Here", "## Here", "", `[same](#here-1) [gone](#nowhere) [up](../${D}a.md)`,
@@ -50,6 +60,10 @@ test("broken_citations_are_the_missing_file_heading_and_target_and_nothing_prese
   ]);
 });
 
+/**
+ * Check the comment lexer against strings, regular expressions and nested templates so it does not
+ * report executable literals as prohibited comment text or overlook actual comments.
+ */
 test("comment_marks_are_the_dates_hashes_plan_citations_and_the_owner_in_comments_of_src_only", () => {
   const plans = `${D}plans/`, analysis = `${D}analysis/`;
   const tree = {
@@ -83,8 +97,53 @@ test("comment_marks_are_the_dates_hashes_plan_citations_and_the_owner_in_comment
   ]);
 });
 
+/**
+ * Apply the validated citation and comment scanners to the working repository, catching dangling
+ * documentation after code or document removal.
+ */
 test("every_document_cited_resolves_and_no_comment_in_src_holds_a_mark", () => {
   const { citations, marks } = repositoryDocuments();
   assert.deepEqual(citations, [], `${citations.length} broken citations:\n${citations.join("\n")}`);
   assert.deepEqual(marks, [], `${marks.length} comment marks:\n${marks.join("\n")}`);
+});
+
+/**
+ * Prove the scanner tells a test with a comment directly above it from a bare one, from one whose
+ * comment is a blank line away and from a test named only inside a comment; a scan that reports
+ * nothing on this repository cannot otherwise be told from one that reads nothing.
+ */
+test("unjustified_tests_are_the_bare_and_the_one_a_line_from_its_comment_and_nothing_commented", () => {
+  const T = "test";
+  const tree = {
+    "tests/a.test.mjs": [
+      "/** Reproduces the first failure. */",
+      `${T}("block above", () => {});`,
+      "// Reproduces the second failure.",
+      `${T}('line above', async () => {});`,
+      `${T}("bare", () => {});`,
+      "/** A line away. */",
+      "",
+      `${T}(\`apart \${1}\`, () => {});`,
+      "/*",
+      `${T}("inside a comment", () => {});`,
+      "*/",
+      "const later = 1;",
+    ].join("\n"),
+    "tests/helper.mjs": `${T}("not a test file", () => {});`,
+    "src/m.ts": `${T}("not below tests", () => {});`,
+  };
+  assert.deepEqual(unjustifiedTests(Object.keys(tree), (file) => tree[file]), [
+    "tests/a.test.mjs:5 has no comment above it saying what failure it reproduces: bare",
+    "tests/a.test.mjs:8 has no comment above it saying what failure it reproduces: apart ${1}",
+  ]);
+});
+
+/**
+ * A suite once grew tests nobody could say the reason for, and deleting most of them made work
+ * faster. Apply the scanner to the working repository, so a test added without saying what failure
+ * it reproduces fails the gate.
+ */
+test("every_test_has_a_comment_above_it_saying_what_failure_it_reproduces", () => {
+  const { tests } = repositoryDocuments();
+  assert.deepEqual(tests, [], `${tests.length} tests with no comment above:\n${tests.join("\n")}`);
 });

@@ -30,11 +30,16 @@ import { isRefused } from "../src/core/refusal.ts";
  * steps until the learner asks again; it ends with its case's reader, with the learner no longer
  * running (a punch's drive), its trial then played on to its reader's end (with `onward` false, read there), with a fall where `down` weighs one, or is cut at the protocol's longest.
  *
- * Where the world kind can save (`WorldKind.save`) and `pool` is given, it keeps `pool` starts,
- * each a trial at a fresh draw played to its first decision and saved. An episode loads one of
- * them, a fresh reader beside it, and owes the pool one fresh start every `refresh` episodes: the
- * server plays it between its steps (`idle`), `slice` world steps at a time, so that a start's
- * walk in never holds up a step, and it takes the place of a start no episode is
+ * Where the world kind can save (`WorldKind.save`) and `pool` is given, it holds `pool` starts,
+ * each a trial at a fresh draw at its first decision. A start is one of the kept starts
+ * (`startBank`, `starts.mjs`): found by its condition where one is kept, else played to its first
+ * decision, saved and kept, so that a trial's walk in is played once, for every run and every
+ * network after it. What finds it is the subject as the file names it, its character, the part
+ * that learns, the rate and the engine (`bankOf`); what the subject's records hold is no part of
+ * it, and a kept start is read until its folder is deleted. An episode loads one of the pool's, a
+ * fresh reader beside it, and owes the pool one fresh start every `refresh` episodes: the
+ * server makes it between its steps (`idle`), one played `slice` world steps at a time, so that
+ * a start's walk in never holds up a step, and it takes the place of a start no episode is
  * playing. Without a pool, each episode is a trial begun afresh.
  *
  * `curriculum` moves training from cheaper settings to the file's own: `from`, settings that
@@ -55,7 +60,9 @@ import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";
 import { MINDS } from "../src/app/catalog.ts";
 import { EVALUATIONS } from "../src/app/node/evaluation.ts";
 import { WORLD_BUILDERS } from "../src/app/node/evaluation.ts";
+import { caseName } from "../src/evaluation/results.ts";
 import { decide, untilAsked } from './learner-adapter.mjs';
+import { startBank } from './starts.mjs';
 
 /** Whether `condition` is held out of training: half of the conditions, by a digest of its fields in sorted order (FNV-1a). */
 export function heldOut(condition) {
@@ -122,14 +129,17 @@ export function owning(game, preset, skill) {
 /** `value` with its mind built from its preset (`presetMind`): a drill's subject's `mind`, or the value itself. */
 const subjectOf = (value, configureMind) => value && typeof value === 'object' && 'mind' in value ? { ...value, mind: presetMind(value.mind, configureMind) } : presetMind(value, configureMind);
 
-/** The subject's config for `condition`: the file's one, or the first of its `subjects` whose `where` it matches, its mind from its preset. */
-export function subjectFor(o, condition, configureMind) {
+/** The subject for `condition` as the file names it: its one, or the first of its `subjects` whose `where` it matches. */
+function namedSubject(o, condition) {
   if (o.subject && o.subjects) throw new Error('an environment names `subject` or `subjects`, not both');
-  if (o.subject) return subjectOf(o.subject, configureMind);
+  if (o.subject) return o.subject;
   const found = (o.subjects ?? []).find((one) => matches(condition, one.where));
   if (!found) throw new Error(`no subject of the environment plays ${JSON.stringify(condition)}`);
-  return subjectOf(found.value, configureMind);
+  return found.value;
 }
+
+/** The subject's config for `condition` (`namedSubject`), its mind from its preset. */
+export const subjectFor = (o, condition, configureMind) => subjectOf(namedSubject(o, condition), configureMind);
 
 /** The value at `path` (dotted) in `config`. */
 const at = (config, path) => path ? path.split('.').reduce((value, key) => value?.[key], config) : config;
@@ -192,7 +202,24 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
   /** The share of fresh starts played on the file's own settings at `decisions`. */
   const share = () => Math.min(1, Math.max(0, (decisions - curriculum.over[0]) / (curriculum.over[1] - curriculum.over[0])));
 
-  /** A trial at a fresh draw, built and its tape begun, its learner found; null where its condition is in the half `split` leaves out. */
+  /**
+   * The starts kept of a pooled trial of `place`'s protocol at `condition`, built at `hz`
+   * (`startBank`): found by the subject as the file names it, its character, the part that learns,
+   * the rate, the engine and the seconds a trial is cut at, each bank opened once.
+   */
+  const banks = new Map();
+  const bankOf = (place, cases, condition, hz) => {
+    const of = { subject: namedSubject(o, condition), character: o.character, part: o.part ?? '', hz: hz ?? null, engine: cases.engine ?? o.engine, seconds: o.seconds ?? null };
+    const key = `${place.protocol} ${caseName(of)}`;
+    if (!banks.has(key)) banks.set(key, { of, starts: startBank(o.evaluation, place.protocol, `learner-${caseName(of)}`) });
+    return banks.get(key);
+  };
+
+  /**
+   * A trial at a fresh draw, built and its tape begun, its learner found, and where it is pooled
+   * and its start is kept, loaded with it (`kept`); null where its condition is in the half
+   * `split` leaves out, or is kept as one whose trial ends before its first decision.
+   */
   const begin = async () => {
     const settings = curriculum && drawing() >= share() ? { ...o, ...curriculum.from } : o;
     const { place, cases, conditions } = pick(places), hz = settings.rates ? pick(settings.rates) : undefined;
@@ -200,19 +227,26 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
     if (o.split && heldOut(condition) !== (o.split === 'held-out')) return null;
     const value = subjectFor(o, condition, configureMind), world = cases.world([value], condition, cases.engine ?? o.engine, [o.character]);
     if (isRefused(world)) throw new Error(world.refused);
-    const kind = WORLD_BUILDERS[world.kind], built = await kind.build(world, hz === undefined ? {} : { hz });
+    const kind = WORLD_BUILDERS[world.kind];
+    if (pooled && (!kind.save || !kind.load)) throw new Error("a pooled environment's world kind saves and loads");
+    const bank = pooled ? bankOf(place, cases, condition, hz) : null, found = bank?.starts.kept(condition) ?? null;
+    if (found === 'none') return null;
+    const built = await kind.build(world, hz === undefined ? {} : { hz });
     if (isRefused(built)) throw new Error(built.refused);
     try {
       if (hz !== undefined && built.world.hz !== hz) throw new Error(`a ${world.kind} world is not built at a rate`);
       const { learner, body } = learnerIn(kind, built, value), reader = cases.read(built, condition);
       kind.start?.(built, world);
-      return { built, kind, cases, condition, hz, reader, learner, body };
+      const kept = found === 'start' ? bank.starts.read(condition) : null;
+      if (kept) kind.load(built, kept.saved);
+      return { built, kind, cases, condition, hz, reader, learner, body, bank, kept };
     } catch (error) { built.dispose(); throw error; }
   };
   /** The protocol's longest, s. */
   const longest = (p) => o.seconds ?? p.cases.seconds;
-  /** `p` played on by up to `steps` world steps: `more`, its learner's first request reached (`started`), or its trial `ended` before it. */
+  /** `p` played on by up to `steps` world steps: `more`, its learner's first request reached (`started`: at once where its start was kept), or its trial `ended` before it. */
   const advance = (p, steps) => {
+    if (p.kept) return 'started';
     if (p.reader.ended || p.kind.clock(p.built) >= longest(p)) return 'ended';
     const reached = untilAsked(p.learner, () => {
       p.built.world.step(); p.reader.afterStep();
@@ -220,20 +254,28 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
     }, steps);
     return reached === 'asked' ? 'started' : reached;
   };
-  /** A start: `p` at its first decision, and its save where it is pooled. */
+  /** A start: `p` at its first decision, and where it is pooled its save, the kept one's or made here and kept. */
   const startOf = (p) => {
-    if (pooled && (!p.kind.save || !p.kind.load)) throw new Error("a pooled environment's world kind saves and loads");
-    return { ...p, saved: pooled ? p.kind.save(p.built) : null, inputs: p.learner.inputs.slice() };
+    if (!pooled) return { ...p, saved: null, inputs: p.learner.inputs.slice() };
+    if (p.kept) return { ...p, saved: p.kept.saved, inputs: p.kept.inputs };
+    const made = { step: Math.round(p.kind.clock(p.built) * p.built.world.hz), saved: p.kind.save(p.built), inputs: p.learner.inputs.slice(), of: p.bank.of };
+    p.bank.starts.keep(p.condition, made);
+    return { ...p, saved: made.saved, inputs: made.inputs };
+  };
+  /** `p`'s trial ended before its first decision: kept as no start where it is pooled, and disposed. */
+  const endedFirst = (p) => {
+    p.bank?.starts.keep(p.condition, { step: null, saved: null });
+    p.built.dispose();
   };
   /** A start at a fresh draw: begun and played to its first decision, drawn again where it is left out or ends first. */
   const fresh = async () => {
     for (;;) {
       const p = await begin();
       if (!p) continue;
-      let kept = false;
-      try {
-        if (advance(p, Infinity) === 'started') { const start = startOf(p); kept = true; return start; }
-      } finally { if (!kept) p.built.dispose(); }
+      let reached;
+      try { reached = advance(p, Infinity); } catch (error) { p.built.dispose(); throw error; }
+      if (reached !== 'started') { endedFirst(p); continue; }
+      try { return startOf(p); } catch (error) { p.built.dispose(); throw error; }
     }
   };
 
@@ -273,7 +315,7 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
       let k = Math.floor(drawing() * pool.length);
       if (pool[k] === ep?.start) k = (k + 1) % pool.length;
       pool[k].built.dispose(); pool[k] = startOf(pending); owed -= 1;
-    } else pending.built.dispose();
+    } else endedFirst(pending);
     pending = null;
     return owed >= 1;
   };

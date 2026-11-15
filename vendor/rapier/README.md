@@ -24,11 +24,7 @@ here from Rapier's source at commit `b716d375efc0201003f0cd9ef7168eee0b62c177`
 - `rustc-wrapper.cjs`: gives crates stable package/version/target/feature identities instead of
   Cargo's checkout-dependent metadata. This affects symbol names and constant layout, not
   compiler optimization or the physics configuration. It is scoped to this pinned build.
-- `dimforge-rapier3d-simd-compat-<version>.tgz`: the built package. `npm ci` installs it, so
-  nothing here needs Rust unless the patch or the tag changes.
-
-The physics bench's plain build (`@dimforge/rapier3d-compat`) stays npm's; its SIMD adapter
-uses this vendored package. The package layout remains compatible with the bench's file reads.
+- `dimforge-rapier3d-simd-compat-<version>.tgz`: the built package.
 
 ## What the patch does
 

@@ -15,6 +15,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { strays } from "../scripts/workspace.mjs";
 
+/**
+ * Check the file inventory against unmanaged snapshots, hidden directories, crash dumps, research
+ * runs no README names and a file added to Git past the rule that ignores it, while preserving
+ * legitimate ignored tools and work in progress.
+ */
 test("strays_are_the_untracked_outside_tracked_folders_the_hidden_and_the_garbage_and_nothing_kept", () => {
   const root = mkdtempSync(join(tmpdir(), "auto-rpg-workspace-"));
   try {
@@ -41,6 +46,11 @@ test("strays_are_the_untracked_outside_tracked_folders_the_hidden_and_the_garbag
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+/**
+ * Apply that inventory to the actual workspace so untracked output, hidden storage, research runs
+ * past their budget or unnamed by a README, and files both tracked and ignored do not accumulate
+ * unnoticed.
+ */
 test("the_working_copy_holds_no_strays", () => {
   const found = strays();
   assert.deepEqual(found, [], `${found.length} strays (npm run clean deletes crash dumps and stale .tmp/ work, and lists the rest):\n`

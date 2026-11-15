@@ -11,6 +11,11 @@ const MODELS = { man: "warrior", woman: "rogue", skeleton: "skeleton", rat: "rat
 const registry = (characters) => ({ characters: { rogue: { model: "woman", label: "Rogue", skills: [] }, skeleton: { model: "skeleton", label: "Skeleton", skills: [] },
   rat: { model: "rat", label: "Rat", skills: [] }, reptile: { model: "reptile", label: "Reptile", skills: [] }, ...characters }, models: MODELS });
 
+/**
+ * The registry must admit two characters on one model and refuse a model's own character on
+ * another body, a bad skill name and a model with none; the shipped file has one character a
+ * model, so no fight can show a second one being refused or a wrong one standing for its model.
+ */
 test("a model carries as many characters as the registry lists, one of them its own", () => {
   const two = registry({ warrior: { model: "man", label: "Warrior", skills: ["straight-punch/drive"] }, brawler: { model: "man", label: "Brawler", skills: ["straight-punch/from-guard"] } });
   assert.equal(registryError(two), null, "two characters on the man");
@@ -19,6 +24,11 @@ test("a model carries as many characters as the registry lists, one of them its 
   assert.match(registryError({ ...registry({}), models: { ...MODELS, man: undefined } }), /model man has no character/);
 });
 
+/**
+ * Refuse a character on another model's body and an unknown name before construction, and resolve
+ * a model alone to its own character's skills; a fight built from a resolved character never meets
+ * these inputs.
+ */
 test("a character resolves on its own model and refuses another, and a model alone is its own character", () => {
   const warrior = resolveCharacterChecked({ model: "man" });
   assert.equal(warrior.config.character, "warrior");
@@ -30,6 +40,11 @@ test("a character resolves on its own model and refuses another, and a model alo
   assert.equal(readCharacter("knight"), undefined);
 });
 
+/**
+ * A link names characters, an older link models, and a recipe names a character only where it is
+ * not its model's own, so recipes saved before characters had names still read alike; a bout
+ * cannot show a link read to the wrong character or a recipe building another model's character.
+ */
 test("the Arena's matchup names characters, a model standing for its own, and a bout builds each side's", () => {
   assert.deepEqual(readMatchup("?matchup=rogue,skeleton"), { left: "rogue", right: "skeleton" });
   assert.deepEqual(readMatchup("?matchup=man,woman"), { left: "warrior", right: "rogue" }, "a model's name is its own character");

@@ -24,8 +24,8 @@ delivery files. The builders never write full-quality exports into `public/`.
 (<https://polyhaven.com/a/kloofendal_43d_clear>), released under CC0 1.0; the menu image's source
 is [the menu painting](menu.md).
 
-After cloning, run `git lfs install`, `git lfs pull`, `npm ci`, then `npm run assets`. Never
-commit an LFS pointer whose content has not been uploaded when publishing the corresponding code.
+Never commit an LFS pointer whose content has not been uploaded when publishing the
+corresponding code.
 
 ## Build and inspect
 
@@ -88,5 +88,4 @@ measurement from the lossless exports
 ([the characters](characters.md#exporting-the-games-derivatives)).
 
 The pipeline validates complete output before publishing it. CI (`.github/workflows/pages.yml`)
-checks out LFS originals, caches toolchains and artifacts, builds assets, runs the gate, and
-deploys the generated files to GitHub Pages.
+checks out the LFS originals and builds the assets before the gate.

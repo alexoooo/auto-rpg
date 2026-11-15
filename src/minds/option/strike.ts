@@ -11,6 +11,7 @@ import { startOf, threatened } from "./percepts.ts";
 import { clinched, record, upOrDown, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import { claimsLegs } from "../../skills/framework/intent.ts";
 
 /** How long a strike may wait to be admitted before it is given up, s. */
 const PATIENCE = 2;
@@ -51,7 +52,10 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * never walks: where no limb is ready and the first with a window says where it could begin (its
  * readiness's `position`), its sites are the spots in that window, one each side of the body its
  * target is on where that body lies (`windowSpot`, `SIDES`, each side's place held while it holds),
- * which a walk goes to (`Option.sites`). It asks for the blow once
+ * which a walk goes to (`Option.sites`). A blow that leaves the legs to a walk (its needs name no
+ * legs, `onTheWay`) is thrown on the way there: its sites stay while a limb is ready, in that limb's
+ * window, and while its blow is under way, the spot last read moved as the focus has moved since,
+ * so the walk it is thrown on goes on to it. It asks for the blow once
  * the limb is ready, and goes on asking until the blow is over: then it has run its course. A blow
  * asked for and refused, every limb out of its entry, or `PATIENCE` s without a blow also end it.
  * It yields until its blow is committed (let go, the blow is dropped) and again from its exit, its
@@ -210,25 +214,33 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     for (let i = 0; i < action.effectors.length; i++) blow = Math.max(blow, now.predictions.blows(action.effectors[i]!, struck));
     return { done: lands, dealt: throws * lands * blow, seconds, recovers: 0, down: 0, ends: [] };
   };
+  /** Whether its blow leaves the legs to a walk: what it needs with its first limb names no legs (`SkillsActions.needs`), read once, its skill's for good. */
+  let leaves: boolean | null = null;
+  const onTheWay = (at: Situation): boolean => leaves ??= action.effectors.length > 0 && !claimsLegs(at.sight.actions.needs(action.name, action.effectors[0]!));
   /**
-   * Its site on `side` (`Site`), where no blow of its own is under way: where no limb is ready, the
-   * spot on that side in the window of the first limb that has one (`windowSpot`), read once a step
-   * for each focus.
+   * Its site on `side` (`Site`): where no limb is ready, the spot on that side in the window of the
+   * first limb that has one (`windowSpot`), read once a step for each focus; none with a limb ready
+   * or its blow under way, unless its blow leaves the legs to a walk (`onTheWay`): then the spot in
+   * the window of the limb ready, and, its blow under way, the spot last read, moved as its focus
+   * has moved since.
    */
   const siteOn = (side: Side, k: number): Site => ({
     name: k === 0 ? `${name}'s window` : `${name}'s window, the other side`,
     spot(at) {
-      if (live(at) || unfit(at)) return null;
+      const running = live(at) !== undefined;
+      if (unfit(at) || running && !onTheWay(at)) return null;
       const kept = state.sides[k]!, foe = at.focus, focus = foe?.id ?? null;
       if (kept.time !== at.time || kept.focus !== focus) {
         kept.time = at.time; kept.focus = focus;
-        if (at.sight.view.down) {
+        if (at.sight.view.down || running) {
           const stood = kept.stood?.focus === focus ? kept.stood : null;
           kept.spot = stood && foe ? { x: stood.spot.x + foe.centre.x - stood.foe[0], z: stood.spot.z + foe.centre.z - stood.foe[1], face: stood.spot.face,
             ...(stood.spot.facing === undefined ? {} : { facing: stood.spot.facing }) } : null;
           kept.place = stood ? stood.place : null;
         } else {
-          const { ready, placed } = offer(at), window = ready === null && placed?.readiness.kind === "position" ? placed.readiness.window : null;
+          const { ready, placed } = offer(at);
+          const window = ready === null ? placed?.readiness.kind === "position" ? placed.readiness.window : null
+            : onTheWay(at) && ready.readiness.kind === "ready" ? ready.readiness.window ?? null : null;
           kept.spot = window ? windowSpot(at.sight.view, window, at.sight.report.legs.heading, side, kept.beside) : null;
           kept.place = window && kept.spot ? placeInWindow(window, kept.spot.x, kept.spot.z, kept.spot.face) : null;
           if (kept.spot && foe) kept.stood = { focus: foe.id, spot: { x: kept.spot.x, z: kept.spot.z, face: kept.spot.face, ...(kept.spot.facing === undefined ? {} : { facing: kept.spot.facing }) },

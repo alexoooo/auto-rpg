@@ -20,6 +20,12 @@ const network = (seed, { inputs, actions }) => ({ actions, layers: [{
   bias: Array.from({ length: actions }, (_, i) => Math.cos(seed + i) * .3),
 }] });
 
+/**
+ * Reproduce learned corrections taking the outputs held before the trainer answers, so each action
+ * acts a decision late and takes its predecessor's reward. Eight distinct answers through the
+ * adapter on a real body are checked on every step of their own transition. Training runs and
+ * drills read returns, which the lag only lowers.
+ */
 test("a travel answer acts over exactly its own decision interval", async () => {
   const spec = modelSpec("man"), guard = guardPosture(spec);
   const stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard });
@@ -58,6 +64,12 @@ test("a travel answer acts over exactly its own decision interval", async () => 
   } finally { host?.dispose(); stand.dispose(); }
 });
 
+/**
+ * Restoring a moving snapshot writes into a cue's borrowed order object, replacing stop with go
+ * across episodes. Replay stop, go and stop from a physically reached native walk; check the
+ * complete scripts and delivered paces. A drill plays one case without this repeated training
+ * reset.
+ */
 test("restoring a moving start preserves the curriculum's stop and pace orders", async () => {
   const zero = (inputs, actions) => ({ actions, layers: [{
     weights: Array.from({ length: actions }, () => new Array(inputs).fill(0)), bias: new Array(actions).fill(0),

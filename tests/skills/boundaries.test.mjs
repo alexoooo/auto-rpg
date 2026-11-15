@@ -25,6 +25,11 @@ import { coreStand } from "../harness/core-stand.mjs";
 
 const stock = modelSpec("man");
 
+/**
+ * Reproduce a fight punch committing while its elbow is displaced and moving. Check every
+ * striking-arm freedom on each hand, then let the arm at its guard begin; strike outcomes alone do
+ * not establish when it begins.
+ */
 test("the punch from guard does not begin its drive with its striking arm away from its guard or still moving", async () => {
   const guard = guardPosture(stock), stand = await coreStand(stock, { posture: guard });
   const host = stockBody(stand.built, stand.world, { servoSeconds: .1 });
@@ -55,6 +60,11 @@ test("the punch from guard does not begin its drive with its striking arm away f
   } finally { host.dispose(); stand.dispose(); }
 });
 
+/**
+ * Reproduce equal-size run settings with a missing key, malformed staged roll tuning and renamed
+ * run channels admitted before construction. Drills construct admitted settings and do not
+ * establish authored applicability.
+ */
 test("invalid authored settings return refusals before the implementation consumes them", () => {
   const renamed = { ...RUN_CYCLE };
   const [key] = Object.keys(renamed);
@@ -69,6 +79,9 @@ test("invalid authored settings return refusals before the implementation consum
   assert.equal(WALK_RUN_PART.fits(stock, WALK_RUN_PART.defaults), null);
 });
 
+/**
+ * Reproduce sensed collision configurations ignored. Drills do not establish sampled geometry.
+ */
 test("configuration observations select the sensed collision surface", () => {
   const original = stock.segments.find(segment => segment.name === stock.marks.high);
   const frame = frameOf(original);
@@ -83,6 +96,9 @@ test("configuration observations select the sensed collision surface", () => {
   assert.equal(surfaceContains(foe, segment.name, [.4, 0, 0]), true);
 });
 
+/**
+ * Reproduce undeclared assist writes. Drills do not establish command ownership.
+ */
 test("assist writes require ownership and conflict across otherwise independent limbs", () => {
   const resources = actionResources([], [{ segment: "arm.a", channels: [] }, { segment: "arm.b", channels: [] }], [], []);
   const assist = { force: new Vector3(), moment: new Vector3() };
@@ -91,6 +107,10 @@ test("assist writes require ownership and conflict across otherwise independent 
   assert.equal(resources.overlap([segmentResource("arm.a"), ASSIST_RESOURCE], [segmentResource("arm.b"), ASSIST_RESOURCE]), true);
 });
 
+/**
+ * Reproduce dropped profile exit percepts and untracked global data changes. Drills do not
+ * establish data identity.
+ */
 test("profiles retain every observed exit percept and hash global data", async () => {
   const profile = { target: null, trials: [{ start: { range: 1, phase: "clear" }, done: true, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false, exit: { balance: .4 } }] };
   assert.deepEqual(profileReading(profile, stock).expect({ range: 1, phase: "clear" }, null).exit, { balance: .4 });
@@ -105,6 +125,10 @@ test("profiles retain every observed exit percept and hash global data", async (
   assert.notEqual(digest("boundary-global-a"), digest("boundary-global-b"));
 });
 
+/**
+ * Reproduce a valid held carrier without an effector being refused. Drills use bodies whose
+ * carriers have effectors.
+ */
 test("a held rigid carrier can be observed without an effector actuator", async () => {
   const loadout = LOADOUTS.find(one => one.right === "club" && one.left === "empty");
   assert.ok(loadout, "the existing club fixture is present");
@@ -124,6 +148,10 @@ import { RISE } from "../../src/skills/recovery/shared/staged/stages.ts";
 import { heldBody, heldCommand } from "../../src/skills/recovery/shared/held-body.ts";
 import { saveState, loadState } from "../../src/core/state.ts";
 
+/**
+ * Reproduce paced guard memory surviving takeover, and rolled toe support missing from a fresh
+ * controller fork. Drills do not establish exact controller restoration.
+ */
 test("takeover clears a paced ward and staged toe support restores into a fresh player", async () => {
   const loadout = LOADOUTS.find(one => one.left === "buckler" && one.right === "empty");
   assert.ok(loadout, "the existing covering buckler fixture is present");
@@ -152,6 +180,10 @@ test("takeover clears a paced ward and staged toe support restores into a fresh 
 import { soleRefusal } from "../../src/control/support.ts";
 import { fitsPaws } from "../../src/control/quadruped/fit.ts";
 
+/**
+ * Reproduce cached support geometry kept after shape-changing configurations. Drills do not
+ * establish sampled geometry.
+ */
 test("cached support controllers refuse changing colliders and admit identical numeric configurations", async () => {
   for (const [base, fits, supportName] of [[stock, soleRefusal, "foot.left"], [modelSpec("reptile"), fitsPaws, "paw.front.left"]]) {
     const support = base.segments.find(segment => segment.name === supportName);
@@ -174,6 +206,10 @@ import { pendingControl } from "../../research/minds/pending-control.mjs";
 import { regaining } from "../../src/skills/recovery/regain/regain/regain.ts";
 import { motorAndGuardOf } from "../../src/skills/assembly/filled.ts";
 for (const [name, makeRegain] of [["witness crouch", crouchRegain], ["regain mode", (own, view) => regaining(own, view, motorAndGuardOf(partLookup, own.spec))]]) {
+/**
+ * Reproduce a recovery that starts before the host has driven. Drills begin a recovery only after
+ * the body has been driven.
+ */
 test(`${name} initializes its own stance when it is the first holder`, async () => {
   const stand = await coreStand(stock);
   let regain, ticks = 0;
@@ -200,6 +236,9 @@ test(`${name} initializes its own stance when it is the first holder`, async () 
 import { PAW_MOVE } from "../../src/skills/locomotion/paw-move/index.ts";
 import { PAW_MOTOR } from "../../src/control/quadruped/paw-motor.ts";
 
+/**
+ * Reproduce replacement gait normalization applied on one axis only. Drills run the stock gaits.
+ */
 test("replacement paw gaits normalize both travel axes and supply their own braking", async () => {
   const stand = await coreStand(modelSpec("reptile"));
   const body = stockBody(stand.built, stand.world, { servoSeconds: .1, motor: PAW_MOTOR.make() });
@@ -230,6 +269,10 @@ import { standingFooting } from "../../src/control/support.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "../../src/skills/locomotion/shared/stance-feet.ts";
 import { locomotion } from "../../src/skills/locomotion/shared/locomotion.ts";
 
+/**
+ * Reproduce the idle stance missing physical foot yaw on feet without an effector actuator. Drills
+ * use feet with actuators and matching end names.
+ */
 test("idle stance reads physical foot yaw without an effector actuator or matching end name", async () => {
   const spec = { ...stock, ends: stock.ends.map(end => end.kind === "foot" ? { ...end, name: end.name === "foot.left" ? "anchor.port" : "anchor.starboard" } : end),
     effectors: stock.effectors.filter(effector => !effector.segment.startsWith("foot.")) };
@@ -247,6 +290,10 @@ test("idle stance reads physical foot yaw without an effector actuator or matchi
 import { partLookup, MINDS, GAME } from "../../src/app/catalog.ts";
 import { filledRefusal } from "../../src/skills/assembly/filled.ts";
 
+/**
+ * Reproduce explicitly selected parts bypassing their body fit. Drills do not establish authored
+ * applicability.
+ */
 test("explicit filled parts obey the same body applicability as automatic selection", () => {
   // A rat that holds the guards: what refuses them is its body.
   const rat = { ...modelSpec("rat"), skills: [...modelSpec("rat").skills, "cover-guard/cover-guard", "shield-guard/shield-guard"] };
@@ -271,6 +318,11 @@ import { standIntent } from "../../src/skills/framework/intent.ts";
 import { rulebook } from "../../src/combat/rulebook.ts";
 import { saveStand, loadStand } from "../harness/core-stand.mjs";
 
+/**
+ * A Lab script with a real decision counter and a queued physical shove reproduces both memories
+ * missing from their state roots; a short save and load replay compares its orders, decision
+ * memory and delivered impulse.
+ */
 test("Lab script memory, its order cache and a pending shove restore with their state roots", async () => {
   const stand = await coreStand(stock);
   const actor = labActor(stand.built, stand.world, { mind: MINDS.option.config, rules: rulebook("arena") });
@@ -303,6 +355,10 @@ import { stockClearance } from "../../src/skills/locomotion/shared/navigation/cl
 import { bodyClearance } from "../../src/skills/locomotion/shared/navigation/sensed-bounds.ts";
 import { arenaSolids } from "../../src/game/arena/solids.ts";
 
+/**
+ * A real low quadruped reproduces its horizontal clearance being mistaken for vertical floor
+ * penetration; the same case retains avoidance of the arena parapet.
+ */
 test("a low quadruped clears its supporting arena floor while retaining real parapet avoidance", async () => {
   const spec = modelSpec("reptile"), stand = await coreStand(spec);
   const body = stockBody(stand.built, stand.world, { servoSeconds: .1, motor: PAW_MOTOR.make() });
@@ -334,6 +390,10 @@ import { makeSkills } from "../../src/skills/assembly/assembly.ts";
 import { LEG_RESOURCE, TRUNK_RESOURCE, poseResource, hasResource } from "../../src/skills/framework/action.ts";
 import { MOVE_PART } from "../../src/skills/locomotion/move/index.ts";
 
+/**
+ * Valid segment names collided with logical services, and a bearing end without an effector lost
+ * its support channels.
+ */
 test("resource compilation separates segment names from services and uses physical bearing chains", () => {
   const resources = actionResources(["hip flexion", "arm flexion"], [{ segment: "assist", channels: ["arm flexion"] }],
     [{ name: "support", segment: "bare-foot", channels: ["hip flexion"] }], ["assist"]);
@@ -345,6 +405,10 @@ test("resource compilation separates segment names from services and uses physic
   assert.equal(hasResource(structuredClone([segmentResource("assist")]), segmentResource("assist")), true);
 });
 
+/**
+ * Stock physical feet without optional actuators and an opaque renamed hand failed before their
+ * skill assembly could stand.
+ */
 test("Option skills assemble with physical feet alone and an effector named assist", async () => {
   const rename = value => Array.isArray(value) ? value.map(rename) : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).map(([key, one]) => [key, rename(one)]))
     : value === "hand.left" ? "assist" : value;
@@ -366,6 +430,10 @@ test("Option skills assemble with physical feet alone and an effector named assi
   }
 });
 
+/**
+ * Admitted null guard tuning, absent staged channels and zero divisors threw during construction;
+ * a neutral-only hand received an undeclared open command.
+ */
 test("admission resolves guard, staged channels and timed strike and gait settings before construction", () => {
   const hand = stock.segments.find(segment => segment.name === "hand.left"), neutral = { ...hand, configurations: { initial: "neutral", shapes: { neutral: hand.shape } } };
   const spec = { ...stock, segments: stock.segments.map(segment => segment === hand ? neutral : segment) };
@@ -387,6 +455,10 @@ test("admission resolves guard, staged channels and timed strike and gait settin
   assert.ok(Object.isFrozen(ROLL_POSES.wind) && Object.isFrozen(ROLL_POSES.swing));
 });
 
+/**
+ * Saving the default assembly omitted its hidden aim's memory and retained later calls after
+ * restoration.
+ */
 test("default skill assembly roots the one configured memoryful aim", async () => {
   const stand = await coreStand(stock), body = stockBody(stand.built, stand.world, { servoSeconds: .1 });
   let made = 0, aim;
@@ -418,6 +490,11 @@ test("default skill assembly roots the one configured memoryful aim", async () =
   } finally { skills?.release(body.view, "replaced"); body.dispose(); stand.dispose(); }
 });
 
+/**
+ * A wide placed Warrior cancels its own weight shift when tracking lags, repeating planted-foot
+ * attempts. Preserve the lift request through that observed lag and release it for a real catch; a
+ * recovery drill does not isolate cancellation ownership.
+ */
 test("idle foot placement survives its own weight-shift tracking error and yields to a catch", async () => {
   const stand = await coreStand(stock, {posture:{"hip.left abduction":.35,"hip.right abduction":.35}});
   const body = stockBody(stand.built, stand.world, {servoSeconds:.1});

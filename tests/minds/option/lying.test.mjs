@@ -6,6 +6,11 @@ import { rulebook } from "../../../src/combat/rulebook.ts";
 import { perceiver, reachMemory } from "../../../src/minds/option/percepts.ts";
 import { brace, hold } from "../../../src/minds/option/rest.ts";
 
+/**
+ * Detect zero lost-opportunity cost for remaining down when the foe has no modelled hand attack.
+ * Compare durations and an upright out-of-reach state without fixing tuned values; a rise ordered
+ * by a drill bypasses this decision rule.
+ */
 test("lying retains an opportunity cost against a foe with no modelled hand attack", () => {
   // The Skeleton on its back, a reptile beside it, both still; then on its feet, the reptile out of every reach.
   const spec = modelSpec("skeleton"), foe = modelSpec("reptile"), reading = perceiver();

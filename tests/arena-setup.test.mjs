@@ -6,6 +6,12 @@ import { mindLinks } from "../src/minds/catalog/config-link.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";
 import { dataOf } from "../src/core/data/store.ts";
 
+/**
+ * Reproduce screen menus and mind editors reading unloaded stomp, recovery and bite data during
+ * compatibility checks. Load the declared compatibility data, check human and jawed bodies, and
+ * leave unrelated construction data unloaded in a fresh process without the Node preload;
+ * capability drills preload the data and cannot expose this startup failure.
+ */
 test("Arena setup loads compatibility data before offering Option Mind", async () => {
   const context = applicationContext("setup-test"), { catalog } = context;
   const { readControls, linkedMind } = createMatchup(context), { mindFaults } = mindLinks(catalog);

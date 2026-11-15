@@ -114,6 +114,9 @@ test("a strike's record counts its own limb's tries its executor gave up on", ()
 });
 
 
+/**
+ * Aim-owned data changed without changing the skill digest.
+ */
 test("a skill's identity includes the selected aim's declared data", async () => {
   const { loadData } = await import("../../src/core/data/store.ts");
   await loadData(["aim-audit-a", "aim-audit-b"], { "aim-audit-a": async () => ({ value: 1 }), "aim-audit-b": async () => ({ value: 2 }) });
@@ -149,6 +152,9 @@ test("a profile whose trials began at several Steadinesses is read at the level 
   assert.equal(profileReading(unlevelled, raised).expect(at, raised).done, profileReading(unlevelled, plain).expect(at, plain).done);
 });
 
+/**
+ * A failed zero-duration trial produced NaN instead of a failed finite rate.
+ */
 test("a zero-length failed profile trial has a finite failed rate", async () => {
   const { profileReading } = await import("../../src/skills/framework/profile.ts");
   const spec = resolveCharacter({ model: "man" }).spec;

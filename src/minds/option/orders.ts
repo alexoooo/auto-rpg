@@ -1,5 +1,5 @@
 import type { Resource } from "../../skills/framework/action.ts";
-import { sameResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../skills/framework/action.ts";
+import { sameResource, LEG_RESOURCE } from "../../skills/framework/action.ts";
 import { NO_COVER } from "../../skills/framework/intent.ts";
 import { orderedIntent } from "../ordered.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
@@ -25,9 +25,9 @@ const fights = (now: Situation): boolean => now.orders?.foe !== undefined && (no
  * else by the one of `gaits`, the legs' gaits, that carries them out fastest now
  * (`Walker.obeying`, the first of equals), else, with none, by the legs' own. On offer while the
  * legs can carry the body (`legsReadiness`) and it has an explicit movement, stop or facing order.
- * It claims the legs and the trunk, and holds the legs and what its walk holds; it yields, but to
- * firm orders to move or stand that name no foe (`Orders.firm`), which it keeps: a foe's are its
- * strikes' to carry out. Its model: carrying out the orders for `AHEAD` s, a walk, a stand or a
+ * It claims the legs, as every walk does, so a blow that leaves the legs is thrown beside it, and
+ * holds the legs and what its walk holds; it yields, but to firm orders to move or stand that name
+ * no foe (`Orders.firm`), which it keeps: a foe's are its strikes' to carry out. Its model: carrying out the orders for `AHEAD` s, a walk, a stand or a
  * facing, is worth the metres its gait goes as ordered as long; none where they are to stand and
  * fight a foe (`fights`); through the blow coming and the focus's reach where it stands in it;
  * where the orders take it is theirs, so it is priced as leaving the body where it is. On offer at
@@ -35,7 +35,7 @@ const fights = (now: Situation): boolean => now.orders?.foe !== undefined && (no
  */
 export function followOrders(gaits: readonly GaitName[], walk: Pick<Walker, "obeying" | "kept">): Option {
   const UNORDERED = blocked("no orders to move, stand or face"), LEGS_HELD: readonly Resource[] = Object.freeze([LEG_RESOURCE]);
-  const claims: readonly Resource[] = Object.freeze([LEG_RESOURCE, TRUNK_RESOURCE]);
+  const claims = LEGS_HELD;
   /** The gait it goes by at `now`, and how fast that carries out the orders, m/s. */
   const by = (now: Situation): { readonly gait: GaitName | null; readonly speed: number } => {
     const named = now.orders?.gait;
@@ -51,7 +51,7 @@ export function followOrders(gaits: readonly GaitName[], walk: Pick<Walker, "obe
       if (legs.kind !== "ready") return legs;
       return ordered(now) ? READY : UNORDERED;
     },
-    // Firm orders to move or stand keep the legs and the trunk: nothing of its own takes them over.
+    // Firm orders to move or stand keep the legs: nothing of its own takes them over.
     status: (now) => now.orders?.firm && now.orders.move !== undefined && now.orders.foe === undefined ? "committed" : "yields",
     begin() {},
     end() {},

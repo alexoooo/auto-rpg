@@ -74,12 +74,20 @@ function boundaryViolations(entries, inside) {
 
 const inCore = (file) => file.startsWith(CORE);
 
+/**
+ * Reject transitive dependencies on pages, Node-only services or unapproved packages that make the
+ * core unusable in another runtime.
+ */
 test("nothing the core reaches leaves the core, its packages or its data", () => {
   const sources = filesUnder(CORE).filter((file) => file.endsWith(".ts"));
   assert.ok(sources.length > 0, "src/core/ has no modules, so this test would pass on nothing");
   assert.deepEqual(boundaryViolations(sources, inCore), []);
 });
 
+/**
+ * Check the import scanner against real crossings from the Arena page, including a transitive one;
+ * the clean-core scan alone cannot show that traversal works.
+ */
 test("the boundary check finds a crossing where there is one", () => {
   // The control: the arena's page, held to the core's rule as if `src/game/arena/` were a core, reaches
   // the page's routes, the renderer and the core. If the walk stopped finding these, the test above would prove nothing.
@@ -172,6 +180,10 @@ function engineArithmetic(text, file) {
   return found;
 }
 
+/**
+ * Reject engine-dependent transcendental arithmetic that can make browser and Node trajectories
+ * differ in their last bits. The fixture distinguishes real operations from comments and names.
+ */
 test("the core, and what builds a case's world, compute with IEEE's operations and the core's own functions", () => {
   const builders = worldBuilders(), files = [...new Set([...SIMULATED.flatMap(filesUnder).filter((name) => name.endsWith(".ts")), ...builders])];
   // The core's own functions and vectors, the bout's and the Crypt's worlds and a battery's cases are read.
@@ -195,6 +207,10 @@ test("the core, and what builds a case's world, compute with IEEE's operations a
 /** Each `@babylonjs/` package a module among `files` imports for its values, as `"file package"`. */
 const rendererImports = (files) => files.flatMap((file) => valueImports(file).filter((target) => target.startsWith("@babylonjs/")).map((target) => `${file} ${target}`));
 
+/**
+ * Catch renderer imports through runtime-neutral builders outside core, where the core-only import
+ * scan has no authority. A drawn Arena room proves the scan detects a renderer.
+ */
 test("a headless world loads no renderer: the bout's, the Crypt run's, the cases', the falls' and the world worker's modules import nothing of Babylon", () => {
   const headless = reached([BOUT_BUILDER, CRYPT_BUILDER, ...caseModules(), ...FALL_BUILDERS, WORLD_WORKER]);
   assert.ok(["src/game/arena/solids.ts", "src/game/dungeon/solids.ts", "src/app/worker/duel-stage.ts", "src/app/worker/crypt-stage.ts", "src/core/world/world.ts"]
@@ -230,6 +246,10 @@ function seamCrossings(files) {
   return out;
 }
 
+/**
+ * Reject direct Rapier imports outside its adapter and imports bypassing the engine registry. This
+ * protects the single initialization boundary and engine replacement.
+ */
 test("the core and its lab reach an engine only through the seam: engine.ts's contract and engines.ts's list", () => {
   const files = [...filesUnder(CORE), ...filesUnder("src/game/lab/"), ...filesUnder("src/app/browser/lab/")].filter((file) => file.endsWith(".ts"))
     .map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
@@ -285,6 +305,10 @@ function mindCrossings(files, { folders = MIND_FOLDERS, adapters = MIND_ADAPTERS
 const CHANCES = [[/\bMath\s*\.\s*random\b/, "Math.random"], [/\bcrypto\s*\.\s*getRandomValues\b/, "crypto.getRandomValues"],
   [/\bDate\s*\.\s*now\b|\bnew\s+Date\b/, "the date"], [/\bperformance\s*\.\s*now\b/, "performance.now"]];
 
+/**
+ * Prevent privileged reads or unrecorded randomness and machine time in decision/control code. A
+ * seed's successful drill does not prove isolation or reproducibility.
+ */
 test("a mind and its toolkit reach no engine, world, builder, global or chance but its seed: only the report and the order sheet", () => {
   const files = MIND_FOLDERS.flatMap(filesUnder).filter((file) => file.endsWith(".ts")).map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
   assert.ok(files.length > 50, "no mind's source, so this test would pass on nothing");
@@ -308,7 +332,13 @@ test("a mind and its toolkit reach no engine, world, builder, global or chance b
   ]);
 });
 
-/** Every source module is checked by responsibility and runtime, including modules no world builder reaches. */
+/**
+ * Every source module is checked by responsibility and runtime, including modules no world builder
+ * reaches. Reject upward imports, including type-query imports; a skill's variation imported from
+ * outside its skill, or importing another skill's code; shared skill code importing a skill's; and
+ * modules omitted from the layer map. The compiler accepts those dependencies; game outcomes do
+ * not expose them.
+ */
 test("source imports follow responsibility, runtime and package ownership", () => {
   const files = sourceFiles();
   assert.ok(files.some(([file]) => file.startsWith("src/core/")) && files.some(([file]) => file.startsWith("src/app/browser/"))
@@ -385,6 +415,10 @@ function entrantCrossings(files) {
   return crossings;
 }
 
+/**
+ * Prevent an entrant from importing a rival's implementation or privileged application state. A
+ * competition result cannot establish independent entrant ownership.
+ */
 test("an entrant reaches only libraries, its own folder and its own data", () => {
   const files = filesUnder("src/entrants/").filter((file) => file.endsWith(".ts")).map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
   assert.ok(new Set(files.map(([file]) => entrantOf(file)).filter(Boolean)).size > 1, "fewer than two entrants, so this test would pass on nothing");
@@ -404,6 +438,10 @@ test("an entrant reaches only libraries, its own folder and its own data", () =>
   ]);
 });
 
+/**
+ * Enforce the Commander's narrower read/write authority, which is distinct from the Mind boundary
+ * and can be bypassed without causing a drill failure.
+ */
 test("a Commander reaches no engine, world, body or global: only its team's view and the orders it gives", () => {
   const command = { folders: COMMAND_FOLDERS, adapters: [], barred: COMMAND_BARRED };
   const files = COMMAND_FOLDERS.flatMap(filesUnder).filter((file) => file.endsWith(".ts")).map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);

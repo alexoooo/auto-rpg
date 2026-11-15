@@ -4,7 +4,7 @@ import type { PhysicsEngine } from "./engine.ts";
  * **The engines the core can run on**, by name, each loaded on demand so a page or a test pays only
  * for the one it runs. The game runs `DEFAULT_ENGINE`; the Node stand (`tests/harness/core-stand.mjs`)
  * runs the one `CORE_ENGINE` names. An engine joins by a module meeting `engine.ts`'s contract and
- * a line here, after it has passed the physics bench (`src/app/browser/physics-bench/`).
+ * a line here.
  */
 const ENGINES = {
   rapier: () => import("./rapier.ts").then((m) => m.loadRapier()),

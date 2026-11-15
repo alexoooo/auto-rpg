@@ -7,6 +7,7 @@ import type { GaitPart } from "../../framework/locomotion-part.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "../shared/stance-feet.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { locomotion, validCarriage, validTurnLimit, validTurnStartup, type Carriage, type TurnStartup } from "../shared/locomotion.ts";
+import { STANCE_GAIT, type GaitTuning } from "../../../control/stance/stance-tuning.ts";
 
 /** **The walk** within the body's stance envelope (`locomotion`). */
 interface StanceWalkConfig extends Varied {
@@ -21,10 +22,26 @@ interface StanceWalkConfig extends Varied {
   readonly carriage?: Carriage;
 }
 
-/** Walk in the stance's variations: walk in the stance. */
+/**
+ * The footwork's steps: the stance's own (`STANCE_GAIT`), a walk started with the foot whose first
+ * landing is the further its way (`GaitTuning.startsToward`), so that a step to a side goes
+ * the walk's way from its first lift.
+ */
+const FOOTWORK_STEPS: GaitTuning = deepFreeze({ ...STANCE_GAIT, startsToward: true });
+
+/** The walk in the stance (`locomotion`), by the stance's own steps or by `steps`. */
+const walk = (body: Body, config: StanceWalkConfig, steps?: GaitTuning) => locomotion(stanceFeetOf(body.built.spec), body.envelope, { turnLimit: config.tuning?.turnLimit,
+  turnStartup: config.tuning?.turnStartup, carriage: config.carriage, segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built),
+  ...(steps ? { gait: () => steps } : {}) });
+
+/**
+ * Walk in the stance's variations: the walk in the stance, by the steps the stance has; and the
+ * footwork, a fight's short steps (`FOOTWORK_STEPS`), which it asks of the stance with each goal,
+ * so a stance tuned to other steps walks the footwork's under it.
+ */
 const VARIATIONS = {
-  "stance-walk": (body: Body, config: StanceWalkConfig) => locomotion(stanceFeetOf(body.built.spec), body.envelope, { turnLimit: config.tuning?.turnLimit,
-    turnStartup: config.tuning?.turnStartup, carriage: config.carriage, segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built) }),
+  "stance-walk": (body: Body, config: StanceWalkConfig) => walk(body, config),
+  "footwork": (body: Body, config: StanceWalkConfig) => walk(body, config, FOOTWORK_STEPS),
 };
 
 /** **Walk in the stance** (`locomotion`): it holds the body's stance envelope (`Body.envelope`) and stops at `STANCE_STOPPING`. */

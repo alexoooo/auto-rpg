@@ -30,7 +30,26 @@ import { deepFreeze } from "../../../../core/state.ts";
 /** Backward travel asked while the bite withdraws, m/s. */
 const WITHDRAW_SPEED = 1.15;
 
-/** The bite's settings, by name: `docs/reference/reptile.md#controller-settings`. */
+/**
+ * The bite's settings, by name. Times are seconds, lengths metres, angles radians.
+ * - `prepare`, `snap`, `open`, `jawError`, `jawClosed`: the jaw's path, opening and closing, with
+ *   finite angular motion.
+ * - `biteEntry`, `bitePrepareNear`, `biteElevation`, `biteNear`: reach. A target is taken within
+ *   the tooth-to-mouth span plus `biteEntry`, and the open jaw keeps `biteEntry` clear of the
+ *   floor; the chamber starts within `bitePrepareNear`; a target lies within `biteElevation` of
+ *   the mouth's height; `biteNear` is the chamber's readiness.
+ * - `contactAt`, `biteAlign`, `biteShift`: placement. The selected tooth is aimed at `contactAt`
+ *   of the opening; launch with the mouth within `biteAlign` of that aim, the lean within
+ *   `biteShift` of where the chamber began.
+ * - `biteSamples`, `biteLead`: selection. The first exposed entry over the tooth arc; the material
+ *   point predicted from sensed motion.
+ * - `contactSeconds`: an admitted stroke's contact bounded by time.
+ * - `neckRetract`: the ceiling on upward neck retraction during a loaded return.
+ * - `biteResponse`, `closeRate`: the jaw path tracked through the unchanged torque and speed
+ *   ceilings; closing velocity kept at the path's end, actual motion muscle limited.
+ * - `release`, `biteSlow`, `biteHold`, `biteTimeout`, `biteReturnLimit`: a verified quiet
+ *   release; the bound allows actual backward paw placements before reporting failure.
+ */
 export const BITE_SETTINGS = Object.freeze(["prepare", "snap", "release", "open", "jawError", "jawClosed", "biteTimeout", "biteEntry", "bitePrepareNear",
   "biteElevation", "biteNear", "biteSlow", "biteHold", "biteReturnLimit", "contactAt", "closeRate", "biteResponse", "biteAlign", "biteShift",
   "contactSeconds", "biteSamples", "biteLead", "neckRetract"] as const);

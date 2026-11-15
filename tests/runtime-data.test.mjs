@@ -12,6 +12,11 @@ import { replyBox } from "../src/app/apart/box.ts";
 import { waitPast } from "../src/app/apart/wire.ts";
 import { browserMindWorkers } from "../src/app/browser/worker/minds.ts";
 
+/**
+ * Reproduce Random Crypt startup blocking before nested workers initialize: the pool stays pending
+ * until every worker acknowledges startup, and a failed startup stops the whole pool. Node skill
+ * drills start threads through a different transport.
+ */
 test("browser mind pools wait for every worker to initialize before the world can block", async () => {
   const original = globalThis.Worker, workers = [];
   class WorkerStub {
@@ -48,6 +53,10 @@ test("browser mind pools wait for every worker to initialize before the world ca
   } finally { globalThis.Worker = original; }
 });
 
+/**
+ * Reproduce saved-record discriminator and prototype-key loss. A data failure, read from the
+ * result directly; a skill drill cannot establish it.
+ */
 test("saved user discriminators and prototype keys retain whole records and sharing", () => {
   const item = JSON.parse('{"~":"vector","at":[1,2,3],"label":"keep","__proto__":{"keep":true}}');
   item.self = item;
@@ -61,12 +70,19 @@ test("saved user discriminators and prototype keys retain whole records and shar
   assert.deepEqual(fork.vector, live.vector);
 });
 
+/**
+ * Reproduce mutable container constants: maps, sets and typed arrays that a freeze leaves
+ * writable. A data failure a skill drill cannot establish.
+ */
 test("constants refuse containers whose mutation Object.freeze cannot prevent", () => {
   for (const value of [new Map([["a", { count: 1 }]]), new Set(["a"])]) {
     assert.throws(() => deepFreeze({ value }), /mutable containers/);
   }
 });
 
+/**
+ * Reproduce sparse arrays compacted by saving. A data failure a skill drill cannot establish.
+ */
 test("saving sparse arrays preserves absent indices and clears stale live elements", () => {
   const source = { values: [1, , 3] }, target = { values: [0, 2, 0, 4] };
   loadState(target, structuredClone(saveState(source)));
@@ -74,6 +90,10 @@ test("saving sparse arrays preserves absent indices and clears stale live elemen
   assert.equal(Object.hasOwn(target.values, 1), false);
 });
 
+/**
+ * Reproduce absent array indices becoming present `null` elements in worker text; compare the
+ * complete sparse array alongside real `undefined` entries and escaped user tags.
+ */
 test("worker text preserves user tags and own prototype keys alongside exact numbers", () => {
   const value = JSON.parse('{"__proto__":{"keep":true},"tags":[{"$n":"NaN"},{"$u":1},{"$f":{"offset":0,"length":2}},{"$o":[]}]}');
   value.numbers = [NaN, Infinity, -Infinity, -0, undefined];
@@ -83,6 +103,10 @@ test("worker text preserves user tags and own prototype keys alongside exact num
   assert.deepEqual(decodeExact(text, () => { throw new Error("a user tag is not shared numbers"); }), value);
 });
 
+/**
+ * Reproduce a full reply ring deadlocking the wait for a worker's completion. A lifecycle failure
+ * a skill drill cannot establish.
+ */
 test("waiting for worker completion drains a full reply ring", async () => {
   const box = replyBox(256), control = new Int32Array(new SharedArrayBuffer(4)), replies = [];
   const worker = new Worker(`const {workerData} = require('node:worker_threads');
@@ -99,6 +123,10 @@ test("waiting for worker completion drains a full reply ring", async () => {
   } finally { await worker.terminate(); }
 });
 
+/**
+ * Reproduce nested rulebook aliasing: a caller's later write changing a constructed rulebook. A
+ * data failure a skill drill cannot establish.
+ */
 test("rulebook construction snapshots nested caller policy", () => {
   const life = { vital: sourced(2, "1", "owner-life", "fixture"), trunk: sourced(1, "1", "owner-life", "fixture"), limb: sourced(.5, "1", "owner-life", "fixture") };
   const rules = rulebook("arena", { life });
@@ -108,6 +136,10 @@ test("rulebook construction snapshots nested caller policy", () => {
   assert.ok(Object.isFrozen(rules.life.trunk));
 });
 
+/**
+ * Reproduce cached-contact identity mutation across repeated reads. A data failure a skill drill
+ * cannot establish.
+ */
 test("read contacts preserve cached engine identities across repeated unfiltered reads", () => {
   const body = { id: 1, pose: { name: "fixture", position: new Vector3(), rotation: {} } };
   const contact = { other: body, impulse: 1, point: [0, 0, 0], normal: [0, 1, 0], pairs: [] };
@@ -122,6 +154,10 @@ test("read contacts preserve cached engine identities across repeated unfiltered
   assert.equal(contact.other, body);
 });
 
+/**
+ * Reproduce detached limbs retaining articulated impact mass. Read from the contact mass directly;
+ * a skill drill does not sever a limb and then strike with it.
+ */
 test("a released joint gives its detached component an independent floating contact mass", async () => {
   const { coreStand } = await import("./harness/core-stand.mjs");
   const { modelSpec } = await import("../src/core/bodies/models.ts");
@@ -143,6 +179,10 @@ test("a released joint gives its detached component an independent floating cont
   } finally { stand.dispose(); }
 });
 
+/**
+ * Reproduce partial stage builds leaking their minds. A lifecycle failure a completed bout does
+ * not exercise.
+ */
 test("a failed stage build releases the minds it creates before awaiting the engine", async () => {
   const { teamStage } = await import("../src/app/worker/stage.ts");
   const { CONTEXT } = await import("../src/app/node/context.ts");
@@ -155,6 +195,10 @@ test("a failed stage build releases the minds it creates before awaiting the eng
   assert.equal(disposed, made);
 });
 
+/**
+ * Reproduce shape configurability granting a non-extremity an injury exemption. Read from the
+ * wound directly; a skill drill cannot establish it.
+ */
 test("configurable non-extremities take the same collision injury as their unchanged shape", async () => {
   const { modelSpec } = await import("../src/core/bodies/models.ts");
   const { freshEngine } = await import("./harness/core-stand.mjs");
@@ -203,6 +247,10 @@ class WorkerStub {
   terminate() { this.terminated = true; }
 }
 
+/**
+ * Reproduce synchronous worker sends leaking startup or leaving earlier requests pending. A
+ * lifecycle failure a completed bout does not exercise.
+ */
 test("a synchronous worker post failure closes startup and every pending request", async () => {
   const before = globalThis.Worker, failure = new Error("fixture post failure");
   globalThis.Worker = WorkerStub;
@@ -222,6 +270,10 @@ test("a synchronous worker post failure closes startup and every pending request
   } finally { WorkerStub.postFailure = null; globalThis.Worker = before; }
 });
 
+/**
+ * Reproduce worker requests completed by another request's reply or left pending at shutdown. A
+ * lifecycle failure a completed bout does not exercise.
+ */
 test("world requests settle their own replies and reject on every terminal path", async (context) => {
   const before = globalThis.Worker;
   globalThis.Worker = WorkerStub;
@@ -262,6 +314,12 @@ test("world requests settle their own replies and reject on every terminal path"
 });
 
 
+/**
+ * Reproduce invalid character drafts throwing for overlapping or impossible geometry, finite
+ * scaling factors overflowing or underflowing physical quantities, and mixed extremes collapsing a
+ * hull. These admission failures happen before a world exists, so capability drills cannot
+ * establish the returned refusal contract.
+ */
 test("external character settings return owner refusals for geometry and numeric limits", async () => {
   const { BODY_MODELS, HUMANOID_MODELS, resolveCharacter, resolveCharacterChecked } = await import("../src/core/bodies/models.ts");
   const model = "man";
@@ -285,6 +343,12 @@ test("external character settings return owner refusals for geometry and numeric
 });
 
 
+/**
+ * Reproduce explicit Option service tuning throwing for a wrong role and nested Move gait settings
+ * bypassing validation. Check complete path-prefixed role, unknown-kind, value and malformed-shape
+ * refusals, plus nested tuning removal; physical drills construct admitted settings and cannot
+ * establish this configuration boundary.
+ */
 test("nested configured parts return whole role and value faults before graph traversal", async () => {
   const { GAME, MINDS } = await import("../src/app/catalog.ts");
   const tuned = legs => ({ ...MINDS.option.config, tuning: { parts: { legs } } });

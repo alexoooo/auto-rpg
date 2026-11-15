@@ -15,8 +15,6 @@ import { sourced, type Quantity } from "../../../quantity.ts";
  * ends on a landmark the rig lacks, the paper's alternative row is taken, and the row's name says
  * so. Rows marked * in the paper ("not adjusted values") are the head (VERT-CERV), the upper trunk
  * (CERV-XYPH), the middle trunk and the foot.
- *
- * `docs/reference/human-strike-reference.md` section 6 discusses the table.
  */
 export type Sex = "male" | "female";
 

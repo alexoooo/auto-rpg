@@ -384,7 +384,7 @@ const START_EVEN = .01;
  * beside the other, and a leg reaching ahead with its heel down drags back on it, the knee straight
  * under the body's weight.
  *
- * `toward` (`StanceTuning.startsToward`), it is first the foot whose landing is the further the
+ * `toward` (`GaitTuning.startsToward`), it is first the foot whose landing is the further the
  * walk's way from where it stands. A first landing is the other sole's middle, the walk's distance
  * over a swing on and the step's width out to its own side (`walkStep`), so the left's is further
  * than the right's by twice what the feet stand wider than the step's width, times the walk's
@@ -654,7 +654,7 @@ export function aimRecovery(s: Stance): void {
  * lifted is not taken, and no step settles the walk's end: it steps only to catch the body.
  */
 export function ownStep(s: Stance, heading: number, hip: number, halted: boolean): void {
-  const { feet, rest, state } = s, { reading, pace, step, gait } = state, { recovery, bend, startsToward } = s.tuning, hips = hip - state.crouch;
+  const { feet, rest, state } = s, { reading, pace, step, gait } = state, { recovery, bend } = s.tuning, startsToward = gait.startsToward ?? false, hips = hip - state.crouch;
   if (halted && reading.own && !step.recovering && reading.phase === "shift") {
     reading.own = null;
     reading.phase = "stand";

@@ -30,7 +30,7 @@ export function heldBy(part: Part, config: PartConfig): readonly Held[] {
   });
   const declared = (part.children?.(config) ?? []).map((child): Held => {
     const key = child.path.join(".");
-    return { slot: { key, label: key, role: child.role, many: false, optional: false }, path: child.path, parts: [child.config] };
+    return { slot: { key, label: key, role: child.role, many: false, optional: child.picked === true, ...(child.picked ? { skills: true } : {}) }, path: child.path, parts: [child.config] };
   });
   return [...slots, ...declared];
 }

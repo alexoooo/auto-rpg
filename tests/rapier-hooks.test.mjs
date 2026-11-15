@@ -25,6 +25,11 @@ async function articulatedToe(pitch = 0) {
   return { R, physics, raw, child, stiffness, motor, set };
 }
 
+/**
+ * Catch a generic motor row using a half-angle sine instead of radians, doubling a free spring's
+ * displacement. A fixed root isolates the contract; ordinary capability drills use impulse joints
+ * and rigid contacts, so cannot expose the defect.
+ */
 test("an articulated force-based angular spring uses radians", async () => {
   const f = await articulatedToe(), applied = 2, torque = new Vector3(applied, 0, 0), dt = 1 / 120;
   try {
@@ -37,6 +42,10 @@ test("an articulated force-based angular spring uses radians", async () => {
   } finally { f.physics.dispose(); }
 });
 
+/**
+ * Catch generic contacts ignoring a requested compression cap. A fixed root isolates the contract;
+ * ordinary capability drills use impulse joints and rigid contacts, so cannot expose the defect.
+ */
 test("an articulated contact enforces its material compression cap", async () => {
   const f = await articulatedToe(.5), cap = .0005;
   let calls = 0;
@@ -59,6 +68,12 @@ test("an articulated contact enforces its material compression cap", async () =>
   } finally { f.physics.dispose(); }
 });
 
+/**
+ * Reproduce a material callback throwing while the vendored WASM bridge silently returns a
+ * successful step. The overlapping-contact fixture verifies the original thrown value and callback
+ * receiver at the actual engine boundary; a normal bout installs no material layer and cannot
+ * exercise this defect.
+ */
 test("a contact-layer callback defect reaches the world-step caller unchanged", async () => {
   const R = await rapierModule(), world = new R.World({ x: 0, y: 0, z: 0 }), queue = new R.EventQueue(true);
   const failure = new Error("contact layer failed"), marker = {}, hooks = Object.freeze({ marker,

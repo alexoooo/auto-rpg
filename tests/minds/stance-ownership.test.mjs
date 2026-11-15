@@ -7,6 +7,11 @@ import { SERVO_SECONDS } from "../../src/control/body.ts";
 import { stockMotor } from "../../src/app/registration/stock-motor.ts";
 import { coreStand } from "../harness/core-stand.mjs";
 
+/**
+ * Detect overlapping effector and point goals admitted because a bearing end identifier was
+ * treated as a side and prefixed again. A capability drill can succeed without two controllers
+ * claiming the same segment.
+ */
 test("a stance's named bearing end excludes another controller of its segment", async () => {
   const spec = modelSpec("man");
   const end = spec.ends.find(end => end.kind === "foot" && spec.effectors.some(e => e.segment === end.segment));
