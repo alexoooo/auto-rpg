@@ -543,6 +543,22 @@ deleted.
   at 36 rad/s, 0.49 m out. Not a braking elbow: a target 2 cm nearer, met before the arm's end.
 - **The steer does not read the foe's hands**; the guard's arm takes 36% of the commits in bouts.
   It could read them as it reads the chest's facing (an input of the layout, a retrain).
+- **The stroke asks the walk in: `deeper` 0.3.** While a blow is live, the Option Mind's walk goes
+  to the strike's window spot moved `deeper` m toward the foe (`strike.ts`, the site's
+  `through`); `moving.json` had none, so the walk held the spot and took back any travel into the
+  blow. The legs stay the walk's. Twelve bouts, 8.13 M's network:
+
+  | `deeper` | landed a bout-minute | landed of committed | a landed blow | fell | bout-minutes |
+  | --- | --- | --- | --- | --- | --- |
+  | none | 2.46 | 8% | 0.78 hp | 10 | 13.8 |
+  | 0.15 | 4.01 | 9% | 0.73 | 2 | 11.2 |
+  | 0.3 | 4.35 | 13% | 0.79 | 5 | 10.8 |
+  | 0.5 | 3.31 | 10% | 0.73 | 4 | 11.8 |
+
+  At 0.3 a commit going forward lands 36% (21 of 58). Run 7's 9.18 M with it: 6.29 a bout-minute
+  (57 of 374, 15%), 0.75 hp, 4 falls, 9.1 bout-minutes; its touches 91.5 hp to the installed
+  punch's 7.6, which lands 0 to 2. `moving.json`'s `deeper` is 0.3, and **run 8** continues run 7
+  (9.18 M) with it. The landed blow's hp is the bar's half still unmoved.
 
 | Step | State |
 | --- | --- |
