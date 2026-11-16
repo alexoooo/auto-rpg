@@ -3,7 +3,7 @@
     "warrior": {
       "model": "man", "label": "Warrior",
       "skills": [
-        "straight-punch/drive",
+        "straight-punch/moving",
         "sword-thrust/drive",
         "bonk/swing",
         "club-blow/swing",

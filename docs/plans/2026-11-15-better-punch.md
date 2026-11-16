@@ -85,7 +85,13 @@ It is **done** when, on the Warrior:
    words: "it needs to land dramatically stronger (currently it mostly jsut graxes dealing < 0.1
    damage) and dramatically more often", and then: "at least 5x more blows, and at least 2x damage
    per blow. that's what i would be happy with". So, **in the same bouts: at least five times the
-   installed punch's landed blows, and at least twice the median hp a landed blow takes**. And:
+   installed punch's landed blows, and at least twice the median hp a landed blow takes**. The
+   weight half was changed on 2026-11-16, passed on by the reviewing session: asked whether about
+   1.4 hp a blow was meant, the owner wrote "i think that might not be realistic, because i think
+   the best punch even in ideal conditions is about 1, no?", then "yes, pass it on: median landed
+   blow about 1.0 hp. also i'd like for the new punch to be installed in the game so that i can
+   watch it in Arena". So **a median landed blow of about 1.0 hp in bouts**; the count half
+   stands. And:
    "if it can do even 20 [a minute] that would be amazing ... I want landing a blow to mean
    landing a blow. A gentle accidental graze to me is not a 'landed punch'". **A landed blow
    takes at least 0.5 hp** (`LANDED`, `strike-bouts.mjs`): half a solid punch (a hit point is
@@ -624,6 +630,23 @@ deleted.
   | 13.12 M | 4.51 | 11% | 0.80 | 2 | 34% | 23% | about 0.17 |
   | 14.16 M | 5.95 | 16% | 0.86 | 6 | 30% | 27% | 0.20 to 0.23 |
 
+- **Installed for the Arena, at the owner's asking (2026-11-16)**: the Warrior holds
+  `straight-punch/moving` in place of `drive` (`assets/characters/characters.json`), its record
+  steered by run 10d's 14.16 M; the Rogue and the Skeleton keep `drive` (their records of `moving`
+  have no network). The game's Option Mind prices a strike by its profile, and `moving` had
+  none: two Warriors on it stood 3 m apart for 30 s. Its profiles are measured sparring
+  (`npm run evaluate -- strike option/straight-punch --protocol sparring --json`, 720 trials, then
+  `strike-profiles.mjs --write`; the Rogue's and the Skeleton's `drive` measured again beside it).
+  In a game bout of 60 s, `moving` against `drive` landed 9 to 0, and with the sides swapped 4 to
+  0; two Warriors both on `moving` close to 1.84 m and wait there, no blow begun. In the Arena:
+  Warrior against Warrior, one side's Skills panel with the straight punch's `drive` ticked and
+  `moving` not. A trainer's or the strike drill's foe is the `man` body as its character has it,
+  so a run begun now trains against `moving`: its foe is held to `drive` before the next run.
+  `screen-bouts` holds the foe's side to `drive`.
+- **Heavy landed blows come from a straighter arm, not from range.** The 147 landed in three
+  screens by thirds of the mass behind the fist: 3.6, 10.0 and 25.0 kg, at 0.81, 0.84 and 1.00 hp;
+  the elbow bent 42, 36 and 25 degrees, the shoulder-to-fist line 27, 22 and 13 degrees off the
+  blow's normal; closing 8.0, 5.3 and 4.3 m/s; the same range, time and travel.
 - **The guard is not in the way at the fire; range is.** With `OPENING`, strike-bouts records, at
   the fire, which part five fist-wide lines to the aim and to other points meet first (the foe's
   own colliders, `surfaceEntry`), and at each touch the fist and the foe's arms. Run 10d at
