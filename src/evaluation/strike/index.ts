@@ -112,10 +112,22 @@ export const createStrikeIndex = perContext((context: GameContext) => {
     },
     /**
      * A learning environment's percepts, each a second: `unmet`, how many fields of their last goal
-     * the striker's legs left undone (`LegsReport.unmet`), 0 for a mind that runs no skills.
+     * the striker's legs left undone (`LegsReport.unmet`), 0 for a mind that runs no skills; `dealt`,
+     * the hit points the striker's hands dealt the other side in the blows of the step just played
+     * (`BlowSide.damage`), over the step's seconds, so that summed over a decision it pays each blow
+     * once as it lands.
      */
     percepts: {
       unmet: (built) => built.duel.duelists.left.minded.skills?.report.legs.unmet.fields.length ?? 0,
+      dealt: (built) => {
+        const blows = built.duel.blows, me = built.duel.duelists.left.id, now = built.world.time, dt = 1 / built.world.hz;
+        let hp = 0;
+        for (let k = blows.length - 1; k >= 0 && blows[k]!.time > now - dt / 2; k--) {
+          const sides = blows[k]!.sides, mine = sides.find((side) => side.fighter === me), theirs = sides.find((side) => side.fighter !== me);
+          if (mine && theirs && mine.segment.startsWith("hand.")) hp += theirs.damage;
+        }
+        return hp / dt;
+      },
     },
     figures: [
       { name: "landed", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.outcome === "landed" },

@@ -433,6 +433,23 @@ deleted.
   The environment now cuts the episode of a world that throws and writes its condition to
   `server.log` (`survive`), and run 3 continues from its last model; the fault is to be found
   from those conditions.
+- **Run 3 at 2.1 M in the bar's bouts** reads as run 1 at 1 M: `moving` landed 8 where the
+  installed punch landed 18; a touching blow a median 0.14 and 0.18 hp.
+- **What `moving`'s blows meet in bouts** (`strike-bouts --save`, each committed punch's heaviest
+  touch): at 2.1 M, 38 of 85 meet the upper trunk and 10 the middle; 7 of the 48 take 0.5 hp. The
+  heavy ones meet square, the shoulder-to-fist line within 9 to 25 degrees of the surface's normal,
+  with 9 to 13 kg behind the fist (100 J); the light ones meet slanted, 40 to 77 degrees, about
+  as far as the foe's trunk is turned off the line between them (Option Mind's guard stands
+  bladed), or with 1 to 4 kg behind the fist. The installed punch's heavy blows have 11 to 14 kg
+  behind them. `moving`'s fist is fastest (8.4 to 8.6 m/s) about 0.19 s from the fire and meets
+  the trunk at 0.21 s closing at 4.1 to 4.5 m/s along the contact: half its speed, the slant's
+  share. The steer reads nothing of which way the foe's chest faces.
+- **Run 3's reward was one value at the end of a fight moment**, several steered blows into it,
+  and charged every second the legs' goal went unmet, which `moving`'s steer (no leg outputs) does
+  not move; its value fell from 0.54 to 0.44 over its first four chunks. The Strike drill now has a
+  percept `dealt`: the hit points the striker's hands deal in each step's blows, paying each blow
+  once as it lands. **Run 4** continues run 3 (2.36 M) paid `dealt` and the end's value, `unmet`
+  dropped.
 
 | Step | State |
 | --- | --- |
