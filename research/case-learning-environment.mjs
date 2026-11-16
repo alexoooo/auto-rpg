@@ -28,7 +28,10 @@ import { isRefused } from "../src/core/refusal.ts";
  * episode starts at its learner's first request and plays one request a step through the learning
  * adapter (`learner-adapter.mjs`): the trainer's outputs (through tanh) answer it, and the world
  * steps until the learner asks again; it ends with its case's reader, with the learner no longer
- * running (a punch's drive), its trial then played on to its reader's end (with `onward` false, read there), with a fall where `down` weighs one, or is cut at the protocol's longest.
+ * running (a punch's drive), its trial then played on to its reader's end (with `onward` false, read there; a
+ * number, played on at most that many seconds and read as it stands; with `again`, a learner run again in
+ * that time, a blow thrown again, steered on as the episode's next decision), with a fall where `down`
+ * weighs one, or is cut at the protocol's longest.
  *
  * Where the world kind can save (`WorldKind.save`) and `pool` is given, it holds `pool` starts,
  * each a trial at a fresh draw at its first decision. A start is one of the kept starts
@@ -349,13 +352,18 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
     const played = decide(learner, outputs, once, dt);
     let ended = played.ended, steps = played.steps;
     let reward = played.reward - (r.effort ?? 0) * outputs.reduce((sum, a) => sum + a * a, 0) / outputs.length;
-    // Once the learner has stopped, the trial plays on to its reader's end, so the reading is the whole trial's;
+    // Once the learner has stopped, the trial plays on to its reader's end, so the reading is the whole trial's,
+    // or for `onward` s where it is a number, then read as it stands (a fight's arm is seldom back at its guard);
     // a learner run again in it (a second blow, its first cut short) is answered nought, as no actor steers it.
+    // With `again`, a learner run again before the reading's end is steered on, the episode going on.
     if (ended === 'done' && o.onward !== false) {
       let rest = null;
-      const nought = outputs.map(() => 0);
-      while (rest === null) { if (isPending(learner)) answer(learner, nought); const one = once(); reward += one.reward; steps++; rest = one.ended; }
-      ended = rest === 'read' ? 'done' : rest;
+      const nought = outputs.map(() => 0), until = typeof o.onward === 'number' ? Math.round(o.onward / dt) : Infinity;
+      for (let k = 0; rest === null && k < until; k++) {
+        if (isPending(learner)) { if (o.again) { rest = 'again'; break; } answer(learner, nought); }
+        const one = once(); reward += one.reward; steps++; rest = one.ended;
+      }
+      ended = rest === 'again' ? null : rest === 'read' || rest === null ? 'done' : rest;
     }
     const observation = learner.inputs.slice(), interval = { worldSteps: steps, worldSeconds: steps * dt };
     if (ended === null) return { observation, reward, terminated: false, truncated: false, info: interval };

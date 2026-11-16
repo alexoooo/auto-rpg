@@ -420,8 +420,13 @@ deleted.
   0.21 and 0.18 hp (twice and more the untrained stroke's), but it landed 7 in 450 s where the
   installed punch across from it landed 18: the rungs teach weight, not a blow past a guard.
 - **Run 2** (`environments/moving-fights.json`: `walk-twin` and `fights-drawn`, the Warrior's
-  fight moments against Option Mind) continues run 1's 1 M model (`--resume`), screened on the
-  rungs and the bar's bouts at each 1 M.
+  fight moments against Option Mind, from run 1's 1 M model) was stopped after one chunk (43.7
+  minutes, 6.8 M world steps to run 1's 1.8 M): in a fight moment the stroke's learner often
+  stopped before a blow landed, the mind threw again, and the reading credited that later blow,
+  played with the steer at nought (166 such requests in one episode). The environment now steers a
+  learner run again before the reading's end as the episode's next decision (`again`); played so,
+  four fight moments read as the full play did, with 86, 18 and 55 decisions each.
+- **Run 3** is run 2 with `again` (seed 3), screened on the rungs and the bar's bouts at each 1 M.
 
 | Step | State |
 | --- | --- |
