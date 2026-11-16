@@ -130,7 +130,14 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   bell**: where every trade loses on average, as with a foe modelled by every strike measured on
   its body, five of nine pairings threw nothing in 60 s (`c5c1df0fe`). A draw costing as much as
   a loss late, and each side of a trade read at the bell apart, had all nine fight; the Skeleton
-  mirror threw 9 blows where it had thrown 29 (`ef2c002c9`). *Shown.*
+  mirror threw 9 blows where it had thrown 29 (`ef2c002c9`). In a 120 s Arena bout that is one
+  exchange mid-bout: between two bodies alike a trade is even at best, so honest prices alone
+  leave waiting as good as closing. Valuing the life taken twice the life lost (aggression 2) had
+  two Warriors fight from the first seconds, 142 blows where 13 had been (`aee4b6342`). *Shown.*
+- **The Option Mind's prices run about three times what a fight gives, both ways alike**: in
+  Warrior mirror bouts it expected 2.4 times the life it lost in reach and 3.0 times what its
+  punches dealt (`aee4b6342`), so the inflation does not change a choice, only magnitudes the bell
+  reads. *Shown.*
 - **The tree chooser at 100 runs costs about twice the step budget**; fewer runs fit it and stand up
   from fewer falls (`7f562d22`). *Shown.*
 - **A whole-fight learned policy (PPO, NEAT, evolution, cloning) never passed a bar against a

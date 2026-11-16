@@ -667,7 +667,10 @@ deleted.
   senses, never the skills it holds (`c5c1df0fe`, which also stopped a mind modelling a foe by
   them). The objective now prices a draw as a loss late and reads each side of a trade at the
   bell apart (`ef2c002c9`): two Warriors on `moving` trade at about 7 s and the one behind
-  presses at 34 to 40 s; `moving` against `drive` deals 6.6 and 4.4 to 0.01 and 0.03. The run 10d server
+  presses at 34 to 40 s; `moving` against `drive` deals 6.6 and 4.4 to 0.01 and 0.03. The owner
+  saw that still mostly standing in the Arena's 120 s bout; the objective's aggression, 2 unless
+  a mind says (`aee4b6342`), has them fight from the first seconds. Screens from here on read
+  under it: a checkpoint screened before `aee4b6342` is screened again before it is compared. The run 10d server
   was not touched by the change: its workers are made once, at 12:40, and read the characters
   as they load. In the Arena:
   Warrior against Warrior, one side's Skills panel with the straight punch's `drive` ticked and
