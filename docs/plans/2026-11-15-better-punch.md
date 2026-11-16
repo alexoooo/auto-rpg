@@ -478,6 +478,9 @@ deleted.
   0.3 hp grazes earn what one 3 hp blow earns; the bar counts the blow. The drill now has `heavy`,
   each blow's hit points squared, and **run 6** continues run 5 (4.4 M) paid `dealt`, `heavy`
   and the end's value.
+- **Run 6 at 5.25 M**: 32 landed of 154 to 27 of 228 (1.19), a landed blow a median 0.81 hp to
+  0.67; on one side its upper-trunk blows have 6.1 kg behind the fist (3.4 to 3.6 before) and take
+  a median 0.47 hp, 17 of 36 landed.
 
 | Step | State |
 | --- | --- |
