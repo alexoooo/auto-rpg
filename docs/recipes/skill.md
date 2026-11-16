@@ -266,8 +266,11 @@ run teaches nothing.
    meaning of an input, the actions' meaning, the decision timing or the controller under the
    actor makes every trained actor a seed to retrain, never a reading. Budget 2 to 5 M decisions
    to bring it back, started with `--start`, `--start-layout` and `--critic-first`, then compare it
-   with the baseline from step 2. Its input normalisation is measured anew on the new episodes:
-   statistics frozen on a narrower mix saturate what it never saw. So a run waits for the
+   with the baseline from step 2. Its input normalisation is measured anew on new episodes:
+   statistics frozen on a narrower mix saturate what it never saw. On the same episodes, with
+   inputs added, hold the seed's (`--freeze-normalization`; an added input keeps what was measured
+   of it): released, the first rollout outweighs them and the first layer reads moved inputs, and
+   a seed that played as its source lost half its landed blows (`52776b0a9`). So a run waits for the
    finished design: one trained while the controller, observation or actions are still changing
    is retrained when they settle.
 4. **Start the spread at one the seed survives.** `--start` begins exploring at `--log-std`
