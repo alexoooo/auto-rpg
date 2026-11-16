@@ -629,6 +629,9 @@ deleted.
   | --- | --- | --- | --- | --- | --- | --- | --- |
   | 13.12 M | 4.51 | 11% | 0.80 | 2 | 34% | 23% | about 0.17 |
   | 14.16 M | 5.95 | 16% | 0.86 | 6 | 30% | 27% | 0.20 to 0.23 |
+  | 15.21 M | 6.28 | 15% | 0.89 | 0 | 32% | 30% | 0.23 to 0.27 |
+  | 15.21 M, 24 bouts | 7.32 | 17% | 0.89 | 0 | - | - | - |
+  | 16.26 M, 24 bouts | 9.69 | 25% | 0.84 | 7 | 25% | - | 0.26 to 0.31 |
 
 - **Installed for the Arena, at the owner's asking (2026-11-16)**: the Warrior holds
   `straight-punch/moving` in place of `drive` (`assets/characters/characters.json`), its record
