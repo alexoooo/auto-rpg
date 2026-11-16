@@ -579,6 +579,10 @@ deleted.
   meets at the fist's peak when timed, and the steer reads what times it (the target from the
   shoulder, the fist's velocity). Run 9 continues run 7 (9.18 M) with `deeper` 0.3; run 8, the
   same under the old reward, was stopped before its first chunk.
+- **Run 9 at 10.23 M**: on the standing sweep a landed blow is a median 0.96 hp (0.81 at 5.25 M,
+  0.80 at 8.13 M), 64 of 126 landed; from 0.875 to 0.95 m 19 of 24, the bins' medians 0.54 to
+  0.99. In the twelve bouts 5.47 landed a bout-minute (51 of 425, 12%), a median 0.76 hp, no
+  falls; of its commits 25% touch nothing and 32% the guard's arm.
 
 | Step | State |
 | --- | --- |
