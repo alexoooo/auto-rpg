@@ -559,6 +559,18 @@ deleted.
   (57 of 374, 15%), 0.75 hp, 4 falls, 9.1 bout-minutes; its touches 91.5 hp to the installed
   punch's 7.6, which lands 0 to 2. `moving.json`'s `deeper` is 0.3, and **run 8** continues run 7
   (9.18 M) with it. The landed blow's hp is the bar's half still unmoved.
+- **A heavy blow is met at the fist's peak.** On the sweep at 8.13 M the heaviest tenth (1.74 hp)
+  peaks at 0.200 s and touches at 0.208, 7.0 m/s along the normal, its elbow over-running the
+  stroke's 40 rad/s ask (43, braked, 104 N m held); the middle fifth (0.67 hp) peaks at 0.183 and
+  touches at 0.217, slowed to 5.4 m/s as the arm runs out of reach. Both fire from about 0.79 m
+  with the fist dipping 10 degrees. The shoulder at the touch holds 30 N m of its 133, swinging
+  at 15 rad/s, in both. Not levers, read once each: the elbow's ask at 30 or 35 rad/s (12.7 kg
+  at 5.0 m/s, 0.60 hp; 9.1 kg at 5.4, 0.64; the stroke's 8.5 at 5.9, 0.65); in bouts with
+  `deeper` 0.3 at 9.18 M, the arm thrown at 0.20 s (6.47 a bout-minute, 0.76 hp, to 6.29 and
+  0.75) or held until the target is within the arm's reach up to 0.25 s (5.01, 0.66).
+- **Against the installed punch's own figures**, from bouts where it was not smothered (2.3 to 2.6
+  landed a bout-minute, a landed blow a median 0.67 to 0.75 hp): `moving` at 9.18 M with `deeper`
+  0.3 lands 6.29 a bout-minute, 2.4 to 2.7 times; its landed blow 0.75 hp, 1.0 to 1.1 times.
 
 | Step | State |
 | --- | --- |
