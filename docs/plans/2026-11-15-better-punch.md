@@ -583,6 +583,10 @@ deleted.
   0.80 at 8.13 M), 64 of 126 landed; from 0.875 to 0.95 m 19 of 24, the bins' medians 0.54 to
   0.99. In the twelve bouts 5.47 landed a bout-minute (51 of 425, 12%), a median 0.76 hp, no
   falls; of its commits 25% touch nothing and 32% the guard's arm.
+- **Run 9 at 11.02 M**: in the twelve bouts 5.47 landed a bout-minute (52 of 389, 13%), a median
+  0.87 hp (12.9 kg behind the fist at 5.6 m/s), 4 falls; on the sweep 0.85 hp, 67 of 133. The
+  bouts' landed blow moved (0.76 to 0.87), so run 9 goes on a checkpoint more before the steer
+  reads the guard (`guard inside`, `guard outside`, in code since `f4e4e1525`).
 
 | Step | State |
 | --- | --- |
