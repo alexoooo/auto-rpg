@@ -4,7 +4,7 @@ import { clipToRef, type Assist, type AssistReading } from "../../core/bodies/as
 import type { BodyControl } from "../../core/bodies/body-control.ts";
 import type { ContactIdentity, ContactTarget } from "../../core/bodies/contact-identity.ts";
 import type { ContactPair, ContactSink, MassProperties } from "../../core/physics/engine.ts";
-import { NOTHING_SENSED, OFF_BODY, shownSegments, type BodySense, type Senses } from "../../core/bodies/senses.ts";
+import { NOTHING_SENSED, OFF_BODY, shownSegments, type BodySense, type SensedSpec, type Senses } from "../../core/bodies/senses.ts";
 import type { ObjectSense, SolidSense } from "../../core/bodies/object-senses.ts";
 import { muscleChannels, strengthAt, type BodyLevel, type MuscleDriver, type MuscleReading } from "../../core/bodies/muscle/driver.ts";
 import type { BodyRef, ReadBody, ReadContact, ReadJoint, ReadManifold, ReadPhysics, ReadSegment, ReadSegmentBody } from "../../core/bodies/read-body.ts";
@@ -54,7 +54,7 @@ export interface MirrorStatics {
 type Told =
   | { readonly kind: "senses"; readonly side: string; readonly begins: number | undefined; readonly ends: number | undefined; readonly reaction: number | undefined; readonly solids: readonly SolidSense[] | undefined }
   | { readonly kind: "body"; readonly id: number; readonly name: string }
-  | { readonly kind: "other"; readonly key: number; readonly id: string; readonly side: string; readonly spec: BodySpec }
+  | { readonly kind: "other"; readonly key: number; readonly id: string; readonly side: string; readonly spec: SensedSpec }
   | { readonly kind: "object"; readonly key: number; readonly id: string; readonly owner: string | null; readonly points: Readonly<Record<string, Vec3>> }
   | { readonly kind: "label"; readonly code: number; readonly target: ContactTarget };
 

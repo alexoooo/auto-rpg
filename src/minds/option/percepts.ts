@@ -205,8 +205,9 @@ function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySp
 }
 
 /**
- * **The strikes a foe of `foe` is modelled by**: those its character holds that are measured on
- * its body (`profilesOn`, each skill's profiles with a limb one strike, `strikesOf`), else this
+ * **The strikes a foe of `foe` is modelled by**: every one measured on its body, whatever its
+ * character holds, which is not sensed (`profilesOn`, each skill's profiles with a limb one
+ * strike, `strikesOf`; the most of them at a range is the pressure, `pressureBy`), else this
  * body's own measured (`Seen.strikes`), each
  * read by its profile against this body (`modelOf`), fresh at the senses' reaction time and
  * this mind's rate (`Seen.rate`: a foe's mind is taken for one like it) and thrown with the limb it names (`Measured.limb`); and each other limb the foe strikes with

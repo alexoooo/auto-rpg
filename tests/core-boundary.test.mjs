@@ -272,8 +272,30 @@ const MIND_FOLDERS = ["src/minds/", "src/skills/", "src/control/", "src/entrants
 /** The adapters in those folders, files or folders, which make the report and carry out the order sheet, and so hold the world: where a mind is seated on its body. */
 const MIND_ADAPTERS = ["src/minds/seat/"];
 
-/** What a mind's source never imports: the engine, the world, the builder, the read view's maker and the hands' port. */
-const MIND_BARRED = ["src/core/physics/", "src/core/world/world.ts", "src/core/bodies/build/build-body.ts", "src/core/bodies/build/read-view.ts", "src/core/bodies/build/configurations.ts"];
+/** What a mind's source never imports: the engine, the world, the builder, the read view's maker, the hands' port and the characters' file. */
+const MIND_BARRED = ["src/core/physics/", "src/core/world/world.ts", "src/core/bodies/build/build-body.ts", "src/core/bodies/build/read-view.ts", "src/core/bodies/build/configurations.ts", "assets/characters/"];
+
+/**
+ * The modules that read the characters' registry, and the values a mind may import of each: a
+ * model's own attributes, never a character's skills (a mind knows another body only by its
+ * senses, `BodySense.spec`). Types are free.
+ */
+const MIND_REGISTRY_ALLOWED = { "src/core/bodies/models.ts": ["characterDefaults"] };
+
+/** Each value `file` imports, re-exports or loads of a registry reader (`MIND_REGISTRY_ALLOWED`) beyond what it allows. */
+function registryReads(file, source) {
+  const reads = [];
+  visitSyntax(parseSource(file, source), node => {
+    if (!["ImportDeclaration", "ExportNamedDeclaration", "ExportAllDeclaration", "ImportExpression"].includes(node.type) || node.source?.type !== "StringLiteral" || !node.source.value.startsWith(".")) return;
+    const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), node.source.value)), allowed = MIND_REGISTRY_ALLOWED[target];
+    if (!allowed || node.importKind === "type" || node.exportKind === "type") return;
+    const names = node.type === "ImportExpression" || node.type === "ExportAllDeclaration" ? ["*"]
+      : node.specifiers.filter((one) => one.importKind !== "type" && one.exportKind !== "type")
+        .map((one) => one.type === "ImportSpecifier" ? one.imported.name ?? one.imported.value : one.type === "ExportSpecifier" ? one.local.name : "*");
+    for (const name of names) if (!allowed.includes(name)) reads.push(`${file} reads ${name} of ${target}`);
+  });
+  return reads;
+}
 
 /** The folder a Commander is written in, which meets its team through the view and the orders alone. */
 const COMMAND_FOLDERS = ["src/minds/command/"];
@@ -295,6 +317,7 @@ function mindCrossings(files, { folders = MIND_FOLDERS, adapters = MIND_ADAPTERS
       const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
       if (barred.some((one) => target === one || one.endsWith("/") && target.startsWith(one))) crossings.push(`${file} imports ${target}`);
     }
+    crossings.push(...registryReads(file, source));
     if (/\bglobalThis\b/.test(source)) crossings.push(`${file} reads globalThis`);
     for (const [pattern, what] of CHANCES) if (pattern.test(source)) crossings.push(`${file} reads ${what}`);
   }
@@ -307,9 +330,11 @@ const CHANCES = [[/\bMath\s*\.\s*random\b/, "Math.random"], [/\bcrypto\s*\.\s*ge
 
 /**
  * Prevent privileged reads or unrecorded randomness and machine time in decision/control code. A
- * seed's successful drill does not prove isolation or reproducibility.
+ * seed's successful drill does not prove isolation or reproducibility. The characters' registry
+ * was open to a mind: it could look up which variation a foe's character held, which its senses
+ * do not show.
  */
-test("a mind and its toolkit reach no engine, world, builder, global or chance but its seed: only the report and the order sheet", () => {
+test("a mind and its toolkit reach no engine, world, builder, character's skills, global or chance but its seed: only the report and the order sheet", () => {
   const files = MIND_FOLDERS.flatMap(filesUnder).filter((file) => file.endsWith(".ts")).map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
   assert.ok(files.length > 50, "no mind's source, so this test would pass on nothing");
   for (const adapter of MIND_ADAPTERS) assert.ok(fs.existsSync(path.join(ROOT, adapter)), `${adapter} is no file: an adapter exempted that is not there`);
@@ -320,6 +345,7 @@ test("a mind and its toolkit reach no engine, world, builder, global or chance b
     ["src/skills/sly.ts", `import type { SegmentBody } from "../core/physics/engine.ts";\nimport RAPIER from "@dimforge/rapier3d-simd-compat";\n`],
     ["src/minds/seat/host.ts", `import type { World } from "../../core/world/world.ts";\n`],
     ["src/entrants/lucky/mind.ts", `export const pick = () => Math.random() < .5 ? Date.now() : performance.now();\n`],
+    ["src/minds/peek.ts", `import { characterDefaults, characterSkills, type BodyModel } from "../core/bodies/models.ts";\nimport type { CharacterConfig } from "../core/bodies/models.ts";\nimport registry from "../../assets/characters/characters.json" with { type: "json" };\nexport const later = () => import("../core/bodies/models.ts");\n`],
   ]), [
     "src/entrants/sly/mind.ts imports src/core/world/world.ts",
     "src/entrants/sly/mind.ts imports src/core/bodies/build/read-view.ts",
@@ -329,6 +355,9 @@ test("a mind and its toolkit reach no engine, world, builder, global or chance b
     "src/entrants/lucky/mind.ts reads Math.random",
     "src/entrants/lucky/mind.ts reads the date",
     "src/entrants/lucky/mind.ts reads performance.now",
+    "src/minds/peek.ts imports assets/characters/characters.json",
+    "src/minds/peek.ts reads characterSkills of src/core/bodies/models.ts",
+    "src/minds/peek.ts reads * of src/core/bodies/models.ts",
   ]);
 });
 

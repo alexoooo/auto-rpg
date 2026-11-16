@@ -4,6 +4,7 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { MIND_CATALOGS } from "./catalogs.ts";
 import type { AskCrossing, Batch, Reply, Said, SpecNumber, ToldCrossing } from "./wire.ts";
 import { deriveSensed } from "../../skills/perception/openings.ts";
+import { sensedSpec } from "../../core/bodies/senses.ts";
 
 /**
  * **A minds' thread, whatever carries its batches** (`mindThreads`, `src/app/apart/host.ts`): a host of
@@ -27,7 +28,7 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
     return spec;
   };
   const asked = (ask: AskCrossing): SeatAsk => ask.kind === "make" ? { ...ask, recipe: { ...ask.recipe, statics: { ...ask.recipe.statics, spec: specOf(ask.recipe.statics.spec) } } } : ask;
-  const told = (entry: ToldCrossing): MirrorChannel["told"][number] => entry.kind === "other" ? { ...entry, spec: specOf(entry.spec) } : entry;
+  const told = (entry: ToldCrossing): MirrorChannel["told"][number] => entry.kind === "other" ? { ...entry, spec: sensedSpec(specOf(entry.spec)) } : entry;
   // What each seat last said and its outbound numbers as last sent: a field crosses only where it has been replaced since.
   const sent = new Map<number, { said: SaidReport | null; outbound: Float64Array }>();
   // The step asks carried out, ever: every one of a batch once it is answered, failed or not.

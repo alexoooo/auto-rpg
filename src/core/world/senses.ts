@@ -1,5 +1,5 @@
 import { configurationCode, configurationAt } from "../bodies/build/configurations.ts";
-import { NOTHING_SENSED, OFF_BODY, shownSegments, type Senses, type BodySense } from "../bodies/senses.ts";
+import { NOTHING_SENSED, OFF_BODY, sensedSpec, shownSegments, type Senses, type BodySense } from "../bodies/senses.ts";
 import { Vector3 } from "../math/vector.ts";
 import type { BuiltBody, BuiltSegment } from "../bodies/build/build-body.ts";
 import { centreOfToRef } from "../bodies/read-motion.ts";
@@ -151,7 +151,7 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
       if (state.has(sensed.id)) throw new Error(`the senses carry a body called ${sensed.id} already`);
       const segments = [...sensed.built.segments.values()], view = shownSegments([...sensed.built.segments.keys()]);
       const shown = {
-        id: sensed.id, side: sensed.side, spec: sensed.built.spec, out: false, down: false, life: 1, time: world.time,
+        id: sensed.id, side: sensed.side, spec: sensedSpec(sensed.built.spec), out: false, down: false, life: 1, time: world.time,
         centre: new Vector3(), velocity: new Vector3(), segments: view.settle(),
       };
       const entry: Carried = { sensed, segments, attached: attachment(sensed.built), view, shown, others: [] };

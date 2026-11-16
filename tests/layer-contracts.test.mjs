@@ -136,6 +136,22 @@ test("senses admit opaque prototype names and restore their complete frames", as
 });
 
 /**
+ * A mind's senses of another body carried that body's character's skills (`BodySpec.skills` in
+ * `BodySense.spec`), so a mind could read which variation a foe held; no drill shows a mind not
+ * reading it. Compare the whole sensed spec with the built one less its skills.
+ */
+test("a sensed body shows its spec but never the skills its character holds", async () => {
+  const stand = await coreStand(modelSpec("man")), hub = createSenses(stand.world);
+  try {
+    const { skills, ...seen } = stand.built.spec;
+    assert.ok(skills?.length > 0, "the fixture's body holds no skills, so the senses could show none");
+    const [one, other] = ["one", "other"].map(id => hub.add({ id, side: id, built: stand.built, out: () => false }));
+    for (const read of [one, other]) assert.deepEqual({ ...read().others[0].spec }, seen);
+    assert.equal(one().others[0].spec, other().others[0].spec);
+  } finally { hub.dispose(); stand.dispose(); }
+});
+
+/**
  * Fit accepted an absent declared endpoint and refused a valid renamed one; rectangular patches
  * also require their constructor's box shape.
  */

@@ -4,6 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolveCharacter } from "../../src/core/bodies/models.ts";
+import { sensedSpec } from "../../src/core/bodies/senses.ts";
 import { holdsOf, profileAgainst, profilesFor, profilesOn, skillDigest } from "../../src/skills/framework/profile.ts";
 import { record } from "../../src/minds/option/value.ts";
 import { buildBout } from "../../src/app/node/evaluation.ts";
@@ -56,25 +57,27 @@ test("a strike is read by its profile measured against the body it strikes", () 
 });
 
 /**
- * **A foe is modelled by the strikes its character holds** (`profilesOn`): the stored profiles hold
- * a model's punch in two variations, and its character holds one. Found by the body's digest, which
- * leaves its skills out, a Warrior holding `straight-punch/drive` was modelled as throwing
- * `straight-punch/moving` beside it.
+ * **A foe is modelled by what is measured on its body, never by its character's skills**
+ * (`profilesOn`): it read `BodySpec.skills`, which a mind's senses do not show, so a Warrior holding
+ * `straight-punch/drive` was modelled as throwing `drive` alone and one holding `moving` as
+ * throwing `moving`. The stored profiles hold the Warrior's punch in two variations; each model is
+ * read holding its own skills, holding one other variation, and as sensed.
  */
-test("a foe is modelled by the profiles of the skills its character holds", () => {
+test("a foe is modelled alike whatever skills its character holds", () => {
   const { profiles } = JSON.parse(readFileSync(new URL("../../assets/skills/strikes/strike-profiles/strike-profiles.json", import.meta.url), "utf8"));
-  const strayed = [];
-  let others = 0;
+  let both = 0;
   for (const model of ["man", "woman", "skeleton"]) {
     const spec = resolveCharacter({ model }).spec, on = profiles.filter(({ measured }) => measured.body === model && measured.holds === holdsOf(spec));
     assert.ok(on.length > 0, `the stored profiles hold a ${model}'s strikes`);
-    others += on.filter(({ measured }) => !spec.skills.includes(measured.skill)).length;
-    const { hz, reaction, rate, delay } = on[0].measured, { fresh, stale } = profilesOn(profiles, spec, hz, reaction, rate ?? hz, delay ?? 0);
-    assert.ok(fresh.length > 0, `a ${model} is modelled by measured strikes: ${stale}`);
-    for (const { measured } of fresh) if (!spec.skills.includes(measured.skill)) strayed.push(`${model}: ${measured.skill} with ${measured.limb}`);
+    const skills = [...new Set(on.map(({ measured }) => measured.skill))];
+    if (skills.some((skill) => !spec.skills.includes(skill))) both++;
+    const { hz, reaction, rate, delay } = on[0].measured, read = (one) => profilesOn(profiles, one, hz, reaction, rate ?? hz, delay ?? 0);
+    const own = read(spec);
+    assert.ok(own.fresh.length > 0, `a ${model} is modelled by measured strikes: ${own.stale}`);
+    for (const one of [{ ...spec, skills: [skills.at(-1)] }, sensedSpec(spec)]) assert.deepEqual(read(one), own);
+    assert.deepEqual([...new Set(own.fresh.map(({ measured }) => measured.skill))].sort(), [...skills].sort());
   }
-  assert.ok(others > 0, "the stored profiles reached a variation a model's own character does not hold");
-  assert.deepEqual(strayed, [], "foes modelled by strikes their characters do not hold");
+  assert.ok(both > 0, "the stored profiles reached no variation a model's own character does not hold, so a model by its skills would read the same");
 });
 
 /**

@@ -46,8 +46,8 @@ export interface BodySense {
   /** Actual observation time; omitted by callers that supply only current readings. */
   readonly time?: number;
   readonly side: string;
-  /** What it is built from, with what it holds. */
-  readonly spec: BodySpec;
+  /** What it is built from, with what it holds in its hands; never the skills its character holds (`sensedSpec`). */
+  readonly spec: SensedSpec;
   readonly out: boolean;
   /** Whether it is down by its own body's rule (`PhysicalBody.down`): what anyone who sees it lying sees. */
   readonly down: boolean;
@@ -58,6 +58,27 @@ export interface BodySense {
   readonly velocity: Vector3;
   /** Each segment on it (`attachment`), by name, in the order built: a part cut off is no longer the body's. */
   readonly segments: ReadonlyMap<string, SegmentSense>;
+}
+
+/** **Another body's spec as sensed** (`BodySense.spec`): its spec without the skills its character holds. */
+export type SensedSpec = BodySpec & { readonly skills?: undefined };
+
+/** Each spec as sensed (`sensedSpec`), made once: a spec is immutable. */
+const SENSED = new WeakMap<BodySpec, SensedSpec>();
+
+/**
+ * **`spec` as another body senses it** (`BodySense.spec`): all of it but its skills
+ * (`BodySpec.skills`). A mind knows another body only by its senses, and a body's skills are its
+ * character's choice, not something seen; the same object for the same spec.
+ */
+export function sensedSpec(spec: BodySpec): SensedSpec {
+  if (spec.skills === undefined) return spec as SensedSpec;
+  let sensed = SENSED.get(spec);
+  if (!sensed) {
+    const { skills: _held, ...seen } = spec;
+    SENSED.set(spec, sensed = Object.freeze(seen));
+  }
+  return sensed;
 }
 
 interface SegmentSense {

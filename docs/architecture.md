@@ -195,8 +195,10 @@ A body is a different type to each holder:
   (`execution.ts`): `answer` calls `Mind.act`, which writes the command decided on the step
   before; `think` reads the senses and calls `Mind.think`, which decides the next.
 - **Senses** (`Senses`, `src/core/bodies/senses.ts`): the clock, its side and life, and every other body, read
-  once before any mind, others late by `Rulebook.reaction`. A mind knows another body only by
-  them: never that body's mind, nor the skills or variations it holds.
+  once before any mind, others late by `Rulebook.reaction`. They are all a mind knows of another
+  body: never its mind, nor the skills its character holds (a sensed spec has none,
+  `sensedSpec`). A mind's source reaches neither the world nor the characters' registry
+  (`tests/core-boundary.test.mjs`).
 - **The report** (`MindReport`, `report.ts`) says what a mind is engaged in, weighing and doing.
   Screens and Commanders read the report, never a mind's kind or state, and reading it moves
   nothing.

@@ -800,18 +800,19 @@ export function profileAgainst(profiles: readonly Profile[], struck: BodySpec | 
 }
 
 /**
- * **The profiles among `profiles` of the skills a body of `spec` holds** (`BodySpec.skills`),
- * measured on its model holding what it holds at `hz` with senses `reaction` s late, a mind's
- * driver at `rate` Hz and its command `delay` steps late (`fresh`): what a foe of that body is
- * measured to deal; and, for none, why (`stale`): the first of a skill it holds, measured on its
- * model, that is stale (`staleness`), or none measured of them.
+ * **The profiles among `profiles` measured on a body of `spec`**, of any skill, its model holding
+ * what it holds in its hands at `hz` with senses `reaction` s late, a mind's driver at `rate` Hz
+ * and its command `delay` steps late (`fresh`): what a foe of that body is measured able to deal.
+ * Which skills a foe's character holds is not sensed (`sensedSpec`), so every one measured on its
+ * body stands for them. For none, why (`stale`): the first measured on its model that is stale
+ * (`staleness`), or none measured.
  */
 export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null, rate: number, delay: number): { readonly fresh: readonly Profile[]; readonly stale: string } {
-  const body = spec.model, held = spec.skills ?? [], fresh: Profile[] = [];
+  const body = spec.model, fresh: Profile[] = [];
   let stale: string | null = null;
   for (const profile of profiles) {
     const was = profile.measured;
-    if (!held.includes(was.skill)) continue;
+    if (was.body !== body) continue;
     const why = staleness(profile, measuredOn(spec, was.skill, was.limb ?? null, hz, reaction, rate, delay));
     if (why === null) fresh.push(profile);
     else if (was.body === body) stale ??= why;
