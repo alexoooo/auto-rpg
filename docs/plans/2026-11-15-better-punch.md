@@ -662,11 +662,12 @@ deleted.
   (`src/minds/option/objective.ts`) price a strike at its profile's dealt less taken, and waiting
   at nought; the 15.21 M profiles on a Warrior read 0.146 − 0.503 (left) and 0.347 − 0.374
   (right), both below nought. Lateness does not break it: at an even lead the clock's verdict
-  has slope 1, so a loss stays a loss to the bell, and nothing prices a bout ending even.
-  Breaking a mirror wait is the mind's (an objective that prices a stalled bout), not the
-  stroke's. A profile is keyed by the target's body alone, and rightly: a mind knows a foe only
-  by its senses, never the skills it holds; so a profile is measured against the foe the game
-  draws, and the one installed was measured against a Warrior holding `moving`. The run 10d server
+  has slope 1, so a loss stays a loss to the bell, and nothing prices a bout ending even. A
+  profile is keyed by the target's body alone, and rightly: a mind knows a foe only by its
+  senses, never the skills it holds (`c5c1df0fe`, which also stopped a mind modelling a foe by
+  them). The objective now prices a draw as a loss late and reads each side of a trade at the
+  bell apart (`ef2c002c9`): two Warriors on `moving` trade at about 7 s and the one behind
+  presses at 34 to 40 s; `moving` against `drive` deals 6.6 and 4.4 to 0.01 and 0.03. The run 10d server
   was not touched by the change: its workers are made once, at 12:40, and read the characters
   as they load. In the Arena:
   Warrior against Warrior, one side's Skills panel with the straight punch's `drive` ticked and

@@ -126,6 +126,11 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   *Repeated.*
 - **An objective that charges contact without paying damage teaches stand-off** (`a9c7a28c`,
   `c8e7e39a`, `e5196c3c`). *Repeated.*
+- **An objective that prices waiting at nought and a trade by its mean net stands a mirror to the
+  bell**: where every trade loses on average, as with a foe modelled by every strike measured on
+  its body, five of nine pairings threw nothing in 60 s (`c5c1df0fe`). A draw costing as much as
+  a loss late, and each side of a trade read at the bell apart, had all nine fight; the Skeleton
+  mirror threw 9 blows where it had thrown 29 (`ef2c002c9`). *Shown.*
 - **The tree chooser at 100 runs costs about twice the step budget**; fewer runs fit it and stand up
   from fewer falls (`7f562d22`). *Shown.*
 - **A whole-fight learned policy (PPO, NEAT, evolution, cloning) never passed a bar against a
