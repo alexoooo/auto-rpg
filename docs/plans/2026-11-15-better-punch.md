@@ -616,7 +616,40 @@ deleted.
   starts returns about 2 whatever plays it (run 10c's first chunk, run 9's policy held), so its
   return is not read against run 9's. It runs 2 to 3 M undisturbed and is judged on what the
   readings were added for, the guard's-arm and no-touch shares of its commits, over two or three
-  checkpoints together.
+  checkpoints together. The guard's columns are read beside them: they begin at nought, and an
+  input's weight grows about 0.1 a million from there (facing's 0.8 to 1.0 after 11 M).
+
+  | Checkpoint | landed a minute | of committed | median hp | falls | guard's arm | no touch | guard's columns |
+  | --- | --- | --- | --- | --- | --- | --- | --- |
+  | 13.12 M | 4.51 | 11% | 0.80 | 2 | 34% | 23% | about 0.17 |
+  | 14.16 M | 5.95 | 16% | 0.86 | 6 | 30% | 27% | 0.20 to 0.23 |
+
+- **The guard is not in the way at the fire; range is.** With `OPENING`, strike-bouts records, at
+  the fire, which part five fist-wide lines to the aim and to other points meet first (the foe's
+  own colliders, `surfaceEntry`), and at each touch the fist and the foe's arms. Run 10d at
+  13.12 M, twelve bouts: an arm crossed the aim's lane at the fire in 12% of the 139 commits the
+  guard's arm stopped and 15% of the 46 landed; another point (the head, a trunk's centre or 10 cm
+  to its side) was open in all of them. The fist went to the arm: it touched at 0.30 s (landed
+  0.225 s), 17 cm off its lane (landed 11 cm), having gone 0.39 m of 0.56 m to the aim (landed
+  0.44 of 0.48), while the arm came 5 cm nearer the lane. What decides is the fist-to-aim distance
+  at the fire: 0.40 to 0.55 m lands 27% (88 commits), 0.55 to 0.65 m 6% (121, most at 0.55 to
+  0.60), beyond 4% (99). The window fires at its far edge, `band` past the stand-off.
+- **A narrower window lands a larger share and no more blows, and lets the installed punch in.**
+  The same checkpoint, twelve bouts (the installed punch's landed in the same bouts last):
+
+  | Window | committed | landed a minute | of committed | median hp | installed landed |
+  | --- | --- | --- | --- | --- | --- |
+  | band 0.2 (the record) | 412 | 4.51 | 11% | 0.80 | 1 |
+  | band 0.15 | 221 | 3.77 | 18% | 1.01 | 6 |
+  | band 0.1 | 164 | 3.80 | 27% | 0.73 | 13 |
+  | band 0.1, deeper 0.5 | 198 | 2.32 | 16% | 1.01 | 16 |
+  | band 0.05 | 122 | 2.34 | 28% | 1.04 | 23 |
+
+  The far-edge commits that seldom land are what keeps the foe from throwing its own. At band
+  0.1 the body spends 42% of a bout 0.90 to 1.05 m from the foe (stance centres) with no blow
+  begun: the installed punch's own range, which the foe holds. Band stays 0.2. Landed hp by
+  distance is too few a bin to rank; across them the heavy landed blows have 12 to 15 kg behind
+  the fist, the light 7 to 8.
 
 | Step | State |
 | --- | --- |

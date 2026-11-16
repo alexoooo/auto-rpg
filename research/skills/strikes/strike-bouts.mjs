@@ -115,6 +115,8 @@ if (isMainThread) {
   const { Vector3 } = await import("../../../src/core/math/vector.ts");
   const { CONTEXT } = await import("../../../src/app/node/context.ts");
   const { createDrillOpponents } = await import("../../../src/evaluation/drill-opponents.ts");
+  const { surfaceEntry } = await import("../../../src/skills/perception/openings.ts");
+  const { centreOfToRef } = await import("../../../src/core/bodies/read-motion.ts");
   parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill }) => {
     let dispose;
     try {
@@ -139,6 +141,40 @@ if (isMainThread) {
           contacts: structuredClone(action.contacts), record: null, cutByVerdict: false, recoveries: 0, down: false,
           from: duel.duelists[side].body.view.stance.recoveries, downAt: null, wounds: [], struck: 0 };
         byId[side].set(action.id, attempt); track[side].attempts.push(attempt); return attempt;
+      };
+      // With OPENING, what lies between the fist and the foe at the fire: for the aim and each other point (the head's, the upper and middle trunk's centres, and
+      // each trunk's 10 cm to either side across the line), the part each of five lines meets first (the fist's centre line, and four 4 cm off it), carried 15 cm past the point.
+      // The centres of `foe`'s arms' segments, world, by name.
+      const armCentres = (foe) => Object.fromEntries(["upperArm", "forearm", "hand"].flatMap((part) => ["left", "right"].map((s) => {
+        const v = new Vector3(); centreOfToRef(foe.body.built.segments.get(`${part}.${s}`), v); return [`${part}.${s}`, [+v.x.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)]];
+      })));
+      const openingAt = (me, foe, effector, aim) => {
+        const sense = { spec: foe.body.built.spec, segments: new Map([...foe.body.built.segments].map(([name, s]) => [name, { position: s.pose.position, rotation: s.pose.rotation, configuration: s.configuration?.applied }])) };
+        const knuckles = me.body.view.pointMotion?.[effector]?.knuckles?.position ?? me.body.built.segments.get(effector).pose.position, fist = [knuckles.x, knuckles.y, knuckles.z];
+        const centre = (name) => { const v = new Vector3(); centreOfToRef(foe.body.built.segments.get(name), v); return [v.x, v.y, v.z]; };
+        const unit = (v) => { const l = Math.hypot(...v) || 1; return v.map((x) => x / l); };
+        const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+        const first = (from, to) => {
+          let best = null, distance = Infinity;
+          for (const name of sense.segments.keys()) {
+            const hit = surfaceEntry(sense, name, from, to); if (!hit) continue;
+            const d = Math.hypot(hit.at[0] - from[0], hit.at[1] - from[1], hit.at[2] - from[2]); if (d < distance) { distance = d; best = name; }
+          }
+          return best;
+        };
+        const lanes = (point) => {
+          const d = unit(point.map((x, i) => x - fist[i])), u = unit(cross(d, [0, 1, 0])), v = cross(u, d), to = point.map((x, i) => x + .15 * d[i]);
+          return [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].map(([a, b]) => {
+            const off = [0, 1, 2].map((i) => .04 * (a * u[i] + b * v[i]));
+            return first(fist.map((x, i) => x + off[i]), to.map((x, i) => x + off[i]));
+          });
+        };
+        const points = { aim: [...aim], head: centre("head") };
+        for (const name of ["upperTrunk", "middleTrunk"]) {
+          const c = centre(name), u = unit(cross(unit(c.map((x, i) => x - fist[i])), [0, 1, 0]));
+          points[name] = c; points[`${name} +10`] = c.map((x, i) => x + .1 * u[i]); points[`${name} -10`] = c.map((x, i) => x - .1 * u[i]);
+        }
+        return { fist, arms: armCentres(foe), points: Object.fromEntries(Object.entries(points).map(([name, p]) => [name, { at: p.map((x) => +x.toFixed(3)), first: lanes(p) }])) };
       };
       // The striking arm's shape at each blow of a fist, by the blow: the elbow's bend, the shoulder-to-fist line against the blow's normal, and how far the fist is from the shoulder.
       const arms = new Map(); let heard = 0;
@@ -166,6 +202,11 @@ if (isMainThread) {
           for (const s of SIDES) for (const part of blow.sides)
             if (part.fighter === duel.duelists[s].id && part.segment.startsWith("hand.")) {
               const shape = armAt(duel.duelists[s].body, part.segment, blow.normal);
+              // With OPENING, the striking fist's knuckles and the foe's arms' centres as the blow's step left them, world.
+              if (process.env.OPENING) {
+                const k = duel.duelists[s].body.view.pointMotion?.[part.segment]?.knuckles?.position ?? duel.duelists[s].body.built.segments.get(part.segment).pose.position;
+                shape.fist = [+k.x.toFixed(3), +k.y.toFixed(3), +k.z.toFixed(3)]; shape.foeArms = armCentres(duel.duelists[s === "left" ? "right" : "left"]);
+              }
               // With HOLDS, each freedom of the striking arm and the trunk as the blow's step left it: its speed, rad/s, and its muscles' ceilings either way, N m (`bounds`).
               if (process.env.HOLDS) {
                 const m = duel.duelists[s].body.muscles, hand = part.segment.slice(5);
@@ -222,6 +263,7 @@ if (isMainThread) {
               attempt.pace = Math.hypot(mine.stance.velocity.x, mine.stance.velocity.z);
               attempt.fired = [mine.stance.centre.x, mine.stance.centre.z, foe.stance.centre.x, foe.stance.centre.z];
               if (hand) { attempt.foot = footOn(me.body.built.spec, hand === "left" ? "right" : "left"); const s = mine.stance.ends[attempt.foot].middle; attempt.sole = [s.x, s.z]; }
+              if (process.env.OPENING && hand && action.aim) attempt.opening = openingAt(me, duel.duelists[side === "left" ? "right" : "left"], attempt.effector, action.aim);
             }
           }
           for (const record of report.ledger) if (record.sequence > t.sequence) {
