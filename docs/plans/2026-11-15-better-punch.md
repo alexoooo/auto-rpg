@@ -595,6 +595,9 @@ deleted.
   (they hold the learner's inputs), the reward as run 9's. Begun at `--log-std`'s default (a
   spread of 0.37 to run 9's 0.16) it returned 0.82 to run 9's 3 to 4 in two chunks, so it was
   begun again at `--log-std -1.82`, run 9's spread (the skill recipe's step 4).
+- **Run 10 at 1.06 M** has not come back yet: 3.92 landed a bout-minute (41 of 455, 9%), 0.73 hp,
+  2 falls, the guard's arm 34%; on the sweep 0.85 hp. A start over a changed layout takes 2 to 5 M
+  decisions to come back (the recipe's step 3), so the guard readings are judged at about 3 M.
 
 | Step | State |
 | --- | --- |
