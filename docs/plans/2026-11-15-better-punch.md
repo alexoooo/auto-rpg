@@ -526,6 +526,23 @@ deleted.
   median trunk blow of 0.47 to 0.63 hp to the stroke's 0.65. Nor the pace at the fire: in run 7's
   bouts a landed blow is 0.78 to 0.83 hp at any pace. 571 of its 921 commits drift back in the
   0.2 s from the fire and 19 go toward the foe.
+- **A miss falls short, and the walk sets how far** (run 7's bouts at 7.09 and 8.13 M, `moving`'s
+  centre in the 0.2 s from the fire):
+
+  | the centre | commits | touch nothing, its nearest pass short by | landed | a landed blow |
+  | --- | --- | --- | --- | --- |
+  | back over 3 cm | 187 | 47%, 0.34 m | 4% | 9.0 kg, 0.99 hp |
+  | within 3 cm | 667 | 29%, 0.25 m | 8% | 15.4 kg, 0.81 hp |
+  | forward over 3 cm | 62 | 8%, 0.21 m | 23% | 7.0 kg, 0.69 hp |
+
+  The installed punch holds the legs and stands (212 of 223 within 3 cm, 10% landed).
+- **The heaviest blows meet the trunk with the arm still opening** (the standing sweep at 8.13 M
+  with each freedom read at the touch): its heaviest tenth, a median 1.74 hp, 13.6 kg behind the
+  fist closing at 6.9 m/s, the elbow bent 54 degrees and opening at 43 rad/s, the fist 0.47 m from
+  the shoulder; its middle fifth, 0.66 hp, 10.4 kg at 5.8 m/s, the elbow bent 44 degrees opening
+  at 36 rad/s, 0.49 m out. Not a braking elbow: a target 2 cm nearer, met before the arm's end.
+- **The steer does not read the foe's hands**; the guard's arm takes 36% of the commits in bouts.
+  It could read them as it reads the chest's facing (an input of the layout, a retrain).
 
 | Step | State |
 | --- | --- |
