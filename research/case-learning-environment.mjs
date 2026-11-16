@@ -21,6 +21,7 @@ import { isRefused } from "../src/core/refusal.ts";
  *   `percepts` by its weight, summed over the decision's seconds; at the end, each of its `terms`
  *   or its reading's numbers (true 1, false 0) by its weight in `end`; `down`, where given, once a
  *   fall, which ends the episode.
+ * - `survive`: a world that throws cuts its episode and is written to stderr, not thrown (`step`).
  *
  * The learner is found in the world's hosted minds (`WorldKind.hosted`) of the subject's kind (its
  * own, or its `mind`'s: a drill's subject that names its skill beside its mind), one in all, a
@@ -339,8 +340,21 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
     ep = { ...s, start: pooled ? pool.find((one) => one.built === s.built) : s, decisions: 0 };
     return s.inputs.slice();
   };
+  /**
+   * A step, where its world throws (a fault of the game's own, met once in some millions of
+   * decisions) its episode cut there, nothing paid, its fault and condition written to stderr and
+   * counted in its info (`fault`), so that one world's fault does not end a run; its world is
+   * not played again (a pooled start is loaded afresh at the next reset, an unpooled trial begun afresh).
+   */
   const step = (action) => {
     if (!Array.isArray(action) || action.length !== actionSize || !action.every(Number.isFinite)) throw new Error('invalid learner action');
+    try { return stepped(action); } catch (error) {
+      if (!o.survive) throw error;
+      process.stderr.write(`fault in ${JSON.stringify(ep.condition)} at ${ep.kind.clock(ep.built)} s, decision ${ep.decisions}: ${String(error.stack ?? error).split('\n').slice(0, 4).join(' | ')}\n`);
+      return { observation: ep.learner.inputs.map((x) => Number.isFinite(x) ? x : 0), reward: 0, terminated: false, truncated: true, info: { worldSteps: 0, worldSeconds: 0, decisions: ep.decisions, fault: 1 } };
+    }
+  };
+  const stepped = (action) => {
     const { built, kind, reader, learner } = ep, outputs = action.map(Math.tanh), dt = 1 / built.world.hz;
     ep.decisions++;
     const once = () => {

@@ -13,5 +13,6 @@
   "pool": 4,
   "refresh": 16,
   "again": true,
+  "survive": true,
   "reward": {"effort": 0.02, "unmet": -1, "end": {"value": 1}}
 }

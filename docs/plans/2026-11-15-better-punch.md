@@ -427,6 +427,12 @@ deleted.
   learner run again before the reading's end as the episode's next decision (`again`); played so,
   four fight moments read as the full play did, with 86, 18 and 55 decisions each.
 - **Run 3** is run 2 with `again` (seed 3), screened on the rungs and the bar's bouts at each 1 M.
+  A chunk costs 13.7 to 13.9 minutes (2.0 to 2.1 M world steps), 1 M about 55. Its value read
+  0.54, 0.52, 0.45 over its first three chunks. In its fourth a world threw: the stance's swing
+  foot was asked to land at a lean of NaN (`landingTurnToRef`, `stance.ts`), and the run ended.
+  The environment now cuts the episode of a world that throws and writes its condition to
+  `server.log` (`survive`), and run 3 continues from its last model; the fault is to be found
+  from those conditions.
 
 | Step | State |
 | --- | --- |
