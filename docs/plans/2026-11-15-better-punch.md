@@ -454,7 +454,12 @@ deleted.
   trunk's forward in the striker's body frame), so that it can meet a bladed foe's chest square;
   `moving`'s layout reads it (68 inputs). Run 4 never trained (the layout changed under its
   start); **run 5** begins from run 3's 2.36 M policy carried onto the new layout (`--start`,
-  `--start-layout`), on `moving-fights.json` paid `dealt`.
+  `--start-layout`), on `moving-fights.json` paid `dealt`. A chunk costs about 14.5 minutes.
+- **Run 5 at 1 M is the first `moving` to out-land the installed punch in the bar's bouts**: 18
+  blows of 0.5 hp and more (10 and 8 on its two sides) to 13 (8 and 5), 25.9 hp dealt by its
+  punches to 18.1; a touching blow a median 0.16 and 0.09 hp to 0.06 and 0.09. Its upper-trunk
+  blows on one side close at 5.6 m/s (4.1 at run 3's 2.1 M) and take a median 0.44 hp. The bar is
+  5 times the blows: 1.4 so far.
 
 | Step | State |
 | --- | --- |
