@@ -34,21 +34,34 @@ export interface Objective {
 /** The lead, life, past which a wider one is worth less and less at the clock's verdict (`verdict`). */
 const MARGIN = .1;
 
-/** **What a lead of `lead` is worth at the clock's verdict**, life: as much as the lead where it is narrow, never more than `MARGIN` won or lost however wide. */
-const verdict = (lead: number): number => MARGIN * tanh(lead / MARGIN);
+/** What a bout the clock ends even costs each side, life: as much as a lost one (`MARGIN`), so neither waits out an even bout. */
+const DRAW = MARGIN;
+
+/** The lead, life, within which a bout reads as even at the clock (`atBell`): a light touch, short of a landed blow. */
+const EVEN = .02;
+
+/**
+ * **What a lead of `lead` is worth at the clock's verdict**, life: as much as the lead where it is
+ * narrow, never more than `MARGIN` won or lost however wide, less `DRAW` where it is even (within
+ * about `EVEN`).
+ */
+const atBell = (lead: number): number => MARGIN * tanh(lead / MARGIN) - DRAW * (1 - Math.abs(tanh(lead / EVEN)));
 
 /**
  * **A path's worth by the few terms**, life: the metres it walks as ordered, at `obedience` (orders
  * first where the orders are firm, `Orders.firm`), and the life it trades (`net`: the focus's it
  * takes, more where the orders name the focus, less its own it loses), valued by how late in the
- * bout it is (`Situation.lateness`): as itself at the bout's start, and at its end by what the lead
- * it leaves is worth at the verdict against the lead now (`verdict`, of slope 1 at an even lead),
- * so a lead at stake late weighs what may lose it.
+ * bout it is (`Situation.lateness`): as itself at the bout's start, and at its end by what each side
+ * of the trade is worth at the verdict against the lead now (`atBell`), read apart, the life dealt
+ * and the life taken each as though it came alone. So late, a body behind gains more by a blow it
+ * deals than it loses by one it takes, and presses; one ahead the reverse, and keeps its lead; and
+ * an even bout is worth breaking, since waiting keeps the draw's cost. Read as one net, each would
+ * wait whenever a trade loses on average, and a bout once led would stand to the bell.
  */
 function fewTermsWorth(path: Path, now: Situation, obedience: Obedience): number {
   const named = now.orders?.foe !== undefined && now.orders.foe === now.focus?.id, obeying = now.orders?.firm ? FIRST : obedience;
-  const net = path.dealt * (named ? 1 + obeying.foe : 1) - path.taken, late = now.lateness, lead = now.lead;
-  return obeying.metre * path.orders + (1 - late) * net + late * (verdict(lead + net) - verdict(lead));
+  const dealt = path.dealt * (named ? 1 + obeying.foe : 1), late = now.lateness, lead = now.lead, bell = atBell(lead);
+  return obeying.metre * path.orders + (1 - late) * (dealt - path.taken) + late * (atBell(lead + dealt) - bell + atBell(lead - path.taken) - bell);
 }
 
 /** **The few terms** (`FEW_TERMS`): combat's objective, the lives a path trades, its orders and the lead at the verdict. */
