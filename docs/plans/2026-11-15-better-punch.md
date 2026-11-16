@@ -567,7 +567,10 @@ deleted.
   at 15 rad/s, in both. Not levers, read once each: the elbow's ask at 30 or 35 rad/s (12.7 kg
   at 5.0 m/s, 0.60 hp; 9.1 kg at 5.4, 0.64; the stroke's 8.5 at 5.9, 0.65); in bouts with
   `deeper` 0.3 at 9.18 M, the arm thrown at 0.20 s (6.47 a bout-minute, 0.76 hp, to 6.29 and
-  0.75) or held until the target is within the arm's reach up to 0.25 s (5.01, 0.66).
+  0.75) or held until the target is within the arm's reach up to 0.25 s (5.01, 0.66); the
+  shoulder held at speed nought once the fist is within 5 or 10 cm of the target (6.4 kg, 0.61
+  hp; 6.1 kg, 0.41). The steer's shoulder outputs span 20 rad/s either side of the stroke's ask,
+  enough to ask the shoulder for nought at the touch.
 - **Against the installed punch's own figures**, from bouts where it was not smothered (2.3 to 2.6
   landed a bout-minute, a landed blow a median 0.67 to 0.75 hp): `moving` at 9.18 M with `deeper`
   0.3 lands 6.29 a bout-minute, 2.4 to 2.7 times; its landed blow 0.75 hp, 1.0 to 1.1 times.
