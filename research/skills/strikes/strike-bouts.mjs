@@ -128,7 +128,7 @@ if (isMainThread) {
       // With ACTUATION (`symmetric` or `directional`), the world's muscle law (`World.actuation`); else the world's own.
       const bout = await buildBout(recipe, { engine: BOUT_ENGINE, ...(process.env.ACTUATION ? { actuation: process.env.ACTUATION } : {}) }); dispose = bout.dispose;
       const { world, duel } = bout, track = Object.fromEntries(SIDES.map(side => [side, {
-        side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, attempts: [], sequence: 0,
+        side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, apart: {}, attempts: [], sequence: 0,
       }]));
       const byId = Object.fromEntries(SIDES.map(side => [side, new Map()]));
       const attemptOf = (side, action) => {
@@ -182,6 +182,10 @@ if (isMainThread) {
         for (const side of SIDES) {
           const t = track[side], me = duel.duelists[side], report = me.minded.skills.report;
           if (!report.actions.length) t.idle += world.dt;
+          // Seconds spent with the stance centres apart by each 2 cm, keyed by the bin's lower edge, m: [all, with no action].
+          { const foe = duel.duelists[side === "left" ? "right" : "left"].body.view.stance.centre, c = me.body.view.stance.centre;
+            const bin = (Math.floor(Math.hypot(foe.x - c.x, foe.z - c.z) / .02) * .02).toFixed(2), at = (t.apart[bin] ??= [0, 0]);
+            at[0] += world.dt; if (!report.actions.length) at[1] += world.dt; }
           for (const action of report.actions) {
             t.phases[action.phase] += world.dt;
             const attempt = attemptOf(side, action); attempt.contacts = structuredClone(action.contacts);

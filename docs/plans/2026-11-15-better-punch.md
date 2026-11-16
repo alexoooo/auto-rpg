@@ -481,6 +481,34 @@ deleted.
 - **Run 6 at 5.25 M**: 32 landed of 154 to 27 of 228 (1.19), a landed blow a median 0.81 hp to
   0.67; on one side its upper-trunk blows have 6.1 kg behind the fist (3.4 to 3.6 before) and take
   a median 0.47 hp, 17 of 36 landed.
+- **The landed ratio does not rank checkpoints** (1.0, 0.62, 1.19, 1.06, 1.19 over five; a
+  checkpoint's twelve bouts replay to the same count). What does, at run 6's 5.25 M:
+  - *The rungs, clean blows*: still 63 of 85 at 0.5 hp, a median 0.79 hp (run 1's 1 M: 52, 0.60);
+    walk settled 64 of 73, 0.96 (50, 0.59); walking 87 of 96, 0.92 (58, 0.60). Fight training
+    made a clean blow heavier.
+  - *The dense standing sweep* (trunks 0.65 to 1.0 m apart at the fire): 0.5 hp from 0.65 to 0.92
+    m with gaps, nothing from 0.925 out.
+  - *Where its commits went in the twelve bouts* (154): no touch 13%; the guard's arm 32% (1.6 kg
+    behind the fist); the trunk slanted over 30 degrees 23%; the trunk square and light 10% (5.4
+    kg, 3.9 m/s); landed 19% (8.1 kg, 6.5 m/s). Run 5 at 1 M read alike: 12, 32, 26, 14, 14.
+  - *Where the fighters stand* (`strike-bouts.mjs` now keeps seconds by 2 cm of stance centres
+    apart): 0.85 to 1.05 m for 40% of the bouts' time, 0.90 to 0.95 the most (14%); 0.85 m and
+    nearer 12%. The installed punch fires 142 of its 228 from 0.90 to 1.00; `moving`, its window
+    at reach 0.6, 13 of 154. The throw rate's gap is the window.
+- **`moving`'s reach 0.6 to 0.8** (its band 0.2; the installed punch's reach 0.8, band 0.06), the
+  same 5.25 M network, twelve bouts, by `strike-bouts.mjs`'s counts:
+
+  | reach | `moving` begun, landed | installed begun, landed | `moving` fell | installed fell |
+  | --- | --- | --- | --- | --- |
+  | 0.6 | 167, 34 | 230, 32 | 3 | 12 |
+  | 0.7 | 323, 35 | 263, 16 | 2 | 15 |
+  | 0.8 | 537, 37 | 280, 2 | 12 | 10 |
+
+  At 0.8 it begins 36 punches a bout-minute, and the installed punch's touching blows take a
+  median 0.02 hp, smothered; `moving`'s landed blow is a median 0.73 hp to the bar's 1.4, and most
+  of its touches are grazes from 0.9 m, out of its trained reach. `moving.json`'s reach is 0.8,
+  and **run 7** continues run 6 (6.3 M) there, `dealt` and `heavy` paid, to land heavy from where
+  the fighters stand.
 
 | Step | State |
 | --- | --- |
