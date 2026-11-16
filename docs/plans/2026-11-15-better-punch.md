@@ -571,6 +571,11 @@ deleted.
 - **Against the installed punch's own figures**, from bouts where it was not smothered (2.3 to 2.6
   landed a bout-minute, a landed blow a median 0.67 to 0.75 hp): `moving` at 9.18 M with `deeper`
   0.3 lands 6.29 a bout-minute, 2.4 to 2.7 times; its landed blow 0.75 hp, 1.0 to 1.1 times.
+- **Run 9 pays weight first**: `dealt` 0.25 and `heavy` 2 (it was 1 and 1, under which two 0.7 hp
+  grazes earned 2.38 to a 1.4 hp blow's 3.36; now 1.33 to 4.27). The heavy tenth shows the stroke
+  meets at the fist's peak when timed, and the steer reads what times it (the target from the
+  shoulder, the fist's velocity). Run 9 continues run 7 (9.18 M) with `deeper` 0.3; run 8, the
+  same under the old reward, was stopped before its first chunk.
 
 | Step | State |
 | --- | --- |
