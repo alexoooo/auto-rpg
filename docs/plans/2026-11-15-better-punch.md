@@ -472,6 +472,12 @@ deleted.
   twelve bouts 38 landed of 195 committed to the installed punch's 32 of 281 (1.19), a landed blow
   a median 0.72 hp to 0.66, its punches' touches 54.9 hp to 47.1. 104 of its blows met the upper
   trunk, a median 0.34 and 0.41 hp, 35 of them landed.
+- **Run 5 at 4.2 M** (return 2.6, value 1.09): 38 landed of 176 to 36 of 245 (1.06), a landed
+  blow a median 0.71 hp to 0.69. From 1 M to 4.2 M its return doubled and the bouts held at 1.0
+  to 1.2 times; its trunk blows keep 3.4 to 3.6 kg behind the fist. Paid by the hit point, ten
+  0.3 hp grazes earn what one 3 hp blow earns; the bar counts the blow. The drill now has `heavy`,
+  each blow's hit points squared, and **run 6** continues run 5 (4.4 M) paid `dealt`, `heavy`
+  and the end's value.
 
 | Step | State |
 | --- | --- |

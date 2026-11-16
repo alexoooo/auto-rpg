@@ -14,5 +14,5 @@
   "refresh": 16,
   "again": true,
   "survive": true,
-  "reward": {"effort": 0.02, "dealt": 1, "end": {"value": 1}}
+  "reward": {"effort": 0.02, "dealt": 1, "heavy": 1, "end": {"value": 1}}
 }

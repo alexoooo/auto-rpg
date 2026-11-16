@@ -17,6 +17,7 @@ import { recordingKey } from "../../core/world/recording.ts";
 import { mindJson, mindSubject, type Evaluation, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import type { StrikeReading } from "./read.ts";
+import type { LandedBlow } from "../../combat/blows.ts";
 import { barScore, graded, releasedScore } from "./score.ts";
 import { FALL_PRICE, keep, trialValue } from "../table/judge.ts";
 import { createStrikeCases, limbOf, type StrikeCondition } from "./cases.ts";
@@ -45,6 +46,21 @@ function loadoutNamed(key: string): Loadout {
   const loadout = { left: left as Held, right: right as Held }, faults = more.length || right === undefined ? ["name both hands, left first"] : loadoutFaults(loadout);
   if (faults.length) throw new Error(`${key} is no loadout: ${faults.join("; ")} (${HELD.join(", ")})`);
   return loadout;
+}
+
+/**
+ * The hit points the left side's hands dealt the other side in the blows of the step just played
+ * (`BlowSide.damage`), each raised to `power`, over the step's seconds: a learning percept's.
+ */
+function handBlows(built: { readonly duel: { readonly blows: readonly LandedBlow[]; readonly duelists: { readonly left: { readonly id: string } } };
+  readonly world: { readonly time: number; readonly hz: number } }, power: number): number {
+  const blows = built.duel.blows, me = built.duel.duelists.left.id, now = built.world.time, dt = 1 / built.world.hz;
+  let paid = 0;
+  for (let k = blows.length - 1; k >= 0 && blows[k]!.time > now - dt / 2; k--) {
+    const sides = blows[k]!.sides, mine = sides.find((side) => side.fighter === me), theirs = sides.find((side) => side.fighter !== me);
+    if (mine && theirs && mine.segment.startsWith("hand.")) paid += theirs.damage ** power;
+  }
+  return paid / dt;
 }
 
 /** Contact outcomes and diagnostic failures; an observation with incomplete motion coverage cannot pass. */
@@ -115,19 +131,13 @@ export const createStrikeIndex = perContext((context: GameContext) => {
      * the striker's legs left undone (`LegsReport.unmet`), 0 for a mind that runs no skills; `dealt`,
      * the hit points the striker's hands dealt the other side in the blows of the step just played
      * (`BlowSide.damage`), over the step's seconds, so that summed over a decision it pays each blow
-     * once as it lands.
+     * once as it lands; `heavy`, the same with each blow's hit points squared, so that one heavy blow
+     * pays more than the grazes that add up to it.
      */
     percepts: {
       unmet: (built) => built.duel.duelists.left.minded.skills?.report.legs.unmet.fields.length ?? 0,
-      dealt: (built) => {
-        const blows = built.duel.blows, me = built.duel.duelists.left.id, now = built.world.time, dt = 1 / built.world.hz;
-        let hp = 0;
-        for (let k = blows.length - 1; k >= 0 && blows[k]!.time > now - dt / 2; k--) {
-          const sides = blows[k]!.sides, mine = sides.find((side) => side.fighter === me), theirs = sides.find((side) => side.fighter !== me);
-          if (mine && theirs && mine.segment.startsWith("hand.")) hp += theirs.damage;
-        }
-        return hp / dt;
-      },
+      dealt: (built) => handBlows(built, 1),
+      heavy: (built) => handBlows(built, 2),
     },
     figures: [
       { name: "landed", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.outcome === "landed" },
