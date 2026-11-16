@@ -389,6 +389,15 @@ deleted.
 - **Next, `moving`'s stroke gets a learned steer, and is trained** (step 5), in place of more
   hand levers (some fifteen read inside the noise). The installed punch's weight is its
   network's: with its steer off it lands none of 31. `moving`'s stroke has none.
+- **Its window is where its stroke lands**: `inside`, `reach` 0.6, `band` 0.2; walked in, it
+  fires about 0.77 m trunk to trunk (0.76 to 0.78 from 1.4 to 2.4 m out; `reach` 0.3 fired at
+  0.60 to 0.62, `reach` 0.75 at 0.84 to 0.91).
+- **The first run** (`environments/moving.json`): the Strike drill's value on its training
+  twins, `still-twin` and `walk-twin` (walked in and asked settled, or asked walking), on the
+  Warrior, at 120 Hz; from scratch (its layout is new); the spread at the default, which an
+  untrained steer survives (80 episodes with noise played through); its checkpoints chosen on the
+  `still` and `walk` rungs, held out. Parity holds by construction: a nought steer adds nothing to
+  a push.
 
 | Step | State |
 | --- | --- |

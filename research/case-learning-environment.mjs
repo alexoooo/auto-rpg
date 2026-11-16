@@ -62,6 +62,7 @@ import { EVALUATIONS } from "../src/app/node/evaluation.ts";
 import { WORLD_BUILDERS } from "../src/app/node/evaluation.ts";
 import { caseName } from "../src/evaluation/results.ts";
 import { decide, untilAsked } from './learner-adapter.mjs';
+import { answer, pending as isPending } from '../src/core/math/learning/learner.ts';
 import { startBank } from './starts.mjs';
 
 /** Whether `condition` is held out of training: half of the conditions, by a digest of its fields in sorted order (FNV-1a). */
@@ -183,7 +184,8 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
     if (!cases) throw new Error(`no protocol ${place.protocol} of ${o.evaluation}`);
     if (cases.arity !== 1) throw new Error('a case environment seats one subject');
     if (place.draw) return { place, cases };
-    const subject = (condition) => ({ id: 'learner', label: 'learner', value: subjectFor(o, condition, configureMind), character: o.character });
+    // The subject seated as the file's `character` seats it (`Seat`: the attributes its bodies take and the variations they hold).
+    const subject = (condition) => ({ id: 'learner', label: 'learner', value: subjectFor(o, condition, configureMind), ...o.character });
     const conditions = cases.conditions.filter((condition) => matches(condition, place.where) && (cases.faults?.(subjectFor(o, condition, configureMind), condition, subject(condition)) ?? []).length === 0);
     if (conditions.length === 0) throw new Error(`no condition of ${o.evaluation} ${place.protocol} admits the subject where ${JSON.stringify(place.where)}`);
     return { place, cases, conditions };
@@ -347,10 +349,12 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
     const played = decide(learner, outputs, once, dt);
     let ended = played.ended, steps = played.steps;
     let reward = played.reward - (r.effort ?? 0) * outputs.reduce((sum, a) => sum + a * a, 0) / outputs.length;
-    // Once the learner has stopped, the trial plays on to its reader's end, so the reading is the whole trial's.
+    // Once the learner has stopped, the trial plays on to its reader's end, so the reading is the whole trial's;
+    // a learner run again in it (a second blow, its first cut short) is answered nought, as no actor steers it.
     if (ended === 'done' && o.onward !== false) {
       let rest = null;
-      while (rest === null) { const one = once(); reward += one.reward; steps++; rest = one.ended; }
+      const nought = outputs.map(() => 0);
+      while (rest === null) { if (isPending(learner)) answer(learner, nought); const one = once(); reward += one.reward; steps++; rest = one.ended; }
       ended = rest === 'read' ? 'done' : rest;
     }
     const observation = learner.inputs.slice(), interval = { worldSteps: steps, worldSeconds: steps * dt };

@@ -1,0 +1,16 @@
+{
+  "kind": "cases",
+  "evaluation": "strike",
+  "part": "mind.options.1.skill",
+  "layout": "assets/skills/strikes/straight-punch/moving.layout.json",
+  "subject": {"mind": {"preset": "option-drill", "skill": "straight-punch", "steered": true}, "skill": "straight-punch"},
+  "character": {"variations": ["straight-punch/moving"]},
+  "places": [
+    {"protocol": "still-twin", "where": {"model": "man"}},
+    {"protocol": "walk-twin", "where": {"model": "man"}}
+  ],
+  "rates": [120],
+  "pool": 4,
+  "refresh": 16,
+  "reward": {"effort": 0.02, "unmet": -1, "end": {"value": 1}}
+}
