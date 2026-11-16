@@ -450,6 +450,11 @@ deleted.
   percept `dealt`: the hit points the striker's hands deal in each step's blows, paying each blow
   once as it lands. **Run 4** continues run 3 (2.36 M) paid `dealt` and the end's value, `unmet`
   dropped.
+- **The steer reads which way the target faces** (`target facing across/up/ahead`, its upper
+  trunk's forward in the striker's body frame), so that it can meet a bladed foe's chest square;
+  `moving`'s layout reads it (68 inputs). Run 4 never trained (the layout changed under its
+  start); **run 5** begins from run 3's 2.36 M policy carried onto the new layout (`--start`,
+  `--start-layout`), on `moving-fights.json` paid `dealt`.
 
 | Step | State |
 | --- | --- |

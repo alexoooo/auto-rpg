@@ -64,7 +64,10 @@
     "near foot bearing",
     "far foot bearing",
     "stance shifting",
-    "stance swinging"
+    "stance swinging",
+    "target facing across",
+    "target facing up",
+    "target facing ahead"
   ],
   "interval": 0.016666666666666666,
   "leg": 0.8815024260685317,
