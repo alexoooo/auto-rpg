@@ -340,12 +340,15 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
   /** The channels each hand's schedule names, which are pushed only on it. */
   const leg = legOf(body.built.spec), steeredChannels = { left: steerChannels("left", leg, layout), right: steerChannels("right", leg, layout) };
   const scheduled = { left: new Set((settings.timed?.left ?? []).map((p) => p.channel)), right: new Set((settings.timed?.right ?? []).map((p) => p.channel)) };
+  /**
+   * What it sees of its target each step (`faceOf`), read afresh from the senses as it aims, so no
+   * memory a save keeps: the way the target's body faces, world, null where none is seen.
+   */
+  const seen = { facing: null as [number, number, number] | null };
   const state = {
     hand: null as Side | null, phase: null as Phase | null,
     /** Where it aims, world, the last target asked, and how fast that moved over the last step, m/s (`aimAt`); the way it faces as the drive began. */
     target: [0, 0, 0] as [number, number, number], aimed: [0, 0, 0] as [number, number, number], face: 0,
-    /** The way the target's body faces, world, its upper trunk's forward (`faceOf`), a unit vector; null where no body is seen. */
-    facing: null as [number, number, number] | null,
     /** Seconds stood at the stand-off on both feet; when the drive began, when its hand began to touch, whether it touched last step, and when it came back. */
     stood: 0, began: 0, touched: null as number | null, touching: false, ended: 0, now: 0, headY: 0,
     /** The last solve's shoulder to target, m, and how far along that line the striking point stood (`solve`). */
@@ -464,7 +467,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
       for (let j = 0; j < trunk; j++) chain[j]!.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(chain[j]!, k)] ?? 0; });
       pointAtToRef(limb.trunkChain, angles, limb.shoulder, apart);
       steerFeatures(body, view, hand, steeredChannels[hand], since, apart.set(target.x - apart.x, target.y - apart.y, target.z - apart.z), state.target, state.aimed,
-        (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, limb.arm, learner.inputs, limb.behind ? struck(view, hand, limb) : null, state.facing);
+        (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, limb.arm, learner.inputs, limb.behind ? struck(view, hand, limb) : null, seen.facing);
     }
     steerPushes(pushes, steeredChannels[hand], outputs);
   };
@@ -505,7 +508,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
     return { apart: state.apart, along: state.along, arm: limb.arm, trunk: limb.goals.map((g) => ({ channel: g.channel, angle: g.angle })),
       pose: limb.free.map((f) => ({ channel: f.name, angle: limb.angles[f.joint]![f.k]! })) };
   };
-  return { state, end, enter, read, standOff, chamber, drive, steer, reach, sense, steeredChannels, aimAt,
+  return { state, seen, end, enter, read, standOff, chamber, drive, steer, reach, sense, steeredChannels, aimAt,
     heightFits: (hand: Side, up: number) => Math.abs(up - state.shoulders[hand][1]) <= settings.reach * limbs[hand].arm
       && (settings.above === undefined || up - state.shoulders[hand][1] <= settings.above) };
 }
@@ -615,7 +618,7 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
       const source = request ?? live.request, at = resolve(view, source.target, source.action, source.effector);
       if (live.phase === "prepare" && (live.withdrawn || !at)) release(!at ? { kind: "lost", reason: "target is no longer sensed" } : { kind: "cancelled" });
       else if (requireArmAim && live.phase === "commit" && live.time < settings.lead && !at) release({ kind: "completed" });
-      if (at && !live.withdrawn && live.phase !== "release") { technique.aimAt(at, dt); technique.state.facing = faceOf(sensedActionTarget(view, source.target), technique.state.facing); }
+      if (at && !live.withdrawn && live.phase !== "release") { technique.aimAt(at, dt); technique.seen.facing = faceOf(sensedActionTarget(view, source.target), technique.seen.facing); }
       live.time += dt;
       if (live.phase === "prepare") {
         live.stage = "settle";
