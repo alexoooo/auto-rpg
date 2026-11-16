@@ -607,6 +607,16 @@ deleted.
   statistics measured of it (`fresh`), and **run 10c** holds them all (`--freeze-normalization`):
   run 9's for its 68 inputs, the guard's measured (means -0.23 to 0.21 m, deviations 0.11 to
   0.18).
+- **Run 10c at 1.06 M**: 5.22 landed a bout-minute (50 of 356, 14%), 0.85 hp, 5 falls, the guard's
+  arm 31%; on the sweep 1.08 hp, 71 of 129. Within run 9's own spread between checkpoints (5.47,
+  5.47, 7.25 a minute; 0.76 to 0.87 hp): one twelve-bout screen cannot show a 30% change.
+- **Run 10d is run 9 whole, widened** (`research/expand-model.py`): run 9's 12.07 M model, its
+  critic and its statistics with their count, each first layer given nought columns for the
+  guard's six inputs and their statistics as measured; resumed, not started. A fresh pool of kept
+  starts returns about 2 whatever plays it (run 10c's first chunk, run 9's policy held), so its
+  return is not read against run 9's. It runs 2 to 3 M undisturbed and is judged on what the
+  readings were added for, the guard's-arm and no-touch shares of its commits, over two or three
+  checkpoints together.
 
 | Step | State |
 | --- | --- |
