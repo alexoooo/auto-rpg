@@ -468,6 +468,10 @@ deleted.
   alike in its parts (0.02 s preparing, 0.3 s committed, a median 1.2 s between) and alike in its
   long pauses (about 1,000 s over 3 s each); the gaps are the mind's. The bar's 1.4 hp median for
   a landed blow is about 140 J: 10 kg behind the fist at 6 m/s, met square.
+- **Run 5 at 3.15 M** (its return 1.32 at the start, 2.23 now; its value 0.55 to 0.89): in the
+  twelve bouts 38 landed of 195 committed to the installed punch's 32 of 281 (1.19), a landed blow
+  a median 0.72 hp to 0.66, its punches' touches 54.9 hp to 47.1. 104 of its blows met the upper
+  trunk, a median 0.34 and 0.41 hp, 35 of them landed.
 
 | Step | State |
 | --- | --- |
