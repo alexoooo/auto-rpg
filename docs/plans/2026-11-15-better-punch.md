@@ -598,6 +598,15 @@ deleted.
 - **Run 10 at 1.06 M** has not come back yet: 3.92 landed a bout-minute (41 of 455, 9%), 0.73 hp,
   2 falls, the guard's arm 34%; on the sweep 0.85 hp. A start over a changed layout takes 2 to 5 M
   decisions to come back (the recipe's step 3), so the guard readings are judged at about 3 M.
+- **That loss was the trainer's, not the readings'.** Run 10's start (`policy-8192.json`) plays
+  the twelve bouts exactly as run 9's 12.07 M (67 landed of 390, 0.76 hp). At the release the
+  trainer replaced run 9's input statistics: `write_start` set their mean and variance but not
+  their count, so the first rollout of 32,768 decisions outweighed them, and nine inputs moved
+  0.25 to 0.39 of a deviation under weights not refolded (`target from shoulder across` 10 cm).
+  Its return stayed at 1.9 to 2.3 for six chunks. Now an input the start has none for keeps the
+  statistics measured of it (`fresh`), and **run 10c** holds them all (`--freeze-normalization`):
+  run 9's for its 68 inputs, the guard's measured (means -0.23 to 0.21 m, deviations 0.11 to
+  0.18).
 
 | Step | State |
 | --- | --- |

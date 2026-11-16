@@ -253,8 +253,10 @@ def matched(network, source_layout, layout):
     result = {'layers': [(first, b0)] + layers[1:-1] + [last]}
     if 'normalization' in network:
         normal = network['normalization']
+        # An input the source has none for is read as it comes (`fresh`): `write_start` keeps the statistics measured of it.
         result['normalization'] = {'mean': np.array([normal['mean'][i] if i is not None else 0 for i in ins]),
-                                   'scale': np.array([normal['scale'][i] if i is not None else 1 for i in ins]), 'clip': normal['clip']}
+                                   'scale': np.array([normal['scale'][i] if i is not None else 1 for i in ins]), 'clip': normal['clip'],
+                                   'fresh': np.array([i is None for i in ins])}
     if 'actionLimit' in network: result['actionLimit'] = network['actionLimit']
     return result
 
@@ -333,8 +335,10 @@ def write_start(model, envs, network, first):
     if normalized is not None:
         limit = float(np.arctanh(1 - 1e-6)) if isinstance(model, SAC) else 3.0
         if network.get('actionLimit', limit) != limit: raise ValueError('the start and trainer must use the same action preprocessing')
-        envs.obs_rms.mean = normalized['mean'].copy()
-        envs.obs_rms.var = np.maximum(0, 1 / normalized['scale'] ** 2 - envs.epsilon)
+        # The source's statistics for the inputs it read; a fresh input's as measured (`read_stats`), not 0 and 1.
+        fresh = normalized.get('fresh', np.zeros(len(normalized['mean']), bool))
+        envs.obs_rms.mean = np.where(fresh, envs.obs_rms.mean, normalized['mean'])
+        envs.obs_rms.var = np.where(fresh, envs.obs_rms.var, np.maximum(0, 1 / normalized['scale'] ** 2 - envs.epsilon))
         envs.clip_obs = normalized['clip']
     mean, scale = scaling(envs)
     layers = network['layers']
