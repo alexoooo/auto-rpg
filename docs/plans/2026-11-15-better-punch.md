@@ -638,7 +638,14 @@ deleted.
   (`npm run evaluate -- strike option/straight-punch --protocol sparring --json`, 720 trials, then
   `strike-profiles.mjs --write`; the Rogue's and the Skeleton's `drive` measured again beside it).
   In a game bout of 60 s, `moving` against `drive` landed 9 to 0, and with the sides swapped 4 to
-  0; two Warriors both on `moving` close to 1.84 m and wait there, no blow begun. In the Arena:
+  0; two Warriors both on `moving` close to 1.84 m and wait there, no blow begun (`drive`
+  against `drive` under the same profiles trades). Begun 1 m apart they trade once and back to
+  1.56 m; begun 1.5 or 2 m apart neither moves. The profiles say why: on a Warrior, `moving` takes
+  0.41 to 0.52 hp a sparring trial and deals 0.12 to 0.20 (its blow runs 0.37 s, the walk
+  carrying the body in), where `drive` takes 0.12 to 0.26 and deals 0.15 to 0.32. Each side prices
+  walking into the other's `moving` as a loss and waits outside its reach. The run 10d server
+  was not touched by the change: its workers are made once, at 12:40, and read the characters
+  as they load. In the Arena:
   Warrior against Warrior, one side's Skills panel with the straight punch's `drive` ticked and
   `moving` not. A trainer's or the strike drill's foe is the `man` body as its character has it,
   so a run begun now trains against `moving`: its foe is held to `drive` before the next run.
