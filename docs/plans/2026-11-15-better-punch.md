@@ -517,6 +517,15 @@ deleted.
   checkpoints, reach 0.7 is the record.
 - **Run 7 at 7.09 M**: 3.34 landed a bout-minute (43 of 472 committed, 9%), a median 0.81 hp, 13
   falls; the far band 6 of 38. Of its commits 30% touch nothing and 36% the guard's arm.
+- **Run 7 at 8.13 M**: 2.46 landed a bout-minute (34 of 449, 8%), a median 0.78 hp, 10 falls; the
+  far band 14 of 38, the sweep landing from 0.65 to 0.925 m. The far band moved: reach 0.8 stays.
+- **The landed blow's hp has not moved** through runs 5 to 7 (a median 0.73 to 0.87 in bouts, 0.65
+  on the sweep's trunk blows at 8.5 kg and 5.9 m/s, the fist's peak 8.3 m/s 0.03 s before the
+  touch). Not levers, on the sweep at 8.13 M: the record's `through` (`moving`'s stroke has its own
+  `THROUGH`); the stroke's `SPEED` 15, `ARM_SPEED` 60, `HOLD` 0.15 or `TRUNK_FIRST` 0.10, each a
+  median trunk blow of 0.47 to 0.63 hp to the stroke's 0.65. Nor the pace at the fire: in run 7's
+  bouts a landed blow is 0.78 to 0.83 hp at any pace. 571 of its 921 commits drift back in the
+  0.2 s from the fire and 19 go toward the foe.
 
 | Step | State |
 | --- | --- |
