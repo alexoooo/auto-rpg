@@ -509,6 +509,14 @@ deleted.
   of its touches are grazes from 0.9 m, out of its trained reach. `moving.json`'s reach is 0.8,
   and **run 7** continues run 6 (6.3 M) there, `dealt` and `heavy` paid, to land heavy from where
   the fighters stand.
+- **Run 7 is read on `moving`'s own numbers**, since a smothered foe raises the ratio: landed a
+  bout-minute, landed of committed, the median landed blow, falls within 2 s of a commit, and the
+  standing sweep's share at 0.5 hp from 0.875 to 1.0 m. The 5.25 M network at reach 0.6, 0.7 and
+  0.8: 2.00, 2.30 and 2.08 a minute; 19, 10 and 6% of committed; 0.81, 0.87 and 0.73 hp; 3, 2 and
+  12 falls; the sweep's far band 9 of 44. If neither the minute nor the far band moves within two
+  checkpoints, reach 0.7 is the record.
+- **Run 7 at 7.09 M**: 3.34 landed a bout-minute (43 of 472 committed, 9%), a median 0.81 hp, 13
+  falls; the far band 6 of 38. Of its commits 30% touch nothing and 36% the guard's arm.
 
 | Step | State |
 | --- | --- |
