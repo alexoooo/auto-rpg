@@ -384,7 +384,10 @@ played rows in `.cache/evaluations/<id>/` and its results, a few numbers a trial
 ([the architecture](../architecture.md#evaluations)). A pooled environment keeps
 its starts in `.cache/starts/<evaluation>/<protocol>/learner-<name>/`, each found again by its
 condition whatever commit played it (about 0.3 MB a start); deleting that folder plays them
-again.
+again. A start holds the minds' memory as it was saved, the learner's inputs among them: a
+layout given more inputs, or a skill's state given a field, loads none of them ("that save's
+memory ... is built otherwise by this code"), so move the learner's folders aside with the change.
+What a skill reads afresh from the senses every step is no memory and stays out of its state.
 
 When a checkpoint is chosen, copy its `model-<n>.zip`, `normalize-<n>.pkl`, `policy-<n>.json`,
 `layout.json` and the run's config to `research/runs/<task>/<name>/`, and add a line for it to
@@ -421,3 +424,7 @@ dropped run keeps nothing; its reading goes in the commit message.
 - A pooled start whose reader begins after the action did: the reader misses what it reads at the
   action's beginning (where the hand rests at guard), and the reward reads a different trial from
   the checkpoint reading's. Check parity on the pooled environment, not only a fresh one.
+- A fight moment read to the reader's end with the learner answered nought once it stops: the
+  mind throws again before the reading's blow lands, so the reward pays a blow no actor steered
+  (166 nought requests in one of `moving`'s episodes). Steer the learner run again as the
+  episode's next decision (`again`), and pay each blow as it lands (the Strike drill's `dealt`).
