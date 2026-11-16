@@ -661,6 +661,22 @@ deleted.
   `moving` not. A trainer's or the strike drill's foe is the `man` body as its character has it,
   so a run begun now trains against `moving`: its foe is held to `drive` before the next run.
   `screen-bouts` holds the foe's side to `drive`.
+- **The landed rate is not rising with training** (about 6 to 7 a bout-minute since `deeper` 0.3,
+  through run 9 and run 10d's 15.21 M), and the window's place does not move it. Run 10d at
+  15.21 M, the foe on `drive`, twelve bouts: reach 0.7 band 0.3 9.31 a minute (0.77 hp, 3 falls);
+  reach 0.6 band 0.4 5.93 (0.80, 10 falls); deeper 0.45 6.92 (0.90, 2); reach 0.7 band 0.3 deeper
+  0.45 5.01; reach 0.65 band 0.35 deeper 0.45 6.06. On 24 bouts (six more gaps): reach 0.7 band
+  0.3 7.99 a minute, 17% of committed, 0.78 hp, 11 falls; the record (reach 0.8, band 0.2,
+  deeper 0.3) 7.32, 17%, 0.89 hp, no fall; each distance bin lands the same share under both.
+  Twelve bouts of the record read 6.28 where these 24 read 7.32. Nor do the approach's pace or the
+  arm's return, 24 bouts each: `pace` 1.6 7.31 a minute, 20% of committed, 0.88 hp, 2 falls;
+  `recover` 0.25 7.76, 20%, 0.83 hp, 3 falls (commit to commit 0.41 s from 0.58; the blow after
+  a landed one lands 45 of 93). Commits already follow at once: half begin within 0.25 s of the
+  last one's end. Every setting reads 7.3 to 8 landed a bout-minute.
+- **Which count the bar reads is the owner's to say.** In the same 24 bouts the record's `moving`
+  landed 105 and the installed punch 3 (35 times); against the installed punch's own rate
+  unsmothered (2.3 to 2.6 a bout-minute, the reading this plan chose at reach 0.8) it is three
+  times. Work goes on toward the stricter reading meanwhile.
 - **Heavy landed blows come from a straighter arm, not from range.** The 147 landed in three
   screens by thirds of the mass behind the fist: 3.6, 10.0 and 25.0 kg, at 0.81, 0.84 and 1.00 hp;
   the elbow bent 42, 36 and 25 degrees, the shoulder-to-fist line 27, 22 and 13 degrees off the
