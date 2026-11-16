@@ -460,6 +460,14 @@ deleted.
   punches to 18.1; a touching blow a median 0.16 and 0.09 hp to 0.06 and 0.09. Its upper-trunk
   blows on one side close at 5.6 m/s (4.1 at run 3's 2.1 M) and take a median 0.44 hp. The bar is
   5 times the blows: 1.4 so far.
+- **Six bouts do not rank checkpoints; twelve are read from here** (`--gaps 2.5,3,3.5,4,4.5,5`,
+  each on each side, every touch of 0.5 hp counted): run 5 at 1 M landed 28 of 187 committed to
+  the installed punch's 28 of 252, a landed blow a median 0.73 hp to 0.73; at 2.1 M 24 of 189 to
+  39 of 297, 0.81 to 0.68. Six bouts had read 18 to 13 and 15 to 18.
+- **`moving` begins 13.3 punches a minute in those bouts to the installed punch's 19.3**, each
+  alike in its parts (0.02 s preparing, 0.3 s committed, a median 1.2 s between) and alike in its
+  long pauses (about 1,000 s over 3 s each); the gaps are the mind's. The bar's 1.4 hp median for
+  a landed blow is about 140 J: 10 kg behind the fist at 6 m/s, met square.
 
 | Step | State |
 | --- | --- |
