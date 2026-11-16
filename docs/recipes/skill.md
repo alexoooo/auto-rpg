@@ -327,6 +327,10 @@ run teaches nothing.
 3. **Install it in the game at once**, commit it, and play it there, in the screens that use the
    skill. The owner sees a skill only in the game, and the game finds what the cases missed: a
    failure there that the cases do not have is a case the plan lacks, added before the next run.
+   An install the owner asks for to watch is made once: a later, better checkpoint is not
+   installed again, nor its profiles measured again, until the work lands or the owner asks. The
+   owner: "you don't need to keep re-measuring the profile, i just wanted to see what it looks
+   like".
 4. **Polish**: resume the best into a new output for 2 to 5 M decisions and screen again:
    `--resume .tmp/<task>/<run>/model-<n>.zip --output .tmp/<task>/<run>-polish --lr 1e-4 --steps 3000000`.
    A checkpoint resumes only into another folder; decisions count on from its own.
