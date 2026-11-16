@@ -67,7 +67,13 @@
     "stance swinging",
     "target facing across",
     "target facing up",
-    "target facing ahead"
+    "target facing ahead",
+    "guard inside across",
+    "guard inside up",
+    "guard inside ahead",
+    "guard outside across",
+    "guard outside up",
+    "guard outside ahead"
   ],
   "interval": 0.016666666666666666,
   "leg": 0.8815024260685317,

@@ -587,6 +587,12 @@ deleted.
   0.87 hp (12.9 kg behind the fist at 5.6 m/s), 4 falls; on the sweep 0.85 hp, 67 of 133. The
   bouts' landed blow moved (0.76 to 0.87), so run 9 goes on a checkpoint more before the steer
   reads the guard (`guard inside`, `guard outside`, in code since `f4e4e1525`).
+- **Run 9 at 12.07 M**: 7.25 landed a bout-minute (67 of 390, 17%), 2.8 to 3.2 times the
+  installed punch's own; a landed blow 0.76 hp, 4 falls; on the sweep 1.02 hp. The bouts' weight
+  went back (0.87 to 0.76), and the guard's arm still takes 32%.
+- **Run 10 reads the guard**: `moving.layout.json` reads the target's forearms (74 inputs), and run
+  10 starts from run 9's 12.07 M policy through the 68-input layout, its kept starts moved aside
+  (they hold the learner's inputs), the reward as run 9's.
 
 | Step | State |
 | --- | --- |
