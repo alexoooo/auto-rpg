@@ -30,11 +30,13 @@ import { type Side, otherSide } from "../../../core/bodies/bilateral.ts";
  * stance is shifting its weight or swinging a foot, 1 or 0 (neither, it stands); and the way the
  * target's body faces, its upper trunk's forward in the body frame, a unit vector (nought where the
  * target is no body seen): -1 ahead where it faces the striker square, across where it stands
- * bladed. `across` is toward the punching hand's side.
+ * bladed; and where the target body's forearms are, each one's centre less the target in the body
+ * frame, m, the one less far across (`guard inside`) first (nought where none is seen): the guard
+ * a blow meets. `across` is toward the punching hand's side.
  */
 const READINGS: readonly string[] = ["drive age", ...["target from shoulder", "fist from target", "fist velocity", "centre velocity"].flatMap(axes),
   "touching", "arm length", "standing height", ...axes("target velocity"), "near foot bearing", "far foot bearing", "stance shifting", "stance swinging",
-  ...axes("target facing")];
+  ...axes("target facing"), ...axes("guard inside"), ...axes("guard outside")];
 
 function axes(name: string): string[] {
   return [`${name} across`, `${name} up`, `${name} ahead`];
@@ -150,10 +152,12 @@ const framed = (view: BodyView, x: number, y: number, z: number, out: Vector3): 
  * shoulder, body frame; `channels` are `hand`'s (`steerChannels`). `strike`, world, is where the
  * blow's striking point is, the fist's where null: a held blow's is its face's (`StrikingFace`);
  * the velocity read is the fist's either way. `facing`, world, is the way the target's body faces,
- * a unit vector, null where none is seen.
+ * a unit vector, null where none is seen; `guard`, world, its two forearms' centres, one after the
+ * other, null where none is seen.
  */
 export function steerFeatures(body: Body, view: BodyView, hand: Side, channels: SteerChannels, since: number, fromShoulder: Vector3, target: readonly number[],
-  aimed: readonly number[], touching: boolean, arm: number, out: number[], strike: Vector3 | null = null, facing: readonly number[] | null = null): number[] {
+  aimed: readonly number[], touching: boolean, arm: number, out: number[], strike: Vector3 | null = null, facing: readonly number[] | null = null,
+  guard: readonly number[] | null = null): number[] {
   const side = hand === "right" ? 1 : -1, fist = view.pointMotion[fistOn(body.built.spec, hand)!]!.knuckles!, muscles = body.muscles, at = strike ?? fist.position;
   let k = 0;
   read[k++] = since;
@@ -180,6 +184,15 @@ export function steerFeatures(body: Body, view: BodyView, hand: Side, channels: 
     framed(view, c.x + facing[0]!, c.y + facing[1]!, c.z + facing[2]!, moved);
     read[k++] = (moved.x - point.x) * side; read[k++] = moved.y - point.y; read[k++] = moved.z - point.z;
   } else { read[k++] = 0; read[k++] = 0; read[k++] = 0; }
+  if (guard) {
+    framed(view, target[0]!, target[1]!, target[2]!, point);
+    framed(view, guard[0]!, guard[1]!, guard[2]!, moved);
+    const ax = (moved.x - point.x) * side, ay = moved.y - point.y, az = moved.z - point.z;
+    framed(view, guard[3]!, guard[4]!, guard[5]!, moved);
+    const bx = (moved.x - point.x) * side, by = moved.y - point.y, bz = moved.z - point.z;
+    if (ax <= bx) { read[k++] = ax; read[k++] = ay; read[k++] = az; read[k++] = bx; read[k++] = by; read[k++] = bz; }
+    else { read[k++] = bx; read[k++] = by; read[k++] = bz; read[k++] = ax; read[k++] = ay; read[k++] = az; }
+  } else for (let n = 0; n < 6; n++) read[k++] = 0;
   const { readings, inputs, inputSenses, speeds } = channels;
   for (let i = 0; i < readings.length; i++) {
     const name = inputs[i];

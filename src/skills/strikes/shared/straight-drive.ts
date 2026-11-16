@@ -197,6 +197,19 @@ function faceOf(foe: BodySense | null, out: [number, number, number] | null): [n
   return into;
 }
 
+/**
+ * Where `foe`'s forearms are, world, into `out` (made where null): the left's centre, then the
+ * right's; null where no body is seen or it has not both.
+ */
+function guardOf(foe: BodySense | null, out: number[] | null): number[] | null {
+  const left = foe?.segments.get("forearm.left"), right = foe?.segments.get("forearm.right");
+  if (!left || !right) return null;
+  const into = out ?? [0, 0, 0, 0, 0, 0];
+  into[0] = left.centre.x; into[1] = left.centre.y; into[2] = left.centre.z;
+  into[3] = right.centre.x; into[4] = right.centre.y; into[5] = right.centre.z;
+  return into;
+}
+
 /** What a straight drive's skill gives it beyond its settings (`straightDriveExecutor`). */
 export interface StraightDriveOptions {
   /** What the skill is called in its errors and reasons. */
@@ -342,9 +355,10 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
   const scheduled = { left: new Set((settings.timed?.left ?? []).map((p) => p.channel)), right: new Set((settings.timed?.right ?? []).map((p) => p.channel)) };
   /**
    * What it sees of its target each step (`faceOf`), read afresh from the senses as it aims, so no
-   * memory a save keeps: the way the target's body faces, world, null where none is seen.
+   * memory a save keeps: the way the target's body faces, world, null where none is seen; and
+   * where its forearms are (`guardOf`).
    */
-  const seen = { facing: null as [number, number, number] | null };
+  const seen = { facing: null as [number, number, number] | null, guard: null as number[] | null };
   const state = {
     hand: null as Side | null, phase: null as Phase | null,
     /** Where it aims, world, the last target asked, and how fast that moved over the last step, m/s (`aimAt`); the way it faces as the drive began. */
@@ -467,7 +481,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
       for (let j = 0; j < trunk; j++) chain[j]!.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(chain[j]!, k)] ?? 0; });
       pointAtToRef(limb.trunkChain, angles, limb.shoulder, apart);
       steerFeatures(body, view, hand, steeredChannels[hand], since, apart.set(target.x - apart.x, target.y - apart.y, target.z - apart.z), state.target, state.aimed,
-        (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, limb.arm, learner.inputs, limb.behind ? struck(view, hand, limb) : null, seen.facing);
+        (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, limb.arm, learner.inputs, limb.behind ? struck(view, hand, limb) : null, seen.facing, seen.guard);
     }
     steerPushes(pushes, steeredChannels[hand], outputs);
   };
@@ -618,7 +632,11 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
       const source = request ?? live.request, at = resolve(view, source.target, source.action, source.effector);
       if (live.phase === "prepare" && (live.withdrawn || !at)) release(!at ? { kind: "lost", reason: "target is no longer sensed" } : { kind: "cancelled" });
       else if (requireArmAim && live.phase === "commit" && live.time < settings.lead && !at) release({ kind: "completed" });
-      if (at && !live.withdrawn && live.phase !== "release") { technique.aimAt(at, dt); technique.seen.facing = faceOf(sensedActionTarget(view, source.target), technique.seen.facing); }
+      if (at && !live.withdrawn && live.phase !== "release") {
+        technique.aimAt(at, dt);
+        const foe = sensedActionTarget(view, source.target);
+        technique.seen.facing = faceOf(foe, technique.seen.facing); technique.seen.guard = guardOf(foe, technique.seen.guard);
+      }
       live.time += dt;
       if (live.phase === "prepare") {
         live.stage = "settle";
