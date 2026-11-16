@@ -592,7 +592,9 @@ deleted.
   went back (0.87 to 0.76), and the guard's arm still takes 32%.
 - **Run 10 reads the guard**: `moving.layout.json` reads the target's forearms (74 inputs), and run
   10 starts from run 9's 12.07 M policy through the 68-input layout, its kept starts moved aside
-  (they hold the learner's inputs), the reward as run 9's.
+  (they hold the learner's inputs), the reward as run 9's. Begun at `--log-std`'s default (a
+  spread of 0.37 to run 9's 0.16) it returned 0.82 to run 9's 3 to 4 in two chunks, so it was
+  begun again at `--log-std -1.82`, run 9's spread (the skill recipe's step 4).
 
 | Step | State |
 | --- | --- |
