@@ -521,7 +521,7 @@ function searching(make: (now: Situation) => Lines): Appraise<Situation, OfferTe
  * `HORIZON` unless given), what a metre walked as ordered is worth, life (`obedience`, a level of
  * `OBEDIENCE`; steady, `STEADY`, unless given), the margin of worth, life, within which it chooses
  * by chance (`Chance`), none unless given, and the objective it prices options by (`objective`, a
- * part of role `objective`; the few terms, `FEW_TERMS`, unless given).
+ * part of role `objective`; the few terms, `FEW_TERMS_PART`, unless given).
  */
 interface SearchConfig { readonly horizon?: number; readonly obedience?: ObedienceLevel; readonly margin?: number; readonly objective?: ConfigFor<"objective"> | null }
 

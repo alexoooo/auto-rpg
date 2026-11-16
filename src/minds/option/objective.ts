@@ -1,5 +1,6 @@
 import { hypot, tanh } from "../../core/math/real.ts";
 import { anyBody, type KeysOf } from "../../parts/parts.ts";
+import type { PartField } from "../../parts/fields.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Situation } from "./option.ts";
 import type { ObjectivePart } from "./parts.ts";
@@ -21,7 +22,7 @@ export interface Path {
 /**
  * **An objective**: what a path (`Path`) is worth to the body deciding at `now`, in life (the
  * verdict's unit), its orders carried out at `obedience`; a path is read at the call and not kept.
- * One interface, so the few terms (`FEW_TERMS`) and a learned or non-combat value are each an
+ * One interface, so the few terms (`fewTerms`) and a learned or non-combat value are each an
  * implementation of it; its memory, where it keeps one, is in `state`, plain data, which its
  * chooser keeps with its own.
  */
@@ -48,9 +49,24 @@ const EVEN = .02;
 const atBell = (lead: number): number => MARGIN * tanh(lead / MARGIN) - DRAW * (1 - Math.abs(tanh(lead / EVEN)));
 
 /**
+ * **How much more a body values a share of the focus's life it takes than as much of its own it
+ * loses** (`FewTermsConfig.aggression`), unless its config says. Between two bodies alike a trade is
+ * even at best, so a body that values the two alike gains nothing by closing and waits out of reach
+ * until the clock moves it (`atBell`); valued at 2, two Warriors on `straight-punch/moving` fight from
+ * the bout's first seconds until one is down (`docs/approaches.md`, minds).
+ */
+export const AGGRESSION = 2;
+
+/** **The few terms' config**: its aggression (`AGGRESSION` unless given). */
+export interface FewTermsConfig { readonly kind: "few-terms"; readonly aggression?: number }
+
+/** The aggressions a config may name: from valuing the focus's life as the body's own to five times it. */
+const AGGRESSIONS = Object.freeze({ least: 1, most: 5, step: .1 });
+
+/**
  * **A path's worth by the few terms**, life: the metres it walks as ordered, at `obedience` (orders
  * first where the orders are firm, `Orders.firm`), and the life it trades (`net`: the focus's it
- * takes, more where the orders name the focus, less its own it loses), valued by how late in the
+ * takes, at `aggression` and more where the orders name the focus, less its own it loses), valued by how late in the
  * bout it is (`Situation.lateness`): as itself at the bout's start, and at its end by what each side
  * of the trade is worth at the verdict against the lead now (`atBell`), read apart, the life dealt
  * and the life taken each as though it came alone. So late, a body behind gains more by a blow it
@@ -58,19 +74,39 @@ const atBell = (lead: number): number => MARGIN * tanh(lead / MARGIN) - DRAW * (
  * an even bout is worth breaking, since waiting keeps the draw's cost. Read as one net, each would
  * wait whenever a trade loses on average, and a bout once led would stand to the bell.
  */
-function fewTermsWorth(path: Path, now: Situation, obedience: Obedience): number {
+function fewTermsWorth(path: Path, now: Situation, obedience: Obedience, aggression: number): number {
   const named = now.orders?.foe !== undefined && now.orders.foe === now.focus?.id, obeying = now.orders?.firm ? FIRST : obedience;
-  const dealt = path.dealt * (named ? 1 + obeying.foe : 1), late = now.lateness, lead = now.lead, bell = atBell(lead);
+  const dealt = aggression * path.dealt * (named ? 1 + obeying.foe : 1), late = now.lateness, lead = now.lead, bell = atBell(lead);
   return obeying.metre * path.orders + (1 - late) * (dealt - path.taken) + late * (atBell(lead + dealt) - bell + atBell(lead - path.taken) - bell);
 }
 
-/** **The few terms** (`FEW_TERMS`): combat's objective, the lives a path trades, its orders and the lead at the verdict. */
-const FEW_TERMS: Objective = deepFreeze({ name: "few terms", worth: fewTermsWorth });
+/** **The few terms** (`fewTermsWorth`) at `aggression`: combat's objective, the lives a path trades, its orders and the lead at the verdict; made once an aggression. */
+const FEW_TERMS = new Map<number, Objective>();
+function fewTerms(aggression: number): Objective {
+  let made = FEW_TERMS.get(aggression);
+  if (!made) FEW_TERMS.set(aggression, made = deepFreeze({ name: "few terms", worth: (path: Path, now: Situation, obedience: Obedience) => fewTermsWorth(path, now, obedience, aggression) }));
+  return made;
+}
 
-/** **The few terms** (`FEW_TERMS`) as a part of role `objective`: what a chooser that values options prices them by. */
-export const FEW_TERMS_PART = deepFreeze<ObjectivePart<{ readonly kind: "few-terms" }, Objective>>({
-  role: "objective", label: "Combat", stage: "game", fields: [], slots: [], defaults: { kind: "few-terms" }, keys: { kind: true },
-  fits: anyBody, faults: () => [], make: () => FEW_TERMS,
+/** A config's aggression as a person sets it (`AGGRESSIONS`): written as none at `AGGRESSION`, so a config at it equals the preset. */
+const AGGRESSION_FIELD: PartField<FewTermsConfig> = {
+  kind: "number", key: "aggression", label: "Aggression", ...AGGRESSIONS, unit: "×",
+  read: (config) => String(config.aggression ?? AGGRESSION),
+  write: (config, text) => {
+    const value = text.trim() === "" ? NaN : Number(text);
+    if (!Number.isFinite(value) || value < AGGRESSIONS.least || value > AGGRESSIONS.most) return null;
+    const { aggression: _, ...rest } = config;
+    return value === AGGRESSION ? rest : { ...rest, aggression: value };
+  },
+};
+
+/** **The few terms** (`fewTerms`) as a part of role `objective`: what a chooser that values options prices them by. */
+export const FEW_TERMS_PART = deepFreeze<ObjectivePart<FewTermsConfig, Objective>>({
+  role: "objective", label: "Combat", stage: "game", fields: [AGGRESSION_FIELD], slots: [], defaults: { kind: "few-terms" }, keys: { kind: true, aggression: true },
+  fits: anyBody,
+  faults: (config: FewTermsConfig) => config.aggression === undefined || Number.isFinite(config.aggression) && config.aggression >= AGGRESSIONS.least && config.aggression <= AGGRESSIONS.most
+    ? [] : [`aggression: a number from ${AGGRESSIONS.least} to ${AGGRESSIONS.most}`],
+  make: (config: FewTermsConfig) => fewTerms(config.aggression ?? AGGRESSION),
 });
 
 /**
@@ -108,7 +144,7 @@ export const REACH_PLACE_PART = deepFreeze<ObjectivePart<ReachConfig, Objective>
 
 declare module "./parts.ts" {
   interface ObjectiveConfigs {
-    readonly "few-terms": { readonly kind: "few-terms" };
+    readonly "few-terms": FewTermsConfig;
     readonly "reach-place": ReachConfig;
   }
 }
