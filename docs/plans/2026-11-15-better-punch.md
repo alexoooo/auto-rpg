@@ -410,6 +410,18 @@ deleted.
 
   The Rogue holding `moving` (its record the Warrior's stroke, untrained) lands none of 93 on
   `still`; `drive`, 1 of 96.
+- **In the bar's six bouts the rungs' gain does not carry**: `moving` with its window set and no
+  steer committed 129 and landed 4 (0.5 a minute), a touching blow a median 0.06 and 0.10 hp; the
+  installed punch across from it committed 153 and landed 13 (1.7 a minute), 0.07 and 0.08. The
+  rungs' target stands with its arms down; the bouts' foe guards and steps.
+- **Run 1** (`environments/moving.json`, 32 workers of 4) rose from a value of 0.48 to 0.89 in
+  1 M decisions (44 minutes). At 1 M, on the rungs: still 52 of 85 at 0.5 hp, a median 0.60;
+  walk 50 of 73 and 58 of 96, 0.59 and 0.60. In the bar's bouts a touching blow takes a median
+  0.21 and 0.18 hp (twice and more the untrained stroke's), but it landed 7 in 450 s where the
+  installed punch across from it landed 18: the rungs teach weight, not a blow past a guard.
+- **Run 2** (`environments/moving-fights.json`: `walk-twin` and `fights-drawn`, the Warrior's
+  fight moments against Option Mind) continues run 1's 1 M model (`--resume`), screened on the
+  rungs and the bar's bouts at each 1 M.
 
 | Step | State |
 | --- | --- |
