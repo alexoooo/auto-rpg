@@ -643,7 +643,18 @@ deleted.
   1.56 m; begun 1.5 or 2 m apart neither moves. The profiles say why: on a Warrior, `moving` takes
   0.41 to 0.52 hp a sparring trial and deals 0.12 to 0.20 (its blow runs 0.37 s, the walk
   carrying the body in), where `drive` takes 0.12 to 0.26 and deals 0.15 to 0.32. Each side prices
-  walking into the other's `moving` as a loss and waits outside its reach. The run 10d server
+  walking into the other's `moving` as a loss and waits outside its reach. Those rows were not on
+  one foe (`drive`'s against a Warrior holding `drive`). On one foe, sparring, the Warrior on the
+  Warrior, life a trial dealt and taken, every cell played fresh:
+
+  | Subject | foe holds `drive` | foe holds `moving` |
+  | --- | --- | --- |
+  | `moving` | 0.900 dealt, 0.033 taken (44 of 65 landed) | 0.178 dealt, 0.468 taken |
+  | `drive` | 0.212 dealt, 0.160 taken | 0.047 dealt, 0.794 taken |
+
+  `moving` deals more and takes less than `drive` against either foe; what a trial takes is the
+  foe's punch. The standoff is two fighters each holding a punch that punishes the one who walks
+  in, not `moving`'s exposure. The run 10d server
   was not touched by the change: its workers are made once, at 12:40, and read the characters
   as they load. In the Arena:
   Warrior against Warrior, one side's Skills panel with the straight punch's `drive` ticked and

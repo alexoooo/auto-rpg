@@ -66,3 +66,7 @@ its kind or running those tools.
 - **A background wait ends on its own**: a watcher loop outlives the tool that started it, so it
   gets a timeout or an exit condition, and its pattern must be able to match (a training run's
   checkpoints are named by decisions, `model-12060672`, not round millions).
+- **A saved evaluation result is found again when only the foe's character changed**: a strike
+  rung's foe is its body as its character holds its skills (`assets/characters/characters.json`),
+  and the key a result is kept by does not hold them. A subject played against a foe holding one
+  variation is "found" against a foe holding another and reads the first; play it with `--fresh`.
