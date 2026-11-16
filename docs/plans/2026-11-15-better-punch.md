@@ -398,6 +398,18 @@ deleted.
   untrained steer survives (80 episodes with noise played through); its checkpoints chosen on the
   `still` and `walk` rungs, held out. Parity holds by construction: a nought steer adds nothing to
   a push.
+- **On the Strike drill's rungs `moving` untrained already beats the installed punch** on the
+  Warrior (`npm run evaluate -- strike <subject> --protocol still|walk`; blows taking 0.5 hp of
+  those committed, the median hp a committed blow takes):
+
+  | Rung | `drive` | `moving` |
+  | --- | --- | --- |
+  | still | 11 of 96, 0.12 | 17 of 85, 0.27 |
+  | walk, asked settled | 8 of 95, 0.08 | 20 of 73, 0.34 |
+  | walk, asked walking | 3 of 96, 0.11 | 19 of 96, 0.32 |
+
+  The Rogue holding `moving` (its record the Warrior's stroke, untrained) lands none of 93 on
+  `still`; `drive`, 1 of 96.
 
 | Step | State |
 | --- | --- |
