@@ -134,10 +134,17 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   exchange mid-bout: between two bodies alike a trade is even at best, so honest prices alone
   leave waiting as good as closing. Valuing the life taken twice the life lost (aggression 2) had
   two Warriors fight from the first seconds, 142 blows where 13 had been (`aee4b6342`). *Shown.*
-- **The Option Mind's prices run about three times what a fight gives, both ways alike**: in
+- **The aggression that makes a mirror fight is set by the profiles' error, and moves with their
+  draw**: with the moving punch's window narrowed and its profiles measured again (`8f55482d5`),
+  two Warriors at aggression 2 stood a step out of reach for 94 % of a bout, at 3 for 83 %, at 4
+  for 31 %, 15 of 16 bouts ended by knockout (`06e5bec91`). Standing just past the foe's reach is
+  priced at nothing for the whole horizon and the walk in at a loss, from a hand's 32 trials. The
+  repair is [a plan](plans/2026-11-16-price-repair.md). *Shown.*
+- **The Option Mind's prices ran about three times what a fight gives, both ways alike**: in
   Warrior mirror bouts it expected 2.4 times the life it lost in reach and 3.0 times what its
-  punches dealt (`aee4b6342`), so the inflation does not change a choice, only magnitudes the bell
-  reads. *Shown.*
+  punches dealt (`aee4b6342`), so the inflation did not change a choice there, only magnitudes
+  the bell reads. Read on one draw of the profiles and not since; on the next, the aggression it
+  took to close says the error leaned against closing (`06e5bec91`). *Shown.*
 - **The tree chooser at 100 runs costs about twice the step budget**; fewer runs fit it and stand up
   from fewer falls (`7f562d22`). *Shown.*
 - **A whole-fight learned policy (PPO, NEAT, evolution, cloning) never passed a bar against a
