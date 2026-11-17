@@ -168,6 +168,18 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   range by half (the moving punch's right hand at 0.70 m, 7.4 and 14.5 % a second); more of the
   nearest trials (20, 30) and reading the foe over every place in its window moved neither error.
   *Shown.*
+- **An Option priced honestly among Options priced over is taken as a wait**: the back step,
+  priced near what it gives (0.028 of life a sway against 0.025), beside walks, punches and a
+  second in reach priced 1.2 to 1.8 times what they lose, took a third of a Warrior mirror's time
+  and left it 69 to 72 % silent against 27 % without it, 5 to 11 knockouts in 24 against 24
+  (`57b89f611`, `dac468d58`). An Option that says it leaves the body where it began, where it does
+  not, is run again and again as a cheap place to stand (`57b89f611`). *Shown.*
+- **A profile measured at drawn starts misprices the moments a mind chooses**: the back step's
+  sways chosen by the Mind fell 4.4 % of the time, those ordered at alike starts (stagger, width,
+  speed, the foe's phase, its own punch under way) 1.5 %; held out by gap, a profile pooling both
+  read the chosen sways' falls at 2.7 % against 4.5 % and their life at 1.46 times, one of the
+  chosen alone 5.1 % and 1.03 (`dac468d58`). Such a profile moves with the mind's prices and is
+  read again when they change. *Shown.*
 - **The Option Mind's prices ran over what a fight gives**: in Warrior mirror bouts it expected
   2.4 times the life it lost in reach and 3.0 times what its punches dealt (`aee4b6342`, on one
   draw, its reader counting damage, not life). *Shown.*
