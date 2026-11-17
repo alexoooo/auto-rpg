@@ -47,6 +47,13 @@ strikes, guarding and minds are there.
 - **Name the harness** of every figure (Node stand or page, engine, rate); say whether a peak was
   driven or struck; read the faster physics rate at the slower one's spacing; believe the stand
   over the fight; never one seed. A conclusion is void once its reference is corrected.
+- **A strike's setting is believed on 24 to 48 bouts at start gaps that did not choose it.** Twelve
+  bouts move by a third between neighbouring settings and replays of one record (6.28 and 7.32
+  landed a bout-minute); the best of several settings read on one set of bouts is read again on
+  gaps that took no part (`moving`'s band 0.15: 10.95 on the choosing bouts, 5.97 on fresh ones,
+  `8f55482d5`). A cause is read from saved bouts in minutes before a run is spent on it. *Shown.*
+- **The bar is the owner's words.** A reviewer's caution is kept beside it, never read as it
+  (`eb65bd3a6`). *Shown.*
 - **Readings and training count only on the game's engine, rate and command delay.** Stand-up was
   tuned on parent-axis `rapier` for a month while the game ran `rapier-coordinate`; on the game's
   engine 153 of 160 became 67 of 80 (`66a46676`, `4acb557d`). *Shown.*
@@ -195,6 +202,17 @@ input.
   controller that succeeds on none is not a seed: change the controller, or go back to
   feasibility. Training does not make up for it. *Repeated.*
 
+- **A strike made apart from the legs** is the first strike the owner accepted in a fight
+  (`straight-punch/moving`, 2026-11-16: "this is the first time we've made real progress on any
+  strike skill"). Its own record, begun as the installed strike's with the legs let go
+  (`e6ac1afc2`); a learned steer of its stroke (`c6f963ccb`), trained on blows thrown while the
+  walk goes on, its episodes from the moment it is ready (`f2b22de19`); its window set where the
+  fighters stand (`2c10a7fbe`); the walk asked into the blow through its Option's site, no gait's
+  code changed (`deeper`, `e29d81e7d`); a narrower window for the weight (`8f55482d5`). Against the
+  installed punch in the same 48 bouts: 202 landed to 7, a median 1.05 hp. The landed count is as
+  much the Mind's as the stroke's: the same networks landed half as often before the Mind valued
+  the life it takes over the life it loses (`aee4b6342`). *Shown.*
+
 ### 4. A learned actor over it
 
 Follows [Training](#training). What is particular to a new skill:
@@ -331,6 +349,12 @@ run teaches nothing.
    installed again, nor its profiles measured again, until the work lands or the owner asks. The
    owner: "you don't need to keep re-measuring the profile, i just wanted to see what it looks
    like".
+   **A checkpoint is read in bouts with its own profiles.** A record's network is part of its
+   skill's digest, so a screen of a checkpoint not yet profiled prices it by the last one's; a
+   profile's hand rests on about 32 sparring trials, and their draw moves a bout reading more than
+   the checkpoint does. The best of four, read by another's profiles at 12.11 landed a bout-minute
+   and 0.95 hp, read 6.96 and 0.87 with its own, below the checkpoint already installed
+   (`8f55482d5`). *Shown.*
 4. **Polish**: resume the best into a new output for 2 to 5 M decisions and screen again:
    `--resume .tmp/<task>/<run>/model-<n>.zip --output .tmp/<task>/<run>-polish --lr 1e-4 --steps 3000000`.
    A checkpoint resumes only into another folder; decisions count on from its own.
