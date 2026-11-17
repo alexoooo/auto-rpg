@@ -730,6 +730,6 @@ deleted.
 | 2. Its own record | done: step 1's bouts replay to the bit, the fingerprint moves no pose |
 | 3. Timing and the walk, before the blow | built (`onStep`, `deeper`, `Window.through`); the layout waits on step 4 |
 | 4. The weight check | why it grazes is found (the fist ends short); no leg carries the body in; `moving`'s own stroke, the trunk first where the arm does not reach: blows of 0.5 hp from 0.62 to 0.87 m, the strict band 4 cm (the owner's number, 15 to 20 cm wanted); no bouts or Mind work until it is met; why one range gives anything is found (the elbow's hold is which way its motor pushed the step before the touch); braking it at the touch read nothing; the installed punch's weight is a straight arm and a braked wrist, timed by its hips' turn and its network's steer; the hips' turn helps `moving` from 0.74 to 0.845 m only, and takes the legs; the law and the pricing, the body's travel and a turn asked of the legs put to the owner |
-| 5. Train it | not begun |
-| 6. The bout and the owner's eye | not begun |
+| 5. Train it | runs 1 to 10d; installed: run 10d at 15.21 M, band 0.15 (`8f55482d5`) |
+| 6. The bout and the owner's eye | the bar's bouts read (above); the owner's look in the Arena to come |
 | 7. Land | not begun |
