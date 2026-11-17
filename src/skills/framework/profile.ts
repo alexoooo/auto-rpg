@@ -259,7 +259,7 @@ export function startVelocity(to: { readonly x: number; readonly z: number }, re
  * start), the seconds until the hand was back at its guard, and the hit points its body lost
  * meanwhile: such a trial prices letting go alone.
  */
-interface Trial {
+export interface Trial {
   readonly start: Start;
   readonly done: boolean;
   readonly dealt: number;

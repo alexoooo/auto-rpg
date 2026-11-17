@@ -17,7 +17,9 @@
  * mind's own. A saved bout keeps its winner, each side's life left (`bars`), when each went down,
  * and, at each decision of a mind that reports its offers (`Engagement.offers`), the offer it chose
  * and its terms, and the life each side had then (`decisions`): what `bout-readings.mjs` reads the
- * prices against.
+ * prices against. And each strike each side threw at the other's body, read as the Strike drill
+ * reads a sparring trial (`readFought`) and made a profile's trial as its sparring's are
+ * (`strikeTrial`), with its action, limb and mark (`trials`).
  *
  * `--carriage left={"lead":"left","width":0.25,"stagger":0.4,"lower":0.1}` has that side's mind (its
  * model's own, at `--aggression` where given) walk its stance-walk gaits in that carriage all bout
@@ -138,6 +140,7 @@ if (isMainThread) {
 } else {
   const [{ buildBout }, { BOUT_ENGINE }] = await Promise.all([import("../../../src/app/node/evaluation.ts"), import("../../bout.mjs")]);
   const { SIDES } = await import("../../../src/game/arena/duel.ts");
+  const [{ readFought }, { strikeTrial }, { rulebook }] = await Promise.all([import("../../../src/evaluation/strike/fought.ts"), import("../../../src/evaluation/strike/trial.ts"), import("../../../src/combat/rulebook.ts")]);
   const { characterSkills } = await import("../../../src/core/bodies/models.ts");
   const { footOn } = await import("../../../src/control/support.ts");
   const { Vector3 } = await import("../../../src/core/math/vector.ts");
@@ -170,6 +173,7 @@ if (isMainThread) {
         side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, apart: {}, attempts: [], sequence: 0,
       }]));
       const byId = Object.fromEntries(SIDES.map(side => [side, new Map()]));
+      const fought = readFought(bout);
       const attemptOf = (side, action) => {
         const existing = byId[side].get(action.id);
         if (existing) return existing;
@@ -237,6 +241,7 @@ if (isMainThread) {
           const v = new Vector3(); duel.duelists[s].body.built.segments.get(name).body.linearVelocityToRef(v); before.set(`${s} ${name}`, v);
         }
         world.step();
+        fought.afterStep();
         for (; heard < duel.blows.length; heard++) {
           const blow = duel.blows[heard];
           for (const s of SIDES) for (const part of blow.sides)
@@ -363,7 +368,12 @@ if (isMainThread) {
         }
         delete t.sequence;
       }
-      parentPort.postMessage({ result: { schema: SCHEMA, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
+      const thrown = fought.done(), rules = rulebook("arena"), specOf = (side) => duel.duelists[side].body.built.spec;
+      const trials = SIDES.map((side) => thrown.filter((one) => one.striker === side).flatMap(({ action, effector, mark, reading }) => {
+        const trial = strikeTrial(reading, specOf(side), specOf(side === "left" ? "right" : "left"), rules, world.hz);
+        return trial ? [{ action, effector, mark, trial }] : [];
+      }));
+      parentPort.postMessage({ result: { schema: SCHEMA, trials, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
         bars: SIDES.map(side => duel.duelists[side].pool.bar()), hp: SIDES.map(side => duel.duelists[side].body.built.spec.wounds.hp.value), downs: SIDES.map(side => downs[side]), decisions: SIDES.map(side => decisions[side]), sides: SIDES.map(side => track[side]) } });
     } catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
     finally { dispose?.(); }

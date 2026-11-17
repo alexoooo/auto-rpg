@@ -59,11 +59,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
 import { partIn, partLookup } from "../../../src/app/catalog.ts";
 import { limbAction } from "../../../src/minds/option/kinds.ts";
-import { holdsOf, measuredOn, skillDigest, specDigest, startLevels, strikeSkill, trialExit } from "../../../src/skills/framework/profile.ts";
+import { holdsOf, measuredOn, skillDigest, specDigest, strikeSkill } from "../../../src/skills/framework/profile.ts";
+import { strikeTrial } from "../../../src/evaluation/strike/trial.ts";
 import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 import { profileKey, profileKeys } from "../../../tests/harness/profile-keys.mjs";
-import { lifeFactor } from "../../../src/combat/pool.ts";
 import { rulebook } from "../../../src/combat/rulebook.ts";
 
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
@@ -144,22 +144,8 @@ for (const path of paths) {
     profile.changed ||= row.from.changed;
     const r = row.reading;
     if (r.foePhase === undefined) throw new Error(`${path}: no foePhase in its readings; play its rung again`);
-    if (r.foePhase === null || r.foeAt === null || r.began === null) continue;
-    const posture = r.foeAt.posture ?? "standing", levels = startLevels(spec, struck);
-    const start = { range: round(r.foeAt.apart), phase: r.foePhase, ...(posture === "standing" ? {} : { postures: { own: "standing", target: posture } }),
-      ...(r.foeAt.velocity ? { velocity: r.foeAt.velocity.map(round) } : {}), ...(r.inWindow ? { window: r.inWindow.map(round) } : {}),
-      ...(r.foeAt.stance ? { stance: r.foeAt.stance } : {}), ...(levels ? { levels } : {}) };
-    if (drill.letGo !== undefined) {
-      // Past its point of no return, a strike is not let go: such a trial prices nothing.
-      if (r.letGo) profile.trials.push({ start, done: false, dealt: 0, taken: round(r.taken ?? 0), seconds: round((r.ended ?? r.seconds) - r.began), recovers: null, down: r.down,
-        letGo: { progress: round(Math.round((r.letGo.at - r.began) * hz) / hz), seconds: round((r.letGo.again ?? r.seconds) - r.letGo.at), taken: round(r.letGo.opening) } });
-      continue;
-    }
-    const rules = rulebook("arena", recipe.rules);
-    let dealt = 0;
-    for (const [on, damage] of Object.entries(r.dealt)) dealt += damage * lifeFactor(rules, struck, on);
-    profile.trials.push({ start, done: r.outcome === "landed", dealt: round(dealt), taken: round(r.taken ?? 0), seconds: round((r.ended ?? r.seconds) - r.began),
-      recovers: r.recovers === undefined || r.recovers === null ? null : round(r.recovers), down: r.down, ...(r.exit ? { exit: trialExit(r.exit, r.foeAt.apart) } : {}) });
+    const trial = strikeTrial(r, spec, struck, rulebook("arena", recipe.rules), hz, drill.letGo !== undefined);
+    if (trial) profile.trials.push(trial);
   }
 }
 
