@@ -20,8 +20,10 @@
  * measured against (`Target`, none for a skill with no foe). The code it was measured on is no
  * part of what finds it: a retrained network or a tuned setting leaves it read until its own tool
  * measures it again, a number its character sets is read at the nearest its trials began at, and
- * where it came from is kept on it (`Origin`). One read for another body, loadout, rate or reaction time is stale (`staleness`),
- * and a chooser prices that skill by hand.
+ * where it came from is kept on it (`Origin`), which labels it and finds nothing. One of another
+ * body, loadout, skill or limb answers another question (`askedOtherwise`) and is never read for
+ * it; one measured at another rate, delay or reaction time is stale (`staleness`) and still read,
+ * so a chooser prices a skill by hand only where nothing measured it.
  *
  * Each dataset owner declares and loads its profiles. Readers use `readProfile`; identity
  * selects the loaded data each provider declares relevant to a subject (`dataIdentity`).
@@ -742,12 +744,25 @@ export function measuredOn(spec: BodySpec, skill: string, limb: string | null, h
 /** **Whether a reaction time `now` s reads as `was` s** at `hz`: within half a step, or either unknown. */
 export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= .5 / hz;
 
-/** **Why `profile` is stale for `now`**, a sentence: the first of what it was measured on that differs (a reaction time the same by `sameReaction`); null where none does. */
-export function staleness(profile: Profile, now: Measured): string | null {
+/** **Why `profile` answers another question than `now` asks**, a sentence: another body, holding, skill or limb; null where it answers the same. One that does is never read for it. */
+export function askedOtherwise(profile: Profile, now: Measured): string | null {
   const was = profile.measured;
   if (was.body !== now.body) return `measured on ${was.body}, read on ${now.body}`;
   if (was.holds !== now.holds) return `measured holding ${was.holds ?? "nothing"}, read holding ${now.holds ?? "nothing"}`;
   if (was.skill !== now.skill || was.limb !== now.limb) return `measured of ${was.skill}${was.limb ? ` with ${was.limb}` : ""}`;
+  return null;
+}
+
+/**
+ * **Why `profile` is stale for `now`**, a sentence: the first of what it was measured on that
+ * differs, the question it answers (`askedOtherwise`) or a setting it was measured at (the world's
+ * and the mind's rates, the command's delay, the senses' reaction time, the same by
+ * `sameReaction`); null where none does. One measured at another setting is still read, labelled
+ * by this, so a stale measurement prices a skill before a hand-built guess does.
+ */
+export function staleness(profile: Profile, now: Measured): string | null {
+  const was = profile.measured, asked = askedOtherwise(profile, now);
+  if (asked !== null) return asked;
   if (was.hz !== now.hz) return `measured at ${was.hz} Hz, read at ${now.hz} Hz`;
   if (rateOf(was) !== rateOf(now)) return `measured with its mind at ${rateOf(was)} Hz, read at ${rateOf(now)} Hz`;
   if (delayOf(was) !== delayOf(now)) return `measured with its command ${delayOf(was)} steps late, read ${delayOf(now)} steps late`;
@@ -756,30 +771,37 @@ export function staleness(profile: Profile, now: Measured): string | null {
   return null;
 }
 
-/** A skill's profiles looked up (`profilesFor`): those measured as it is read (`fresh`), one a body it was measured against; and, with none, why (`stale`). */
+/**
+ * A skill's profiles looked up (`profilesFor`), one a body it was measured against: those it reads
+ * (`read`), the ones measured as it is read where there are any, else those asked the same
+ * question at another setting; and why those are stale, or why none is read (`stale`, null where
+ * they are fresh).
+ */
 interface Found {
-  readonly fresh: readonly Profile[];
+  readonly read: readonly Profile[];
   readonly stale: string | null;
 }
 
 /**
- * **The profiles of the skill and limb `now` names** among `profiles`: each measured as it is
- * read, one a body it was measured against (`profileAgainst` reads the struck body's); with none,
- * why one on its body, else any of the skill's, is stale; null where the skill was never measured
- * with that limb.
+ * **The profiles of the skill and limb `now` names** among `profiles` (`Found`): each measured as
+ * it is read, else each of the same question at another setting, stale (`staleness`), one a body it
+ * was measured against (`profileAgainst` reads the struck body's); with none, why one on its body,
+ * else any of the skill's, answers another question; null where the skill was never measured with
+ * that limb.
  */
 export function profilesFor(profiles: readonly Profile[], now: Measured): Found | null {
-  const fresh: Profile[] = [];
+  const fresh: Profile[] = [], stale: Profile[] = [];
   let body: Profile | null = null, any: Profile | null = null;
   for (const profile of profiles) {
     if (profile.measured.skill !== now.skill || profile.measured.limb !== now.limb) continue;
-    if (staleness(profile, now) === null) fresh.push(profile);
-    else if (profile.measured.body === now.body) body ??= profile;
+    if (askedOtherwise(profile, now) !== null) { if (profile.measured.body === now.body) body ??= profile; }
+    else (staleness(profile, now) === null ? fresh : stale).push(profile);
     any ??= profile;
   }
-  if (fresh.length) return { fresh, stale: null };
+  if (fresh.length) return { read: fresh, stale: null };
+  if (stale.length) return { read: stale, stale: staleness(stale[0]!, now) };
   const found = body ?? any;
-  return found ? { fresh, stale: staleness(found, now) } : null;
+  return found ? { read: [], stale: staleness(found, now) } : null;
 }
 
 /**
@@ -804,18 +826,23 @@ export function profileAgainst(profiles: readonly Profile[], struck: BodySpec | 
  * what it holds in its hands at `hz` with senses `reaction` s late, a mind's driver at `rate` Hz
  * and its command `delay` steps late (`fresh`): what a foe of that body is measured able to deal.
  * Which skills a foe's character holds is not sensed (`sensedSpec`), so every one measured on its
- * body stands for them. For none, why (`stale`): the first measured on its model that is stale
- * (`staleness`), or none measured.
+ * body stands for them. Those it reads (`read`): the fresh, else those measured holding as it holds
+ * at another setting, stale; and why those are stale, or why none is read (`stale`, null where they
+ * are fresh): the first measured on its model holding otherwise, or none measured.
  */
-export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null, rate: number, delay: number): { readonly fresh: readonly Profile[]; readonly stale: string } {
-  const body = spec.model, fresh: Profile[] = [];
-  let stale: string | null = null;
+export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null, rate: number, delay: number): { readonly read: readonly Profile[]; readonly stale: string | null } {
+  const body = spec.model, fresh: Profile[] = [], stale: Profile[] = [];
+  let why: string | null = null, staleWhy: string | null = null;
   for (const profile of profiles) {
     const was = profile.measured;
     if (was.body !== body) continue;
-    const why = staleness(profile, measuredOn(spec, was.skill, was.limb ?? null, hz, reaction, rate, delay));
-    if (why === null) fresh.push(profile);
-    else if (was.body === body) stale ??= why;
+    const now = measuredOn(spec, was.skill, was.limb ?? null, hz, reaction, rate, delay), asked = askedOtherwise(profile, now);
+    if (asked !== null) { why ??= asked; continue; }
+    const stalled = staleness(profile, now);
+    if (stalled === null) fresh.push(profile);
+    else { stale.push(profile); staleWhy ??= stalled; }
   }
-  return { fresh, stale: stale ?? `no fight measured the strikes a ${body} holds` };
+  if (fresh.length) return { read: fresh, stale: null };
+  if (stale.length) return { read: stale, stale: staleWhy };
+  return { read: [], stale: why ?? `no fight measured the strikes a ${body} holds` };
 }

@@ -19,7 +19,7 @@ export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number, 
   readonly expected: ((from: string) => Expected | null) | null; readonly priced: string } {
   const found = profilesFor(profiles, measuredOn(spec, techniqueSkill(spec, technique), null, hz, null, hz, delay));
   if (!found) return { expected: null, priced: "no drill measured it" };
-  const profile = profileAgainst(found.fresh, null);
+  const profile = profileAgainst(found.read, null);
   if (!profile) return { expected: null, priced: found.stale ?? "no drill measured it" };
-  return { expected: (from) => readProfile(profile, spec, groundStart(from)).expect({ range: 0, phase: "clear" }, null), priced: "measured" };
+  return { expected: (from) => readProfile(profile, spec, groundStart(from)).expect({ range: 0, phase: "clear" }, null), priced: found.stale === null ? "measured" : `measured, stale, ${found.stale}` };
 }

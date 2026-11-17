@@ -178,14 +178,13 @@ interface Model {
   readonly priced: string;
 }
 
-/** Why a strike of `profile` (null with none) is priced by hand with the senses `reaction` s late, a sentence; null where its profile is fresh (`sameReaction`). */
-const byHand = (profile: Profile | null, reaction: number | null, hz: number): string | null =>
-  !profile ? "no fight measured it as it is"
-    : sameReaction(profile.measured.reaction, reaction, hz) ? null : `measured with senses ${profile.measured.reaction} s late, read ${reaction} s late`;
+/** Why a strike of `profile` (null with none) is stale with the senses `reaction` s late, a sentence (`sameReaction`); null where it is fresh or there is none. A stale profile is still read. */
+const staleAt = (profile: Profile | null, reaction: number | null, hz: number): string | null =>
+  !profile || sameReaction(profile.measured.reaction, reaction, hz) ? null : `measured with senses ${profile.measured.reaction} s late, read ${reaction} s late`;
 
-/** Why a strike of `profile` is priced by hand at `postures`, a sentence: stale (`byHand`), or measured fresh with the bodies standing otherwise (`measuredAt`); null where its profile reads them. */
-const byHandAt = (profile: Profile | null, reaction: number | null, hz: number, postures: Postures): string | null =>
-  byHand(profile, reaction, hz) ?? (measuredAt(profile!, postures) ? null : `measured with no ${postures.own} striker at a ${postures.target} target`);
+/** Why a strike of `profile` is priced by hand at `postures`, a sentence: none measured it, or measured it with the bodies standing otherwise (`measuredAt`); null where its profile reads them, stale or not. */
+const byHandAt = (profile: Profile | null, postures: Postures): string | null =>
+  !profile ? "no fight measured it as it is" : measuredAt(profile, postures) ? null : `measured with no ${postures.own} striker at a ${postures.target} target`;
 
 /**
  * **The model** (`Model`) of `strikes` thrown by a body of `striker` at one of `struck`, read at
@@ -197,9 +196,9 @@ const byHandAt = (profile: Profile | null, reaction: number | null, hz: number, 
 function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySpec, struck: BodySpec, postures: Postures): Model {
   const reaction = reactionOf(seen), measured: Model["measured"][number][] = [], unmeasured = new Set<string>(), why: string[] = [];
   for (const strike of strikes) {
-    const profile = profileAgainst(strike.profiles, struck), stale = byHandAt(profile, reaction, seen.hz, postures);
-    if (stale === null) measured.push({ limbs: strike.limbs, reading: readProfile(profile!, striker, postures) });
-    else { why.push(`${strike.name} by hand, ${stale}`); for (const limb of strike.limbs) unmeasured.add(limb); }
+    const profile = profileAgainst(strike.profiles, struck), hand = byHandAt(profile, postures), stale = staleAt(profile, reaction, seen.hz);
+    if (hand === null) { measured.push({ limbs: strike.limbs, reading: readProfile(profile!, striker, postures) }); if (stale !== null) why.push(`${strike.name} stale, ${stale}`); }
+    else { why.push(`${strike.name} by hand, ${hand}`); for (const limb of strike.limbs) unmeasured.add(limb); }
   }
   return { measured, unmeasured: [...unmeasured], priced: why.length ? why.join("; ") : strikes.length ? "measured" : "no strike to model" };
 }
@@ -216,11 +215,11 @@ function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySp
  */
 function foeModel(seen: Seen, foe: BodySpec, postures: Postures = STANDING): Model {
   const reaction = reactionOf(seen), on = profilesOn(seen.measured, foe, seen.hz, reaction, seen.rate, seen.delay);
-  const strikes: readonly ModelledStrike[] = on.fresh.length ? strikesOf(on.fresh)
-    : seen.strikes.filter((strike) => byHand(profileAgainst(strike.profiles, seen.spec), reaction, seen.hz) === null);
+  const strikes: readonly ModelledStrike[] = on.read.length ? strikesOf(on.read)
+    : seen.strikes.filter((strike) => profileAgainst(strike.profiles, seen.spec) !== null);
   const thrown = new Set(strikes.flatMap((strike) => strike.limbs)), limbs = defaultStrikeLimbs(foe).filter((limb) => !thrown.has(limb));
   const model = modelOf(seen, [...strikes, ...limbs.map((limb) => ({ name: limb, limbs: [limb], profiles: [] }))], foe, seen.spec, postures);
-  const source = on.fresh.length ? "measured" : strikes.length ? `as its own strikes, ${on.stale}` : `by hand, ${on.stale}`;
+  const source = on.read.length ? (on.stale === null ? "measured" : `measured, stale, ${on.stale}`) : strikes.length ? `as its own strikes, ${on.stale}` : `by hand, ${on.stale}`;
   return { ...model, priced: limbs.length && strikes.length ? `${source}; by hand: ${limbs.join(", ")}` : source };
 }
 

@@ -45,10 +45,10 @@ test("a strike is read by its profile measured against the body it strikes", () 
   for (const [key, measured] of skills) {
     const found = profilesFor(profiles, { ...measured, reaction: null });
     for (const struck of specs) {
-      const against = found.fresh.filter((profile) => profile.target.body === struck.model && profile.target.holds === holdsOf(struck));
+      const against = found.read.filter((profile) => profile.target.body === struck.model && profile.target.holds === holdsOf(struck));
       if (against.length === 0) continue;
       read++;
-      const profile = profileAgainst(found.fresh, struck);
+      const profile = profileAgainst(found.read, struck);
       if (profile !== against[0]) wrong.push(`${key} at a ${struck.model}: read against ${profile?.target.body ?? "none"}`);
     }
   }
@@ -73,9 +73,9 @@ test("a foe is modelled alike whatever skills its character holds", () => {
     if (skills.some((skill) => !spec.skills.includes(skill))) both++;
     const { hz, reaction, rate, delay } = on[0].measured, read = (one) => profilesOn(profiles, one, hz, reaction, rate ?? hz, delay ?? 0);
     const own = read(spec);
-    assert.ok(own.fresh.length > 0, `a ${model} is modelled by measured strikes: ${own.stale}`);
+    assert.ok(own.read.length > 0 && own.stale === null, `a ${model} is modelled by measured strikes: ${own.stale}`);
     for (const one of [{ ...spec, skills: [skills.at(-1)] }, sensedSpec(spec)]) assert.deepEqual(read(one), own);
-    assert.deepEqual([...new Set(own.fresh.map(({ measured }) => measured.skill))].sort(), [...skills].sort());
+    assert.deepEqual([...new Set(own.read.map(({ measured }) => measured.skill))].sort(), [...skills].sort());
   }
   assert.ok(both > 0, "the stored profiles reached no variation a model's own character does not hold, so a model by its skills would read the same");
 });
