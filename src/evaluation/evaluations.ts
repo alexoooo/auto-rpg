@@ -9,6 +9,7 @@ import { createLocomotionIndex } from "./locomotion/index.ts";
 import { createTravelIndex } from "./travel/index.ts";
 import { createMatchIndex } from "./match/index.ts";
 import { createRiseIndex } from "./rise/index.ts";
+import { createScorecardIndex } from "./scorecard/index.ts";
 import { createRisingTargetIndex } from "./rising-target/index.ts";
 import { createStandIndex } from "./stand/index.ts";
 import { createStrikeIndex } from "./strike/index.ts";
@@ -28,6 +29,7 @@ export const createEvaluations = perContext((context: GameContext) => {
   const { TRAVEL_DRILL } = createTravelIndex(context);
   const { MATCH } = createMatchIndex(context);
   const { RISE } = createRiseIndex(context);
+  const { SCORECARD } = createScorecardIndex(context);
   const { RISING_TARGET } = createRisingTargetIndex(context);
   const { STAND } = createStandIndex(context);
   const { STRIKE } = createStrikeIndex(context);
@@ -43,6 +45,7 @@ export const createEvaluations = perContext((context: GameContext) => {
     baseline: BASELINE as unknown as Evaluation,
     match: MATCH as unknown as Evaluation,
     tournament: TOURNAMENT as unknown as Evaluation,
+    scorecard: SCORECARD as unknown as Evaluation,
     unseen: UNSEEN as unknown as Evaluation,
     "rising-target": RISING_TARGET as unknown as Evaluation,
     court: COURT as unknown as Evaluation,
