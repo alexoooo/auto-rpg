@@ -1,0 +1,227 @@
+/**
+ * **The back step's drill**: punches thrown at a body that may only step, and what they took.
+ * Node core world, Rapier, 120 Hz, the arena's rulebook; a trial a start gap.
+ *
+ *   node research/skills/locomotion/back-step-drill.mjs --policy stand --policy away:1.2 [--attacker drill|mind] [--gaps 2:3:0.05]
+ *     [--pace 1] [--seconds 20] [--model man] [--workers 12] [--save <file>] [--trials]
+ *
+ * **The attacker** (left) throws its character's own straight punch, as `--attacker` says:
+ * - `drill` (the default): the drills' Option Mind (`option-drill`) under a drill Commander that
+ *   walks it into the punch's window at `--pace` m/s and orders the punch the first step it is
+ *   ready, walking, at the trunk's middle (a blow of each hand, as its punch goes). It fires from the
+ *   window's far edge; the trial runs
+ *   `AFTER` s past the first fire.
+ * - `mind`: its model's own mind (`defaultMind`), fighting as it does in the Arena under the game's
+ *   end rules, for `--seconds` s or until the bout ends. Its punches fire where a fight's do.
+ *
+ * **The defender** (right) goes where it is ordered, its hands at guard, throwing nothing and
+ * covering nothing; this script orders it (`Duel.order`), by a policy:
+ * - `stand`: it stands, facing the attacker.
+ * - `away:<range>[:<seconds>[:<pace>]]`: it stands until it senses the attacker's centre within
+ *   `range` m of its own (what it sees is the bout's reaction time old), then walks straight away
+ *   from it, facing it, for `seconds` s (1.5 with none) no faster than `pace` (its legs' own with
+ *   none); then it goes back to `BACK` of the attacker for `RETURN` s, and stands to step again.
+ * - `seen[:<seconds>[:<pace>]]`: as `away`, begun once a punch of the attacker's has been under way
+ *   for the reaction time: the earliest any reading of what the defender sees could tell.
+ * - `keep:<range>`: from the start it holds `range` to `range` + 0.2 m of the attacker (the legs'
+ *   own range keeping).
+ * - `shove:<range>:<speed>[:<every>]`: as `away` with no walk: when it senses the attacker within
+ *   `range` its whole body is given `speed` m/s away from the attacker by no muscle of its own
+ *   (every segment pushed through its centre by its own mass times the speed), no sooner than
+ *   `every` s after the last time (0.75 with none), and it stands. No body can do this; it reads
+ *   what a step that began at once and left at that speed would be worth, and whether the legs
+ *   catch it.
+ *
+ * It prints, a policy a row: trials; punches thrown; **taken**, the punches that took at least
+ * `LANDED` hp, and their share of the punches thrown (the drill's number); the median of what a
+ * punch took; the life the defender lost a trial, hp; trials the defender went down in, and the
+ * attacker; at a punch's fire, how far apart (centres) and how fast the defender was going away,
+ * m/s; how far the defender went away from the fire to `REACH` s after it (about when a punch that
+ * lands does); how far `STEP` s after its first order to go; of the punches whose defender was
+ * farther than `BACK.far` at any time in the `RETURN` s after the fire, how many were within it
+ * again in that time, and the median of how long from the fire; and the share of the trial the
+ * defender stood within `BACK`. `--trials` prints each trial.
+ */
+import { Worker, isMainThread, parentPort } from "node:worker_threads";
+import { availableParallelism } from "node:os";
+import { writeFile } from "node:fs/promises";
+import { parseArgs } from "node:util";
+
+/** A landed blow takes at least this much life, HP (`strike-bouts.mjs`). */
+const LANDED = .5;
+/** From a punch's fire to its blow, where it lands, s: the median of the Warrior mirror's landed punches (0.20 to 0.24). */
+const REACH = .225;
+/** How far a walk away has gone is read this long after its order, s. */
+const STEP = [.25, .5, .75, 1, 1.5];
+/** The range a defender is ordered back to, m centre to centre: where the Warrior mirror's punches fire (0.79 to 0.97). */
+const BACK = { near: .8, far: .95 };
+/** How long a defender that stepped is ordered back before it may step again, and how long after a fire it is read for being back, s. */
+const RETURN = 1.5;
+/** A drilled trial runs this long past the punch's fire, s, and no longer than this in all. */
+const AFTER = 3, CAP = 12;
+
+/** A policy from its text (the file's comment). */
+function policyOf(text) {
+  const [kind, ...rest] = text.split(":"), n = rest.map(Number);
+  if (rest.some((one, i) => one !== "" && !Number.isFinite(n[i]))) throw new Error(`--policy ${text}: not numbers`);
+  switch (kind) {
+    case "stand": return { text, kind };
+    case "away": if (!(n[0] > 0)) throw new Error(`--policy ${text}: away:<range>`); return { text, kind, range: n[0], seconds: n[1] || 1.5, pace: n[2] || null };
+    case "seen": return { text, kind, seconds: n[0] || 1.5, pace: n[1] || null };
+    case "keep": if (!(n[0] > 0)) throw new Error(`--policy ${text}: keep:<range>`); return { text, kind, range: n[0] };
+    case "shove": if (!(n[0] > 0 && n[1] > 0)) throw new Error(`--policy ${text}: shove:<range>:<speed>`); return { text, kind, range: n[0], speed: n[1], every: n[2] || .75 };
+    default: throw new Error(`--policy ${text}: stand, away, seen, keep or shove`);
+  }
+}
+
+if (isMainThread) {
+  const { values } = parseArgs({ options: {
+    policy: { type: "string", multiple: true, default: ["stand"] }, gaps: { type: "string", default: "2:3:0.05" }, pace: { type: "string", default: "1" },
+    attacker: { type: "string", default: "drill" }, seconds: { type: "string", default: "20" },
+    model: { type: "string", default: "man" }, workers: { type: "string" }, save: { type: "string" }, trials: { type: "boolean", default: false },
+  } });
+  const [from, to, by] = values.gaps.split(":").map(Number), gaps = [];
+  for (let i = 0; from + i * by <= to + 1e-9; i++) gaps.push(+(from + i * by).toFixed(4));
+  const policies = values.policy.map(policyOf), pace = Number(values.pace), seconds = Number(values.seconds), attacker = values.attacker;
+  if (!gaps.length || !(pace > 0) || !(seconds > 0) || !["drill", "mind"].includes(attacker)) throw new Error("--gaps <from>:<to>:<by>, --pace and --seconds over nothing, --attacker drill or mind");
+  const jobs = policies.flatMap((policy) => gaps.map((gap) => ({ policy, gap, pace, seconds, attacker, model: values.model })));
+  const lanes = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() >> 1)));
+  let next = 0;
+  await Promise.all(Array.from({ length: lanes }, () => new Promise((resolve, reject) => {
+    const worker = new Worker(new URL(import.meta.url));
+    worker.once("error", reject);
+    const feed = () => {
+      if (next >= jobs.length) { worker.terminate(); resolve(); return; }
+      const job = jobs[next++];
+      worker.once("message", ({ result, error }) => {
+        if (error) { worker.terminate(); reject(new Error(error)); return; }
+        job.result = result; feed();
+      });
+      const { result: _, ...settings } = job; worker.postMessage(settings);
+    };
+    feed();
+  })));
+  if (values.save) await writeFile(values.save, JSON.stringify(jobs));
+  const median = (xs) => { const s = xs.filter((x) => x !== null && Number.isFinite(x)).sort((a, b) => a - b); return s.length ? s[s.length >> 1] : null; };
+  const sum = (xs) => xs.reduce((a, b) => a + b, 0);
+  const f = (x, digits = 2) => x === null || x === undefined ? "-" : x.toFixed(digits);
+  console.log(`The back step's drill: ${values.model} on ${values.model}, the attacker ${attacker === "drill" ? `drilled, walking in at ${pace} m/s` : `its own mind, ${seconds} s a trial`}, `
+    + `${gaps.length} start gaps ${from} to ${to} m; Node core world, Rapier, 120 Hz, the arena's rulebook`);
+  console.log(`taken: punches that took at least ${LANDED} hp; gone: how far the defender went away from a fire to ${REACH} s after it, m; back: of the punches it left ${BACK.far} m after, those within it again in ${RETURN} s, and the median s`);
+  console.log("policy".padEnd(18), "trials  thrown  taken  share  median hp  lost/trial  down  attacker down  apart at fire  away m/s   gone  " + STEP.map((s) => `step ${s}`).join("  ") + "  in range  back");
+  for (const policy of policies) {
+    const rows = jobs.filter((job) => job.policy === policy).map((job) => job.result), punches = rows.flatMap((r) => r.punches), taken = punches.filter((p) => p.damage >= LANDED);
+    const left = punches.filter((p) => p.left);
+    console.log(policy.text.padEnd(18), String(rows.length).padStart(6), String(punches.length).padStart(7), String(taken.length).padStart(6), (punches.length ? `${(100 * taken.length / punches.length).toFixed(0)}%` : "-").padStart(6),
+      f(median(punches.map((p) => p.damage))).padStart(10), f(sum(rows.map((r) => r.lost)) / rows.length).padStart(11), String(rows.filter((r) => r.down).length).padStart(5), String(rows.filter((r) => r.attackerDown).length).padStart(14),
+      f(median(punches.map((p) => p.apart)), 3).padStart(14), f(median(punches.map((p) => p.away))).padStart(9), f(median(punches.map((p) => p.gone)), 3).padStart(7),
+      " " + STEP.map((s, i) => f(median(rows.map((r) => r.steps?.[i] ?? null)), 3).padStart(`step ${s}`.length)).join("  "),
+      `${(100 * sum(rows.map((r) => r.inRange)) / sum(rows.map((r) => r.seconds))).toFixed(0)}%`.padStart(9),
+      left.length ? ` ${left.filter((p) => p.back !== null).length} of ${left.length}, ${f(median(left.map((p) => p.back)))} s` : " -");
+  }
+  if (values.trials) for (const job of jobs) {
+    const r = job.result;
+    console.log(`${job.policy.text.padEnd(18)} gap ${job.gap.toFixed(2)}: ${f(r.seconds, 1)} s${r.ending ? ` ${r.ending}` : ""}, lost ${f(r.lost)} hp${r.ordered.length ? `, stepped at ${r.ordered.map((t) => f(t)).join(" ")} s` : ""}${r.down ? ", defender down" : ""}${r.attackerDown ? ", attacker down" : ""}`);
+    for (const p of r.punches) console.log(`    ${p.effector} fired ${f(p.fired)} s at ${f(p.apart, 3)} m, away ${f(p.away)} m/s, gone ${f(p.gone, 3)} m, took ${f(p.damage)} hp (${p.parts.join(" ") || "nothing"})${p.left ? `, back ${f(p.back)} s` : ""}`);
+  }
+} else {
+  const [{ buildBout }, { BOUT_ENGINE }] = await Promise.all([import("../../../src/app/node/evaluation.ts"), import("../../bout.mjs")]);
+  const { CONTEXT } = await import("../../../src/app/node/context.ts");
+  const { createDrillOpponents } = await import("../../../src/evaluation/drill-opponents.ts");
+  const { rulebook } = await import("../../../src/combat/rulebook.ts");
+  const { Vector3 } = await import("../../../src/core/math/vector.ts");
+  const { centreOfToRef } = await import("../../../src/core/bodies/read-motion.ts");
+  const guards = createDrillOpponents(CONTEXT).opponentOf("drill-guard").mind;
+  /** The defender's mind: the guard drill's without its cover, so it goes where it is ordered, its hands at guard. */
+  const DEFENDER = { ...guards, options: guards.options.filter((option) => option.kind !== "covers") };
+  const REACTION = rulebook("arena").reaction.value;
+  parentPort.on("message", async ({ policy, gap, pace, seconds, attacker: attacking, model }) => {
+    let dispose;
+    try {
+      const empty = { left: "empty", right: "empty" }, drilled = attacking === "drill", cap = drilled ? CAP : seconds;
+      const bout = await buildBout({ left: model, right: model, gap, capSeconds: cap, loadouts: { left: empty, right: empty },
+        start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, 0], heading: -Math.PI / 2 } },
+        ...(drilled ? { recoverySeconds: null, entry: [], ends: [], minds: { left: CONTEXT.catalog.minds["option-drill"].config, right: DEFENDER },
+          commanders: { left: { kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, pace, walking: true } } }
+          : { minds: { left: CONTEXT.defaultMind(model), right: DEFENDER } }) }, { engine: BOUT_ENGINE });
+      dispose = bout.dispose;
+      const { world, duel } = bout, attacker = duel.duelists.left, defender = duel.duelists.right;
+      const centre = (one) => one.body.view.stance.centre;
+      const apartNow = () => Math.hypot(centre(attacker).x - centre(defender).x, centre(attacker).z - centre(defender).z);
+      /** The way from the attacker to the defender, on the ground, a unit. */
+      const wayOut = () => { const a = centre(attacker), d = centre(defender), l = Math.hypot(d.x - a.x, d.z - a.z) || 1; return { x: (d.x - a.x) / l, z: (d.z - a.z) / l }; };
+      const facing = () => { const w = wayOut(); return { x: -w.x, z: -w.z }; };
+      const stand = () => ({ move: null, face: facing() });
+      const away = () => ({ move: { kind: "direct", direction: wayOut() }, ...(policy.pace ? { pace: policy.pace } : {}), face: facing() });
+      const back = () => ({ move: { kind: "range", focus: attacker.id, near: BACK.near, far: BACK.far }, face: null });
+      /** How far the attacker's centre, as the defender sees it, is from the defender's own. */
+      const seenApart = () => {
+        const seen = defender.senses().others.find((other) => other.id === attacker.id), d = centre(defender);
+        return seen ? Math.hypot(seen.centre.x - d.x, seen.centre.z - d.z) : Infinity;
+      };
+      /** Every segment of the defender given `speed` m/s along `way` more than it has. */
+      const shove = (way, speed) => {
+        const at = new Vector3();
+        for (const segment of defender.built.segments.values()) segment.body.applyImpulse(new Vector3(segment.rigid.mass * speed * way.x, 0, segment.rigid.mass * speed * way.z), centreOfToRef(segment, at));
+      };
+      const result = { punches: [], lost: 0, down: false, attackerDown: false, ordered: [], steps: null, inRange: 0, seconds: 0, ending: null };
+      const byId = new Map(), full = defender.pool.bar();
+      // Its step: waiting to begin, going, back; since when; the attacker's punches that have begun a step.
+      let phase = "waiting", since = 0, first = null, heard = 0, answered = 0;
+      const began = [];
+      duel.order("right", policy.kind === "keep" ? { move: { kind: "range", focus: attacker.id, near: policy.range, far: policy.range + .2 }, face: null } : stand());
+      while (!duel.verdict && duel.clock < cap && (!drilled || !result.punches.length || duel.clock < result.punches[0].fired + AFTER)) {
+        // The defender's orders, from what it sees and its policy, before the step.
+        if (policy.kind === "away" || policy.kind === "seen" || policy.kind === "shove") {
+          const due = policy.kind === "seen" ? began.length > answered && duel.clock >= began[answered] + REACTION : seenApart() <= policy.range;
+          if (phase === "waiting" && due) {
+            phase = "going"; since = duel.clock; result.ordered.push(duel.clock); answered = began.length;
+            if (!first) { first = { x: centre(defender).x, z: centre(defender).z, way: wayOut(), at: duel.clock }; result.steps = []; }
+            if (policy.kind === "shove") shove(wayOut(), policy.speed);
+          }
+          if (policy.kind === "shove") { if (phase === "going" && duel.clock >= since + policy.every) phase = "waiting"; }
+          else if (phase === "going" && duel.clock >= since + policy.seconds) { phase = "back"; since = duel.clock; }
+          // A punch begun while it stepped begins no step of its own.
+          else if (phase === "back" && duel.clock >= since + RETURN) { phase = "waiting"; answered = began.length; }
+          duel.order("right", policy.kind === "shove" ? stand() : phase === "going" ? away() : phase === "back" ? back() : stand());
+        } else if (policy.kind === "stand") duel.order("right", stand());
+        world.step();
+        const d = centre(defender), now = apartNow();
+        if (now >= BACK.near && now <= BACK.far) result.inRange += world.dt;
+        if (first && result.steps.length < STEP.length && duel.clock >= first.at + STEP[result.steps.length] - 1e-9)
+          result.steps.push((d.x - first.x) * first.way.x + (d.z - first.z) * first.way.z);
+        for (const action of attacker.minded.skills.report.actions) {
+          if (action.action !== "straight-punch") continue;
+          let punch = byId.get(action.id);
+          if (!punch) { byId.set(action.id, punch = { effector: action.effector, fired: null, apart: null, away: null, gone: null, damage: 0, parts: [], left: false, back: null }); began.push(duel.clock); }
+          if (action.phase === "commit" && punch.fired === null) {
+            const way = wayOut(), v = defender.body.view.stance.velocity;
+            punch.fired = duel.clock; punch.apart = now; punch.away = v.x * way.x + v.z * way.z; punch.from = { x: d.x, z: d.z, way };
+            result.punches.push(punch);
+          }
+        }
+        for (const punch of result.punches) {
+          if (punch.gone === null && duel.clock >= punch.fired + REACH - 1e-9) punch.gone = (d.x - punch.from.x) * punch.from.way.x + (d.z - punch.from.z) * punch.from.way.z;
+          if (duel.clock > punch.fired + RETURN) continue;
+          if (now > BACK.far) punch.left = true;
+          else if (punch.left && punch.back === null) punch.back = duel.clock - punch.fired;
+        }
+        // What the attacker's hands took of the defender: each blow is the last punch's that fired with that hand.
+        for (; heard < duel.blows.length; heard++) {
+          const blow = duel.blows[heard], mine = blow.sides.find((part) => part.fighter === attacker.id), theirs = blow.sides.find((part) => part.fighter === defender.id);
+          if (!mine || !theirs || !(theirs.damage > 0)) continue;
+          const punch = result.punches.findLast((one) => one.effector === mine.segment);
+          if (!punch) continue;
+          punch.damage += theirs.damage; punch.parts.push(`${theirs.segment} ${theirs.damage.toFixed(2)}`);
+        }
+        if (defender.body.view.down) result.down = true;
+        if (attacker.body.view.down) result.attackerDown = true;
+      }
+      for (const punch of result.punches) delete punch.from;
+      result.seconds = duel.clock; result.ending = duel.verdict?.ending ?? null;
+      result.lost = (full - defender.pool.bar()) * defender.body.built.spec.wounds.hp.value;
+      parentPort.postMessage({ result });
+    } catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
+    finally { dispose?.(); }
+  });
+}
