@@ -386,8 +386,8 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
       const settles = idleGoal(view, goal, dt, context);
       if (settles) { stance = settles; state.stood = null; state.placed = false; }
       else if (goal.footing) { state.stood = null; stance = place(view, goal.footing, goal.height); }
-      else if (goal.walk === null && held.width !== null && (state.stood || still(view))) {
-        // Stopped, the feet are set where the carriage stands them; no footing was asked.
+      else if (goal.walk === null && held.width !== null && goal.feet === undefined && goal.pose === undefined && goal.swing === undefined && (state.stood || still(view))) {
+        // Stopped, the feet are set where the carriage stands them; no footing was asked, and the goal stands the body by no feet, pose or swing of its own.
         state.stood ??= footingOf(view, held, held.width);
         stance = place(view, state.stood, goal.height);
         state.placed = false;
