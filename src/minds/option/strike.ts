@@ -6,27 +6,14 @@ import { orderAllows, orderedTarget } from "../orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
 import { measuredOn, profileAgainst, profilesFor, readProfile, staleness, strikeSkill, type Expected, type Stances, type Measured, type Profile } from "../../skills/framework/profile.ts";
 import type { Sight } from "../decider.ts";
-import { along, asking, blocked, READY, standing, type Asked, type Option, type Site, type Situation } from "./option.ts";
+import { asking, exitOutcomes, blocked, READY, standing, type Asked, type Option, type Site, type Situation } from "./option.ts";
 import { startOf, threatened } from "./percepts.ts";
-import { clinched, record, upOrDown, type Outcome, type Terms } from "./value.ts";
+import { clinched, record, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { claimsLegs } from "../../skills/framework/intent.ts";
 import { hypot } from "../../core/math/real.ts";
 
-
-/**
- * **Where a strike leaves the body** from `at`: up where it strikes from in the share `stays`, else
- * `moved` m further from the focus, on the line from the focus through it (`along`); down in the
- * share `down` (`upOrDown`).
- */
-function exitOutcomes(at: Situation, stays: number, moved: number, down: number): readonly Outcome[] {
-  const here = { where: along(at, at.range) };
-  if (!(stays < 1)) return upOrDown(here, down);
-  const there = { where: along(at, at.range + moved) };
-  if (!(stays > 0)) return upOrDown(there, down);
-  return upOrDown(here, down).flatMap((one) => one.leaves === here ? [{ leaves: here, chance: one.chance * stays }, { leaves: there, chance: one.chance * (1 - stays) }] : [one]);
-}
 /** How long a strike may wait to be admitted before it is given up, s. */
 const PATIENCE = 2;
 
@@ -208,7 +195,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const preparing = running?.phase === "prepare", measured = expected(at, running ? state.place : place, preparing ? progress : undefined), e = measured ?? priorOf(at);
     const duration = Math.max(0, e.seconds + e.recovers - progress);
     const terms: { -readonly [K in keyof Terms]: Terms[K] } = { duration, dealt: met ? 0 : e.dealt, taken: at.predictions.danger + threatened(at, duration), orders: 0,
-      outcomes: exitOutcomes(at, e.exit?.stays ?? 1, e.exit?.moved ?? 0, Math.max(e.down, measured ? 0 : clinched(at, duration, at.apart))) };
+      outcomes: exitOutcomes(at, e.exit, Math.max(e.down, measured ? 0 : clinched(at, duration, at.apart))) };
     if (preparing && e.letGo) terms.letGo = e.letGo;
     return terms;
   };

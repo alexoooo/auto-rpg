@@ -11,7 +11,9 @@
  * centre to centre, the attacker's phase and posture, the subject's velocity against the
  * attacker's, how each body stood, and the levels its bodies' characters set, `startLevels`); it
  * deals nothing; the life the subject lost while it swayed, HP; the seconds it swayed; the range
- * head to head it left the two at (`exit.range`); and whether it went down then or just after. A
+ * head to head it left the two at (`exit.range`), and whether it left them within `ARRIVED` of
+ * where they began centre to centre (`exit.stays`), else by how much further apart (`exit.moved`;
+ * a head mid-sway leans, so a change head to head is not the bodies'); and whether it went down then or just after. A
  * trial is done where it stayed up. A profile is a skill on a body against a target: its
  * measured-on read from each row's world as the strikes' is (`strike-profiles.mjs`): the left
  * body's spec as the bout builds it, the harness's rate and command delay, the recipe's sense
@@ -25,7 +27,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
-import { holdsOf, measuredOn, specDigest, startLevels } from "../../../src/skills/framework/profile.ts";
+import { holdsOf, measuredOn, specDigest, startLevels, trialExit } from "../../../src/skills/framework/profile.ts";
 import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 
@@ -72,7 +74,7 @@ for (const path of paths) {
       const posture = sway.foeAt.posture ?? "standing";
       const start = { range: round(sway.foeAt.apart), phase: sway.phase, ...(posture === "standing" ? {} : { postures: { own: "standing", target: posture } }),
         velocity: sway.foeAt.velocity.map(round), ...(sway.foeAt.stance ? { stance: sway.foeAt.stance } : {}), ...(levels ? { levels } : {}) };
-      profile.trials.push({ start, done: !sway.down, dealt: 0, taken: round(sway.lost), seconds: round(sway.seconds), recovers: null, down: sway.down, ...(sway.exit ? { exit: { range: round(sway.exit.range) } } : {}) });
+      profile.trials.push({ start, done: !sway.down, dealt: 0, taken: round(sway.lost), seconds: round(sway.seconds), recovers: null, down: sway.down, ...(sway.exit ? { exit: trialExit(sway.exit, sway.foeAt.apart) } : {}) });
     }
   }
 }

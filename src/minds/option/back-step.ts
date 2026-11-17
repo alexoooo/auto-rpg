@@ -3,9 +3,9 @@ import { measuredOn, profileAgainst, profilesFor, readProfile, type Expected, ty
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
 import { swayStance } from "../../skills/locomotion/move/gaits.ts";
 import type { Status } from "../choice.ts";
-import { along, blocked, LEGS, READY, standing, type Option, type Situation } from "./option.ts";
+import { blocked, exitOutcomes, LEGS, READY, standing, type Option, type Situation } from "./option.ts";
 import { startOf } from "./percepts.ts";
-import { STILL, upOrDown, type Terms } from "./value.ts";
+import { STILL, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 
 /** How long the back step is ordered at most, s: its sway out and back and its step in (`BACK_STEP_GAIT`). */
@@ -32,9 +32,8 @@ const GAIT = "back-step";
  *
  * Its model is its profile's, read where it stands (the range, its velocity against the focus's,
  * `startOf`, the focus's phase and how the two stand): no life dealt, the life its trials lost
- * while they swayed, for their seconds; it leaves the body up at the range its trials ended at
- * (`Expected.exit`), else where it stood, on the line from the focus through it (`along`), still,
- * in its carriage; and down in the share of its trials that fell.
+ * while they swayed, for their seconds; it leaves the body up where its trials ended, centre to
+ * centre (`exitOutcomes`), still, in its carriage; and down in the share of its trials that fell.
  */
 export function backStepping(spec: BodySpec, profiles: readonly Profile[], walk: Walker, hz: number, rate: number, delay: number, goes: boolean): readonly Option[] {
   const read = profilesFor(profiles, measuredOn(spec, GAIT, null, hz, null, rate, delay))?.read ?? [];
@@ -71,7 +70,7 @@ export function backStepping(spec: BodySpec, profiles: readonly Profile[], walk:
       if (!standing(at) || at.stances.own !== carriage) return null;
       const expect = expected(at);
       if (!expect) return null;
-      return { duration: expect.seconds, dealt: 0, taken: expect.taken, orders: 0, outcomes: upOrDown({ where: along(at, expect.exit?.range ?? at.range), velocity: STILL, stance: carriage }, expect.down) };
+      return { duration: expect.seconds, dealt: 0, taken: expect.taken, orders: 0, outcomes: exitOutcomes(at, expect.exit, expect.down, { velocity: STILL, stance: carriage }) };
     },
     step: (now) => ({ asked: { ...walk.kept(now, { move: null, face: walk.facing(now), actions: [] }, null), gait: GAIT }, holds: LEGS }),
   }];

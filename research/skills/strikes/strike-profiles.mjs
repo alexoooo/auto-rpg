@@ -59,21 +59,12 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
 import { partIn, partLookup } from "../../../src/app/catalog.ts";
 import { limbAction } from "../../../src/minds/option/kinds.ts";
-import { holdsOf, measuredOn, skillDigest, specDigest, startLevels, strikeSkill } from "../../../src/skills/framework/profile.ts";
+import { holdsOf, measuredOn, skillDigest, specDigest, startLevels, strikeSkill, trialExit } from "../../../src/skills/framework/profile.ts";
 import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 import { profileKey, profileKeys } from "../../../tests/harness/profile-keys.mjs";
 import { lifeFactor } from "../../../src/combat/pool.ts";
-import { ARRIVED } from "../../../src/skills/framework/movement.ts";
 import { rulebook } from "../../../src/combat/rulebook.ts";
-
-/** A trial's exit (`Trial.exit`): its range head to head, and whether the two stood within `ARRIVED` of where they began, centre to centre (`stays`), else by how much further apart (`moved`); a record with no centre at its exit gives the range alone. */
-function exitOf(exit, apart) {
-  const range = { range: round(exit.range) };
-  if (exit.apart === undefined) return range;
-  const moved = exit.apart - apart;
-  return Math.abs(moved) <= ARRIVED ? { ...range, stays: 1 } : { ...range, stays: 0, moved: round(moved) };
-}
 
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
 /** The Strike drill's rungs a profile is measured on: a strike thrown from drawn starts at a foe fighting back (`SPARRING`, `SPARRING_LAID`, `src/evaluation/strike/cases.ts`). */
@@ -168,7 +159,7 @@ for (const path of paths) {
     let dealt = 0;
     for (const [on, damage] of Object.entries(r.dealt)) dealt += damage * lifeFactor(rules, struck, on);
     profile.trials.push({ start, done: r.outcome === "landed", dealt: round(dealt), taken: round(r.taken ?? 0), seconds: round((r.ended ?? r.seconds) - r.began),
-      recovers: r.recovers === undefined || r.recovers === null ? null : round(r.recovers), down: r.down, ...(r.exit ? { exit: exitOf(r.exit, r.foeAt.apart) } : {}) });
+      recovers: r.recovers === undefined || r.recovers === null ? null : round(r.recovers), down: r.down, ...(r.exit ? { exit: trialExit(r.exit, r.foeAt.apart) } : {}) });
   }
 }
 

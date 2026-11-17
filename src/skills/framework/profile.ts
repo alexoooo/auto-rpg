@@ -37,8 +37,26 @@ import { hypot } from "../../core/math/real.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
+import { ARRIVED } from "./movement.ts";
 import { chosenVariation, type Varied } from "./variations.ts";
 
+
+/** The 4-place rounding a trial's numbers are written at. */
+const fourPlaces = (x: number): number => Number(x.toFixed(4));
+
+/**
+ * **A trial's exit** (`Trial.exit`) from where the two stood as it ended, `exit` (head to head,
+ * `range`, and centre to centre, `apart`, m), and `apart` m centre to centre as it began: its
+ * range; whether it ended within `ARRIVED` of where it began, centre to centre (`stays`, 1 or 0),
+ * else by how much further apart (`moved`, m). A head at an action's end leans or has been struck,
+ * so a change head to head is not the bodies'. An exit with no centre gives its range alone.
+ */
+export function trialExit(exit: { readonly range: number; readonly apart?: number }, apart: number): Record<string, number> {
+  const range = { range: fourPlaces(exit.range) };
+  if (exit.apart === undefined) return range;
+  const moved = exit.apart - apart;
+  return Math.abs(moved) <= ARRIVED ? { ...range, stays: 1 } : { ...range, stays: 0, moved: fourPlaces(moved) };
+}
 /**
  * **The question a profile answers**, which it is found by: its body's model and what that body
  * held (`holdsOf`; absent, nothing), its skill as its character holds it (`skill/variation`,
