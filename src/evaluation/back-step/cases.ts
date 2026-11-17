@@ -30,10 +30,10 @@ export type BackStepCondition = { readonly attacker: Attacker; readonly gap: num
 const CARRIAGE = deepFreeze({ lead: "left", width: .25, stagger: .4, lower: .1 });
 
 /** The back step as the drill reads best: held back 0.7 s, brought in over 0.5 s, the lead foot stepping 0.1 m in. */
-const BACK_STEP = deepFreeze({ kind: "back-step", carriage: CARRIAGE, out: .7, back: .5, stepIn: .1 });
+const BACK_STEP = deepFreeze({ kind: "back-step", carriage: CARRIAGE, out: .7, back: .5, stepIn: .1, follow: .15 });
 
 /** The sway Commander's settings: the carriage within 3 m, the back step at 1.05 m held 1.65 s, 0.3 s between. */
-const SWAYING = deepFreeze({ kind: "sway", range: 1.05, near: 0, seconds: 1.65, rest: .3, set: 3 });
+const SWAYING = deepFreeze({ kind: "sway", range: 1.05, near: 0, seconds: 2.8, rest: .3, set: 3, follow: .95 });
 
 /** The drill's attacker: walked in at 1 m/s and ordered to punch the trunk's middle the first step it can. */
 const DRILLING = deepFreeze({ kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, pace: 1, walking: true });
@@ -55,14 +55,16 @@ export const createBackStepCases = perContext((context: GameContext) => {
   /**
    * The subject's mind as the drill's defender: its Option Mind's standing choices and its orders,
    * throwing nothing, walking only as ordered; Move's stock gaits beside its carriage (`set`) and
-   * the back step (`back-step`).
+   * the back step (`back-step`), its actor the subject's own back step's where it has one.
    */
   function defenderOf(value: Json): MindConfig {
     const mind = mindOf(value) as OptionMindConfig;
+    const own = ((mind.tuning?.parts as { readonly legs?: { readonly gaits?: readonly Gait[] } } | undefined)?.legs?.gaits ?? []).find((gait) => gait.name === "back-step")?.legs as { readonly learned?: Json; readonly steered?: true } | undefined;
+    const actor = { ...(own?.learned ? { learned: own.learned } : {}), ...(own?.steered ? { steered: own.steered } : {}) };
     const standing = (mind.options ?? []).filter((option) => !option.kind.startsWith("strike-") && !["orders", "walk", "covers"].includes(option.kind));
     const gaits: Gait[] = [...STOCK_GAITS,
       { name: "set", label: "Set", legs: { kind: "stance-walk", variation: "stance-walk", carriage: CARRIAGE } as ConfigFor<"gait"> },
-      { name: "back-step", label: "Back step", legs: BACK_STEP as ConfigFor<"gait"> }];
+      { name: "back-step", label: "Back step", legs: { ...BACK_STEP, ...actor } as ConfigFor<"gait"> }];
     return withLegs({ ...mind, options: [ORDERS_OPTION.defaults, ...standing] }, { ...GOING, gaits });
   }
 

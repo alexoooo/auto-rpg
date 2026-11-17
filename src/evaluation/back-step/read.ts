@@ -13,10 +13,27 @@ import { hypot } from "../../core/math/real.ts";
 export const LANDED = .5;
 
 /** The range, m centre to centre, beyond which a punch is out of reach: where the Warrior mirror's punches fire (0.79 to 0.97). */
-const REACH = .95;
+export const REACH = .95;
 
 /** How long after a punch's fire the subject is read for being in reach again, s. */
 const RETURN = 1.5;
+
+/** How far apart the bout's two sides stand, m, centre to centre on the ground. */
+export const apartOf = (duel: Duel): number => {
+  const a = duel.duelists.right.body.physical.centre, d = duel.duelists.left.body.physical.centre;
+  return hypot(a.x - d.x, a.z - d.z);
+};
+
+/** The life the bout's left side lost to the blows of the step just played, over the step's seconds: summed over a decision, each blow paid once as it lands. */
+export function struckOf({ duel, world }: { readonly duel: Duel; readonly world: World }): number {
+  const blows = duel.blows, now = world.time, dt = 1 / world.hz;
+  let lost = 0;
+  for (let k = blows.length - 1; k >= 0 && blows[k]!.time > now - dt / 2; k--) {
+    const on = blows[k]!.sides.find((side) => side.fighter === "left");
+    if (on && on.damage > 0 && blows[k]!.sides.some((side) => side.fighter === "right")) lost += on.damage;
+  }
+  return lost / dt;
+}
 
 /** What a trial came to. */
 export type BackStepReading = {
@@ -43,10 +60,6 @@ export function readBackStep({ world, duel }: { readonly world: World; readonly 
   const subject = duel.duelists.left, attacker = duel.duelists.right, foe = attacker.minded.skills;
   if (!foe) throw new Error("the attacker runs no skills");
   const punches: Punch[] = [], seen = new Set<number>(), state = { down: false, heard: 0 };
-  const apart = (): number => {
-    const a = attacker.body.physical.centre, d = subject.body.physical.centre;
-    return hypot(a.x - d.x, a.z - d.z);
-  };
   return {
     afterStep() {
       const now = world.time;
@@ -55,7 +68,7 @@ export function readBackStep({ world, duel }: { readonly world: World; readonly 
         seen.add(action.id);
         punches.push({ effector: action.effector, fired: now, damage: 0, left: false, back: false });
       }
-      const gap = apart();
+      const gap = apartOf(duel);
       for (const punch of punches) {
         if (now > punch.fired + RETURN) continue;
         if (gap > REACH) punch.left = true;

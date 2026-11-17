@@ -9,7 +9,7 @@
 import { recordingKey } from "../../core/world/recording.ts";
 import type { Evaluation, Json } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
-import type { BackStepReading } from "./read.ts";
+import { apartOf, REACH, struckOf, type BackStepReading } from "./read.ts";
 import { createLocomotionIndex } from "../locomotion/index.ts";
 import { createBackStepCases, type BackStepCondition } from "./cases.ts";
 import { type GameContext, perContext } from "../../game/arena/context.ts";
@@ -33,6 +33,16 @@ export const createBackStepIndex = perContext((context: GameContext) => {
     analysis: {},
     subjects: (choice) => mindSubjects(choice, ["option"]),
     outcome: backStepOutcome,
+    /**
+     * A learning environment's percepts, each a second: `struck`, the life the subject lost to the
+     * blows of the step just played over its seconds, so that summed over a decision each blow is
+     * paid once as it lands; `near`, 1 while the subject stands within its foe's reach (`REACH`),
+     * where it is back.
+     */
+    percepts: {
+      struck: (built) => struckOf(built),
+      near: (built) => apartOf(built.duel) <= REACH ? 1 : 0,
+    },
     figures: [
       { name: "taken", unit: "punches that took a landed blow's life, of those thrown, the trials pooled", kind: "mean", better: "lower", of: (r) => r.thrown > 0 ? r.taken / r.thrown : null },
       { name: "lost", unit: "hit points lost to punches, the mean", kind: "mean", better: "lower", of: (r) => r.lost },

@@ -1,0 +1,13 @@
+{
+  "kind": "cases",
+  "evaluation": "back-step",
+  "layout": "research/skills/locomotion/environments/back-step.layout.json",
+  "subject": {"preset": "option-drill", "gait": "back-step", "steered": true},
+  "places": [
+    {"protocol": "mind-twin", "where": {}},
+    {"protocol": "drilled-twin", "where": {}}
+  ],
+  "pool": 8,
+  "refresh": 8,
+  "reward": {"struck": -2, "near": 1, "down": -10}
+}

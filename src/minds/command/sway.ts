@@ -7,7 +7,8 @@ import type { Commander, MemberReport, SensedBody, TeamDecision, TeamView } from
 /**
  * **The sway Commander's config**: within `set` m of its foe a member is ordered the gait `set`
  * (its carriage), and out of it again `SET_OFF` beyond; within `range` m and no nearer than `near`
- * it is ordered the gait `back-step` for `seconds` s, then stands `rest` s before it may be again.
+ * it is ordered the gait `back-step` for `seconds` s, then stands `rest` s before it may be again;
+ * while ordered it, with its foe beyond `follow` m, it is ordered a walk toward it (none where 0).
  */
 export interface SwayConfig extends CommanderConfig {
   readonly kind: "sway";
@@ -16,6 +17,7 @@ export interface SwayConfig extends CommanderConfig {
   readonly seconds: number;
   readonly rest: number;
   readonly set: number;
+  readonly follow: number;
 }
 
 /** How far beyond its `set` range a member is ordered out of its carriage, m. */
@@ -52,7 +54,8 @@ function swayCommander(config: SwayConfig): Commander {
         else if (sway.phase === "going" && view.time >= sway.since + config.seconds) { sway.phase = "resting"; sway.since = view.time; }
         else if (sway.phase === "resting" && view.time >= sway.since + config.rest) sway.phase = "waiting";
         const gait = sway.phase === "going" ? "back-step" : sway.set ? "set" : null;
-        orders.set(member.id, { move: null, face: foe ? direction(member.at, foe.at) : null, ...(gait ? { gait } : {}) });
+        const toward = foe ? direction(member.at, foe.at) : null, following = toward && sway.phase === "going" && config.follow > 0 && apart > config.follow;
+        orders.set(member.id, { move: following ? { kind: "direct", direction: toward } : null, face: toward, ...(gait ? { gait } : {}) });
       }
       return { orders, looked: true };
     },
@@ -63,10 +66,10 @@ function swayCommander(config: SwayConfig): Commander {
 }
 
 /** The sway Commander's settings as the back step's drill reads best: in the carriage within 3 m, the sway at 1.05 m held 1.65 s, 0.3 s between. */
-const SWAY_DEFAULTS = deepFreeze<SwayConfig>({ kind: "sway", range: 1.05, near: 0, seconds: 1.65, rest: .3, set: 3 });
+const SWAY_DEFAULTS = deepFreeze<SwayConfig>({ kind: "sway", range: 1.05, near: 0, seconds: 1.65, rest: .3, set: 3, follow: 0 });
 
 /** The keys of a sway config, each a number but its kind. */
-const SWAY_KEYS = ["range", "near", "seconds", "rest", "set"] as const;
+const SWAY_KEYS = ["range", "near", "seconds", "rest", "set", "follow"] as const;
 
 /** **Sway** (`swayCommander`): what the back step's evaluation leads its subject by. It leads no side of a Crypt run. */
 export const SWAY = deepFreeze<CommanderEntry>({

@@ -32,7 +32,8 @@ import { generator } from './case-learning-environment.mjs';
  * Each kind of environment's maker, by the `kind` its file names: an episode's shape, which its
  * settings fill in. `cases`: any learnable part of a mind played in an evaluation's cases
  * (`case-learning-environment.mjs`), a strike the preset has no Option for given its own (`owning`),
- * a gait steered on Move's stock gaits (`gaitLearningMind`); `travel`: residual control around the retained running gait
+ * a gait steered on Move's stock gaits (`gaitLearningMind`), or one Move has not among them added
+ * to them by its part's kind, steered (`addedGait`); `travel`: residual control around the retained running gait
  * (`skills/locomotion/residual-environment.mjs`), for pretraining and development screens;
  * `travel-orders`: one travel actor through scripted Option Mind orders and physically reached starts.
  */
@@ -42,8 +43,15 @@ const KINDS = {
   cases: async () => {
     const { caseEnvironment, owning } = await import('./case-learning-environment.mjs');
     const { profileLearningMind, gaitLearningMind } = await import('../src/minds/option/index.ts');
+    const { withLegs } = await import('../src/minds/option/config.ts');
+    const { GOING } = await import('../src/skills/locomotion/move/index.ts');
+    const { STOCK_GAITS } = await import('../src/skills/locomotion/move/gaits.ts');
     const { GAME } = await import('../src/app/catalog.ts');
-    return configuration => caseEnvironment(configuration, { configureMind: (preset, request) => request.gait !== undefined ? gaitLearningMind(preset, request)
+    /** `preset` with a gait Move's stock has not, named by its part's kind and steered where asked, beside Move's stock gaits. */
+    const addedGait = (preset, { gait, steered }) => preset.kind !== 'option' ? { refused: `${preset.kind} is not an Option Mind` }
+      : withLegs(preset, { ...GOING, gaits: [...STOCK_GAITS, { name: gait, label: gait, legs: { kind: gait, ...(steered ? { steered: true } : {}) } }] });
+    return configuration => caseEnvironment(configuration, { configureMind: (preset, request) => request.gait !== undefined
+      ? (STOCK_GAITS.some((one) => one.name === request.gait) ? gaitLearningMind : addedGait)(preset, request)
       : profileLearningMind(GAME.partLookup, owning(GAME, preset, request.skill), request) });
   },
 };
