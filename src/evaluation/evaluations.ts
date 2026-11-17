@@ -1,4 +1,5 @@
 import { variedSubjects, type Evaluation } from "./evaluation.ts";
+import { createBackStepIndex } from "./back-step/index.ts";
 import { createBaselineIndex } from "./baseline/index.ts";
 import { createCourtIndex } from "./court/index.ts";
 import { createCrowdIndex } from "./crowd/index.ts";
@@ -21,6 +22,7 @@ export const createEvaluations = perContext((context: GameContext) => {
   const { COURT } = createCourtIndex(context);
   const { CROWD } = createCrowdIndex(context);
   const { COVER } = createCoverIndex(context);
+  const { BACK_STEP } = createBackStepIndex(context);
   const { CRYPT_CLEAR } = createCryptClearIndex(context);
   const { LOCOMOTION } = createLocomotionIndex(context);
   const { TRAVEL_DRILL } = createTravelIndex(context);
@@ -48,6 +50,7 @@ export const createEvaluations = perContext((context: GameContext) => {
     "crypt-clear": CRYPT_CLEAR as unknown as Evaluation,
     strike: STRIKE as unknown as Evaluation,
     cover: COVER as unknown as Evaluation,
+    "back-step": BACK_STEP as unknown as Evaluation,
     stand: STAND as unknown as Evaluation,
     locomotion: LOCOMOTION as unknown as Evaluation,
     travel: TRAVEL_DRILL as unknown as Evaluation,
