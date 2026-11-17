@@ -44,6 +44,13 @@ steps and walks to about 1.7 m/s straight (`af46f126`, `62c7a814`).
   unread on toes. *Shown.*
 - **Timing a gait faster than its controller places feet falls** (Haste: `f1014a27`, `65e674be`,
   `b21d6687`). *Repeated.*
+- **The stance's walk takes about a second from a stand before the body travels**: half a second
+  with both feet down while the weight goes 10 cm onto one foot (the shift waits for the capture
+  point over the bearing sole), a first step in place, the centre 0.00 m gone at 1.0 s ordered
+  away, 0.06 m ordered forward, and 1.2 m/s only from 1.5 s. It cannot step out of a blow it has
+  not foreseen by a second. Given 1 m/s by no muscle of its own the body is caught at once and
+  stands half a metre off in half a second; given 1.5 m/s it falls in 4 trials of 21
+  (`fd8ec9d56`). *Shown.*
 - **A gait is in the game only when the game chooses it**: an installed run went unchosen until the
   Braced walk's price and the lowering wrapper were fixed (`b61f11d6`). The Dungeon's and the
   Lab's gait choice shows it. *Shown.*
@@ -113,6 +120,14 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
 - **A cover that waits to see the blow arrives late**: the threat shows 0.14 to 0.16 s before
   impact and the hand needs about 0.3 s (`00dd461a`). A guard is placed before the blow shows.
   *Repeated.*
+- **A punch misses a body that has left, and a step begun on seeing it is too late**: the
+  Warrior's moving punch reaches to 1.0 m centre to centre (the defender that far 0.225 s after
+  the fire, 1 of 128 took 0.5 hp; nearer, 341 of 841), and lands 0.225 s after it fires where a
+  body sees 0.15 s late. A defender walking away on seeing the punch takes what one standing
+  does (20 of 40 against 23 of 41); one walking in takes it double; one that only walks or keeps
+  away keeps its life by not being in the fight (in punching range 4 to 11 % of the time). A
+  body given 0.5 m/s away at once takes 16 % of the Mind's punches where one standing takes
+  38 % (`fd8ec9d56`). The step that does it is [a plan](plans/2026-11-16-back-step.md). *Shown.*
 - **More blocks are not more wins**: a hand at cover is a hand not countering (`8b3c65b8`,
   `1500f2da`). A guard is judged on life kept and taken. *Repeated.*
 - **A threat reader is measured against the blow's truth before a guard is tuned on it**: the
