@@ -16,7 +16,7 @@ import { STANCE_WALK_PART } from "../stance-walk/index.ts";
 const BEYOND = .1;
 
 /** How long the back step holds the body back, and takes to bring it back over the middle of its feet, s, unless its config says. */
-const SWAY = deepFreeze({ out: .4, back: .5 });
+const SWAY = deepFreeze({ out: .7, back: .5 });
 
 /**
  * **The back step's config**: the carriage it stands in (`Carriage`), which should be the one the
