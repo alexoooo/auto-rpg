@@ -11,6 +11,13 @@
  * apart by side: begun, committed, committed with a foot off the ground (the lead foot, the one
  * opposite the striking hand, among them), touched (a wound dealt at all), landed (at least
  * `LANDED`), and the damage its touching blows took (the wounds its effector dealt, a blow's sum).
+ *
+ * `--aggression 2` has both sides fight their model's own mind (`defaultMind`) with its chooser's
+ * objective the few terms at that aggression (`FewTermsConfig`); without it, the objective is the
+ * mind's own. A saved bout keeps its winner, each side's life left (`bars`), when each went down,
+ * and, at each decision of a mind that reports its offers (`Engagement.offers`), the offer it chose
+ * and its terms, and the life each side had then (`decisions`): what `bout-readings.mjs` reads the
+ * prices against.
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -27,16 +34,18 @@ const DOWN = 2, RECOVERY = 1;
  * not a 'landed punch'".
  */
 const LANDED = .5;
-/** Saved results use explicit per-hand equipment and the neutral action protocol. */
-const SCHEMA = 3;
+/** Saved results use explicit per-hand equipment and the neutral action protocol, and keep each bout's winner and decisions. */
+const SCHEMA = 4;
 
 if (isMainThread) {
   const { values } = parseArgs({ options: {
     models: { type: "string" }, gaps: { type: "string", default: "3,4,5" }, held: { type: "string", default: "club" },
     seconds: { type: "string", default: "120" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
     holds: { type: "string", multiple: true, default: [] },
-    drill: { type: "string" }, pace: { type: "string" },
+    drill: { type: "string" }, pace: { type: "string" }, aggression: { type: "string" },
   } });
+  const aggression = values.aggression === undefined ? null : Number(values.aggression);
+  if (aggression !== null && !(aggression >= 1 && aggression <= 5)) throw new Error("--aggression is a number from 1 to 5");
   // With `--drill stand|guard`, the left side is drilled at the right's trunk's middle with its punch (the Strike drill's Option Mind and Commander,
   // walking into the window at `--pace` m/s, or ordering it where it stands with none), the right a drill opponent (`drill-stand`, `drill-guard`),
   // the two set the gap apart, centre to centre, facing.
@@ -50,8 +59,8 @@ if (isMainThread) {
     || !Number.isFinite(seconds) || seconds <= 0 || !Number.isSafeInteger(lanes) || lanes < 1 || helds.some(held => !["club", "empty"].includes(held)))
     throw new Error("invalid models, gaps, seconds, workers or held selection");
   const jobs = [];
-  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill });
-  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}`;
+  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, aggression });
+  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}${job.aggression === null ? "" : ` aggression ${job.aggression}`}`;
   const loaded = new Map(values.load ? JSON.parse(await readFile(values.load, "utf8")) : []);
   for (const job of jobs) {
     job.result = loaded.get(key(job));
@@ -117,16 +126,19 @@ if (isMainThread) {
   const { createDrillOpponents } = await import("../../../src/evaluation/drill-opponents.ts");
   const { surfaceEntry } = await import("../../../src/skills/perception/openings.ts");
   const { centreOfToRef } = await import("../../../src/core/bodies/read-motion.ts");
-  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill }) => {
+  /** A model's own mind with its chooser's objective the few terms at `aggression`. */
+  const mindAt = (model, aggression) => { const mind = CONTEXT.defaultMind(model); return { ...mind, chooser: { ...mind.chooser, objective: { kind: "few-terms", aggression } } }; };
+  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, aggression }) => {
     let dispose;
     try {
+      if (aggression !== null && drill) throw new Error("--aggression sets both sides' minds; a drill sets its own");
       const skills = Object.fromEntries(Object.entries(holds).map(([side, variation]) => [side, characterSkills(side === "left" ? left : right, [variation])]));
       const drilled = drill ? { recoverySeconds: null, entry: [], ends: [],
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, 0], heading: -Math.PI / 2 } },
         minds: { left: CONTEXT.catalog.minds["option-drill"].config, right: createDrillOpponents(CONTEXT).opponentOf(drill.opponent).mind },
         commanders: { left: { kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, ...(drill.pace === undefined ? { walking: true } : { pace: drill.pace }) } } } : {};
       const recipe = { left, right, gap, capSeconds: seconds, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } },
-        ...(Object.keys(skills).length ? { skills } : {}), ...drilled };
+        ...(Object.keys(skills).length ? { skills } : {}), ...drilled, ...(aggression === null ? {} : { minds: { left: mindAt(left, aggression), right: mindAt(right, aggression) } }) };
       // With ACTUATION (`symmetric` or `directional`), the world's muscle law (`World.actuation`); else the world's own.
       const bout = await buildBout(recipe, { engine: BOUT_ENGINE, ...(process.env.ACTUATION ? { actuation: process.env.ACTUATION } : {}) }); dispose = bout.dispose;
       const { world, duel } = bout, track = Object.fromEntries(SIDES.map(side => [side, {
@@ -192,6 +204,9 @@ if (isMainThread) {
       };
       // With HOLDS, each side's hands' and upper arms' velocities before the step, world m/s: a blow's speeds are read from them, not from the step that met it.
       const before = new Map();
+      // When each side went down; and at each decision of its mind (its offers anew), [s, apart m centre to centre, the offer chosen, its terms'
+      // duration s, dealt and taken (life), its own life then, the foe's, holding's price a second (life), each strike offered: [its skill and limb, its terms]].
+      const downs = { left: [], right: [] }, wasDown = { left: false, right: false }, decisions = { left: [], right: [] }, offered = { left: null, right: null };
       while (!duel.verdict && duel.clock < seconds) {
         if (process.env.HOLDS) for (const s of SIDES) for (const name of ["hand.left", "hand.right", "upperArm.left", "upperArm.right"]) {
           const v = new Vector3(); duel.duelists[s].body.built.segments.get(name).body.linearVelocityToRef(v); before.set(`${s} ${name}`, v);
@@ -219,6 +234,21 @@ if (isMainThread) {
               }
               arms.set(blow, shape);
             }
+        }
+        for (const side of SIDES) {
+          const me = duel.duelists[side], foe = duel.duelists[side === "left" ? "right" : "left"], down = me.body.view.down;
+          if (down && !wasDown[side]) downs[side].push(duel.clock);
+          wasDown[side] = down;
+          const engagement = me.minded.report.engagement, offers = engagement?.offers;
+          if (offers && offers !== offered[side]) {
+            offered[side] = offers;
+            const chosen = offers.find((offer) => offer.name === engagement.phase), terms = chosen?.terms, a = me.body.view.stance.centre, b = foe.body.view.stance.centre;
+            const termsOf = (t) => t ? [+t.duration.toFixed(3), +t.dealt.toFixed(5), +t.taken.toFixed(5)] : [null, null, null];
+            const hold = offers.find((offer) => offer.name === "hold")?.terms;
+            decisions[side].push([+duel.clock.toFixed(4), +Math.hypot(a.x - b.x, a.z - b.z).toFixed(3), engagement.phase, ...termsOf(terms), +me.pool.bar().toFixed(5), +foe.pool.bar().toFixed(5),
+              hold && hold.duration > 0 ? +(hold.taken / hold.duration).toFixed(6) : null,
+              offers.filter((offer) => /^[a-z-]+ (hand|foot)\.[a-z]+(:|$)/.test(offer.name)).map((offer) => [offer.name.split(":")[0], ...termsOf(offer.terms)])]);
+          }
         }
         for (const side of SIDES) {
           const t = track[side], me = duel.duelists[side], report = me.minded.skills.report;
@@ -308,7 +338,8 @@ if (isMainThread) {
         }
         delete t.sequence;
       }
-      parentPort.postMessage({ result: { schema: SCHEMA, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", sides: SIDES.map(side => track[side]) } });
+      parentPort.postMessage({ result: { schema: SCHEMA, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
+        bars: SIDES.map(side => duel.duelists[side].pool.bar()), hp: SIDES.map(side => duel.duelists[side].body.built.spec.wounds.hp.value), downs: SIDES.map(side => downs[side]), decisions: SIDES.map(side => decisions[side]), sides: SIDES.map(side => track[side]) } });
     } catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
     finally { dispose?.(); }
   });
