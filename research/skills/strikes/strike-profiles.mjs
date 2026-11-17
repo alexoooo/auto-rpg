@@ -7,7 +7,9 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  * that fights back, so no trial at a drill's still target makes one: how well a body throws a
  * strike there is another question, and a run of another rung is refused. Each
  * strike's trials are those on a mark its action aims at, with a limb
- * that throws it with what it holds (`strikesOf`). A profile a skill on a body against a target: its measured-on read
+ * that throws it with what it holds (`strikesOf`). Sparring's starts drawn from another stream
+ * (`DRAWS`: its twin, its training draws, its judge) measure the same rung, on another draw or ten
+ * times the starts: a run of one is read as sparring is. A profile a skill on a body against a target: its measured-on read
  * from each row's world (the left body's spec as the bout builds it, the skill's digest as the mind
  * holds it, the harness's rate and command delay (`harnessRule`), the recipe's sense delay, the rate
  * its mind decides at), its target the right body's; its trials those whose strike began (a trial
@@ -62,6 +64,8 @@ import { rulebook } from "../../../src/combat/rulebook.ts";
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
 /** The Strike drill's rungs a profile is measured on: a strike thrown from drawn starts at a foe fighting back (`SPARRING`, `SPARRING_LAID`, `src/evaluation/strike/cases.ts`). */
 const PROTOCOLS = Object.freeze(["sparring", "sparring-laid"]);
+/** Sparring's starts drawn from its other streams (`SPARRING_TWIN`, `SPARRING_DRAWN`, `SPARRING_JUDGE`): the same rung on another draw, which a profile may be measured on in its place. */
+const DRAWS = Object.freeze(["sparring-twin", "sparring-drawn", "sparring-judge"]);
 const write = process.argv.includes("--write");
 const paths = process.argv.slice(2).filter((arg) => arg !== "--write");
 if (!paths.length) throw new Error(`name a run of the Strike drill's sparring: npm run evaluate -- strike <subject> --protocol ${PROTOCOLS.join("|")} --json <run.json>`);
@@ -106,8 +110,8 @@ const marksOf = (action) => (action.regions ?? []).every((region) => region.kind
 const profiles = new Map();
 for (const path of paths) {
   const [header, ...rows] = read(path);
-  if (header.evaluation !== "strike" || !PROTOCOLS.includes(header.protocol))
-    throw new Error(`${path} is a run of ${header.evaluation} ${header.protocol}: a profile is measured on the Strike drill's sparring rungs, ${PROTOCOLS.join(" and ")}`);
+  if (header.evaluation !== "strike" || !PROTOCOLS.includes(header.protocol) && !DRAWS.includes(header.protocol))
+    throw new Error(`${path} is a run of ${header.evaluation} ${header.protocol}: a profile is measured on the Strike drill's sparring rungs, ${PROTOCOLS.join(" and ")}, or sparring's other draws, ${DRAWS.join(", ")}`);
   const rule = harnessRule(header.harness);
   if (!rule) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
   const { hz, delay } = rule;

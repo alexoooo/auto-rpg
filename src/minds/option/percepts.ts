@@ -207,7 +207,7 @@ function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySp
 /**
  * **The strikes a foe of `foe` is modelled by**: every one measured on its body, whatever its
  * character holds, which is not sensed (`profilesOn`, each skill's profiles with a limb one
- * strike, `strikesOf`; the most of them at a range is the pressure, `pressureBy`), else this
+ * strike, `strikesOf`; its pressure reads them pooled, `pooled`), else this
  * body's own measured (`Seen.strikes`), each
  * read by its profile against this body (`modelOf`), fresh at the senses' reaction time and
  * this mind's rate (`Seen.rate`: a foe's mind is taken for one like it) and thrown with the limb it names (`Measured.limb`); and each other limb the foe strikes with
@@ -291,12 +291,34 @@ function pressureBy(seen: Seen, model: Model, phase: string, striker: BodySpec, 
 /** Where a prior puts the limbs of a body striking one whose posture is `posture` (`Placing`): within their reach of a body standing; none of one lying. */
 const placingAt = (posture: string): Placing => posture === "standing" ? "reach" : null;
 
-/** **The pressure** (`Pressure`) the focus puts on the body: its model read at the focus's posture (`sensedPosture`), the body struck as standing. */
+/** Each pooled profile (`pooled`), by the profiles it pools, in their order: a profile is immutable. */
+interface Pools { pool?: Profile; readonly next: WeakMap<Profile, Pools> }
+const POOLS: Pools = { next: new WeakMap() };
+
+/**
+ * **A foe's measured strikes as one** (`Model`): the trials of every profile of `model` pooled into
+ * one profile, read for `striker` at `postures`, thrown with any of their limbs. A foe throws one
+ * blow at a time, which of them unsensed: read as one, what it deals from a start is the mean of the
+ * trials nearest it of whichever strikes were measured there, where the most of each strike's own
+ * reading is the most of noisy readings. A model of one profile or none is as it is.
+ */
+function pooled(model: Model, striker: BodySpec, postures: Postures): Model {
+  if (model.measured.length < 2) return model;
+  const profiles = model.measured.map((one) => one.reading.profile), first = profiles[0]!;
+  let at = POOLS;
+  for (const profile of profiles) { let next = at.next.get(profile); if (!next) at.next.set(profile, next = { next: new WeakMap() }); at = next; }
+  const { limb: _, ...measured } = first.measured;
+  at.pool ??= deepFreeze({ measured: { ...measured, skill: profiles.map((profile) => `${profile.measured.skill} ${profile.measured.limb ?? ""}`.trim()).join(" + ") }, target: first.target,
+    trials: profiles.flatMap((profile) => profile.trials) });
+  return { ...model, measured: [{ limbs: [...new Set(model.measured.flatMap((one) => one.limbs))], reading: readProfile(at.pool, striker, postures) }] };
+}
+
+/** **The pressure** (`Pressure`) the focus puts on the body: its model read at the focus's posture (`sensedPosture`), pooled (`pooled`), the body struck as standing. */
 function pressureOf(seen: Seen): Pressure {
   const { focus, spec } = seen;
   if (!focus) return NO_PRESSURE;
-  const posture = sensedPosture(focus);
-  return pressureBy(seen, foeModel(seen, focus.spec, { own: posture, target: "standing" }), ownPhase(seen), focus.spec, spec, placingAt(posture));
+  const posture = sensedPosture(focus), postures = { own: posture, target: "standing" };
+  return pressureBy(seen, pooled(foeModel(seen, focus.spec, postures), focus.spec, postures), ownPhase(seen), focus.spec, spec, placingAt(posture));
 }
 
 /**
@@ -313,7 +335,7 @@ function pressingOf(seen: Seen): Pressure {
 /**
  * **The life `seconds` s at `range` m apart, centre to centre, the two moving at `velocity`
  * (`startVelocity`), are expected to cost the struck body** under `pressure`: the most of its
- * strikes, each what its profile expects there a second (`ProfileReading.rate`) short of its reach
+ * strikes (a foe's pooled as one, `pooled`), each what its profile expects there a second (`ProfileReading.rate`) short of its reach
  * (`edgeOf`: the reach is where the body is out of it).
  */
 function pressureAt(pressure: Pressure, range: number, velocity: readonly [number, number], seconds: number): number {
@@ -450,11 +472,11 @@ export const graceAt = (now: Situation): number => now.grace ?? now.reached.grac
 
 /**
  * **The own life `seconds` s cost under the focus's pressure** (`Pressure`, `dealtAt`), standing
- * `apart` m from it head to head: none of the first `grace` s (`graceAt`), before a blow not yet
- * begun reaches it.
+ * `apart` m from it head to head, the two moving at `velocity` (`startOf`; the start's at `now`
+ * unless given): none of the first `grace` s (`graceAt`), before a blow not yet begun reaches it.
  */
-export const threatened = (now: Situation, seconds: number, apart = now.range, grace = graceAt(now)): number =>
-  dealtAt(now.predictions.pressure, now, apart, Math.max(0, seconds - grace));
+export const threatened = (now: Situation, seconds: number, apart = now.range, grace = graceAt(now), velocity = startOf(now)): number =>
+  dealtAt(now.predictions.pressure, now, apart, Math.max(0, seconds - grace), velocity);
 
 /**
  * **The own life `blow` is expected to take**: the most its striker's measured strikes thrown with
@@ -484,8 +506,8 @@ function lifeOf(seen: Seen, blow: Seen["blow"]): number {
  * feet brings is priced by the Options that begin there, as the search reaches them.
  */
 function downRateOf(seen: Seen, foe: BodySpec, posture: Position): number {
-  const foeAt = seen.focus ? sensedPosture(seen.focus) : "standing";
-  return pressureBy(seen, foeModel(seen, foe, { own: foeAt, target: posture }), "down", foe, seen.spec, placingAt(foeAt) && "over").peak;
+  const foeAt = seen.focus ? sensedPosture(seen.focus) : "standing", postures = { own: foeAt, target: posture };
+  return pressureBy(seen, pooled(foeModel(seen, foe, postures), foe, postures), "down", foe, seen.spec, placingAt(foeAt) && "over").peak;
 }
 
 /** **What a second down costs in each posture** (`downRateOf`) against the focus, and with none one of its own kind; each found once a posture. */

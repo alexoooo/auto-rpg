@@ -2,7 +2,7 @@
  * What saved Arena bouts (`strike-bouts.mjs --save`) show of how a fight went and of what its minds
  * expected, each file a row:
  *
- *   node research/skills/strikes/bout-readings.mjs <label>=<file> [<label>=<file> ...] [--pairs] [--prices]
+ *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/bout-readings.mjs <label>=<file> [<label>=<file> ...] [--pairs] [--prices] [--profiles <file>]
  *
  * **Silence**: of each bout after its first committed punch, the share spent in gaps over `QUIET` s
  * with no punch begun by either side; punches and landed blows (at least `LANDED`) a bout; how bouts
@@ -10,7 +10,9 @@
  * landed blow, wins. **Prices** (`--prices`), what each mind expected against what the fight gave
  * it, each summed over the bouts, a ratio over 1 a price above what the fight gave:
  * - **a punch**: the terms of the strike offered with its limb (`Engagement.offers`) at the decision
- *   it began at, against the life its blows took (its wounds over the foe's hit points) and the life
+ *   it began at, against the life its blows took (each wound's damage at its part's cost in life,
+ *   `lifeFactor`, under the Arena's rules, over the foe's hit points, as a profile's trial counts what
+ *   it dealt) and the life
  *   its body lost over the seconds it was priced to run;
  * - **a second in reach** (closer than the foe's priced reach, `reachOf`): what holding there was
  *   priced a second (the hold offer's taken over its duration) against the life the body lost, from
@@ -24,10 +26,11 @@ import { readFileSync } from "node:fs";
 const QUIET = 3;
 /** A landed blow takes at least this much life, HP (`strike-bouts.mjs`). */
 const LANDED = .5;
-/** The profiles a mind prices its foe by. */
+/** The profiles a mind prices its foe by, unless `--profiles <file>` names those the bouts were played with. */
 const PROFILES = "assets/skills/strikes/strike-profiles/strike-profiles.json";
 
 const args = process.argv.slice(2), pairs = args.includes("--pairs"), prices = args.includes("--prices");
+const at = args.indexOf("--profiles"), profiles = at < 0 ? PROFILES : args.splice(at, 2)[1];
 const files = args.filter((arg) => !arg.startsWith("--")).map((arg) => { const at = arg.indexOf("="); return [arg.slice(0, at), arg.slice(at + 1)]; });
 const sum = (xs) => xs.reduce((a, b) => a + b, 0);
 const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[s.length >> 1] : NaN; };
@@ -74,7 +77,7 @@ if (pairs) {
 /** How far a foe of `foe` is priced to reach a body of `body`, m centre to centre: its measured strikes' farthest start begun clear, both standing (`ProfileReading.reach`). */
 function reachOf(foe, body) {
   let reach = 0;
-  for (const profile of JSON.parse(readFileSync(PROFILES, "utf8")).profiles) {
+  for (const profile of JSON.parse(readFileSync(profiles, "utf8")).profiles) {
     if (profile.measured.body !== foe || profile.measured.holds !== undefined || profile.target?.body !== body || profile.target.holds !== undefined) continue;
     for (const trial of profile.trials) if (!trial.letGo && trial.start.phase === "clear" && !trial.start.postures) reach = Math.max(reach, trial.start.range);
   }
@@ -85,6 +88,13 @@ function reachOf(foe, body) {
 const kindOf = (name) => / to /.test(name) ? "walk" : name === "hold" ? "hold" : /^[a-z-]+ (hand|foot)\./.test(name) ? "strike" : "else";
 
 if (prices) {
+  const [{ lifeFactor }, { rulebook }, { duelSpec }] = await Promise.all([import("../../../src/combat/pool.ts"), import("../../../src/combat/rulebook.ts"), import("../../../src/game/arena/duel.ts")]);
+  const rules = rulebook("arena"), specs = new Map();
+  /** The life `attempt`'s wounds took of a body of `model`, over its hit points. */
+  const lifeTaken = (attempt, model, hp) => {
+    const spec = specs.get(model) ?? specs.set(model, duelSpec({ left: model, right: model }, "left")).get(model);
+    return sum(attempt.wounds.map((w) => w.damage * lifeFactor(rules, spec, w.part))) / hp;
+  };
   console.log("\nPrices: what each mind expected against what the fight gave it; % of a life, each a mean");
   console.log("label".padEnd(24), "of".padEnd(20), "count  expected dealt  given dealt  ratio   expected taken  given taken  ratio");
   for (const [label, all] of loaded) {
@@ -115,8 +125,9 @@ if (prices) {
           const offer = at?.[9]?.find(([n]) => n === `${attempt.action} ${attempt.effector}`);
           if (!offer || offer[1] === null) continue;
           const [, duration, dealt, taken] = offer;
-          add(at[1] < reach ? "punch, in reach" : "punch, from out", dealt, sum(attempt.wounds.map((w) => w.damage)) / bout.hp[1 - s], taken, lost(s, attempt.began, duration));
-          add("punch", dealt, sum(attempt.wounds.map((w) => w.damage)) / bout.hp[1 - s], taken, lost(s, attempt.began, duration));
+          const given = lifeTaken(attempt, foe, bout.hp[1 - s]);
+          add(at[1] < reach ? "punch, in reach" : "punch, from out", dealt, given, taken, lost(s, attempt.began, duration));
+          add("punch", dealt, given, taken, lost(s, attempt.began, duration));
         }
       }
     }

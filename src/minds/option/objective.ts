@@ -52,12 +52,12 @@ const atBell = (lead: number): number => MARGIN * tanh(lead / MARGIN) - DRAW * (
  * **How much more a body values a share of the focus's life it takes than as much of its own it
  * loses** (`FewTermsConfig.aggression`), unless its config says. Between two bodies alike a trade is
  * even at best, so a body that values the two alike gains nothing by closing and waits out of reach
- * until the clock moves it (`atBell`). Set for the prices as they are: a body's profiles price
- * closing on a body like it at three to four times the life it expects to deal there, so at 2 or 3
- * two Warriors on `straight-punch/moving` stand a step out of reach for most of a bout, and at 4
- * they fight until one is down (`docs/approaches.md`, minds).
+ * until the clock moves it (`atBell`). At 2 two Warriors on `straight-punch/moving` fight until one
+ * is down in most bouts, the foe's pressure read as one blow at a time and a hold priced with the
+ * body still (`pooled`, `holding`); priced as the most of the foe's strikes, they stood a step out of
+ * reach for most of a bout at 2 or 3 (`docs/approaches.md`, minds).
  */
-export const AGGRESSION = 4;
+export const AGGRESSION = 2;
 
 /** **The few terms' config**: its aggression (`AGGRESSION` unless given). */
 export interface FewTermsConfig { readonly kind: "few-terms"; readonly aggression?: number }
