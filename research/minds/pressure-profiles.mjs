@@ -10,8 +10,11 @@
  * centre; what the foe was doing as the side's mind read it then (`phase`, its decision row's last
  * field, `Engagement.foe`: the reading the mind prices by, `FoePhase`; a row with none, from before
  * it was written, is no moment); and the life the side lost (its pool's bar, a share of its full
- * life: the drain on a stalled bout is not in it) by each of `HORIZONS` s after. A moment within `UNSETTLED` s of either side's fall, or whose last horizon is
- * past its bout's end, is none. Moments are kept summed in bins of `BIN` m by phase. A table is of
+ * life: the drain on a stalled bout is not in it) by each of `HORIZONS` s after, out to as far as
+ * the chooser looks (`HORIZON`, `src/minds/option/chooser.ts`), at any range: a foe out of reach
+ * comes, and what it takes on arriving is in the later horizons. Past the end of a bout a body's
+ * life ended, its last bars hold; a moment whose last horizon is past the end of a bout that
+ * ended otherwise is none, as is one within `UNSETTLED` s of either side's fall. Moments are kept summed in bins of `BIN` m by phase. A table is of
  * a striker's body on a struck body (each side of a bout the struck, the other the striker); it is
  * measured from the minds that fought them, and read again where those change. Bouts are empty-handed
  * (a record's `held` `empty`), so a table is of bodies holding nothing; others are refused.
@@ -21,13 +24,11 @@ import { execSync } from "node:child_process";
 
 const OUT = "assets/minds/pressure-profiles.json", SCRIPT = "research/minds/pressure-profiles.mjs";
 /** The seconds after a moment its life lost is read at. */
-const HORIZONS = Object.freeze([.2, .5, .9, 1.65, 3]);
+const HORIZONS = Object.freeze([.2, .5, .9, 1.65, 3, 6, 10, 20]);
 /** A bin's width, m, centre to centre. */
 const BIN = .02;
 /** How long a fall unsettles a fight, s: a moment this soon after either side's is none. */
 const UNSETTLED = 3;
-/** The farthest apart a moment is kept at, m: beyond it no fist reaches. */
-const FARTHEST = 2.5;
 
 const write = process.argv.includes("--write");
 const paths = process.argv.slice(2).filter((arg) => arg !== "--write");
@@ -48,11 +49,12 @@ for (const file of files) {
       const table = tables.get(key) ?? { measured: { body: foe.model }, target: { body: own.model }, bins: new Map() };
       tables.set(key, table);
       const falls = [...record.downs[0], ...record.downs[1]];
-      /** The side's bar at `t`: its last decision's at or before it. */
-      const barAt = (t) => { let bar = rows[0][6]; for (const row of rows) { if (row[0] > t) break; bar = row[6]; } return bar; };
+      /** The side's bar at `t`: its last decision's at or before it; past the bout's end, its last. */
+      const barAt = (t) => { if (t >= record.seconds) return record.bars[i]; let bar = rows[0][6]; for (const row of rows) { if (row[0] > t) break; bar = row[6]; } return bar; };
+      const ended = record.bars.some((bar) => bar <= 0);
       for (const row of rows) {
         const [t, range, , , , , bar] = row;
-        if (range > FARTHEST || t + HORIZONS.at(-1) > record.seconds || falls.some((at) => t >= at && t - at < UNSETTLED)) continue;
+        if (!ended && t + HORIZONS.at(-1) > record.seconds || falls.some((at) => t >= at && t - at < UNSETTLED)) continue;
         const phase = row[10];
         if (typeof phase !== "string") continue;
         const at = round(Math.round(range / BIN) * BIN), binKey = `${phase} ${at}`;
