@@ -143,8 +143,11 @@ function stancedPredictions(predictions: Predictions, own: NonNullable<Leaves["s
   let by = STANCED_PREDICTIONS.get(predictions);
   if (!by) STANCED_PREDICTIONS.set(predictions, by = new WeakMap());
   let made = by.get(own);
-  if (!made) by.set(own, made = Object.create(predictions, {
-    pressure: { value: stancedPressure(predictions.pressure, own, true) }, pressing: { value: stancedPressure(predictions.pressing, own, false) } }) as Predictions);
+  if (!made) {
+    const pressure = stancedPressure(predictions.pressure, own, true), pressing = stancedPressure(predictions.pressing, own, false);
+    by.set(own, made = pressure === predictions.pressure && pressing === predictions.pressing ? predictions
+      : Object.create(predictions, { pressure: { value: pressure }, pressing: { value: pressing } }) as Predictions);
+  }
   return made;
 }
 

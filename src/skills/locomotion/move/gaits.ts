@@ -2,7 +2,7 @@ import type { GaitName } from "../../framework/skill.ts";
 import type { ConfigFor } from "../../../parts/lookup.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { STAGGERED } from "../shared/locomotion.ts";
-import type { StanceNumbers } from "../../framework/profile.ts";
+import { STANCE_SPANS, type StanceNumbers } from "../../framework/profile.ts";
 
 export { STAGGERED };
 
@@ -51,6 +51,24 @@ export const GAIT_STANCES: Readonly<Record<string, Readonly<Record<string, Stanc
 /** How a body of `model` walking on `legs` stands (`GAIT_STANCES`); null where none was measured. */
 export const gaitStance = (legs: { readonly kind: string; readonly variation?: string }, model: string): StanceNumbers | null =>
   GAIT_STANCES[`${legs.kind}/${legs.variation ?? legs.kind}`]?.[model] ?? null;
+
+/**
+ * **The carriage a body of `model` standing at `numbers` is in**: the gait stance measured on its
+ * model nearest them (`GAIT_STANCES`, each number over its span, `STANCE_SPANS`); `numbers` where
+ * none was measured. A body read so stands as a walk in its carriage would leave it, so the states
+ * after that walk ask what the state before it asked.
+ */
+export function carriageOf(model: string, numbers: StanceNumbers): StanceNumbers {
+  let nearest: StanceNumbers = numbers, least = Infinity;
+  for (const by of Object.values(GAIT_STANCES)) {
+    const one = by[model];
+    if (!one) continue;
+    let squared = 0;
+    for (const key of ["stagger", "width", "height"] as const) { const d = (one[key] - numbers[key]) / STANCE_SPANS[key]; squared += d * d; }
+    if (squared < least) { least = squared; nearest = one; }
+  }
+  return nearest;
+}
 
 /** `gaits` with each stance walk among them held in `carriage` (`Carriage`), the others as they are. */
 export const gaitsIn = (gaits: readonly Gait[], carriage: typeof STAGGERED): readonly Gait[] =>

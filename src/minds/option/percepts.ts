@@ -18,6 +18,7 @@ import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../../skills/perception/threat.ts";
 import { stancesOf, turned } from "../../skills/perception/stance-numbers.ts";
+import { carriageOf } from "../../skills/locomotion/move/gaits.ts";
 import type { GroundReading, Position } from "../../control/ground-reading.ts";
 import type { RiseMemory } from "./rise-memory.ts";
 import type { Situation } from "./option.ts";
@@ -321,7 +322,7 @@ function pressureOf(seen: Seen): Pressure {
   if (!focus) return NO_PRESSURE;
   const posture = sensedPosture(focus), postures = { own: posture, target: "standing" };
   return { ...pressureBy(seen, pooled(foeModel(seen, focus.spec, postures), focus.spec, postures), ownPhase(seen), focus.spec, spec, placingAt(posture)),
-    stance: turned(stancesOf(spec, seen.sight.view, focus)) };
+    stance: turned(carriedStances(spec, seen.sight.view, focus)) };
 }
 
 /**
@@ -333,7 +334,7 @@ function pressingOf(seen: Seen): Pressure {
   if (!focus) return NO_PRESSURE;
   const posture = sensedPosture(focus);
   return { ...pressureBy(seen, ownModel(seen, focus.spec, { own: "standing", target: posture }), foePhase(focus, seen.blow), spec, focus.spec, placingAt(posture)),
-    stance: stancesOf(spec, seen.sight.view, focus) };
+    stance: carriedStances(spec, seen.sight.view, focus) };
 }
 
 /**
@@ -407,9 +408,11 @@ const STANCED = new WeakMap<Pressure, WeakMap<object, Pressure>>();
 /**
  * **`pressure` with the body it reads standing at `own`** (`Pressure.stance`): the struck body's
  * where `struck` (the focus's pressure on the body), else the striker's (the body's on the focus);
- * its exact-start cache made anew for it (`cachedPressure`). Made once for the two.
+ * its exact-start cache made anew for it (`cachedPressure`). Made once for the two; `pressure`
+ * itself where it reads that body at `own` already, so a walk in the body's carriage asks nothing anew.
  */
 export function stancedPressure(pressure: Pressure, own: StanceNumbers, struck: boolean): Pressure {
+  if ((struck ? pressure.stance?.target : pressure.stance?.own) === own) return pressure;
   let by = STANCED.get(pressure);
   if (!by) STANCED.set(pressure, by = new WeakMap());
   const known = by.get(own);
@@ -517,7 +520,7 @@ function lifeOf(seen: Seen, blow: Seen["blow"]): number {
   const measured = foeModel(seen, blow.foe.spec).measured.filter((one) => one.limbs.includes(blow.limb)).map((one) => one.reading);
   const model = measured.length ? measured : [priorOf(blow.foe.spec, spec, range, LANDS * blowLife(seen.rules, blow.foe.spec, blow.limb, spec, blow.closing), 1)];
   let most = 0;
-  const stance = turned(stancesOf(spec, sight.view, foe));
+  const stance = turned(carriedStances(spec, sight.view, foe));
   for (const reading of model) most = Math.max(most, reading.expect({ range: Math.min(range, reading.reach(phase)), phase, velocity, stance }, spec)?.dealt ?? 0);
   return most;
 }
@@ -569,6 +572,16 @@ function downRateAtOf(seen: Seen): (posture: Position) => number {
  * blow it strikes with, s (Infinity with none). Its cues: going down or getting up, another posture,
  * orders asking for something else (`ordersAsked`), another focus, a threat or a blow coming.
  */
+/**
+ * **How the body and `other` stand toward each other, each in its carriage** (`stancesOf`,
+ * `carriageOf`): what the Mind reads a profile at. Read so, a body walking in its own carriage is
+ * asked at the stance it stands at, and a stride's swing of the feet asks nothing new.
+ */
+function carriedStances(spec: BodySpec, view: Sight["view"], other: BodySense): Stances {
+  const { own, target } = stancesOf(spec, view, other);
+  return { ...(own ? { own: carriageOf(spec.model, own) } : {}), ...(target ? { target: carriageOf(other.spec.model, target) } : {}) };
+}
+
 /** How two bodies stand with no focus: neither read. */
 const NO_STANCES: Stances = Object.freeze({});
 
@@ -598,7 +611,7 @@ const PERCEPTS = Object.freeze({
   motorUnmet: { read: ({ sight }) => sight.view.unmet } as Percept<MotorUnmet>,
   phase: { read: ({ focus, blow }) => foePhase(focus, blow) } as Percept<FoePhase>,
   foePosture: { read: ({ focus }) => focus ? sensedPosture(focus) : "standing" } as Percept<Position>,
-  stances: { read: ({ focus, spec, sight }) => focus ? stancesOf(spec, sight.view, focus) : NO_STANCES } as Percept<Stances>,
+  stances: { read: ({ focus, spec, sight }) => focus ? carriedStances(spec, sight.view, focus) : NO_STANCES } as Percept<Stances>,
   contact: { read: ({ focus, blow }) => focus && blow?.foe.id === focus.id ? blow.seconds : Infinity } as Percept<number>,
 });
 

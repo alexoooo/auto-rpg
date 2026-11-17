@@ -143,6 +143,9 @@ export type Stances = {
   readonly target?: StanceNumbers;
 };
 
+/** The span each of a body's stance numbers is read over (`STANCES`), m. */
+export const STANCE_SPANS: Readonly<Record<keyof StanceNumbers, number>> = Object.freeze({ stagger: 1, width: .4, height: .02 });
+
 /**
  * **The stance numbers a start is compared by**, beside its range, velocity and place: each body's
  * each number, and the span over which trials are taken as alike, m. A sparring start is mostly a
@@ -152,7 +155,7 @@ export type Stances = {
  * `sparring-stances`, a Warrior at a Warrior: with these spans a start's ten nearest trials were of
  * its own pairing 0.57 to 0.72 of the time (a quarter by chance), and height alone did as well.
  */
-const STANCES = Object.freeze(((["own", "target"] as const).flatMap((of) => [{ of, key: "stagger", span: 1 }, { of, key: "width", span: .4 }, { of, key: "height", span: .02 }] as const)));
+const STANCES = Object.freeze(((["own", "target"] as const).flatMap((of) => (["stagger", "width", "height"] as const).map((key) => ({ of, key, span: STANCE_SPANS[key] })))));
 
 /** `stance`'s numbers in `STANCES`' order into `out` from `at`, NaN where it records none. */
 function stanceInto(stance: Stances | undefined, out: Float64Array, at = 0): void {
