@@ -43,6 +43,8 @@ import type { Rail } from "../../game/arena/rail.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
+import { STAGGERED } from "../../skills/locomotion/move/gaits.ts";
+import { inCarriage } from "../../minds/option/config.ts";
 import { between } from "../twin.ts";
 
 /**
@@ -250,7 +252,15 @@ export type StillCondition = { readonly model: BodyModel; readonly mark: Mark } 
   /** How the striker first moves, where its rung draws it (`Approach`). */
   readonly approach?: Approach;
   /** Where the drill lets its strike go, s after it began; absent where it does not. */
-  readonly letGo?: number };
+  readonly letGo?: number;
+  /** Which bodies stand staggered (`STAGGERED`) all trial, where its rung draws it: the striker, the target or both; absent, both square. */
+  readonly staggered?: Staggered };
+
+/** Which bodies of a trial stand staggered (`StillCondition.staggered`). */
+type Staggered = "striker" | "target" | "both";
+
+/** The pairings of stances a rung that draws them takes by turns: both square, the striker staggered, the target, both. */
+const PAIRINGS: readonly (Staggered | undefined)[] = Object.freeze([undefined, "striker", "target", "both"]);
 
 type FightCondition = { readonly model: BodyModel; readonly foe: string; readonly mark: Mark } & Limb & { readonly moment: number;
   /** How far apart the two start, m, where its rung names it: the open stage's own where it does not. */
@@ -281,7 +291,7 @@ function railOf(moving: Moving, settled: number, direction: Direction, speed: nu
  * in turn from one stream, the same for every body, each drawn to the millimetre and the
  * hundredth; its limbs, its hands then its feet, by turns, and its marks and targets by turns of them.
  */
-function sampledConditions(protocol: typeof SAMPLED & { readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[] }): StillCondition[] {
+function sampledConditions(protocol: typeof SAMPLED & { readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly stances?: true }): StillCondition[] {
   const conditions: StillCondition[] = [], within = ([low, high]: readonly number[], at: number) => low! + at * (high! - low!);
   const limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
   for (const model of protocol.models) {
@@ -289,10 +299,12 @@ function sampledConditions(protocol: typeof SAMPLED & { readonly feet?: readonly
     for (let k = 0; k < protocol.trials; k++) {
       const way = APPROACHES[k % APPROACHES.length]!, limb = limbs[k % limbs.length]!, turn = Math.floor(k / limbs.length), mark = protocol.marks[turn % protocol.marks.length]!;
       const target = protocol.targets?.[turn % protocol.targets.length];
+      // Each limb, mark and target takes each pairing in turn, where the rung draws stances.
+      const staggered = protocol.stances ? PAIRINGS[Math.floor(turn / (protocol.marks.length * (protocol.targets?.length ?? 1))) % PAIRINGS.length] : undefined;
       const gap = within(way === 0 ? protocol.closer : protocol.gaps, stream.next()), across = within(protocol.across, stream.next());
       const speed = within(protocol.speeds, stream.next()), seconds = within(protocol.times, stream.next());
       conditions.push({ model, mark, ...limb, ...(target === undefined ? {} : { target }), across: Math.round(across * 1000) / 1000, gap: Math.round(gap * 1000) / 1000,
-        ...(way === null ? {} : { approach: { way, speed: Math.round(speed * 100) / 100, seconds: Math.round(seconds * 100) / 100 } }) });
+        ...(way === null ? {} : { approach: { way, speed: Math.round(speed * 100) / 100, seconds: Math.round(seconds * 100) / 100 } }), ...(staggered ? { staggered } : {}) });
     }
   }
   return conditions;
@@ -397,6 +409,14 @@ const SPARRING_DRAWN = deepFreeze({ ...SPARRING, seed: 3, trials: SPARRING.trial
 const SPARRING_JUDGE = deepFreeze({ ...SPARRING, seed: 4, trials: SPARRING.trials * 10 });
 
 /**
+ * **Sparring in stances**, `sparring-stances`: sparring's starts on a stream of their own, a
+ * Warrior at a Warrior, each body square or staggered (`STAGGERED`) by turns, four pairings
+ * (`PAIRINGS`) of as many starts each as `sparring-drawn` and `sparring-judge` give a Warrior at
+ * one: what a profile reads how the two stand by (`Start.stance`).
+ */
+const SPARRING_STANCES = deepFreeze({ ...SPARRING, models: ["man"] as BodyModel[], targets: ["man"] as BodyModel[], seed: 5, trials: SPARRING.trials * 20 / 3 * PAIRINGS.length, stances: true as const });
+
+/**
  * **Sparring at a foe laid down**, the `sparring-laid` rung: the stomping rung's sampled starts
  * (`STOMPING_SAMPLED`), with each foot, at each of the game's foes laid down and fighting back
  * (`SPARRING_FOE`), which rises as it would. A foe that keeps its balance is shoved four times as
@@ -490,11 +510,14 @@ export const createStrikeCases = perContext((context: GameContext) => {
       faults: (value, condition, subject) => [...caseFaults(value, condition, subject),
         ...protocol.motion && (value as unknown as StrikeSubject).held?.[handOf(condition)!] !== "club" ? ["swing motion observes the hand holding a club"] : []],
       world: ([value], condition, engine, [seat]) => {
-        const { model, gap, across, mark, target, start, approach, letGo, direction, speed } = condition as StillCondition, hand = handOf(condition as StillCondition);
+        const { model, gap, across, mark, target, start, approach, letGo, direction, speed, staggered } = condition as StillCondition, hand = handOf(condition as StillCondition);
         const side = protocol.toward === "hand" && hand === "left" ? across : -across;
         const carried = moving && direction !== undefined && speed !== undefined ? railOf(moving, protocol.settled, direction, speed, gap, side) : null;
         const leading = opposed(striker(value as unknown as StrikeSubject, effectorOf(condition), mark, { after: protocol.settled, pace: protocol.pace,
           walking: start === "walking" || carried !== null || approach !== undefined, ...(approach === undefined ? {} : { approach }), ...(letGo === undefined ? {} : { letGo }) }), opponentOf(protocol.opponent ?? STANDING)!);
+        // A body drawn staggered walks every stance walk of its mind in that carriage all trial.
+        const minds = staggered === undefined ? leading.minds : { left: staggered === "target" ? leading.minds.left : inCarriage(leading.minds.left, STAGGERED),
+          right: staggered === "striker" ? leading.minds.right : inCarriage(leading.minds.right, STAGGERED) };
         return { kind: "bout", engine, tape: [], ...protocol.timing === undefined ? {} : { timing: protocol.timing },
         // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
         recipe: { left: model, right: target ?? "man", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideCharacters({ left: model, right: target ?? "man" }, { left: seat, ...foeSeat(protocol.opponent ?? STANDING) }),
@@ -502,7 +525,7 @@ export const createStrikeCases = perContext((context: GameContext) => {
           ...loadoutsOf(value as unknown as StrikeSubject),
           // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
           start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: carried ? [...carried.from] : [gap / 2, side], heading: -Math.PI / 2 } },
-          ...leading,
+          ...leading, minds,
           ...(carried ? { rail: carried.rail } : {}),
           // Facing -x, its back is toward +x: 90 degrees from +z.
           ...(protocol.laid ? { shove: { side: "right", segment: protocol.laid.segment, degrees: 90, at: 0,
@@ -549,6 +572,7 @@ export const createStrikeCases = perContext((context: GameContext) => {
     sparring: { ...stillCases(SPARRING, sampledConditions(SPARRING)), twin: "sparring-twin" }, "sparring-twin": stillCases(SPARRING_TWIN, sampledConditions(SPARRING_TWIN)),
     "sparring-drawn": stillCases(SPARRING_DRAWN, sampledConditions(SPARRING_DRAWN)),
     "sparring-judge": stillCases(SPARRING_JUDGE, sampledConditions(SPARRING_JUDGE)),
+    "sparring-stances": stillCases(SPARRING_STANCES, sampledConditions(SPARRING_STANCES)),
     "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
     "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),

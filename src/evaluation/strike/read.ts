@@ -14,6 +14,7 @@ import { centreReading } from "../../control/observation.ts";
 import { aimOf, holdsNothing } from "../../skills/reach/hand.ts";
 import { effectorAim } from "../../control/effectors.ts";
 import { sensedPosture } from "../../skills/perception/threat.ts";
+import { ownStance, sensedStance } from "../../skills/perception/stance-numbers.ts";
 import { acos, asin, cos } from "../../core/math/real.ts";
 import { skillOf } from "../../skills/framework/menu.ts";
 import { faceOf } from "../../skills/strikes/shared/held-face.ts";
@@ -22,7 +23,7 @@ import type { BuiltBout } from "../bout.ts";
 import type { HostedBody } from "../../minds/seat/hosted-body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { modelSpec } from "../../core/bodies/models.ts";
-import { startVelocity } from "../../skills/framework/profile.ts";
+import { startVelocity, type Stances } from "../../skills/framework/profile.ts";
 import { placeInWindow } from "../../skills/intent/action-window.ts";
 import type { Reader } from "../evaluation.ts";
 import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
@@ -267,9 +268,11 @@ export type StrikeReading = {
    * The target as the striker sensed it then: its posture (`sensedPosture`), how far apart the two
    * were, centre to centre across the ground (the striker's stance centre to the target's sensed
    * centre), m, and the striker's velocity against the target's (`startVelocity`): closing on it
-   * and across the line to it, positive to the striker's right, m/s; null where it never sensed it.
+   * and across the line to it, positive to the striker's right, m/s; and how each stood
+   * (`Stances`: the striker's from its view, `ownStance`, the target's as sensed, `sensedStance`),
+   * each absent where it was not read; null where it never sensed it.
    */
-  readonly foeAt: { readonly posture: string; readonly apart: number; readonly velocity: readonly [number, number] } | null;
+  readonly foeAt: { readonly posture: string; readonly apart: number; readonly velocity: readonly [number, number]; readonly stance?: Stances } | null;
   /**
    * Where the striker stood then in the window of the drill's choice, as its menu read it
    * (`MenuEntry.readiness`): the target's offset from the window's middle, ahead and to its right,
@@ -479,8 +482,10 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
     const phase = sensedPhase({ senses, head: head.centre, stance: { centre: centre.set(at[0], at[1], at[2]) } }, duel.duelists.right.id);
     if (!other) return { phase, at: null, window: null };
     const dx = other.centre.x - at[0], dz = other.centre.z - at[2], own = moving();
+    const mine = view ? ownStance(left.built.spec, view, other.centre) : null, theirs = sensedStance(other, { x: at[0], z: at[2] });
+    const stance = mine || theirs ? { ...(mine ? { own: mine } : {}), ...(theirs ? { target: theirs } : {}) } : null;
     return { phase, at: { posture: sensedPosture(other), apart: Math.sqrt(dx * dx + dz * dz),
-      velocity: startVelocity({ x: dx, z: dz }, { x: own.x - other.velocity.x, z: own.z - other.velocity.z }) }, window: placed() };
+      velocity: startVelocity({ x: dx, z: dz }, { x: own.x - other.velocity.x, z: own.z - other.velocity.z }), ...(stance ? { stance } : {}) }, window: placed() };
   };
   /** Which feet bear on the ground, and the centre of mass's speed over it, as this step left them. */
   const footing = (): NonNullable<StrikeReading["asked"]> => {

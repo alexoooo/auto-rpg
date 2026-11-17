@@ -19,7 +19,8 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  * A trial's start (`Start`) is where the striker sensed the target as it began (the reading's
  * `foeAt` and `foePhase`): the range centre to centre, the target's phase and posture, the
  * striker's velocity against the target's (`foeAt.velocity`), and where it stood in its strike's
- * window (`inWindow`); each absent in a record from before the reading held it. With them, the
+ * window (`inWindow`), and how each body stood (`foeAt.stance`); each absent in a record from before
+ * the reading held it. With them, the
  * Steadiness and haste of each body as its row's bout built it, where its character set one apart
  * from its model's own (`startLevels`): rows played at several levels make one profile, read at
  * the level nearest a body's. A profile keeps
@@ -64,8 +65,8 @@ import { rulebook } from "../../../src/combat/rulebook.ts";
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
 /** The Strike drill's rungs a profile is measured on: a strike thrown from drawn starts at a foe fighting back (`SPARRING`, `SPARRING_LAID`, `src/evaluation/strike/cases.ts`). */
 const PROTOCOLS = Object.freeze(["sparring", "sparring-laid"]);
-/** Sparring's starts drawn from its other streams (`SPARRING_TWIN`, `SPARRING_DRAWN`, `SPARRING_JUDGE`): the same rung on another draw, which a profile may be measured on in its place. */
-const DRAWS = Object.freeze(["sparring-twin", "sparring-drawn", "sparring-judge"]);
+/** Sparring's starts drawn from its other streams (`SPARRING_TWIN`, `SPARRING_DRAWN`, `SPARRING_JUDGE`, and `SPARRING_STANCES`, each body square or staggered): the same rung on another draw, which a profile may be measured on in its place. */
+const DRAWS = Object.freeze(["sparring-twin", "sparring-drawn", "sparring-judge", "sparring-stances"]);
 const write = process.argv.includes("--write");
 const paths = process.argv.slice(2).filter((arg) => arg !== "--write");
 if (!paths.length) throw new Error(`name a run of the Strike drill's sparring: npm run evaluate -- strike <subject> --protocol ${PROTOCOLS.join("|")} --json <run.json>`);
@@ -142,7 +143,8 @@ for (const path of paths) {
     if (r.foePhase === null || r.foeAt === null || r.began === null) continue;
     const posture = r.foeAt.posture ?? "standing", levels = startLevels(spec, struck);
     const start = { range: round(r.foeAt.apart), phase: r.foePhase, ...(posture === "standing" ? {} : { postures: { own: "standing", target: posture } }),
-      ...(r.foeAt.velocity ? { velocity: r.foeAt.velocity.map(round) } : {}), ...(r.inWindow ? { window: r.inWindow.map(round) } : {}), ...(levels ? { levels } : {}) };
+      ...(r.foeAt.velocity ? { velocity: r.foeAt.velocity.map(round) } : {}), ...(r.inWindow ? { window: r.inWindow.map(round) } : {}),
+      ...(r.foeAt.stance ? { stance: r.foeAt.stance } : {}), ...(levels ? { levels } : {}) };
     if (drill.letGo !== undefined) {
       // Past its point of no return, a strike is not let go: such a trial prices nothing.
       if (r.letGo) profile.trials.push({ start, done: false, dealt: 0, taken: round(r.taken ?? 0), seconds: round((r.ended ?? r.seconds) - r.began), recovers: null, down: r.down,
@@ -157,8 +159,8 @@ for (const path of paths) {
   }
 }
 
-/** How much of its start a trial records: its velocity, and where it stood in its window. */
-const recorded = (trial) => (trial.start.velocity ? 1 : 0) + (trial.start.window ? 1 : 0);
+/** How much of its start a trial records: its velocity, where it stood in its window, and how the bodies stood. */
+const recorded = (trial) => (trial.start.velocity ? 1 : 0) + (trial.start.window ? 1 : 0) + (trial.start.stance ? 1 : 0);
 // A strike no fight began has no profile: its mind prices it by hand.
 for (const [key, profile] of profiles) if (!profile.trials.length) { console.log(`${profile.label}: begun in no fight, so it has no profile`); profiles.delete(key); }
 for (const profile of profiles.values()) {

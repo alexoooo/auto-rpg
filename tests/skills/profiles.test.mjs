@@ -156,6 +156,29 @@ test("a profile whose trials began at several Steadinesses is read at the level 
 });
 
 /**
+ * **How each body stood is a condition of a profile's trials** (`Start.stance`): a strike thrown
+ * from a stagger and one from square are read apart, each body's stance by the trials begun
+ * nearest it, beyond their span by the nearest that one did; a start asked at no stance, or a
+ * profile that records none, reads as before.
+ */
+test("a profile whose trials began in two stances is read at the stance nearest each body's", async () => {
+  const { profileReading } = await import("../../src/skills/framework/profile.ts");
+  const spec = resolveCharacter({ model: "man" }).spec;
+  const square = { stagger: 0, width: .25, height: 1 }, staggered = { stagger: .4, width: .25, height: .9 }, beyond = { stagger: .6, width: .25, height: .85 };
+  const trial = (range, done, stance) => ({ start: { phase: "clear", range, ...(stance ? { stance } : {}) }, done, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false });
+  const ranges = Array.from({ length: 12 }, (_, k) => .5 + k * .02), measured = { body: "man", skill: "straight-punch/drive", hz: 120, reaction: null }, target = { body: "man" };
+  for (const side of ["own", "target"]) {
+    const profile = { measured, target, trials: ranges.flatMap((range) => [trial(range, false, { [side]: square }), trial(range, true, { [side]: staggered })]) };
+    const done = (stance) => profileReading(profile, spec).expect({ phase: "clear", range: .6, ...(stance ? { stance: { [side]: stance } } : {}) }, spec).done;
+    assert.deepEqual([done(square), done(staggered), done(beyond)], [0, 1, 1], `${side}'s stance`);
+    assert.equal(done(undefined), .5, `${side}: a start asked at no stance reads both`);
+  }
+  const unrecorded = { measured, target, trials: ranges.flatMap((range) => [trial(range, false), trial(range, true)]) };
+  assert.equal(profileReading(unrecorded, spec).expect({ phase: "clear", range: .6, stance: { own: staggered } }, spec).done,
+    profileReading(unrecorded, spec).expect({ phase: "clear", range: .6 }, spec).done);
+});
+
+/**
  * A failed zero-duration trial produced NaN instead of a failed finite rate.
  */
 test("a zero-length failed profile trial has a finite failed rate", async () => {

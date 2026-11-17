@@ -31,5 +31,16 @@ const GAITS: Readonly<Record<string, { readonly label: string; readonly legs: Co
 /** **The stock gaits** (`GAITS`) as gaits: what Move walks by where its config names none. */
 export const STOCK_GAITS: readonly Gait[] = deepFreeze(Object.entries(GAITS).map(([name, gait]) => ({ name, label: gait.label, legs: gait.legs })));
 
+/**
+ * **The staggered carriage** (`Carriage`): the left foot 0.4 m ahead of the right, the soles
+ * 0.25 m apart across the heading, the centre 0.1 m lower; the carriage the back step sways from,
+ * and what a strike's profile is measured in beside the square stand.
+ */
+export const STAGGERED = deepFreeze({ lead: "left", width: .25, stagger: .4, lower: .1 } as const);
+
+/** `gaits` with each stance walk among them held in `carriage` (`Carriage`), the others as they are. */
+export const gaitsIn = (gaits: readonly Gait[], carriage: typeof STAGGERED): readonly Gait[] =>
+  gaits.map((gait) => gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } as ConfigFor<"gait"> } : gait);
+
 /** The gait of `gaits` called `name`; null where none is. */
 export const gaitNamed = (gaits: readonly Gait[], name: GaitName): Gait | null => gaits.find((gait) => gait.name === name) ?? null;

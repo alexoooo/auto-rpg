@@ -13,10 +13,11 @@ import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs
 import { deepFreeze } from "../../core/state.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
 import { ordersAsked, type Orders } from "../orders.ts";
-import { measuredAt, profileAgainst, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Measured, type Postures, type Profile, type ProfileReading } from "../../skills/framework/profile.ts";
+import { measuredAt, profileAgainst, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Measured, type Postures, type Profile, type ProfileReading, type Stances } from "../../skills/framework/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../../skills/perception/threat.ts";
+import { stancesOf, turned } from "../../skills/perception/stance-numbers.ts";
 import type { GroundReading, Position } from "../../control/ground-reading.ts";
 import type { RiseMemory } from "./rise-memory.ts";
 import type { Situation } from "./option.ts";
@@ -259,6 +260,8 @@ export interface Pressure {
   readonly peak: number;
   readonly latency: number;
   readonly priced: string;
+  /** How the striker and the struck body stand toward each other (`Stances`), at which its model is read; absent, read as alike any. */
+  readonly stance?: Stances;
   /** The rate at an exact start, where a search keeps query scratch (`cachedPressure`). */
   readonly rateAt?: (range: number, velocity: readonly [number, number]) => number;
 }
@@ -317,7 +320,8 @@ function pressureOf(seen: Seen): Pressure {
   const { focus, spec } = seen;
   if (!focus) return NO_PRESSURE;
   const posture = sensedPosture(focus), postures = { own: posture, target: "standing" };
-  return pressureBy(seen, pooled(foeModel(seen, focus.spec, postures), focus.spec, postures), ownPhase(seen), focus.spec, spec, placingAt(posture));
+  return { ...pressureBy(seen, pooled(foeModel(seen, focus.spec, postures), focus.spec, postures), ownPhase(seen), focus.spec, spec, placingAt(posture)),
+    stance: turned(stancesOf(spec, seen.sight.view, focus)) };
 }
 
 /**
@@ -328,7 +332,8 @@ function pressingOf(seen: Seen): Pressure {
   const { focus, spec } = seen;
   if (!focus) return NO_PRESSURE;
   const posture = sensedPosture(focus);
-  return pressureBy(seen, ownModel(seen, focus.spec, { own: "standing", target: posture }), foePhase(focus, seen.blow), spec, focus.spec, placingAt(posture));
+  return { ...pressureBy(seen, ownModel(seen, focus.spec, { own: "standing", target: posture }), foePhase(focus, seen.blow), spec, focus.spec, placingAt(posture)),
+    stance: stancesOf(spec, seen.sight.view, focus) };
 }
 
 /**
@@ -355,7 +360,7 @@ function pressureRateAt(pressure: Pressure, range: number, velocity: readonly [n
   let rate = 0;
   for (const reading of pressure.model) {
     if (!within(range, reading.reach(pressure.phase))) continue;
-    const expected = reading.rate({ range, phase: pressure.phase, velocity }, pressure.struck);
+    const expected = reading.rate(pressure.stance ? { range, phase: pressure.phase, velocity, stance: pressure.stance } : { range, phase: pressure.phase, velocity }, pressure.struck);
     if (expected !== null) rate = Math.max(rate, expected);
   }
   return rate;
@@ -493,7 +498,8 @@ function lifeOf(seen: Seen, blow: Seen["blow"]): number {
   const measured = foeModel(seen, blow.foe.spec).measured.filter((one) => one.limbs.includes(blow.limb)).map((one) => one.reading);
   const model = measured.length ? measured : [priorOf(blow.foe.spec, spec, range, LANDS * blowLife(seen.rules, blow.foe.spec, blow.limb, spec, blow.closing), 1)];
   let most = 0;
-  for (const reading of model) most = Math.max(most, reading.expect({ range: Math.min(range, reading.reach(phase)), phase, velocity }, spec)?.dealt ?? 0);
+  const stance = turned(stancesOf(spec, sight.view, foe));
+  for (const reading of model) most = Math.max(most, reading.expect({ range: Math.min(range, reading.reach(phase)), phase, velocity, stance }, spec)?.dealt ?? 0);
   return most;
 }
 
@@ -544,6 +550,9 @@ function downRateAtOf(seen: Seen): (posture: Position) => number {
  * blow it strikes with, s (Infinity with none). Its cues: going down or getting up, another posture,
  * orders asking for something else (`ordersAsked`), another focus, a threat or a blow coming.
  */
+/** How two bodies stand with no focus: neither read. */
+const NO_STANCES: Stances = Object.freeze({});
+
 const PERCEPTS = Object.freeze({
   down: { read: (seen) => seen.sight.view.down, cue: (down) => down } as Percept<boolean>,
   posture: { read: ({ sight }) => sight.view.ground?.position ?? (sight.view.down ? "between" : "standing"), cue: (posture) => posture } as Percept<Position>,
@@ -570,6 +579,7 @@ const PERCEPTS = Object.freeze({
   motorUnmet: { read: ({ sight }) => sight.view.unmet } as Percept<MotorUnmet>,
   phase: { read: ({ focus, blow }) => foePhase(focus, blow) } as Percept<FoePhase>,
   foePosture: { read: ({ focus }) => focus ? sensedPosture(focus) : "standing" } as Percept<Position>,
+  stances: { read: ({ focus, spec, sight }) => focus ? stancesOf(spec, sight.view, focus) : NO_STANCES } as Percept<Stances>,
   contact: { read: ({ focus, blow }) => focus && blow?.foe.id === focus.id ? blow.seconds : Infinity } as Percept<number>,
 });
 

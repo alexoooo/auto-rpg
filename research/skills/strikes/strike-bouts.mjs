@@ -134,11 +134,7 @@ if (isMainThread) {
   const { centreOfToRef } = await import("../../../src/core/bodies/read-motion.ts");
   /** A model's own mind with its chooser's objective the few terms at `aggression`. */
   const mindAt = (model, aggression) => { const mind = CONTEXT.defaultMind(model); return { ...mind, chooser: { ...mind.chooser, objective: { kind: "few-terms", aggression } } }; };
-  const { withLegs } = await import("../../../src/minds/option/config.ts");
-  const { GOING } = await import("../../../src/skills/locomotion/move/index.ts");
-  const { STOCK_GAITS } = await import("../../../src/skills/locomotion/move/gaits.ts");
-  /** `mind` with its stance-walk gaits in `carriage`. */
-  const carried = (mind, carriage) => withLegs(mind, { ...GOING, gaits: STOCK_GAITS.map((gait) => gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait) });
+  const { inCarriage: carried } = await import("../../../src/minds/option/config.ts");
   parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, aggression, carriages = {} }) => {
     let dispose;
     try {

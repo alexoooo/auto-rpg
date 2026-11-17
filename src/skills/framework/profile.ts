@@ -110,7 +110,8 @@ export const STANDING: Postures = Object.freeze({ own: "standing", target: "stan
  * the body's own (forward and to its right), absent where its drill did not record it, read as
  * still; and, for a skill begun from a window (`Window`), where in it the body stood
  * (`placeInWindow`: the target's offset from the window's middle, ahead and to the right, m),
- * absent where it begins from none or its drill did not record it, read as at the middle. A trial
+ * absent where it begins from none or its drill did not record it, read as at the middle; how each
+ * body stood (`Stances`), absent where its drill did not record it, read as alike any. A trial
  * records as well the levels its bodies began at (`Levels`); a reading is asked at none, its
  * bodies' levels being their specs' (`Asked`).
  */
@@ -120,7 +121,42 @@ interface Start {
   readonly postures?: Postures;
   readonly velocity?: readonly [number, number];
   readonly window?: readonly [number, number];
+  readonly stance?: Stances;
   readonly levels?: Levels;
+}
+
+/**
+ * **How a body stands**, m (`stanceNumbers`, `src/skills/perception/stance-numbers.ts`): its feet's stagger along the line to the other
+ * body, positive with its left foot nearer it; their width across that line; and its centre's
+ * height over them. Numbers, not a named stance, so a reading takes the trials begun nearest how
+ * the bodies stand whatever gait stood them so.
+ */
+export type StanceNumbers = {
+  readonly stagger: number;
+  readonly width: number;
+  readonly height: number;
+};
+
+/** **How the two bodies of a start stood** (`StanceNumbers`): the body whose skill it is, `own`, and the body it struck, `target`; each absent where it was not read. */
+export type Stances = {
+  readonly own?: StanceNumbers;
+  readonly target?: StanceNumbers;
+};
+
+/**
+ * **The stance numbers a start is compared by**, beside its range, velocity and place: each body's
+ * each number, and the span over which trials are taken as alike, m. A sparring start is mostly a
+ * walking one, and a walk swings the feet's stagger 0.3 m either way a stride and their width
+ * 0.2 m, staggered or square alike, while a staggered body's centre stands about 0.045 m lower:
+ * height tells the two apart, stagger and width little. Tuned on 335 trials of
+ * `sparring-stances`, a Warrior at a Warrior: with these spans a start's ten nearest trials were of
+ * its own pairing 0.57 to 0.72 of the time (a quarter by chance), and height alone did as well.
+ */
+const STANCES = Object.freeze(((["own", "target"] as const).flatMap((of) => [{ of, key: "stagger", span: 1 }, { of, key: "width", span: .4 }, { of, key: "height", span: .02 }] as const)));
+
+/** `stance`'s numbers in `STANCES`' order into `out` from `at`, NaN where it records none. */
+function stanceInto(stance: Stances | undefined, out: Float64Array, at = 0): void {
+  for (let k = 0; k < STANCES.length; k++) { const { of, key } = STANCES[k]!; out[at + k] = stance?.[of]?.[key] ?? NaN; }
 }
 
 /** Where a reading is asked at: a start less its bodies' levels, which the reading takes from their specs. */
@@ -242,6 +278,8 @@ const profilePair = (value: unknown): boolean => Array.isArray(value) && value.l
 const profilePostures = (value: unknown): boolean => profileObject(value) && profileText(value.own) && profileText(value.target);
 const profileLevels = (value: unknown): boolean => profileObject(value) && [value.own, value.target].every((body) => body === undefined
   || profileObject(body) && [body.steadiness, body.haste].every((level) => level === undefined || profileNumber(level)));
+const profileStanceNumbers = (value: unknown): boolean => profileObject(value) && [value.stagger, value.width, value.height].every(profileNumber);
+const profileStances = (value: unknown): boolean => profileObject(value) && [value.own, value.target].every((body) => body === undefined || profileStanceNumbers(body));
 const profileTarget = (value: unknown): boolean => profileObject(value) && profileText(value.body) && (value.holds === undefined || profileText(value.holds));
 const profileOrigin = (value: unknown): boolean => profileObject(value)
   && [value.spec, value.skill, value.target, value.commit, value.date].every((one) => one === undefined || profileText(one))
@@ -257,6 +295,7 @@ const profileTrial = (value: unknown): boolean => profileObject(value) && profil
   && (value.start.velocity === undefined || profilePair(value.start.velocity))
   && (value.start.window === undefined || profilePair(value.start.window))
   && (value.start.levels === undefined || profileLevels(value.start.levels))
+  && (value.start.stance === undefined || profileStances(value.start.stance))
   && typeof value.done === "boolean" && typeof value.down === "boolean"
   && profileNonnegative(value.dealt) && profileNonnegative(value.taken) && profileNonnegative(value.seconds)
   && (value.recovers === null || profileNonnegative(value.recovers))
@@ -375,6 +414,8 @@ interface Sample {
   readonly low: Read;
   readonly high: Read;
   readonly levels: { readonly at: readonly Float64Array[]; readonly low: Float64Array; readonly high: Float64Array } | null;
+  /** Where any of its trials records how its bodies stood: each trial's numbers (`STANCES`' order, NaN where it records none, `stanceInto`) and their spans. */
+  readonly stances: { readonly at: Float64Array; readonly low: Float64Array; readonly high: Float64Array } | null;
 }
 
 /** `trials` as a sample; with `defaults`, the levels a trial that records none began at, its trials' levels beside. */
@@ -383,7 +424,15 @@ function sampleOf(trials: readonly Trial[], defaults: Float64Array | null): Samp
   const range = new Float64Array(n), closing = new Float64Array(n), across = new Float64Array(n), ahead = new Float64Array(n), aside = new Float64Array(n);
   const low: [number, number, number, number] = [Infinity, Infinity, Infinity, Infinity], high: [number, number, number, number] = [-Infinity, -Infinity, -Infinity, -Infinity];
   const levels = defaults && { at: LEVELS.map(() => new Float64Array(n)), low: new Float64Array(LEVELS.length).fill(Infinity), high: new Float64Array(LEVELS.length).fill(-Infinity) };
+  const stances = sorted.some((trial) => trial.start.stance) ? { at: new Float64Array(n * STANCES.length), low: new Float64Array(STANCES.length).fill(Infinity), high: new Float64Array(STANCES.length).fill(-Infinity) } : null;
   sorted.forEach((trial, i) => {
+    if (stances) {
+      stanceInto(trial.start.stance, stances.at, i * STANCES.length);
+      for (let k = 0; k < STANCES.length; k++) {
+        const v = stances.at[i * STANCES.length + k]!;
+        if (v === v) { stances.low[k] = Math.min(stances.low[k]!, v); stances.high[k] = Math.max(stances.high[k]!, v); }
+      }
+    }
     if (levels) levelsAt(trial.start.levels, defaults).forEach((level, k) => {
       levels.at[k]![i] = level; levels.low[k] = Math.min(levels.low[k]!, level); levels.high[k] = Math.max(levels.high[k]!, level);
     });
@@ -391,7 +440,7 @@ function sampleOf(trials: readonly Trial[], defaults: Float64Array | null): Samp
     range[i] = trial.start.range; closing[i] = at[0]; across[i] = at[1]; ahead[i] = at[2]; aside[i] = at[3];
     for (const k of [0, 1, 2, 3] as const) { low[k] = Math.min(low[k], at[k]); high[k] = Math.max(high[k], at[k]); }
   });
-  return { trials: sorted, range, closing, across, ahead, aside, low, high, levels, distances: new Float64Array(n) };
+  return { trials: sorted, range, closing, across, ahead, aside, low, high, levels, stances, distances: new Float64Array(n) };
 }
 
 /**
@@ -407,13 +456,22 @@ function within(sample: Sample, at: Asked, read: Nearest["read"]): void {
   read[2] = Math.min(high[2], Math.max(low[2], ahead)); read[3] = Math.min(high[3], Math.max(low[3], aside));
 }
 
-/** How far `sample`'s trial `i` lies from a start at `range` read at `read` (`within`) and, where its trials record levels, at `levels`, each part over its span (`NEAREST`, `LEVELS`). */
-function apart(sample: Sample, i: number, range: number, read: Read, levels: Float64Array): number {
+/**
+ * How far `sample`'s trial `i` lies from a start at `range` read at `read` (`within`); where its
+ * trials record levels, at `levels`; and where they record how their bodies stood, at `stance`
+ * (NaN where not asked: a number a trial or the question lacks is no part of it), each part over
+ * its span (`NEAREST`, `LEVELS`, `STANCES`).
+ */
+function apart(sample: Sample, i: number, range: number, read: Read, levels: Float64Array, stance: Float64Array): number {
   const near = hypot(hypot((sample.range[i]! - range) / NEAREST.range, (sample.closing[i]! - read[0]) / NEAREST.speed, (sample.across[i]! - read[1]) / NEAREST.speed),
     (sample.ahead[i]! - read[2]) / NEAREST.place, (sample.aside[i]! - read[3]) / NEAREST.place);
-  if (!sample.levels) return near;
+  if (!sample.levels && !sample.stances) return near;
   let squared = near * near;
-  for (let k = 0; k < LEVELS.length; k++) { const by = (sample.levels.at[k]![i]! - levels[k]!) / LEVELS[k]!.span; squared += by * by; }
+  if (sample.levels) for (let k = 0; k < LEVELS.length; k++) { const by = (sample.levels.at[k]![i]! - levels[k]!) / LEVELS[k]!.span; squared += by * by; }
+  if (sample.stances) for (let k = 0; k < STANCES.length; k++) {
+    const by = (sample.stances.at[i * STANCES.length + k]! - stance[k]!) / STANCES[k]!.span;
+    if (by === by) squared += by * by;
+  }
   return Math.sqrt(squared);
 }
 
@@ -428,10 +486,10 @@ function firstFrom(sample: Sample, range: number): number {
 const BEST = new Float64Array(NEAREST.trials);
 
 /** A nearest query's clamped coordinates, bounds and visited interval, held through aggregation. */
-interface Nearest { from: number; to: number; bound: number; readonly read: [number, number, number, number]; readonly levels: Float64Array; visitedFrom: number; visitedTo: number }
+interface Nearest { from: number; to: number; bound: number; readonly read: [number, number, number, number]; readonly levels: Float64Array; readonly stance: Float64Array; visitedFrom: number; visitedTo: number }
 
 /** One query's work; nested queries use a frame of their own until the outer aggregation ends. */
-const nearestWork = (): Nearest => ({ from: 0, to: 0, bound: 0, read: [0, 0, 0, 0], levels: new Float64Array(LEVELS.length), visitedFrom: 0, visitedTo: 0 });
+const nearestWork = (): Nearest => ({ from: 0, to: 0, bound: 0, read: [0, 0, 0, 0], levels: new Float64Array(LEVELS.length), stance: new Float64Array(STANCES.length), visitedFrom: 0, visitedTo: 0 });
 const QUERY_WORK = { depth: 0, frames: [nearestWork()] };
 
 /** Keep distance `d` among the nearest `want`, returning how many have been found. */
@@ -452,9 +510,11 @@ function keepNearest(d: number, found: number, want: number): number {
 function nearestOf(sample: Sample, at: Asked, asked: Float64Array, near: Nearest): boolean {
   const n = sample.range.length;
   if (n === 0) return false;
-  const read = near.read, levels = near.levels;
+  const read = near.read, levels = near.levels, stance = near.stance;
   within(sample, at, read);
   if (sample.levels) for (let k = 0; k < LEVELS.length; k++) levels[k] = Math.min(sample.levels.high[k]!, Math.max(sample.levels.low[k]!, asked[k]!));
+  // How the bodies stand is read within the span its trials stood at, as a velocity is; NaN, not asked, stays NaN.
+  if (sample.stances) { stanceInto(at.stance, stance); for (let k = 0; k < STANCES.length; k++) stance[k] = Math.min(sample.stances.high[k]!, Math.max(sample.stances.low[k]!, stance[k]!)); }
   const want = Math.min(NEAREST.trials, n);
   let found = 0;
   // Out from the range asked, each way, until the range alone puts a trial past the farthest kept.
@@ -462,12 +522,12 @@ function nearestOf(sample: Sample, at: Asked, asked: Float64Array, near: Nearest
   let visitedFrom = start, visitedTo = start;
   for (let i = start; i < n; i++) {
     if (found === want && (sample.range[i]! - at.range) / NEAREST.range > BEST[want - 1]!) break;
-    const distance = sample.distances[i] = apart(sample, i, at.range, read, levels);
+    const distance = sample.distances[i] = apart(sample, i, at.range, read, levels, stance);
     found = keepNearest(distance, found, want); visitedTo = i + 1;
   }
   for (let i = start - 1; i >= 0; i--) {
     if (found === want && (at.range - sample.range[i]!) / NEAREST.range > BEST[want - 1]!) break;
-    const distance = sample.distances[i] = apart(sample, i, at.range, read, levels);
+    const distance = sample.distances[i] = apart(sample, i, at.range, read, levels, stance);
     found = keepNearest(distance, found, want); visitedFrom = i;
   }
   const bound = BEST[want - 1]! + TIE, span = bound * NEAREST.range;
@@ -484,7 +544,7 @@ function eachNearest(sample: Sample, at: Asked, asked: Float64Array, each: (tria
     let n = 0;
     for (let i = near.from; i < near.to; i++) {
       // The tie tolerance can admit trials beyond the interval visited before pruning.
-      const distance = i >= near.visitedFrom && i < near.visitedTo ? sample.distances[i]! : apart(sample, i, at.range, near.read, near.levels);
+      const distance = i >= near.visitedFrom && i < near.visitedTo ? sample.distances[i]! : apart(sample, i, at.range, near.read, near.levels, near.stance);
       if (distance <= near.bound) { each(sample.trials[i]!); n++; }
     }
     return n;

@@ -1,4 +1,7 @@
 import { recordingKey } from "../../core/world/recording.ts";
+import { GOING, type MoveConfig } from "../../skills/locomotion/move/index.ts";
+import { gaitsIn, STOCK_GAITS, type STAGGERED } from "../../skills/locomotion/move/gaits.ts";
+import type { MindConfig } from "../catalog/config.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import { FILLED, type Filled } from "../../skills/assembly/filled.ts";
 
@@ -22,6 +25,19 @@ export interface OptionMindConfig {
 
 /** `config` on the legs `legs` (role `locomotion`) in place of those its body fits: an experiment's (`OptionMindConfig.tuning`). */
 export const withLegs = (config: OptionMindConfig, legs: ConfigFor<"locomotion">): OptionMindConfig => ({ ...config, tuning: { ...config.tuning, parts: { ...config.tuning?.parts, legs } } });
+
+/**
+ * **`mind` with every stance walk of its legs held in `carriage`** (`gaitsIn`): its legs Move's
+ * (`GOING` where its config names none) with its gaits (the stock ones, `STOCK_GAITS`, where it
+ * names none) so held. A mind that is no Option Mind, or walks by legs other than Move, is refused.
+ */
+export function inCarriage(mind: MindConfig, carriage: typeof STAGGERED): MindConfig {
+  if (mind.kind !== "option") throw new Error(`a ${mind.kind} mind's legs are not held in a carriage`);
+  const config = mind as OptionMindConfig, legs = (config.tuning?.parts?.legs ?? GOING) as ConfigFor<"locomotion"> & { readonly kind: string };
+  if (legs.kind !== "move") throw new Error(`legs of kind ${legs.kind} are not held in a carriage`);
+  const move = legs as unknown as MoveConfig;
+  return withLegs(config, { ...move, gaits: gaitsIn(move.gaits ?? STOCK_GAITS, carriage) } as ConfigFor<"locomotion">);
+}
 
 /** The Options, chooser and predictions supplied where a config names none. */
 export interface OptionAssembly {

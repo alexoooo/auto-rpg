@@ -16,7 +16,7 @@ import { between } from "../twin.ts";
 import { withLegs, type OptionMindConfig } from "../../minds/option/config.ts";
 import { ORDERS_OPTION } from "../../minds/option/kinds.ts";
 import { GOING } from "../../skills/locomotion/move/index.ts";
-import { STOCK_GAITS, type Gait } from "../../skills/locomotion/move/gaits.ts";
+import { STAGGERED, STOCK_GAITS, type Gait } from "../../skills/locomotion/move/gaits.ts";
 import type { ConfigFor } from "../../parts/lookup.ts";
 import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 
@@ -26,8 +26,8 @@ type Attacker = "drill" | "mind";
 /** One trial's conditions: its attacker and the gap it starts at, m. */
 export type BackStepCondition = { readonly attacker: Attacker; readonly gap: number };
 
-/** The carriage the subject is set in as its foe nears and sways from: the left foot 0.4 m ahead, 0.25 m wide, 0.1 m lower. */
-const CARRIAGE = deepFreeze({ lead: "left", width: .25, stagger: .4, lower: .1 });
+/** The carriage the subject is set in as its foe nears and sways from (`STAGGERED`). */
+const CARRIAGE = STAGGERED;
 
 /** The back step as the drill reads best: held back 0.7 s, brought in over 0.5 s, the lead foot stepping 0.1 m in. */
 const BACK_STEP = deepFreeze({ kind: "back-step", carriage: CARRIAGE, out: .7, back: .5, stepIn: .1, follow: .15 });

@@ -4,7 +4,7 @@ import { regionSegments } from "../../skills/framework/action-aim.ts";
 import { heldBeside, placeInWindow, SIDES, windowHolds, windowSpot, type Side } from "../../skills/intent/action-window.ts";
 import { orderAllows, orderedTarget } from "../orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
-import { measuredOn, profileAgainst, profilesFor, readProfile, staleness, strikeSkill, type Expected, type Measured, type Profile } from "../../skills/framework/profile.ts";
+import { measuredOn, profileAgainst, profilesFor, readProfile, staleness, strikeSkill, type Expected, type Stances, type Measured, type Profile } from "../../skills/framework/profile.ts";
 import type { Sight } from "../decider.ts";
 import { along, asking, blocked, READY, standing, type Asked, type Option, type Site, type Situation } from "./option.ts";
 import { startOf, threatened } from "./percepts.ts";
@@ -113,8 +113,8 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const profile = profileOf(now), focus = now.focus;
     if (!profile || !focus) return null;
     const reading = readProfile(profile, measure.spec, { own: "standing", target: now.foePosture });
-    const start: { range: number; phase: string; velocity: readonly [number, number]; window?: readonly [number, number]; progress?: number } =
-      { range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase, velocity: startOf(now) };
+    const start: { range: number; phase: string; velocity: readonly [number, number]; stance: Stances; window?: readonly [number, number]; progress?: number } =
+      { range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase, velocity: startOf(now), stance: now.stances };
     if (place) start.window = place;
     if (progress !== undefined) start.progress = progress;
     return reading.expect(start, focus.spec);
