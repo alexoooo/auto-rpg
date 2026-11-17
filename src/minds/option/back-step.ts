@@ -8,8 +8,11 @@ import { startOf } from "./percepts.ts";
 import { STILL, upOrDown, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 
-/** How long the back step is ordered, s: its sway out and back and its step in, as its profile's trials were (the back step's evaluation's `spar-chosen`). */
+/** How long the back step is ordered at most, s: its sway out and back and its step in (`BACK_STEP_GAIT`). */
 const HELD = 1.65;
+
+/** How long it is held before another Option may take the body, s: its sway out and back (the gait's `out` and `back`), so a counter may follow from where it left the two. */
+const SWAYED = 1.2;
 
 /** The gait it orders (`BACK_STEP_GAIT`). */
 const GAIT = "back-step";
@@ -21,8 +24,11 @@ const GAIT = "back-step";
  * Hz and whose command is `delay` steps late; `profilesFor`, the one against the focus's body,
  * `profileAgainst`) reads the focus at the range it stands at (`ProfileReading.reach`), the body
  * standing in the back step's carriage (`swayStance`, as the Mind reads its stance), its legs ready;
- * none for a body with no such profile, or whose legs do not go by the gait (`goes`). Once begun it runs its time through (`committed`): an
- * order let go mid-sway leaves the stance to catch a body over its rear foot.
+ * none for a body with no such profile, or whose legs do not go by the gait (`goes`). Once begun it
+ * is held through its sway out and back (`committed`, `SWAYED`): an order let go mid-sway leaves the
+ * stance to catch a body over its rear foot; then, to `HELD`, it yields to what the Mind would
+ * rather (a counter from where the sway left the two). Its trials are its own as a Mind took it
+ * (`spar-chosen`), so they run as long as it did.
  *
  * Its model is its profile's, read where it stands (the range, its velocity against the focus's,
  * `startOf`, the focus's phase and how the two stand): no life dealt, the life its trials lost
@@ -54,7 +60,7 @@ export function backStepping(spec: BodySpec, profiles: readonly Profile[], walk:
       if (!standing(now) || now.stances.own !== carriage) return CARRIAGE;
       return expected(now) ? READY : NO_FOE;
     },
-    status: (now): Status => state.since === null || now.time < state.since + HELD ? "committed" : "over",
+    status: (now): Status => state.since === null || now.time < state.since + SWAYED ? "committed" : now.time < state.since + HELD ? "yields" : "over",
     begin(now) { state.since = now.time; },
     end() { state.since = null; },
     priced: (now) => {

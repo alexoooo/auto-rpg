@@ -63,7 +63,8 @@ export type BackStepReading = {
  * subject's velocity against the attacker's, `startVelocity`; how each stood, `Stances`); the
  * subject's own action under way then, by its name and phase, where one was (`own`); how
  * long it was ordered, s; the life the subject lost meanwhile, HP; where it left the two (`exit`:
- * their range head to head as it was ordered no more, m, as a strike's trial records it); and
+ * their range head to head as it was ordered no more, m, as a strike's trial records it, and centre
+ * to centre, `apart`); and
  * whether it went down then or within `SETTLE` s of its end.
  */
 export type Sway = {
@@ -73,7 +74,7 @@ export type Sway = {
   readonly own?: string;
   readonly seconds: number;
   readonly lost: number;
-  readonly exit: { readonly range: number };
+  readonly exit: { readonly range: number; readonly apart: number };
   readonly down: boolean;
 };
 
@@ -121,7 +122,7 @@ export function readBackStep({ world, duel }: { readonly world: World; readonly 
     for (const one of settling) one.down ||= subject.body.down;
     while (settling.length && settling[0]!.until <= now) { const one = settling.shift()!; sways.push({ ...one.sway, down: one.down }); }
     if (going && !swaying) {
-      settling.push({ sway: { at: going.at, phase: going.phase, foeAt: going.foeAt, ...(going.own ? { own: going.own } : {}), seconds: now - going.at, lost: going.lost, exit: { range: range() } }, until: now + SETTLE, down: going.down || subject.body.down });
+      settling.push({ sway: { at: going.at, phase: going.phase, foeAt: going.foeAt, ...(going.own ? { own: going.own } : {}), seconds: now - going.at, lost: going.lost, exit: { range: range(), apart: apartOf(duel) } }, until: now + SETTLE, down: going.down || subject.body.down });
       going = null;
     } else if (!going && swaying) {
       const start = sensed();
