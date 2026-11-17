@@ -44,10 +44,14 @@ const DRILLING = deepFreeze({ kind: "drill", skill: "straight-punch", region: { 
  */
 type Rung = { readonly attacker: Attacker; readonly gaps: readonly number[]; readonly seconds: number; readonly after?: number };
 
-const range = (from: number, to: number, step: number): number[] => Array.from({ length: Math.round((to - from) / step) + 1 }, (_, k) => Number((from + k * step).toFixed(3)));
+const range = (from: number, to: number, step: number): number[] => Array.from({ length: Math.round((to - from) / step) + 1 }, (_, k) => Number((from + k * step).toFixed(4)));
 
 const DRILLED: Rung = deepFreeze({ attacker: "drill", gaps: range(2, 3, .05), seconds: 12, after: 3 });
 const MIND: Rung = deepFreeze({ attacker: "mind", gaps: range(2.6, 4.9, .1), seconds: 20 });
+
+/** Gaps no reading of the back step was chosen on, for the bar's last word: two Mind sets of 24 and a drilled one of 21. A checkpoint is never ranked on them. */
+const MIND_HELD: Rung = deepFreeze({ ...MIND, gaps: [...range(2.6125, 4.9125, .1), ...range(2.6875, 4.9875, .1)] });
+const DRILLED_HELD: Rung = deepFreeze({ ...DRILLED, gaps: range(2.0125, 3.0125, .05) });
 
 export const createBackStepCases = perContext((context: GameContext) => {
   const mindFaults = mindFaultsOf(context), { minds: MINDS } = context.catalog;
@@ -100,7 +104,8 @@ export const createBackStepCases = perContext((context: GameContext) => {
     ({ [name]: { ...backStepCases(rung), twin: `${name}-twin` }, [`${name}-twin`]: backStepCases(deepFreeze({ ...rung, gaps: between(rung.gaps) })) });
 
   /** Every protocol the back step's evaluation may be played on, by name. */
-  const BACK_STEP_CASES: Readonly<Record<string, Cases<BackStepCondition, BackStepReading>>> = Object.freeze({ ...twinned("drilled", DRILLED), ...twinned("mind", MIND) });
+  const BACK_STEP_CASES: Readonly<Record<string, Cases<BackStepCondition, BackStepReading>>> = Object.freeze({ ...twinned("drilled", DRILLED), ...twinned("mind", MIND),
+    "mind-held": backStepCases(MIND_HELD), "drilled-held": backStepCases(DRILLED_HELD) });
 
   return { BACK_STEP_CASES };
 });
