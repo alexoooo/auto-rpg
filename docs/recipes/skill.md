@@ -79,6 +79,11 @@ strikes, guarding and minds are there.
   own test reads the first, at a target that lets it happen; a profile is the second, read where
   the Mind uses it. A strike's is built only from blows thrown sparring (`sparring`,
   `sparring-laid`): from starts drawn at random against a foe fighting back.
+- **An outcome that moves the foe is the foe's Mind's**: a profile's exit (where its trials left
+  the two) holds what the foe sparred against did meanwhile, and prices it for every foe; the
+  back step, sparred against a foe that walks in, read as bringing any foe in
+  ([the approaches](../approaches.md#minds)). Read what an Option's trials' foe did before
+  pricing a range change by them.
 - **Drills read no profile and search no tree**: a table cell, its drill opponents and every
   skill's search and training run the drills' Mind (`option-drill`: its priors, its options run
   in their order, `RANKED_CHOOSER`), fast and the same each time: a drill drives its skills, and

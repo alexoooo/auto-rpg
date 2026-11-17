@@ -127,7 +127,8 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   does (20 of 40 against 23 of 41); one walking in takes it double; one that only walks or keeps
   away keeps its life by not being in the fight (in punching range 4 to 11 % of the time). A
   body given 0.5 m/s away at once takes 16 % of the Mind's punches where one standing takes
-  38 % (`fd8ec9d56`). The step that does it is [a plan](plans/2026-11-16-back-step.md). *Shown.*
+  38 % (`fd8ec9d56`). The step that does it is [a plan](plans/2026-11-16-back-step.md), parked:
+  it wins against a Warrior without it (`179fa76b9`) and stands a mirror off. *Shown.*
 - **More blocks are not more wins**: a hand at cover is a hand not countering (`8b3c65b8`,
   `1500f2da`). A guard is judged on life kept and taken. *Repeated.*
 - **A threat reader is measured against the blow's truth before a guard is tuned on it**: the
@@ -188,6 +189,25 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   knockouts in 24 (`179fa76b9`). The table must be labelled by the reading that reads it: labelled
   by the foe's attempts (wind-up to recovery) where the Mind reads a blow coming, a hold was priced
   77 to 225 times over. *Shown.*
+- **An Option's profile holds the steps of the foe it was measured against**: the back step's
+  sways, sparred against a Warrior without it, end the two nearer from 1.25 to 1.5 m apart (that
+  foe walks in 0.25 m while the subject sways; one with the back step 0.09), so the Mind read the
+  back step as bringing the foe in for nothing, and two Minds with it each waited for the other
+  (27 to 31 % silent against 10 to 18 %). The foe's closing speed at the start does not tell the
+  two foes apart (a foe standing came 0.08 m, one closing 0.09 to 0.16, each band's spread
+  0.2 m); its own body's change alone lost against the foe that comes (21 wins to 27), and the
+  two sparrings pooled stood the mirror off as before (28 %) (`470e9b2f6`).
+  What the foe does meanwhile is the foe's Mind's, not the Option's. *Shown.*
+- **A line's end is worth what neither a tail nor a measured leaf gives**: in the tree chooser,
+  a punch reads as leaving the bodies where they stood, so a line's tail runs it about fifteen
+  times (too good), and the body is valued holding in reach after a try that leaves (too bad); the
+  two cancel, and mending either alone stood the mirror off (first punch at 55 s, most bouts
+  drained) (`df6bd5180`). A leaf read from bouts' moments, the life each side lost in the seconds
+  left, held out 0.91 to 1.14, but past about 3 s it is flat over range (34 to 38 % of a life in
+  20 s from 0.8 to 2 m), and a search reading it found a wait as cheap as a closing: the mirror
+  with the back step 72 to 79 % silent, read nearest-first, over a span, or sharp to 3 s and
+  pooled past (`e4225d62a`, `470e9b2f6`). It is the old Minds' value, which a search that changes
+  their policy is off. *Shown.*
 - **The Option Mind's prices ran over what a fight gives**: in Warrior mirror bouts it expected
   2.4 times the life it lost in reach and 3.0 times what its punches dealt (`aee4b6342`, on one
   draw, its reader counting damage, not life). *Shown.*
