@@ -254,6 +254,12 @@ Follows [Training](#training). What is particular to a new skill:
   (a strike's: the Strike drill's `sparring` and `sparring-laid` kept with `--json`, then
   `research/skills/strikes/strike-profiles.mjs --write`); a drill Commander using it alone does
   not show the Mind uses it.
+- **A profile the Mind fights by rests on twenty times sparring's starts**: `sparring-drawn` and
+  `sparring-judge` (4,800 starts a subject each, about half an hour each on 24 workers) given to
+  `strike-profiles.mjs` together. On `sparring`'s 480 the draw decided whether two Warriors fought
+  at aggression 2 (91 % of a bout silent on one draw, 37 % on its twin), and either large draw
+  alone moved a reading at one range by half; the two together fought in 46 of 48 bouts
+  (`54dc338cc`). *Shown.*
 - Play its table cells (`npm run evaluate -- table --body <model> --skill <name> --fresh`); a
   good drill reading with a cell that did not move is a skill the game does not use. A search's
   or a screen's figure is never reported as the skill's while the record is not installed or the

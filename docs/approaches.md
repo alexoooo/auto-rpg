@@ -149,17 +149,28 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   exchange mid-bout: between two bodies alike a trade is even at best, so honest prices alone
   leave waiting as good as closing. Valuing the life taken twice the life lost (aggression 2) had
   two Warriors fight from the first seconds, 142 blows where 13 had been (`aee4b6342`). *Shown.*
-- **The aggression that makes a mirror fight is set by the profiles' error, and moves with their
-  draw**: with the moving punch's window narrowed and its profiles measured again (`8f55482d5`),
-  two Warriors at aggression 2 stood a step out of reach for 94 % of a bout, at 3 for 83 %, at 4
-  for 31 %, 15 of 16 bouts ended by knockout (`06e5bec91`). Standing just past the foe's reach is
-  priced at nothing for the whole horizon and the walk in at a loss, from a hand's 32 trials. The
-  repair is [a plan](plans/2026-11-16-price-repair.md). *Shown.*
-- **The Option Mind's prices ran about three times what a fight gives, both ways alike**: in
-  Warrior mirror bouts it expected 2.4 times the life it lost in reach and 3.0 times what its
-  punches dealt (`aee4b6342`), so the inflation did not change a choice there, only magnitudes
-  the bell reads. Read on one draw of the profiles and not since; on the next, the aggression it
-  took to close says the error leaned against closing (`06e5bec91`). *Shown.*
+- **A stand-off at an aggression that should fight is a price leaning against closing, not a
+  want of aggression**: two Warriors at aggression 2 stood a step out of reach for 91 % of a bout
+  (2 of 24 knockouts), the life a second in the foe's reach priced at 2.3 times what the fight
+  took and a punch's dealt at 1.3 (`06e5bec91`, `b188c2d3f`). Aggression 4 made them fight (37 %,
+  20 of 24) with the error still in. Three price repairs, each read on two draws of the profiles,
+  had them fight at 2 (31 and 40 % silent, 46 of 48 knockouts) with the two errors 1.2 and 1.5
+  (`54dc338cc`): a foe's measured strikes read as one profile, their trials pooled, not the most
+  of each one's noisy reading; a hold priced with the body still, as holding leaves it, where the
+  closing speed it had when it chose to stop was carried through the whole horizon; and profiles
+  on twenty times sparring's starts. *Shown.*
+- **A profile's reading at a start no trial began like is borrowed from trials unlike it**: the
+  pressure at 1.0 to 1.19 m apart, four tenths of a Warrior's seconds in reach, is read from the
+  drill's approach trials, begun there closing at 0.6 to 1.1 m/s, which deal three to four times
+  a start at 0.9 m; a fighting mind is offered its punch there 1 % of the time, so that band is
+  priced 2.5 to 15 times what it takes and 0.7 to 0.9 m, where the foe throws 1.3 to 2.1 blows a
+  second, below it (`54dc338cc`). Ten times the starts on another draw moves a reading at one
+  range by half (the moving punch's right hand at 0.70 m, 7.4 and 14.5 % a second); more of the
+  nearest trials (20, 30) and reading the foe over every place in its window moved neither error.
+  *Shown.*
+- **The Option Mind's prices ran over what a fight gives**: in Warrior mirror bouts it expected
+  2.4 times the life it lost in reach and 3.0 times what its punches dealt (`aee4b6342`, on one
+  draw, its reader counting damage, not life). *Shown.*
 - **The tree chooser at 100 runs costs about twice the step budget**; fewer runs fit it and stand up
   from fewer falls (`7f562d22`). *Shown.*
 - **A whole-fight learned policy (PPO, NEAT, evolution, cloning) never passed a bar against a
