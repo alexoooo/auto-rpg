@@ -19,7 +19,8 @@
  * and its terms, and the life each side had then (`decisions`): what `bout-readings.mjs` reads the
  * prices against. And each strike each side threw at the other's body, read as the Strike drill
  * reads a sparring trial (`readFought`) and made a profile's trial as its sparring's are
- * (`strikeTrial`), with its action, limb and mark (`trials`).
+ * (`strikeTrial`), under the key its profile is found by and the digests it came from
+ * (`strikeKey`): what `bout-profiles.mjs` builds profiles from (`strikes`).
  *
  * `--carriage left={"lead":"left","width":0.25,"stagger":0.4,"lower":0.1}` has that side's mind (its
  * model's own, at `--aggression` where given) walk its stance-walk gaits in that carriage all bout
@@ -140,7 +141,8 @@ if (isMainThread) {
 } else {
   const [{ buildBout }, { BOUT_ENGINE }] = await Promise.all([import("../../../src/app/node/evaluation.ts"), import("../../bout.mjs")]);
   const { SIDES } = await import("../../../src/game/arena/duel.ts");
-  const [{ readFought }, { strikeTrial }, { rulebook }] = await Promise.all([import("../../../src/evaluation/strike/fought.ts"), import("../../../src/evaluation/strike/trial.ts"), import("../../../src/combat/rulebook.ts")]);
+  const [{ readFought }, { strikeTrial }, { senseDelayOf }, { strikeKey, strikesOf }] = await Promise.all([import("../../../src/evaluation/strike/fought.ts"),
+    import("../../../src/evaluation/strike/trial.ts"), import("../../../src/game/arena/duel.ts"), import("./strike-keys.mjs")]);
   const { characterSkills } = await import("../../../src/core/bodies/models.ts");
   const { footOn } = await import("../../../src/control/support.ts");
   const { Vector3 } = await import("../../../src/core/math/vector.ts");
@@ -368,12 +370,21 @@ if (isMainThread) {
         }
         delete t.sequence;
       }
-      const thrown = fought.done(), rules = rulebook("arena"), specOf = (side) => duel.duelists[side].body.built.spec;
-      const trials = SIDES.map((side) => thrown.filter((one) => one.striker === side).flatMap(({ action, effector, mark, reading }) => {
-        const trial = strikeTrial(reading, specOf(side), specOf(side === "left" ? "right" : "left"), rules, world.hz);
-        return trial ? [{ action, effector, mark, trial }] : [];
-      }));
-      parentPort.postMessage({ result: { schema: SCHEMA, trials, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
+      // Each side's strikes as profiles' trials, under the key each profile is found by.
+      const thrown = fought.done(), reaction = Math.round(senseDelayOf(duel.recipe) * world.hz) / world.hz, specOf = (side) => duel.duelists[side].body.built.spec;
+      const strikes = SIDES.map((side) => {
+        const spec = specOf(side), struck = specOf(side === "left" ? "right" : "left"), mind = duel.recipe.minds?.[side] ?? CONTEXT.defaultMind(duel.recipe[side]);
+        const { executors, actions } = strikesOf(spec, mind), keyed = new Map();
+        for (const { action: name, effector, reading } of thrown.filter((one) => one.striker === side)) {
+          const action = actions.find((one) => one.name === name), trial = action && strikeTrial(reading, spec, struck, duel.rules, world.hz);
+          if (!trial) continue;
+          const found = strikeKey(spec, struck, mind, executors, action, effector, world.hz, reaction, world.delay), key = JSON.stringify([found.measured, found.target]);
+          if (!keyed.has(key)) keyed.set(key, { ...found, trials: [] });
+          keyed.get(key).trials.push(trial);
+        }
+        return [...keyed.values()];
+      });
+      parentPort.postMessage({ result: { schema: SCHEMA, strikes, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
         bars: SIDES.map(side => duel.duelists[side].pool.bar()), hp: SIDES.map(side => duel.duelists[side].body.built.spec.wounds.hp.value), downs: SIDES.map(side => downs[side]), decisions: SIDES.map(side => decisions[side]), sides: SIDES.map(side => track[side]) } });
     } catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
     finally { dispose?.(); }

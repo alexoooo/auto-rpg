@@ -1,4 +1,3 @@
-import { skillsOf } from "../../../src/minds/option/skills.ts";
 /**
  * **The strikes' profiles** (`src/skills/framework/profile.ts`, `assets/skills/strikes/strike-profiles/strike-profiles.json`): from
  * the Strike drill's sparring rungs (`npm run evaluate -- strike <subject> --protocol sparring --json <run.json>`,
@@ -57,11 +56,9 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
-import { partIn, partLookup } from "../../../src/app/catalog.ts";
-import { limbAction } from "../../../src/minds/option/kinds.ts";
-import { holdsOf, measuredOn, skillDigest, specDigest, strikeSkill } from "../../../src/skills/framework/profile.ts";
+import { partIn } from "../../../src/app/catalog.ts";
+import { marksOf, strikeKey, strikesOf } from "./strike-keys.mjs";
 import { strikeTrial } from "../../../src/evaluation/strike/trial.ts";
-import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 import { profileKey, profileKeys } from "../../../tests/harness/profile-keys.mjs";
 import { rulebook } from "../../../src/combat/rulebook.ts";
@@ -92,26 +89,6 @@ function specOf(recipe, side = "left") {
   return specs.get(key);
 }
 
-/**
- * **The strikes a record's `mind` throws on a body of `spec`**, its executors and their actions: as
- * its Options name them (`skillsOf`), or, in a record whose mind lists its executors and actions,
- * those the body can use, each on the limbs its executor strikes with as the body holds what it holds.
- */
-function strikesOf(spec, mind) {
-  if (Array.isArray(mind.options) && !mind.executors) return skillsOf(partLookup, spec, mind.options);
-  const executors = mind.executors.filter((executor) => partLookup.of("executor", executor).fits(spec, executor, partLookup) === null);
-  const has = (limb) => spec.effectors?.some((one) => one.segment === limb) ?? false;
-  return { executors, actions: (mind.actions ?? []).flatMap((action) => {
-    const executor = executors.find((one) => one.name === action.executor);
-    if (!executor) return [];
-    const part = partLookup.of("executor", executor), effectors = action.effectors.filter((limb) => has(limb) && (part.strikesWith?.(spec, executor, limb) ?? true));
-    return effectors.length === action.effectors.length ? [action] : effectors.length ? [{ ...action, effectors }] : [];
-  }) };
-}
-
-/** The marks `action` aims at, or null where it aims at other regions too. */
-const marksOf = (action) => (action.regions ?? []).every((region) => region.kind === "mark") ? action.regions.map((region) => region.mark) : null;
-
 const profiles = new Map();
 for (const path of paths) {
   const [header, ...rows] = read(path);
@@ -131,13 +108,13 @@ for (const path of paths) {
     if (!action && row.reading.outcome === "refused" && row.reading.reason === "no such choice on its menu") continue;
     if (!action) throw new Error(`${path}: ${drill.skill ?? drill.action} is not a strike its body throws`);
     if (!action.effectors.includes(drill.effector)) continue;
-    const limbed = limbAction(action, drill.effector), marks = marksOf(action);
+    const marks = marksOf(action);
     if (marks && !marks.includes(row.condition.mark)) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
-    const struck = specOf(recipe, "right"), held = holdsOf(struck), target = { body: struck.model, ...(held === undefined ? {} : { holds: held }) };
-    const measured = measuredOn(spec, strikeSkill(spec, executors, limbed), drill.effector, hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
+    const struck = specOf(recipe, "right"), { measured, target, digests } = strikeKey(spec, struck, mind, executors, action, drill.effector, hz, reaction, delay);
+    const key = JSON.stringify([measured, target]);
     const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector} on ${struck.model}`,
-      digests: { spec: specDigest(spec), skill: skillDigest(partLookup, spec, executors, limbed), target: specDigest(struck) }, commits: new Set(), dates: new Set(), changed: false, trials: [] };
+      digests, commits: new Set(), dates: new Set(), changed: false, trials: [] };
     profiles.set(key, profile);
     profile.commits.add(row.from.commit);
     profile.dates.add(row.from.date.slice(0, 10));

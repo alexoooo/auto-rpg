@@ -1,0 +1,37 @@
+/**
+ * **Strikes' profiles from bouts** (`Profile`, `src/skills/framework/profile.ts`): each strike a
+ * bout's side threw at the other's body, read as the Strike drill reads a sparring trial and made a
+ * trial the one way (`strikeTrial`), merged by the key a profile is found by (`strikeKey`) over the
+ * records `strike-bouts.mjs --save` wrote. The profiles are in the strikes' table's format
+ * (`strike-profiles.mjs`), so a mind can read them in its place:
+ *
+ *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/bout-profiles.mjs <bouts.json> ... --out <profiles.json>
+ *
+ * A key whose bodies or skill a record digests otherwise (`Origin`) was played on other code: the
+ * records are refused rather than mixed. Its trials are in the order they were thrown; a profile is
+ * read by its trials nearest a start, in any order.
+ */
+import { readFileSync, writeFileSync } from "node:fs";
+import { parseArgs } from "node:util";
+
+const SCRIPT = "research/skills/strikes/bout-profiles.mjs";
+const { values, positionals } = parseArgs({ options: { out: { type: "string" } }, allowPositionals: true });
+if (!positionals.length) throw new Error("name the bouts strike-bouts.mjs saved: bout-profiles.mjs <bouts.json> ... [--out <profiles.json>]");
+
+const profiles = new Map(), round = (x) => Number(x.toFixed(4)), mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+let bouts = 0;
+for (const path of positionals) for (const [, result] of JSON.parse(readFileSync(path, "utf8"))) {
+  if (!result?.strikes) throw new Error(`${path}: a bout saved without its strikes; play it again`);
+  bouts++;
+  for (const side of result.strikes) for (const { measured, target, digests, trials } of side) {
+    const key = JSON.stringify([measured, target]), known = profiles.get(key);
+    if (known && JSON.stringify(known.from) !== JSON.stringify(digests)) throw new Error(`${path}: ${measured.body} ${measured.skill} with ${measured.limb} played on other code than an earlier record's`);
+    if (known) known.trials.push(...trials);
+    else profiles.set(key, { measured, target, from: digests, trials: [...trials] });
+  }
+}
+console.log(`${bouts} bouts, ${profiles.size} profiles`);
+for (const { measured: m, target, trials } of profiles.values())
+  console.log(`  ${m.body}${m.holds ? ` holding ${m.holds}` : ""} ${m.skill} with ${m.limb} on ${target.body}: ${trials.length} trials, landed ${round(mean(trials.map((t) => +t.done)))},`
+    + ` dealt ${round(mean(trials.map((t) => t.dealt)))} hp, taken ${round(mean(trials.map((t) => t.taken)))} hp, ${round(mean(trials.map((t) => t.seconds)))} s, down ${round(mean(trials.map((t) => +t.down)))}`);
+if (values.out) writeFileSync(values.out, `${JSON.stringify({ source: { script: SCRIPT, bouts: positionals }, profiles: [...profiles.values()] }, null, 2)}\n`);
