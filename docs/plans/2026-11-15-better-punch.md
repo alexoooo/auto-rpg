@@ -720,9 +720,26 @@ deleted.
 
   The far-edge commits that seldom land are what keeps the foe from throwing its own. At band
   0.1 the body spends 42% of a bout 0.90 to 1.05 m from the foe (stance centres) with no blow
-  begun: the installed punch's own range, which the foe holds. Band stays 0.2. Landed hp by
+  begun: the installed punch's own range, which the foe holds. Band stayed 0.2 then. Landed hp by
   distance is too few a bin to rank; across them the heavy landed blows have 12 to 15 kg behind
   the fist, the light 7 to 8.
+- **Under aggression 2 the count is the Mind's, not training's.** The same networks that read 7 to
+  10 landed a bout-minute read 12 to 13 once the few terms valued the life taken twice
+  (`aee4b6342`): run 10d at 16.26, 17.05, 18.10 and 19.14 M, 24 bouts each, 13.17, 12.11, 12.24 and
+  12.29, a median 0.89, 0.95, 0.82 and 0.87 hp. The run had levelled off and was stopped at
+  19.67 M. Those screens priced each checkpoint by 15.21 M's profiles; 17.05 M with its own read
+  6.96 and 0.87 hp, below 15.21 M's 11.02 and 0.86 on the same bouts, and was not installed. A
+  profile's hand rests on about 32 trials, and their draw moves a reading more than the checkpoint.
+- **Band 0.15 lands the weight** (`8f55482d5`). Each with its own profiles, 24 bouts on gaps that
+  chose nothing (2.6 to 5.35 m): band 0.2 14.28 landed a bout-minute, 0.82 hp, the installed punch
+  1; band 0.15 5.97, 1.11 hp, the installed punch 4. Band 0.15 on the screen's gaps: 8.19, 1.03
+  hp, 3. Over the 48: 6.97 a bout-minute, 25% of committed, a median 1.05 hp; 202 landed to the
+  installed punch's 7 in the same bouts (29 times). Against the installed punch's own rate the
+  ratio depends on the baseline: on itself under the same Mind, 24 bouts, it lands 1.19 a
+  bout-minute, 0.77 hp (5.9 times), but since `c5c1df0fe` a Warrior prices any Warrior as throwing
+  the hardest strike measured on that body, `moving`, so two on `drive` fear a punch neither holds
+  and that rate is likely low; against the 2.3 to 2.6 this plan read before, about 3 times. Which
+  reading is the bar is still the owner's to say; the same-bouts count depends on neither.
 
 | Step | State |
 | --- | --- |
