@@ -318,10 +318,10 @@ export type StrikeReading = {
   /**
    * The percepts it left the striker in once its limb was back at its guard after its action ended
    * (`recovers`), by name: the range head to head across the ground to the target (`range`, m: the
-   * striker's head to the target's `marks.high`); null where its limb was not back, or its action
-   * was let go or did not end.
+   * striker's head to the target's `marks.high`), and centre to centre (`apart`, m, as the trial's
+   * start reads it, `Sensed`); null where its limb was not back, or its action was let go or did not end.
    */
-  readonly exit: { readonly range: number } | null;
+  readonly exit: { readonly range: number; readonly apart?: number } | null;
   readonly down: boolean;
   readonly seconds: number;
 };
@@ -584,7 +584,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       else if ((letAt ?? watching) !== null && again === null) {
         againstChest(held);
         const moved = Vector3.Distance(held, was) / world.dt;
-        if (Vector3.Distance(held, rest) <= BACK.within && moved <= BACK.still) { again = world.time; if (letAt === null) exit = { range: range() }; }
+        if (Vector3.Distance(held, rest) <= BACK.within && moved <= BACK.still) { again = world.time; if (letAt === null) { const there = sensed().at; exit = { range: range(), ...(there ? { apart: there.apart } : {}) }; } }
         was.copyFrom(held);
       }
       if (id === null) {

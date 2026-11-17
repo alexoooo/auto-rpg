@@ -33,7 +33,11 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  * over the trial; the seconds its action ran, from its start to its end, when its limb is free to
  * begin another (to the trial's end where it did not end); the seconds from its end until the limb
  * was back at its guard (`recovers`; null where it was not, or the record does not say); whether it
- * ended down; and the range head to head once its limb was back (`exit.range`). A trial whose drill
+ * ended down; and the range head to head once its limb was back (`exit.range`), and how the two
+ * stood apart centre to centre then against as it began: whether within `ARRIVED` of it
+ * (`exit.stays`, 1 or 0), and where not, by how much (`exit.moved`, m, apart). A head at a strike's
+ * end is leaning or struck, so a change head to head is not the bodies'; a trial of a record from
+ * before the centre was read names neither, and is read as staying. A trial whose drill
  * let its strike go (`letGo`) prices letting go alone: the progress of the motion it was let go at
  * (the seconds from its start, to the step), the seconds from the let-go until the hand was back at
  * its guard (the trial's end where it was not), and the hit points the striker lost meanwhile.
@@ -60,7 +64,16 @@ import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 import { profileKey, profileKeys } from "../../../tests/harness/profile-keys.mjs";
 import { lifeFactor } from "../../../src/combat/pool.ts";
+import { ARRIVED } from "../../../src/skills/framework/movement.ts";
 import { rulebook } from "../../../src/combat/rulebook.ts";
+
+/** A trial's exit (`Trial.exit`): its range head to head, and whether the two stood within `ARRIVED` of where they began, centre to centre (`stays`), else by how much further apart (`moved`); a record with no centre at its exit gives the range alone. */
+function exitOf(exit, apart) {
+  const range = { range: round(exit.range) };
+  if (exit.apart === undefined) return range;
+  const moved = exit.apart - apart;
+  return Math.abs(moved) <= ARRIVED ? { ...range, stays: 1 } : { ...range, stays: 0, moved: round(moved) };
+}
 
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
 /** The Strike drill's rungs a profile is measured on: a strike thrown from drawn starts at a foe fighting back (`SPARRING`, `SPARRING_LAID`, `src/evaluation/strike/cases.ts`). */
@@ -155,7 +168,7 @@ for (const path of paths) {
     let dealt = 0;
     for (const [on, damage] of Object.entries(r.dealt)) dealt += damage * lifeFactor(rules, struck, on);
     profile.trials.push({ start, done: r.outcome === "landed", dealt: round(dealt), taken: round(r.taken ?? 0), seconds: round((r.ended ?? r.seconds) - r.began),
-      recovers: r.recovers === undefined || r.recovers === null ? null : round(r.recovers), down: r.down, ...(r.exit ? { exit: { range: round(r.exit.range) } } : {}) });
+      recovers: r.recovers === undefined || r.recovers === null ? null : round(r.recovers), down: r.down, ...(r.exit ? { exit: exitOf(r.exit, r.foeAt.apart) } : {}) });
   }
 }
 

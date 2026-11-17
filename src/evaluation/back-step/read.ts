@@ -65,7 +65,8 @@ export type BackStepReading = {
  * long it was ordered, s; the life the subject lost meanwhile, HP; where it left the two (`exit`:
  * their range head to head as it was ordered no more, m, as a strike's trial records it, and centre
  * to centre, `apart`); and
- * whether it went down then or within `SETTLE` s of its end.
+ * how far each moved along the line between them meanwhile (`moved`); and whether it went down then
+ * or within `SETTLE` s of its end.
  */
 export type Sway = {
   readonly at: number;
@@ -75,6 +76,8 @@ export type Sway = {
   readonly seconds: number;
   readonly lost: number;
   readonly exit: { readonly range: number; readonly apart: number };
+  /** How far each moved along the line between them meanwhile, m: the subject toward the attacker, the attacker away from it. */
+  readonly moved?: { readonly own: number; readonly foe: number };
   readonly down: boolean;
 };
 
@@ -94,7 +97,20 @@ export function readBackStep({ world, duel }: { readonly world: World; readonly 
   const punches: Punch[] = [], seen = new Set<number>(), state = { down: false, heard: 0 };
   /** Each sway seen through (`Sway`), the one under way, and those ended whose `SETTLE` is not over. */
   const sways: Sway[] = [], settling: { sway: Omit<Sway, "down">; until: number; down: boolean }[] = [];
-  let going: { at: number; phase: string; foeAt: Sway["foeAt"]; own?: string; lost: number; down: boolean } | null = null;
+  let going: { at: number; phase: string; foeAt: Sway["foeAt"]; own?: string; lost: number; down: boolean; from: Places | null } | null = null;
+  /** Where the two stand on the ground now, m; null where the subject has no view or does not see the attacker. */
+  type Places = { readonly own: readonly [number, number]; readonly foe: readonly [number, number] };
+  const places = (): Places | null => {
+    const other = view && subject.senses().others.find((one) => one.id === attacker.id);
+    return view && other ? { own: [view.stance.centre.x, view.stance.centre.z], foe: [other.centre.x, other.centre.z] } : null;
+  };
+  /** How far each moved from `from` to now along the line between them then (`Sway.moved`). */
+  const movedFrom = (from: Places | null): Sway["moved"] | null => {
+    const to = places();
+    if (!from || !to) return null;
+    const dx = from.foe[0] - from.own[0], dz = from.foe[1] - from.own[1], length = hypot(dx, dz) || 1, ux = dx / length, uz = dz / length;
+    return { own: (to.own[0] - from.own[0]) * ux + (to.own[1] - from.own[1]) * uz, foe: (to.foe[0] - from.foe[0]) * ux + (to.foe[1] - from.foe[1]) * uz };
+  };
   const view = "view" in subject.body ? (subject.body as HostedBody).view : null, head = centreReading(subject.built, "head"), theirHead = centreReading(attacker.built, "head"), centre = new Vector3();
   /** The attacker as the subject senses it now: its phase, and where it is (`Sway`); null where unseen. */
   const sensed = (): { readonly phase: string; readonly foeAt: Sway["foeAt"] } | null => {
@@ -122,12 +138,12 @@ export function readBackStep({ world, duel }: { readonly world: World; readonly 
     for (const one of settling) one.down ||= subject.body.down;
     while (settling.length && settling[0]!.until <= now) { const one = settling.shift()!; sways.push({ ...one.sway, down: one.down }); }
     if (going && !swaying) {
-      settling.push({ sway: { at: going.at, phase: going.phase, foeAt: going.foeAt, ...(going.own ? { own: going.own } : {}), seconds: now - going.at, lost: going.lost, exit: { range: range(), apart: apartOf(duel) } }, until: now + SETTLE, down: going.down || subject.body.down });
+      settling.push({ sway: { at: going.at, phase: going.phase, foeAt: going.foeAt, ...(going.own ? { own: going.own } : {}), seconds: now - going.at, lost: going.lost, exit: { range: range(), apart: apartOf(duel) }, ...((moved) => moved ? { moved } : {})(movedFrom(going.from)) }, until: now + SETTLE, down: going.down || subject.body.down });
       going = null;
     } else if (!going && swaying) {
       const start = sensed();
       const doing = subject.minded.skills?.report.actions[0];
-      if (start) going = { at: now, ...start, ...(doing ? { own: `${doing.action}:${doing.phase}` } : {}), lost: 0, down: subject.body.down };
+      if (start) going = { at: now, ...start, ...(doing ? { own: `${doing.action}:${doing.phase}` } : {}), lost: 0, down: subject.body.down, from: places() };
     }
   };
   return {

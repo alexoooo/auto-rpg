@@ -8,12 +8,25 @@ import { measuredOn, profileAgainst, profilesFor, readProfile, staleness, strike
 import type { Sight } from "../decider.ts";
 import { along, asking, blocked, READY, standing, type Asked, type Option, type Site, type Situation } from "./option.ts";
 import { startOf, threatened } from "./percepts.ts";
-import { clinched, record, upOrDown, type Terms } from "./value.ts";
+import { clinched, record, upOrDown, type Outcome, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { claimsLegs } from "../../skills/framework/intent.ts";
 import { hypot } from "../../core/math/real.ts";
 
+
+/**
+ * **Where a strike leaves the body** from `at`: up where it strikes from in the share `stays`, else
+ * `moved` m further from the focus, on the line from the focus through it (`along`); down in the
+ * share `down` (`upOrDown`).
+ */
+function exitOutcomes(at: Situation, stays: number, moved: number, down: number): readonly Outcome[] {
+  const here = { where: along(at, at.range) };
+  if (!(stays < 1)) return upOrDown(here, down);
+  const there = { where: along(at, at.range + moved) };
+  if (!(stays > 0)) return upOrDown(there, down);
+  return upOrDown(here, down).flatMap((one) => one.leaves === here ? [{ leaves: here, chance: one.chance * stays }, { leaves: there, chance: one.chance * (1 - stays) }] : [one]);
+}
 /** How long a strike may wait to be admitted before it is given up, s. */
 const PATIENCE = 2;
 
@@ -79,9 +92,12 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * it ran until its limb was back (`Expected.recovers`), and its chance of ending down; through the blow coming, and the focus's pressure while it
  * runs, past the focus's latency (`threatened`, `graceAt`); and, its blow
  * begun and not yet committed, what letting it go cost there at its progress (`Expected.letGo`).
- * Else its prior (`priorOf`), read the same way. It leaves the body up at the range its
- * trials came back at (`Expected.exit`), else where it strikes from, on the line from the focus through
- * it, facing the focus (`along`); and down in its chance of ending down.
+ * Else its prior (`priorOf`), read the same way. It leaves the body up where it strikes from in
+ * the share of its trials that ended where they began (`Expected.exit`'s `stays`), else as much
+ * further from the focus as those that did not moved (`moved`), on the line from the focus through
+ * it, facing the focus (`along`); where its trials do not say, where it strikes from. Down in its
+ * chance of ending down. Its trials' heads say nothing of it: at a strike's end a head leans or
+ * has just been struck.
  *
  * At a state where the body stands (`standing`), where it stands now its entry says whether it is
  * on offer; elsewhere, at one of its sites (`atSite`), or where the spot it stands at is within its
@@ -187,13 +203,12 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
    * else the clinch's (`clinched`).
    */
   const priceOf = (at: Situation, place: readonly [number, number] | null): Terms => {
-    const apart = at.range;
     const running = live(at), under = running !== undefined && running.phase !== "release";
     const progress = under && state.began !== null ? at.time - state.began : 0, met = under && running.contacts.lastTarget !== null;
     const preparing = running?.phase === "prepare", measured = expected(at, running ? state.place : place, preparing ? progress : undefined), e = measured ?? priorOf(at);
     const duration = Math.max(0, e.seconds + e.recovers - progress);
     const terms: { -readonly [K in keyof Terms]: Terms[K] } = { duration, dealt: met ? 0 : e.dealt, taken: at.predictions.danger + threatened(at, duration), orders: 0,
-      outcomes: upOrDown({ where: along(at, e.exit?.range ?? apart) }, Math.max(e.down, measured ? 0 : clinched(at, duration, at.apart))) };
+      outcomes: exitOutcomes(at, e.exit?.stays ?? 1, e.exit?.moved ?? 0, Math.max(e.down, measured ? 0 : clinched(at, duration, at.apart))) };
     if (preparing && e.letGo) terms.letGo = e.letGo;
     return terms;
   };
