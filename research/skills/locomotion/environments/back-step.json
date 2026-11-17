@@ -9,5 +9,6 @@
   ],
   "pool": 8,
   "refresh": 8,
-  "reward": {"struck": -2, "near": 1, "down": -10}
+  "survive": true,
+  "reward": {"effort": 0.01, "struck": -2, "near": 1, "down": -10, "end": {"thrown": 0, "taken": 0, "left": 0, "back": 0}}
 }
