@@ -28,10 +28,10 @@
  *   `src/skills/locomotion/back-step/index.ts`): ordered to stand by that gait, which its Move has
  *   among its gaits (the stock ones and it), for `seconds` s (0.6 with none) and until it is still on
  *   both feet (`STILL`); then back as `away` goes.
- * - `sway:<range>[:<closing>[:<out>[:<rest>[:<beyond>[:<follow>[:<in>[:<stepIn>[:<near>]]]]]]]]]`: the back step ordered when it senses the attacker
+ * - `sway:<range>[:<closing>[:<out>[:<rest>[:<beyond>[:<follow>[:<in>[:<stepIn>[:<near>[:<pull>[:<pullAt>[:<pullEvery>[:<shuffle>]]]]]]]]]]]]]`: the back step ordered when it senses the attacker
  *   within `range` and coming at `closing` m/s or more (0 with none; over the last `CLOSING` s
  *   of what it sees), held back `out` s (0.4 with none) and brought in over `SWAY_BACK` s, the
- *   order held as long, the centre asked `beyond` m behind the rear sole (the gait's own with none); then it stands for `rest` s (0.3 with none) before it may sway again; with `follow` 1 (or a nearest range, m, other than 1), between sways, where it senses the attacker beyond `BACK.far`, it goes back to `BACK` of it; `in` s, how long it brings the body in (`SWAY_BACK` with none); `stepIn` m, the gait's; `near` m, nearer than which it does not sway (the attacker against it). It
+ *   order held as long, the centre asked `beyond` m behind the rear sole (the gait's own with none); then it stands for `rest` s (0.3 with none) before it may sway again; with `follow` 1 (or a nearest range, m, other than 1), between sways, where it senses the attacker beyond `BACK.far`, it goes back to `BACK` of it; `in` s, how long it brings the body in (`SWAY_BACK` with none); `stepIn` m, the gait's; `near` m, nearer than which it does not sway (the attacker against it); `pull` m/s, an oracle: `pullAt` s after each sway's order, the attacker beyond `BACK.far`, every segment given that speed toward it, by no muscle; with `pullEvery` s, again that often while the attacker is beyond it, until the next sway; `shuffle` m, its follow taken by a gait `advance` (the back step's `shuffle`) in place of the walk. It
  *   never walks back in.
  * - `keep:<range>`: from the start it holds `range` to `range` + 0.2 m of the attacker (the legs'
  *   own range keeping).
@@ -98,7 +98,7 @@ function policyOf(text) {
     case "away": if (!(n[0] > 0)) throw new Error(`--policy ${text}: away:<range>`); return { text, kind, range: n[0], seconds: n[1] || 1.5, pace: n[2] || null };
     case "seen": return { text, kind, seconds: n[0] || 1.5, pace: n[1] || null };
     case "step": if (!(n[0] > 0)) throw new Error(`--policy ${text}: step:<range>`); return { text, kind, range: n[0], seconds: n[1] || .6 };
-    case "sway": { if (!(n[0] > 0)) throw new Error(`--policy ${text}: sway:<range>`); const out = n[2] || .4, inner = n[6] || SWAY_BACK; return { stepIn: n[7] || 0, near: n[8] || 0, text, kind, range: n[0], closing: n[1] || 0, out, inner, seconds: out + inner + .05 + (n[7] ? .4 : 0), rest: n[3] || .3, beyond: rest[4] === undefined || rest[4] === "" ? null : n[4], follow: n[5] || 0 }; }
+    case "sway": { if (!(n[0] > 0)) throw new Error(`--policy ${text}: sway:<range>`); const out = n[2] || .4, inner = n[6] || SWAY_BACK; return { stepIn: n[7] || 0, near: n[8] || 0, pull: n[9] || 0, pullAt: n[10] || 1, pullEvery: n[11] || 0, shuffle: n[12] || 0, text, kind, range: n[0], closing: n[1] || 0, out, inner, seconds: out + inner + .05 + (n[7] ? .4 : 0), rest: n[3] || .3, beyond: rest[4] === undefined || rest[4] === "" ? null : n[4], follow: n[5] || 0 }; }
     case "keep": if (!(n[0] > 0)) throw new Error(`--policy ${text}: keep:<range>`); return { text, kind, range: n[0] };
     case "shove": if (!(n[0] > 0 && n[1] > 0)) throw new Error(`--policy ${text}: shove:<range>:<speed>`); return { text, kind, range: n[0], speed: n[1], every: n[2] || .75 };
     default: throw new Error(`--policy ${text}: stand, away, seen, step, sway, keep or shove`);
@@ -175,13 +175,14 @@ if (isMainThread) {
   const { GOING } = await import("../../../src/skills/locomotion/move/index.ts");
   const { STOCK_GAITS } = await import("../../../src/skills/locomotion/move/gaits.ts");
   /** The defender's mind in `carriage` (its own where null), with the back step among its gaits, its sway held out `out` s where given. */
-  const stepper = (carriage, out, beyond, set, inner, stepIn) => withLegs(DEFENDER, { ...GOING, gaits: [...STOCK_GAITS.map((gait) => carriage && !set && gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait),
+  const stepper = (carriage, out, beyond, set, inner, stepIn, shuffle) => withLegs(DEFENDER, { ...GOING, gaits: [...STOCK_GAITS.map((gait) => carriage && !set && gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait),
     ...(set ? [{ name: "set", label: "Set", legs: { kind: "stance-walk", variation: "stance-walk", carriage } }] : []),
-    { name: "back-step", label: "Back step", legs: { kind: "back-step", ...(carriage ? { carriage } : {}), ...(out ? { out, back: inner ?? SWAY_BACK } : {}), ...(beyond === null || beyond === undefined ? {} : { beyond }), ...(stepIn ? { stepIn } : {}) } }] });
+    { name: "back-step", label: "Back step", legs: { kind: "back-step", ...(carriage ? { carriage } : {}), ...(out ? { out, back: inner ?? SWAY_BACK } : {}), ...(beyond === null || beyond === undefined ? {} : { beyond }), ...(stepIn ? { stepIn } : {}) } },
+    ...(shuffle ? [{ name: "advance", label: "Advance", legs: { kind: "back-step", ...(carriage ? { carriage } : {}), shuffle } }] : [])] });
   parentPort.on("message", async ({ policy, gap, pace, seconds, attacker: attacking, model, carriage, set }) => {
     let dispose;
     try {
-      const empty = { left: "empty", right: "empty" }, drilled = attacking === "drill", cap = drilled ? CAP : seconds, defending = policy.kind === "step" || policy.kind === "sway" || carriage ? stepper(carriage, policy.out, policy.beyond, set, policy.inner, policy.stepIn) : DEFENDER;
+      const empty = { left: "empty", right: "empty" }, drilled = attacking === "drill", cap = drilled ? CAP : seconds, defending = policy.kind === "step" || policy.kind === "sway" || carriage ? stepper(carriage, policy.out, policy.beyond, set, policy.inner, policy.stepIn, policy.shuffle) : DEFENDER;
       if (set && !carriage) throw new Error("--set needs --carriage");
       const bout = await buildBout({ left: model, right: model, gap, capSeconds: cap, loadouts: { left: empty, right: empty },
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, 0], heading: -Math.PI / 2 } },
@@ -205,7 +206,7 @@ if (isMainThread) {
       const step = () => ({ move: null, face: facing(), gait: "back-step" });
       /** Whether the defender's stance stands on both feet, taking no step of its own, slower than `STILL`. */
       const still = () => { const s = defender.body.view.stance; return s.phase === "stand" && !s.own && Math.hypot(s.velocity.x, s.velocity.z) < STILL; };
-      const back = (near = BACK.near) => ({ move: { kind: "range", focus: attacker.id, near, far: BACK.far }, face: null, ...(setOn ? { gait: "set" } : {}) });
+      const back = (near = BACK.near, gait = setOn ? "set" : null) => ({ move: { kind: "range", focus: attacker.id, near, far: BACK.far }, face: null, ...(gait ? { gait } : {}) });
       /** How far the attacker's centre, as the defender sees it, is from the defender's own. */
       const seenApart = () => {
         const seen = defender.senses().others.find((other) => other.id === attacker.id), d = centre(defender);
@@ -220,7 +221,7 @@ if (isMainThread) {
       const byId = new Map(), full = defender.pool.bar();
       // Its step: waiting to begin, going, back; since when; the attacker's punches that have begun a step.
       let phase = "waiting", since = 0, first = null, heard = 0, answered = 0;
-      const began = [], seen = [];
+      const began = [], seen = [], pulled = new Map();
       duel.order("right", policy.kind === "keep" ? { move: { kind: "range", focus: attacker.id, near: policy.range, far: policy.range + .2 }, face: null } : stand());
       while (!duel.verdict && duel.clock < cap && (!drilled || !result.punches.length || duel.clock < result.punches[0].fired + AFTER)) {
         // Into the carriage and out, where it is ordered so; then the defender's orders, from what it sees and its policy, before the step.
@@ -246,8 +247,15 @@ if (isMainThread) {
           else if (phase === "going" && duel.clock >= since + policy.seconds && (policy.kind !== "step" || still())) { phase = "back"; since = duel.clock; }
           // A punch begun while it stepped begins no step of its own.
           else if (phase === "back" && duel.clock >= since + (policy.kind === "sway" ? policy.rest : RETURN)) { phase = "waiting"; answered = began.length; }
-          duel.order("right", policy.kind === "shove" ? stand() : phase === "going" ? (policy.kind === "step" || policy.kind === "sway" ? step() : away()) : phase === "back" && policy.kind !== "sway" ? back() : policy.follow && apartSeen > BACK.far ? back(policy.follow === 1 ? BACK.near : policy.follow) : stand());
+          duel.order("right", policy.kind === "shove" ? stand() : phase === "going" ? (policy.kind === "step" || policy.kind === "sway" ? step() : away()) : phase === "back" && policy.kind !== "sway" ? back() : policy.follow && apartSeen > BACK.far ? back(policy.follow === 1 ? BACK.near : policy.follow, policy.shuffle ? "advance" : undefined) : stand());
         } else if (policy.kind === "stand") duel.order("right", stand());
+        if (policy.pull && result.ordered.length && duel.clock >= result.ordered.at(-1) + policy.pullAt) {
+          const k = result.ordered.length, last = pulled.get(k);
+          if (last === undefined || policy.pullEvery && duel.clock >= last + policy.pullEvery) {
+            if (apartNow() > BACK.far) { const w = wayOut(); shove({ x: -w.x, z: -w.z }, policy.pull); pulled.set(k, duel.clock); }
+            else if (last === undefined && !policy.pullEvery) pulled.set(k, duel.clock);
+          }
+        }
         world.step();
         const d = centre(defender), now = apartNow();
         if (now >= BACK.near && now <= BACK.far) result.inRange += world.dt;

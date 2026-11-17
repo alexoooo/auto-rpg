@@ -19,8 +19,8 @@ const BEYOND = .1;
 /** How long the back step holds the body back, and takes to bring it back over the middle of its feet, s, unless its config says. */
 const SWAY = deepFreeze({ out: .7, back: .5 });
 
-/** The step in's swing: its time, s, and lift, m; the most it is waited for, s, before the sway goes on without it; how fast the centre comes in before it lifts, m/s. */
-const STEP = deepFreeze({ seconds: .3, lift: .05, most: 1, coming: .05 });
+/** The step in's swing: its time, s, and lift, m; the most it is waited for, s, before the sway goes on without it; how fast the centre comes in before it lifts, m/s; the walk forward a shuffle steps on, m/s. */
+const STEP = deepFreeze({ seconds: .3, lift: .05, most: 1, coming: .05, asked: .05 });
 
 /**
  * **The back step's config**: the carriage it stands in (`Carriage`), which should be the one the
@@ -36,6 +36,12 @@ interface BackStepConfig {
   readonly beyond?: number;
   /** How far the lead foot steps in once the body is back, m, and the centre is brought in past where it began; none where it only sways. */
   readonly stepIn?: number;
+  /**
+   * How far each foot steps, m, where this back step does not sway but shuffles in: asked a walk
+   * forward, it steps the lead foot in and then the rear foot up, one at a time, each a swing of
+   * the stance's (`STEP`), with no walk's start; asked none, it stands.
+   */
+  readonly shuffle?: number;
 }
 
 /**
@@ -62,8 +68,34 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
   const out = config.out ?? SWAY.out, back = config.back ?? SWAY.back, beyond = config.beyond ?? BEYOND;
   /** Where the centre is asked out and back, world (x, z), m, and how long since the sway began, s; whether it waits for the stance to stand square. */
   const state = { aim: null as readonly [number, number] | null, from: null as readonly [number, number] | null, seconds: 0, armed: false, walk: walk.state,
-    step: null as { readonly foot: BearingEnd; readonly bearing: BearingEnd; readonly to: readonly [number, number]; lifted: boolean; seconds: number } | null, stepped: false, waited: 0 };
+    step: null as { readonly foot: BearingEnd; readonly bearing: BearingEnd; readonly to: readonly [number, number]; lifted: boolean; seconds: number } | null, stepped: false, waited: 0,
+    shuffle: null as { readonly foot: BearingEnd; readonly bearing: BearingEnd; readonly to: readonly [number, number]; lifted: boolean; seconds: number } | null };
   const stepIn = config.stepIn ?? 0;
+  const stagger = config.carriage?.stagger ?? 0;
+  /** The stance's ends from the furthest ahead along the legs' heading to the furthest back, with how far ahead each is, m. */
+  const alongOf = (view: BodyView) => {
+    const h = walk.heading, fx = sin(h), fz = cos(h);
+    return Object.entries(view.stance.ends).map(([name, end]) => ({ name: name as BearingEnd, middle: end.middle, along: end.middle.x * fx + end.middle.z * fz })).sort((a, b) => b.along - a.along);
+  };
+  /** The shuffle's legs goal (`BackStepConfig.shuffle`): the step under way, else the next where a walk forward is asked and the stance stands, else a stand. */
+  const shuffled = (view: BodyView, goal: LegsAsked, dt: number, context: Parameters<Locomotion["goal"]>[3]) => {
+    const going = state.shuffle;
+    if (going) {
+      if (view.stance.phase === "swing") going.lifted = true;
+      going.seconds += dt;
+      if (!(going.lifted && view.stance.phase === "stand") && going.seconds <= STEP.most) return walk.goal(view, { ...goal, walk: null, feet: [going.bearing], centre: null, swing: { foot: going.foot, to: going.to, seconds: STEP.seconds, lift: STEP.lift } }, dt, context);
+      state.shuffle = null;
+    }
+    if ((goal.walk?.[0] ?? 0) > STEP.asked && squared(view)) {
+      const ends = alongOf(view), lead = ends[0]!, rear = ends[ends.length - 1]!, h = walk.heading, length = config.shuffle!;
+      const [moving, bearing] = lead.along - rear.along < stagger + length / 2 ? [lead, rear] : [rear, lead];
+      state.shuffle = { foot: moving.name, bearing: bearing.name, to: [moving.middle.x + length * sin(h), moving.middle.z + length * cos(h)], lifted: false, seconds: 0 };
+      return walk.goal(view, { ...goal, walk: null, feet: [bearing.name], centre: null, swing: { foot: moving.name, to: state.shuffle.to, seconds: STEP.seconds, lift: STEP.lift } }, dt, context);
+    }
+    // Standing where the shuffle left the feet: the walk's own footing would step them back into the carriage.
+    const footing = Object.fromEntries(Object.entries(view.stance.ends).map(([name, end]) => [name, [end.middle.x, end.middle.z]])) as Record<BearingEnd, readonly [number, number]>;
+    return walk.goal(view, { ...goal, walk: null, footing }, dt, context);
+  };
   /** Whether the stance stands on both feet, taking no step. */
   const squared = (view: BodyView): boolean => { const s = view.stance; return s.phase === "stand" && !s.own && Object.values(s.ends).every((end) => end.touching); };
   /** `beyond` behind the middle of the sole of `view`'s stance furthest back along the legs' heading. */
@@ -87,9 +119,10 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
     get unmet() { return walk.unmet; },
     resume(view: BodyView, heading?: number) {
       walk.resume(view, heading);
-      state.armed = true; state.aim = null; state.from = null; state.seconds = 0; state.step = null; state.stepped = false; state.waited = 0;
+      state.armed = true; state.aim = null; state.from = null; state.seconds = 0; state.step = null; state.stepped = false; state.waited = 0; state.shuffle = null;
     },
     goal(view: BodyView, goal: LegsAsked, dt: number, context) {
+      if (config.shuffle) return shuffled(view, goal, dt, context);
       if (state.armed && squared(view)) { state.armed = false; state.aim = behind(view); state.from = [view.stance.centre.x, view.stance.centre.z]; }
       if (state.armed) return walk.goal(view, { ...goal, walk: null }, dt, context);
       if (!state.aim || state.seconds >= out + back) return walk.goal(view, goal, dt, context);
@@ -125,10 +158,11 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
 /** **The back step** (`backStep`): a gait part, ordered by name where a body's Move has it among its gaits (`MoveConfig.gaits`). */
 export const BACK_STEP_PART = deepFreeze<GaitPart<BackStepConfig>>({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Back step", stage: "experimental", fields: [], slots: [], defaults: { kind: "back-step" },
-  keys: { kind: true, carriage: true, out: true, back: true, beyond: true, stepIn: true },
+  keys: { kind: true, carriage: true, out: true, back: true, beyond: true, stepIn: true, shuffle: true },
   fits: fitsAll(fitsSoles),
   faults: (config) => [
     ...(config.carriage === undefined || validCarriage(config.carriage) ? [] : ["a carriage needs a positive width or none, and a finite stagger and lowering"]),
+    ...(config.shuffle === undefined || Number.isFinite(config.shuffle) && config.shuffle > 0 && config.shuffle <= .4 ? [] : ["back step: shuffle from 0 to 0.4 m"]),
     ...(config.stepIn === undefined || Number.isFinite(config.stepIn) && config.stepIn >= 0 && config.stepIn <= .5 ? [] : ["back step: stepIn from 0 to 0.5 m"]),
     ...(config.beyond === undefined || Number.isFinite(config.beyond) && Math.abs(config.beyond) <= .5 ? [] : ["back step: beyond from -0.5 to 0.5 m"]),
     ...(["out", "back"] as const).flatMap((key) => config[key] === undefined || Number.isFinite(config[key]) && config[key]! > 0 && config[key]! <= 3 ? [] : [`back step: ${key} from 0 to 3 s`]),
