@@ -28,10 +28,10 @@
  *   `src/skills/locomotion/back-step/index.ts`): ordered to stand by that gait, which its Move has
  *   among its gaits (the stock ones and it), for `seconds` s (0.6 with none) and until it is still on
  *   both feet (`STILL`); then back as `away` goes.
- * - `sway:<range>[:<closing>[:<out>[:<rest>[:<beyond>[:<follow>[:<in>]]]]]]]`: the back step ordered when it senses the attacker
+ * - `sway:<range>[:<closing>[:<out>[:<rest>[:<beyond>[:<follow>[:<in>[:<stepIn>[:<near>]]]]]]]]]`: the back step ordered when it senses the attacker
  *   within `range` and coming at `closing` m/s or more (0 with none; over the last `CLOSING` s
  *   of what it sees), held back `out` s (0.4 with none) and brought in over `SWAY_BACK` s, the
- *   order held as long, the centre asked `beyond` m behind the rear sole (the gait's own with none); then it stands for `rest` s (0.3 with none) before it may sway again; with `follow` 1 (or a nearest range, m, other than 1), between sways, where it senses the attacker beyond `BACK.far`, it goes back to `BACK` of it; `in` s, how long it brings the body in (`SWAY_BACK` with none). It
+ *   order held as long, the centre asked `beyond` m behind the rear sole (the gait's own with none); then it stands for `rest` s (0.3 with none) before it may sway again; with `follow` 1 (or a nearest range, m, other than 1), between sways, where it senses the attacker beyond `BACK.far`, it goes back to `BACK` of it; `in` s, how long it brings the body in (`SWAY_BACK` with none); `stepIn` m, the gait's; `near` m, nearer than which it does not sway (the attacker against it). It
  *   never walks back in.
  * - `keep:<range>`: from the start it holds `range` to `range` + 0.2 m of the attacker (the legs'
  *   own range keeping).
@@ -98,7 +98,7 @@ function policyOf(text) {
     case "away": if (!(n[0] > 0)) throw new Error(`--policy ${text}: away:<range>`); return { text, kind, range: n[0], seconds: n[1] || 1.5, pace: n[2] || null };
     case "seen": return { text, kind, seconds: n[0] || 1.5, pace: n[1] || null };
     case "step": if (!(n[0] > 0)) throw new Error(`--policy ${text}: step:<range>`); return { text, kind, range: n[0], seconds: n[1] || .6 };
-    case "sway": { if (!(n[0] > 0)) throw new Error(`--policy ${text}: sway:<range>`); const out = n[2] || .4, inner = n[6] || SWAY_BACK; return { text, kind, range: n[0], closing: n[1] || 0, out, inner, seconds: out + inner + .05, rest: n[3] || .3, beyond: rest[4] === undefined || rest[4] === "" ? null : n[4], follow: n[5] || 0 }; }
+    case "sway": { if (!(n[0] > 0)) throw new Error(`--policy ${text}: sway:<range>`); const out = n[2] || .4, inner = n[6] || SWAY_BACK; return { stepIn: n[7] || 0, near: n[8] || 0, text, kind, range: n[0], closing: n[1] || 0, out, inner, seconds: out + inner + .05 + (n[7] ? .4 : 0), rest: n[3] || .3, beyond: rest[4] === undefined || rest[4] === "" ? null : n[4], follow: n[5] || 0 }; }
     case "keep": if (!(n[0] > 0)) throw new Error(`--policy ${text}: keep:<range>`); return { text, kind, range: n[0] };
     case "shove": if (!(n[0] > 0 && n[1] > 0)) throw new Error(`--policy ${text}: shove:<range>:<speed>`); return { text, kind, range: n[0], speed: n[1], every: n[2] || .75 };
     default: throw new Error(`--policy ${text}: stand, away, seen, step, sway, keep or shove`);
@@ -175,13 +175,13 @@ if (isMainThread) {
   const { GOING } = await import("../../../src/skills/locomotion/move/index.ts");
   const { STOCK_GAITS } = await import("../../../src/skills/locomotion/move/gaits.ts");
   /** The defender's mind in `carriage` (its own where null), with the back step among its gaits, its sway held out `out` s where given. */
-  const stepper = (carriage, out, beyond, set, inner) => withLegs(DEFENDER, { ...GOING, gaits: [...STOCK_GAITS.map((gait) => carriage && !set && gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait),
+  const stepper = (carriage, out, beyond, set, inner, stepIn) => withLegs(DEFENDER, { ...GOING, gaits: [...STOCK_GAITS.map((gait) => carriage && !set && gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait),
     ...(set ? [{ name: "set", label: "Set", legs: { kind: "stance-walk", variation: "stance-walk", carriage } }] : []),
-    { name: "back-step", label: "Back step", legs: { kind: "back-step", ...(carriage ? { carriage } : {}), ...(out ? { out, back: inner ?? SWAY_BACK } : {}), ...(beyond === null || beyond === undefined ? {} : { beyond }) } }] });
+    { name: "back-step", label: "Back step", legs: { kind: "back-step", ...(carriage ? { carriage } : {}), ...(out ? { out, back: inner ?? SWAY_BACK } : {}), ...(beyond === null || beyond === undefined ? {} : { beyond }), ...(stepIn ? { stepIn } : {}) } }] });
   parentPort.on("message", async ({ policy, gap, pace, seconds, attacker: attacking, model, carriage, set }) => {
     let dispose;
     try {
-      const empty = { left: "empty", right: "empty" }, drilled = attacking === "drill", cap = drilled ? CAP : seconds, defending = policy.kind === "step" || policy.kind === "sway" || carriage ? stepper(carriage, policy.out, policy.beyond, set, policy.inner) : DEFENDER;
+      const empty = { left: "empty", right: "empty" }, drilled = attacking === "drill", cap = drilled ? CAP : seconds, defending = policy.kind === "step" || policy.kind === "sway" || carriage ? stepper(carriage, policy.out, policy.beyond, set, policy.inner, policy.stepIn) : DEFENDER;
       if (set && !carriage) throw new Error("--set needs --carriage");
       const bout = await buildBout({ left: model, right: model, gap, capSeconds: cap, loadouts: { left: empty, right: empty },
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, 0], heading: -Math.PI / 2 } },
@@ -236,7 +236,7 @@ if (isMainThread) {
           seen.push(apartSeen); if (seen.length > Math.round(CLOSING / world.dt) + 1) seen.shift();
           const closing = (seen[0] - apartSeen) / ((seen.length - 1) * world.dt || 1);
           const due = policy.kind === "seen" ? began.length > answered && duel.clock >= began[answered] + REACTION
-            : apartSeen <= policy.range && (policy.kind !== "sway" || closing >= policy.closing);
+            : apartSeen <= policy.range && (policy.kind !== "sway" || closing >= policy.closing && apartSeen >= policy.near);
           if (phase === "waiting" && due) {
             phase = "going"; since = duel.clock; result.ordered.push(duel.clock); answered = began.length;
             if (!first) { first = { x: centre(defender).x, z: centre(defender).z, way: wayOut(), at: duel.clock }; result.steps = []; }

@@ -1,5 +1,6 @@
 import { fitsAll } from "../../../parts/parts.ts";
 import type { Body, BodyView } from "../../../control/body.ts";
+import type { BearingEnd } from "../../../core/bodies/spec/body.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
 import { fitsSoles } from "../../../control/support.ts";
 import { deepFreeze } from "../../../core/state.ts";
@@ -18,6 +19,9 @@ const BEYOND = .1;
 /** How long the back step holds the body back, and takes to bring it back over the middle of its feet, s, unless its config says. */
 const SWAY = deepFreeze({ out: .7, back: .5 });
 
+/** The step in's swing: its time, s, and lift, m; the most it is waited for, s, before the sway goes on without it; how fast the centre comes in before it lifts, m/s. */
+const STEP = deepFreeze({ seconds: .3, lift: .05, most: 1, coming: .05 });
+
 /**
  * **The back step's config**: the carriage it stands in (`Carriage`), which should be the one the
  * body's other gaits hold, so that taking it up places no foot; the square stance where none. Its
@@ -30,6 +34,8 @@ interface BackStepConfig {
   readonly out?: number;
   readonly back?: number;
   readonly beyond?: number;
+  /** How far the lead foot steps in once the body is back, m, and the centre is brought in past where it began; none where it only sways. */
+  readonly stepIn?: number;
 }
 
 /**
@@ -39,7 +45,8 @@ interface BackStepConfig {
  * no step (`squared`), it asks the stance's centre (`LegsGoal.centre`) `BEYOND` behind the sole
  * further back along its heading for `out` s, and then where the centre began for `back` s, with
  * no walk and no step: the stance carries the whole body back over that foot, the head and trunk
- * with the centre, and in again. Then it is the walk. It ends with the centre where it began, since
+ * with the centre, and in again; with a `stepIn`, once the body comes forward again, the lead foot
+ * steps that far in (`STEP`) and the centre is brought in as far past where it began. Then it is the walk. It ends with the centre where it began, since
  * a walk taken up stands its carriage's feet about the centre (`footingOf`) and, taken up with the
  * body back, steps them there.
  *
@@ -54,7 +61,9 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
   const walk = STANCE_WALK_PART.make(body, { kind: "stance-walk", variation: "stance-walk", ...(config.carriage ? { carriage: config.carriage } : {}) });
   const out = config.out ?? SWAY.out, back = config.back ?? SWAY.back, beyond = config.beyond ?? BEYOND;
   /** Where the centre is asked out and back, world (x, z), m, and how long since the sway began, s; whether it waits for the stance to stand square. */
-  const state = { aim: null as readonly [number, number] | null, from: null as readonly [number, number] | null, seconds: 0, armed: false, walk: walk.state };
+  const state = { aim: null as readonly [number, number] | null, from: null as readonly [number, number] | null, seconds: 0, armed: false, walk: walk.state,
+    step: null as { readonly foot: BearingEnd; readonly bearing: BearingEnd; readonly to: readonly [number, number]; lifted: boolean; seconds: number } | null, stepped: false, waited: 0 };
+  const stepIn = config.stepIn ?? 0;
   /** Whether the stance stands on both feet, taking no step. */
   const squared = (view: BodyView): boolean => { const s = view.stance; return s.phase === "stand" && !s.own && Object.values(s.ends).every((end) => end.touching); };
   /** `beyond` behind the middle of the sole of `view`'s stance furthest back along the legs' heading. */
@@ -78,12 +87,33 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
     get unmet() { return walk.unmet; },
     resume(view: BodyView, heading?: number) {
       walk.resume(view, heading);
-      state.armed = true; state.aim = null; state.from = null; state.seconds = 0;
+      state.armed = true; state.aim = null; state.from = null; state.seconds = 0; state.step = null; state.stepped = false; state.waited = 0;
     },
     goal(view: BodyView, goal: LegsAsked, dt: number, context) {
       if (state.armed && squared(view)) { state.armed = false; state.aim = behind(view); state.from = [view.stance.centre.x, view.stance.centre.z]; }
       if (state.armed) return walk.goal(view, { ...goal, walk: null }, dt, context);
       if (!state.aim || state.seconds >= out + back) return walk.goal(view, goal, dt, context);
+      if (stepIn > 0 && state.seconds >= out && !state.stepped) {
+        const h = walk.heading, fx = sin(h), fz = cos(h);
+        if (!state.step && view.stance.velocity.x * fx + view.stance.velocity.z * fz < STEP.coming) {
+          state.waited += dt;
+          if (state.waited < STEP.most) return walk.goal(view, { ...goal, walk: null, swing: null, centre: [state.from![0] + stepIn * fx, state.from![1] + stepIn * fz] }, dt, context);
+          state.stepped = true;
+        }
+        if (!state.stepped && !state.step) {
+          const ends = Object.entries(view.stance.ends).sort(([, a], [, b]) => (b.middle.x * fx + b.middle.z * fz) - (a.middle.x * fx + a.middle.z * fz));
+          const lead = ends[0]!, rear = ends[ends.length - 1]!;
+          state.step = { foot: lead[0] as BearingEnd, bearing: rear[0] as BearingEnd, to: [lead[1].middle.x + stepIn * fx, lead[1].middle.z + stepIn * fz], lifted: false, seconds: 0 };
+          state.from = [state.from![0] + stepIn * fx, state.from![1] + stepIn * fz];
+        }
+      }
+      if (stepIn > 0 && state.step && !state.stepped) {
+        const step = state.step, phase = view.stance.phase;
+        if (phase === "swing") step.lifted = true;
+        step.seconds += dt;
+        if (step.lifted && phase === "stand" || step.seconds > STEP.most) state.stepped = true;
+        else return walk.goal(view, { ...goal, walk: null, feet: [step.bearing], centre: null, swing: { foot: step.foot, to: step.to, seconds: STEP.seconds, lift: STEP.lift } }, dt, context);
+      }
       const centre = state.seconds < out ? state.aim : state.from!;
       state.seconds += dt;
       return walk.goal(view, { ...goal, walk: null, swing: null, centre }, dt, context);
@@ -95,10 +125,11 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
 /** **The back step** (`backStep`): a gait part, ordered by name where a body's Move has it among its gaits (`MoveConfig.gaits`). */
 export const BACK_STEP_PART = deepFreeze<GaitPart<BackStepConfig>>({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Back step", stage: "experimental", fields: [], slots: [], defaults: { kind: "back-step" },
-  keys: { kind: true, carriage: true, out: true, back: true, beyond: true },
+  keys: { kind: true, carriage: true, out: true, back: true, beyond: true, stepIn: true },
   fits: fitsAll(fitsSoles),
   faults: (config) => [
     ...(config.carriage === undefined || validCarriage(config.carriage) ? [] : ["a carriage needs a positive width or none, and a finite stagger and lowering"]),
+    ...(config.stepIn === undefined || Number.isFinite(config.stepIn) && config.stepIn >= 0 && config.stepIn <= .5 ? [] : ["back step: stepIn from 0 to 0.5 m"]),
     ...(config.beyond === undefined || Number.isFinite(config.beyond) && Math.abs(config.beyond) <= .5 ? [] : ["back step: beyond from -0.5 to 0.5 m"]),
     ...(["out", "back"] as const).flatMap((key) => config[key] === undefined || Number.isFinite(config[key]) && config[key]! > 0 && config[key]! <= 3 ? [] : [`back step: ${key} from 0 to 3 s`]),
   ],
