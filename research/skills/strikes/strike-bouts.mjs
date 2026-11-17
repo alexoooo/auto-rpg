@@ -18,6 +18,10 @@
  * and, at each decision of a mind that reports its offers (`Engagement.offers`), the offer it chose
  * and its terms, and the life each side had then (`decisions`): what `bout-readings.mjs` reads the
  * prices against.
+ *
+ * `--carriage left={"lead":"left","width":0.25,"stagger":0.4,"lower":0.1}` has that side's mind (its
+ * model's own, at `--aggression` where given) walk its stance-walk gaits in that carriage all bout
+ * (`Carriage`), one flag a side; its profiles stay those measured from the square stand.
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -42,7 +46,7 @@ if (isMainThread) {
     models: { type: "string" }, gaps: { type: "string", default: "3,4,5" }, held: { type: "string", default: "club" },
     seconds: { type: "string", default: "120" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
     holds: { type: "string", multiple: true, default: [] },
-    drill: { type: "string" }, pace: { type: "string" }, aggression: { type: "string" },
+    drill: { type: "string" }, pace: { type: "string" }, aggression: { type: "string" }, carriage: { type: "string", multiple: true, default: [] },
   } });
   const aggression = values.aggression === undefined ? null : Number(values.aggression);
   if (aggression !== null && !(aggression >= 1 && aggression <= 5)) throw new Error("--aggression is a number from 1 to 5");
@@ -51,6 +55,8 @@ if (isMainThread) {
   // the two set the gap apart, centre to centre, facing.
   const drill = values.drill === undefined ? null : { opponent: `drill-${values.drill}`, ...(values.pace === undefined ? {} : { pace: Number(values.pace) }) };
   const holds = Object.fromEntries(values.holds.map(one => one.split("=")));
+  const carriages = Object.fromEntries(values.carriage.map(one => { const at = one.indexOf("="); return [one.slice(0, at), JSON.parse(one.slice(at + 1))]; }));
+  if (Object.keys(carriages).some(side => side !== "left" && side !== "right")) throw new Error("--carriage is <left|right>=<JSON>");
   if (Object.keys(holds).some(side => side !== "left" && side !== "right")) throw new Error("--holds is <left|right>=<skill/variation>");
   const { HUMANOID_MODELS } = await import("../../../src/core/bodies/models.ts");
   const models = values.models?.split(",") ?? HUMANOID_MODELS, gaps = values.gaps.split(",").map(Number), seconds = Number(values.seconds);
@@ -59,8 +65,8 @@ if (isMainThread) {
     || !Number.isFinite(seconds) || seconds <= 0 || !Number.isSafeInteger(lanes) || lanes < 1 || helds.some(held => !["club", "empty"].includes(held)))
     throw new Error("invalid models, gaps, seconds, workers or held selection");
   const jobs = [];
-  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, aggression });
-  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}${job.aggression === null ? "" : ` aggression ${job.aggression}`}`;
+  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, aggression, carriages });
+  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}${job.aggression === null ? "" : ` aggression ${job.aggression}`}${Object.keys(job.carriages).length ? ` carriages ${JSON.stringify(job.carriages)}` : ""}`;
   const loaded = new Map(values.load ? JSON.parse(await readFile(values.load, "utf8")) : []);
   for (const job of jobs) {
     job.result = loaded.get(key(job));
@@ -128,17 +134,25 @@ if (isMainThread) {
   const { centreOfToRef } = await import("../../../src/core/bodies/read-motion.ts");
   /** A model's own mind with its chooser's objective the few terms at `aggression`. */
   const mindAt = (model, aggression) => { const mind = CONTEXT.defaultMind(model); return { ...mind, chooser: { ...mind.chooser, objective: { kind: "few-terms", aggression } } }; };
-  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, aggression }) => {
+  const { withLegs } = await import("../../../src/minds/option/config.ts");
+  const { GOING } = await import("../../../src/skills/locomotion/move/index.ts");
+  const { STOCK_GAITS } = await import("../../../src/skills/locomotion/move/gaits.ts");
+  /** `mind` with its stance-walk gaits in `carriage`. */
+  const carried = (mind, carriage) => withLegs(mind, { ...GOING, gaits: STOCK_GAITS.map((gait) => gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait) });
+  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, aggression, carriages = {} }) => {
     let dispose;
     try {
-      if (aggression !== null && drill) throw new Error("--aggression sets both sides' minds; a drill sets its own");
+      if ((aggression !== null || Object.keys(carriages).length) && drill) throw new Error("--aggression and --carriage set both sides' minds; a drill sets its own");
       const skills = Object.fromEntries(Object.entries(holds).map(([side, variation]) => [side, characterSkills(side === "left" ? left : right, [variation])]));
       const drilled = drill ? { recoverySeconds: null, entry: [], ends: [],
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, 0], heading: -Math.PI / 2 } },
         minds: { left: CONTEXT.catalog.minds["option-drill"].config, right: createDrillOpponents(CONTEXT).opponentOf(drill.opponent).mind },
         commanders: { left: { kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, ...(drill.pace === undefined ? { walking: true } : { pace: drill.pace }) } } } : {};
       const recipe = { left, right, gap, capSeconds: seconds, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } },
-        ...(Object.keys(skills).length ? { skills } : {}), ...drilled, ...(aggression === null ? {} : { minds: { left: mindAt(left, aggression), right: mindAt(right, aggression) } }) };
+        ...(Object.keys(skills).length ? { skills } : {}), ...drilled, ...(aggression === null && !Object.keys(carriages).length ? {} : { minds: Object.fromEntries(SIDES.map((side) => {
+          const model = side === "left" ? left : right, mind = aggression === null ? CONTEXT.defaultMind(model) : mindAt(model, aggression);
+          return [side, carriages[side] ? carried(mind, carriages[side]) : mind];
+        })) }) };
       // With ACTUATION (`symmetric` or `directional`), the world's muscle law (`World.actuation`); else the world's own.
       const bout = await buildBout(recipe, { engine: BOUT_ENGINE, ...(process.env.ACTUATION ? { actuation: process.env.ACTUATION } : {}) }); dispose = bout.dispose;
       const { world, duel } = bout, track = Object.fromEntries(SIDES.map(side => [side, {
