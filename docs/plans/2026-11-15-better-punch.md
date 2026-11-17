@@ -689,10 +689,11 @@ deleted.
   `recover` 0.25 7.76, 20%, 0.83 hp, 3 falls (commit to commit 0.41 s from 0.58; the blow after
   a landed one lands 45 of 93). Commits already follow at once: half begin within 0.25 s of the
   last one's end. Every setting reads 7.3 to 8 landed a bout-minute.
-- **Which count the bar reads is the owner's to say.** In the same 24 bouts the record's `moving`
-  landed 105 and the installed punch 3 (35 times); against the installed punch's own rate
-  unsmothered (2.3 to 2.6 a bout-minute, the reading this plan chose at reach 0.8) it is three
-  times. Work goes on toward the stricter reading meanwhile.
+- **The bar reads the same bouts, in the owner's words.** A reviewer's caution once read it
+  against the installed punch's own rate unsmothered (2.3 to 2.6 a bout-minute), when a count at
+  reach 0.8 might have been a smothered foe; the four sparring cells (above) and the 48 bouts
+  below answered it, and the reviewer withdrew it. In the same 24 bouts the record's `moving` then
+  landed 105 and the installed punch 3.
 - **Heavy landed blows come from a straighter arm, not from range.** The 147 landed in three
   screens by thirds of the mass behind the fist: 3.6, 10.0 and 25.0 kg, at 0.81, 0.84 and 1.00 hp;
   the elbow bent 42, 36 and 25 degrees, the shoulder-to-fist line 27, 22 and 13 degrees off the
@@ -738,8 +739,16 @@ deleted.
   ratio depends on the baseline: on itself under the same Mind, 24 bouts, it lands 1.19 a
   bout-minute, 0.77 hp (5.9 times), but since `c5c1df0fe` a Warrior prices any Warrior as throwing
   the hardest strike measured on that body, `moving`, so two on `drive` fear a punch neither holds
-  and that rate is likely low; against the 2.3 to 2.6 this plan read before, about 3 times. Which
-  reading is the bar is still the owner's to say; the same-bouts count depends on neither.
+  and that rate is likely low; against the 2.3 to 2.6 this plan read before, about 3 times. The
+  bar is the same-bouts count, which depends on neither: on the owner's words both halves read
+  met, the owner's look in the Arena to come.
+- **The window slides along one trade, landed against weight.** From band 0.15, the screen's 24
+  bouts priced by its profiles: band 0.175 10.14 a bout-minute, 0.89 hp; `deeper` 0.45 6.91, 0.97;
+  both 9.23, 0.85; `pace` 1.4 moved nothing (the bouts replay to the bit). The body stands 0.80 to
+  1.00 m from the foe under band 0.2 and 0.15 alike, idle more of that time at 0.15: the narrower
+  window fires less from where it stands, it does not bring the body nearer. Pricing the foe's
+  threat at 0.4 times its profile's (the Arena's measured excess, tried and taken out) read 8.58
+  and 0.96: the threat's price is not what holds it there.
 
 | Step | State |
 | --- | --- |
