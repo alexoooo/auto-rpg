@@ -4,6 +4,10 @@
 built; a plan in `docs/plans/`, where there is one, what is in work, in the owner's words.
 Work toward the owner's goal runs unattended, overnight included.
 
+Where a second session reviews the work, it reads read-only and sends a note only with its
+evidence; it never asks the work to wait for the owner and never adds to the owner's bar. The
+worker answers a note with a reading and keeps going.
+
 ## Commands
 
 ```powershell
