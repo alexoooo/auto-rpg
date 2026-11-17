@@ -43,7 +43,7 @@ const WALK_SPACING = PROFILE_RANGE_SPAN / 2;
  * has one) by `gait`, each leg of the way as long as the legs take on it (`Walker.seconds`: the
  * speed rule all along the way, facing the focus, or the way each leg goes with none); through the
  * blow coming, and the focus's pressure along the part of each leg within its reach, the body
- * moving at the walk's velocity against the focus's (`dealtAt`, read at the middle of each
+ * moving at the walk's velocity against the focus's (`dealtAt`, from as long after `at` as the way has gone, read at the middle of each
  * `WALK_SPACING` of that part, so the reads follow the way's length within reach and not its time),
  * past its grace (`graceAt`: spent as the way goes within its reach, restored as it goes out of it,
  * never past the focus's latency); leaving the body still at the spot with that grace, the focus
@@ -77,7 +77,7 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
             const along = enter + (i + .5) / pieces * within, tx = fx - (x + along * ux), tz = fz - (z + along * uz);
             const spent = Math.min(grace, dt);
             grace -= spent;
-            taken += dealtAt(pressure, at, hypot(tx, tz) - offset, dt - spent, startVelocity({ x: tx, z: tz }, moving));
+            taken += dealtAt(pressure, at, hypot(tx, tz) - offset, dt - spent, startVelocity({ x: tx, z: tz }, moving), duration - seconds + enter / pace + i * dt + spent);
           }
         }
         grace = Math.min(pressure.latency, grace + (length - leave) / pace);

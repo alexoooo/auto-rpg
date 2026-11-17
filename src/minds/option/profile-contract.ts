@@ -2,14 +2,15 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { Profile } from "../../skills/framework/profile.ts";
+import type { PressureTable } from "./pressure.ts";
 import type { Sites } from "./option.ts";
 import type { Walker } from "./walk.ts";
 import type { OptionRecord } from "./record.ts";
 
 /** Construction protocol owned by the profile-based evaluation model. */
 export const PROFILE_MODEL = "profiles/1";
-/** The profiles a mind predicts from: its strikes', its ground edges' and its steps' (none where absent). */
-export interface ProfileTables { readonly strikes: readonly Profile[]; readonly edges: readonly Profile[]; readonly steps?: readonly Profile[] }
+/** The profiles a mind predicts from: its strikes', its ground edges' and its steps' (none where absent); and the pressures measured in bouts it reads a foe's by (`PressureTable`; none where absent, the foe's strikes' rate). */
+export interface ProfileTables { readonly strikes: readonly Profile[]; readonly edges: readonly Profile[]; readonly steps?: readonly Profile[]; readonly pressures?: readonly PressureTable[] }
 
 /**
  * **What the profile model gives its compatible Option kinds** to make them from: its body's spec, the

@@ -26,6 +26,10 @@
  * `--back-step left` has that side's mind (its model's own, at `--aggression` where given) fight
  * with the back step, its Option and its gait, which the game's minds do not take yet
  * (`withBackStep`), one flag a side.
+ *
+ * `--pressure measured` has both sides' minds (their models' own, at `--aggression` where given)
+ * read a foe's pressure by what bouts measured (`MeasuredConfig.pressure`,
+ * `assets/minds/pressure-profiles.json`) in place of its strikes' rate.
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -51,8 +55,10 @@ if (isMainThread) {
     seconds: { type: "string", default: "120" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
     holds: { type: "string", multiple: true, default: [] },
     drill: { type: "string" }, pace: { type: "string" }, aggression: { type: "string" }, carriage: { type: "string", multiple: true, default: [] },
-    "back-step": { type: "string", multiple: true, default: [] },
+    "back-step": { type: "string", multiple: true, default: [] }, pressure: { type: "string" },
   } });
+  if (values.pressure !== undefined && values.pressure !== "rate" && values.pressure !== "measured") throw new Error("--pressure is rate or measured");
+  const pressure = values.pressure ?? null;
   const aggression = values.aggression === undefined ? null : Number(values.aggression);
   if (aggression !== null && !(aggression >= 1 && aggression <= 5)) throw new Error("--aggression is a number from 1 to 5");
   // With `--drill stand|guard`, the left side is drilled at the right's trunk's middle with its punch (the Strike drill's Option Mind and Commander,
@@ -72,7 +78,7 @@ if (isMainThread) {
     || !Number.isFinite(seconds) || seconds <= 0 || !Number.isSafeInteger(lanes) || lanes < 1 || helds.some(held => !["club", "empty"].includes(held)))
     throw new Error("invalid models, gaps, seconds, workers or held selection");
   const jobs = [];
-  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, aggression, carriages, added });
+  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, aggression, carriages, added, pressure });
   const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}${job.aggression === null ? "" : ` aggression ${job.aggression}`}${Object.keys(job.carriages).length ? ` carriages ${JSON.stringify(job.carriages)}` : ""}${Object.keys(job.added ?? {}).length ? ` back step ${Object.keys(job.added).join(",")}` : ""}`;
   const loaded = new Map(values.load ? JSON.parse(await readFile(values.load, "utf8")) : []);
   for (const job of jobs) {
@@ -142,19 +148,20 @@ if (isMainThread) {
   /** A model's own mind with its chooser's objective the few terms at `aggression`. */
   const mindAt = (model, aggression) => { const mind = CONTEXT.defaultMind(model); return { ...mind, chooser: { ...mind.chooser, objective: { kind: "few-terms", aggression } } }; };
   const { inCarriage: carried, withBackStep } = await import("../../../src/minds/option/config.ts");
-  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, aggression, carriages = {}, added = {} }) => {
+  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, aggression, carriages = {}, added = {}, pressure = null }) => {
     let dispose;
     try {
-      if ((aggression !== null || Object.keys(carriages).length || Object.keys(added).length) && drill) throw new Error("--aggression, --carriage and --back-step set both sides' minds; a drill sets its own");
+      if ((aggression !== null || Object.keys(carriages).length || Object.keys(added).length || pressure !== null) && drill) throw new Error("--aggression, --carriage, --back-step and --pressure set both sides' minds; a drill sets its own");
       const skills = Object.fromEntries(Object.entries(holds).map(([side, variation]) => [side, characterSkills(side === "left" ? left : right, [variation])]));
       const drilled = drill ? { recoverySeconds: null, entry: [], ends: [],
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, 0], heading: -Math.PI / 2 } },
         minds: { left: CONTEXT.catalog.minds["option-drill"].config, right: createDrillOpponents(CONTEXT).opponentOf(drill.opponent).mind },
         commanders: { left: { kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, ...(drill.pace === undefined ? { walking: true } : { pace: drill.pace }) } } } : {};
       const recipe = { left, right, gap, capSeconds: seconds, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } },
-        ...(Object.keys(skills).length ? { skills } : {}), ...drilled, ...(aggression === null && !Object.keys(carriages).length && !Object.keys(added).length ? {} : { minds: Object.fromEntries(SIDES.map((side) => {
+        ...(Object.keys(skills).length ? { skills } : {}), ...drilled, ...(aggression === null && !Object.keys(carriages).length && !Object.keys(added).length && pressure === null ? {} : { minds: Object.fromEntries(SIDES.map((side) => {
           const model = side === "left" ? left : right, own = aggression === null ? CONTEXT.defaultMind(model) : mindAt(model, aggression);
-          const mind = added[side] ? withBackStep(own) : own;
+          const priced = pressure === null ? own : { ...own, predictions: { ...(own.predictions ?? { kind: "measured" }), pressure } };
+          const mind = added[side] ? withBackStep(priced) : priced;
           return [side, carriages[side] ? carried(mind, carriages[side]) : mind];
         })) }) };
       // With ACTUATION (`symmetric` or `directional`), the world's muscle law (`World.actuation`); else the world's own.
@@ -265,7 +272,7 @@ if (isMainThread) {
             const hold = offers.find((offer) => offer.name === "hold")?.terms;
             decisions[side].push([+duel.clock.toFixed(4), +Math.hypot(a.x - b.x, a.z - b.z).toFixed(3), engagement.phase, ...termsOf(terms), +me.pool.bar().toFixed(5), +foe.pool.bar().toFixed(5),
               hold && hold.duration > 0 ? +(hold.taken / hold.duration).toFixed(6) : null,
-              offers.filter((offer) => /^[a-z-]+ (hand|foot)\.[a-z]+(:|$)/.test(offer.name)).map((offer) => [offer.name.split(":")[0], ...termsOf(offer.terms)])]);
+              offers.filter((offer) => /^[a-z-]+ (hand|foot)\.[a-z]+(:|$)/.test(offer.name)).map((offer) => [offer.name.split(":")[0], ...termsOf(offer.terms)]), engagement.foe ?? null]);
           }
         }
         for (const side of SIDES) {

@@ -24,13 +24,16 @@ export function profileModel(tables: ProfileTables): OptionEvaluation {
       return part;
     }, input.options,
       { spec, hz, rate, delay, parts, walk, legs, guards: input.guards, tables, record });
-    const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap(option => option.modelled ? [option.modelled] : []), measured: tables.strikes,
+    const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap(option => option.modelled ? [option.modelled] : []), measured: tables.strikes, pressures: tables.pressures ?? [],
       ordersOf: input.orders, record, parts, techniques });
     const chosen = chooserOf(parts, input.chooser, options, input.seed, input.phase);
     const state = { chooser: chosen.state, model: { situation: reader.state, record: record.state }, options: options.map((option) => option.state), prospects: [] as readonly Prospect[], details: [] as EngagementDetail[] };
+    /** What the focus was doing as the mind last read it: a report, not state a bout resumes from. */
+    let foe = "clear";
     const engagement = {
       get phase() { return chosen.running[0]?.name ?? "hold"; },
       get offers() { return chosen.offers; },
+      get foe() { return foe; },
       get details() { return state.details; },
     };
     return {
@@ -38,6 +41,7 @@ export function profileModel(tables: ProfileTables): OptionEvaluation {
       get prospects(): readonly Prospect[] { return state.prospects; },
       decide(seen: Sight, dt: number) {
         const read = reader.read(seen);
+        foe = read.phase;
         let priced: readonly Situation[] = NONE;
         const { set, at: now, fresh } = chosen.decide(read, () => priced = reader.others());
         if (fresh) { state.prospects = prospect(state.prospects, options, read); for (const other of priced) state.prospects = prospect(state.prospects, options, other); }

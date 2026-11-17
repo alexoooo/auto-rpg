@@ -24,6 +24,7 @@ import type { RiseMemory } from "./rise-memory.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
+import { pressureCurve, pressureTable, type PressureTable } from "./pressure.ts";
 import { blowLife, DECIDING, limbReach, record, type Ground } from "./value.ts";
 
 /**
@@ -47,6 +48,8 @@ export interface Seen {
   readonly strikes: readonly ModelledStrike[];
   /** Every striker's measured strikes (`dataOf("strike-profiles")`), which model a foe's (`foeModel`). */
   readonly measured: readonly Profile[];
+  /** The pressures measured in bouts (`dataOf("pressure-profiles")`), a foe's read by where one is of its body on this one (`pressureOf`). */
+  readonly pressures?: readonly PressureTable[];
   readonly orders: Orders | null;
   readonly focus: BodySense | null;
   readonly blow: ReturnType<Threats["blowOf"]>;
@@ -265,6 +268,8 @@ export interface Pressure {
   readonly stance?: Stances;
   /** The rate at an exact start, where a search keeps query scratch (`cachedPressure`). */
   readonly rateAt?: (range: number, velocity: readonly [number, number]) => number;
+  /** What bouts measured the focus's fighting took from the body (`PressureTable`), read where it reads (`pressureCurve`), the focus in `doing` as now. */
+  readonly measured?: { readonly table: PressureTable; readonly doing: string };
 }
 
 /** No pressure: no focus. */
@@ -316,13 +321,21 @@ function pooled(model: Model, striker: BodySpec, postures: Postures): Model {
   return { ...model, measured: [{ limbs: [...new Set(model.measured.flatMap((one) => one.limbs))], reading: readProfile(at.pool, striker, postures) }] };
 }
 
-/** **The pressure** (`Pressure`) the focus puts on the body: its model read at the focus's posture (`sensedPosture`), pooled (`pooled`), the body struck as standing. */
+/**
+ * **The pressure** (`Pressure`) the focus puts on the body: its model read at the focus's posture
+ * (`sensedPosture`), pooled (`pooled`), the body struck as standing. Where bouts measured a
+ * standing focus's body fighting this one (`Seen.pressures`), it is read by them (`measured`), the
+ * focus doing as it is now (`foePhase`): their moments carry how soon its blows came, so no grace
+ * is kept of it (its latency none).
+ */
 function pressureOf(seen: Seen): Pressure {
   const { focus, spec } = seen;
   if (!focus) return NO_PRESSURE;
   const posture = sensedPosture(focus), postures = { own: posture, target: "standing" };
-  return { ...pressureBy(seen, pooled(foeModel(seen, focus.spec, postures), focus.spec, postures), ownPhase(seen), focus.spec, spec, placingAt(posture)),
+  const pressure = { ...pressureBy(seen, pooled(foeModel(seen, focus.spec, postures), focus.spec, postures), ownPhase(seen), focus.spec, spec, placingAt(posture)),
     stance: turned(carriedStances(spec, seen.sight.view, focus)) };
+  const table = posture === "standing" && seen.pressures ? pressureTable(seen.pressures, focus.spec, spec) : null;
+  return table ? { ...pressure, latency: 0, priced: `${pressure.priced}; measured in bouts`, measured: { table, doing: foePhase(focus, seen.blow) } } : pressure;
 }
 
 /**
@@ -450,11 +463,17 @@ export function edgeOf(now: Pick<Situation, "range" | "apart">, pressure: Pressu
 
 /**
  * **The life `seconds` s cost the struck body under `pressure`** with the two `apart` m head to
- * head, moving at `velocity` (the start's at `now` unless given, `startOf`): at the range centre to
- * centre that leaves (`pressureAt`).
+ * head, moving at `velocity` (the start's at `now` unless given, `startOf`), `from` s after `now`:
+ * at the range centre to centre that leaves, what bouts measured there (`Pressure.measured`) from
+ * `from` to `from + seconds` s after a moment, the focus doing as now where `now` is the body's
+ * own and as any where it is a state an Option leaves (`Situation.grace`), later than what it does
+ * now; else, or where they measured none near, its strikes' rate (`pressureAt`).
  */
-export const dealtAt = (pressure: Pressure, now: Situation, apart: number, seconds: number, velocity = startOf(now)): number =>
-  pressureAt(pressure, now.apart + apart - now.range, velocity, seconds);
+export function dealtAt(pressure: Pressure, now: Situation, apart: number, seconds: number, velocity = startOf(now), from = 0): number {
+  const range = now.apart + apart - now.range, measured = pressure.measured;
+  const curve = measured ? pressureCurve(measured.table, now.grace === undefined ? measured.doing : null, range) : null;
+  return curve ? curve(from + seconds) - curve(from) : pressureAt(pressure, range, velocity, seconds);
+}
 
 /** **Whether the body at `now` is within the focus's reach** (`edgeOf` its pressure). */
 export const inReach = (now: Situation): boolean => within(now.range, edgeOf(now, now.predictions.pressure));

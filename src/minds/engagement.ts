@@ -56,6 +56,8 @@ export interface EngagementDetail {
 export interface Engagement {
   readonly phase: string;
   readonly focus?: string | null;
+  /** What the focus is doing as the mind last read it (an Option Mind's `FoePhase`), where it reads so. */
+  readonly foe?: string;
   readonly lost?: boolean;
   readonly details?: readonly EngagementDetail[];
   readonly offers?: readonly Offer[];
