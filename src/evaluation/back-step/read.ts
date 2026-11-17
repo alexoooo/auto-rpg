@@ -60,7 +60,8 @@ export type BackStepReading = {
 /**
  * **A sway as a profile's trial records it**: when it was ordered, s; the attacker as the subject
  * sensed it then (its phase, `sensedPhase`; its posture; how far apart the two stood, m; the
- * subject's velocity against the attacker's, `startVelocity`; how each stood, `Stances`); how
+ * subject's velocity against the attacker's, `startVelocity`; how each stood, `Stances`); the
+ * subject's own action under way then, by its name and phase, where one was (`own`); how
  * long it was ordered, s; the life the subject lost meanwhile, HP; where it left the two (`exit`:
  * their range head to head as it was ordered no more, m, as a strike's trial records it); and
  * whether it went down then or within `SETTLE` s of its end.
@@ -69,6 +70,7 @@ export type Sway = {
   readonly at: number;
   readonly phase: string;
   readonly foeAt: { readonly posture: string; readonly apart: number; readonly velocity: readonly [number, number]; readonly stance?: Stances };
+  readonly own?: string;
   readonly seconds: number;
   readonly lost: number;
   readonly exit: { readonly range: number };
@@ -85,13 +87,13 @@ type Punch = { readonly effector: string; readonly fired: number; damage: number
  * The reader of a trial in which the subject, the bout's left side, meets the right side's straight
  * punches for `seconds` s, or `after` s past the first punch's fire where it is given.
  */
-export function readBackStep({ world, duel }: { readonly world: World; readonly duel: Duel }, { seconds, after, sways: recording }: { readonly seconds: number; readonly after?: number; readonly sways?: boolean }): Reader<BackStepReading> {
+export function readBackStep({ world, duel }: { readonly world: World; readonly duel: Duel }, { seconds, after, sways: recording, chosen }: { readonly seconds: number; readonly after?: number; readonly sways?: boolean; readonly chosen?: boolean }): Reader<BackStepReading> {
   const subject = duel.duelists.left, attacker = duel.duelists.right, foe = attacker.minded.skills;
   if (!foe) throw new Error("the attacker runs no skills");
   const punches: Punch[] = [], seen = new Set<number>(), state = { down: false, heard: 0 };
   /** Each sway seen through (`Sway`), the one under way, and those ended whose `SETTLE` is not over. */
   const sways: Sway[] = [], settling: { sway: Omit<Sway, "down">; until: number; down: boolean }[] = [];
-  let going: { at: number; phase: string; foeAt: Sway["foeAt"]; lost: number } | null = null;
+  let going: { at: number; phase: string; foeAt: Sway["foeAt"]; own?: string; lost: number; down: boolean } | null = null;
   const view = "view" in subject.body ? (subject.body as HostedBody).view : null, head = centreReading(subject.built, "head"), theirHead = centreReading(attacker.built, "head"), centre = new Vector3();
   /** The attacker as the subject senses it now: its phase, and where it is (`Sway`); null where unseen. */
   const sensed = (): { readonly phase: string; readonly foeAt: Sway["foeAt"] } | null => {
@@ -113,16 +115,18 @@ export function readBackStep({ world, duel }: { readonly world: World; readonly 
   };
   /** The sways: one begins as the Commander orders it (its task `swaying`) and ends as it stops. */
   const follow = (now: number, lost: number): void => {
-    const swaying = duel.commanded("left")?.task === "swaying";
-    if (going) going.lost += lost;
+    // Ordered by its Commander, or, where `chosen`, taken by its own Mind (its back step's Option).
+    const swaying = chosen ? subject.minded.report?.engagement?.phase === "back step" : duel.commanded("left")?.task === "swaying";
+    if (going) { going.lost += lost; going.down ||= subject.body.down; }
     for (const one of settling) one.down ||= subject.body.down;
     while (settling.length && settling[0]!.until <= now) { const one = settling.shift()!; sways.push({ ...one.sway, down: one.down }); }
     if (going && !swaying) {
-      settling.push({ sway: { at: going.at, phase: going.phase, foeAt: going.foeAt, seconds: now - going.at, lost: going.lost, exit: { range: range() } }, until: now + SETTLE, down: subject.body.down });
+      settling.push({ sway: { at: going.at, phase: going.phase, foeAt: going.foeAt, ...(going.own ? { own: going.own } : {}), seconds: now - going.at, lost: going.lost, exit: { range: range() } }, until: now + SETTLE, down: going.down || subject.body.down });
       going = null;
     } else if (!going && swaying) {
       const start = sensed();
-      if (start) going = { at: now, ...start, lost: 0 };
+      const doing = subject.minded.skills?.report.actions[0];
+      if (start) going = { at: now, ...start, ...(doing ? { own: `${doing.action}:${doing.phase}` } : {}), lost: 0, down: subject.body.down };
     }
   };
   return {

@@ -13,7 +13,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readBackStep, type BackStepReading } from "./read.ts";
 import { between } from "../twin.ts";
-import { withLegs, type OptionMindConfig } from "../../minds/option/config.ts";
+import { withBackStep, withLegs, type OptionMindConfig } from "../../minds/option/config.ts";
 import { ORDERS_OPTION } from "../../minds/option/kinds.ts";
 import { GOING, type MoveConfig } from "../../skills/locomotion/move/index.ts";
 import { STAGGERED, STOCK_GAITS, type Gait } from "../../skills/locomotion/move/gaits.ts";
@@ -33,13 +33,13 @@ const CARRIAGE = STAGGERED;
 const BACK_STEP = deepFreeze({ kind: "back-step", carriage: CARRIAGE, out: .7, back: .5, stepIn: .1, follow: .15 });
 
 /** The sway Commander's settings: the carriage within 3 m, the back step at 1.05 m held 1.65 s, 0.3 s between. */
-const SWAYING = deepFreeze({ kind: "sway", range: 1.05, near: 0, seconds: 2.8, rest: .3, set: 3, follow: .95 });
+const SWAYING = deepFreeze({ kind: "sway", range: 1.05, near: 0, seconds: 2.8, rest: .3, set: 3, follow: .95, fight: 0 });
 
 /**
  * The sway Commander sparring (`SPAR`): the back step held 1.65 s, as the Mind holds it (its
  * `back-step` Option), with no follow; its range each trial's own.
  */
-const SPARRING = deepFreeze({ kind: "sway", near: 0, seconds: 1.65, rest: .3, set: 3, follow: 0 });
+const SPARRING = deepFreeze({ kind: "sway", near: 0, seconds: 1.65, rest: .3, set: 3, follow: 0, fight: 0 });
 
 /** The sway Commander sparring a fighting subject (`SPAR_FIGHT`): as `SPARRING`, the subject its own Mind's a second between sways and in no carriage but its Mind's. */
 const FIGHTING = deepFreeze({ ...SPARRING, rest: 1, set: 0, fight: 1 });
@@ -51,7 +51,7 @@ const DRILLING = deepFreeze({ kind: "drill", skill: "straight-punch", region: { 
  * A rung: its attacker, the gaps it starts at, m, how long a trial plays, s, and how long past the
  * first punch's fire it plays where that ends it. A change here is a new protocol.
  */
-type Rung = { readonly attacker: Attacker; readonly gaps: readonly number[]; readonly seconds: number; readonly after?: number; readonly sways?: readonly number[]; readonly fight?: true };
+type Rung = { readonly attacker: Attacker; readonly gaps: readonly number[]; readonly seconds: number; readonly after?: number; readonly sways?: readonly number[]; readonly fight?: true; readonly chosen?: true };
 
 const range = (from: number, to: number, step: number): number[] => Array.from({ length: Math.round((to - from) / step) + 1 }, (_, k) => Number((from + k * step).toFixed(4)));
 
@@ -72,6 +72,14 @@ const SPAR: Rung = deepFreeze({ ...MIND, sways: range(.6, 1.6, .1) });
  * walk, a punch or its recovery, as a Mind that chooses the back step begins it.
  */
 const SPAR_FIGHT: Rung = deepFreeze({ ...SPAR, fight: true });
+
+/**
+ * **The back step as the Mind chooses it**: the subject the Warrior's own Mind with the back step
+ * (`withBackStep`), ordered nothing, from 2.6 to 4.95 m apart a centimetre at a time; each sway it takes a trial. Its
+ * sways begin where its Mind would begin them, so they read what a fight's do, which the drawn
+ * starts of `spar` and `spar-fight` may not.
+ */
+const SPAR_CHOSEN: Rung = deepFreeze({ ...MIND, gaps: range(2.6, 4.95, .01), sways: [0], fight: true, chosen: true });
 
 /** Gaps no reading of the back step was chosen on, for the bar's last word: two Mind sets of 24 and a drilled one of 21. A checkpoint is never ranked on them. */
 const MIND_HELD: Rung = deepFreeze({ ...MIND, gaps: [...range(2.6125, 4.9125, .1), ...range(2.6875, 4.9875, .1)] });
@@ -123,10 +131,10 @@ export const createBackStepCases = perContext((context: GameContext) => {
           loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } },
           // Along +x, as the open stage's spawns are.
           start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, 0], heading: -Math.PI / 2 } },
-          minds: { left: rung.fight ? fighter() : defenderOf(value), right: attacker === "drill" ? MINDS["option-drill"]!.config : context.defaultMind("man") },
-          commanders: { left: sway === undefined ? SWAYING : { ...rung.fight ? FIGHTING : SPARRING, range: sway }, ...(attacker === "drill" ? { right: DRILLING } : {}) } },
+          minds: { left: rung.chosen ? withBackStep(context.defaultMind("man")) : rung.fight ? fighter() : defenderOf(value), right: attacker === "drill" ? MINDS["option-drill"]!.config : context.defaultMind("man") },
+          commanders: { ...rung.chosen ? {} : { left: sway === undefined ? SWAYING : { ...rung.fight ? FIGHTING : SPARRING, range: sway } }, ...(attacker === "drill" ? { right: DRILLING } : {}) } },
       }),
-      read: (built) => readBackStep(built, { ...rung, sways: rung.sways !== undefined }),
+      read: (built) => readBackStep(built, { ...rung, sways: rung.sways !== undefined, chosen: rung.chosen === true }),
     };
   }
 
@@ -136,7 +144,7 @@ export const createBackStepCases = perContext((context: GameContext) => {
 
   /** Every protocol the back step's evaluation may be played on, by name. */
   const BACK_STEP_CASES: Readonly<Record<string, Cases<BackStepCondition, BackStepReading>>> = Object.freeze({ ...twinned("drilled", DRILLED), ...twinned("mind", MIND),
-    "mind-held": backStepCases(MIND_HELD), "drilled-held": backStepCases(DRILLED_HELD), spar: backStepCases(SPAR), "spar-fight": backStepCases(SPAR_FIGHT) });
+    "mind-held": backStepCases(MIND_HELD), "drilled-held": backStepCases(DRILLED_HELD), spar: backStepCases(SPAR), "spar-fight": backStepCases(SPAR_FIGHT), "spar-chosen": backStepCases(SPAR_CHOSEN) });
 
   return { BACK_STEP_CASES };
 });

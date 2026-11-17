@@ -8,7 +8,7 @@ import { startOf } from "./percepts.ts";
 import { STILL, upOrDown, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 
-/** How long the back step is ordered, s: its sway out and back and its step in, as its profile's trials were (the back step's evaluation's `spar`). */
+/** How long the back step is ordered, s: its sway out and back and its step in, as its profile's trials were (the back step's evaluation's `spar-chosen`). */
 const HELD = 1.65;
 
 /** The gait it orders (`BACK_STEP_GAIT`). */

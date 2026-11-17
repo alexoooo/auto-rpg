@@ -1,14 +1,18 @@
 /**
  * **The back step's profiles** (`src/skills/framework/profile.ts`, `assets/skills/locomotion/step-profiles.json`):
- * from the back step's evaluation's sparring (`npm run evaluate -- back-step <subject> --protocol spar --json <run.json>`,
- * and `spar-fight`), where the subject is ordered the back step at drawn ranges against the
- * Warrior's Mind fighting, standing in its carriage between (`SPAR`,
- * `src/evaluation/back-step/cases.ts`) or fighting as its own Mind (`SPAR_FIGHT`). Each sway seen through is a trial (`Sway`): its start
- * where the subject sensed the attacker as it was ordered (the range centre to centre, the
- * attacker's phase and posture, the subject's velocity against the attacker's, how each body stood,
- * and the levels its bodies' characters set, `startLevels`); it deals nothing; the life the subject
- * lost while it was ordered, HP; the seconds it was ordered; the range head to head it left the
- * two at (`exit.range`); and whether it went down then or just after. A trial is done where it stayed up. A profile is a skill on a body against a target: its
+ * from the back step's evaluation's sparring (`npm run evaluate -- back-step <subject> --protocol <protocol> --json <run.json>`)
+ * against the Warrior's Mind fighting: `spar-chosen`, the subject the Warrior's Mind with the back
+ * step taking it where it chooses (`SPAR_CHOSEN`, `src/evaluation/back-step/cases.ts`), which the
+ * asset is made of; or `spar` and `spar-fight`, the subject ordered it at drawn ranges, standing in
+ * its carriage between or fighting as its own Mind. Ordered sways fall a third as often as chosen
+ * ones at alike starts and, pooled with them, read the life a chosen sway loses half as much again
+ * as it is (held out by gap); no start the trials record tells them apart. Each sway seen through
+ * is a trial (`Sway`): its start where the subject sensed the attacker as it began (the range
+ * centre to centre, the attacker's phase and posture, the subject's velocity against the
+ * attacker's, how each body stood, and the levels its bodies' characters set, `startLevels`); it
+ * deals nothing; the life the subject lost while it swayed, HP; the seconds it swayed; the range
+ * head to head it left the two at (`exit.range`); and whether it went down then or just after. A
+ * trial is done where it stayed up. A profile is a skill on a body against a target: its
  * measured-on read from each row's world as the strikes' is (`strike-profiles.mjs`): the left
  * body's spec as the bout builds it, the harness's rate and command delay, the recipe's sense
  * delay, the rate its mind decides at; its skill the gait's kind (`back-step`); its target the right
@@ -25,7 +29,7 @@ import { holdsOf, measuredOn, specDigest, startLevels } from "../../../src/skill
 import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 
-const OUT = "assets/skills/locomotion/step-profiles.json", SCRIPT = "research/skills/locomotion/back-step-profiles.mjs", PROTOCOLS = Object.freeze(["spar", "spar-fight"]);
+const OUT = "assets/skills/locomotion/step-profiles.json", SCRIPT = "research/skills/locomotion/back-step-profiles.mjs", PROTOCOLS = Object.freeze(["spar", "spar-fight", "spar-chosen"]);
 const SKILL = "back-step";
 const write = process.argv.includes("--write");
 const paths = process.argv.slice(2).filter((arg) => arg !== "--write");
@@ -42,11 +46,12 @@ function specOf(recipe, side = "left") {
   return specs.get(key);
 }
 
-const profiles = new Map();
+const profiles = new Map(), read = new Set();
 for (const path of paths) {
   const { header, cases: rows } = JSON.parse(readFileSync(path, "utf8"));
   if (header.evaluation !== "back-step" || !PROTOCOLS.includes(header.protocol))
     throw new Error(`${path} is a run of ${header.evaluation} ${header.protocol}: the back step's profile is measured on its evaluation's ${PROTOCOLS.join(" and ")}`);
+  read.add(header.protocol);
   const rule = harnessRule(header.harness);
   if (!rule) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
   const { hz, delay } = rule;
@@ -87,5 +92,5 @@ for (const profile of profiles.values()) {
 if (write) {
   const keyOf = (profile) => JSON.stringify([profile.measured, profile.target]), remade = new Map(made.map((profile) => [keyOf(profile), profile]));
   const asset = JSON.parse(readFileSync(OUT, "utf8")), kept = asset.profiles.map((profile) => { const again = remade.get(keyOf(profile)); remade.delete(keyOf(profile)); return again ?? profile; });
-  writeFileSync(OUT, `${JSON.stringify({ source: { script: SCRIPT, protocols: PROTOCOLS }, profiles: [...kept, ...remade.values()] }, null, 2)}\n`);
+  writeFileSync(OUT, `${JSON.stringify({ source: { script: SCRIPT, protocols: [...read] }, profiles: [...kept, ...remade.values()] }, null, 2)}\n`);
 }

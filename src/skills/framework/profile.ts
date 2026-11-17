@@ -3,9 +3,9 @@
  * chooser prices it on measured numbers rather than a hand-built model: a strike's against a foe
  * fighting back, from starts drawn at random (the Strike drill's `sparring` and `sparring-laid`),
  * never at a drill's still target, which reads how well the body throws it and nothing of what it brings; a ground edge's,
- * which has no foe, in its own tries; a step's out of a blow's way (the back step's), from where a
- * fight had the two bodies as it was ordered, against a foe fighting (the back step's evaluation's
- * `spar`), what it lost while it stepped. A profile is a sample of
+ * which has no foe, in its own tries; a step's out of a blow's way (the back step's), where a mind
+ * fighting with it took it, against a foe fighting (the back step's evaluation's `spar-chosen`), what
+ * it lost while it stepped. A profile is a sample of
  * trials (`Trial`), each keeping what it brought and where it began (`Start`): the range to the
  * foe, centre to centre across the ground, m; the foe's phase as the striker sensed it (the `phase`
  * percept, `sensedPhase`); how the two bodies stood; and the velocity at the start, in the frame of

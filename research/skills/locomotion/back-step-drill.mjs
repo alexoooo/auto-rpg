@@ -193,7 +193,7 @@ if (isMainThread) {
           commanders: { left: { kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, pace, walking: true } } }
           : { minds: { left: CONTEXT.defaultMind(model), right: defending } }),
         ...(policy.kind === "led" ? { commanders: { ...(drilled ? { left: { kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, pace, walking: true } } : {}),
-          right: { kind: "sway", range: policy.range, near: policy.near, seconds: policy.seconds, rest: policy.rest, set: set ?? 0, follow: policy.kind === "led" && policy.followStep ? policy.follow : 0 } } } : {}) }, { engine: BOUT_ENGINE });
+          right: { kind: "sway", range: policy.range, near: policy.near, seconds: policy.seconds, rest: policy.rest, set: set ?? 0, follow: policy.kind === "led" && policy.followStep ? policy.follow : 0, fight: 0 } } } : {}) }, { engine: BOUT_ENGINE });
       dispose = bout.dispose;
       const { world, duel } = bout, attacker = duel.duelists.left, defender = duel.duelists.right;
       const centre = (one) => one.body.view.stance.centre;
