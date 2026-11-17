@@ -13,6 +13,20 @@ strikes, guarding and minds are there.
 
 ## Conventions
 
+### How the work is run
+
+- **A worker and a reviewer**, in the owner's view the key to the first strike accepted
+  (`straight-punch/moving`): "i ran a worker session with "/goal" (Opus), and a separate review
+  session scheduled to steer the worker". The worker works the plan unattended toward the bar in
+  the owner's words. The reviewer reads the saved files and the worker's transcript every 30
+  minutes, changes nothing, and sends a note only on a specific finding: in that work a wait on a
+  file that never came, a resume that replaced its statistics, the four sparring cells, the best of
+  four checkpoints. The worker answers a wrong note with readings and goes on. The arrangement's
+  costs, as the reviewer counted them, were its own notes: one that told the worker to wait for
+  the owner (90 minutes), a stricter reading of the bar the worker was then held to, a wrong
+  figure, a plateau called early. A note is weighed, never a reason to stop, and never a reading of
+  the bar. The owner's part: the bar in the owner's words, revising it, and the look in the game.
+
 ### A skill's value
 
 - **A skill's value** is what the skill gains in

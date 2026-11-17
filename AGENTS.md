@@ -1,7 +1,7 @@
 # Working on Auto-RPG
 
 [README](README.md) says what the game is; the [architecture](docs/architecture.md) how it is
-built; the [plan](docs/plans/2026-11-15-better-punch.md) what is in work, in the owner's words.
+built; a plan in `docs/plans/`, where there is one, what is in work, in the owner's words.
 Work toward the owner's goal runs unattended, overnight included.
 
 ## Commands
