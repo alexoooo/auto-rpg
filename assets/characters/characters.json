@@ -13,6 +13,7 @@
         "lowered/lowered",
         "move/move",
         "stance-walk/stance-walk",
+        "stance-walk/staggered",
         "walk-run/walk-run",
         "stance/stance",
         "support-fold/support-fold",

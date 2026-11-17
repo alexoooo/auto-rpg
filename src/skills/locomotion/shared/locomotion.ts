@@ -51,6 +51,13 @@ export const CARRIAGES = deepFreeze({
   square: { width: null, stagger: 0, lead: "left", lower: STANCE_LOWER },
 } satisfies Readonly<Record<string, Carriage>>);
 
+/**
+ * **The staggered carriage** (`Carriage`): the left foot 0.4 m ahead of the right, the soles
+ * 0.25 m apart across the heading, the centre 0.1 m lower; what the stance walk's `staggered`
+ * variation holds, the back step sways from, and a strike's profile is measured in beside square.
+ */
+export const STAGGERED = deepFreeze({ lead: "left", width: .25, stagger: .4, lower: .1 } as const satisfies Carriage);
+
 /** Whether `carriage` can be held: a positive width, or none and no stagger; a stagger and lowering finite and not negative. */
 export const validCarriage = (carriage: Carriage): boolean =>
   !!carriage && typeof carriage === "object" && !Array.isArray(carriage) && (carriage.width === null ? carriage.stagger === 0 : Number.isFinite(carriage.width) && carriage.width > 0)

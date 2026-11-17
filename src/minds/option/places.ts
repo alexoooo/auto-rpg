@@ -5,11 +5,12 @@ import { approachSpot, atSpot } from "../../skills/intent/action-window.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { PROFILE_RANGE_SPAN, startVelocity } from "../../skills/framework/profile.ts";
+import { PROFILE_RANGE_SPAN, startVelocity, type StanceNumbers } from "../../skills/framework/profile.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
 import { blocked, LEGS, READY, standing, still, type Option, type Sites, type Situation } from "./option.ts";
 import type { Status } from "../choice.ts";
-import { bearingAround, dealtAt, edgeOf, graceAt } from "./percepts.ts";
+import { bearingAround, dealtAt, edgeOf, graceAt, stancedPressure } from "./percepts.ts";
+import { gaitStance } from "../../skills/locomotion/move/gaits.ts";
 import { CLINCH, clinched, STILL, upOrDown, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 
@@ -44,10 +45,12 @@ const WALK_SPACING = PROFILE_RANGE_SPAN / 2;
  * never past the focus's latency); leaving the body still at the spot with that grace, the focus
  * turned toward it as far as it turns in that time (`Predictions.turns`), and, in a clinch
  * (`CLINCH`), down in its chance of going down behind. A gait's falls are its own profile's to
- * measure; none is, so a walk is taken to stay up.
+ * measure; none is, so a walk is taken to stay up. Given how the gait stands the body (`stance`,
+ * `gaitStance`), the pressure along the way is read at it, and the body is left standing so.
  */
-export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker): Terms | null {
-  const focus = at.focus, from = at.where, offset = at.apart - at.range, pressure = at.predictions.pressure;
+export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker, stance: StanceNumbers | null = null): Terms | null {
+  // Walking by the gait, the body stands as the gait stands it, and the focus's pressure is read there.
+  const focus = at.focus, from = at.where, offset = at.apart - at.range, pressure = stance ? stancedPressure(at.predictions.pressure, stance, true) : at.predictions.pressure;
   const reach = focus ? edgeOf(at, pressure) + offset : 0, points = spot.route ?? [spot];
   const legs = walk.seconds(at, gait.name, points, focus ? walk.facing(at) : null);
   let duration = 0, taken = 0, grace = graceAt(at), x = from.x, z = from.z;
@@ -79,11 +82,11 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker)
     x = point.x; z = point.z;
   }
   const where = { x: spot.x, z: spot.z, face: spot.face };
-  if (!focus) return { duration, dealt: 0, taken: at.predictions.danger, orders: 0, outcomes: upOrDown({ where, velocity: STILL }, 0) };
+  if (!focus) return { duration, dealt: 0, taken: at.predictions.danger, orders: 0, outcomes: upOrDown({ where, velocity: STILL, ...(stance ? { stance } : {}) }, 0) };
   const apart = hypot(spot.x - focus.centre.x, spot.z - focus.centre.z), bearing = bearingAround(focus, spot.x, spot.z);
   const around = (bearing < 0 ? -1 : 1) * Math.max(0, Math.abs(bearing) - at.predictions.turns * duration);
   return { duration, dealt: 0, taken: at.predictions.danger + taken, orders: 0,
-    outcomes: upOrDown({ where, around, velocity: STILL, grace }, apart >= CLINCH.within ? 0 : clinched(at, duration)) };
+    outcomes: upOrDown({ where, around, velocity: STILL, grace, ...(stance ? { stance } : {}) }, apart >= CLINCH.within ? 0 : clinched(at, duration)) };
 }
 
 /** No site to walk to. */
@@ -100,8 +103,10 @@ const NOWHERE = blocked("no site to walk to"), THERE = blocked("at its site"), N
  * every fallen body's reach but the one the spot is beside (`Walker.kept`). Named for the gait and
  * where it goes. Its memory is which site it runs at.
  */
-export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker): Option {
+export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker, spec?: BodySpec): Option {
   const state = { at: 0 }, label = gait.label.toLowerCase();
+  /** How the body stands walking by the gait (`gaitStance`), where it was measured on a body of its model. */
+  const stance = spec ? gaitStance(gait.legs as { readonly kind: string; readonly variation?: string }, spec.model) : null;
   /** Where its site at `k` is at `at`, null where it has none or the body is there. */
   const away = (at: Situation, k: number): Spot | null => {
     const spot = sites[k]?.spot(at) ?? null, where = at.where;
@@ -121,7 +126,7 @@ export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker)
     end() {},
     model(at, ask) {
       const spot = standing(at) ? away(at, ask?.target ?? 0) : null;
-      return spot ? walkTerms(at, spot, gait, walk) : null;
+      return spot ? walkTerms(at, spot, gait, walk, stance) : null;
     },
     step: (now) => {
       const spot = away(now, state.at), heading = now.sight.report.legs.heading;

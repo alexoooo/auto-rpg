@@ -12,6 +12,7 @@ import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { effectorAim } from "../../control/effectors.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Situation } from "./option.ts";
+import type { StanceNumbers } from "../../skills/framework/profile.ts";
 import type { Position } from "../../control/ground-reading.ts";
 import { segmentOf } from "../../core/bodies/spec/body.ts";
 import type { Deciding } from "../choice.ts";
@@ -25,8 +26,8 @@ export const DECIDING: Deciding = Object.freeze({ rethink: .2 });
  * around the focus where the focus has not turned to face it there (`around`; else as `where`
  * reads it), what bears it (`posture`; down unless standing) and its velocity over the ground,
  * m/s (`velocity`); and, where it reckons it, the seconds before the focus's pressure reaches the
- * body there (`grace`, `Situation.grace`). What it does not name is as it was, the foe included
- * (`placed`).
+ * body there (`grace`, `Situation.grace`); and how it stands there (`stance`, `StanceNumbers`),
+ * where its Option knows. What it does not name is as it was, the foe included (`placed`).
  */
 export interface Leaves {
   readonly where?: Spot;
@@ -34,6 +35,7 @@ export interface Leaves {
   readonly posture?: Position;
   readonly grace?: number;
   readonly velocity?: Ground;
+  readonly stance?: StanceNumbers;
 }
 
 /** **One way an Option ends**: where it leaves the body (`Leaves`), and the chance it ends so. */

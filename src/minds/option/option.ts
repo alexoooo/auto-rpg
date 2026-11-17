@@ -5,7 +5,7 @@ import { SETTLED } from "../../skills/intent/action-window.ts";
 import { intentOfSet, type Intent, type SelectedAsk } from "../../skills/framework/intent.ts";
 import type { Sight } from "../decider.ts";
 import type { Choice } from "../choice.ts";
-import { bearingAround, graceAt, inReach, type Cues, type ModelledStrike, type Percepts, type Predictions } from "./percepts.ts";
+import { bearingAround, graceAt, inReach, stancedPressure, type Cues, type ModelledStrike, type Percepts, type Predictions } from "./percepts.ts";
 import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { Leaves, Terms } from "./value.ts";
@@ -135,6 +135,19 @@ const afterActions = (sight: Sight): Sight => Object.create(sight, {
 /** Predictions past the blow coming, inheriting every other prediction. */
 const afterDanger = (predictions: Predictions): Predictions => Object.create(predictions, { danger: { value: 0 } });
 
+/** Each overlay of predictions at another own stance (`stancedPredictions`), by the predictions and the stance. */
+const STANCED_PREDICTIONS = new WeakMap<Predictions, WeakMap<object, Predictions>>();
+
+/** **`predictions` with the body standing at `own`**: its focus's pressure on it and its own on the focus read there (`stancedPressure`); made once for the two. */
+function stancedPredictions(predictions: Predictions, own: NonNullable<Leaves["stance"]>): Predictions {
+  let by = STANCED_PREDICTIONS.get(predictions);
+  if (!by) STANCED_PREDICTIONS.set(predictions, by = new WeakMap());
+  let made = by.get(own);
+  if (!made) by.set(own, made = Object.create(predictions, {
+    pressure: { value: stancedPressure(predictions.pressure, own, true) }, pressing: { value: stancedPressure(predictions.pressing, own, false) } }) as Predictions);
+  return made;
+}
+
 /**
  * What `placedWith` defines a field by, one at a time: a value, neither writable, enumerable nor
  * configurable, as `Object.create`'s descriptors define. Its value is let go once defined.
@@ -145,7 +158,10 @@ const define = (on: object, key: keyof Situation, value: unknown): void => { FIE
 /** A placement with the sight and predictions after the actions and blow coming end. */
 function placedWith(at: Situation, leaves: Leaves, seconds: number, sight: Sight, predictions: Predictions): Situation {
   const there = Object.create(at) as Situation, where = leaves.where, focus = at.focus;
-  define(there, "ground", null); define(there, "incoming", null); define(there, "sight", sight); define(there, "predictions", predictions);
+  define(there, "ground", null); define(there, "incoming", null); define(there, "sight", sight);
+  // Standing otherwise, the body reads the two pressures at its stance there.
+  define(there, "predictions", leaves.stance ? stancedPredictions(predictions, leaves.stance) : predictions);
+  if (leaves.stance) define(there, "stances", { ...at.stances, own: leaves.stance });
   if (where) {
     define(there, "where", where);
     if (focus) {

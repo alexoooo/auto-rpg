@@ -13,7 +13,7 @@ import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs
 import { deepFreeze } from "../../core/state.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
 import { ordersAsked, type Orders } from "../orders.ts";
-import { measuredAt, profileAgainst, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Measured, type Postures, type Profile, type ProfileReading, type Stances } from "../../skills/framework/profile.ts";
+import { measuredAt, profileAgainst, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Measured, type Postures, type Profile, type ProfileReading, type StanceNumbers, type Stances } from "../../skills/framework/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../../skills/perception/threat.ts";
@@ -399,6 +399,25 @@ export function cachedPressure(pressure: Pressure): Pressure {
     ranges[oldest] = range; forward[oldest] = x; across[oldest] = z; rates[oldest] = rate; ages[oldest] = ++clock;
     return rate;
   } };
+}
+
+/** Each pressure read at another own stance (`stancedPressure`), by its pressure and that stance: a pressure and a stance are immutable. */
+const STANCED = new WeakMap<Pressure, WeakMap<object, Pressure>>();
+
+/**
+ * **`pressure` with the body it reads standing at `own`** (`Pressure.stance`): the struck body's
+ * where `struck` (the focus's pressure on the body), else the striker's (the body's on the focus);
+ * its exact-start cache made anew for it (`cachedPressure`). Made once for the two.
+ */
+export function stancedPressure(pressure: Pressure, own: StanceNumbers, struck: boolean): Pressure {
+  let by = STANCED.get(pressure);
+  if (!by) STANCED.set(pressure, by = new WeakMap());
+  const known = by.get(own);
+  if (known) return known;
+  const { rateAt: _, ...rest } = pressure, was = pressure.stance ?? {};
+  const made = cachedPressure({ ...rest, stance: struck ? { ...was, target: own } : { ...was, own } });
+  by.set(own, made);
+  return made;
 }
 
 /** Still: the start's velocity with no focus. */

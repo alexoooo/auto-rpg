@@ -292,7 +292,7 @@ export const WALK_OPTION = deepFreeze<ProfileOptionPart<WalkConfig>>({
   make: (config: WalkConfig, given: ProfileOptionContext) => given.parts.selected("navigation", given.spec)
     .filter(navigation => !config.navigation || config.navigation.kind === navigation.kind)
     .flatMap(navigation => gaitsOf(given.parts, given.legs, given.spec).filter(gait => config.gait === undefined || gait.name === config.gait)
-      .map(gait => choosingSkill(walkBy(gait, given.sites, given.walk), navigation, given.parts.of("navigation", navigation).label, "navigationSkill"))),
+      .map(gait => choosingSkill(walkBy(gait, given.sites, given.walk, given.spec), navigation, given.parts.of("navigation", navigation).label, "navigationSkill"))),
 });
 
 /** **A place on the ground** to hold at: where it is, m, and how near its centre the body holds there. */

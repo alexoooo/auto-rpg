@@ -6,7 +6,7 @@ import { fitsSoles, standingFooting } from "../../../control/support.ts";
 import type { GaitPart } from "../../framework/locomotion-part.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "../shared/stance-feet.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { locomotion, validCarriage, validTurnLimit, validTurnStartup, type Carriage, type TurnStartup } from "../shared/locomotion.ts";
+import { locomotion, STAGGERED, validCarriage, validTurnLimit, validTurnStartup, type Carriage, type TurnStartup } from "../shared/locomotion.ts";
 import { STANCE_GAIT, type GaitTuning } from "../../../control/stance/stance-tuning.ts";
 
 /** **The walk** within the body's stance envelope (`locomotion`). */
@@ -35,13 +35,15 @@ const walk = (body: Body, config: StanceWalkConfig, steps?: GaitTuning) => locom
   ...(steps ? { gait: () => steps } : {}) });
 
 /**
- * Walk in the stance's variations: the walk in the stance, by the steps the stance has; and the
+ * Walk in the stance's variations: the walk in the stance, by the steps the stance has; the
  * footwork, a fight's short steps (`FOOTWORK_STEPS`), which it asks of the stance with each goal,
- * so a stance tuned to other steps walks the footwork's under it.
+ * so a stance tuned to other steps walks the footwork's under it; and the walk held in the
+ * staggered carriage (`STAGGERED`) where its config names none.
  */
 const VARIATIONS = {
   "stance-walk": (body: Body, config: StanceWalkConfig) => walk(body, config),
   "footwork": (body: Body, config: StanceWalkConfig) => walk(body, config, FOOTWORK_STEPS),
+  "staggered": (body: Body, config: StanceWalkConfig) => walk(body, { ...config, carriage: config.carriage ?? STAGGERED }),
 };
 
 /** **Walk in the stance** (`locomotion`): it holds the body's stance envelope (`Body.envelope`) and stops at `STANCE_STOPPING`. */
