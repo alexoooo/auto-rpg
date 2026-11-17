@@ -28,6 +28,11 @@
  *   `src/skills/locomotion/back-step/index.ts`): ordered to stand by that gait, which its Move has
  *   among its gaits (the stock ones and it), for `seconds` s (0.6 with none) and until it is still on
  *   both feet (`STILL`); then back as `away` goes.
+ * - `sway:<range>[:<closing>[:<out>[:<rest>[:<beyond>]]]]`: the back step ordered when it senses the attacker
+ *   within `range` and coming at `closing` m/s or more (0 with none; over the last `CLOSING` s
+ *   of what it sees), held back `out` s (0.4 with none) and brought in over `SWAY_BACK` s, the
+ *   order held as long, the centre asked `beyond` m behind the rear sole (the gait's own with none); then it stands for `rest` s (0.3 with none) before it may sway again. It
+ *   never walks back in.
  * - `keep:<range>`: from the start it holds `range` to `range` + 0.2 m of the attacker (the legs'
  *   own range keeping).
  * - `shove:<range>:<speed>[:<every>]`: as `away` with no walk: when it senses the attacker within
@@ -38,7 +43,13 @@
  *   catch it.
  *
  * With `--carriage` (`Carriage`'s width and stagger, m, the left foot leading) the defender stands
- * in it under every policy, its walk and its back step alike.
+ * in it under every policy, its walk and its back step alike. With `--set <range>` as well it starts
+ * square instead, its walk the stock one, and takes the carriage as part of what it is ordered: a
+ * gait `set`, the walk in the stance in that carriage, ordered while it senses the attacker within
+ * `range` (until `SET_OFF` beyond it), which steps its feet into the carriage; its back step holds
+ * the carriage too. It prints, beside, the trials' median seconds from the first `set` order to the
+ * feet set (the lead foot `SET_SHARE` of the stagger ahead, standing), and the punches thrown and
+ * taken while setting.
  *
  * It prints, a policy a row: trials; punches thrown; **taken**, the punches that took at least
  * `LANDED` hp, and their share of the punches thrown (the drill's number); the median of what a
@@ -67,6 +78,14 @@ const BACK = { near: .8, far: .95 };
 const RETURN = 1.5;
 /** A back step's order is held until the defender goes slower than this, m/s, on both feet. */
 const STILL = .15;
+/** A defender ordered `set` is let go back to its square walk once the attacker is this much beyond the set range, m. */
+const SET_OFF = .5;
+/** The feet are set once the lead sole stands this share of the carriage's stagger ahead of the other. */
+const SET_SHARE = .8;
+/** How long a sway takes to bring the body back in, s (`back-step`'s `back`). */
+const SWAY_BACK = .5;
+/** How long a sway's `closing` is read over, s: the attacker's seen approach, from its distance this long before. */
+const CLOSING = .1;
 /** A drilled trial runs this long past the punch's fire, s, and no longer than this in all. */
 const AFTER = 3, CAP = 12;
 
@@ -79,9 +98,10 @@ function policyOf(text) {
     case "away": if (!(n[0] > 0)) throw new Error(`--policy ${text}: away:<range>`); return { text, kind, range: n[0], seconds: n[1] || 1.5, pace: n[2] || null };
     case "seen": return { text, kind, seconds: n[0] || 1.5, pace: n[1] || null };
     case "step": if (!(n[0] > 0)) throw new Error(`--policy ${text}: step:<range>`); return { text, kind, range: n[0], seconds: n[1] || .6 };
+    case "sway": { if (!(n[0] > 0)) throw new Error(`--policy ${text}: sway:<range>`); const out = n[2] || .4; return { text, kind, range: n[0], closing: n[1] || 0, out, seconds: out + SWAY_BACK + .05, rest: n[3] || .3, beyond: rest[4] === undefined || rest[4] === "" ? null : n[4] }; }
     case "keep": if (!(n[0] > 0)) throw new Error(`--policy ${text}: keep:<range>`); return { text, kind, range: n[0] };
     case "shove": if (!(n[0] > 0 && n[1] > 0)) throw new Error(`--policy ${text}: shove:<range>:<speed>`); return { text, kind, range: n[0], speed: n[1], every: n[2] || .75 };
-    default: throw new Error(`--policy ${text}: stand, away, seen, step, keep or shove`);
+    default: throw new Error(`--policy ${text}: stand, away, seen, step, sway, keep or shove`);
   }
 }
 
@@ -89,13 +109,13 @@ if (isMainThread) {
   const { values } = parseArgs({ options: {
     policy: { type: "string", multiple: true, default: ["stand"] }, gaps: { type: "string", default: "2:3:0.05" }, pace: { type: "string", default: "1" },
     attacker: { type: "string", default: "drill" }, seconds: { type: "string", default: "20" },
-    model: { type: "string", default: "man" }, carriage: { type: "string" }, workers: { type: "string" }, save: { type: "string" }, trials: { type: "boolean", default: false },
+    model: { type: "string", default: "man" }, carriage: { type: "string" }, set: { type: "string" }, workers: { type: "string" }, save: { type: "string" }, trials: { type: "boolean", default: false },
   } });
   const [from, to, by] = values.gaps.split(":").map(Number), gaps = [];
   for (let i = 0; from + i * by <= to + 1e-9; i++) gaps.push(+(from + i * by).toFixed(4));
   const policies = values.policy.map(policyOf), pace = Number(values.pace), seconds = Number(values.seconds), attacker = values.attacker;
   if (!gaps.length || !(pace > 0) || !(seconds > 0) || !["drill", "mind"].includes(attacker)) throw new Error("--gaps <from>:<to>:<by>, --pace and --seconds over nothing, --attacker drill or mind");
-  const jobs = policies.flatMap((policy) => gaps.map((gap) => ({ policy, gap, pace, seconds, attacker, model: values.model, carriage: values.carriage ? { lead: "left", lower: .03, ...JSON.parse(values.carriage) } : null })));
+  const jobs = policies.flatMap((policy) => gaps.map((gap) => ({ policy, gap, pace, seconds, attacker, model: values.model, carriage: values.carriage ? { lead: "left", lower: .03, ...JSON.parse(values.carriage) } : null, set: values.set ? Number(values.set) : null })));
   const lanes = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() >> 1)));
   let next = 0;
   await Promise.all(Array.from({ length: lanes }, () => new Promise((resolve, reject) => {
@@ -129,6 +149,11 @@ if (isMainThread) {
       " " + STEP.map((s, i) => f(median(rows.map((r) => r.steps?.[i] ?? null)), 3).padStart(`step ${s}`.length)).join("  "),
       `${(100 * sum(rows.map((r) => r.inRange)) / sum(rows.map((r) => r.seconds))).toFixed(0)}%`.padStart(9),
       left.length ? ` ${left.filter((p) => p.back !== null).length} of ${left.length}, ${f(median(left.map((p) => p.back)))} s` : " -");
+    if (values.set) {
+      const setting = punches.filter((p) => p.setting), ordered = rows.filter((r) => r.setOrdered !== null);
+      console.log(`${"".padEnd(18)} set: ordered in ${ordered.length} trials, set in ${ordered.filter((r) => r.setDone !== null).length}, a median ${f(median(ordered.map((r) => r.setDone === null ? null : r.setDone - r.setOrdered)))} s after; `
+        + `thrown while not set ${setting.length}, taken ${setting.filter((p) => p.damage >= LANDED).length}`);
+    }
   }
   if (values.trials) for (const job of jobs) {
     const r = job.result;
@@ -149,13 +174,15 @@ if (isMainThread) {
   const { withLegs } = await import("../../../src/minds/option/config.ts");
   const { GOING } = await import("../../../src/skills/locomotion/move/index.ts");
   const { STOCK_GAITS } = await import("../../../src/skills/locomotion/move/gaits.ts");
-  /** The defender's mind in `carriage` (its own where null), with the back step among its gaits. */
-  const stepper = (carriage) => withLegs(DEFENDER, { ...GOING, gaits: [...STOCK_GAITS.map((gait) => carriage && gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait),
-    { name: "back-step", label: "Back step", legs: { kind: "back-step", ...(carriage ? { carriage } : {}) } }] });
-  parentPort.on("message", async ({ policy, gap, pace, seconds, attacker: attacking, model, carriage }) => {
+  /** The defender's mind in `carriage` (its own where null), with the back step among its gaits, its sway held out `out` s where given. */
+  const stepper = (carriage, out, beyond, set) => withLegs(DEFENDER, { ...GOING, gaits: [...STOCK_GAITS.map((gait) => carriage && !set && gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait),
+    ...(set ? [{ name: "set", label: "Set", legs: { kind: "stance-walk", variation: "stance-walk", carriage } }] : []),
+    { name: "back-step", label: "Back step", legs: { kind: "back-step", ...(carriage ? { carriage } : {}), ...(out ? { out, back: SWAY_BACK } : {}), ...(beyond === null || beyond === undefined ? {} : { beyond }) } }] });
+  parentPort.on("message", async ({ policy, gap, pace, seconds, attacker: attacking, model, carriage, set }) => {
     let dispose;
     try {
-      const empty = { left: "empty", right: "empty" }, drilled = attacking === "drill", cap = drilled ? CAP : seconds, defending = policy.kind === "step" || carriage ? stepper(carriage) : DEFENDER;
+      const empty = { left: "empty", right: "empty" }, drilled = attacking === "drill", cap = drilled ? CAP : seconds, defending = policy.kind === "step" || policy.kind === "sway" || carriage ? stepper(carriage, policy.out, policy.beyond, set) : DEFENDER;
+      if (set && !carriage) throw new Error("--set needs --carriage");
       const bout = await buildBout({ left: model, right: model, gap, capSeconds: cap, loadouts: { left: empty, right: empty },
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, 0], heading: -Math.PI / 2 } },
         ...(drilled ? { recoverySeconds: null, entry: [], ends: [], minds: { left: CONTEXT.catalog.minds["option-drill"].config, right: defending },
@@ -168,7 +195,12 @@ if (isMainThread) {
       /** The way from the attacker to the defender, on the ground, a unit. */
       const wayOut = () => { const a = centre(attacker), d = centre(defender), l = Math.hypot(d.x - a.x, d.z - a.z) || 1; return { x: (d.x - a.x) / l, z: (d.z - a.z) / l }; };
       const facing = () => { const w = wayOut(); return { x: -w.x, z: -w.z }; };
-      const stand = () => ({ move: null, face: facing() });
+      // Whether the defender is ordered into its carriage (`--set`), and whether its feet are set there.
+      let setOn = false, setNow = false;
+      const stand = () => ({ move: null, face: facing(), ...(setOn ? { gait: "set" } : {}) });
+      /** Whether the defender stands with its lead sole `SET_SHARE` of the stagger ahead of the other, toward the attacker. */
+      const isSet = () => { const s = defender.body.view.stance, w = wayOut(), along = Object.fromEntries(Object.entries(s.ends).map(([k, e]) => [k.split(".")[1], -(e.middle.x * w.x + e.middle.z * w.z)]));
+        return s.phase === "stand" && !s.own && (along[carriage.lead] - along[carriage.lead === "left" ? "right" : "left"]) >= SET_SHARE * carriage.stagger; };
       const away = () => ({ move: { kind: "direct", direction: wayOut() }, ...(policy.pace ? { pace: policy.pace } : {}), face: facing() });
       const step = () => ({ move: null, face: facing(), gait: "back-step" });
       /** Whether the defender's stance stands on both feet, taking no step of its own, slower than `STILL`. */
@@ -184,16 +216,27 @@ if (isMainThread) {
         const at = new Vector3();
         for (const segment of defender.built.segments.values()) segment.body.applyImpulse(new Vector3(segment.rigid.mass * speed * way.x, 0, segment.rigid.mass * speed * way.z), centreOfToRef(segment, at));
       };
-      const result = { punches: [], lost: 0, down: false, attackerDown: false, ordered: [], steps: null, inRange: 0, seconds: 0, ending: null };
+      const result = { punches: [], lost: 0, down: false, attackerDown: false, ordered: [], steps: null, inRange: 0, seconds: 0, ending: null, setOrdered: null, setDone: null };
       const byId = new Map(), full = defender.pool.bar();
       // Its step: waiting to begin, going, back; since when; the attacker's punches that have begun a step.
       let phase = "waiting", since = 0, first = null, heard = 0, answered = 0;
-      const began = [];
+      const began = [], seen = [];
       duel.order("right", policy.kind === "keep" ? { move: { kind: "range", focus: attacker.id, near: policy.range, far: policy.range + .2 }, face: null } : stand());
       while (!duel.verdict && duel.clock < cap && (!drilled || !result.punches.length || duel.clock < result.punches[0].fired + AFTER)) {
-        // The defender's orders, from what it sees and its policy, before the step.
-        if (policy.kind === "away" || policy.kind === "seen" || policy.kind === "step" || policy.kind === "shove") {
-          const due = policy.kind === "seen" ? began.length > answered && duel.clock >= began[answered] + REACTION : seenApart() <= policy.range;
+        // Into the carriage and out, where it is ordered so; then the defender's orders, from what it sees and its policy, before the step.
+        if (set) {
+          const far = seenApart();
+          if (!setOn && far <= set) { setOn = true; result.setOrdered ??= duel.clock; }
+          else if (setOn && far > set + SET_OFF) setOn = false;
+          setNow = setOn && isSet();
+          if (setNow && result.setDone === null) result.setDone = duel.clock;
+        }
+        if (policy.kind === "away" || policy.kind === "seen" || policy.kind === "step" || policy.kind === "sway" || policy.kind === "shove") {
+          const apartSeen = seenApart();
+          seen.push(apartSeen); if (seen.length > Math.round(CLOSING / world.dt) + 1) seen.shift();
+          const closing = (seen[0] - apartSeen) / ((seen.length - 1) * world.dt || 1);
+          const due = policy.kind === "seen" ? began.length > answered && duel.clock >= began[answered] + REACTION
+            : apartSeen <= policy.range && (policy.kind !== "sway" || closing >= policy.closing);
           if (phase === "waiting" && due) {
             phase = "going"; since = duel.clock; result.ordered.push(duel.clock); answered = began.length;
             if (!first) { first = { x: centre(defender).x, z: centre(defender).z, way: wayOut(), at: duel.clock }; result.steps = []; }
@@ -202,8 +245,8 @@ if (isMainThread) {
           if (policy.kind === "shove") { if (phase === "going" && duel.clock >= since + policy.every) phase = "waiting"; }
           else if (phase === "going" && duel.clock >= since + policy.seconds && (policy.kind !== "step" || still())) { phase = "back"; since = duel.clock; }
           // A punch begun while it stepped begins no step of its own.
-          else if (phase === "back" && duel.clock >= since + RETURN) { phase = "waiting"; answered = began.length; }
-          duel.order("right", policy.kind === "shove" ? stand() : phase === "going" ? (policy.kind === "step" ? step() : away()) : phase === "back" ? back() : stand());
+          else if (phase === "back" && duel.clock >= since + (policy.kind === "sway" ? policy.rest : RETURN)) { phase = "waiting"; answered = began.length; }
+          duel.order("right", policy.kind === "shove" ? stand() : phase === "going" ? (policy.kind === "step" || policy.kind === "sway" ? step() : away()) : phase === "back" && policy.kind !== "sway" ? back() : stand());
         } else if (policy.kind === "stand") duel.order("right", stand());
         world.step();
         const d = centre(defender), now = apartNow();
@@ -216,7 +259,7 @@ if (isMainThread) {
           if (!punch) { byId.set(action.id, punch = { effector: action.effector, fired: null, apart: null, away: null, gone: null, damage: 0, parts: [], left: false, back: null }); began.push(duel.clock); }
           if (action.phase === "commit" && punch.fired === null) {
             const way = wayOut(), v = defender.body.view.stance.velocity;
-            punch.fired = duel.clock; punch.apart = now; punch.away = v.x * way.x + v.z * way.z; punch.from = { x: d.x, z: d.z, way };
+            punch.fired = duel.clock; punch.apart = now; punch.phase = phase; punch.setting = !!set && !setNow; punch.since = duel.clock - since; punch.away = v.x * way.x + v.z * way.z; punch.from = { x: d.x, z: d.z, way };
             result.punches.push(punch);
           }
         }
