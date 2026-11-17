@@ -28,10 +28,10 @@
  *   `src/skills/locomotion/back-step/index.ts`): ordered to stand by that gait, which its Move has
  *   among its gaits (the stock ones and it), for `seconds` s (0.6 with none) and until it is still on
  *   both feet (`STILL`); then back as `away` goes.
- * - `sway:<range>[:<closing>[:<out>[:<rest>[:<beyond>]]]]`: the back step ordered when it senses the attacker
+ * - `sway:<range>[:<closing>[:<out>[:<rest>[:<beyond>[:<follow>]]]]]`: the back step ordered when it senses the attacker
  *   within `range` and coming at `closing` m/s or more (0 with none; over the last `CLOSING` s
  *   of what it sees), held back `out` s (0.4 with none) and brought in over `SWAY_BACK` s, the
- *   order held as long, the centre asked `beyond` m behind the rear sole (the gait's own with none); then it stands for `rest` s (0.3 with none) before it may sway again. It
+ *   order held as long, the centre asked `beyond` m behind the rear sole (the gait's own with none); then it stands for `rest` s (0.3 with none) before it may sway again; with `follow` 1, between sways, where it senses the attacker beyond `BACK.far`, it goes back to `BACK` of it. It
  *   never walks back in.
  * - `keep:<range>`: from the start it holds `range` to `range` + 0.2 m of the attacker (the legs'
  *   own range keeping).
@@ -98,7 +98,7 @@ function policyOf(text) {
     case "away": if (!(n[0] > 0)) throw new Error(`--policy ${text}: away:<range>`); return { text, kind, range: n[0], seconds: n[1] || 1.5, pace: n[2] || null };
     case "seen": return { text, kind, seconds: n[0] || 1.5, pace: n[1] || null };
     case "step": if (!(n[0] > 0)) throw new Error(`--policy ${text}: step:<range>`); return { text, kind, range: n[0], seconds: n[1] || .6 };
-    case "sway": { if (!(n[0] > 0)) throw new Error(`--policy ${text}: sway:<range>`); const out = n[2] || .4; return { text, kind, range: n[0], closing: n[1] || 0, out, seconds: out + SWAY_BACK + .05, rest: n[3] || .3, beyond: rest[4] === undefined || rest[4] === "" ? null : n[4] }; }
+    case "sway": { if (!(n[0] > 0)) throw new Error(`--policy ${text}: sway:<range>`); const out = n[2] || .4; return { text, kind, range: n[0], closing: n[1] || 0, out, seconds: out + SWAY_BACK + .05, rest: n[3] || .3, beyond: rest[4] === undefined || rest[4] === "" ? null : n[4], follow: n[5] === 1 }; }
     case "keep": if (!(n[0] > 0)) throw new Error(`--policy ${text}: keep:<range>`); return { text, kind, range: n[0] };
     case "shove": if (!(n[0] > 0 && n[1] > 0)) throw new Error(`--policy ${text}: shove:<range>:<speed>`); return { text, kind, range: n[0], speed: n[1], every: n[2] || .75 };
     default: throw new Error(`--policy ${text}: stand, away, seen, step, sway, keep or shove`);
@@ -205,7 +205,7 @@ if (isMainThread) {
       const step = () => ({ move: null, face: facing(), gait: "back-step" });
       /** Whether the defender's stance stands on both feet, taking no step of its own, slower than `STILL`. */
       const still = () => { const s = defender.body.view.stance; return s.phase === "stand" && !s.own && Math.hypot(s.velocity.x, s.velocity.z) < STILL; };
-      const back = () => ({ move: { kind: "range", focus: attacker.id, near: BACK.near, far: BACK.far }, face: null });
+      const back = () => ({ move: { kind: "range", focus: attacker.id, near: BACK.near, far: BACK.far }, face: null, ...(setOn ? { gait: "set" } : {}) });
       /** How far the attacker's centre, as the defender sees it, is from the defender's own. */
       const seenApart = () => {
         const seen = defender.senses().others.find((other) => other.id === attacker.id), d = centre(defender);
@@ -246,7 +246,7 @@ if (isMainThread) {
           else if (phase === "going" && duel.clock >= since + policy.seconds && (policy.kind !== "step" || still())) { phase = "back"; since = duel.clock; }
           // A punch begun while it stepped begins no step of its own.
           else if (phase === "back" && duel.clock >= since + (policy.kind === "sway" ? policy.rest : RETURN)) { phase = "waiting"; answered = began.length; }
-          duel.order("right", policy.kind === "shove" ? stand() : phase === "going" ? (policy.kind === "step" || policy.kind === "sway" ? step() : away()) : phase === "back" && policy.kind !== "sway" ? back() : stand());
+          duel.order("right", policy.kind === "shove" ? stand() : phase === "going" ? (policy.kind === "step" || policy.kind === "sway" ? step() : away()) : phase === "back" && policy.kind !== "sway" ? back() : policy.follow && apartSeen > BACK.far ? back() : stand());
         } else if (policy.kind === "stand") duel.order("right", stand());
         world.step();
         const d = centre(defender), now = apartNow();
