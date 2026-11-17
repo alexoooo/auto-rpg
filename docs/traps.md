@@ -26,6 +26,10 @@ its kind or running those tools.
 - **A transparent overlay drawing over geometry keeps stencil masks read-only**
   (`material.stencil.enabled = true`, `mask = 0`); otherwise a HighlightLayer can fill its quad
   with a character's silhouette.
+- **The Tactical view turns the scene's textures off** (`scene.texturesEnabled`): a standard
+  material that is nothing but its textures then draws a black quad. What must read in both views
+  carries a colour of its own (a route's chalk) or draws with a `ShaderMaterial`, which samples
+  its texture whatever the flag (a contact marker).
 
 ## Pointers
 

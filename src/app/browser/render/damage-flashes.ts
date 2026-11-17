@@ -3,7 +3,8 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { Camera } from "@babylonjs/core/Cameras/camera.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder.js";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { Effect } from "@babylonjs/core/Materials/effect.js";
+import { ShaderMaterial } from "@babylonjs/core/Materials/shaderMaterial.js";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { DamageCue } from "../../worker/damage-cues.ts";
@@ -20,15 +21,40 @@ const MIN_DIAMETER_PIXELS = 20;
 /** A number lingers above the contact long enough to read, s. */
 const NUMBER_SECONDS = .7;
 
-/** A transparent contact marker that leaves depth and character silhouette masks untouched. */
-function markerMaterial(name: string, texture: DynamicTexture, scene: Scene): StandardMaterial {
-  const material = new StandardMaterial(name, scene);
-  material.disableLighting = true;
-  material.emissiveTexture = texture; material.opacityTexture = texture;
+Effect.ShadersStore.contactMarkerVertexShader = `precision highp float;
+attribute vec3 position; attribute vec2 uv; uniform mat4 worldViewProjection; varying vec2 markerUv;
+void main(){markerUv=uv;gl_Position=worldViewProjection*vec4(position,1.0);}`;
+/** The marker's picture as drawn, faded by its mesh. The post pipeline grades linear colour, so the picture is made linear for it. */
+Effect.ShadersStore.contactMarkerFragmentShader = `precision highp float;
+varying vec2 markerUv; uniform sampler2D marker; uniform float visibility, graded;
+void main(){
+  vec4 colour=texture2D(marker,markerUv);
+  gl_FragColor=vec4(mix(colour.rgb,pow(colour.rgb,vec3(2.2)),graded),colour.a*visibility);
+}`;
+
+const CONTACT_MARKER = Object.freeze({ vertex: "contactMarker", fragment: "contactMarker" });
+
+/**
+ * A transparent contact marker that leaves depth and character silhouette masks untouched.
+ * A marker is nothing but its picture, so it is drawn by its own shader: a standard material loses its
+ * textures in the Tactical view, which turns the scene's textures off, and would draw a black quad.
+ */
+function markerMaterial(name: string, texture: DynamicTexture, scene: Scene): ShaderMaterial {
+  const material = new ShaderMaterial(name, scene, CONTACT_MARKER, {
+    attributes: ["position", "uv"], uniforms: ["worldViewProjection", "visibility", "graded"],
+    samplers: ["marker"], needAlphaBlending: true,
+  });
+  material.setTexture("marker", texture);
   material.backFaceCulling = false; material.disableDepthWrite = true;
   // Skins may cover the physical contact point; the small marker stays readable over them.
   material.depthFunction = Constants.ALWAYS;
   material.stencil.enabled = true; material.stencil.mask = 0;
+  // Markers share a material, so each one's fade is written as it binds.
+  material.onBindObservable.add(mesh => {
+    const effect = material.getEffect(), grade = scene.imageProcessingConfiguration;
+    effect?.setFloat("visibility", mesh.visibility);
+    effect?.setFloat("graded", grade.isEnabled && grade.applyByPostProcess ? 1 : 0);
+  });
   return material;
 }
 
