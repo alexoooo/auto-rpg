@@ -9,9 +9,8 @@ import { READINGS, threatReader } from "../../skills/perception/threat.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
-import { perceiver, reachMemory, type ModelledStrike, type Seen } from "./percepts.ts";
+import { perceiver, RATE_OTHERS, reachMemory, type ModelledStrike, type OthersModel, type Seen } from "./percepts.ts";
 import { optionRecord, type OptionRecord } from "./record.ts";
-import type { PressureTable } from "./pressure.ts";
 import { riseMemory } from "./rise-memory.ts";
 
 /**
@@ -31,8 +30,8 @@ interface Reading {
   readonly rules: Rulebook;
   readonly strikes: readonly ModelledStrike[];
   readonly measured: readonly Profile[];
-  /** The pressures measured in bouts (`PressureTable`) a foe's is read by; none, its strikes' rate. */
-  readonly pressures?: readonly PressureTable[];
+  /** What a foe is expected to take from the body (`OthersModel`); unless given, its strikes' rate (`RATE_OTHERS`). */
+  readonly others?: OthersModel;
   readonly ordersOf: (sight: Sight) => Orders | null;
   readonly record?: OptionRecord;
   readonly parts: PartLookup;
@@ -68,11 +67,11 @@ type SeenAt = { -readonly [K in "sight" | "orders" | "focus"]: Seen[K] } & { ste
  * read as each step is, and of each foe's reach (`reachMemory`), counted as a decision reads it.
  */
 export function situationReader(reading: Reading) {
-  const { spec, hz, delay, rules, strikes, measured, ordersOf } = reading, rate = reading.rate ?? hz, pressures = reading.pressures ?? [];
+  const { spec, hz, delay, rules, strikes, measured, ordersOf } = reading, rate = reading.rate ?? hz, others = reading.others ?? RATE_OTHERS;
   const risen = riseMemory(reading.record ?? optionRecord(), reading.parts, reading.techniques), reach = reachMemory();
   const threats = threatReader(), state = { focus: null as string | null, risen: risen.state, reach: reach.state }, perceiving = perceiver(reading.parts);
   /** What every `Seen` it makes holds of the reader: one prototype, its step's lazy inputs read through `SeenAt.step`. */
-  const base = Object.defineProperties({ spec, hz, rate, delay, rules, strikes, measured, pressures, threats, risen, reach }, {
+  const base = Object.defineProperties({ spec, hz, rate, delay, rules, strikes, measured, others, threats, risen, reach }, {
     blow: { get(this: SeenAt): Seen["blow"] {
       const step = this.step;
       return step.blow === UNREAD ? step.blow = threats.blowOf(step.sight.view, READINGS.predicted) : step.blow;
