@@ -294,9 +294,9 @@ export type StrikeReading = {
   /** The bar the striker's blow was judged by (`barOf` its body, unless the reader was given one). */
   readonly bar: Bar;
   /**
-   * The hit points each of the target's segments lost to the striker's touches over the trial, by
-   * the segment touched: from the step the drill had the body (`handed`), so a fight's blows
-   * before its moment are the fight's, not the trial's.
+   * The hit points each of the target's segments lost to the striking limb's touches (its effector
+   * and the two segments above it, as a target's arm is read) while its action ran, by the segment
+   * touched: a touch after, or by another limb, is what came next, not the strike's.
    */
   readonly dealt: Readonly<Record<string, number>>;
   /** The hit points the striker lost in its contacts with the target over the trial (from `handed`, as `dealt`), any part on any part. */
@@ -386,8 +386,8 @@ export type FreeStrike = { readonly striker: Side; readonly action: number };
  * drill Commander (`Duel.commanded`, `drillTask`). The striker's actions while its drill is
  * fighting (`DrillPhase`) are the fight's, not the drill's. With no `bar`, a hand's blow is judged
  * by its body's (`barOf`). Given `free`, the strike that side's fight threw at the other side,
- * read the same way from the step it is made, its `ending` seconds counted from there, what it dealt
- * its own limb's touches while its action ran: a bout's strikes read as a drill's trials are.
+ * read the same way from the step it is made, its `ending` seconds counted from there: a bout's
+ * strikes read as a drill's trials are.
  */
 export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "duel" | "catalog">, limbAsked: { readonly mark: Mark } & Limb,
   ending: Ending, given?: Bar, free?: FreeStrike): Reader<StrikeReading> {
@@ -404,6 +404,8 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   /** The skill its drill Commander asks. */
   const drilled = free ? undefined : (duel.recipe.commanders?.left as { readonly skill?: string } | undefined)?.skill;
   const spec = left.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3(), bar = given ?? barOf(spec);
+  /** The striking limb: its effector and the two segments above it, as a target's arm is read (`arms`). */
+  const striking = new Set([0, 1, 2].map((steps) => limbAbove(spec, effector, steps)).filter((name) => name !== undefined));
   /** Whether the asked hand holds an item, its blow judged by the held item's bar (`Bar.held`) and its strike point the item's. */
   const armed = hand !== null && !holdsNothing(spec, effector);
   /** What the action asked meets the target with (`ExecutorPart.meets`), read where it begins: blunt where its executor says none. */
@@ -686,9 +688,8 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
         : byLimb.length ? byLimb.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : phase === "striking" ? "unbegun" : "refused";
       const foe = foeBegan ?? atHand;
-      // A drill's striker throws its one strike; a fight's throws others meanwhile, whose touches are theirs.
       const dealt: Record<string, number> = {};
-      for (const { contact } of free ? byLimb : touches) dealt[contact.on] = (dealt[contact.on] ?? 0) + contact.damage;
+      for (const { contact } of touches) if (striking.has(contact.by) && live(contact.time)) dealt[contact.on] = (dealt[contact.on] ?? 0) + contact.damage;
       return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, inWindow: foe?.window ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, bar, dealt, taken,
         ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }),
         recovers: watching !== null && again !== null ? again - watching : null, nearest, exit, down, seconds: world.time,
