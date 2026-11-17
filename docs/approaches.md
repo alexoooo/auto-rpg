@@ -180,6 +180,14 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   read the chosen sways' falls at 2.7 % against 4.5 % and their life at 1.46 times, one of the
   chosen alone 5.1 % and 1.03 (`dac468d58`). Such a profile moves with the mind's prices and is
   read again when they change. *Shown.*
+- **A foe's pressure measured in bouts prices what bouts give; the rate from its strikes did
+  not**: priced by its best strike's dealt over its cycle, a Warrior's second in reach with the
+  foe throwing nothing was 17 to 20 times what it lost at 0.2 s and 0.8 with a punch committed.
+  Read from bouts' moments by range and what the Mind read the foe doing, held out by bout, it is
+  0.89 to 1.10 at every horizon, and the Warrior mirror went from 20 to 12 % silent, 24
+  knockouts in 24 (`179fa76b9`). The table must be labelled by the reading that reads it: labelled
+  by the foe's attempts (wind-up to recovery) where the Mind reads a blow coming, a hold was priced
+  77 to 225 times over. *Shown.*
 - **The Option Mind's prices ran over what a fight gives**: in Warrior mirror bouts it expected
   2.4 times the life it lost in reach and 3.0 times what its punches dealt (`aee4b6342`, on one
   draw, its reader counting damage, not life). *Shown.*
