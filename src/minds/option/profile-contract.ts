@@ -2,6 +2,7 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { Profile } from "../../skills/framework/profile.ts";
+import type { OutcomeModel } from "../../skills/framework/outcomes.ts";
 import type { PressureTable } from "./pressure.ts";
 import type { Sites } from "./option.ts";
 import type { Walker } from "./walk.ts";
@@ -15,7 +16,7 @@ export interface ProfileTables { readonly strikes: readonly Profile[]; readonly 
 /**
  * **What the profile model gives its compatible Option kinds** to make them from: its body's spec, the
  * world's rate (Hz) and the part lookup; the legs its body goes by (whose gaits its walks name), its
- * Options as its config names them, and the profile tables it predicts from (`ProfileTables`); what
+ * Options as its config names them, and the outcome model they ask what each act brings (`OutcomeModel`); what
  * the mind itself runs on: its walk and its Options' record of their tries (`OptionRecord`); and
  * the sites its options name (`Sites`, filled once every option is made). A kind builds anything
  * else it needs from these.
@@ -32,7 +33,7 @@ export interface ProfileOptionContext {
   readonly guards?: readonly PartConfig[];
   /** Its mind's Options, as its config names them, in rank order. */
   readonly options: readonly PartConfig[];
-  readonly tables: ProfileTables;
+  readonly outcomes: OutcomeModel;
   readonly walk: Walker;
   readonly record: OptionRecord;
   readonly sites: Sites;

@@ -1,5 +1,6 @@
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { measuredOn, profileAgainst, profilesFor, readProfile, type Expected, type Profile } from "../../skills/framework/profile.ts";
+import { measuredOn, type Expected } from "../../skills/framework/profile.ts";
+import type { OutcomeModel } from "../../skills/framework/outcomes.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
 import { swayStance } from "../../skills/locomotion/move/gaits.ts";
 import type { Status } from "../choice.ts";
@@ -20,9 +21,9 @@ const GAIT = "back-step";
 /**
  * **The back step**: the legs ordered the gait `back-step` for `HELD` s, facing the focus, as a
  * body of `spec` sways back over its rear foot out of a punch's way and in again. On offer where
- * its profile (among `profiles`, measured as a body of `spec` at `hz` whose mind decides at `rate`
- * Hz and whose command is `delay` steps late; `profilesFor`, the one against the focus's body,
- * `profileAgainst`) reads the focus at the range it stands at (`ProfileReading.reach`), the body
+ * what `outcomes` answers of it (measured as a body of `spec` at `hz` whose mind decides at `rate`
+ * Hz and whose command is `delay` steps late, against the focus's body) reads the focus at the
+ * range it stands at (`ProfileReading.reach`), the body
  * standing in the back step's carriage (`swayStance`, as the Mind reads its stance), its legs ready;
  * none for a body with no such profile, or whose legs do not go by the gait (`goes`). Once begun it
  * is held through its sway out and back (`committed`, `SWAYED`): an order let go mid-sway leaves the
@@ -35,16 +36,15 @@ const GAIT = "back-step";
  * while they swayed, for their seconds; it leaves the body up where its trials ended, centre to
  * centre (`exitOutcomes`), still, in its carriage; and down in the share of its trials that fell.
  */
-export function backStepping(spec: BodySpec, profiles: readonly Profile[], walk: Walker, hz: number, rate: number, delay: number, goes: boolean): readonly Option[] {
-  const read = profilesFor(profiles, measuredOn(spec, GAIT, null, hz, null, rate, delay))?.read ?? [];
+export function backStepping(spec: BodySpec, outcomes: OutcomeModel, walk: Walker, hz: number, rate: number, delay: number, goes: boolean): readonly Option[] {
+  const act = outcomes.act("steps", measuredOn(spec, GAIT, null, hz, null, rate, delay)), read = act?.read ?? [];
   const carriage = swayStance(spec.model);
   if (!goes || !read.length || !carriage) return [];
   const state = { since: null as number | null };
   /** What its profile against the focus expects from `at`; null where none reads it there. */
   const expected = (at: Situation): Expected | null => {
-    const focus = at.focus, profile = focus && profileAgainst(read, focus.spec);
-    if (!focus || !profile) return null;
-    const reading = readProfile(profile, spec, { own: "standing", target: at.foePosture });
+    const focus = at.focus, reading = focus && act?.reading(focus.spec, spec, { own: "standing", target: at.foePosture });
+    if (!focus || !reading) return null;
     if (at.apart > reading.reach(at.phase)) return null;
     return reading.expect({ range: at.apart, phase: at.phase, velocity: startOf(at), stance: at.stances }, focus.spec);
   };
@@ -63,8 +63,8 @@ export function backStepping(spec: BodySpec, profiles: readonly Profile[], walk:
     begin(now) { state.since = now.time; },
     end() { state.since = null; },
     priced: (now) => {
-      const focus = now.focus, profile = focus && profileAgainst(read, focus.spec);
-      return profile ? "measured" : "no profile against its focus";
+      const focus = now.focus;
+      return focus && act?.reading(focus.spec, spec) ? "measured" : "no profile against its focus";
     },
     model(at): Terms | null {
       if (!standing(at) || at.stances.own !== carriage) return null;

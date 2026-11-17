@@ -1,7 +1,7 @@
-import { dataOf } from "../../../core/data/store.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { PartConfig } from "../../../parts/parts.ts";
-import { measuredOn, profileAgainst, profilesFor, readProfile, techniqueSkill, type Expected, type Postures, type Profile } from "../../framework/profile.ts";
+import { measuredOn, techniqueSkill, type Expected, type Postures, type Profile } from "../../framework/profile.ts";
+import type { OutcomeModel } from "../../framework/outcomes.ts";
 
 declare module "../../../core/data/store.ts" { interface DataOf { "edge-profiles": readonly Profile[] } }
 
@@ -10,16 +10,15 @@ export const groundStart = (from: string): Postures => ({ own: from, target: "no
 
 /**
  * **What the ground technique `technique` is expected to bring a body of `spec` at `hz`, its command
- * `delay` steps late**, by where it is begun: its profile among `profiles` (`dataOf("edge-profiles")`
- * unless given) read through `readProfile` at its trials begun there (`groundStart`, `expected`),
- * null from a position none began at; and how it is priced, a sentence (`priced`): measured, or not,
- * and why (no drill measured it, or its profile is stale, `staleness`).
+ * `delay` steps late**, by where it is begun: what `outcomes` answers of it begun there with no foe
+ * (`groundStart`, `expected`), null from a position it answers nothing at; and how it is priced, a
+ * sentence (`priced`): measured, or not, and why (no drill measured it, or what it answers from is
+ * stale, `ActOutcomes.stale`).
  */
-export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number, delay: number, profiles: readonly Profile[] = dataOf("edge-profiles")): {
+export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number, delay: number, outcomes: OutcomeModel): {
   readonly expected: ((from: string) => Expected | null) | null; readonly priced: string } {
-  const found = profilesFor(profiles, measuredOn(spec, techniqueSkill(spec, technique), null, hz, null, hz, delay));
-  if (!found) return { expected: null, priced: "no drill measured it" };
-  const profile = profileAgainst(found.read, null);
-  if (!profile) return { expected: null, priced: found.stale ?? "no drill measured it" };
-  return { expected: (from) => readProfile(profile, spec, groundStart(from)).expect({ range: 0, phase: "clear" }, null), priced: found.stale === null ? "measured" : `measured, stale, ${found.stale}` };
+  const act = outcomes.act("edges", measuredOn(spec, techniqueSkill(spec, technique), null, hz, null, hz, delay));
+  if (!act) return { expected: null, priced: "no drill measured it" };
+  if (!act.read.length) return { expected: null, priced: act.stale ?? "no drill measured it" };
+  return { expected: (from) => act.reading(null, spec, groundStart(from))?.expect({ range: 0, phase: "clear" }, null) ?? null, priced: act.stale === null ? "measured" : `measured, stale, ${act.stale}` };
 }

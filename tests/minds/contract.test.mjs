@@ -322,12 +322,13 @@ test("a fallback recovery Option does not count its own transition as an ordinar
   const { REPOSITION_OPTION, WAY_UP_OPTION, waysUpIn, withWaysUp } = await import("../../src/minds/option/rise.ts");
   const { walker } = await import("../../src/minds/option/walk.ts");
   const { optionRecord } = await import("../../src/minds/option/record.ts");
+  const { nearestTrials } = await import("../../src/skills/framework/outcomes.ts");
   const spec = modelSpec("man"), fallback = REPOSITION_OPTION.defaults;
   const technique = GAME.partLookup.of("technique", fallback.skill), from = technique.edges[0]?.from;
   assert.equal(technique.fits(spec, fallback.skill, GAME.partLookup), null, "the real fallback technique must fit the fixture body");
   assert.ok(from && technique.starts.length, "the fallback must expose a transition and a declared beginning");
   const [option] = REPOSITION_OPTION.make(fallback, { spec, hz: 120, rate: 120, delay: 0, parts: GAME.partLookup, legs: { kind: "move", rules: [], otherwise: "braced" },
-    options: [fallback], tables: { strikes: [], edges: [] }, walk: walker(spec), record: optionRecord(), sites: { all: [], names: [] } });
+    options: [fallback], outcomes: nearestTrials({}), walk: walker(spec), record: optionRecord(), sites: { all: [], names: [] } });
   assert.ok(option, "the fallback constructor must produce its transition Option");
   const ground = { settled: true, position: from, raw: from, side: "left", velocity: new Vector3(), spin: 0 };
   const now = { ground, sight: { view: { ground }, actions: { around: { heading: 0, placed: false, lower: 0, support: null, walk: null }, readiness: () => ({ kind: "ready" }) } } };
