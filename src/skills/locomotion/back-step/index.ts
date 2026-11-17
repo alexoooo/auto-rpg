@@ -189,7 +189,7 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
 
 /** **The back step** (`backStep`): a gait part, ordered by name where a body's Move has it among its gaits (`MoveConfig.gaits`). */
 export const BACK_STEP_PART = deepFreeze<GaitPart<BackStepConfig>>({
-  role: "gait", requires: [SUPPORT_REFERENCE], label: "Back step", stage: "experimental", fields: [], slots: [], defaults: { kind: "back-step" },
+  role: "gait", requires: [SUPPORT_REFERENCE], label: "Back step", stage: "experimental", fields: [], slots: [], defaults: { kind: "back-step" }, travels: false,
   keys: { kind: true, carriage: true, out: true, back: true, beyond: true, stepIn: true, shuffle: true, follow: true, learned: true, steered: true },
   fits: fitsAll(fitsSoles),
   faults: (config) => [

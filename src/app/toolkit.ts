@@ -25,6 +25,7 @@ import { STAGED_DATA } from "../skills/recovery/shared/staged/data/registration.
 import { RECOVERY_DATA } from "../skills/recovery/data/registration.ts";
 import { RIGHTING_DATA } from "../skills/recovery/righting-recipe/data/registration.ts";
 import { BITE_DATA } from "../skills/strikes/bite/data/registration.ts";
+import { STEP_PROFILES_DATA } from "../skills/locomotion/back-step/data/registration.ts";
 import { LEG_ADAPTERS } from "./registration/leg-adapters.ts";
 
 /** Staged profiles depend on the stock motor calibration as well as their skill record. */
@@ -62,7 +63,7 @@ function merged<L extends readonly Readonly<Record<string, Part>>[]>(...lists: L
 export function toolkitLists(): CatalogLists {
   const below: Covered = merged(TECHNIQUES, LEG_ADAPTERS, MOVE_RULES, LOCOMOTIONS, GAIT_PARTS, GUARDS, SUPPORTS, EXECUTORS, MOTORS, BALANCES, NAVIGATIONS, AIMS,
     REPTILE_PARTS, CHOOSERS, OPTION_KINDS, OBJECTIVES, PREDICTIONS);
-  return { minds: MIND_KINDS, parts: [below], entrants: [], data: [STRIKE_DATA, WALK_RUN_DATA, calibratedStagedData, RECOVERY_DATA, RIGHTING_DATA, BITE_DATA] };
+  return { minds: MIND_KINDS, parts: [below], entrants: [], data: [STRIKE_DATA, WALK_RUN_DATA, calibratedStagedData, RECOVERY_DATA, RIGHTING_DATA, BITE_DATA, STEP_PROFILES_DATA] };
 }
 
 /** **The toolkit's catalog**: what the core's own tasks make a mind from; the game's is composed above the core (`src/app/catalog.ts`). */

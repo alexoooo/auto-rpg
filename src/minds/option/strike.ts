@@ -208,7 +208,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const struck = segment ?? now.focus?.spec.marks.high ?? "";
     let blow = -Infinity;
     for (let i = 0; i < action.effectors.length; i++) blow = Math.max(blow, now.predictions.blows(action.effectors[i]!, struck));
-    return { done: lands, dealt: throws * lands * blow, seconds, recovers: 0, down: 0, ends: [] };
+    return { done: lands, dealt: throws * lands * blow, taken: 0, seconds, recovers: 0, down: 0, ends: [] };
   };
   /** Whether its blow leaves the legs to a walk: what it needs with its first limb names no legs (`SkillsActions.needs`), read once, its skill's for good. */
   let leaves: boolean | null = null;

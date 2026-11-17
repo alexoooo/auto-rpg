@@ -23,8 +23,9 @@ export interface Gait {
  * **The stock gaits**, by name: the game's controllers and their searched settings, none of them a
  * person's to tune. Braced is the stance's walk (`StanceWalkConfig`), the fighting step; the
  * footwork is that walk's variation started with the other foot; staggered, its variation in the
- * staggered carriage (`STAGGERED`); the run is the walk and run (`WalkRunConfig`) by its body's record. A body walks by those whose variation its character
- * holds, and Move changes between them on the move (`move`).
+ * staggered carriage (`STAGGERED`); the run is the walk and run (`WalkRunConfig`) by its body's record.
+ * A body walks by those whose variation its character holds, and Move changes between them on the
+ * move (`move`).
  */
 const GAITS: Readonly<Record<string, { readonly label: string; readonly legs: ConfigFor<"gait"> }>> = deepFreeze({
   "braced": { label: "Braced", legs: { kind: "stance-walk", variation: "stance-walk" } },
@@ -32,6 +33,14 @@ const GAITS: Readonly<Record<string, { readonly label: string; readonly legs: Co
   "staggered": { label: "Staggered", legs: { kind: "stance-walk", variation: "staggered" } },
   "run": { label: "Run", legs: { kind: "walk-run" } },
 });
+
+/**
+ * **The back step** as a gait (`BackStepConfig`): the body swayed back in the staggered carriage and
+ * in again, as the back step's evaluation reads best (out 0.7 s, back 0.5 s, the lead foot stepping
+ * 0.1 m in, its follow 0.15 m). A gait no walk goes by (`GaitPart.travels`), which its Option orders
+ * (`backStepping`); no stock gait yet, so a mind that takes the Option takes it too (`withBackStep`).
+ */
+export const BACK_STEP_GAIT: Gait = deepFreeze({ name: "back-step", label: "Back step", legs: { kind: "back-step", carriage: STAGGERED, out: .7, back: .5, stepIn: .1, follow: .15 } });
 
 /** **The stock gaits** (`GAITS`) as gaits: what Move walks by where its config names none. */
 export const STOCK_GAITS: readonly Gait[] = deepFreeze(Object.entries(GAITS).map(([name, gait]) => ({ name, label: gait.label, legs: gait.legs })));
@@ -47,6 +56,9 @@ export const GAIT_STANCES: Readonly<Record<string, Readonly<Record<string, Stanc
   "stance-walk/stance-walk": { man: { stagger: -.008, width: .279, height: .967 } },
   "stance-walk/staggered": { man: { stagger: -.01, width: .283, height: .922 } },
 });
+
+/** **The stance the back step sways from** on a body of `model`: the staggered gait's (`GAIT_STANCES`), its carriage (`STAGGERED`); null where none was measured. */
+export const swayStance = (model: string): StanceNumbers | null => GAIT_STANCES["stance-walk/staggered"]?.[model] ?? null;
 
 /** How a body of `model` walking on `legs` stands (`GAIT_STANCES`); null where none was measured. */
 export const gaitStance = (legs: { readonly kind: string; readonly variation?: string }, model: string): StanceNumbers | null =>

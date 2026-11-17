@@ -10,10 +10,11 @@ import { heldVariations, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { covers } from "./cover.ts";
+import { backStepping } from "./back-step.ts";
 import { LIMB_ROLES, limbsOf, type LimbRole } from "./limbs.ts";
 import type { Option, Site } from "./option.ts";
 import { followOrders } from "./orders.ts";
-import { gaitsOf, walkBy } from "./places.ts";
+import { gaitsOf, goesBy, walkBy } from "./places.ts";
 import { PROFILE_MODEL, type ProfileOptionContext } from "./profile-contract.ts";
 import type { NamedSkills } from "./skills.ts";
 import { chosenVariation, selectsVariation, type Varied } from "../../skills/framework/variations.ts";
@@ -316,6 +317,10 @@ export const COVER_OPTION = kind("covers", "Cover", given => (given.guards ?? gi
   return part.covering ? covers(given.spec).map(option => choosingSkill(option, config, part.label, "guardSkill")) : [];
 }));
 
+/** **The back step** (`backStepping`), where its body's steps' profiles measured it. */
+export const BACK_STEP_OPTION = kind("steps-back", "Back step", given => backStepping(given.spec, given.tables.steps ?? [], given.walk, given.hz, given.rate ?? given.hz, given.delay,
+  goesBy(given.parts, given.legs, given.spec, "back-step")));
+
 /** **Hold the position** (`hold`), a rest option. */
 export const HOLD_OPTION = kind("hold-position", "Hold the position", (given) => [hold(given.walk)]);
 
@@ -356,6 +361,7 @@ declare module "./parts.ts" {
     readonly walk: WalkConfig;
     readonly "hold-at-place": PlaceConfig;
     readonly covers: { readonly kind: "covers" };
+    readonly "steps-back": { readonly kind: "steps-back" };
     readonly "hold-position": { readonly kind: "hold-position" };
     readonly "hands-at-guard": { readonly kind: "hands-at-guard" };
   }

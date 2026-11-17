@@ -21,12 +21,16 @@ interface GaitOf {
   readonly legs: PartConfig;
 }
 
-/** **The gaits `legs` go by** (`LocomotionPart.gaits`); none for legs that go by no gait by name. */
+/** **The gaits `legs` go by to a place** (`LocomotionPart.gaits`): none for legs that go by no gait by name, nor a gait that carries the body nowhere (`GaitPart.travels`). */
 export const gaitsOf = (parts: PartLookup, legs: PartConfig, spec: BodySpec): readonly GaitOf[] =>
   (parts.of("locomotion", legs).gaits?.(legs, spec, parts) ?? []).filter(gait => {
     const part = parts.any(gait.legs);
-    return part !== null && part.fits(spec, gait.legs, parts) === null;
+    return part !== null && (part as { readonly travels?: false }).travels !== false && part.fits(spec, gait.legs, parts) === null;
   });
+
+/** **Whether `legs` go by the gait `name`** (`LocomotionPart.gaits`), one that fits a body of `spec`, whether or not it carries the body anywhere. */
+export const goesBy = (parts: PartLookup, legs: PartConfig, spec: BodySpec, name: string): boolean =>
+  (parts.of("locomotion", legs).gaits?.(legs, spec, parts) ?? []).some(gait => gait.name === name && parts.any(gait.legs)?.fits(spec, gait.legs, parts) === null);
 
 /**
  * How far apart a walk's way is read within the focus's reach, m: half the span over which a

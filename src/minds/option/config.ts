@@ -1,6 +1,6 @@
 import { recordingKey } from "../../core/world/recording.ts";
 import { GOING, type MoveConfig } from "../../skills/locomotion/move/index.ts";
-import { gaitsIn, STOCK_GAITS, type STAGGERED } from "../../skills/locomotion/move/gaits.ts";
+import { BACK_STEP_GAIT, gaitsIn, STOCK_GAITS, type STAGGERED } from "../../skills/locomotion/move/gaits.ts";
 import type { MindConfig } from "../catalog/config.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import { FILLED, type Filled } from "../../skills/assembly/filled.ts";
@@ -37,6 +37,23 @@ export function inCarriage(mind: MindConfig, carriage: typeof STAGGERED): MindCo
   if (legs.kind !== "move") throw new Error(`legs of kind ${legs.kind} are not held in a carriage`);
   const move = legs as unknown as MoveConfig;
   return withLegs(config, { ...move, gaits: gaitsIn(move.gaits ?? STOCK_GAITS, carriage) } as ConfigFor<"locomotion">);
+}
+
+/**
+ * **`mind` with the back step**: its Option (`steps-back`, `BACK_STEP_OPTION`) after its walk, and
+ * its gait (`BACK_STEP_GAIT`) among its legs' (Move's, `GOING` where its config names none, the
+ * stock gaits where it names none). Neither is the game's yet. A mind that is no Option Mind, walks
+ * by legs other than Move, or has the Option already, is refused.
+ */
+export function withBackStep(mind: MindConfig): MindConfig {
+  if (mind.kind !== "option") throw new Error(`a ${mind.kind} mind takes no back step`);
+  const config = mind as OptionMindConfig, legs = (config.tuning?.parts?.legs ?? GOING) as ConfigFor<"locomotion"> & { readonly kind: string };
+  if (legs.kind !== "move") throw new Error(`legs of kind ${legs.kind} go by no back step`);
+  const options = config.options ?? [];
+  if (options.some((option) => option.kind === "steps-back")) throw new Error("the mind has its back step already");
+  const move = legs as unknown as MoveConfig, walk = options.findIndex((option) => option.kind === "walk") + 1;
+  return withLegs({ ...config, options: [...options.slice(0, walk), { kind: "steps-back" } as ConfigFor<"option">, ...options.slice(walk)] },
+    { ...move, gaits: [...(move.gaits ?? STOCK_GAITS).filter((gait) => gait.name !== BACK_STEP_GAIT.name), BACK_STEP_GAIT] } as ConfigFor<"locomotion">);
 }
 
 /** The Options, chooser and predictions supplied where a config names none. */

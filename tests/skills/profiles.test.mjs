@@ -12,7 +12,7 @@ import { recipeOf } from "../../src/app/node/setup.ts";
 import { reportNow } from "../../src/minds/seat/apart.ts";
 
 /**
- * Every measured profile (`assets/skills/strikes/strike-profiles/strike-profiles.json`) is of a skill the game has, on a body
+ * Every measured profile (`assets/skills/strikes/strike-profiles/strike-profiles.json`, and the edges' and steps') is of a skill the game has, on a body
  * it builds (`profileKeys`): a profile is read only where its body, what it holds, its skill and its limb are the reader's
  * (`staleness`), so one keyed to a skill or body that has moved on is never read, and a strike or
  * edge that has none is priced by hand in silence.
@@ -22,7 +22,7 @@ test("every measured profile is of a current skill on a current body", () => {
   assert.ok(keys.strike.size > 0 && keys.edge.size > 0, "the presets reached strikes and techniques to key profiles by");
   const stale = [];
   for (const kind of Object.keys(keys)) {
-    const path = kind === "strike" ? "../../assets/skills/strikes/strike-profiles/strike-profiles.json" : "../../assets/skills/recovery/edge-profiles.json";
+    const path = { strike: "../../assets/skills/strikes/strike-profiles/strike-profiles.json", edge: "../../assets/skills/recovery/edge-profiles.json", step: "../../assets/skills/locomotion/step-profiles.json" }[kind];
     const { profiles } = JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
     assert.ok(profiles.length > 0, `${path} holds profiles`);
     for (const { measured } of profiles) if (!keys[kind].has(profileKey(measured))) stale.push(`${kind}: ${profileKey(measured)}`);

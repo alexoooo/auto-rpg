@@ -3,7 +3,9 @@
  * chooser prices it on measured numbers rather than a hand-built model: a strike's against a foe
  * fighting back, from starts drawn at random (the Strike drill's `sparring` and `sparring-laid`),
  * never at a drill's still target, which reads how well the body throws it and nothing of what it brings; a ground edge's,
- * which has no foe, in its own tries. A profile is a sample of
+ * which has no foe, in its own tries; a step's out of a blow's way (the back step's), from where a
+ * fight had the two bodies as it was ordered, against a foe fighting (the back step's evaluation's
+ * `spar`), what it lost while it stepped. A profile is a sample of
  * trials (`Trial`), each keeping what it brought and where it began (`Start`): the range to the
  * foe, centre to centre across the ground, m; the foe's phase as the striker sensed it (the `phase`
  * percept, `sensedPhase`); how the two bodies stood; and the velocity at the start, in the frame of
@@ -314,7 +316,8 @@ export const validProfiles = (value: unknown): value is readonly Profile[] => Ar
 
 /**
  * **What a skill is expected to bring from a start** (`ProfileReading.expect`), in life, a share
- * of a body's full life: the share done; the struck body's life its blows take; the seconds its
+ * of a body's full life: the share done; the struck body's life its blows take, and its own life
+ * the blows on it took meanwhile (`Trial.taken`, over its own full life); the seconds its
  * skill runs, and from its end until its limb is back (`Trial.recovers`, of the trials that saw it;
  * 0 where none did); the chance it ends down; where those not done came to rest, each with its share;
  * where asked at a progress of its motion, what letting it go there cost (the seconds until the hand
@@ -323,6 +326,7 @@ export const validProfiles = (value: unknown): value is readonly Profile[] => Ar
 export interface Expected {
   readonly done: number;
   readonly dealt: number;
+  readonly taken: number;
   readonly seconds: number;
   readonly recovers: number;
   readonly down: number;
@@ -743,20 +747,20 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
       const of = read(at.phase);
       if (at.range > of.reach) return null;
       const shares = new Map<string, number>();
-      let done = 0, dealt = 0, seconds = 0, recovered = 0, recovers = 0, down = 0;
+      let done = 0, dealt = 0, taken = 0, seconds = 0, recovered = 0, recovers = 0, down = 0;
       const exits: Record<string, number> = {}, exited: Record<string, number> = {};
       const levels = asked(struck);
       const n = eachNearest(of.run, at, levels, (trial) => {
         if (trial.done) done++;
         if (trial.down) down++;
-        dealt += trial.dealt; seconds += trial.seconds;
+        dealt += trial.dealt; taken += trial.taken; seconds += trial.seconds;
         if (trial.recovers !== null) { recovered++; recovers += trial.recovers; }
         if (trial.end !== undefined) shares.set(trial.end, (shares.get(trial.end) ?? 0) + 1);
         for (const key in trial.exit) { exits[key] = (exits[key] ?? 0) + trial.exit[key]!; exited[key] = (exited[key] ?? 0) + 1; }
       });
       if (n === 0) return null;
       const letGo = at.progress === undefined ? null : letGoAt(of, at, levels, at.progress);
-      return { done: done / n, dealt: struck ? dealt / n / struck.wounds.hp.value : 0, seconds: seconds / n, recovers: recovered ? recovers / recovered : 0, down: down / n,
+      return { done: done / n, dealt: struck ? dealt / n / struck.wounds.hp.value : 0, taken: taken / n / own, seconds: seconds / n, recovers: recovered ? recovers / recovered : 0, down: down / n,
         ends: [...shares].map(([end, count]) => ({ at: end, share: count / n })),
         ...(letGo ? { letGo: { seconds: letGo.seconds, taken: letGo.taken / own } } : {}), ...(Object.keys(exits).length ? { exit: Object.fromEntries(Object.keys(exits).map(key => [key, exits[key]! / exited[key]!])) } : {}) };
     },

@@ -41,6 +41,8 @@ export interface LocomotionPart<C extends PartConfig = PartConfig> extends Part<
 export interface GaitPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "gait";
   readonly keys: KeysOf<C>;
+  /** False for a gait that carries the body to no place (the back step's sway): no walk goes by it. */
+  readonly travels?: false;
   /** The walk of `config` for `body`. */
   make(body: Body, config: C): Locomotion;
 }

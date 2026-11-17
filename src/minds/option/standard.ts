@@ -17,8 +17,9 @@ export const RISE_OPTIONS: readonly ConfigFor<"option">[] = deepFreeze([
 
 /**
  * **Every Option but a blow**: following orders first, a walk by every gait the body's legs go by,
- * getting up (`RISE_OPTIONS`), then cover, hold, guard and brace. What an Option Mind's config
- * that names no options takes in the game, and what a fighter adds its blows to.
+ * getting up (`RISE_OPTIONS`), then cover, hold, guard and brace. What an Option Mind's config that
+ * names no options takes in the game, and what a fighter adds its blows to. The back step
+ * (`BACK_STEP_OPTION`, `kinds.ts`) is not among them yet: two Warriors with it stand off more than they fight.
  */
 export const BASE_OPTIONS: readonly ConfigFor<"option">[] = deepFreeze([ORDERS_OPTION.defaults, { kind: "walk" as const }, ...RISE_OPTIONS,
   ...[COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION].map((part) => part.defaults)]);

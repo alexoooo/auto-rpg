@@ -14,8 +14,8 @@ export const profileKey = ({ body, holds, skill, limb }) => `${body} [${holds ??
  * defaults holding each loadout it can; a strike is one a preset's Options name on a body it fits
  * (`skillsOf`), with one limb (`limbAction`), in each variation of its skill a character may hold
  * (`Part.variations`: a person may give any of them to any character, and a character runs one of
- * a skill); an edge is a technique by its kind, in each of its variations. A profile on none of
- * these is read by nothing.
+ * a skill); an edge is a technique by its kind, in each of its variations; a step is the back step,
+ * a gait by its kind, on each body. A profile on none of these is read by nothing.
  */
 export function profileKeys() {
   const bodies = [], skills = Object.entries(allParts()).flatMap(([skill, part]) => Array.isArray(part.variations) ? part.variations.map((variation) => `${skill}/${variation}`) : []);
@@ -24,7 +24,7 @@ export function profileKeys() {
     bodies.push({ model, spec: withLoadout(resolveCharacter({ model, skills }).spec, loadout) });
   }
   const on = (spec, skill, limb) => profileKey(measuredOn(spec, skill, limb, 0, null, 0, 0));
-  const keys = { strike: new Set(), edge: new Set() };
+  const keys = { strike: new Set(), edge: new Set(), step: new Set() };
   const techniques = Object.entries(allParts()).filter(([, part]) => part.role === "technique").map(([kind]) => ({ kind }));
   for (const preset of Object.values(MINDS)) {
     const config = preset.config, parts = treeLookup(config);
@@ -36,5 +36,6 @@ export function profileKeys() {
     }
   }
   for (const { spec } of bodies) for (const technique of techniques) keys.edge.add(on(spec, techniqueSkill(spec, technique), null));
+  for (const { spec } of bodies) keys.step.add(on(spec, "back-step", null));
   return keys;
 }

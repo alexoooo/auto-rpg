@@ -8,7 +8,8 @@ import type { OptionRecord } from "./record.ts";
 
 /** Construction protocol owned by the profile-based evaluation model. */
 export const PROFILE_MODEL = "profiles/1";
-export interface ProfileTables { readonly strikes: readonly Profile[]; readonly edges: readonly Profile[] }
+/** The profiles a mind predicts from: its strikes', its ground edges' and its steps' (none where absent). */
+export interface ProfileTables { readonly strikes: readonly Profile[]; readonly edges: readonly Profile[]; readonly steps?: readonly Profile[] }
 
 /**
  * **What the profile model gives its compatible Option kinds** to make them from: its body's spec, the

@@ -13,8 +13,8 @@ interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly 
 export const MEASURED_PREDICTIONS = deepFreeze<PredictionsPart<MeasuredConfig>>({
   role: "predictions", model: PROFILE_MODEL, label: "Measured", stage: "game", fields: [], slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true }, tuning: ["edges"],
   fits: anyBody, faults: config => config.edges === undefined || validProfiles(config.edges) ? [] : ["edges: invalid profiles"],
-  reads: config => config.edges === undefined ? ["strike-profiles", "edge-profiles"] : ["strike-profiles"],
-  make: config => profileModel(deepFreeze({ strikes: dataOf("strike-profiles"), edges: config.edges ?? dataOf("edge-profiles") })),
+  reads: config => config.edges === undefined ? ["strike-profiles", "edge-profiles", "step-profiles"] : ["strike-profiles", "step-profiles"],
+  make: config => profileModel(deepFreeze({ strikes: dataOf("strike-profiles"), edges: config.edges ?? dataOf("edge-profiles"), steps: dataOf("step-profiles") })),
 });
 
 /** **The prior alone**: no profile, each model its prior, set by hand. */
