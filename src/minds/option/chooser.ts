@@ -143,7 +143,7 @@ function madeFrom(made: Made, leaves: Leaves, seconds: number): boolean {
  * the body is or at a site, `Option.sites`); a line is cut at the horizon, so every worth is
  * absolute over the same seconds and lines compare alike. Given `halfLife`, s, the life a line
  * trades counts less the later it comes, by half each `halfLife` from now (`fade`); null, all alike.
- * Given `written`, a leaf is the line's end as written (`LineEnd`) instead.
+ * Given `written`, a leaf is the line's end it gives (`LineEnd`) instead.
  */
 function space(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, horizon: number, halfLife: number | null, written: LineEnd | null) {
   const place = placing(), fading = halfLife === null ? 0 : log(2) / halfLife;
@@ -288,7 +288,9 @@ function space(root: Situation, options: readonly Option[], objective: Objective
    */
   const leaf = (at: Situation, reach: Reach, dealt: number, taken: number, orders: number, seconds: number): number => {
     if (written) {
-      const left = Math.max(0, horizon - seconds), near = at.focus ? Math.max(0, 1 - at.apart / written.reach) : 0, counts = fade(seconds, left) * left * near;
+      const left = Math.max(0, horizon - seconds);
+      if ("exchange" in written) return exchanged(at, fade(seconds, left) * left * written.exchange, dealt, taken, orders, seconds);
+      const near = at.focus ? Math.max(0, 1 - at.apart / written.reach) : 0, counts = fade(seconds, left) * left * near;
       return price(dealt + counts * written.dealt, taken + counts * written.taken, orders, Math.max(seconds, horizon), at);
     }
     let top = -Infinity;
@@ -338,6 +340,35 @@ function space(root: Situation, options: readonly Option[], objective: Objective
       }
     }
     return worth;
+  };
+  /**
+   * **A line's end by the next exchange** (`ByExchange`), at `at`, `seconds` s into the horizon:
+   * the best of each Option on offer there traded at the rate of one try (its life dealt and taken
+   * over its time; an open Option's to the horizon), `counts` s of it; a walk to a site
+   * (`Option.sites`) counted with the best try where each way it ends leaves the body. The path as
+   * it is where none is.
+   */
+  const exchanged = (at: Situation, counts: number, dealt: number, taken: number, orders: number, seconds: number): number => {
+    const end = Math.max(seconds, horizon);
+    const atRate = (d: number, t: number, duration: number): number =>
+      duration > 0 ? price(dealt + counts * d / duration, taken + counts * t / duration, orders, end, at) : -Infinity;
+    let top = -Infinity;
+    for (const pair of pairsAt(at)) {
+      const terms = termsOf(pair, at, seconds);
+      if (!toSite(pair)) { top = Math.max(top, atRate(terms.dealt, terms.taken, terms.duration)); continue; }
+      let worth = 0;
+      for (const outcome of terms.outcomes) {
+        const there = child(at, outcome.leaves, terms.duration), after = seconds + terms.duration;
+        let then = atRate(terms.dealt, terms.taken, terms.duration);
+        for (const next of readsAt(there, "arrived")) {
+          const tried = termsOf(next, there, after);
+          then = Math.max(then, atRate(terms.dealt + tried.dealt, terms.taken + tried.taken, terms.duration + tried.duration));
+        }
+        worth += outcome.chance * then;
+      }
+      top = Math.max(top, worth);
+    }
+    return top > -Infinity ? top : price(dealt, taken, orders, end, at);
   };
   return { pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
 }
@@ -561,7 +592,7 @@ function searching(make: (now: Situation) => Lines): Appraise<Situation, OfferTe
  * by chance (`Chance`), none unless given, the objective it prices options by (`objective`, a
  * part of role `objective`; the few terms, `FEW_TERMS_PART`, unless given), how soon life
  * traded later in a line counts half (`halfLife`, s; all alike unless given), and a line's end as
- * written (`end`, `LineEnd`; the best Option held or run again to the horizon unless given).
+ * as the config gives it (`end`, `LineEnd`; the best Option held or run again to the horizon unless given).
  */
 interface SearchConfig { readonly end?: LineEnd; readonly halfLife?: number; readonly horizon?: number; readonly obedience?: ObedienceLevel; readonly margin?: number; readonly objective?: ConfigFor<"objective"> | null }
 
@@ -586,20 +617,53 @@ function obedienceField<C extends SearchConfig>(): PartField<C> {
 }
 
 /**
- * **A line's end as written** (`SearchConfig.end`): from where a line's last Option leaves the
- * body to the horizon, each side trades life at a steady rate by how far apart the two stand,
- * centre to centre (`Situation.apart`): `dealt` and `taken` a second (a share of a life) at none
- * apart, falling straight to none at `reach`, m, and none with no focus. Three numbers, priced by
- * the objective as the line's own life.
+ * **A line's end** (`SearchConfig.end`): what is traded from where a line's last Option leaves
+ * the body to the horizon, priced by the objective as the line's own life. Written by distance
+ * (`ByDistance`), or the next exchange's (`ByExchange`).
  */
-interface LineEnd { readonly dealt: number; readonly taken: number; readonly reach: number }
+type LineEnd = ByDistance | ByExchange;
+
+/**
+ * **A line's end by distance**: each side trades life at a steady rate by how far apart the two
+ * stand, centre to centre (`Situation.apart`): `dealt` and `taken` a second (a share of a life) at
+ * none apart, falling straight to none at `reach`, m, and none with no focus.
+ */
+interface ByDistance { readonly dealt: number; readonly taken: number; readonly reach: number }
+
+/**
+ * **A line's end by the next exchange**: each side trades at the rate of the best try begun from
+ * there (life dealt and taken over its time, its own model's), a walk to a site counted with the
+ * best try where it arrives; that rate `exchange` times over the time left.
+ */
+interface ByExchange { readonly exchange: number }
+
+/** What the picker offers for a line's end (`endField`): none, the tail; by distance; by the next exchange. By distance at the rate bouts trade with the two in reach; by the next exchange at its rate as priced. */
+const ENDS = Object.freeze({
+  distance: Object.freeze({ dealt: .027, taken: .027, reach: 2 }) as LineEnd,
+  exchange: Object.freeze({ exchange: 1 }) as LineEnd,
+});
+
+/** A searching chooser's line's end (`LineEnd`): the tail where none is written, else by distance or by the next exchange, at the settings `ENDS` gives. */
+function endField<C extends SearchConfig>(): PartField<C> {
+  return {
+    kind: "choice", key: "end", label: "Line's end", options: [["", "Tail"], ["distance", "By distance"], ["exchange", "By the next exchange"]],
+    read: (config) => config.end === undefined ? "" : "exchange" in config.end ? "exchange" : "distance",
+    write: (config, text) => {
+      const { end: _, ...rest } = config;
+      if (text === "") return rest as C;
+      return text === "distance" || text === "exchange" ? { ...rest, end: ENDS[text] } as C : null;
+    },
+  };
+}
 
 /** What is wrong with what a searching chooser is given (`SearchConfig`), each a sentence. */
 const searchFaults = (config: SearchConfig): readonly string[] => [
   ...config.horizon === undefined || Number.isFinite(config.horizon) && config.horizon > 0 ? [] : ["horizon: a finite time, more than none"],
   ...config.halfLife === undefined || Number.isFinite(config.halfLife) && config.halfLife > 0 ? [] : ["halfLife: a finite time, more than none"],
-  ...config.end === undefined || typeof config.end === "object" && config.end !== null && [config.end.dealt, config.end.taken].every((rate) => Number.isFinite(rate) && rate >= 0)
-    && Number.isFinite(config.end.reach) && config.end.reach > 0 ? [] : ["end: dealt and taken a finite rate, not negative, and reach a finite distance, more than none"],
+  ...config.end === undefined || typeof config.end === "object" && config.end !== null && ("exchange" in config.end
+    ? Number.isFinite(config.end.exchange) && config.end.exchange >= 0
+    : [config.end.dealt, config.end.taken].every((rate) => Number.isFinite(rate) && rate >= 0) && Number.isFinite(config.end.reach) && config.end.reach > 0)
+    ? [] : ["end: exchange a finite share, not negative; or dealt and taken a finite rate, not negative, and reach a finite distance, more than none"],
   ...config.margin === undefined || Number.isFinite(config.margin) && config.margin >= 0 ? [] : ["margin: a finite worth, not negative"],
   ...config.obedience === undefined || OBEDIENCE.some(([value]) => value === config.obedience) ? [] : [`obedience: one of ${OBEDIENCE.map(([value]) => value).join(", ")}`]];
 
@@ -619,7 +683,7 @@ function pricing(config: SearchConfig, parts: PartLookup): { readonly obedience:
  * targets keeps the one it runs at `KEEP` s.
  */
 export const VALUED_CHOOSER = deepFreeze<OptionChooserPart<ValuedConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By worth", stage: "game", fields: [obedienceField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  role: "chooser", model: PROFILE_MODEL, label: "By worth", stage: "game", fields: [obedienceField<ValuedConfig>(), endField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, halfLife: true, end: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(VALUED_DEPTHS)(config), ...searchFaults(config)],
   make: (config: ValuedConfig, options: readonly Option[], seed: number, parts: PartLookup, phase = 0) => {
@@ -656,7 +720,7 @@ interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs
  * targets keeps the one it runs at `KEEP` s.
  */
 export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By tree", stage: "game", fields: [obedienceField<TreeConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  role: "chooser", model: PROFILE_MODEL, label: "By tree", stage: "game", fields: [obedienceField<TreeConfig>(), endField<TreeConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "tree" }, keys: { kind: true, runs: true, exploration: true, keeps: true, horizon: true, halfLife: true, end: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],

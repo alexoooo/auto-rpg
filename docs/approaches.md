@@ -255,6 +255,14 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   17.6% against 11.3%; by both together 12.0% against 7.1% (`008eb67d9`, `fc29f4f3d`). A leaf
   from those bouts by range and a strike on offer is flat past 3 s as before (`42a69f3b9`).
   *Shown.*
+- **A line's end read from the next exchange plays even, and pays the back step, but quiets the
+  mirror**: each side trading at the rate of the best try begun from where the line ends, by its
+  own model, a walk to a site counted with the best try where it arrives (`ByExchange`, at that
+  rate as priced): 0.497 (0.441 to 0.552) against the game's Mind on `warrior-drawn`; the Warrior
+  with the back step against one without won 0.550 (0.501 to 0.597) over 432 bouts, 0.44 HP a
+  minute less lost (-0.07 to 0.94); but the mirror standing silent 8.6% without it (6.4% with the
+  game's tail) and 18.7% with it, paired 10.1 points (8.1 to 12.0). Offered in the picker beside the
+  tail and by distance; not the game's. *Shown.*
 - **A bar read on bouts won needs its spread**: the back step's Warrior against one without won
   79 to 65 on the game's Mind, 0.549 with 0.472 to 0.632 over bouts, and 0.521 (0.472 to 0.567)
   over 432 under the written line's end: neither a win (`fc29f4f3d`). *Shown.*
