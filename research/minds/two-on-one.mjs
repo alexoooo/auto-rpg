@@ -1,6 +1,6 @@
 /**
  * **Two on one**: whether what two foes take from a body a second is the sum of what each takes
- * alone, and what its mind expects of each (step 7 of `docs/plans/2026-11-17-testbed.md`).
+ * alone, and what its mind expects of each (several units a side; its reading in `docs/approaches.md`, minds).
  *
  *   node research/minds/two-on-one.mjs [--cases 24] [--seconds 60] [--foe man] [--near 2] [--workers N] [--save <file>] [--load <file>]
  *

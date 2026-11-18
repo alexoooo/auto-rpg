@@ -223,3 +223,42 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
 - **Mirror and self-play pools rank a mind by its own shape**: the league-trained mind first in
   mirrors, 13th of 14 on the game's pairs (`87b74cb6`). A mind is read against the bodies and minds
   the game draws. *Repeated.*
+- **An act read by a written form, its weights fitted to its trials, plays better than its
+  nearest trials**: each outcome a quadratic in range and straight in the start's velocity, by
+  least squares (`formReading`). Held out it erred as the ten nearest or less on every Warrior
+  profile; against the nearest trials 0.559 (0.503 to 0.615) on `warrior-drawn`, a bout 26%
+  faster; the game's since (`bc643f6d7`, `ba17ae71c`). The same answers kept by a start rounded to
+  a cell (`coarseTable`) ran 12% faster and lost, 0.451 (`5a85cb5f1`). *Shown.*
+- **A search that starts from its last decision's worths wins by fighting less**: each Option's
+  worth at the last root kept as as many runs, fading by half each 0.5 s (`TreeConfig.keeps`), won
+  0.635 (0.580 to 0.691) held out at the same runs, but silent 16.2% of a bout against 9.4%: an
+  Option worth more at the last root stays chosen. Unset (`c1cdbe73d`). *Shown.*
+- **A line's end written as three numbers plays as the tail and the hold at 40% of their time**:
+  each side trading life at a rate falling straight with how far apart the two stand
+  (`SearchConfig.end`), its shape from bout rows and one scale by bouts won: 0.503 at half the
+  rows' rate, 0.417 at it, 0.434 at a quarter; 20.1 ms a deciding step against 49.6; with the back
+  step in both minds 13% standing silent against 5% without, the most any kind moved that. It
+  reads no walk to a site. A half-life on life traded later won nothing held out (0.483). Unset
+  (`d87df83c2`, `eb2876fb1`). *Shown.*
+- **The foe's steps, measured or carried on, add nothing**: the foe's own steps by range and what
+  the body does, from bout rows, left the walk's time and the back step's exit to them (`FoeSteps`,
+  `measuredSteps`): standing silence 20% with the back step as without them; its velocity carried
+  on had the walker 0.9 m past its window and the mirror fell apart (`46d7b4e09`, `c9b5e7b39`).
+  *Shown.*
+- **A body measured on none fights by another's trials at ranges by stature**: a profile records
+  its body's stature; with none on its own body, the nearest body's in stature is read scaled and
+  its price says coarse (`acrossBodies`). Held out, the woman's punches answered 1,157 of the
+  man's 1,310 starts by stature against 786 unscaled, near his own trials' error. Every other
+  body's pooled and read as a written form beat the nearest body in 11 of 18 sets, 9 of 12 where
+  the others had hundreds of trials, and lost where they had about 60, as the man's do
+  (`5f394cae0`, `b7d2fb56a`). *Shown.*
+- **Two foes cost a little less than the sum of each, and the Option Mind prices them so**: a man
+  in an open Crypt room lost 0.79 (0.65 to 0.96) of what two men took from him alone, summed, and
+  the Mind's expectation of each foe fell with two as the loss did, within about 15%; skeletons
+  summed plainly, but it expected about 20 times what they took (`16d74daf4`,
+  `research/minds/two-on-one.mjs`). *Shown.*
+- **Not yet read**: the search spread over steps and the branch kept (each rests on a kept worth
+  standing for a situation since moved, as the warm start's does); a value read from bouts is the
+  Minds' that fought them, and how a table stays true as the Mind reading it changes is not
+  answered; what the chosen moments hold that a start does not (the foe's action and its
+  progress, the seconds since the body last decided).
