@@ -34,7 +34,8 @@ const GAIT = "back-step";
  * Its model is its profile's, read where it stands (the range, its velocity against the focus's,
  * `startOf`, the focus's phase and how the two stand): no life dealt, the life its trials lost
  * while they swayed, for their seconds; it leaves the body up where its trials ended, centre to
- * centre (`exitOutcomes`), still, in its carriage; and down in the share of its trials that fell.
+ * centre (`exitOutcomes`), or by its own change apart and the focus's steps where the others' model
+ * says them (`Predictions.steps`), still, in its carriage; and down in the share of its trials that fell.
  */
 export function backStepping(spec: BodySpec, outcomes: OutcomeModel, walk: Walker, hz: number, rate: number, delay: number, goes: boolean): readonly Option[] {
   const act = outcomes.act("steps", measuredOn(spec, GAIT, null, hz, null, rate, delay)), read = act?.read ?? [];
@@ -47,6 +48,17 @@ export function backStepping(spec: BodySpec, outcomes: OutcomeModel, walk: Walke
     if (!focus || !reading) return null;
     if (at.apart > reading.reach(at.phase)) return null;
     return reading.expect({ range: at.apart, phase: at.phase, velocity: startOf(at), stance: at.stances }, focus.spec);
+  };
+  /**
+   * Where it leaves the two: its trials' exit as they ended; or, where the others' model says where
+   * the focus steps (`Predictions.steps`) and its trials record their own change apart (`own`),
+   * that change and the focus's steps meanwhile, away from the body, together.
+   */
+  const apartOf = (at: Situation, expect: Expected): Expected["exit"] => {
+    const own = expect.exit?.own, steps = at.predictions.steps, focus = at.focus;
+    if (own === undefined || !steps || !focus || !(at.apart > 0)) return expect.exit;
+    const came = steps(expect.seconds, "back step"), ux = (at.where.x - focus.centre.x) / at.apart, uz = (at.where.z - focus.centre.z) / at.apart;
+    return { ...expect.exit, stays: 0, moved: own - (came.x * ux + came.z * uz) };
   };
   const NO_FOE = blocked("no foe within the back step's measured range"), CARRIAGE = blocked("not standing in the back step's carriage");
   return [{
@@ -70,7 +82,7 @@ export function backStepping(spec: BodySpec, outcomes: OutcomeModel, walk: Walke
       if (!standing(at) || at.stances.own !== carriage) return null;
       const expect = expected(at);
       if (!expect) return null;
-      return { duration: expect.seconds, dealt: 0, taken: expect.taken, orders: 0, outcomes: exitOutcomes(at, expect.exit, expect.down, { velocity: STILL, stance: carriage }) };
+      return { duration: expect.seconds, dealt: 0, taken: expect.taken, orders: 0, outcomes: exitOutcomes(at, apartOf(at, expect), expect.down, { velocity: STILL, stance: carriage }) };
     },
     step: (now) => ({ asked: { ...walk.kept(now, { move: null, face: walk.facing(now), actions: [] }, null), gait: GAIT }, holds: LEGS }),
   }];

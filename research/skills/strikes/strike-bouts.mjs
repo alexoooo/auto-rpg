@@ -43,7 +43,8 @@
  *
  * `--foe-steps <s>` has both sides' minds price a walk's arrival with the foe going on as it goes,
  * its velocity fading over about that long (`MeasuredConfig.foeSteps`), their predictions else the
- * game's.
+ * game's; `--foe-steps <table.json>`, as bouts measured the foe's steps (`research/minds/foe-steps.mjs`),
+ * in a walk's arrival and where the back step leaves the two.
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -72,8 +73,9 @@ if (isMainThread) {
     "back-step": { type: "string", multiple: true, default: [] }, pressure: { type: "string" }, "foe-steps": { type: "string" },
   } });
   if (values.pressure !== undefined && values.pressure !== "rate" && values.pressure !== "measured") throw new Error("--pressure is rate or measured");
-  const pressure = values.pressure ?? null, foeSteps = values["foe-steps"] === undefined ? null : Number(values["foe-steps"]);
-  if (foeSteps !== null && !(foeSteps > 0)) throw new Error("--foe-steps is seconds over 0");
+  const stepsAsked = values["foe-steps"], pressure = values.pressure ?? null;
+  const foeSteps = stepsAsked === undefined ? null : stepsAsked.endsWith(".json") ? (({ source: _, ...table }) => table)(JSON.parse(await readFile(stepsAsked, "utf8"))) : Number(stepsAsked);
+  if (typeof foeSteps === "number" && !(foeSteps > 0)) throw new Error("--foe-steps is seconds over 0, or a table research/minds/foe-steps.mjs wrote");
   const aggression = values.aggression === undefined ? null : Number(values.aggression);
   if (aggression !== null && !(aggression >= 1 && aggression <= 5)) throw new Error("--aggression is a number from 1 to 5");
   // With `--drill stand|guard`, the left side is drilled at the right's trunk's middle with its punch (the Strike drill's Option Mind and Commander,
@@ -94,7 +96,7 @@ if (isMainThread) {
     throw new Error("invalid models, gaps, seconds, workers or held selection");
   const jobs = [];
   for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, aggression, carriages, added, pressure, foeSteps });
-  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}${job.aggression === null ? "" : ` aggression ${job.aggression}`}${Object.keys(job.carriages).length ? ` carriages ${JSON.stringify(job.carriages)}` : ""}${Object.keys(job.added ?? {}).length ? ` back step ${Object.keys(job.added).join(",")}` : ""}${job.foeSteps ? ` foe steps ${job.foeSteps}` : ""}`;
+  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}${job.aggression === null ? "" : ` aggression ${job.aggression}`}${Object.keys(job.carriages).length ? ` carriages ${JSON.stringify(job.carriages)}` : ""}${Object.keys(job.added ?? {}).length ? ` back step ${Object.keys(job.added).join(",")}` : ""}${job.foeSteps === null ? "" : ` foe steps ${typeof job.foeSteps === "number" ? job.foeSteps : "measured"}`}`;
   const loaded = new Map(values.load ? JSON.parse(await readFile(values.load, "utf8")) : []);
   for (const job of jobs) {
     job.result = loaded.get(key(job));

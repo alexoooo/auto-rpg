@@ -337,13 +337,68 @@ function ratePressure(seen: Seen): Pressure {
  * **The others' model**: what the focus is expected to take from the body as the two fight
  * (`Pressure`). A mind's predictions choose its kind: the focus's strikes' rate (`RATE_OTHERS`),
  * or what bouts measured (`measuredOthers`). And where the focus's own steps carry it over the
- * seconds after (`steps`, m on the ground): with none, it stands; or its velocity persisting
- * (`persisting`).
+ * seconds after while the body does `doing` (`steps`, m on the ground): with none, it stands,
+ * and an Option's measured exit holds its trials' foe's steps; its velocity persisting
+ * (`persisting`); or what bouts measured (`measuredSteps`).
  */
 export interface OthersModel {
   readonly kind: string;
   pressure(seen: Seen): Pressure;
-  steps?(seen: Seen, seconds: number): Ground;
+  steps?(seen: Seen, seconds: number, doing: Doing): Ground;
+}
+
+/** What a body does as the focus steps, as a table of the foe's steps tells it apart (`FoeSteps`). */
+export type Doing = "back step" | "walk" | "strike" | "hold" | "other";
+
+/**
+ * **The foe's steps as bouts measured them**: how far the focus came toward the body, centre to
+ * centre on the ground, m, by the seconds after (`horizons`), from moments `band` m apart by the
+ * range centre to centre (each cell's lower edge, `range`) and what the body did then (`doing`),
+ * on `n` moments.
+ */
+export interface FoeSteps {
+  readonly horizons: readonly number[];
+  readonly band: number;
+  readonly cells: readonly { readonly doing: Doing; readonly range: number; readonly n: number; readonly toward: readonly number[] }[];
+}
+
+/** The fewest moments a cell of the foe's steps is read on (`FoeSteps`). */
+const STEPS_READ = 30;
+
+/** Whether `value` is a table of the foe's steps (`FoeSteps`). */
+export function validFoeSteps(value: unknown): value is FoeSteps {
+  const table = value as FoeSteps | null;
+  return !!table && Array.isArray(table.horizons) && table.horizons.length > 0 && table.horizons.every((h, k) => Number.isFinite(h) && h > (table.horizons[k - 1] ?? 0))
+    && Number.isFinite(table.band) && table.band > 0 && Array.isArray(table.cells)
+    && table.cells.every((cell) => typeof cell.doing === "string" && Number.isFinite(cell.range) && Number.isFinite(cell.n) && Array.isArray(cell.toward)
+      && cell.toward.length === table.horizons.length && cell.toward.every(Number.isFinite));
+}
+
+/**
+ * **`others` with the foe's steps as bouts measured them** (`FoeSteps`): toward the body by the
+ * cell of the range it stands at and what the body does, of those read on `STEPS_READ` moments
+ * or more the nearest by range; over `seconds` between the horizons by a straight line from none
+ * at none, past the last as at it. None where no cell of that doing is.
+ */
+export function measuredSteps(others: OthersModel, table: FoeSteps): OthersModel {
+  const read = table.cells.filter((cell) => cell.n >= STEPS_READ), { horizons, band } = table;
+  return Object.freeze({ ...others, kind: `${others.kind}, steps measured`,
+    steps(seen: Seen, seconds: number, doing: Doing): Ground {
+      const focus = seen.focus;
+      if (!focus || !(seconds > 0)) return NO_STEPS;
+      const where = seen.sight.view.stance.centre, dx = where.x - focus.centre.x, dz = where.z - focus.centre.z, apart = hypot(dx, dz);
+      if (!(apart > 0)) return NO_STEPS;
+      let cell: FoeSteps["cells"][number] | null = null;
+      for (const one of read) if (one.doing === doing && (!cell || Math.abs(one.range + band / 2 - apart) < Math.abs(cell.range + band / 2 - apart))) cell = one;
+      if (!cell) return NO_STEPS;
+      let k = 0;
+      while (k < horizons.length && horizons[k]! < seconds) k++;
+      const toward = k >= horizons.length ? cell.toward.at(-1)! : (() => {
+        const t0 = k ? horizons[k - 1]! : 0, y0 = k ? cell.toward[k - 1]! : 0;
+        return y0 + (cell.toward[k]! - y0) * (seconds - t0) / (horizons[k]! - t0);
+      })();
+      return { x: dx / apart * toward, z: dz / apart * toward };
+    } });
 }
 
 /**
@@ -362,9 +417,6 @@ export function persisting(others: OthersModel, persists: number): OthersModel {
 
 /** No steps of the focus's own. */
 const NO_STEPS: Ground = Object.freeze({ x: 0, z: 0 });
-
-/** The focus standing where it is, whatever the seconds. */
-const STANDS = (): Ground => NO_STEPS;
 
 /** **The rate**: the focus throwing its strikes back to back from wherever it stands, each as its profile reads it (`ratePressure`). */
 export const RATE_OTHERS: OthersModel = Object.freeze({ kind: "rate", pressure: ratePressure });
@@ -696,7 +748,7 @@ export interface Prediction<V> {
  * (`lifeOf`), 0 with none; what the focus is expected to deal the body (`Pressure`), and
  * what its own strikes are expected to deal the focus (`pressingOf`); what a second down in each
  * posture costs (`downRateAtOf`); how fast the focus turns to face (`turnOf`), rad/s, Infinity with none; where its own
- * steps carry it over a number of seconds (`OthersModel.steps`), standing where its model has none; and the
+ * steps carry it over a number of seconds while the body does one thing (`OthersModel.steps`), null where its model has none; and the
  * focus's life a blow of a limb at a segment of its takes by the rules (`blowLife`), 0 with no focus.
  */
 const PREDICTIONS = Object.freeze({
@@ -705,7 +757,7 @@ const PREDICTIONS = Object.freeze({
   pressing: { read: pressingOf } as Prediction<Pressure>,
   downRate: { read: downRateAtOf } as Prediction<(posture: Position) => number>,
   turns: { read: ({ focus }) => focus ? turnOf(focus.spec) : Infinity } as Prediction<number>,
-  steps: { read: (seen) => { const others = seen.others ?? RATE_OTHERS; return others.steps ? (seconds: number) => others.steps!(seen, seconds) : STANDS; } } as Prediction<(seconds: number) => Ground>,
+  steps: { read: (seen) => { const others = seen.others ?? RATE_OTHERS; return others.steps ? (seconds: number, doing: Doing) => others.steps!(seen, seconds, doing) : null; } } as Prediction<((seconds: number, doing: Doing) => Ground) | null>,
   blows: { read: ({ focus, spec, rules }) => (limb: string, segment: string): number => focus ? blowLife(rules, spec, limb, focus.spec, undefined, segment) : 0 } as Prediction<(limb: string, segment: string) => number>,
 });
 
