@@ -343,7 +343,6 @@ function ratePressure(seen: Seen): Pressure {
  * blow coming (`holdsBlow`), so none is priced beside it (`Predictions.danger`).
  */
 export interface OthersModel {
-  readonly kind: string;
   pressure(seen: Seen): Pressure;
   holdsBlow?(seen: Seen): boolean;
   steps?(seen: Seen, seconds: number, doing: Doing): Ground;
@@ -390,7 +389,7 @@ export function validFoeSteps(value: unknown): value is FoeSteps {
  */
 export function measuredSteps(others: OthersModel, table: FoeSteps): OthersModel {
   const read = table.cells.filter((cell) => cell.n >= STEPS_READ), { horizons, band } = table;
-  return Object.freeze({ ...others, kind: `${others.kind}, steps measured`,
+  return Object.freeze({ ...others,
     steps(seen: Seen, seconds: number, doing: Doing): Ground {
       const focus = seen.focus;
       if (!focus || !(seconds > 0)) return NO_STEPS;
@@ -415,7 +414,7 @@ export function measuredSteps(others: OthersModel, table: FoeSteps): OthersModel
  * its velocity now fading as `e^(-t / persists)`: `v persists (1 - e^(-seconds / persists))`.
  */
 export function persisting(others: OthersModel, persists: number): OthersModel {
-  return Object.freeze({ ...others, kind: `${others.kind}, steps persisting ${persists} s`,
+  return Object.freeze({ ...others,
     steps(seen: Seen, seconds: number): Ground {
       const focus = seen.focus;
       if (!focus || !(seconds > 0)) return NO_STEPS;
@@ -428,7 +427,7 @@ export function persisting(others: OthersModel, persists: number): OthersModel {
 const NO_STEPS: Ground = Object.freeze({ x: 0, z: 0 });
 
 /** **The rate**: the focus throwing its strikes back to back from wherever it stands, each as its profile reads it (`ratePressure`). */
-export const RATE_OTHERS: OthersModel = Object.freeze({ kind: "rate", pressure: ratePressure });
+export const RATE_OTHERS: OthersModel = Object.freeze({ pressure: ratePressure });
 
 /**
  * **What bouts measured**: where `tables` hold one of a standing focus's body fighting this one
@@ -442,7 +441,6 @@ export function measuredOthers(tables: readonly PressureTable[]): OthersModel {
     return focus && sensedPosture(focus) === "standing" ? pressureTable(tables, focus.spec, seen.spec) : null;
   };
   return {
-    kind: "measured",
     pressure(seen) {
       const pressure = ratePressure(seen), table = tableOf(seen);
       return table ? { ...pressure, latency: 0, priced: `${pressure.priced}; measured in bouts`, measured: { table, doing: foePhase(seen.focus!, seen.blow) } } : pressure;
