@@ -31,9 +31,16 @@
  * with the back step, its Option and its gait, which the game's minds do not take yet
  * (`withBackStep`), one flag a side.
  *
+ * A bout whose body's control throws is a fault: named and counted, and left out of what is saved
+ * and read; the others play on.
+ *
  * `--pressure measured` has both sides' minds (their models' own, at `--aggression` where given)
  * read a foe's pressure by what bouts measured (`MeasuredConfig.pressure`,
  * `assets/minds/pressure-profiles.json`) in place of its strikes' rate.
+ *
+ * `--foe-steps <s>` has both sides' minds price a walk's arrival with the foe going on as it goes,
+ * its velocity fading over about that long (`MeasuredConfig.foeSteps`), their predictions else the
+ * game's.
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -59,10 +66,11 @@ if (isMainThread) {
     seconds: { type: "string", default: "120" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
     holds: { type: "string", multiple: true, default: [] },
     drill: { type: "string" }, pace: { type: "string" }, aggression: { type: "string" }, carriage: { type: "string", multiple: true, default: [] },
-    "back-step": { type: "string", multiple: true, default: [] }, pressure: { type: "string" },
+    "back-step": { type: "string", multiple: true, default: [] }, pressure: { type: "string" }, "foe-steps": { type: "string" },
   } });
   if (values.pressure !== undefined && values.pressure !== "rate" && values.pressure !== "measured") throw new Error("--pressure is rate or measured");
-  const pressure = values.pressure ?? null;
+  const pressure = values.pressure ?? null, foeSteps = values["foe-steps"] === undefined ? null : Number(values["foe-steps"]);
+  if (foeSteps !== null && !(foeSteps > 0)) throw new Error("--foe-steps is seconds over 0");
   const aggression = values.aggression === undefined ? null : Number(values.aggression);
   if (aggression !== null && !(aggression >= 1 && aggression <= 5)) throw new Error("--aggression is a number from 1 to 5");
   // With `--drill stand|guard`, the left side is drilled at the right's trunk's middle with its punch (the Strike drill's Option Mind and Commander,
@@ -82,8 +90,8 @@ if (isMainThread) {
     || !Number.isFinite(seconds) || seconds <= 0 || !Number.isSafeInteger(lanes) || lanes < 1 || helds.some(held => !["club", "empty"].includes(held)))
     throw new Error("invalid models, gaps, seconds, workers or held selection");
   const jobs = [];
-  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, aggression, carriages, added, pressure });
-  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}${job.aggression === null ? "" : ` aggression ${job.aggression}`}${Object.keys(job.carriages).length ? ` carriages ${JSON.stringify(job.carriages)}` : ""}${Object.keys(job.added ?? {}).length ? ` back step ${Object.keys(job.added).join(",")}` : ""}`;
+  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, aggression, carriages, added, pressure, foeSteps });
+  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}${job.aggression === null ? "" : ` aggression ${job.aggression}`}${Object.keys(job.carriages).length ? ` carriages ${JSON.stringify(job.carriages)}` : ""}${Object.keys(job.added ?? {}).length ? ` back step ${Object.keys(job.added).join(",")}` : ""}${job.foeSteps ? ` foe steps ${job.foeSteps}` : ""}`;
   const loaded = new Map(values.load ? JSON.parse(await readFile(values.load, "utf8")) : []);
   for (const job of jobs) {
     job.result = loaded.get(key(job));
@@ -98,7 +106,8 @@ if (isMainThread) {
       if (next >= played.length) { worker.terminate(); resolve(); return; }
       const job = played[next++];
       worker.once("message", ({ result, error }) => {
-        if (error) { worker.terminate(); reject(new Error(error)); return; }
+        // A bout whose body's control threw is a fault: counted and named, kept out of what is saved and read, the rest played on.
+        if (error) { job.fault = error.split("\n")[0]; process.stderr.write(`${key(job)}: faulted, ${job.fault}\n`); feed(); return; }
         job.result = result;
         process.stderr.write(`${key(job)}: ${result.seconds.toFixed(1)} s ${result.ending}\n`);
         feed();
@@ -107,6 +116,9 @@ if (isMainThread) {
     };
     feed();
   })));
+  const faulted = jobs.filter(job => job.fault);
+  if (faulted.length) console.log(`${faulted.length} of ${jobs.length} bouts faulted, left out: ${faulted.map(job => `${key(job)} (${job.fault})`).join("; ")}`);
+  jobs.splice(0, jobs.length, ...jobs.filter(job => !job.fault));
   if (values.save) await writeFile(values.save, JSON.stringify(jobs.map(job => [key(job), job.result])));
   const sum = xs => xs.reduce((total, value) => total + value, 0);
   const median = xs => xs.length ? [...xs].sort((a, b) => a - b)[xs.length >> 1] : null;
@@ -154,19 +166,20 @@ if (isMainThread) {
   /** A model's own mind with its chooser's objective the few terms at `aggression`. */
   const mindAt = (model, aggression) => { const mind = CONTEXT.defaultMind(model); return { ...mind, chooser: { ...mind.chooser, objective: { kind: "few-terms", aggression } } }; };
   const { inCarriage: carried, withBackStep } = await import("../../../src/minds/option/config.ts");
-  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, aggression, carriages = {}, added = {}, pressure = null }) => {
+  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, aggression, carriages = {}, added = {}, pressure = null, foeSteps = null }) => {
     let dispose;
     try {
-      if ((aggression !== null || Object.keys(carriages).length || Object.keys(added).length || pressure !== null) && drill) throw new Error("--aggression, --carriage, --back-step and --pressure set both sides' minds; a drill sets its own");
+      if ((aggression !== null || Object.keys(carriages).length || Object.keys(added).length || pressure !== null || foeSteps !== null) && drill) throw new Error("--aggression, --carriage, --back-step, --pressure and --foe-steps set both sides' minds; a drill sets its own");
       const skills = Object.fromEntries(Object.entries(holds).map(([side, variation]) => [side, characterSkills(side === "left" ? left : right, [variation])]));
       const drilled = drill ? { recoverySeconds: null, entry: [], ends: [],
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, 0], heading: -Math.PI / 2 } },
         minds: { left: CONTEXT.catalog.minds["option-drill"].config, right: createDrillOpponents(CONTEXT).opponentOf(drill.opponent).mind },
         commanders: { left: { kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, ...(drill.pace === undefined ? { walking: true } : { pace: drill.pace }) } } } : {};
       const recipe = { left, right, gap, capSeconds: seconds, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } },
-        ...(Object.keys(skills).length ? { skills } : {}), ...drilled, ...(aggression === null && !Object.keys(carriages).length && !Object.keys(added).length && pressure === null ? {} : { minds: Object.fromEntries(SIDES.map((side) => {
+        ...(Object.keys(skills).length ? { skills } : {}), ...drilled, ...(aggression === null && !Object.keys(carriages).length && !Object.keys(added).length && pressure === null && foeSteps === null ? {} : { minds: Object.fromEntries(SIDES.map((side) => {
           const model = side === "left" ? left : right, own = aggression === null ? CONTEXT.defaultMind(model) : mindAt(model, aggression);
-          const priced = pressure === null ? own : { ...own, predictions: { ...(own.predictions ?? { kind: "measured" }), pressure } };
+          const pressing = pressure === null ? own : { ...own, predictions: { ...(own.predictions ?? { kind: "measured" }), pressure } };
+          const priced = foeSteps === null ? pressing : { ...pressing, predictions: { ...(pressing.predictions ?? { kind: "measured", pressure: "measured" }), foeSteps } };
           const mind = added[side] ? withBackStep(priced) : priced;
           return [side, carriages[side] ? carried(mind, carriages[side]) : mind];
         })) }) };

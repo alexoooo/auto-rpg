@@ -48,7 +48,8 @@ const WALK_SPACING = PROFILE_RANGE_SPAN / 2;
  * past its grace (`graceAt`: spent as the way goes within its reach, restored as it goes out of it,
  * never past the focus's latency); leaving the body still at the spot with that grace, the focus
  * turned toward it as far as it turns in that time (`Predictions.turns`), and, in a clinch
- * (`CLINCH`), down in its chance of going down behind. A gait's falls are its own profile's to
+ * (`CLINCH`), down in its chance of going down behind; the spot moved by as far as the focus's
+ * own steps carry it meanwhile (`Predictions.steps`), the other way, so the focus is read where it was. A gait's falls are its own profile's to
  * measure; none is, so a walk is taken to stay up. Given how the gait stands the body (`stance`,
  * `gaitStance`), the pressure along the way is read at it, and the body is left standing so.
  */
@@ -85,9 +86,10 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
     }
     x = point.x; z = point.z;
   }
-  const where = { x: spot.x, z: spot.z, face: spot.face };
-  if (!focus) return { duration, dealt: 0, taken: at.predictions.danger, orders: 0, outcomes: upOrDown({ where, velocity: STILL, ...(stance ? { stance } : {}) }, 0) };
-  const apart = hypot(spot.x - focus.centre.x, spot.z - focus.centre.z), bearing = bearingAround(focus, spot.x, spot.z);
+  if (!focus) return { duration, dealt: 0, taken: at.predictions.danger, orders: 0, outcomes: upOrDown({ where: { x: spot.x, z: spot.z, face: spot.face }, velocity: STILL, ...(stance ? { stance } : {}) }, 0) };
+  // Where the body stands against the focus as the focus's own steps leave it (`Predictions.steps`), the focus read where it was.
+  const carried = at.predictions.steps(duration), where = { x: spot.x - carried.x, z: spot.z - carried.z, face: spot.face };
+  const apart = hypot(where.x - focus.centre.x, where.z - focus.centre.z), bearing = bearingAround(focus, where.x, where.z);
   const around = (bearing < 0 ? -1 : 1) * Math.max(0, Math.abs(bearing) - at.predictions.turns * duration);
   return { duration, dealt: 0, taken: at.predictions.danger + taken, orders: 0,
     outcomes: upOrDown({ where, around, velocity: STILL, grace, ...(stance ? { stance } : {}) }, apart >= CLINCH.within ? 0 : clinched(at, duration)) };
