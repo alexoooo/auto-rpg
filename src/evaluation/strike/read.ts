@@ -43,15 +43,27 @@ export const LANDED = .5;
 const SENSING = new Vector3();
 
 /**
- * **The foe `foe` as a body of `spec` senses it now**, from `at`, where the body stands, going at
- * `own` over the ground: its phase (`sensedPhase`, from the senses and the head's centre `head`);
- * and, where it is sensed, its posture (`sensedPosture`), how far apart the two are, the body's
- * velocity against the foe's sensed one along the line between them and across it
- * (`startVelocity`), and how each stands (`ownStance` where the body has a `view`, `sensedStance`;
- * absent where neither is read). Its `at` null where the foe is not sensed.
+ * **A body sensing its foe** (`sensedFoe`): its spec, what it senses now, its head's centre, its
+ * view where it has one, where it stands (`at`) and how it goes over the ground (`going`), m/s.
  */
-export function sensedFoe(spec: BodySpec, senses: BodyView["senses"], head: Vector3, view: Pick<BodyView, "segments" | "stance"> | null,
-  at: { readonly x: number; readonly y: number; readonly z: number }, own: { readonly x: number; readonly z: number }, foe: string): { readonly phase: string; readonly at: StrikeReading["foeAt"] } {
+export interface Sensing {
+  readonly spec: BodySpec;
+  readonly senses: BodyView["senses"];
+  readonly head: Vector3;
+  readonly view: Pick<BodyView, "segments" | "stance"> | null;
+  readonly at: { readonly x: number; readonly y: number; readonly z: number };
+  readonly going: { readonly x: number; readonly z: number };
+}
+
+/**
+ * **The foe `foe` as `body` senses it now**: its phase (`sensedPhase`); and, where it is sensed,
+ * its posture (`sensedPosture`), how far apart the two are, the body's velocity against the foe's
+ * sensed one along the line between them and across it (`startVelocity`), and how each stands
+ * (`ownStance` where the body has a view, `sensedStance`; absent where neither is read). Its `at`
+ * null where the foe is not sensed.
+ */
+export function sensedFoe(body: Sensing, foe: string): { readonly phase: string; readonly at: StrikeReading["foeAt"] } {
+  const { spec, senses, head, view, at, going: own } = body;
   const phase = sensedPhase({ senses, head, stance: { centre: SENSING.set(at.x, at.y, at.z) } }, foe), other = senses.others.find((one) => one.id === foe);
   if (!other) return { phase, at: null };
   const dx = other.centre.x - at.x, dz = other.centre.z - at.z;
@@ -520,7 +532,8 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
    */
   const sensed = (): Sensed => {
     head.update();
-    const at = left.body.observe().centre, foe = sensedFoe(left.built.spec, left.senses(), head.centre, view, { x: at[0], y: at[1], z: at[2] }, moving(), struck.id);
+    const at = left.body.observe().centre;
+    const foe = sensedFoe({ spec: left.built.spec, senses: left.senses(), head: head.centre, view, at: { x: at[0], y: at[1], z: at[2] }, going: moving() }, struck.id);
     return { phase: foe.phase, at: foe.at, window: foe.at ? placed() : null };
   };
   /** Which feet bear on the ground, and the centre of mass's speed over it, as this step left them. */

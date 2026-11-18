@@ -122,7 +122,7 @@ export function readBackStep({ world, duel }: { readonly world: World; readonly 
   const sensed = (): { readonly phase: string; readonly foeAt: Sway["foeAt"] } | null => {
     if (!view) return null;
     head.update();
-    const foe = sensedFoe(subject.built.spec, subject.senses(), head.centre, view, view.stance.centre, view.stance.velocity, attacker.id);
+    const foe = sensedFoe({ spec: subject.built.spec, senses: subject.senses(), head: head.centre, view, at: view.stance.centre, going: view.stance.velocity }, attacker.id);
     return foe.at ? { phase: foe.phase, foeAt: foe.at } : null;
   };
   /** The two heads' range, m, on the ground. */
