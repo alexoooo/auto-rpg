@@ -35,6 +35,25 @@ const SWORD_AND_BUCKLER = Object.freeze({ ...MATCH,
   loadouts: Object.freeze(REPRESENTATIVE.filter((loadout) => loadoutKey(loadout) === "buckler,sword")),
 });
 
+/**
+ * The Warrior empty-handed on itself at the scorecard's gaps (`warrior`, `src/evaluation/scorecard/cases.ts`):
+ * 24 from 2.65 to 5.41 m, on three draws each shifted 0.5 cm more, so a reading's spread over its
+ * draws can be read beside its interval.
+ */
+const WARRIOR = warriorOn([0, 1, 2]);
+
+/** The same on six further draws, 3 to 8 (`warrior-drawn`): bouts a choice made on `warrior` was not made on. */
+const WARRIOR_DRAWN = warriorOn([3, 4, 5, 6, 7, 8]);
+
+/** The Warrior empty-handed on itself at the scorecard's 24 gaps on each of `draws`, a draw shifting them 0.5 cm more. */
+function warriorOn(draws: readonly number[]) {
+  return Object.freeze({ ...MATCH,
+    levels: Object.freeze([Object.freeze({ level: "open" as ArenaLevel, gaps: Object.freeze(draws.flatMap((draw) => Array.from({ length: 24 }, (_, k) => Number((2.65 + .12 * k + .005 * draw).toFixed(4))))) })]),
+    bodies: Object.freeze(["man"] as BodyModel[]),
+    loadouts: Object.freeze(REPRESENTATIVE.filter((loadout) => loadoutKey(loadout) === "empty,empty")),
+  });
+}
+
 type Protocol = typeof MATCH;
 
 /** One bout's conditions: the left's body, the right's, both sides' loadout, the level and the gap, m. */
@@ -77,7 +96,7 @@ export const createMatchCases = perContext((context: GameContext) => {
 
   /** Every protocol a match may be played on, by name. */
   const MATCH_CASES: Readonly<Record<string, Cases<MatchCondition, BoutReading>>> = Object.freeze({
-    standard: matchCases(MATCH), "sword-and-buckler": matchCases(SWORD_AND_BUCKLER),
+    standard: matchCases(MATCH), "sword-and-buckler": matchCases(SWORD_AND_BUCKLER), warrior: matchCases(WARRIOR), "warrior-drawn": matchCases(WARRIOR_DRAWN),
   });
 
   return { MATCH_CASES };
