@@ -30,14 +30,13 @@
  * Each dataset owner declares and loads its profiles. Readers use `readProfile`; identity
  * selects the loaded data each provider declares relevant to a subject (`dataIdentity`).
  */
-import { dataIdentity, type DataKey, type DataLoader } from "../../core/data/store.ts";
+import type { DataLoader } from "../../core/data/store.ts";
 import type { BodySpec, ItemSpec } from "../../core/bodies/spec/body.ts";
 import { hypot } from "../../core/math/real.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import { ARRIVED } from "./movement.ts";
-import { chosenVariation, type Varied } from "./variations.ts";
+import { chosenVariation } from "./variations.ts";
 
 
 /** The 4-place rounding a trial's numbers are written at. */
@@ -87,7 +86,7 @@ type Target = Readonly<Record<string, never>>;
 
 /**
  * **Where a profile came from**, which finds and refuses none: the digests of its body's spec and
- * of its skill, as its trials were played (`specDigest`, `skillDigest`, `techniqueDigest`); and the commit its trials were played on,
+ * of its skill, as its trials were played (`research/skills/profile-origin.mjs`); and the commit its trials were played on,
  * whether a build input differed from it, and the day, where its tool knew them.
  */
 export interface Origin {
@@ -1006,68 +1005,6 @@ function letGoAt(of: Phase, at: Asked, asked: Float64Array, progress: number): {
   return n === 0 ? null : { seconds: seconds / n, taken: taken / n };
 }
 
-/** Each object's digest, found once: what is digested is frozen. */
-const DIGESTS = new WeakMap<object, string>();
-
-/**
- * **A digest of `value`'s values**, 16 hex digits (two FNV-1a words): its numbers, strings and
- * flags, an object's by its keys in order, leaving out functions, what is undefined and each
- * `provenance` (where a number came from, not what it is).
- */
-function digestOf(value: unknown): string {
-  const known = typeof value === "object" && value !== null ? DIGESTS.get(value) : undefined;
-  if (known !== undefined) return known;
-  let a = 2166136261, b = 3735928559;
-  const text = (piece: string) => {
-    for (let i = 0; i < piece.length; i++) {
-      const c = piece.charCodeAt(i);
-      a = Math.imul(a ^ c, 16777619) >>> 0;
-      b = Math.imul(b ^ c, 16777619) >>> 0;
-    }
-  };
-  const walk = (one: unknown): void => {
-    if (one === null || typeof one === "boolean" || typeof one === "string") { text(JSON.stringify(one)); return; }
-    if (typeof one === "number") { text(Number.isFinite(one) ? JSON.stringify(one) : String(one)); return; }
-    if (Array.isArray(one) || ArrayBuffer.isView(one)) {
-      text("[");
-      for (const item of Array.from(one as ArrayLike<unknown>)) { walk(item); text(","); }
-      text("]");
-      return;
-    }
-    if (one instanceof Map) { walk([...one.entries()]); return; }
-    if (typeof one === "object") {
-      text("{");
-      for (const key of Object.keys(one).sort()) {
-        const item = (one as Record<string, unknown>)[key];
-        if (key === "provenance" || item === undefined || typeof item === "function") continue;
-        text(JSON.stringify(key)); text(":"); walk(item); text(",");
-      }
-      text("}");
-      return;
-    }
-    text(String(one));
-  };
-  walk(value);
-  const digest = a.toString(16).padStart(8, "0") + b.toString(16).padStart(8, "0");
-  if (typeof value === "object" && value !== null) DIGESTS.set(value, digest);
-  return digest;
-}
-
-/** Each spec's digest (`specDigest`), found once a spec. */
-const SPEC_DIGESTS = new WeakMap<BodySpec, string>();
-
-/**
- * **A body's spec's digest** (`digestOf`): where a profile measured on it came from
- * (`Origin.spec`). Its wounds are left out: they are how the rules read a blow on it
- * (`src/combat/pool.ts`), not how it moves; its skills: a strike's digest names the variation
- * it runs (`skillDigest`); and what it holds, which each trial records (`Start.held`).
- */
-export const specDigest = (spec: BodySpec): string => {
-  let digest = SPEC_DIGESTS.get(spec);
-  if (digest === undefined) SPEC_DIGESTS.set(spec, digest = digestOf({ ...spec, wounds: undefined, skills: undefined, held: undefined }));
-  return digest;
-};
-
 /** The executor among `executors` that `action` names; undefined where it names none of them. */
 const executorOf = (executors: readonly ExecutorEntry[], action: ActionConfig): ExecutorEntry | undefined => executors.find((entry) => entry.name === action.executor);
 
@@ -1084,53 +1021,6 @@ export function strikeSkill(spec: BodySpec, executors: readonly ExecutorEntry[],
 
 /** **The skill a ground technique's profile is found by** (`Measured.skill`): `technique`'s kind and the variation of it a body of `spec` runs, as its character holds it (`skill/variation`). */
 export const techniqueSkill = (spec: BodySpec, technique: PartConfig): string => `${technique.kind}/${chosenVariation(spec, technique.kind, technique) ?? ""}`;
-
-/**
- * **A strike's digest** on a body of `spec`, where its profile came from (`Origin.skill`): what it does, not what it is called: its action's
- * config and its executor's (the one the action names), each without its name, the variation of
- * the executor's skill it runs (`chosenVariation`), and the body's own
- * row of each record the executor reads (`Part.reads`: an executor's data is its skills' records by
- * model, `SkillRecord`), as the mind holds them, so another body's row moves no digest.
- */
-export function skillDigest(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig): string {
-  const executor = executorOf(executors, action) ?? NO_EXECUTOR;
-  let byExecutor = SKILL_DIGESTS.get(action);
-  if (!byExecutor) SKILL_DIGESTS.set(action, byExecutor = new WeakMap());
-  let bySpec = byExecutor.get(executor);
-  if (!bySpec) byExecutor.set(executor, bySpec = new WeakMap());
-  let byPart = bySpec.get(spec);
-  if (!byPart) bySpec.set(spec, byPart = new WeakMap());
-  const part = executor === NO_EXECUTOR ? null : executorPart(parts, executor);
-  let digest = byPart.get(parts);
-  if (digest === undefined) byPart.set(parts, digest = readSkillDigest(parts, part, spec, executor === NO_EXECUTOR ? null : executor, action));
-  return digest;
-}
-
-/** Each strike's digest (`skillDigest`), by its action, its executor, its body's spec and its executor's part: each is frozen data, read once. */
-const SKILL_DIGESTS = new WeakMap<ActionConfig, WeakMap<ExecutorEntry, WeakMap<BodySpec, WeakMap<object, string>>>>();
-/** `executor`'s part. */
-const executorPart = (parts: PartLookup, executor: ExecutorEntry) => parts.of("executor", executor) as { readonly reads?: (config: ExecutorEntry) => readonly DataKey[] };
-/** The keys of an action whose executor is none of those given. */
-const NO_EXECUTOR = Object.freeze({}) as ExecutorEntry;
-
-function readSkillDigest(parts: PartLookup, part: ReturnType<typeof executorPart> | null, spec: BodySpec, executor: ExecutorEntry | null, action: ActionConfig): string {
-  const body = spec.model;
-  const aim = action.aim ? parts.of("aim", action.aim) : null;
-  const variation = executor ? chosenVariation(spec, executor.kind, executor) : undefined;
-  // The executor's records are asked with the variation its body runs: another variation's record moves no digest.
-  const asked = executor && variation !== undefined ? { ...executor, variation } : executor;
-  const keys = [...new Set([...(asked && part ? part.reads?.(asked) ?? [] : []), ...(action.aim ? aim?.reads?.(action.aim) ?? [] : [])])];
-  const data = keys.map(key => digestOf(dataIdentity(key, body)));
-  const { name: _action, executor: _executor, ...does } = action;
-  return digestOf({ action: does, executor: executor && (({ name: _, variation: _variation, ...rest }: ExecutorEntry & Varied) => rest)(executor), ...(variation === undefined ? {} : { variation }), data });
-}
-
-/** A ground technique's digest, where its profile came from (`Origin.skill`): its config and the body's records its part reads. */
-export function techniqueDigest(parts: PartLookup, spec: BodySpec, technique: PartConfig): string {
-  const keys = parts.of("technique", technique).reads?.(technique) ?? [];
-  const body = spec.model, data = keys.map((key) => digestOf(dataIdentity(key, body)));
-  return data.length ? digestOf({ technique, data }) : digestOf(technique);
-}
 
 /**
  * The question (`Measured`) a profile of `skill` (`strikeSkill`, `techniqueSkill`) thrown with `limb` (null with none) answers for

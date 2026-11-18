@@ -15,7 +15,8 @@ export async function edgeTrial(job, given) {
   const { MINDS, partLookup, controllerOf } = await import("../../../src/app/catalog.ts");
   const { TECHNIQUES } = await import("../../../src/app/registration/techniques.ts");
   const { tumbling } = await import("../../../src/control/ground-reading.ts");
-  const { heldNumbers, measuredOn, specDigest, techniqueDigest, techniqueSkill } = await import("../../../src/skills/framework/profile.ts");
+  const { heldNumbers, measuredOn, techniqueSkill } = await import("../../../src/skills/framework/profile.ts");
+  const { specDigest, techniqueDigest } = await import("../profile-origin.mjs");
   const { groundStart } = await import("../../../src/skills/recovery/data/profiles.ts");
   // Its priors alone (`PRIOR_PREDICTIONS`), so what it measures does not depend on what it measured before.
   const template = given ?? MINDS.option.config;

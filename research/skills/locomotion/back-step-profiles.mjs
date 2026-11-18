@@ -28,7 +28,8 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
-import { measuredOn, specDigest, startHeld, struckNumbers, trialExit } from "../../../src/skills/framework/profile.ts";
+import { measuredOn, startHeld, struckNumbers, trialExit } from "../../../src/skills/framework/profile.ts";
+import { specDigest } from "../profile-origin.mjs";
 import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 
