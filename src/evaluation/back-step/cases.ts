@@ -13,7 +13,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readBackStep, type BackStepReading } from "./read.ts";
 import { between } from "../twin.ts";
-import { withBackStep, withLegs, type OptionMindConfig } from "../../minds/option/config.ts";
+import { standingOptions, withBackStep, withLegs, type OptionMindConfig } from "../../minds/option/config.ts";
 import { ORDERS_OPTION } from "../../minds/option/kinds.ts";
 import { GOING, type MoveConfig } from "../../skills/locomotion/move/index.ts";
 import { BACK_STEP_GAIT, BACK_STEP_SECONDS, STAGGERED, STOCK_GAITS, type Gait } from "../../skills/locomotion/move/gaits.ts";
@@ -102,11 +102,10 @@ export const createBackStepCases = perContext((context: GameContext) => {
    */
   function defenderOf(value: Json): MindConfig {
     const mind = mindOf(value) as OptionMindConfig;
-    const standing = (mind.options ?? []).filter((option) => !option.kind.startsWith("strike-") && !["orders", "walk", "covers", "steps-back"].includes(option.kind));
     const gaits: Gait[] = [...STOCK_GAITS,
       { name: "set", label: "Set", legs: { kind: "stance-walk", variation: "stance-walk", carriage: CARRIAGE } as ConfigFor<"gait"> },
       BACK_STEP_GAIT];
-    return withLegs({ ...mind, options: [ORDERS_OPTION.defaults, ...standing] }, { ...GOING, gaits });
+    return withLegs({ ...mind, options: [ORDERS_OPTION.defaults, ...standingOptions(mind)] }, { ...GOING, gaits });
   }
 
   /** The Warrior's own Mind fighting as in the game, choosing no back step of its own, its legs going by the back step's gait (`BACK_STEP_GAIT`) beside the stock gaits: what `SPAR_FIGHT` orders the sway. */

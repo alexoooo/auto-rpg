@@ -56,6 +56,11 @@ export function withBackStep(mind: MindConfig): MindConfig {
     { ...move, gaits: [...(move.gaits ?? STOCK_GAITS).filter((gait) => gait.name !== BACK_STEP_GAIT.name), BACK_STEP_GAIT] } as ConfigFor<"locomotion">);
 }
 
+/** **The Options of `mind` that keep the body where it stands**: all but its strikes, its orders, its walks, its covers and its back step. */
+export function standingOptions(mind: OptionMindConfig): readonly ConfigFor<"option">[] {
+  return (mind.options ?? []).filter((option) => !option.kind.startsWith("strike-") && !["orders", "walk", "covers", "steps-back"].includes(option.kind));
+}
+
 /** The Options, chooser and predictions supplied where a config names none. */
 export interface OptionAssembly {
   readonly options: readonly ConfigFor<"option">[];
