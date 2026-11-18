@@ -2,11 +2,12 @@
  * What saved Arena bouts (`strike-bouts.mjs --save`) show of how a fight went and of what its minds
  * expected, each file a row:
  *
- *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/bout-readings.mjs <label>=<file> [<label>=<file> ...] [--pairs] [--prices] [--profiles <file>]
+ *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/bout-readings.mjs <label>=<file> [<label>=<file> ...] [--pairs] [--prices] [--spread] [--profiles <file>]
  *
  * **Silence**: of each bout after its first committed punch, the share spent in gaps over `QUIET` s
  * with no punch begun by either side; punches and landed blows (at least `LANDED`) a bout; how bouts
- * ended. **Pairs** (`--pairs`): each pairing's sides apart, punches thrown and landed, the median
+ * ended; with `--spread`, each label's silent and standing shares with a 95% bootstrap over its
+ * bouts. **Pairs** (`--pairs`): each pairing's sides apart, punches thrown and landed, the median
  * landed blow, wins. **Prices** (`--prices`), what each mind expected against what the fight gave
  * it, each summed over the bouts, a ratio over 1 a price above what the fight gave:
  * - **a punch**: the terms of the strike offered with its limb (`Engagement.offers`) at the decision
@@ -29,7 +30,7 @@ const LANDED = .5;
 /** The profiles a mind prices its foe by, unless `--profiles <file>` names those the bouts were played with. */
 const PROFILES = "assets/skills/strikes/strike-profiles/strike-profiles.json";
 
-const args = process.argv.slice(2), pairs = args.includes("--pairs"), prices = args.includes("--prices");
+const args = process.argv.slice(2), pairs = args.includes("--pairs"), prices = args.includes("--prices"), spread = args.includes("--spread");
 const at = args.indexOf("--profiles"), profiles = at < 0 ? PROFILES : args.splice(at, 2)[1];
 const files = args.filter((arg) => !arg.startsWith("--")).map((arg) => { const at = arg.indexOf("="); return [arg.slice(0, at), arg.slice(at + 1)]; });
 const sum = (xs) => xs.reduce((a, b) => a + b, 0);
@@ -60,6 +61,17 @@ for (const [label, all] of loaded) {
     median(rows.map((r) => r.first)).toFixed(1).padStart(5), (sum(rows.map((r) => r.punches)) / n).toFixed(1).padStart(13), (sum(rows.map((r) => r.landed)) / n).toFixed(2).padStart(12),
     (sum(rows.map((r) => r.hp)) / n).toFixed(2).padStart(8), String(n - ends("drained") - ends("time")).padStart(9), String(ends("drained")).padStart(8), String(ends("time")).padStart(5),
     (sum(rows.map((r) => r.downs)) / n).toFixed(2).padStart(11));
+  if (spread) {
+    // The shares over bouts drawn again with replacement, 2,000 times, from a seeded stream.
+    let word = 7;
+    const draw = () => { word = (word + 0x6d2b79f5) | 0; let t = Math.imul(word ^ (word >>> 15), 1 | word); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const share = (of, key) => 100 * sum(of.map((r) => r[key])) / sum(of.map((r) => r.len - r.first));
+    const interval = (key) => {
+      const xs = Array.from({ length: 2000 }, () => share(rows.map(() => rows[Math.floor(draw() * n)]), key)).sort((a, b) => a - b);
+      return `${share(rows, key).toFixed(1)} (${xs[50].toFixed(1)} to ${xs[1949].toFixed(1)})`;
+    };
+    console.log(`  ${label}: silent ${interval("silent")}%, standing ${interval("standing")}%`);
+  }
 }
 
 if (pairs) {
