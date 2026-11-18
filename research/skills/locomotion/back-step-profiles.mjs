@@ -31,7 +31,7 @@ import { holdsOf, measuredOn, specDigest, startLevels, trialExit } from "../../.
 import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 
-const OUT = "assets/skills/locomotion/step-profiles.json", SCRIPT = "research/skills/locomotion/back-step-profiles.mjs", PROTOCOLS = Object.freeze(["spar", "spar-fight", "spar-chosen"]);
+const OUT = "assets/skills/locomotion/step-profiles.json", SCRIPT = "research/skills/locomotion/back-step-profiles.mjs", PROTOCOLS = Object.freeze(["spar", "spar-fight", "spar-chosen", "spar-mirror"]);
 const SKILL = "back-step";
 const write = process.argv.includes("--write");
 const paths = process.argv.slice(2).filter((arg) => arg !== "--write");
