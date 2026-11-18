@@ -23,11 +23,12 @@ let bouts = 0;
 for (const path of positionals) for (const [, result] of JSON.parse(readFileSync(path, "utf8"))) {
   if (!result?.strikes) throw new Error(`${path}: a bout saved without its strikes; play it again`);
   bouts++;
-  for (const side of result.strikes) for (const { measured, target, digests, trials } of side) {
-    const key = JSON.stringify([measured, target]), known = profiles.get(key);
+  for (const side of result.strikes) for (const { measured, digests, trials } of side) {
+    const key = JSON.stringify(measured), known = profiles.get(key);
     if (known && JSON.stringify(known.from) !== JSON.stringify(digests)) throw new Error(`${path}: ${measured.body} ${measured.skill} with ${measured.limb} played on other code than an earlier record's`);
     if (known) known.trials.push(...trials);
-    else profiles.set(key, { measured, target, from: digests, trials: [...trials] });
+    // A strike is measured against a foe (`Profile.target`).
+    else profiles.set(key, { measured, target: {}, from: digests, trials: [...trials] });
   }
 }
 console.log(`${bouts} bouts, ${profiles.size} profiles`);

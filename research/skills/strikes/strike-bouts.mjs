@@ -286,7 +286,7 @@ if (isMainThread) {
         for (const { action: name, effector, reading } of thrown.filter((one) => one.striker === side)) {
           const action = actions.find((one) => one.name === name), trial = action && strikeTrial(reading, spec, struck, duel.rules, world.hz);
           if (!trial) continue;
-          const found = strikeKey(spec, struck, mind, executors, action, effector, world.hz, reaction, world.delay), key = JSON.stringify([found.measured, found.target]);
+          const found = strikeKey(spec, mind, executors, action, effector, world.hz, reaction, world.delay), key = JSON.stringify(found.measured);
           if (!keyed.has(key)) keyed.set(key, { ...found, trials: [] });
           keyed.get(key).trials.push(trial);
         }

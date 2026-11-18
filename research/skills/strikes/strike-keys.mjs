@@ -31,13 +31,13 @@ export const marksOf = (action) => (action.regions ?? []).every((region) => regi
 
 /**
  * **A strike's profile key and origin**: `action` (one of `executors`') thrown with `effector` by a
- * body of `spec` whose mind is `mind`, at one of `struck`, in a world at `hz` whose commands land
- * `delay` steps late, its senses `reaction` s late. What it is measured as (`measuredOn`), that it
- * is measured against a foe, whose numbers each trial records (`Start.struck`), and the digests of
- * its body and its skill (`Origin`).
+ * body of `spec` whose mind is `mind`, in a world at `hz` whose commands land `delay` steps late,
+ * its senses `reaction` s late. What it is measured as (`measuredOn`) and the digests of its body
+ * and its skill (`Origin`). A strike's profile is measured against a foe (`Profile.target`), whose
+ * numbers each trial records (`Start.struck`).
  */
-export function strikeKey(spec, struck, mind, executors, action, effector, hz, reaction, delay) {
-  const limbed = limbAction(action, effector), target = {};
-  return { measured: measuredOn(spec, strikeSkill(spec, executors, limbed), effector, hz, reaction, hz / everyOf(mind.rate, hz), delay), target,
+export function strikeKey(spec, mind, executors, action, effector, hz, reaction, delay) {
+  const limbed = limbAction(action, effector);
+  return { measured: measuredOn(spec, strikeSkill(spec, executors, limbed), effector, hz, reaction, hz / everyOf(mind.rate, hz), delay),
     digests: { spec: specDigest(spec), skill: skillDigest(partLookup, spec, executors, limbed) } };
 }

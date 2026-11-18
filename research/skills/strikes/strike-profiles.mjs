@@ -107,9 +107,10 @@ for (const path of paths) {
     const marks = marksOf(action);
     if (marks && !marks.includes(row.condition.mark)) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
-    const struck = specOf(recipe, "right"), { measured, target, digests } = strikeKey(spec, struck, mind, executors, action, drill.effector, hz, reaction, delay);
-    const key = JSON.stringify([measured, target]);
-    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector}`,
+    const struck = specOf(recipe, "right"), { measured, digests } = strikeKey(spec, mind, executors, action, drill.effector, hz, reaction, delay);
+    const key = JSON.stringify(measured);
+    // A strike is measured against a foe (`Profile.target`).
+    const profile = profiles.get(key) ?? { measured, target: {}, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector}`,
       digests, commits: new Set(), dates: new Set(), changed: false, trials: [] };
     profiles.set(key, profile);
     profile.commits.add(row.from.commit);
