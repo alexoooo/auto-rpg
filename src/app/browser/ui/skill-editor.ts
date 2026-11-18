@@ -2,14 +2,7 @@ import { buttonInput as button } from "./inputs.ts";
 import { characterNamed } from "../../../core/bodies/models.ts";
 import type { SkillChoices } from "../../../core/bodies/spec/body.ts";
 import type { Control } from "./controls.ts";
-
-/** **A skill a character may hold** (`Part.variations`): its name, heading, label and variations. */
-export interface SkillOffer {
-  readonly skill: string;
-  readonly label: string;
-  readonly group: string;
-  readonly variations: readonly string[];
-}
+import type { SkillOffer } from "../../../minds/catalog/catalog.ts";
 
 interface SkillEditor extends Control {
   /** The skills held, each `skill/variation`; undefined where they are the character's own (`Character.skills`). */

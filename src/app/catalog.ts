@@ -14,7 +14,7 @@ export const GAME: Catalog = catalogOf(() => {
   return { ...toolkit, entrants: ENTRANTS };
 });
 
-export const { controllers: CONTROLLERS, minds: MINDS, loadData, controllerOf, allParts, isKind, partOf, partLookup, treeLookup, treeFaults,
+export const { controllers: CONTROLLERS, minds: MINDS, loadData, controllerOf, allParts, isKind, skillsFor, partOf, partLookup, treeLookup, treeFaults,
   treeObeys, treeData, kindsFor, replacedAt } = GAME;
 
 export { FIGHT_ENTRY, partIn, type EntryRule, type Offered } from "../minds/catalog/catalog.ts";

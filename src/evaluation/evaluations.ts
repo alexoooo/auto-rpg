@@ -37,9 +37,6 @@ export const createEvaluations = perContext((context: GameContext) => {
   const { UNSEEN } = createUnseenIndex(context);
   const { WAY_UP } = createWayUpIndex(context);
 
-  /** Each skill a character may choose and its variations, as the catalog's parts offer them (`Part.variations`). */
-  const offered = () => Object.fromEntries(Object.entries(context.catalog.allParts()).flatMap(([skill, part]) => part.variations ? [[skill, part.variations]] : []));
-
   /** **Every evaluation**, by its id: the one catalogue, its protocols the case modules a worker plays, its subjects' variations chosen by name (`variedSubjects`). */
   const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze(Object.fromEntries(Object.entries({
     baseline: BASELINE as unknown as Evaluation,
@@ -59,7 +56,7 @@ export const createEvaluations = perContext((context: GameContext) => {
     travel: TRAVEL_DRILL as unknown as Evaluation,
     rise: RISE as unknown as Evaluation,
     "way-up": WAY_UP as unknown as Evaluation,
-  }).map(([id, evaluation]) => [id, variedSubjects(evaluation, offered)])));
+  }).map(([id, evaluation]) => [id, variedSubjects(evaluation, context.catalog.skills)])));
 
   return { EVALUATIONS };
 });

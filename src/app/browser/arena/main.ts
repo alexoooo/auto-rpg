@@ -25,7 +25,7 @@ import { CHARACTERS, characterNamed, modelHolding, modelHolds, modelLabel, resol
 import type { SkillChoices } from "../../../core/bodies/spec/body.ts";
 import { modelLoadout } from "../../../game/model-loadouts.ts";
 import { attributeEditor } from "../ui/attribute-editor.ts";
-import { skillEditor, type SkillOffer } from "../ui/skill-editor.ts";
+import { skillEditor } from "../ui/skill-editor.ts";
 import { writeSkills } from "../../../game/skill-link.ts";
 import { writeAttributes } from "../../../game/attribute-link.ts";
 import { HELD, heldName, withLoadout, type Loadout } from "../../../core/bodies/items/held.ts";
@@ -46,8 +46,7 @@ import { reelTrials, type Trial } from "./reel.ts";
 import { MATCHUP_PARAM, arenaAttributes, arenaSkills, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, readLoadouts, readMatchup, readYou, youSearch, matchupModels, type Matchup } from "../../../game/arena/matchup.ts";
 import { CONTROLS, controllerLabel, controlCharacter, controlName, controlsFor, defaultControl, readControls, recipeOf, linkedMind, mindsSearch, unreadMinds } from "../setup.ts";
 import { offered } from "../../../minds/catalog/controller.ts";
-import { LIMB_ROLES, limbsOf } from "../../../minds/option/limbs.ts";
-import { allParts, partOf, partLookup, treeObeys, MINDS, defaultMind } from "../../catalog.ts";
+import { partOf, skillsFor, treeObeys, MINDS, defaultMind } from "../../catalog.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
 import { notesOf, type NoteLevel } from "../ui/mind-notes.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -183,10 +182,6 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   // Each side's skills as its panel holds them: undefined, its character's own (`Character.skills`).
   const skills: Partial<Record<Side, SkillChoices>> = { ...arenaSkills(location.search) };
   const skillEditors = {} as Record<Side, ReturnType<typeof skillEditor>>;
-  /** Each skill a character may choose and its variations, as the catalog's parts offer them (`Part.variations`). */
-  const skillOffers: readonly SkillOffer[] = Object.entries(allParts()).flatMap(([skill, part]) =>
-    part.variations ? [{ skill, label: part.label, group: part.skillGroup ?? "Other", variations: part.variations }] : []);
-  const offeredSkills = skillOffers.flatMap(offer => offer.variations.map(variation => `${offer.skill}/${variation}`));
   /** `side`'s character config: the character `character`, its attributes over its mind's character's, and its skills where its panel chose them. */
   const characterOf = (side: Side, character: string, control: string) => ({ model: characterNamed(character).model, character,
     attributes: controlCharacter(control, attributes[side]), ...(skills[side] ? { skills: skills[side] } : {}) });
@@ -274,19 +269,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const resolved = resolveCharacterChecked(characterOf(side, select.value, control.value));
       return isRefused(resolved) ? modelHolding(model, loadout()) : withLoadout(resolved.spec, loadout());
     };
-    const skillPanel = skillEditors[side] = skillEditor(matchup[side], skills[side], () => {
-      // Test what the body could choose, including variations it has not selected.
-      const spec = { ...editorSpec(), skills: offeredSkills };
-      return skillOffers.flatMap(offer => {
-        const part = partOf({ kind: offer.skill });
-        const variations = offer.variations.filter(variation => {
-          const config = { ...part.defaults, variation };
-          return part.fits(spec, config, partLookup) === null
-            && (part.role !== "executor" || LIMB_ROLES.some(([role]) => limbsOf(partLookup, spec, role, config).length > 0));
-        });
-        return variations.length ? [{ ...offer, variations }] : [];
-      });
-    }, {
+    // What the body could choose, including variations it has not selected.
+    const skillPanel = skillEditors[side] = skillEditor(matchup[side], skills[side], () => skillsFor(editorSpec()), {
       change: (next) => { if (next === undefined) delete skills[side]; else skills[side] = next; refreshChoices[side]?.(); },
     });
     attributePanel.element.after(skillPanel.element);

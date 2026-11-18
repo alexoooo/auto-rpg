@@ -20,6 +20,14 @@ export interface CatalogLists {
   readonly entrants: readonly Entrant[];
 }
 
+/** **A skill a character may hold** (`Part.variations`): its kind, its part's label and group, and its variations. */
+export interface SkillOffer {
+  readonly skill: string;
+  readonly label: string;
+  readonly group: string;
+  readonly variations: readonly string[];
+}
+
 /** A kind a slot may be set to, with the reason it cannot go there for this body and screen, or null. */
 export interface Offered {
   readonly kind: string;
@@ -82,6 +90,15 @@ export interface Catalog {
   allParts(): Readonly<Record<string, Part>>;
   /** Whether `kind` names a part (`allParts`). */
   isKind(kind: unknown): kind is string;
+  /** **Every skill a character may hold** (`SkillOffer`): each part with variations, in the lists' order. */
+  skills(): readonly SkillOffer[];
+  /**
+   * **The skills a body of `spec` can run**, its character holding every one offered (`skills`):
+   * each with the variations of it that fit the body (`Part.fits`), an executor's where it strikes
+   * with one of the body's limbs as the body holds what it holds (`ExecutorPart.strikesWith`). A
+   * skill none of whose variations fits is left out.
+   */
+  skillsFor(spec: BodySpec): readonly SkillOffer[];
   /** The part of `config`'s kind; a thrown error for a kind no part has, read from a save or a link. */
   partOf<C extends PartConfig>(config: C): Part<C>;
   /**
@@ -311,6 +328,15 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
   const registered = (): Registry => registry ??= registryOf(lists());
   const parts = lookupOf(() => registered().parts);
 
+  let skills: readonly SkillOffer[] | null = null;
+  const skillsOf = (): readonly SkillOffer[] => skills ??= Object.freeze(Object.entries(registered().parts).flatMap(([skill, part]) =>
+    part.variations ? [Object.freeze({ skill, label: part.label, group: part.skillGroup ?? "Other", variations: part.variations })] : []));
+  /** Whether the executor of `config` strikes with one of the limbs of `spec` as it holds what it holds. */
+  const strikes = (spec: BodySpec, config: PartConfig): boolean => {
+    const executor = parts.of("executor", config);
+    return executor.effectors.some((limb) => (spec.effectors ?? []).some((effector) => effector.segment === limb) && (executor.strikesWith?.(spec, config, limb) ?? true));
+  };
+
   let faults: readonly string[] | null = null;
   /** The lists' faults, then each preset whose tree is not one of parts in their slots (`treeValidation`), or names another entrant's kinds. */
   const faultsOf = (): readonly string[] => {
@@ -340,6 +366,18 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     },
     allParts: () => registered().parts,
     isKind: (kind: unknown): kind is string => typeof kind === "string" && Object.hasOwn(registered().parts, kind),
+    skills: skillsOf,
+    skillsFor(spec: BodySpec): readonly SkillOffer[] {
+      const holding = { ...spec, skills: skillsOf().flatMap((offer) => offer.variations.map((variation) => `${offer.skill}/${variation}`)) };
+      return skillsOf().flatMap((offer) => {
+        const part = partOf(parts, { kind: offer.skill });
+        const variations = offer.variations.filter((variation) => {
+          const config = { ...part.defaults, variation };
+          return part.fits(holding, config, parts) === null && (part.role !== "executor" || strikes(holding, config));
+        });
+        return variations.length ? [{ ...offer, variations }] : [];
+      });
+    },
     partOf: <C extends PartConfig>(config: C): Part<C> => partOf(parts, config) as Part<C>,
     partLookup: parts,
     treeLookup: (config: PartConfig): PartLookup => treeLookup(parts, config),

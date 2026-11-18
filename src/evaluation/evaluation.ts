@@ -7,6 +7,7 @@ import type { Refused } from "../core/refusal.ts";
 import type { DuelRecipe, OrdersEntry } from "../game/arena/duel.ts";
 import type { EngineName } from "../core/physics/engines.ts";
 import type { DataKey } from "../core/data/store.ts";
+import type { SkillOffer } from "../minds/catalog/catalog.ts";
 
 import type { BuiltBout } from "./bout.ts";
 import type { BuiltCrypt, CryptCase } from "./crypt.ts";
@@ -65,13 +66,14 @@ export function mindSubject(id: string, label: string, mind: MindConfig | Json, 
     ...(variations === undefined ? {} : { variations }) };
 }
 
-/** Why `variations` are no choice of the skills `offered` (each skill's variations, `Part.variations`), or null: each a `skill/variation` it offers, none twice. */
-function variationsFault(variations: readonly string[], offered: Readonly<Record<string, readonly string[]>>): string | null {
+/** Why `variations` are no choice of the skills `offered` (`SkillOffer`), or null: each a `skill/variation` it offers, none twice. */
+function variationsFault(variations: readonly string[], offered: readonly SkillOffer[]): string | null {
   for (const [at, name] of variations.entries()) {
     const slash = name.indexOf("/"), skill = name.slice(0, slash), variation = name.slice(slash + 1);
     if (slash < 0) return `${name} is not skill/variation`;
-    if (!Object.hasOwn(offered, skill)) return `no skill ${skill} has variations: ${Object.keys(offered).join(", ")}`;
-    if (!offered[skill]!.includes(variation)) return `the ${skill} has no variation ${variation}: ${offered[skill]!.join(", ")}`;
+    const offer = offered.find((one) => one.skill === skill);
+    if (!offer) return `no skill ${skill} has variations: ${offered.map((one) => one.skill).join(", ")}`;
+    if (!offer.variations.includes(variation)) return `the ${skill} has no variation ${variation}: ${offer.variations.join(", ")}`;
     if (variations.indexOf(name) !== at) return `${name} twice`;
   }
   return null;
@@ -84,7 +86,7 @@ function variationsFault(variations: readonly string[], offered: Readonly<Record
  * the same skills (`Subject.variations`), its id the name's and its label saying so. A skill
  * `offered` lists no variation of is refused, as is a variation it does not offer.
  */
-export function variedSubjects<E extends Pick<Evaluation, "subjects">>(evaluation: E, offered: () => Readonly<Record<string, readonly string[]>>): E {
+export function variedSubjects<E extends Pick<Evaluation, "subjects">>(evaluation: E, offered: () => readonly SkillOffer[]): E {
   const subjects = evaluation.subjects;
   /** Each choice's name and the variations it ends with, none for a value given whole. */
   const split = (one: SubjectChoice[number]): { readonly one: SubjectChoice[number]; readonly variations: readonly string[] } => {
