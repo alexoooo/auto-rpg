@@ -32,38 +32,17 @@
  * p on those two counts, the damage ratio and its interval to four places, and the wall-clock
  * seconds each side took to play (the workers' start not among them).
  *
- * `--network <form> --out <file>` writes a network file in the installed layout
- * (`assets/skills/strikes/straight-punch/drive.layout.json`) from the Warrior's record's network,
- * keeping its `normalization` and `actionLimit`, its inputs found by name and its outputs by term,
- * `along` and `channel` there, and prints which rows and columns it set (`FORMS`). A fit (`fit`,
- * `fit-aged`, `fit-spans`) is one layer: it plays the twin's training half steered by the record's
- * network, keeps each decision's inputs and solves by least squares for the network's pushes before
- * tanh, printing the share of each push's variance it holds there. `fit-spans` writes
- * `{ "spans": [{ "from": <drive age, s>, "network": ... }, ...] }`, the punch steered at each decision
- * by the last span whose `from` its drive's age has reached; `fit-spans-asks` fits each span's
- * heading and centre rows as it does its pushes, where the other fits leave them at zero.
- *
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --search --out <file.json> [--variation drive] [--holds <skill/variation> ...] [--steer <spans.json>] [--draws sparring|fights] [--starts 80] [--rank 4] [--lambda 16] [--sigma 0.2] [--step 0.05] [--patience 8] [--hours H] [--workers N] [--resume]
  *   node research/skills/strikes/straight-punch/punch-sparring.mjs --bar <candidate.json> [--variation drive] [--holds <skill/variation> ...] [--on held-out|judge|twin|dev|train|fights-twin|fights-judge] [--workers N]
- *   node research/skills/strikes/straight-punch/punch-sparring.mjs --network <form> --out <file.json> [--variation drive] [--workers N]
- *   node research/skills/strikes/straight-punch/punch-sparring.mjs --commitments [--variation drive] [--out <file.json>] [--workers N]
  *
- * `--variation` names the variation a mode reads and writes: the record a search starts from, a
- * tuning is laid over and a form is written from (the one its part names for it,
- * `PUNCH_PART.reads`), and the variation a network's file steers and `--commitments` plays.
+ * `--variation` names the variation a mode reads: the record a search starts from and a tuning is
+ * laid over (the one its part names for it, `PUNCH_PART.reads`), and the variation a network's
+ * file steers.
  *
  * `--holds`, one or more, names variations a search's and a bar's candidate's body holds in place
  * of its character's own of those skills (`stance-walk/footwork`, the walk under the punch). On whole
  * trials the drive it is read beside holds the character's own; from starts kept, which are then
  * the holding body's own fights, the drive holds them too.
- *
- * `--commitments` reads whether sparring's commitments cover a fight's: it plays the Warrior's
- * `sparring`, `sparring-twin` and `fights` trials steered by the record's network and keeps, of each
- * trial whose punch commits, the layout's inputs at that punch's first decision. It prints each
- * input's range on `sparring` beside its range on `fights`, and how many commitments of `fights` and
- * of the twin hold an input outside `sparring`'s ranges: the twin's count is what another draw of
- * sparring's own starts holds outside them. With `--out`, it writes each rung's commitments, each
- * its trial's outcome and its inputs in the layout's order.
  *
  * `--on fights-twin` and `--on fights-judge` play the drawn fights from their kept starts, the
  * drive's side loaded from the saves the candidate's is.
@@ -73,7 +52,8 @@
  * from `sparring-drawn`; `--on dev` and `--on train` its halves an environment's `split` keeps out
  * and in, where a trainer draws from the twin. The bar's own starts and the judge's are held out of all of them.
  * A candidate may be a trained network's file (`policy-<n>.json`), or a file of spans of networks
- * (`fit-spans`): it steers the punch on its record's settings, answering each of its requests as a
+ * (`{ "spans": [{ "from": <drive age, s>, "network": ... }, ...] }`, each decision steered by the
+ * last span whose `from` its drive's age has reached): it steers the punch on its record's settings, answering each of its requests as a
  * trainer does.
  * A candidate file is `{ "variation": "drive", "tuning": { ... } }`, or a search's out file, its best.
  * The candidate plays every start; the installed drive it is read beside is the Strike drill's
@@ -229,32 +209,26 @@ async function keepStart({ protocol, variation, holds, condition }) {
  * One trial played: its outcome, the life it dealt and took, its trade (null where its punch did
  * not begin), whether the striker fell, and its value. With `policy`, a network's file (its path,
  * or its content) steers the punch on its record's settings or its `tuning`, as a trainer steers
- * it (`steeredTrial`). With `keeps`,
- * the record's network steers it so, and each decision's inputs come back (`kept`); with `commits`
- * beside it, its punch's commitment alone (`commitmentOf`). With `started`, the trial is played
+ * it (`steeredTrial`). With `started`, the trial is played
  * from the start kept of it (`bankOf`): the variation's own fight up to its moment, whatever the
  * candidate.
  */
-async function playOne({ protocol, variation, holds, tuning, policy, keeps, commits, started, condition }) {
+async function playOne({ protocol, variation, holds, tuning, policy, started, condition }) {
   const evaluation = EVALUATIONS.strike, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects([subjectName(variation, holds)]);
   const saved = started ? bankOf(protocol, variation, holds).read(condition).saved : null;
-  const value = policy || keeps ? withTuning(subject.value, { ...tuning, steered: true })
+  const value = policy ? withTuning(subject.value, { ...tuning, steered: true })
     : tuning ? withTuning(subject.value, tuning) : subject.value;
   const world = cases.world([value], condition, cases.engine ?? DEFAULT_ENGINE, [subject]);
   if (world.refused) throw new Error(world.refused);
   let r;
-  const kept = keeps ? [] : null, keptAt = [];
-  if (keeps) {
-    const steer = recoveryNetwork(recordOf(variation).network);
-    r = await steeredTrial(cases, world, condition, value, (inputs, at) => { kept.push(inputs.slice()); keptAt.push(at); return steer(inputs); }, saved);
-  } else if (policy) r = await steeredTrial(cases, world, condition, value, policyOf(policy), saved);
+  if (policy) r = await steeredTrial(cases, world, condition, value, policyOf(policy), saved);
   else if (saved) r = await playFrom(BOUT_WORLD, cases, world, condition, saved);
   else {
     const played = await playCase(world, cases.seconds, (built) => cases.read(built, condition));
     if (played.refused) throw new Error(played.refused);
     r = played.reading;
   }
-  return { ...readOf(r), ...(commits ? { commitment: commitmentOf(kept, keptAt, r.committed) } : kept ? { kept } : {}) };
+  return readOf(r);
 }
 
 /** What the judge reads of a trial's reading `r`: its outcome, the life dealt and taken, its trade, whether it ended down, and its value as the table values it. */
@@ -266,23 +240,6 @@ function readOf(r) {
 
 /** A case of the Strike drill played as its row (`playRow`), as `npm run evaluate` plays it. */
 const playKept = ({ protocol, key, condition, world, seconds }) => playRow(key, world, seconds, (built) => EVALUATIONS.strike.protocols[protocol].read(built, condition));
-
-/**
- * The commitment of a trial's punch: the layout's inputs at the first decision of the swing begun
- * nearest the time its reader has it commit (`committed`, s), and how long after that time the
- * decision was asked, s. A swing's first decision is one whose drive is no older than the decision
- * before it. Null where the punch never committed or no swing was steered.
- */
-function commitmentOf(kept, keptAt, committed) {
-  if (committed === null || kept.length === 0) return null;
-  const age = inputAt("drive age");
-  let best = -1;
-  kept.forEach((inputs, i) => {
-    if (i > 0 && inputs[age] > kept[i - 1][age]) return;
-    if (best < 0 || Math.abs(keptAt[i] - committed) < Math.abs(keptAt[best] - committed)) best = i;
-  });
-  return { inputs: kept[best], late: keptAt[best] - committed };
-}
 
 if (!isMainThread && workerData?.punchSparring) {
   parentPort.on("message", async ({ id, x }) => {
@@ -524,116 +481,9 @@ async function search({ out, variation, holds, steer, draws, starts, rank, lambd
   } finally { await pool.terminate(); }
 }
 
-/** The rung a try is judged on, the draw of its own starts read beside it, and the fights whose commitments it is asked to cover. */
-const COVERS = Object.freeze({ reference: "sparring", draw: "sparring-twin", asked: "fights" });
-
-/**
- * Whether sparring's commitments cover the fights' (`--commitments`): each of `COVERS`'s rungs
- * played steered by the record's network, its punches' commitments kept (`commitmentOf`), and each
- * input's range on the reference beside the asked rung's, with how many commitments of the asked
- * rung and of the draw hold an input outside the reference's ranges.
- */
-async function commitments(workers, out, variation) {
-  const pool = workerPool(fileURLToPath(import.meta.url), { punchSparring: true }, workers);
-  const read = {};
-  try {
-    await Promise.all(Array.from({ length: workers }, () => pool.evaluate({ ping: true })));
-    for (const protocol of Object.values(COVERS)) {
-      const conditions = trialsOf(protocol, variation), begun = performance.now();
-      const played = await Promise.all(conditions.map(async (condition) => {
-        const r = await pool.evaluate({ protocol, variation, keeps: true, commits: true, condition });
-        if (r.error) throw new Error(r.error);
-        return r;
-      }));
-      const committed = played.filter((one) => one.commitment);
-      const outcomes = Object.entries(Object.groupBy(played, (one) => one.outcome)).map(([outcome, all]) => `${outcome} ${all.length}`).join(", ");
-      const late = committed.reduce((most, one) => Math.max(most, Math.abs(one.commitment.late)), 0);
-      console.log(`${protocol}: ${conditions.length} Warrior trials, ${committed.length} commitments, each at most ${late.toFixed(4)} s from its reader's commit; outcomes: ${outcomes}; ${((performance.now() - begun) / 1000).toFixed(1)} s on ${workers} workers`);
-      read[protocol] = committed;
-    }
-  } finally { await pool.terminate(); }
-  if (out) {
-    writeFileSync(out, `${JSON.stringify({ inputs: LAYOUT.inputs, ...Object.fromEntries(Object.entries(read).map(([protocol, all]) => [protocol, all.map((one) => ({ outcome: one.outcome, inputs: one.commitment.inputs }))])) })}\n`);
-    console.log(`wrote ${out}`);
-  }
-  const n = LAYOUT.inputs.length, rangeOf = (all) => Array.from({ length: n }, (_, i) => all.reduce(([low, high], one) => [Math.min(low, one.commitment.inputs[i]), Math.max(high, one.commitment.inputs[i])], [Infinity, -Infinity]));
-  const reference = rangeOf(read[COVERS.reference]), asked = rangeOf(read[COVERS.asked]);
-  const outside = (one) => one.commitment.inputs.flatMap((x, i) => x < reference[i][0] || x > reference[i][1] ? [i] : []);
-  const perInput = (all) => { const counts = new Array(n).fill(0); for (const one of all) for (const i of outside(one)) counts[i]++; return counts; };
-  const inAsked = perInput(read[COVERS.asked]), inDraw = perInput(read[COVERS.draw]), span = ([low, high]) => low > high ? "none" : `[${low.toFixed(3)}, ${high.toFixed(3)}]`;
-  console.log(`input | ${COVERS.reference} range | ${COVERS.asked} range | ${COVERS.asked} outside / ${read[COVERS.asked].length} | ${COVERS.draw} outside / ${read[COVERS.draw].length}`);
-  LAYOUT.inputs.forEach((name, i) => console.log(`${name} | ${span(reference[i])} | ${span(asked[i])} | ${inAsked[i]} | ${inDraw[i]}`));
-  const summary = (label, all) => {
-    const counts = all.map((one) => outside(one).length).sort((a, b) => a - b), some = counts.filter((count) => count > 0).length;
-    console.log(`${label}: ${some} of ${all.length} commitments hold an input outside ${COVERS.reference}'s ranges; inputs outside a commitment, of ${n}: median ${counts.length ? counts[Math.floor(counts.length / 2)] : 0}, most ${counts.at(-1) ?? 0}`);
-  };
-  summary(COVERS.asked, read[COVERS.asked]);
-  summary(`${COVERS.asked}, landed`, read[COVERS.asked].filter((one) => one.outcome === "landed"));
-  summary(`${COVERS.asked}, not landed`, read[COVERS.asked].filter((one) => one.outcome !== "landed"));
-  summary(COVERS.draw, read[COVERS.draw]);
-}
-
-/** The fit's 16 inputs: the target from the shoulder, the fist from the target, the fist's and the centre's velocity, and the arm's four angles. */
+/** The 16 inputs a search moves a steer's weights over: the target from the shoulder, the fist from the target, the fist's and the centre's velocity, and the arm's four angles. */
 const FIT_INPUTS = Object.freeze([...["target from shoulder", "fist from target", "fist velocity", "centre velocity"].flatMap((name) => ["across", "up", "ahead"].map((axis) => `${name} ${axis}`)),
   ...["shoulder.right flexion", "shoulder.right abduction", "shoulder.right internal rotation", "elbow.right flexion"].map((channel) => `angle ${channel}`)]);
-
-/** The legs and the stance: each hip, knee and ankle channel's angle and speed, and the four readings of the gait. */
-const legInputs = () => [...LAYOUT.inputs.filter((name) => /^(angle|speed) (hip|knee|ankle)\./.test(name)), "near foot bearing", "far foot bearing", "stance shifting", "stance swinging"];
-
-/** `variation`'s record's network as plain data of its own, its normalization and action limit kept. */
-const installed = (variation) => JSON.parse(JSON.stringify(recordOf(variation).network));
-
-/** `network`'s layer `k`'s rows of `outputs` (each found by `outputAt`) at zero weights and `bias`. */
-function setRows(network, k, outputs, bias) {
-  const layer = network.layers[k], rows = outputs.map(outputAt);
-  for (const row of rows) { layer.weights[row].fill(0); layer.bias[row] = bias; }
-  console.log(`set layer ${k} of ${network.layers.length}, rows ${rows.map((row, i) => `${row} ${JSON.stringify(outputs[i])}`).join(", ")}: weights 0, bias ${bias}`);
-  return network;
-}
-
-/** `network`'s first layer's columns of the inputs `names` at zero, in every row. */
-function zeroColumns(network, names) {
-  const columns = names.map(inputAt);
-  for (const row of network.layers[0].weights) for (const column of columns) row[column] = 0;
-  console.log(`set layer 0, ${columns.length} columns at 0 in every row: ${columns.map((column) => `${column} ${LAYOUT.inputs[column]}`).join(", ")}`);
-  return network;
-}
-
-/** `network`'s outputs before tanh, as its action limit clamps them, from raw inputs (as `recoveryNetwork` reads, before its tanh). */
-function beforeTanh(network) {
-  const { mean, scale, clip } = network.normalization, limit = network.actionLimit ?? Infinity;
-  return (raw) => {
-    let previous = raw.map((x, i) => Math.max(-clip, Math.min(clip, (x - mean[i]) * scale[i])));
-    network.layers.forEach((layer, k) => {
-      const last = k + 1 === network.layers.length;
-      previous = layer.bias.map((bias, i) => {
-        let v = bias; const w = layer.weights[i];
-        for (let j = 0; j < previous.length; j++) v += w[j] * previous[j];
-        return last ? v : Math.max(0, v);
-      });
-    });
-    return previous.slice(0, network.actions).map((v) => Math.max(-limit, Math.min(limit, v)));
-  };
-}
-
-/** The solution of `a x = b` for a symmetric positive definite `a` (Cholesky). */
-function solveSpd(a, b) {
-  const n = b.length, l = a.map((row) => row.map(() => 0));
-  for (let i = 0; i < n; i++) for (let j = 0; j <= i; j++) {
-    let sum = a[i][j];
-    for (let k = 0; k < j; k++) sum -= l[i][k] * l[j][k];
-    if (i !== j) l[i][j] = sum / l[j][j];
-    else if (sum > 0) l[i][i] = Math.sqrt(sum);
-    else throw new Error("the least squares' matrix is not positive definite");
-  }
-  const y = new Array(n).fill(0), x = new Array(n).fill(0);
-  for (let i = 0; i < n; i++) { let sum = b[i]; for (let k = 0; k < i; k++) sum -= l[i][k] * y[k]; y[i] = sum / l[i][i]; }
-  for (let i = n - 1; i >= 0; i--) { let sum = y[i]; for (let k = i + 1; k < n; k++) sum -= l[k][i] * x[k]; x[i] = sum / l[i][i]; }
-  return x;
-}
-
-/** The ridge on a fit's weights (not its bias), times its decisions: its conditioning, the normalised inputs being about one in size. */
-const RIDGE = 1e-6;
 
 /** The layout's pushes, eight: their rows. */
 function pushRows() {
@@ -646,116 +496,14 @@ function pushRows() {
 const ASKS = Object.freeze([{ term: "heading" }, { term: "centre", along: "ahead" }, { term: "centre", along: "across" }]);
 const askRows = () => ASKS.map(outputAt);
 
-/**
- * One layer in the installed layout, fitted by least squares on `decisions` (each `{ raw, x, y }`:
- * its inputs raw and normalised, and the record's network's outputs before tanh) to the outputs
- * `pushes` (their rows: the eight pushes, and the asks of the stance where they are fitted too),
- * reading the inputs `names`: its other columns and its other rows zero; its walk row zero weights
- * and bias -1.
- */
-function fitted(network, decisions, names, pushes) {
-  const columns = names.map(inputAt), width = columns.length + 1;
-  const ata = Array.from({ length: width }, () => new Array(width).fill(0)), atb = pushes.map(() => new Array(width).fill(0));
-  for (const { x, y } of decisions) {
-    const f = [...columns.map((c) => x[c]), 1];
-    for (let i = 0; i < width; i++) {
-      for (let j = 0; j < width; j++) ata[i][j] += f[i] * f[j];
-      pushes.forEach((output, p) => { atb[p][i] += f[i] * y[output]; });
-    }
-  }
-  for (let i = 0; i < columns.length; i++) ata[i][i] += RIDGE * decisions.length;
-  const solved = atb.map((b) => solveSpd(ata, b));
-  const weights = LAYOUT.outputs.map(() => new Array(LAYOUT.inputs.length).fill(0)), bias = LAYOUT.outputs.map(() => 0);
-  pushes.forEach((output, p) => { columns.forEach((c, i) => { weights[output][c] = solved[p][i]; }); bias[output] = solved[p][columns.length]; });
-  bias[outputAt({ term: "walk" })] = -1;
-  return { actions: network.actions, layers: [{ weights, bias }], normalization: network.normalization, actionLimit: network.actionLimit };
-}
-
-/** The share of its variance over `decisions` that `steer` (raw inputs to outputs before tanh) holds of each output of `rows`, printed after `label`. */
-function printShares(label, decisions, steer, rows) {
-  const steered = decisions.map(({ raw }) => steer(raw));
-  const shares = rows.map((output) => {
-    const mean = decisions.reduce((sum, { y }) => sum + y[output], 0) / decisions.length;
-    let residual = 0, total = 0;
-    decisions.forEach(({ y }, i) => { residual += (y[output] - steered[i][output]) ** 2; total += (y[output] - mean) ** 2; });
-    const { channel, term, along } = LAYOUT.outputs[output];
-    return `${channel ?? [term, along].filter(Boolean).join(" ")} ${(total > 0 ? 1 - residual / total : 1).toFixed(3)}`;
-  });
-  console.log(`${label}, ${decisions.length} decisions; each output's share of its variance held (before tanh, as the action limit clamps it): ${shares.join(", ")}`);
-}
-
-/** Each decision on the twin's training half, the record's network steering the punch: its raw and normalised inputs and the network's outputs before tanh. */
-async function decisionsOnTrain(network, workers, variation) {
-  const conditions = trialsOf("sparring-twin", variation).filter((condition) => !heldOut(condition));
-  const pool = workerPool(fileURLToPath(import.meta.url), { punchSparring: true }, workers);
-  let played;
-  try {
-    played = await Promise.all(conditions.map(async (condition) => {
-      const r = await pool.evaluate({ protocol: "sparring-twin", variation, keeps: true, condition });
-      if (r.error) throw new Error(r.error);
-      return r.kept;
-    }));
-  } finally { await pool.terminate(); }
-  const { mean, scale, clip } = network.normalization, target = beforeTanh(network);
-  const decisions = played.flat().map((raw) => ({ raw, x: raw.map((v, i) => Math.max(-clip, Math.min(clip, (v - mean[i]) * scale[i]))), y: target(raw) }));
-  console.log(`played the twin's training half, ${conditions.length} starts, steered by the record's network: ${decisions.length} decisions`);
-  return decisions;
-}
-
-/** A one-layer fit of `names` over the training half, its shares printed. */
-async function fitForm(names, label, workers, variation) {
-  const network = installed(variation), decisions = await decisionsOnTrain(network, workers, variation), fit = fitted(network, decisions, names, pushRows());
-  printShares(label, decisions, beforeTanh(fit), pushRows());
-  return fit;
-}
-
-/** How many spans of the drive's age `fit-spans` fits a layer to, each an equal share of the training half's decisions. */
-const SPANS = 3;
-
-/** A file of spans: a layer fitted to the outputs `rows` for each of `SPANS` spans of the drive's age, its shares printed after `label`. */
-async function fitSpans(label, rows, workers, variation) {
-  const network = installed(variation), decisions = await decisionsOnTrain(network, workers, variation), age = inputAt("drive age");
-  const ages = decisions.map(({ raw }) => raw[age]).sort((a, b) => a - b);
-  const froms = [Math.min(0, ages[0]), ...Array.from({ length: SPANS - 1 }, (_, k) => ages[Math.floor(((k + 1) * ages.length) / SPANS)])];
-  const spanOf = (raw) => froms.findLastIndex((from) => from <= raw[age]);
-  const spans = froms.map((from, k) => {
-    const mine = decisions.filter(({ raw }) => Math.max(0, spanOf(raw)) === k), fit = fitted(network, mine, FIT_INPUTS, rows);
-    printShares(`${label}, span ${k + 1}, drive age from ${from.toFixed(4)} s${k + 1 < froms.length ? ` to ${froms[k + 1].toFixed(4)} s` : ""}`, mine, beforeTanh(fit), rows);
-    return { from, network: fit };
-  });
-  const steers = spans.map((span) => beforeTanh(span.network));
-  printShares(`${label}, every decision by its span's layer`, decisions, (raw) => steers[Math.max(0, spanOf(raw))](raw), rows);
-  return { spans };
-}
-
-/** Each form a network file is written in (`--network`), from the record's network of the variation asked. */
-const FORMS = {
-  installed: async (_workers, variation) => installed(variation),
-  "no-stance-asks": async (_workers, variation) => setRows(installed(variation), 2, ASKS, 0),
-  "walk-on": async (_workers, variation) => setRows(installed(variation), 2, [{ term: "walk" }], 1),
-  "walk-off": async (_workers, variation) => setRows(installed(variation), 2, [{ term: "walk" }], -1),
-  "blind-legs": async (_workers, variation) => zeroColumns(installed(variation), legInputs()),
-  "fit-inputs": async (_workers, variation) => zeroColumns(installed(variation), LAYOUT.inputs.filter((name) => !FIT_INPUTS.includes(name))),
-  fit: async (workers, variation) => fitForm(FIT_INPUTS, "fit", workers, variation),
-  "fit-aged": async (workers, variation) => fitForm([...FIT_INPUTS, "drive age"], "fit-aged", workers, variation),
-  "fit-spans": async (workers, variation) => fitSpans("fit-spans", pushRows(), workers, variation),
-  "fit-spans-asks": async (workers, variation) => fitSpans("fit-spans-asks", [...pushRows(), ...askRows()], workers, variation),
-};
-
 if (isMainThread) {
   const { values } = parseArgs({ options: { search: { type: "boolean" }, bar: { type: "string" }, out: { type: "string" }, variation: { type: "string", default: "drive" }, holds: { type: "string", multiple: true, default: [] },
     steer: { type: "string" }, on: { type: "string", default: "held-out" }, draws: { type: "string", default: "sparring" }, starts: { type: "string", default: "80" }, rank: { type: "string", default: "4" },
     lambda: { type: "string", default: "16" }, sigma: { type: "string", default: "0.2" }, step: { type: "string", default: "0.05" }, patience: { type: "string", default: "8" }, hours: { type: "string" },
-    workers: { type: "string", default: String(Math.max(1, availableParallelism() - 2)) }, resume: { type: "boolean" }, network: { type: "string" }, commitments: { type: "boolean" } } });
-  if (values.commitments) await commitments(Number(values.workers), values.out, values.variation);
-  else if (values.network) {
-    const form = Object.hasOwn(FORMS, values.network) ? FORMS[values.network] : null;
-    if (!form || !values.out) throw new Error(`--network <${Object.keys(FORMS).join("|")}> --out <file.json>`);
-    writeFileSync(values.out, `${JSON.stringify(await form(Number(values.workers), values.variation))}\n`);
-    console.log(`wrote ${values.out}`);
-  } else if (values.bar) await bar(values.bar, Number(values.workers), values.on, values.variation, values.holds);
+    workers: { type: "string", default: String(Math.max(1, availableParallelism() - 2)) }, resume: { type: "boolean" } } });
+  if (values.bar) await bar(values.bar, Number(values.workers), values.on, values.variation, values.holds);
   else if (values.search && values.out) await search({ out: values.out, variation: values.variation, holds: values.holds, steer: values.steer, draws: values.draws, starts: Number(values.starts), rank: Number(values.rank),
     lambda: Number(values.lambda), sigma: Number(values.sigma), step: Number(values.step), patience: Number(values.patience), hours: values.hours === undefined ? Infinity : Number(values.hours),
     workers: Number(values.workers), resume: !!values.resume });
-  else throw new Error("--search --out <file.json>, --bar <candidate.json>, --network <form> --out <file.json>, or --commitments");
+  else throw new Error("--search --out <file.json>, or --bar <candidate.json>");
 }
