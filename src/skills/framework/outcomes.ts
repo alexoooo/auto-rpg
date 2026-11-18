@@ -31,12 +31,14 @@ export interface OutcomeModel {
   act(table: ActTable, asked: Measured): ActOutcomes | null;
 }
 
+/** An outcome model's profiles, by the table of acts they are of. */
+type Tables = Readonly<Partial<Record<ActTable, readonly Profile[]>>>;
+
 /**
- * **The nearest trials**: an act's profile among `tables`' as it was measured where one is fresh,
- * else stale (`profilesFor`), against the struck body's where one was (`profileAgainst`), read by
- * its trials nearest the start asked at (`readProfile`).
+ * **An act's profile among `tables`' read by `readAs`**: as it was measured where one is fresh,
+ * else stale (`profilesFor`), against the struck body's where one was (`profileAgainst`).
  */
-export function nearestTrials(tables: Readonly<Partial<Record<ActTable, readonly Profile[]>>>): OutcomeModel {
+function profilesReadBy(tables: Tables, readAs: typeof readProfile): OutcomeModel {
   return {
     act(table, asked) {
       const found = profilesFor(tables[table] ?? [], asked);
@@ -46,12 +48,18 @@ export function nearestTrials(tables: Readonly<Partial<Record<ActTable, readonly
         stale: found.stale, read,
         reading(struck, spec, postures) {
           const profile = profileAgainst(read, struck);
-          return profile ? readProfile(profile, spec, postures) : null;
+          return profile ? readAs(profile, spec, postures) : null;
         },
       };
     },
   };
 }
+
+/** **The nearest trials**: an act's profile (`profilesReadBy`) read by its trials nearest the start asked at (`readProfile`). */
+export const nearestTrials = (tables: Tables): OutcomeModel => profilesReadBy(tables, readProfile);
+
+/** **The written forms**: an act's profile (`profilesReadBy`) read by a form fitted to its trials (`formReading`). */
+export const writtenForms = (tables: Tables): OutcomeModel => profilesReadBy(tables, formReading);
 
 /** Where a reading is asked at, and the progress a let-go is asked at. */
 type At = Parameters<ProfileReading["expect"]>[0];
@@ -136,27 +144,6 @@ export function coarseTable(model: OutcomeModel): OutcomeModel {
         reading(struck, spec, postures) {
           const reading = act.reading(struck, spec, postures);
           return reading ? coarseReading(reading) : null;
-        },
-      };
-    },
-  };
-}
-
-/**
- * **The written forms**: an act's profile found as the nearest trials find it (`profilesFor`,
- * `profileAgainst`), read by a form fitted to its trials (`formReading`).
- */
-export function writtenForms(tables: Readonly<Partial<Record<ActTable, readonly Profile[]>>>): OutcomeModel {
-  return {
-    act(table, asked) {
-      const found = profilesFor(tables[table] ?? [], asked);
-      if (!found) return null;
-      const read = found.read;
-      return {
-        stale: found.stale, read,
-        reading(struck, spec, postures) {
-          const profile = profileAgainst(read, struck);
-          return profile ? formReading(profile, spec, postures) : null;
         },
       };
     },
