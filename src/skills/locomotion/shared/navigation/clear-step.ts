@@ -58,7 +58,7 @@ export function footprinter() {
       const print = made[i]!;
       switch (print.kind) {
         case "box": (print.centre as [number, number, number])[1] = height; break;
-        case "hull": for (const point of print.points) (point as [number, number, number])[1] = height; break;
+        case "hull": for (let k = 0; k < print.points.length; k++) (print.points[k] as [number, number, number])[1] = height; break;
         default: { const never: never = print; throw new Error(`unknown sensed solid ${never}`); }
       }
       result.push(print);

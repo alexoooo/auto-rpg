@@ -61,8 +61,8 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
   const reach = focus ? edgeOf(at, pressure) + offset : 0, points = spot.route ?? [spot];
   const legs = walk.seconds(at, gait.name, points, focus ? walk.facing(at) : null);
   let duration = 0, taken = 0, grace = graceAt(at), x = from.x, z = from.z;
-  for (const [k, point] of points.entries()) {
-    const dx = point.x - x, dz = point.z - z, length = hypot(dx, dz);
+  for (let k = 0; k < points.length; k++) {
+    const point = points[k]!, dx = point.x - x, dz = point.z - z, length = hypot(dx, dz);
     if (length > 0) {
       const seconds = legs[k]!, pace = length / seconds;
       if (!Number.isFinite(seconds) || !Number.isFinite(duration + seconds)) return null;

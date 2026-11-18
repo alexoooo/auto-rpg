@@ -236,7 +236,7 @@ function space(root: Situation, options: readonly Option[], objective: Objective
   const stepInto = (out: Work, pair: Pair, at: Situation, dealt: number, taken: number, orders: number, seconds: number): Step => {
     const option = pair.option, terms = termsOf(pair, at, seconds), share = terms.duration > 0 ? Math.max(0, Math.min(1, (horizon - seconds) / terms.duration)) : 1;
     let chances = 0;
-    for (const outcome of terms.outcomes) chances += outcome.chance;
+    for (let i = 0; i < terms.outcomes.length; i++) chances += terms.outcomes[i]!.chance;
     if (Math.abs(chances - 1) > 1e-9) throw new Error(`${option.name}'s outcomes' chances sum to ${chances}`);
     const after = seconds + share * terms.duration, counts = takenWeight(seconds, share * terms.duration), dealing = dealtWeight(seconds, share * terms.duration);
     out.terms = terms; out.dealt = dealt + dealing * share * terms.dealt; out.taken = taken + counts * share * terms.taken; out.orders = orders + share * terms.orders; out.after = after;
@@ -251,8 +251,10 @@ function space(root: Situation, options: readonly Option[], objective: Objective
   /** What a step cut (`Step.cut`) from `at` is worth: each way it ends priced where it leaves the body, by its chance. */
   const cutWorth = (at: Situation, step: Step): number => {
     let worth = 0;
-    for (const outcome of step.terms.outcomes)
+    for (let i = 0; i < step.terms.outcomes.length; i++) {
+      const outcome = step.terms.outcomes[i]!;
       worth += outcome.chance * price(step.dealt, step.taken, step.orders, step.after, unchanged(outcome.leaves) ? at : child(at, outcome.leaves, step.terms.duration));
+    }
     return worth;
   };
   /**
@@ -266,8 +268,8 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     if (step.cut) return cutWorth(at, step);
     depth++;
     let worth = 0;
-    for (const outcome of terms.outcomes) {
-      const end = child(at, outcome.leaves, terms.duration);
+    for (let i = 0; i < terms.outcomes.length; i++) {
+      const outcome = terms.outcomes[i]!, end = child(at, outcome.leaves, terms.duration);
       worth += outcome.chance * (left > 1 ? best(end, left - 1, step.dealt, step.taken, step.orders, step.after)
         : leaf(end, left === 1 ? "whole" : "arrived", step.dealt, step.taken, step.orders, step.after));
     }
@@ -277,7 +279,8 @@ function space(root: Situation, options: readonly Option[], objective: Objective
   /** The best line from `at` of any Option on offer there, `left` deep; the path as it is where none is. */
   const best = (at: Situation, left: number, dealt: number, taken: number, orders: number, seconds: number): number => {
     let top = -Infinity;
-    for (const pair of pairsAt(at)) top = Math.max(top, line(pair, at, left, dealt, taken, orders, seconds));
+    const pairs = pairsAt(at);
+    for (let i = 0; i < pairs.length; i++) top = Math.max(top, line(pairs[i]!, at, left, dealt, taken, orders, seconds));
     return top > -Infinity ? top : price(dealt, taken, orders, seconds, at);
   };
   /**
@@ -300,8 +303,8 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     // Such a leaf models only the pairs it reads. Most leaves are where a walk arrives, so modelling every
     // walk from each of them would be most of a search's cost.
     const pairs = reach === "whole" ? pairsAt(at) : readsAt(at, reach);
-    for (const pair of pairs) {
-      const { option, target } = pair;
+    for (let i = 0; i < pairs.length; i++) {
+      const pair = pairs[i]!, option = pair.option, target = pair.target;
       if (option.open) top = Math.max(top, line(pair, at, 1, dealt, taken, orders, seconds));
       else if (reach === "held") continue;
       else if (option.targets && sites.has(option.targets[target]!)) { if (reach === "whole") top = Math.max(top, line(pair, at, 0, dealt, taken, orders, seconds)); }
@@ -322,9 +325,9 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     const terms = modelAt(pair, at)!, duration = terms.duration;
     if (!(duration > 0) || seconds >= horizon) return -Infinity;
     let stay = 0, there: Situation | null = null;
-    for (const outcome of terms.outcomes) {
-      const end = child(at, outcome.leaves, duration);
-      if (end.posture === at.posture && Math.abs(end.range - at.range) <= ARRIVED) { stay += outcome.chance; there = end; }
+    for (let i = 0; i < terms.outcomes.length; i++) {
+      const end = child(at, terms.outcomes[i]!.leaves, duration);
+      if (end.posture === at.posture && Math.abs(end.range - at.range) <= ARRIVED) { stay += terms.outcomes[i]!.chance; there = end; }
     }
     if (!there) return -Infinity;
     // Of `full` whole tries, the chance all stay (`through`), and the tries the body is expected to run where one leaves (`run`).
@@ -335,8 +338,8 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     if (left > 0) {
       const run = (1 - (full + 1) * through + full * through * stay) / ((1 - stay) * left), part = takenWeight(seconds, run * duration);
       const d = dealt + dealtWeight(seconds, run * duration) * run * terms.dealt, t = taken + part * run * terms.taken, after = seconds + run * duration;
-      for (const outcome of terms.outcomes) {
-        const end = child(at, outcome.leaves, duration);
+      for (let i = 0; i < terms.outcomes.length; i++) {
+        const outcome = terms.outcomes[i]!, end = child(at, outcome.leaves, duration);
         if (end === there || end.posture === at.posture && Math.abs(end.range - at.range) <= ARRIVED) continue;
         worth += left * outcome.chance / (1 - stay) * leaf(end, "held", d, t, o, after);
       }
@@ -358,15 +361,18 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     const atRate = (d: number, t: number, duration: number): number => !(duration > 0) ? -Infinity
       : once ? price(dealt + countsDealt * dealtWeight(seconds, duration) * d, taken + counts * takenWeight(seconds, duration) * t, orders, end, at) : price(dealt + countsDealt * d / duration, taken + counts * t / duration, orders, end, at);
     let top = -Infinity;
-    for (const pair of pairsAt(at)) {
+    const pairs = pairsAt(at);
+    for (let p = 0; p < pairs.length; p++) {
+      const pair = pairs[p]!;
       if (once && pair.option.open) continue;
       const terms = termsOf(pair, at, seconds);
       if (!toSite(pair)) { top = Math.max(top, atRate(terms.dealt, terms.taken, terms.duration)); continue; }
       let worth = 0;
-      for (const outcome of terms.outcomes) {
-        const there = child(at, outcome.leaves, terms.duration), after = seconds + terms.duration;
+      for (let i = 0; i < terms.outcomes.length; i++) {
+        const outcome = terms.outcomes[i]!, there = child(at, outcome.leaves, terms.duration), after = seconds + terms.duration, reads = readsAt(there, "arrived");
         let then = atRate(terms.dealt, terms.taken, terms.duration);
-        for (const next of readsAt(there, "arrived")) {
+        for (let k = 0; k < reads.length; k++) {
+          const next = reads[k]!;
           if (once && next.option.open) continue;
           const tried = termsOf(next, there, after);
           then = Math.max(then, atRate(terms.dealt + tried.dealt, terms.taken + tried.taken, terms.duration + tried.duration));

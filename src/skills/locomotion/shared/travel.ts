@@ -53,8 +53,8 @@ function cornerSpeed(gait: GaitLimits, halfTurn: number, room: number): number {
   // A speed turns at the rate of the slowest speed of the table at or above it, past the table at its
   // last (`turnAt`): the fastest speed of each band that turns enough, the fastest of the bands.
   let best = 0, below = -Infinity;
-  for (const { speed, turn } of envelope.turns) {
-    const most = Math.min(speed.value, room * turn.value / halfTurn);
+  for (let k = 0; k < envelope.turns.length; k++) {
+    const { speed, turn } = envelope.turns[k]!, most = Math.min(speed.value, room * turn.value / halfTurn);
     if (most > below) best = Math.max(best, most);
     below = speed.value;
   }
@@ -81,15 +81,17 @@ function slowFrom(gait: GaitLimits, distance: number, on: number, end = 0): numb
  * - the speed it stops from in `left` m, going on at `on`, the speed it has the way it goes, for its
  *   lag (`Locomotion.lag`), then slowing at its stopping deceleration (`Locomotion.stopping`);
  * - for each corner ahead, the speed it slows from to that corner's (`cornerSpeed`) by the corner, the
- *   same way;
+ *   same way: of `corners`, each one past `gone` m along the way, that much nearer;
  * - `ceiling`, the goal's own, if it gives one.
  */
-export function travelSpeed(gait: GaitLimits, way: readonly [forward: number, right: number], left: number, corners: readonly Corner[], on: number, ceiling = Infinity): number {
+export function travelSpeed(gait: GaitLimits, way: readonly [forward: number, right: number], left: number, corners: readonly Corner[], gone: number, on: number, ceiling = Infinity): number {
   const envelope = gait.envelope;
   let speed = Math.min(ceiling, envelope ? heldPace(envelope, way[0], way[1]) : Infinity, slowFrom(gait, left, on));
-  for (const corner of corners) {
+  for (let k = 0; k < corners.length; k++) {
+    const corner = corners[k]!;
+    if (!(corner.distance > gone)) continue;
     const at = cornerSpeed(gait, corner.halfTurn, corner.room);
-    if (at < speed) speed = Math.min(speed, slowFrom(gait, corner.distance, on, at));
+    if (at < speed) speed = Math.min(speed, slowFrom(gait, corner.distance - gone, on, at));
   }
   return speed;
 }
@@ -129,11 +131,11 @@ export function legSeconds(gait: GaitLimits, from: GroundPoint, way: readonly Gr
     const facing = length > 0 ? frame(x / length, z / length) : [1, 0] as const;
     let time = 0;
     for (let i = 0; i < pieces; i++) {
-      const middle = gone + (i + .5) * step, ahead = corners.filter((corner) => corner.distance > middle).map((corner) => ({ ...corner, distance: corner.distance - middle }));
+      const middle = gone + (i + .5) * step;
       // A piece is crossed at the mean of the speed it is entered at and the speed asked at its middle:
       // near the end the speed asked comes to 0, and the body brakes across the piece from what it had.
       const entered = speed;
-      speed = travelSpeed(gait, facing, total - middle, ahead, speed, ceiling);
+      speed = travelSpeed(gait, facing, total - middle, corners, middle, speed, ceiling);
       time += entered + speed > 0 ? 2 * step / (entered + speed) : Infinity;
     }
     seconds.push(length > 0 ? time : 0);

@@ -149,7 +149,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     /** The speed going the ground way (`x`, `z`) with `left` m to stop in and `corners` ahead, from the speed the body has that way. */
     const going = (x: number, z: number, left: number, corners: readonly Corner[]): number => {
       const h = report.legs.heading, way = hypot(x, z), velocity = view.stance.velocity, on = way > 0 ? (velocity.x * x + velocity.z * z) / way : 0;
-      const speed = travelSpeed(gait, [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)], left, corners, on, ceiling);
+      const speed = travelSpeed(gait, [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)], left, corners, 0, on, ceiling);
       return Number.isFinite(speed) ? speed : 0;
     };
     if (request.kind === "direct") {
