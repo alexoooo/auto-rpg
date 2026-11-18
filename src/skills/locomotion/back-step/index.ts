@@ -5,6 +5,7 @@ import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
 import { fitsSoles } from "../../../control/support.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { cos, sin } from "../../../core/math/real.ts";
+import { wrap } from "../../../core/math/turn.ts";
 import type { GaitPart, Locomotion } from "../../framework/locomotion-part.ts";
 import type { LegsAsked } from "../../framework/skill.ts";
 import { validCarriage, type Carriage } from "../shared/locomotion.ts";
@@ -50,6 +51,13 @@ interface BackStepConfig {
   readonly learned?: LearnedBackStepSettings;
   /** Its actor in learning mode: its learner answered by a trainer, its settings `learned`'s, else `BACK_STEP_ACTOR`. */
   readonly steered?: true;
+  /**
+   * How fast the legs turn toward the face asked while it sways, rad/s: the stance walk turns only
+   * while it walks, and a sway asks no walk, so without it the body ends a sway facing as it began
+   * however the line to its foe swung. Its heading is the walk's from the sway's end, the walk
+   * standing the carriage's feet about it. None where it holds the heading it began with.
+   */
+  readonly turn?: number;
 }
 
 /**
@@ -78,7 +86,7 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
   const state = { aim: null as readonly [number, number] | null, from: null as readonly [number, number] | null, seconds: 0, armed: false, walk: walk.state,
     step: null as { readonly foot: BearingEnd; readonly bearing: BearingEnd; readonly to: readonly [number, number]; lifted: boolean; seconds: number } | null, stepped: false, waited: 0,
     shuffle: null as { readonly foot: BearingEnd; readonly bearing: BearingEnd; readonly to: readonly [number, number]; lifted: boolean; seconds: number } | null,
-    phase: "walk" as BackStepPhase, learner: null as Learner | null };
+    phase: "walk" as BackStepPhase, learner: null as Learner | null, facing: null as number | null };
   const actor = config.learned || config.steered ? backStepActor(body, config.learned ?? BACK_STEP_ACTOR, { steered: config.steered === true }) : null;
   state.learner = actor?.learner ?? null;
   const fix = actor?.correction;
@@ -134,14 +142,15 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
     get envelope() { return walk.envelope; },
     get stopping() { return walk.stopping; },
     get lag() { return walk.lag; },
-    get heading() { return walk.heading; },
+    // While it turns in a sway, the heading it has turned to: what a strike's window reads.
+    get heading() { return state.facing ?? walk.heading; },
     get pace() { return walk.pace; },
     get reference() { return walk.reference; },
     get placed() { return walk.placed; },
     get unmet() { return walk.unmet; },
     resume(view: BodyView, heading?: number) {
       walk.resume(view, heading); actor?.resume();
-      state.armed = true; state.aim = null; state.from = null; state.seconds = 0; state.step = null; state.stepped = false; state.waited = 0; state.shuffle = null;
+      state.armed = true; state.aim = null; state.from = null; state.seconds = 0; state.step = null; state.stepped = false; state.waited = 0; state.shuffle = null; state.facing = null;
     },
     goal(view: BodyView, goal: LegsAsked, dt: number, context) {
       if (!actor) return native(view, goal, dt, context);
@@ -152,9 +161,18 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
     },
     ...(walk.arms ? { arms: (view: BodyView) => walk.arms?.(view) ?? null } : {}),
   };
+  /** `goal` asked of the walk while it sways, facing the heading it has turned to (`BackStepConfig.turn`); itself where it turns none. */
+  function swaying(goal: LegsAsked, dt: number): LegsAsked {
+    if (!config.turn) return goal;
+    const was = state.facing ?? walk.heading, rate = config.turn * dt;
+    state.facing = was + Math.max(-rate, Math.min(rate, wrap(goal.face - was)));
+    return { ...goal, heading: state.facing };
+  }
   /** The back step's own legs goal, its phase kept in `state.phase`. */
   function native(view: BodyView, goal: LegsAsked, dt: number, context: Parameters<Locomotion["goal"]>[3]) {
       if (config.shuffle) return shuffled(view, goal, dt, context, config.shuffle);
+      // The sway over, the walk takes up the heading it turned to.
+      if (state.facing !== null && state.aim && state.seconds >= out + back) { const facing = state.facing; state.facing = null; walk.resume(view, facing); }
       if (state.armed && squared(view)) { state.armed = false; state.aim = behind(view); state.from = [view.stance.centre.x, view.stance.centre.z]; }
       if (state.armed) return state.phase = "armed", walk.goal(view, { ...goal, walk: null }, dt, context);
       if (state.aim && state.seconds >= out + back && config.follow) return shuffled(view, goal, dt, context, config.follow);
@@ -163,7 +181,7 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
         const h = walk.heading, fx = sin(h), fz = cos(h);
         if (!state.step && view.stance.velocity.x * fx + view.stance.velocity.z * fz < STEP.coming) {
           state.waited += dt;
-          if (state.waited < STEP.most) return state.phase = "waiting in", walk.goal(view, { ...goal, walk: null, swing: null, centre: shifted([state.from![0] + stepIn * fx, state.from![1] + stepIn * fz]) }, dt, context);
+          if (state.waited < STEP.most) return state.phase = "waiting in", walk.goal(view, swaying({ ...goal, walk: null, swing: null, centre: shifted([state.from![0] + stepIn * fx, state.from![1] + stepIn * fz]) }, dt), dt, context);
           state.stepped = true;
         }
         if (!state.stepped && !state.step) {
@@ -178,25 +196,26 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
         if (phase === "swing") step.lifted = true;
         step.seconds += dt;
         if (step.lifted && phase === "stand" || step.seconds > STEP.most) state.stepped = true;
-        else return state.phase = "stepping in", walk.goal(view, { ...goal, walk: null, feet: [step.bearing], centre: null, swing: { foot: step.foot, to: step.to, seconds: STEP.seconds, lift: STEP.lift } }, dt, context);
+        else return state.phase = "stepping in", walk.goal(view, swaying({ ...goal, walk: null, feet: [step.bearing], centre: null, swing: { foot: step.foot, to: step.to, seconds: STEP.seconds, lift: STEP.lift } }, dt), dt, context);
       }
       state.phase = state.seconds < out ? "out" : "back";
       const centre = shifted(state.seconds < out ? state.aim : state.from!);
       state.seconds += dt;
-      return walk.goal(view, { ...goal, walk: null, swing: null, centre }, dt, context);
+      return walk.goal(view, swaying({ ...goal, walk: null, swing: null, centre }, dt), dt, context);
   }
 }
 
 /** **The back step** (`backStep`): a gait part, ordered by name where a body's Move has it among its gaits (`MoveConfig.gaits`). */
 export const BACK_STEP_PART = deepFreeze<GaitPart<BackStepConfig>>({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Back step", stage: "experimental", fields: [], slots: [], defaults: { kind: "back-step" }, travels: false,
-  keys: { kind: true, carriage: true, out: true, back: true, beyond: true, stepIn: true, shuffle: true, follow: true, learned: true, steered: true },
+  keys: { kind: true, carriage: true, out: true, back: true, beyond: true, stepIn: true, shuffle: true, follow: true, learned: true, steered: true, turn: true },
   fits: fitsAll(fitsSoles),
   faults: (config) => [
     ...(config.learned === undefined ? [] : learnedBackStepFaults(config.learned)),
     ...(config.steered === undefined || config.steered === true ? [] : ["back step: steered is true where given"]),
     ...(config.carriage === undefined || validCarriage(config.carriage) ? [] : ["a carriage needs a positive width or none, and a finite stagger and lowering"]),
     ...(["shuffle", "follow"] as const).flatMap((key) => config[key] === undefined || Number.isFinite(config[key]) && config[key]! > 0 && config[key]! <= .4 ? [] : [`back step: ${key} from 0 to 0.4 m`]),
+    ...(config.turn === undefined || Number.isFinite(config.turn) && config.turn > 0 && config.turn <= 10 ? [] : ["back step: turn from 0 to 10 rad/s"]),
     ...(config.stepIn === undefined || Number.isFinite(config.stepIn) && config.stepIn >= 0 && config.stepIn <= .5 ? [] : ["back step: stepIn from 0 to 0.5 m"]),
     ...(config.beyond === undefined || Number.isFinite(config.beyond) && Math.abs(config.beyond) <= .5 ? [] : ["back step: beyond from -0.5 to 0.5 m"]),
     ...(["out", "back"] as const).flatMap((key) => config[key] === undefined || Number.isFinite(config[key]) && config[key]! > 0 && config[key]! <= 3 ? [] : [`back step: ${key} from 0 to 3 s`]),

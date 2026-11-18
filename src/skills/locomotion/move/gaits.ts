@@ -40,7 +40,7 @@ const GAITS: Readonly<Record<string, { readonly label: string; readonly legs: Co
  * 0.1 m in, its follow 0.15 m). A gait no walk goes by (`GaitPart.travels`), which its Option orders
  * (`backStepping`); no stock gait yet, so a mind that takes the Option takes it too (`withBackStep`).
  */
-export const BACK_STEP_GAIT: Gait = deepFreeze({ name: "back-step", label: "Back step", legs: { kind: "back-step", carriage: STAGGERED, out: .7, back: .5, stepIn: .1, follow: .15 } });
+export const BACK_STEP_GAIT: Gait = deepFreeze({ name: "back-step", label: "Back step", legs: { kind: "back-step", carriage: STAGGERED, out: .7, back: .5, stepIn: .1, follow: .15, turn: 2 } });
 
 /** **The stock gaits** (`GAITS`) as gaits: what Move walks by where its config names none. */
 export const STOCK_GAITS: readonly Gait[] = deepFreeze(Object.entries(GAITS).map(([name, gait]) => ({ name, label: gait.label, legs: gait.legs })));

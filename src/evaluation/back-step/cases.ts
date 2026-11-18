@@ -30,7 +30,7 @@ export type BackStepCondition = { readonly attacker: Attacker; readonly gap: num
 const CARRIAGE = STAGGERED;
 
 /** The back step as the drill reads best: held back 0.7 s, brought in over 0.5 s, the lead foot stepping 0.1 m in. */
-const BACK_STEP = deepFreeze({ kind: "back-step", carriage: CARRIAGE, out: .7, back: .5, stepIn: .1, follow: .15 });
+const BACK_STEP = deepFreeze({ kind: "back-step", carriage: CARRIAGE, out: .7, back: .5, stepIn: .1, follow: .15, turn: 2 });
 
 /** The sway Commander's settings: the carriage within 3 m, the back step at 1.05 m held 1.65 s, 0.3 s between. */
 const SWAYING = deepFreeze({ kind: "sway", range: 1.05, near: 0, seconds: 2.8, rest: .3, set: 3, follow: .95, fight: 0 });
