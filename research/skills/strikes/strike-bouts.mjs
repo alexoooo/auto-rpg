@@ -55,6 +55,7 @@ import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
+import { BOUT_SCHEMA, savedBouts } from "./bout-save.mjs";
 
 /** A completed action's wound correlation includes a quarter second after its last interval. */
 const AFTER = .25;
@@ -66,8 +67,6 @@ const DOWN = 2, RECOVERY = 1;
  * not a 'landed punch'".
  */
 const LANDED = .5;
-/** Saved results use explicit per-hand equipment and the neutral action protocol, and keep each bout's winner and decisions. */
-const SCHEMA = 4;
 
 if (isMainThread) {
   const { values } = parseArgs({ options: {
@@ -104,11 +103,8 @@ if (isMainThread) {
   const jobs = [];
   for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, aggression, initiative, carriages, added, pressure, pressureTable, foeSteps, chooser });
   const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}${job.aggression === null ? "" : ` aggression ${job.aggression}`}${job.initiative == null ? "" : ` initiative ${job.initiative}`}${Object.keys(job.carriages).length ? ` carriages ${JSON.stringify(job.carriages)}` : ""}${Object.keys(job.added ?? {}).length ? ` back step ${Object.keys(job.added).join(",")}` : ""}${job.foeSteps === null ? "" : ` foe steps ${typeof job.foeSteps === "number" ? job.foeSteps : "measured"}`}${job.chooser === null ? "" : ` chooser ${JSON.stringify(job.chooser)}`}`;
-  const loaded = new Map(values.load ? JSON.parse(await readFile(values.load, "utf8")) : []);
-  for (const job of jobs) {
-    job.result = loaded.get(key(job));
-    if (job.result && job.result.schema !== SCHEMA) throw new Error("loaded result uses a different action schema");
-  }
+  const loaded = new Map(values.load ? savedBouts(values.load) : []);
+  for (const job of jobs) job.result = loaded.get(key(job));
   const played = jobs.filter(job => !job.result), started = Date.now();
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(lanes, played.length) }, () => new Promise((resolve, reject) => {
@@ -292,7 +288,7 @@ if (isMainThread) {
         }
         return [...keyed.values()];
       });
-      parentPort.postMessage({ result: { schema: SCHEMA, strikes, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
+      parentPort.postMessage({ result: { schema: BOUT_SCHEMA, strikes, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
         bars: SIDES.map(side => duel.duelists[side].pool.bar()), hp: SIDES.map(side => duel.duelists[side].body.built.spec.wounds.hp.value), downs: SIDES.map(side => downs[side]), grounded: state.groundedSince === null ? grounded : [...grounded, [state.groundedSince, duel.clock]], decisions: SIDES.map(side => decisions[side]), sides: SIDES.map(side => track[side]) } });
     } catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
     finally { dispose?.(); }

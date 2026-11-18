@@ -22,7 +22,8 @@
  * measured from the minds that fought them, and read again where those change. Bouts are empty-handed
  * (a record's `held` `empty`), so a table is of bodies holding nothing; others are refused.
  */
-import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { readdirSync, statSync, writeFileSync } from "node:fs";
+import { savedBouts } from "../skills/strikes/bout-save.mjs";
 import { execSync } from "node:child_process";
 import { resolveCharacter } from "../../src/core/bodies/models.ts";
 import { pressureBody } from "../../src/minds/option/pressure.ts";
@@ -43,9 +44,7 @@ const round = (x) => Number(x.toFixed(6));
 const tables = new Map();
 let bouts = 0, moments = 0;
 for (const file of files) {
-  const records = JSON.parse(readFileSync(file, "utf8"));
-  for (const [header, record] of records) {
-    if (!record?.decisions || !record.sides) continue;
+  for (const [header, record] of savedBouts(file)) {
     if (String(header).split(" ")[3] !== "empty") throw new Error(`${file}: a bout with a body holding something (${header}); tables are of empty hands`);
     bouts++;
     for (const i of [0, 1]) {
@@ -61,8 +60,9 @@ for (const file of files) {
       for (const row of rows) {
         const [t, range, , , , , bar] = row;
         if (!ended && t + HORIZONS.at(-1) > record.seconds || falls.some((at) => t >= at && t - at < UNSETTLED)) continue;
+        // The foe's phase as the side sensed it (`Engagement.foe`); a moment that sensed none is not read.
         const phase = row[10];
-        if (typeof phase !== "string") continue;
+        if (phase === null) continue;
         const at = round(Math.round(range / BIN) * BIN), binKey = `${phase} ${at}`;
         const bin = table.bins.get(binKey) ?? { phase, range: at, n: 0, lost: HORIZONS.map(() => 0) };
         table.bins.set(binKey, bin);

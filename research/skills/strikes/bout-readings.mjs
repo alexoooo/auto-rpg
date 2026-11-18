@@ -22,6 +22,7 @@
  *   taken against the life the body lost over the seconds it priced.
  */
 import { readFileSync } from "node:fs";
+import { savedBouts } from "./bout-save.mjs";
 import { resolveCharacter } from "../../../src/core/bodies/models.ts";
 import { struckNumbers } from "../../../src/skills/framework/profile.ts";
 
@@ -40,9 +41,9 @@ const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.lengt
 const punchesOf = (bout) => bout.sides.flatMap((side) => side.attempts.filter((a) => a.action === "straight-punch" && a.committed));
 const dealtBy = (attempt) => sum(attempt.wounds.map((w) => w.damage));
 
-console.log(`Silence: share of a bout after its first punch in gaps over ${QUIET} s with no punch begun, and of it with both bodies standing (NaN where a bout kept no stretches down); landed at least ${LANDED} hp`);
+console.log(`Silence: share of a bout after its first punch in gaps over ${QUIET} s with no punch begun, and of it with both bodies standing; landed at least ${LANDED} hp`);
 console.log("label".padEnd(24), "bouts  len  silent%  standing%  1st  punches/bout  landed/bout  hp/bout  knockout  drained  time  downs/bout");
-const loaded = files.map(([label, file]) => [label, JSON.parse(readFileSync(file, "utf8"))]);
+const loaded = files.map(([label, file]) => [label, savedBouts(file)]);
 for (const [label, all] of loaded) {
   const rows = all.map(([, bout]) => {
     const punches = punchesOf(bout), times = punches.map((a) => a.began).sort((a, b) => a - b), first = times[0] ?? bout.seconds;
@@ -52,11 +53,11 @@ for (const [label, all] of loaded) {
       const from = marks[i - 1], to = marks[i];
       if (to - from <= QUIET) continue;
       silent += to - from;
-      for (const [a, b] of bout.grounded ?? []) down += Math.max(0, Math.min(b, to) - Math.max(a, from));
+      for (const [a, b] of bout.grounded) down += Math.max(0, Math.min(b, to) - Math.max(a, from));
     }
     const dealt = punches.map(dealtBy);
-    return { len: bout.seconds, first, silent, standing: bout.grounded ? silent - down : NaN, punches: punches.length, landed: dealt.filter((hp) => hp >= LANDED).length, hp: sum(dealt), ending: bout.ending,
-      downs: bout.downs ? bout.downs[0].length + bout.downs[1].length : NaN };
+    return { len: bout.seconds, first, silent, standing: silent - down, punches: punches.length, landed: dealt.filter((hp) => hp >= LANDED).length, hp: sum(dealt), ending: bout.ending,
+      downs: bout.downs[0].length + bout.downs[1].length };
   });
   const n = rows.length, fought = sum(rows.map((r) => r.len - r.first)), ends = (kind) => rows.filter((r) => r.ending === kind).length;
   console.log(label.padEnd(24), String(n).padStart(5), (sum(rows.map((r) => r.len)) / n).toFixed(0).padStart(4), (100 * sum(rows.map((r) => r.silent)) / fought).toFixed(0).padStart(8), (100 * sum(rows.map((r) => r.standing)) / fought).toFixed(0).padStart(10),
@@ -122,7 +123,6 @@ if (prices) {
     const rows = new Map(), reaches = new Map();
     const add = (row, dealt, given, taken, lost) => { const r = rows.get(row) ?? rows.set(row, { n: 0, dealt: 0, given: 0, taken: 0, lost: 0 }).get(row); r.n++; r.dealt += dealt; r.given += given; r.taken += taken; r.lost += lost; };
     for (const [key, bout] of all) {
-      if (!bout.decisions || !bout.hp) throw new Error(`${label}: saved without decisions (schema ${bout.schema})`);
       const models = key.split(" ").slice(0, 2);
       // Each side's life at a time: the last reading at or before it, of either side's decisions, then the bout's end.
       const lives = [...bout.decisions[0].map((d) => [d[0], d[6], d[7]]), ...bout.decisions[1].map((d) => [d[0], d[7], d[6]]), [bout.seconds, bout.bars[0], bout.bars[1]]].sort((a, b) => a[0] - b[0]);

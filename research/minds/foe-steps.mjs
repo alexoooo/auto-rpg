@@ -10,8 +10,9 @@
  *
  *   node research/minds/foe-steps.mjs <bouts.json> ... --out <table.json>
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { savedBouts } from "../skills/strikes/bout-save.mjs";
 import { resolveCharacter } from "../../src/core/bodies/models.ts";
 import { pressureBody } from "../../src/minds/option/pressure.ts";
 
@@ -25,8 +26,7 @@ const doingOf = (chosen) => /back step/.test(chosen) ? "back step" : / to /.test
 
 const cells = new Map();
 let moments = 0, pairing = null;
-for (const path of positionals) for (const [header, bout] of JSON.parse(readFileSync(path, "utf8"))) for (const [i, rows] of bout.decisions.entries()) {
-  if (!rows.length || rows[0].length < 13) throw new Error(`${path}: decisions saved without the bodies' centres; play them again`);
+for (const path of positionals) for (const [header, bout] of savedBouts(path)) for (const [i, rows] of bout.decisions.entries()) {
   if (String(header).split(" ")[3] !== "empty") throw new Error(`${path}: a bout with a body holding something (${header}); a table is of empty hands`);
   const these = { measured: pressureBody(resolveCharacter({ model: bout.sides[1 - i].model }).spec), target: pressureBody(resolveCharacter({ model: bout.sides[i].model }).spec) };
   if (pairing && JSON.stringify(pairing) !== JSON.stringify(these)) throw new Error(`${path}: bouts of more than one pairing; a table is of one`);

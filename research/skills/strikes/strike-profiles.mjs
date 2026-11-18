@@ -18,10 +18,8 @@
  * A trial's start (`Start`) is where the striker sensed the target as it began (the reading's
  * `foeAt` and `foePhase`): the range centre to centre, the target's phase and posture, the
  * striker's velocity against the target's (`foeAt.velocity`), and where it stood in its strike's
- * window (`inWindow`), and how each body stood (`foeAt.stance`); each absent in a record from before
- * the reading held it. A profile keeps
- * the trials that record the most of their start alone: fresh trials replace the older. A record
- * that does not hold the phase is refused: its rung is played again.
+ * window (`inWindow`, absent where it was not in one), and how each body stood (`foeAt.stance`,
+ * absent where the reading had none).
  *
  * What a trial brought: whether it landed; the life the rules take from the target for the
  * striker's touches on it, each segment's damage (`StrikeReading.dealt`) at that
@@ -52,7 +50,6 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
-import { partIn } from "../../../src/app/catalog.ts";
 import { marksOf, strikeKey, strikesOf } from "./strike-keys.mjs";
 import { strikeTrial } from "../../../src/evaluation/strike/trial.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
@@ -95,42 +92,33 @@ for (const path of paths) {
   const { hz, delay } = rule;
   for (const row of rows) {
     const recipe = row.world?.recipe, mind = recipe?.minds?.left, led = recipe?.commanders?.left;
-    // The drill Commander's config (naming its skill, or, in a record from before orders named skills, its action), or, in a record from before it, the drill's tactics in the mind.
-    const drill = led?.kind === "drill" ? { kind: "drill", skill: led.skill, action: led.action, effector: led.limb, letGo: led.letGo } : partIn(mind, "drill");
-    if (row.fault || !row.reading || row.world.kind !== "bout" || drill?.kind !== "drill") continue;
+    // The drill Commander's config: the skill it orders, and the limb.
+    if (row.fault || !row.reading || row.world.kind !== "bout" || led?.kind !== "drill") continue;
     const spec = specOf(recipe), { executors, actions } = strikesOf(spec, mind);
-    const action = actions.find((one) => drill.skill === undefined ? one.name === drill.action : executors.find((executor) => executor.name === one.executor)?.kind === drill.skill);
+    const action = actions.find((one) => executors.find((executor) => executor.name === one.executor)?.kind === led.skill);
     // A body that does not throw the action (a rung's other model) was refused it, and measures nothing.
     if (!action && row.reading.outcome === "refused" && row.reading.reason === "no such choice on its menu") continue;
-    if (!action) throw new Error(`${path}: ${drill.skill ?? drill.action} is not a strike its body throws`);
-    if (!action.effectors.includes(drill.effector)) continue;
+    if (!action) throw new Error(`${path}: ${led.skill} is not a strike its body throws`);
+    if (!action.effectors.includes(led.limb)) continue;
     const marks = marksOf(action);
     if (marks && !marks.includes(row.condition.mark)) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
-    const struck = specOf(recipe, "right"), { measured, digests } = strikeKey(spec, mind, executors, action, drill.effector, hz, reaction, delay);
+    const struck = specOf(recipe, "right"), { measured, digests } = strikeKey(spec, mind, executors, action, led.limb, hz, reaction, delay);
     const key = JSON.stringify(measured);
     // A strike is measured against a foe (`Profile.target`).
-    const profile = profiles.get(key) ?? { measured, target: {}, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector}`,
+    const profile = profiles.get(key) ?? { measured, target: {}, label: `${spec.model} ${led.skill} with ${led.limb}`,
       digests, commits: new Set(), dates: new Set(), changed: false, trials: [] };
     profiles.set(key, profile);
     profile.commits.add(row.from.commit);
     profile.dates.add(row.from.date.slice(0, 10));
     profile.changed ||= row.from.changed;
-    const r = row.reading;
-    if (r.foePhase === undefined) throw new Error(`${path}: no foePhase in its readings; play its rung again`);
-    const trial = strikeTrial(r, spec, struck, rulebook("arena", recipe.rules), hz, drill.letGo !== undefined);
+    const trial = strikeTrial(row.reading, spec, struck, rulebook("arena", recipe.rules), hz, led.letGo !== undefined);
     if (trial) profile.trials.push(trial);
   }
 }
 
-/** How much of its start a trial records: its velocity, where it stood in its window, and how the bodies stood. */
-const recorded = (trial) => (trial.start.velocity ? 1 : 0) + (trial.start.window ? 1 : 0) + (trial.start.stance ? 1 : 0);
 // A strike no fight began has no profile: its mind prices it by hand.
 for (const [key, profile] of profiles) if (!profile.trials.length) { console.log(`${profile.label}: begun in no fight, so it has no profile`); profiles.delete(key); }
-for (const profile of profiles.values()) {
-  const most = Math.max(...profile.trials.map(recorded));
-  profile.trials = profile.trials.filter((trial) => recorded(trial) === most);
-}
 const order = (a, b) => (a.start.postures?.target ?? "").localeCompare(b.start.postures?.target ?? "") || a.start.phase.localeCompare(b.start.phase) || a.start.range - b.start.range;
 /** The one value of `values` that is known; undefined where they differ or none is. */
 const shared = (values) => values.size === 1 ? [...values][0] ?? undefined : undefined;

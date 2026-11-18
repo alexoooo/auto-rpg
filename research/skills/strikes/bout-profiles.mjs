@@ -11,8 +11,9 @@
  * records are refused rather than mixed. Its trials are in the order they were thrown; a profile is
  * read by its trials nearest a start, in any order.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { savedBouts } from "./bout-save.mjs";
 
 const SCRIPT = "research/skills/strikes/bout-profiles.mjs";
 const { values, positionals } = parseArgs({ options: { out: { type: "string" } }, allowPositionals: true });
@@ -20,8 +21,7 @@ if (!positionals.length) throw new Error("name the bouts strike-bouts.mjs saved:
 
 const profiles = new Map(), round = (x) => Number(x.toFixed(4)), mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 let bouts = 0;
-for (const path of positionals) for (const [, result] of JSON.parse(readFileSync(path, "utf8"))) {
-  if (!result?.strikes) throw new Error(`${path}: a bout saved without its strikes; play it again`);
+for (const path of positionals) for (const [, result] of savedBouts(path)) {
   bouts++;
   for (const side of result.strikes) for (const { measured, digests, trials } of side) {
     const key = JSON.stringify(measured), known = profiles.get(key);
