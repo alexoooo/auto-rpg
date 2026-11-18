@@ -8,15 +8,20 @@ import type { EngagementDetail } from "../engagement.ts";
 import type { Option, Situation } from "./option.ts";
 import { optionsOf, isProfileOption } from "./kinds.ts";
 import type { OptionEvaluation } from "./model.ts";
-import { PROFILE_MODEL, type ProfileTables } from "./profile-contract.ts";
+import { PROFILE_MODEL } from "./profile-contract.ts";
 import { optionRecord } from "./record.ts";
 import { situationReader } from "./situation.ts";
 import { walker } from "./walk.ts";
-import { coarseTable, nearestTrials, writtenForms } from "../../skills/framework/outcomes.ts";
-import { measuredOthers, measuredSteps, persisting, RATE_OTHERS, type FoeSteps } from "./percepts.ts";
+import type { OutcomeModel } from "../../skills/framework/outcomes.ts";
+import type { Profile } from "../../skills/framework/profile.ts";
+import type { OthersModel } from "./percepts.ts";
 
-/** The measured-profile model assembles its own consumers around the same profile tables: its Options ask them as its outcome model (`nearestTrials`, a coarse table of its answers, `coarseTable`, or forms fitted to them, `writtenForms`), its reader of the foe reads them itself, the foe standing as an Option runs or, given `foeSteps` (s), going on as it goes (`persisting`) or as bouts measured (`measuredSteps`). */
-export function profileModel(tables: ProfileTables, outcomes: "nearest" | "coarse" | "written" = "nearest", foeSteps: number | FoeSteps | null = null): OptionEvaluation {
+/**
+ * **The measured-profile model**: its Options ask `outcomes` what each act brings (`OutcomeModel`),
+ * and its reader of the foe reads the foe's measured strikes (`strikes`) and what the others bring
+ * (`others`, `OthersModel`).
+ */
+export function profileModel({ strikes, outcomes, others }: { readonly strikes: readonly Profile[]; readonly outcomes: OutcomeModel; readonly others: OthersModel }): OptionEvaluation {
   return { build(input) {
     const { spec, hz, rate, delay, rules, parts, legs, techniques } = input;
     const walk = walker(spec), record = optionRecord();
@@ -25,8 +30,8 @@ export function profileModel(tables: ProfileTables, outcomes: "nearest" | "coars
       if (!isProfileOption(part)) throw new Error(`${config.kind} does not implement ${PROFILE_MODEL}`);
       return part;
     }, input.options,
-      { spec, hz, rate, delay, parts, walk, legs, guards: input.guards, outcomes: outcomes === "coarse" ? coarseTable(nearestTrials(tables)) : outcomes === "written" ? writtenForms(tables) : nearestTrials(tables), record });
-    const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap(option => option.modelled ? [option.modelled] : []), measured: tables.strikes, others: ((others) => foeSteps === null ? others : typeof foeSteps === "number" ? persisting(others, foeSteps) : measuredSteps(others, foeSteps))(tables.pressures ? measuredOthers(tables.pressures) : RATE_OTHERS),
+      { spec, hz, rate, delay, parts, walk, legs, guards: input.guards, outcomes, record });
+    const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap(option => option.modelled ? [option.modelled] : []), measured: strikes, others,
       ordersOf: input.orders, record, parts, techniques });
     const chosen = chooserOf(parts, input.chooser, options, input.seed, input.phase);
     const state = { chooser: chosen.state, model: { situation: reader.state, record: record.state }, options: options.map((option) => option.state), prospects: [] as readonly Prospect[], details: [] as EngagementDetail[] };

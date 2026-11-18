@@ -32,7 +32,7 @@ export interface OutcomeModel {
 }
 
 /** An outcome model's profiles, by the table of acts they are of. */
-type Tables = Readonly<Partial<Record<ActTable, readonly Profile[]>>>;
+export type Tables = Readonly<Partial<Record<ActTable, readonly Profile[]>>>;
 
 /**
  * **An act's profile among `tables`' read by `readAs`**: as it was measured where one is fresh,

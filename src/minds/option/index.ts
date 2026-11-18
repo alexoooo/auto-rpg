@@ -12,7 +12,7 @@ export type { Option, Situation } from "./option.ts";
 export type { OptionPart, ChooserPart, ObjectivePart, PredictionsPart } from "./parts.ts";
 export type { Seen, Percept, Prediction, ProfilePerceptPart, ProfilePredictionPart } from "./percepts.ts";
 export type { OptionEvaluation, OptionEvaluationInput } from "./model.ts";
-export { PROFILE_MODEL, type ProfileOptionContext, type ProfileTables } from "./profile-contract.ts";
+export { PROFILE_MODEL, type ProfileOptionContext } from "./profile-contract.ts";
 export type { NamedSkills, OptionSkills } from "./skills.ts";
 export type { Objective, Path } from "./objective.ts";
 export { profileLearningMind } from "./profile-learning.ts";
