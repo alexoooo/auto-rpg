@@ -2,9 +2,11 @@
 
 The testbed plan was deleted at `76b8da80e` on six bars the reviewing session wrote, none of which
 named these. This plan holds everything that plan named and nothing built, but for bodies, what
-they hold and the ground, which is [the numbers plan](2026-11-18-numbers.md)'s. **Every item is
-the owner's must-have.** Not begun. The order of this plan, the numbers plan and [the back
-step](2026-11-16-back-step.md) is the owner's to give.
+they hold and the ground, which is [the numbers plan](2026-11-18-numbers.md)'s. **The numbers
+plan's items are the owner's must-haves; these are a list kept so none is lost, and which of them
+is needed is the owner's to say.** Not begun, and none is begun until the owner orders it. The
+order of this plan, the numbers plan and [the back step](2026-11-16-back-step.md) is the owner's
+to give.
 
 ## The goal, in the owner's words
 
@@ -33,8 +35,9 @@ Of a line played out by a policy: "i'm not sure how the policy play-out would sc
 just need to keep things simple and general, I don't want any ad-hoc hard-coded hacks."
 
 On 2026-11-18, shown the list below: "please add a new plan to docs/plans/ -- it should have these
-items in it (ie. everything other than the N^2 `numbers` plan, which are all must-have)." And: "i
-want to get to a known good state before we keep going."
+items in it (ie. everything other than the N^2 `numbers` plan, which are all must-have)": the
+must-haves are the numbers plan's. And: "i want to get to a known good state before we keep
+going."
 
 ## Where it stands
 
@@ -63,7 +66,9 @@ gathered by a script of their own (`research/minds/pressure-profiles.mjs`,
 
 ## What done is
 
-The owner's bar: every item below, built. The wording of each reading is the agent's.
+The list, and what built would mean for each; the wording is the agent's. Whose each is: 1 to 5
+are the owner's own ask of the chooser (above), of which 1 and 2 are what they described; 6 is
+the owner's example of a kind; 7 to 13 are the testbed plan's design, the agent's candidates.
 
 **A chooser that keeps its work.** What a search found is evidence of a situation that has since
 moved: it is used again by how like the new situation is and how old it is.
@@ -119,8 +124,8 @@ bout makes again and the bout plays the same without.
     met, whatever it reads; a kind is the game's only where it holds held out.
 16. The game's Mind is unmoved where a kind is unset (the fingerprint).
 
-The plan is deleted when each of 1 to 13 is met by 14 to 16. No item is struck but by the owner,
-by name; an item written down as not built is not met.
+An item leaves this list when it is built and read by 14 to 16, or when the owner strikes it by
+name; no agent drops one. The plan is deleted when none is left.
 
 ## Not items: what the testbed plan left open
 
