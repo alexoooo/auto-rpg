@@ -24,7 +24,7 @@ import type { RiseMemory } from "./rise-memory.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
-import { pairingApart, pressureCurve, pressureTable, type PressureBody, type PressureTable } from "./pressure.ts";
+import { alongHorizons, pairingApart, pressureCurve, pressureTable, validPairing, type MeasuredPairing, type PressureTable } from "./pressure.ts";
 import { blowLife, DECIDING, limbReach, record, type Ground } from "./value.ts";
 
 /**
@@ -352,14 +352,10 @@ export type Doing = "back step" | "walk" | "strike" | "hold" | "other";
  * **The foe's steps as bouts measured them**: how far the focus came toward the body, centre to
  * centre on the ground, m, by the seconds after (`horizons`), from moments `band` m apart by the
  * range centre to centre (each cell's lower edge, `range`) and what the body did then (`doing`),
- * on `n` moments. Measured of a foe of `measured`'s numbers on a body of `target`'s
- * (`PressureBody`), read only by a pairing near them (`pairingApart`); a table that records none
- * is read by every pairing.
+ * on `n` moments; measured of a foe of `measured`'s numbers on a body of `target`'s
+ * (`MeasuredPairing`).
  */
-export interface FoeSteps {
-  readonly measured?: PressureBody;
-  readonly target?: PressureBody;
-  readonly horizons: readonly number[];
+export interface FoeSteps extends MeasuredPairing {
   readonly band: number;
   readonly cells: readonly { readonly doing: Doing; readonly range: number; readonly n: number; readonly toward: readonly number[] }[];
 }
@@ -369,10 +365,8 @@ const STEPS_READ = 30;
 
 /** Whether `value` is a table of the foe's steps (`FoeSteps`). */
 export function validFoeSteps(value: unknown): value is FoeSteps {
-  const table = value as FoeSteps | null;
-  const body = (one: PressureBody | undefined) => !!one && Number.isFinite(one.stature) && Number.isFinite(one.mass);
-  return !!table && (table.measured === undefined && table.target === undefined || body(table.measured) && body(table.target)) && Array.isArray(table.horizons) && table.horizons.length > 0 && table.horizons.every((h, k) => Number.isFinite(h) && h > (table.horizons[k - 1] ?? 0))
-    && Number.isFinite(table.band) && table.band > 0 && Array.isArray(table.cells)
+  const table = value as FoeSteps;
+  return validPairing(table) && Number.isFinite(table.band) && table.band > 0 && Array.isArray(table.cells)
     && table.cells.every((cell) => typeof cell.doing === "string" && Number.isFinite(cell.range) && Number.isFinite(cell.n) && Array.isArray(cell.toward)
       && cell.toward.length === table.horizons.length && cell.toward.every(Number.isFinite));
 }
@@ -380,9 +374,8 @@ export function validFoeSteps(value: unknown): value is FoeSteps {
 /**
  * **`others` with the foe's steps as bouts measured them** (`FoeSteps`): toward the body by the
  * cell of the range it stands at and what the body does, of those read on `STEPS_READ` moments
- * or more the nearest by range; over `seconds` between the horizons by a straight line from none
- * at none, past the last as at it. None where no cell of that doing is, or where the table was
- * measured of bodies not near these (`pairingApart`).
+ * or more the nearest by range; over `seconds` as `alongHorizons` reads it. None where no cell of
+ * that doing is, or where the table was measured of bodies not near these (`pairingApart`).
  */
 export function measuredSteps(others: OthersModel, table: FoeSteps): OthersModel {
   const read = table.cells.filter((cell) => cell.n >= STEPS_READ), { horizons, band } = table;
@@ -390,18 +383,13 @@ export function measuredSteps(others: OthersModel, table: FoeSteps): OthersModel
     steps(seen: Seen, seconds: number, doing: Doing): Ground {
       const focus = seen.focus;
       if (!focus || !(seconds > 0)) return NO_STEPS;
-      if (table.measured && table.target && pairingApart({ measured: table.measured, target: table.target }, focus.spec, seen.spec) > 1) return NO_STEPS;
+      if (pairingApart(table, focus.spec, seen.spec) > 1) return NO_STEPS;
       const where = seen.sight.view.stance.centre, dx = where.x - focus.centre.x, dz = where.z - focus.centre.z, apart = hypot(dx, dz);
       if (!(apart > 0)) return NO_STEPS;
       let cell: FoeSteps["cells"][number] | null = null;
       for (const one of read) if (one.doing === doing && (!cell || Math.abs(one.range + band / 2 - apart) < Math.abs(cell.range + band / 2 - apart))) cell = one;
       if (!cell) return NO_STEPS;
-      let k = 0;
-      while (k < horizons.length && horizons[k]! < seconds) k++;
-      const toward = k >= horizons.length ? cell.toward.at(-1)! : (() => {
-        const t0 = k ? horizons[k - 1]! : 0, y0 = k ? cell.toward[k - 1]! : 0;
-        return y0 + (cell.toward[k]! - y0) * (seconds - t0) / (horizons[k]! - t0);
-      })();
+      const toward = alongHorizons(horizons, cell.toward, seconds);
       return { x: dx / apart * toward, z: dz / apart * toward };
     } });
 }

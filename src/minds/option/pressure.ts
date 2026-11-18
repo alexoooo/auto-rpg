@@ -19,18 +19,23 @@ export function pressureBody(spec: BodySpec): PressureBody {
 }
 
 /**
+ * **What a table measured in bouts is of**: the body it watched, `measured`, facing the body it was
+ * read for, `target`, each as numbers (`PressureBody`), read only by a pairing near them
+ * (`pairingApart`); and the seconds after a moment it holds a reading by, rising (`horizons`).
+ */
+export interface MeasuredPairing {
+  readonly measured: PressureBody;
+  readonly target: PressureBody;
+  readonly horizons: readonly number[];
+}
+
+/**
  * **A measured pressure**: what a striker's fighting took from a struck body in bouts, by how far
  * apart the two stood centre to centre, what the striker was doing (`striking`, else `clear`), and
  * the seconds after (`research/minds/pressure-profiles.mjs`, `assets/minds/pressure-profiles.json`).
  * It is the minds' that fought the bouts it was read from, and is read again where those change.
  */
-export interface PressureTable {
-  /** The striker's body, as numbers (`PressureBody`). */
-  readonly measured: PressureBody;
-  /** The struck body, as numbers. */
-  readonly target: PressureBody;
-  /** The seconds after a moment the life its bins hold was lost by, rising. */
-  readonly horizons: readonly number[];
+export interface PressureTable extends MeasuredPairing {
   readonly bins: readonly PressureBin[];
 }
 
@@ -51,22 +56,37 @@ const MOMENTS = 40;
 /** How far a reading's bins may lie from its range, m: beyond it the table does not read there. */
 const SPAN = .1;
 
+/** **Whether `value` is what a measured table is of** (`MeasuredPairing`): two bodies as numbers, and one horizon or more, rising from over none. */
+export function validPairing(value: unknown): value is MeasuredPairing {
+  const table = value as Partial<MeasuredPairing> | null, horizons = table?.horizons;
+  const finite = (x: unknown) => typeof x === "number" && Number.isFinite(x);
+  const side = (one: unknown) => {
+    const it = one as { stature?: unknown; mass?: unknown; held?: unknown } | undefined;
+    return !!it && finite(it.stature) && finite(it.mass) && (it.held === undefined || !!it.held && typeof it.held === "object"
+      && Object.values(it.held).every((item: { mass?: unknown; reach?: unknown }) => finite(item?.mass) && finite(item?.reach)));
+  };
+  return !!table && side(table.measured) && side(table.target) && Array.isArray(horizons) && horizons.length > 0
+    && horizons.every((h, k) => Number.isFinite(h) && h > (k === 0 ? 0 : horizons[k - 1]!));
+}
+
 /** **Whether `value` is a measured pressure's table** (`PressureTable`). */
 export function validPressures(value: unknown): value is readonly PressureTable[] {
-  return Array.isArray(value) && value.every((one) => {
-    const table = one as Partial<PressureTable>;
-    const horizons = table.horizons;
-    const finite = (x: unknown) => typeof x === "number" && Number.isFinite(x);
-    const side = (one: unknown) => {
-      const it = one as { stature?: unknown; mass?: unknown; held?: unknown } | undefined;
-      return !!it && finite(it.stature) && finite(it.mass) && (it.held === undefined || !!it.held && typeof it.held === "object"
-        && Object.values(it.held).every((item: { mass?: unknown; reach?: unknown }) => finite(item?.mass) && finite(item?.reach)));
-    };
-    return side(table.measured) && side(table.target) && Array.isArray(horizons) && horizons.length > 0
-      && horizons.every((h, k) => Number.isFinite(h) && h > (k === 0 ? 0 : horizons[k - 1]!)) && Array.isArray(table.bins)
-      && table.bins.every((bin) => typeof bin?.phase === "string" && Number.isFinite(bin.range) && Number.isSafeInteger(bin.n) && bin.n > 0
-        && Array.isArray(bin.lost) && bin.lost.length === horizons.length && bin.lost.every((x: unknown) => typeof x === "number" && Number.isFinite(x) && x >= 0));
-  });
+  return Array.isArray(value) && value.every((table: PressureTable) => validPairing(table) && Array.isArray(table.bins)
+    && table.bins.every((bin) => typeof bin?.phase === "string" && Number.isFinite(bin.range) && Number.isSafeInteger(bin.n) && bin.n > 0
+      && Array.isArray(bin.lost) && bin.lost.length === table.horizons.length && bin.lost.every((x: unknown) => typeof x === "number" && Number.isFinite(x) && x >= 0)));
+}
+
+/**
+ * **`ys` at `seconds`**, one a horizon of `horizons`: through none at none, straight between
+ * horizons, and as at the last past it; none at none or before.
+ */
+export function alongHorizons(horizons: readonly number[], ys: readonly number[], seconds: number): number {
+  if (!(seconds > 0)) return 0;
+  let k = 0;
+  while (k < horizons.length && horizons[k]! < seconds) k++;
+  if (k === horizons.length) return ys[k - 1]!;
+  const h0 = k === 0 ? 0 : horizons[k - 1]!, y0 = k === 0 ? 0 : ys[k - 1]!;
+  return y0 + (ys[k]! - y0) * (seconds - h0) / (horizons[k]! - h0);
 }
 
 /**
@@ -127,12 +147,5 @@ function curveThrough(horizons: readonly number[], lost: readonly number[]): Pre
   const ys: number[] = [];
   for (const [k, x] of lost.entries()) ys.push(Math.max(x, k === 0 ? 0 : ys[k - 1]!));
   const last = horizons.length - 1, before = last === 0 ? 0 : horizons[last - 1]!, rate = (ys[last]! - (last === 0 ? 0 : ys[last - 1]!)) / (horizons[last]! - before);
-  return (seconds) => {
-    if (!(seconds > 0)) return 0;
-    if (seconds >= horizons[last]!) return ys[last]! + rate * (seconds - horizons[last]!);
-    let k = 0;
-    while (horizons[k]! < seconds) k++;
-    const h0 = k === 0 ? 0 : horizons[k - 1]!, y0 = k === 0 ? 0 : ys[k - 1]!;
-    return y0 + (ys[k]! - y0) * (seconds - h0) / (horizons[k]! - h0);
-  };
+  return (seconds) => seconds >= horizons[last]! ? ys[last]! + rate * (seconds - horizons[last]!) : alongHorizons(horizons, ys, seconds);
 }
