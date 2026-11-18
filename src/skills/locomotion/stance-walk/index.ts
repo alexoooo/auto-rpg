@@ -1,11 +1,11 @@
 import { varied, type Varied } from "../../framework/variations.ts";
 import type { Body } from "../../../control/body.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
-import { soleRefusal, standingFooting } from "../../../control/support.ts";
+import { soleRefusal } from "../../../control/support.ts";
 import type { GaitPart } from "../../framework/locomotion-part.ts";
-import { stanceFeetOf, stanceSegmentsOf } from "../shared/stance-feet.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { locomotion, STAGGERED, validCarriage, validTurnLimit, validTurnStartup, type Carriage, type TurnStartup } from "../shared/locomotion.ts";
+import { STAGGERED, validCarriage, validTurnLimit, validTurnStartup, type Carriage, type TurnStartup } from "../shared/locomotion.ts";
+import { stanceWalk } from "../shared/stance-walk.ts";
 import { STANCE_GAIT, type GaitTuning } from "../../../control/stance/stance-tuning.ts";
 
 /** **The walk** within the body's stance envelope (`locomotion`). */
@@ -28,10 +28,9 @@ interface StanceWalkConfig extends Varied {
  */
 const FOOTWORK_STEPS: GaitTuning = deepFreeze({ ...STANCE_GAIT, startsToward: true });
 
-/** The walk in the stance (`locomotion`), by the stance's own steps or by `steps`. */
-const walk = (body: Body, config: StanceWalkConfig, steps?: GaitTuning) => locomotion(stanceFeetOf(body.built.spec), body.envelope, { turnLimit: config.tuning?.turnLimit,
-  turnStartup: config.tuning?.turnStartup, carriage: config.carriage, segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built),
-  ...(steps ? { gait: () => steps } : {}) });
+/** The walk in the stance (`stanceWalk`) as `config` sets it, by the stance's own steps or by `steps`. */
+const walk = (body: Body, config: StanceWalkConfig, steps?: GaitTuning) =>
+  stanceWalk(body, { turnLimit: config.tuning?.turnLimit, turnStartup: config.tuning?.turnStartup, carriage: config.carriage }, steps);
 
 /**
  * Walk in the stance's variations: the walk in the stance, by the steps the stance has; the
