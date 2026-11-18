@@ -39,6 +39,16 @@ trade worth less than waiting; two Warriors waited out every bout (bar 3's 144 b
 the first punch at 85 s, 1.1 HP lost a minute). Scaled, at 0.05 and 0.1 the empty-handed mirror
 fights as the game's (standing silence 10% and 8% against 8%, 24 gaps).
 
+**The back step's bars with it set, at 0.1** (both sides, `strike-bouts.mjs --initiative 0.1`,
+aggression 2, 120 s, the back step's plan's gaps): bar 3 not met, the Warrior with the back step
+won 0.517 (0.434 to 0.597, 144 bouts), 0.46 HP a minute less lost (-0.36 to 1.29), against 0.618
+without Initiative; bar 4 not met, standing silence 16.2% with it against 8.1% without (8.1 points,
+6.3 to 9.9, 216 gaps), against 16.5% and 7.7% without Initiative. Without the back step the mirror
+at 0.1 fights as the game's (standing silence 8% against 8%, 216 gaps; 0.59 falls a bout against
+0.39). So at 0.1 Initiative does not unlock the back step. Read once on the scorecard and the match
+(item 3) after [the cleanup](2026-11-18-cleanup.md), which the owner put ahead of further feature
+work.
+
 ## What done is
 
 1. **Initiative is a field of the Objective in the Arena's Mind picker**, beside Aggression, which
