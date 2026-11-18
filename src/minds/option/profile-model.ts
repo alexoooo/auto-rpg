@@ -8,7 +8,6 @@ import type { EngagementDetail } from "../engagement.ts";
 import type { Option, Situation } from "./option.ts";
 import { optionsOf, isProfileOption } from "./kinds.ts";
 import type { OptionEvaluation } from "./model.ts";
-import type { Budget } from "./parts.ts";
 import { PROFILE_MODEL, type ProfileTables } from "./profile-contract.ts";
 import { optionRecord } from "./record.ts";
 import { situationReader } from "./situation.ts";
@@ -29,7 +28,7 @@ export function profileModel(tables: ProfileTables, outcomes: "nearest" | "coars
       { spec, hz, rate, delay, parts, walk, legs, guards: input.guards, outcomes: outcomes === "coarse" ? coarseTable(nearestTrials(tables)) : outcomes === "written" ? writtenForms(tables) : nearestTrials(tables), record });
     const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap(option => option.modelled ? [option.modelled] : []), measured: tables.strikes, others: ((others) => foeSteps === null ? others : typeof foeSteps === "number" ? persisting(others, foeSteps) : measuredSteps(others, foeSteps))(tables.pressures ? measuredOthers(tables.pressures) : RATE_OTHERS),
       ordersOf: input.orders, record, parts, techniques });
-    const budget: Budget = { runs: null }, chosen = chooserOf(parts, input.chooser, options, input.seed, input.phase, budget);
+    const chosen = chooserOf(parts, input.chooser, options, input.seed, input.phase);
     const state = { chooser: chosen.state, model: { situation: reader.state, record: record.state }, options: options.map((option) => option.state), prospects: [] as readonly Prospect[], details: [] as EngagementDetail[] };
     /** What the focus was doing as the mind last read it: a report, not state a bout resumes from. */
     let foe = "clear";
@@ -46,10 +45,7 @@ export function profileModel(tables: ProfileTables, outcomes: "nearest" | "coars
         const read = reader.read(seen);
         foe = read.phase;
         let priced: readonly Situation[] = NONE;
-        // A budget given is shared among the situations priced: the others are read first to count them.
-        const given = input.budget, others = given === undefined ? null : reader.others();
-        if (given !== undefined) budget.runs = Math.max(1, Math.floor(given / (1 + others!.length)));
-        const { set, at: now, fresh } = chosen.decide(read, () => priced = others ?? reader.others());
+        const { set, at: now, fresh } = chosen.decide(read, () => priced = reader.others());
         if (fresh) { state.prospects = prospect(state.prospects, options, read); for (const other of priced) state.prospects = prospect(state.prospects, options, other); }
         reader.keep(now);
         const intent = stepSet(set, now, dt, () => ({ move: null, face: walk.facing(now) }));

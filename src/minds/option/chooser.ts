@@ -2,7 +2,7 @@ import { PROFILE_MODEL } from "./profile-contract.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { PartField } from "../../parts/fields.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
-import type { ChooserPart, Budget } from "./parts.ts";
+import type { ChooserPart } from "./parts.ts";
 import { anyBody, slotOne, type PartConfig, type Supplied } from "../../parts/parts.ts";
 import { whenEmpty } from "../../parts/tree.ts";
 import type { OfferTerms } from "../engagement.ts";
@@ -79,8 +79,8 @@ export type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C
  * The chooser `config` names, as `parts` finds it, over `options`, its chances drawn from `seed`:
  * a part of the role makes a chooser over the options it is given (`ChooserPart`), which Option Mind's are.
  */
-export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number, phase: number, budget?: Budget): Chooser =>
-  parts.of("chooser", config).make(config, options, seed, parts, phase, budget) as Chooser;
+export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number, phase: number): Chooser =>
+  parts.of("chooser", config).make(config, options, seed, parts, phase) as Chooser;
 
 /** How many options deep the valued chooser searches: the one it takes, or that and the best from where it leaves the body (`searching`). */
 const VALUED_DEPTHS: readonly number[] = Object.freeze([1, 2]);
@@ -728,7 +728,7 @@ const RUNS = 100;
 const EXPLORATION = 1;
 
 /**
- * **The tree chooser's config**: its runs a search (`RUNS` unless given; what its mind hands it, `Budget`, where it does), how far it explores
+ * **The tree chooser's config**: its runs a search (`RUNS` unless given), how far it explores
  * (`EXPLORATION` unless given), whether it keeps its work (`keeps`, s: each Option's worth at its
  * last search's root, as evidence of as many runs as it stood on, fading by half each so long;
  * none kept unless given), and what every search is given (`SearchConfig`).
@@ -748,10 +748,10 @@ export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
     ...config.exploration === undefined || Number.isFinite(config.exploration) && config.exploration >= 0 ? [] : ["exploration: a finite number, not negative"],
     ...config.keeps === undefined || Number.isFinite(config.keeps) && config.keeps > 0 ? [] : ["keeps: a finite time, more than none"]],
-  make: (config: TreeConfig, options: readonly Option[], seed: number, parts: PartLookup, phase = 0, budget?: Budget) => {
-    const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, own = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
+  make: (config: TreeConfig, options: readonly Option[], seed: number, parts: PartLookup, phase = 0) => {
+    const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : { state: { byFocus: {} } as Warm, keeps: config.keeps };
-    return chooser(options, searching((now) => treeSearch(now, options, objective, obedience, horizon, budget?.runs ?? own, exploration, stream, config.end ?? null, warm)), { ...DECIDING, phase, keep: KEEP },
+    return chooser(options, searching((now) => treeSearch(now, options, objective, obedience, horizon, runs, exploration, stream, config.end ?? null, warm)), { ...DECIDING, phase, keep: KEEP },
       { margin: config.margin ?? 0, seed }, objective, FOE_HOLDING, { tree: stream.state, ...(warm ? { warm: warm.state } : {}) });
   },
 });

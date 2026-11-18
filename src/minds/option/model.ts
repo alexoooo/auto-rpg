@@ -17,8 +17,6 @@ export interface OptionEvaluationInput {
   readonly guards?: readonly PartConfig[];
   readonly options: readonly PartConfig[];
   readonly chooser: PartConfig;
-  /** The runs a decision its mind hands its chooser (`OptionMindConfig.budget`); none, the chooser's own. */
-  readonly budget?: number;
   readonly seed: number;
   readonly phase: number;
   readonly techniques: readonly PartConfig[];
