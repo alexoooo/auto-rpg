@@ -64,14 +64,7 @@ interface BackStepConfig {
  * with the centre, and in again; with a `stepIn`, once the body comes forward again, the lead foot
  * steps that far in (`STEP`) and the centre is brought in as far past where it began. Then it is the walk. It ends with the centre where it began, since
  * a walk taken up stands its carriage's feet about the centre (`footingOf`) and, taken up with the
- * body back, steps them there.
- *
- * What it does from the stand of the back step's drill (`back-step-drill.mjs`): from a square
- * stand there is no foot behind to sway over; with the lead foot 0.45 m ahead, the head, upper and
- * middle trunk have gone 0.06 m back at 0.225 s, 0.14 m at 0.4 s and 0.22 m at 0.6 s, the body on
- * its feet taking no step. A push of the legs with the stance let go moved the centre faster but
- * left the trunk behind it (at most 0.025 m by 0.225 s over 1,728 pushes), and one that drew the
- * drilled punch early leaned the head toward the attacker.
+ * body back, steps them there. From a square stand there is no foot behind to sway over.
  */
 function backStep(body: Body, config: BackStepConfig): Locomotion {
   const walk = STANCE_WALK_PART.make(body, { kind: "stance-walk", variation: "stance-walk", ...(config.carriage ? { carriage: config.carriage } : {}) });

@@ -1,8 +1,7 @@
 /**
  * **How the back step's evaluation reads a trial**: each straight punch the attacker throws at the
  * subject, whether it took a landed blow's life, whether the subject was out of its reach after it
- * and in again in time, and whether the subject went down; the measures of the back step's drill
- * (`research/skills/locomotion/back-step-drill.mjs`).
+ * and in again in time, and whether the subject went down.
  */
 import type { Duel } from "../../game/arena/duel.ts";
 import type { World } from "../../core/world/world.ts";

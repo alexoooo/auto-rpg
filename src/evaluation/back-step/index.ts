@@ -3,8 +3,7 @@
  * fewer of them, stay up, and stand in reach again after? Each rung is a protocol (`drilled`, the
  * walked-in attacker; `mind`, the Warrior's own Mind), its trials laid out by the gap it starts at.
  * The subject is a mind, led by the sway Commander, standing and throwing nothing, so the back
- * step is read on the mind's body and gaits; the drill it was made from is
- * `research/skills/locomotion/back-step-drill.mjs`.
+ * step is read on the mind's body and gaits.
  */
 import { recordingKey } from "../../core/world/recording.ts";
 import type { Evaluation, Json } from "../evaluation.ts";

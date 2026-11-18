@@ -76,8 +76,8 @@ way in a drill and in a bout (`readFought`, `strikeTrial`, `src/evaluation/strik
 can be built from bouts (`research/skills/strikes/bout-profiles.mjs`), but the game's tables are
 the drills', and the back step's sways, the pressure's moments and the foe's steps are each
 gathered by a script of their own (`research/minds/pressure-profiles.mjs`,
-`research/minds/foe-steps.mjs`). Several units: two men on one read once
-(`research/minds/two-on-one.mjs`).
+`research/minds/foe-steps.mjs`). Several units: two men on one read once (`16d74daf4`, its
+script since deleted).
 
 ## What done is
 

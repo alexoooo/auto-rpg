@@ -292,8 +292,8 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
 - **Two foes cost a little less than the sum of each, and the Option Mind prices them so**: a man
   in an open Crypt room lost 0.79 (0.65 to 0.96) of what two men took from him alone, summed, and
   the Mind's expectation of each foe fell with two as the loss did, within about 15%; skeletons
-  summed plainly, but it expected about 20 times what they took (`16d74daf4`,
-  `research/minds/two-on-one.mjs`). *Shown.*
+  summed plainly, but it expected about 20 times what they took (`16d74daf4`, its script
+  `research/minds/two-on-one.mjs` since deleted). *Shown.*
 - **Not built**: the ground as numbers (room behind, slope, the nearest wall: nothing reads it);
   one model a skill across bodies in the game (the nearest body's trials scaled is). What a body
   holds is numbers on a profile's trials (`Start.held`) and no part of what finds one, but no
