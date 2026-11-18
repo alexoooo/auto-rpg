@@ -36,7 +36,7 @@ export const createScorecardIndex = perContext((context: GameContext) => {
     subjects: (choice) => mindSubjects(choice, ["option"]),
     figures: [
       { name: "silent", unit: "share of a bout after its first strike in gaps with none begun", kind: "mean", better: "lower", of: (r) => { const s = silenceOf(r); return s && s.fought > 0 ? s.silent / s.fought : null; } },
-      { name: "standing silent", unit: "share of a bout after its first strike in gaps with none begun and both bodies standing", kind: "mean", better: "lower", of: (r) => { const s = silenceOf(r); return s && s.fought > 0 && s.standing !== null ? s.standing / s.fought : null; } },
+      { name: "standing silent", unit: "share of a bout after its first strike in gaps with none begun and both bodies standing", kind: "mean", better: "lower", of: (r) => { const s = silenceOf(r); return s && s.fought > 0 ? s.standing / s.fought : null; } },
       { name: "knockout", unit: "share of bouts ended by a body's life", kind: "rate", better: "higher", of: (r) => knockedOut(r) },
       { name: "downs", unit: "falls a bout, both sides", kind: "mean", better: "lower", of: (r) => r.sides[0].downs + r.sides[1].downs },
       { name: "deciding", unit: "wall ms a step a mind decided in", kind: "mean", better: "lower", of: (r) => r.ms.deciding > 0 ? r.ms.decidingTotal / r.ms.deciding : null },
@@ -47,13 +47,13 @@ export const createScorecardIndex = perContext((context: GameContext) => {
       for (const subject of subjects) {
         const own = cases.filter((one) => one.subjects[0] === subject.id), draws = [...new Set(own.map((one) => one.condition.draw))].sort((a, b) => a - b);
         const bouts = (rows: typeof own) => {
-          let silent = 0, fought = 0, downs = 0, standing = 0, read = 0;
+          let silent = 0, fought = 0, downs = 0, standing = 0;
           for (const { reading } of rows) {
             const s = silenceOf(reading);
-            if (s) { silent += s.silent; fought += s.fought; if (s.standing !== null) { standing += s.standing; read += s.fought; } }
+            if (s) { silent += s.silent; fought += s.fought; standing += s.standing; }
             downs += reading.sides[0].downs + reading.sides[1].downs;
           }
-          return { bouts: rows.length, knockouts: rows.filter((one) => knockedOut(one.reading)).length, silent: fought > 0 ? silent / fought : null, standing: read > 0 ? standing / read : null, downs: rows.length ? downs / rows.length : null,
+          return { bouts: rows.length, knockouts: rows.filter((one) => knockedOut(one.reading)).length, silent: fought > 0 ? silent / fought : null, standing: fought > 0 ? standing / fought : null, downs: rows.length ? downs / rows.length : null,
             seconds: rows.length ? rows.reduce((t, one) => t + one.reading.seconds, 0) / rows.length : null };
         };
         const byDraw = draws.map((draw) => ({ draw, ...bouts(own.filter((one) => one.condition.draw === draw)) })), all = bouts(own);
