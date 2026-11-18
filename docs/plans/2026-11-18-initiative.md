@@ -4,7 +4,7 @@
 no further word: a setting named Initiative in the Arena Mind's Objective beside Aggression, that a
 person sets and watches. Begun once the back step lands, or, if its order (the skill, the pricing,
 bars 3 and 4 read again) leaves bars 3 and 4 unmet, then, and the back step's bars read again with
-it set. Not begun.
+it set. Begun: the back step's order left bar 4 unmet (its plan, item 3).
 
 ## The goal, in the owner's words
 
