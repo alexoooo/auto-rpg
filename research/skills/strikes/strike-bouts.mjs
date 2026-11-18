@@ -39,7 +39,8 @@
  *
  * `--pressure measured` has both sides' minds (their models' own, at `--aggression` where given)
  * read a foe's pressure by what bouts measured (`MeasuredConfig.pressure`,
- * `assets/minds/pressure-profiles.json`) in place of its strikes' rate.
+ * `assets/minds/pressure-profiles.json`) in place of its strikes' rate; `--pressure <table.json>`,
+ * by a table `research/minds/pressure-profiles.mjs --out` wrote, in place of the asset's.
  *
  * `--foe-steps <s>` has both sides' minds price a walk's arrival with the foe going on as it goes,
  * its velocity fading over about that long (`MeasuredConfig.foeSteps`), their predictions else the
@@ -75,8 +76,8 @@ if (isMainThread) {
     drill: { type: "string" }, pace: { type: "string" }, aggression: { type: "string" }, carriage: { type: "string", multiple: true, default: [] },
     "back-step": { type: "string", multiple: true, default: [] }, pressure: { type: "string" }, "foe-steps": { type: "string" }, chooser: { type: "string" },
   } });
-  if (values.pressure !== undefined && values.pressure !== "rate" && values.pressure !== "measured") throw new Error("--pressure is rate or measured");
-  const stepsAsked = values["foe-steps"], pressure = values.pressure ?? null, chooser = values.chooser === undefined ? null : JSON.parse(values.chooser);
+  if (values.pressure !== undefined && values.pressure !== "rate" && values.pressure !== "measured" && !values.pressure.endsWith(".json")) throw new Error("--pressure is rate, measured or a table research/minds/pressure-profiles.mjs --out wrote");
+  const stepsAsked = values["foe-steps"], pressureTable = values.pressure?.endsWith(".json") ? JSON.parse(await readFile(values.pressure, "utf8")).profiles : null, pressure = pressureTable ? "measured" : values.pressure ?? null, chooser = values.chooser === undefined ? null : JSON.parse(values.chooser);
   const foeSteps = stepsAsked === undefined ? null : stepsAsked.endsWith(".json") ? (({ source: _, ...table }) => table)(JSON.parse(await readFile(stepsAsked, "utf8"))) : Number(stepsAsked);
   if (typeof foeSteps === "number" && !(foeSteps > 0)) throw new Error("--foe-steps is seconds over 0, or a table research/minds/foe-steps.mjs wrote");
   const aggression = values.aggression === undefined ? null : Number(values.aggression);
@@ -98,7 +99,7 @@ if (isMainThread) {
     || !Number.isFinite(seconds) || seconds <= 0 || !Number.isSafeInteger(lanes) || lanes < 1 || helds.some(held => !["club", "empty"].includes(held)))
     throw new Error("invalid models, gaps, seconds, workers or held selection");
   const jobs = [];
-  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, aggression, carriages, added, pressure, foeSteps, chooser });
+  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, aggression, carriages, added, pressure, pressureTable, foeSteps, chooser });
   const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}${job.aggression === null ? "" : ` aggression ${job.aggression}`}${Object.keys(job.carriages).length ? ` carriages ${JSON.stringify(job.carriages)}` : ""}${Object.keys(job.added ?? {}).length ? ` back step ${Object.keys(job.added).join(",")}` : ""}${job.foeSteps === null ? "" : ` foe steps ${typeof job.foeSteps === "number" ? job.foeSteps : "measured"}`}${job.chooser === null ? "" : ` chooser ${JSON.stringify(job.chooser)}`}`;
   const loaded = new Map(values.load ? JSON.parse(await readFile(values.load, "utf8")) : []);
   for (const job of jobs) {
@@ -174,9 +175,12 @@ if (isMainThread) {
   /** A model's own mind with its chooser's objective the few terms at `aggression`. */
   const mindAt = (model, aggression) => { const mind = CONTEXT.defaultMind(model); return { ...mind, chooser: { ...mind.chooser, objective: { kind: "few-terms", aggression } } }; };
   const { inCarriage: carried, withBackStep } = await import("../../../src/minds/option/config.ts");
-  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, aggression, carriages = {}, added = {}, pressure = null, foeSteps = null, chooser = null }) => {
+  const { loadData } = await import("../../../src/core/data/store.ts");
+  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, aggression, carriages = {}, added = {}, pressure = null, pressureTable = null, foeSteps = null, chooser = null }) => {
     let dispose;
     try {
+      // A table from a file is the pressure data this worker loads, before any mind asks for the asset's; a worker plays one table.
+      if (pressureTable) await loadData(["pressure-profiles"], { "pressure-profiles": async () => pressureTable });
       if ((aggression !== null || Object.keys(carriages).length || Object.keys(added).length || pressure !== null || foeSteps !== null || chooser !== null) && drill) throw new Error("--aggression, --carriage, --back-step, --pressure, --foe-steps and --chooser set both sides' minds; a drill sets its own");
       const skills = Object.fromEntries(Object.entries(holds).map(([side, variation]) => [side, characterSkills(side === "left" ? left : right, [variation])]));
       const drilled = drill ? { recoverySeconds: null, entry: [], ends: [],
