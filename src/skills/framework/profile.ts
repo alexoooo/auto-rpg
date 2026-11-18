@@ -393,6 +393,9 @@ const NEAREST = Object.freeze({ trials: 10, range: .1, speed: .25, place: .1 });
 /** The span of range over which a reading takes its trials as alike, m (`NEAREST.range`). */
 export const PROFILE_RANGE_SPAN = NEAREST.range;
 
+/** The spans over which a reading takes its trials' starts as alike (`NEAREST`): range and place in the window, m, and velocity, m/s. */
+export const PROFILE_SPANS: { readonly range: number; readonly speed: number; readonly place: number } = Object.freeze({ range: NEAREST.range, speed: NEAREST.speed, place: NEAREST.place });
+
 /** How near two distances are taken as one: the nearest trials' ties. */
 const TIE = 1e-9;
 

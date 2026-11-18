@@ -12,11 +12,11 @@ import { PROFILE_MODEL, type ProfileTables } from "./profile-contract.ts";
 import { optionRecord } from "./record.ts";
 import { situationReader } from "./situation.ts";
 import { walker } from "./walk.ts";
-import { nearestTrials } from "../../skills/framework/outcomes.ts";
+import { coarseTable, nearestTrials } from "../../skills/framework/outcomes.ts";
 import { measuredOthers, RATE_OTHERS } from "./percepts.ts";
 
-/** The measured-profile model assembles its own consumers around the same profile tables: its Options ask them as its outcome model (`nearestTrials`), its reader of the foe reads them itself. */
-export function profileModel(tables: ProfileTables): OptionEvaluation {
+/** The measured-profile model assembles its own consumers around the same profile tables: its Options ask them as its outcome model (`nearestTrials`, or a coarse table of its answers, `coarseTable`), its reader of the foe reads them itself. */
+export function profileModel(tables: ProfileTables, outcomes: "nearest" | "coarse" = "nearest"): OptionEvaluation {
   return { build(input) {
     const { spec, hz, rate, delay, rules, parts, legs, techniques } = input;
     const walk = walker(spec), record = optionRecord();
@@ -25,7 +25,7 @@ export function profileModel(tables: ProfileTables): OptionEvaluation {
       if (!isProfileOption(part)) throw new Error(`${config.kind} does not implement ${PROFILE_MODEL}`);
       return part;
     }, input.options,
-      { spec, hz, rate, delay, parts, walk, legs, guards: input.guards, outcomes: nearestTrials(tables), record });
+      { spec, hz, rate, delay, parts, walk, legs, guards: input.guards, outcomes: outcomes === "coarse" ? coarseTable(nearestTrials(tables)) : nearestTrials(tables), record });
     const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap(option => option.modelled ? [option.modelled] : []), measured: tables.strikes, others: tables.pressures ? measuredOthers(tables.pressures) : RATE_OTHERS,
       ordersOf: input.orders, record, parts, techniques });
     const chosen = chooserOf(parts, input.chooser, options, input.seed, input.phase);
