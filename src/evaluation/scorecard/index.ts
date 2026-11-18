@@ -11,7 +11,7 @@ import type { Evaluation, Json } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import { createLocomotionIndex } from "../locomotion/index.ts";
 import { createScorecardCases, type ScorecardCondition } from "./cases.ts";
-import { silenceOf, type Prices, type ScorecardReading } from "./read.ts";
+import { readingSilence, type Prices, type ScorecardReading } from "./read.ts";
 import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** Whether a bout ended by a body's life, not by the clock or another rule. */
@@ -35,8 +35,8 @@ export const createScorecardIndex = perContext((context: GameContext) => {
     analysis: {},
     subjects: (choice) => mindSubjects(choice, ["option"]),
     figures: [
-      { name: "silent", unit: "share of a bout after its first strike in gaps with none begun", kind: "mean", better: "lower", of: (r) => { const s = silenceOf(r); return s && s.fought > 0 ? s.silent / s.fought : null; } },
-      { name: "standing silent", unit: "share of a bout after its first strike in gaps with none begun and both bodies standing", kind: "mean", better: "lower", of: (r) => { const s = silenceOf(r); return s && s.fought > 0 ? s.standing / s.fought : null; } },
+      { name: "silent", unit: "share of a bout after its first strike in gaps with none begun", kind: "mean", better: "lower", of: (r) => { const s = readingSilence(r); return s && s.fought > 0 ? s.silent / s.fought : null; } },
+      { name: "standing silent", unit: "share of a bout after its first strike in gaps with none begun and both bodies standing", kind: "mean", better: "lower", of: (r) => { const s = readingSilence(r); return s && s.fought > 0 ? s.standing / s.fought : null; } },
       { name: "knockout", unit: "share of bouts ended by a body's life", kind: "rate", better: "higher", of: (r) => knockedOut(r) },
       { name: "downs", unit: "falls a bout, both sides", kind: "mean", better: "lower", of: (r) => r.sides[0].downs + r.sides[1].downs },
       { name: "deciding", unit: "wall ms a step a mind decided in", kind: "mean", better: "lower", of: (r) => r.ms.deciding > 0 ? r.ms.decidingTotal / r.ms.deciding : null },
@@ -49,7 +49,7 @@ export const createScorecardIndex = perContext((context: GameContext) => {
         const bouts = (rows: typeof own) => {
           let silent = 0, fought = 0, downs = 0, standing = 0;
           for (const { reading } of rows) {
-            const s = silenceOf(reading);
+            const s = readingSilence(reading);
             if (s) { silent += s.silent; fought += s.fought; standing += s.standing; }
             downs += reading.sides[0].downs + reading.sides[1].downs;
           }

@@ -128,20 +128,26 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
 }
 
 /**
- * Of `seconds` of bout after its first strike begun, how many passed in gaps over `QUIET` s with no
- * strike begun by either side (`silent`), and of those how many with both bodies standing
- * (`standing`); null where none began.
+ * Of a bout `seconds` long, the seconds after its first strike begun (`fought`), how many of them
+ * passed in gaps over `QUIET` s with no strike begun by either side (`silent`), and of those how
+ * many with both bodies standing, outside the stretches either was `grounded` (`standing`); null
+ * where no strike began. `strikes` is when each side's began, s, in any order.
  */
-export function silenceOf(reading: ScorecardReading): { readonly silent: number; readonly standing: number; readonly fought: number } | null {
-  const times = [...reading.sides[0].strikes, ...reading.sides[1].strikes].sort((a, b) => a - b);
+export function silenceOf({ strikes, seconds, grounded }: { readonly strikes: readonly number[]; readonly seconds: number; readonly grounded: readonly (readonly [number, number])[] }):
+  { readonly silent: number; readonly standing: number; readonly fought: number } | null {
+  const times = [...strikes].sort((a, b) => a - b);
   if (!times.length) return null;
-  const marks = [...times, reading.seconds];
+  const marks = [...times, seconds];
   let silent = 0, down = 0;
   for (let i = 1; i < marks.length; i++) {
     const from = marks[i - 1]!, to = marks[i]!;
     if (to - from <= QUIET) continue;
     silent += to - from;
-    for (const [a, b] of reading.grounded) down += Math.max(0, Math.min(b, to) - Math.max(a, from));
+    for (const [a, b] of grounded) down += Math.max(0, Math.min(b, to) - Math.max(a, from));
   }
-  return { silent, standing: silent - down, fought: reading.seconds - times[0]! };
+  return { silent, standing: silent - down, fought: seconds - times[0]! };
 }
+
+/** A scorecard reading's silence (`silenceOf`), both sides' strikes. */
+export const readingSilence = (reading: ScorecardReading) =>
+  silenceOf({ strikes: [...reading.sides[0].strikes, ...reading.sides[1].strikes], seconds: reading.seconds, grounded: reading.grounded });

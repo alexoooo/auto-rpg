@@ -24,7 +24,7 @@
 import { readFileSync } from "node:fs";
 import { savedBouts } from "./bout-save.mjs";
 import { LANDED } from "../../../src/evaluation/strike/read.ts";
-import { QUIET } from "../../../src/evaluation/scorecard/read.ts";
+import { QUIET, silenceOf } from "../../../src/evaluation/scorecard/read.ts";
 import { resolveCharacter } from "../../../src/core/bodies/models.ts";
 import { struckNumbers } from "../../../src/skills/framework/profile.ts";
 
@@ -44,17 +44,10 @@ console.log("label".padEnd(24), "bouts  len  silent%  standing%  1st  punches/bo
 const loaded = files.map(([label, file]) => [label, savedBouts(file)]);
 for (const [label, all] of loaded) {
   const rows = all.map(([, bout]) => {
-    const punches = punchesOf(bout), times = punches.map((a) => a.began).sort((a, b) => a - b), first = times[0] ?? bout.seconds;
-    const marks = [...times, bout.seconds];
-    let silent = 0, down = 0;
-    for (let i = 1; i < marks.length; i++) {
-      const from = marks[i - 1], to = marks[i];
-      if (to - from <= QUIET) continue;
-      silent += to - from;
-      for (const [a, b] of bout.grounded) down += Math.max(0, Math.min(b, to) - Math.max(a, from));
-    }
+    const punches = punchesOf(bout), times = punches.map((a) => a.began), first = Math.min(...times, bout.seconds);
+    const { silent, standing } = silenceOf({ strikes: times, seconds: bout.seconds, grounded: bout.grounded }) ?? { silent: 0, standing: 0 };
     const dealt = punches.map(dealtBy);
-    return { len: bout.seconds, first, silent, standing: silent - down, punches: punches.length, landed: dealt.filter((hp) => hp >= LANDED).length, hp: sum(dealt), ending: bout.ending,
+    return { len: bout.seconds, first, silent, standing, punches: punches.length, landed: dealt.filter((hp) => hp >= LANDED).length, hp: sum(dealt), ending: bout.ending,
       downs: bout.downs[0].length + bout.downs[1].length };
   });
   const n = rows.length, fought = sum(rows.map((r) => r.len - r.first)), ends = (kind) => rows.filter((r) => r.ending === kind).length;
