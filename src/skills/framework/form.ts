@@ -11,7 +11,7 @@
  * A profile measured on another body is read by stature (`acrossBodies`).
  */
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { acrossBodies, bodyNumbers, heldAsMeasured, profileReading, startedAt, STANDING, type BodyNumber, type Expected, type Postures, type Profile, type ProfileReading } from "./profile.ts";
+import { acrossBodies, bodyNumbers, profileReading, startedAt, STANDING, type BodyNumber, type Expected, type Postures, type Profile, type ProfileReading } from "./profile.ts";
 
 /** A start's numbers as the form weighs them before its bodies': none, the range, its square, closing and across. */
 const START_TERMS = 5;
@@ -61,7 +61,7 @@ export function formReading(profile: Profile, striker: BodySpec, postures: Postu
   const key = `${postures.own}|${postures.target}`, known = byPostures.get(key);
   if (known) return known;
   const trials = profileReading(profile, striker, postures), own = striker.wounds.hp.value;
-  const started = heldAsMeasured(profile.trials, striker).filter((trial) => startedAt(trial.start, postures));
+  const started = profile.trials.filter((trial) => startedAt(trial.start, postures));
   const begun = started.filter((trial) => !trial.letGo), numbers = bodyNumbers(started);
   const phases = new Map<string, PhaseForm | null>();
   /** A start's terms (`termsOf`), then `values` of its bodies' numbers. */

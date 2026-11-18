@@ -18,11 +18,10 @@
  * world's rates and the senses' reaction time; and whether it was measured against a foe (`Target`,
  * none for a skill with no foe). Neither the body struck nor what either body held is part of it:
  * each trial records them as numbers (`Start.struck`, `Start.held`), and a reading takes the
- * trials struck at the numbers nearest the struck body's (`profileAgainst`) and held as its body
- * holds (`heldAsMeasured`). The code it was measured on is no
- * part of what finds it: a retrained network or a tuned setting leaves it read until its own tool
- * measures it again, a number its character sets is read at the nearest its trials began at, and
- * where it came from is kept on it (`Origin`), which labels it and finds nothing. One of another
+ * trials struck at the numbers nearest the struck body's (`profileAgainst`) and begun holding
+ * nearest what each body holds (`bodyNumbers`), within what they held (`heldPast`). The code it
+ * was measured on is no part of what finds it: a retrained network or a tuned setting leaves it
+ * read until its own tool measures it again, and where it came from is kept on it (`Origin`), which labels it and finds nothing. One of another
  * body, skill or limb answers another question (`askedOtherwise`) and is never read for
  * it; one measured at another rate, delay or reaction time is stale (`staleness`) and still read,
  * so a chooser prices a skill by hand only where nothing measured it.
@@ -266,17 +265,51 @@ export function holdsAlike(a: BodyHeld | undefined, b: BodyHeld | undefined): bo
   return as.length === bs.length && as.every((segment) => b?.[segment] !== undefined && a![segment]!.mass === b[segment]!.mass && a![segment]!.reach === b[segment]!.reach);
 }
 
+/** The held numbers, and the extent of a segment no trial held at. */
+const HELD_KEYS = ["mass", "reach"] as const, NONE_HELD = [0, 0] as const;
+
+/** The least and most of each held number `trials` record of one body, by segment; a trial holding nothing there at none. */
+type HeldExtent = ReadonlyMap<string, Readonly<Record<keyof ItemNumbers, readonly [number, number]>>>;
+
+/** Each trial list's held extent of each body (`heldExtent`), found once: a profile's trials are frozen data. */
+const HELD_EXTENTS = new WeakMap<readonly { readonly start: Start }[], { own?: HeldExtent; target?: HeldExtent }>();
+
+/** **What `trials` held of the body `of`** (`HeldExtent`): of each segment any of them records holding, the least and the most of its mass and its reach. */
+function heldExtent(trials: readonly { readonly start: Start }[], of: "own" | "target"): HeldExtent {
+  let byBody = HELD_EXTENTS.get(trials);
+  if (!byBody) HELD_EXTENTS.set(trials, byBody = {});
+  const known = byBody[of];
+  if (known) return known;
+  const segments = new Set(trials.flatMap((trial) => Object.keys(trial.start.held?.[of] ?? {})));
+  const extent = new Map([...segments].sort().map((segment) => {
+    const span = (key: keyof ItemNumbers): readonly [number, number] => {
+      let least = Infinity, most = -Infinity;
+      for (const trial of trials) { const v = trial.start.held?.[of]?.[segment]?.[key] ?? 0; least = Math.min(least, v); most = Math.max(most, v); }
+      return [least, most];
+    };
+    return [segment, { mass: span("mass"), reach: span("reach") }] as const;
+  }));
+  return byBody[of] = extent;
+}
+
 /**
- * **The trials of `trials` a body of `striker` reads by what it holds**: those begun holding as
- * it holds (`Start.held.own`), where any were; all of them, read by their held numbers and said
- * coarse, where none were. What is held is read across only where nothing was measured holding
- * so: until a held-out reading sets it, a body reads a loadout's own trials as it did when each
- * loadout was a table of its own. Asked of a profile's whole trials, before its postures are
- * taken: a loadout measured begun from none of a position reads none there, as its table did.
+ * **Where a body of `spec` holds past what `trials` held**, as the body whose skill it is (`own`)
+ * or the body struck (`target`): the first of `segments` (every one it or a trial holds at, where
+ * none are given) whose mass or reach lies beyond the trials' by over half its span
+ * (`HELD_SPANS`), as a sentence; null where none does, or there are no trials. A reading takes the
+ * trials begun nearest what each body holds (`bodyNumbers`); past them it reads what nothing
+ * measured, so a foe's limb is read throwing a strike only within them (`profilesOn`) and a body's
+ * own reading says it is read past them (`ProfileReading.scaled`).
  */
-export function heldAsMeasured<T extends { readonly start: Start }>(trials: readonly T[], striker: Pick<BodySpec, "held">): readonly T[] {
-  const mine = heldNumbers(striker), alike = trials.filter((trial) => holdsAlike(trial.start.held?.own, mine));
-  return alike.length ? alike : trials;
+export function heldPast(trials: readonly { readonly start: Start }[], of: "own" | "target", spec: Pick<BodySpec, "held">, segments?: readonly string[]): string | null {
+  if (!trials.length) return null;
+  const extent = heldExtent(trials, of), mine = heldNumbers(spec);
+  for (const segment of segments ?? [...new Set([...extent.keys(), ...Object.keys(mine ?? {})])].sort()) for (const key of HELD_KEYS) {
+    const now = mine?.[segment]?.[key] ?? 0, [least, most] = extent.get(segment)?.[key] ?? NONE_HELD;
+    if (now < least - HELD_SPANS[key] / 2 || now > most + HELD_SPANS[key] / 2)
+      return `${of === "own" ? "holding" : "struck holding"} ${now} ${key === "mass" ? "kg" : "m"} ${key} at ${segment}, measured ${least} to ${most}`;
+  }
+  return null;
 }
 
 /** **What a trial of `own` against `target` records its bodies held** (`Start.held`); undefined where neither held anything. */
@@ -894,7 +927,7 @@ function cycleAt(sample: Sample, at: Asked, asked: Float64Array): { readonly dea
 /** `profile` read for a skill of a body of `striker` at `postures` (`readProfile`), made anew: for a profile made for one reading, which no later read asks again. */
 export function profileReading(profile: Profile, striker: BodySpec, postures: Postures = STANDING): ProfileReading {
   const own = striker.wounds.hp.value;
-  const trials = heldAsMeasured(profile.trials, striker).filter((trial) => startedAt(trial.start, postures));
+  const trials = profile.trials.filter((trial) => startedAt(trial.start, postures));
   const numbers = bodyNumbers(trials);
   const askedAt = new WeakMap<BodySpec, Float64Array>();
   let askedAlone: Float64Array | null = null;
@@ -907,26 +940,9 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
     if (struck) askedAt.set(struck, made); else askedAlone = made;
     return made;
   };
-  const beyondAt = new WeakMap<BodySpec, readonly string[]>();
-  let beyondAlone: readonly string[] | null = null;
-  /** Where either body's held numbers, asked against `struck`, lie past those its trials held by over half a span, a sentence a body; empty where none does. Found once a struck spec. */
-  const heldBeyond = (struck: BodySpec | null): readonly string[] => {
-    const known = struck ? beyondAt.get(struck) : beyondAlone;
-    if (known) return known;
-    const beyond: string[] = [];
-    if (struck) beyondAt.set(struck, beyond); else beyondAlone = beyond;
-    for (const [of, spec] of [["own", striker], ["target", struck]] as const) {
-      if (!spec || of === "target" && !profile.target) continue;
-      const mine = heldNumbers(spec) ?? {}, segments = new Set([...Object.keys(mine), ...trials.flatMap((trial) => Object.keys(trial.start.held?.[of] ?? {}))]);
-      for (const segment of [...segments].sort()) for (const key of ["mass", "reach"] as const) {
-        const now = mine[segment]?.[key] ?? 0;
-        let least = Infinity, most = -Infinity;
-        for (const trial of trials) { const v = trial.start.held?.[of]?.[segment]?.[key] ?? 0; least = Math.min(least, v); most = Math.max(most, v); }
-        if (now < least - HELD_SPANS[key] / 2 || now > most + HELD_SPANS[key] / 2) { beyond.push(`${of === "own" ? "holding" : "struck holding"} ${now} ${key === "mass" ? "kg" : "m"} ${key} at ${segment}, measured ${least} to ${most}`); break; }
-      }
-    }
-    return beyond;
-  };
+  /** What `scaled` found, a struck spec (`scaledAt`) or none struck (`scaledAlone`); undefined until asked. */
+  const scaledAt = new WeakMap<BodySpec, string | null>();
+  let scaledAlone: string | null | undefined;
   const phaseOf = (phase: string): string => trials.some((trial) => trial.start.phase === phase) ? phase : "clear";
   const phases = new Map<string, Phase>();
   /** The trials a body in `phase` reads (`phaseOf`); found once a phase. */
@@ -986,10 +1002,15 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
     peak: (phase, struck) => extremes(phase).peak / struck.wounds.hp.value,
     fastest: (phase) => extremes(phase).fastest,
     scaled(struck) {
+      const known = struck ? scaledAt.get(struck) : scaledAlone;
+      if (known !== undefined) return known;
       const was = profile.target && struck ? trials.find((trial) => trial.start.struck)?.start.struck : undefined, now = struck && struckNumbers(struck);
       const why = [...was && now && (was.stature !== now.stature || was.mass !== now.mass)
-        ? [`measured against a body of ${was.stature} m and ${was.mass} kg, read against one of ${now.stature} m and ${now.mass} kg`] : [], ...heldBeyond(struck)];
-      return why.length ? why.join("; ") : null;
+        ? [`measured against a body of ${was.stature} m and ${was.mass} kg, read against one of ${now.stature} m and ${now.mass} kg`] : [],
+        ...[heldPast(trials, "own", striker), struck && profile.target ? heldPast(trials, "target", struck) : null].filter((one) => one !== null)];
+      const made = why.length ? why.join("; ") : null;
+      if (struck) scaledAt.set(struck, made); else scaledAlone = made;
+      return made;
     },
   };
   return reading;
@@ -1147,22 +1168,23 @@ export function profileAgainst(profiles: readonly Profile[], struck: BodySpec | 
   return profile ? profile.target ? struckAt(profile, struck) : profile : null;
 }
 
-/** Whether each profile's limb held an item in its trials, found once a profile. */
-const LIMB_HELD = new WeakMap<Profile, boolean>();
-
 /**
- * **Whether a body of `spec` throws `profile`'s strike with its limb as its trials did**: holding
- * an item in that limb where they held one, and none where they held none, so a strike its trials
- * threw with a weapon is not read of an empty hand, nor a punch of a hand that grips one. A
- * profile of no limb fits every body.
+ * **Whether a body of `spec` throws `profile`'s strike with its limb as its trials did**: what that
+ * limb holds within what theirs held (`heldPast`), so a strike its trials threw with a weapon is not
+ * read of an empty hand, nor a punch of a hand that grips one. A profile of no limb fits every body.
  */
 export function limbHoldsAsMeasured(profile: Profile, spec: Pick<BodySpec, "held">): boolean {
   const limb = profile.measured.limb;
   if (limb === undefined) return true;
-  let held = LIMB_HELD.get(profile);
-  if (held === undefined) LIMB_HELD.set(profile, held = profile.trials.some((trial) => trial.start.held?.own?.[limb] !== undefined));
-  return held === (spec.held?.some((one) => one.segment === limb) ?? false);
+  let bySpec = LIMB_HOLDS.get(profile);
+  if (!bySpec) LIMB_HOLDS.set(profile, bySpec = new WeakMap());
+  let holds = bySpec.get(spec);
+  if (holds === undefined) bySpec.set(spec, holds = heldPast(profile.trials, "own", spec, [limb]) === null);
+  return holds;
 }
+
+/** Whether a spec's limb holds as each profile's trials' did (`limbHoldsAsMeasured`), found once the two: both are frozen data. */
+const LIMB_HOLDS = new WeakMap<Profile, WeakMap<Pick<BodySpec, "held">, boolean>>();
 
 /**
  * **The profiles among `profiles` measured on a body of `spec`**, of any skill its limbs throw
