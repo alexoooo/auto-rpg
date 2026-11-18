@@ -8,13 +8,11 @@ import type { World } from "../../core/world/world.ts";
 import type { Reader } from "../evaluation.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
-import { sensedPhase, sensedPosture } from "../../skills/perception/threat.ts";
 import { centreReading } from "../../control/observation.ts";
-import { ownStance, sensedStance } from "../../skills/perception/stance-numbers.ts";
-import { startVelocity, type Stances } from "../../skills/framework/profile.ts";
-import { Vector3 } from "../../core/math/vector.ts";
+import type { Stances } from "../../skills/framework/profile.ts";
 import type { HostedBody } from "../../minds/seat/hosted-body.ts";
-import { LANDED } from "../strike/read.ts";
+import { LANDED, sensedFoe } from "../strike/read.ts";
+import { stepBlows } from "../contest.ts";
 
 /** The range, m centre to centre, beyond which a punch is out of reach: where the Warrior mirror's punches fire (0.79 to 0.97). */
 export const REACH = .95;
@@ -28,16 +26,8 @@ export const apartOf = (duel: Duel): number => {
   return hypot(a.x - d.x, a.z - d.z);
 };
 
-/** The life the bout's left side lost to the blows of the step just played, over the step's seconds: summed over a decision, each blow paid once as it lands. */
-export function struckOf({ duel, world }: { readonly duel: Duel; readonly world: World }): number {
-  const blows = duel.blows, now = world.time, dt = 1 / world.hz;
-  let lost = 0;
-  for (let k = blows.length - 1; k >= 0 && blows[k]!.time > now - dt / 2; k--) {
-    const on = blows[k]!.sides.find((side) => side.fighter === "left");
-    if (on && on.damage > 0 && blows[k]!.sides.some((side) => side.fighter === "right")) lost += on.damage;
-  }
-  return lost / dt;
-}
+/** The life the bout's left side lost to the blows of the step just played, a second (`stepBlows`). */
+export const struckOf = (built: { readonly duel: Duel; readonly world: World }): number => stepBlows(built, (left) => left.damage > 0 ? left.damage : 0);
 
 /** What a trial came to. */
 export type BackStepReading = {
@@ -127,19 +117,13 @@ export function readBackStep({ world, duel }: { readonly world: World; readonly 
     const dx = from.foe[0] - from.own[0], dz = from.foe[1] - from.own[1], length = hypot(dx, dz) || 1, ux = dx / length, uz = dz / length;
     return { own: (to.own[0] - from.own[0]) * ux + (to.own[1] - from.own[1]) * uz, foe: (to.foe[0] - from.foe[0]) * ux + (to.foe[1] - from.foe[1]) * uz };
   };
-  const view = "view" in subject.body ? (subject.body as HostedBody).view : null, head = centreReading(subject.built, "head"), theirHead = centreReading(attacker.built, "head"), centre = new Vector3();
+  const view = "view" in subject.body ? (subject.body as HostedBody).view : null, head = centreReading(subject.built, "head"), theirHead = centreReading(attacker.built, "head");
   /** The attacker as the subject senses it now: its phase, and where it is (`Sway`); null where unseen. */
   const sensed = (): { readonly phase: string; readonly foeAt: Sway["foeAt"] } | null => {
     if (!view) return null;
     head.update();
-    const at = view.stance.centre, senses = subject.senses(), other = senses.others.find((one) => one.id === attacker.id);
-    if (!other) return null;
-    const phase = sensedPhase({ senses, head: head.centre, stance: { centre: centre.set(at.x, at.y, at.z) } }, attacker.id);
-    const dx = other.centre.x - at.x, dz = other.centre.z - at.z, own = view.stance.velocity;
-    const mine = ownStance(subject.built.spec, view, other.centre), theirs = sensedStance(other, at);
-    const stance = mine || theirs ? { ...(mine ? { own: mine } : {}), ...(theirs ? { target: theirs } : {}) } : null;
-    return { phase, foeAt: { posture: sensedPosture(other), apart: Math.sqrt(dx * dx + dz * dz),
-      velocity: startVelocity({ x: dx, z: dz }, { x: own.x - other.velocity.x, z: own.z - other.velocity.z }), ...(stance ? { stance } : {}) } };
+    const foe = sensedFoe(subject.built.spec, subject.senses(), head.centre, view, view.stance.centre, view.stance.velocity, attacker.id);
+    return foe.at ? { phase: foe.phase, foeAt: foe.at } : null;
   };
   /** The two heads' range, m, on the ground. */
   const range = (): number => {

@@ -1,6 +1,6 @@
 /** **A bout as a contest's case**: what is read of it, and the figures every contest reports. */
 import type { DuelEnding } from "../game/arena/duel.ts";
-import { isClash } from "../combat/blows.ts";
+import { isClash, type LandedBlow } from "../combat/blows.ts";
 
 import type { BuiltBout } from "./bout.ts";
 import type { ContestReading, Figure, Reader } from "./evaluation.ts";
@@ -19,6 +19,25 @@ export type BoutReading = ContestReading & {
   readonly bars: readonly [number, number];
   readonly series?: readonly (readonly [number, number])[];
 };
+
+/** One side's part in a landed blow (`LandedBlow.sides`). */
+type BlowPart = LandedBlow["sides"][number];
+
+/**
+ * **What the blows of the step just played pay, a second**: of each blow landed within half a step
+ * of now that touched both sides, `pay` of the left side's part and the right side's, over the
+ * step's seconds, so that summed over a decision each blow is paid once as it lands.
+ */
+export function stepBlows(built: { readonly duel: { readonly blows: readonly LandedBlow[] }; readonly world: { readonly time: number; readonly hz: number } },
+  pay: (left: BlowPart, right: BlowPart) => number): number {
+  const blows = built.duel.blows, now = built.world.time, dt = 1 / built.world.hz;
+  let paid = 0;
+  for (let k = blows.length - 1; k >= 0 && blows[k]!.time > now - dt / 2; k--) {
+    const sides = blows[k]!.sides, left = sides.find((side) => side.fighter === "left"), right = sides.find((side) => side.fighter === "right");
+    if (left && right) paid += pay(left, right);
+  }
+  return paid / dt;
+}
 
 /** How often a bout's bars are read into its series, simulated s. */
 export const SERIES_SECONDS = 10;

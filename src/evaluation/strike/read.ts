@@ -22,6 +22,7 @@ import type { Mechanism } from "../../combat/rulebook.ts";
 import type { BuiltBout } from "../bout.ts";
 import type { HostedBody } from "../../minds/seat/hosted-body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import type { BodyView } from "../../control/body.ts";
 import { modelSpec } from "../../core/bodies/models.ts";
 import { startVelocity, type Stances } from "../../skills/framework/profile.ts";
 import { placeInWindow } from "../../skills/intent/action-window.ts";
@@ -37,6 +38,28 @@ export type Mark = "high" | "middle" | "legs";
  * blow, `Rulebook.unit`), a twelfth of a Warrior's: a graze is not a landed punch.
  */
 export const LANDED = .5;
+
+/** Where the sensing body stands, for `sensedPhase`: written each call, read within it. */
+const SENSING = new Vector3();
+
+/**
+ * **The foe `foe` as a body of `spec` senses it now**, from `at`, where the body stands, going at
+ * `own` over the ground: its phase (`sensedPhase`, from the senses and the head's centre `head`);
+ * and, where it is sensed, its posture (`sensedPosture`), how far apart the two are, the body's
+ * velocity against the foe's sensed one along the line between them and across it
+ * (`startVelocity`), and how each stands (`ownStance` where the body has a `view`, `sensedStance`;
+ * absent where neither is read). Its `at` null where the foe is not sensed.
+ */
+export function sensedFoe(spec: BodySpec, senses: BodyView["senses"], head: Vector3, view: Pick<BodyView, "segments" | "stance"> | null,
+  at: { readonly x: number; readonly y: number; readonly z: number }, own: { readonly x: number; readonly z: number }, foe: string): { readonly phase: string; readonly at: StrikeReading["foeAt"] } {
+  const phase = sensedPhase({ senses, head, stance: { centre: SENSING.set(at.x, at.y, at.z) } }, foe), other = senses.others.find((one) => one.id === foe);
+  if (!other) return { phase, at: null };
+  const dx = other.centre.x - at.x, dz = other.centre.z - at.z;
+  const mine = view ? ownStance(spec, view, other.centre) : null, theirs = sensedStance(other, at);
+  const stance = mine || theirs ? { ...(mine ? { own: mine } : {}), ...(theirs ? { target: theirs } : {}) } : null;
+  return { phase, at: { posture: sensedPosture(other), apart: Math.sqrt(dx * dx + dz * dz),
+    velocity: startVelocity({ x: dx, z: dz }, { x: own.x - other.velocity.x, z: own.z - other.velocity.z }), ...(stance ? { stance } : {}) } };
+}
 
 /** The segment `steps` joints above `segment` in `spec`'s tree: a hand's forearm at 1, its upper arm at 2. */
 function limbAbove(spec: BodySpec, segment: string, steps: number): string | undefined {
@@ -465,7 +488,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   let asked: StrikeReading["asked"] = null;
   /** The target's phase and where it was, as the striker sensed them where its trial began, and where the drill had the body. */
   let foeBegan: Sensed | null = null, atHand: Sensed | null = null;
-  const head = centreReading(left.built, "head"), centre = new Vector3(), theirHead = centreReading(struck.built, target.marks.high);
+  const head = centreReading(left.built, "head"), theirHead = centreReading(struck.built, target.marks.high);
   /** The range head to head across the ground to the target, as this step left the two, m. */
   const range = (): number => {
     head.update(); theirHead.update();
@@ -497,14 +520,8 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
    */
   const sensed = (): Sensed => {
     head.update();
-    const at = left.body.observe().centre, senses = left.senses(), other = senses.others.find((one) => one.id === struck.id);
-    const phase = sensedPhase({ senses, head: head.centre, stance: { centre: centre.set(at[0], at[1], at[2]) } }, struck.id);
-    if (!other) return { phase, at: null, window: null };
-    const dx = other.centre.x - at[0], dz = other.centre.z - at[2], own = moving();
-    const mine = view ? ownStance(left.built.spec, view, other.centre) : null, theirs = sensedStance(other, { x: at[0], z: at[2] });
-    const stance = mine || theirs ? { ...(mine ? { own: mine } : {}), ...(theirs ? { target: theirs } : {}) } : null;
-    return { phase, at: { posture: sensedPosture(other), apart: Math.sqrt(dx * dx + dz * dz),
-      velocity: startVelocity({ x: dx, z: dz }, { x: own.x - other.velocity.x, z: own.z - other.velocity.z }), ...(stance ? { stance } : {}) }, window: placed() };
+    const at = left.body.observe().centre, foe = sensedFoe(left.built.spec, left.senses(), head.centre, view, { x: at[0], y: at[1], z: at[2] }, moving(), struck.id);
+    return { phase: foe.phase, at: foe.at, window: foe.at ? placed() : null };
   };
   /** Which feet bear on the ground, and the centre of mass's speed over it, as this step left them. */
   const footing = (): NonNullable<StrikeReading["asked"]> => {

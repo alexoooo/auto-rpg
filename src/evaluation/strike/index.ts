@@ -17,7 +17,7 @@ import { recordingKey } from "../../core/world/recording.ts";
 import { mindJson, mindSubject, type Evaluation, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import type { StrikeReading } from "./read.ts";
-import type { LandedBlow } from "../../combat/blows.ts";
+import { stepBlows } from "../contest.ts";
 import { barScore, graded, releasedScore } from "./score.ts";
 import { FALL_PRICE, keep, trialValue } from "../table/judge.ts";
 import { createStrikeCases, limbOf, type StrikeCondition } from "./cases.ts";
@@ -50,18 +50,10 @@ function loadoutNamed(key: string): Loadout {
 
 /**
  * The hit points the left side's hands dealt the other side in the blows of the step just played
- * (`BlowSide.damage`), each raised to `power`, over the step's seconds: a learning percept's.
+ * (`BlowSide.damage`), each raised to `power`, a second (`stepBlows`): a learning percept's.
  */
-function handBlows(built: { readonly duel: { readonly blows: readonly LandedBlow[]; readonly duelists: { readonly left: { readonly id: string } } };
-  readonly world: { readonly time: number; readonly hz: number } }, power: number): number {
-  const blows = built.duel.blows, me = built.duel.duelists.left.id, now = built.world.time, dt = 1 / built.world.hz;
-  let paid = 0;
-  for (let k = blows.length - 1; k >= 0 && blows[k]!.time > now - dt / 2; k--) {
-    const sides = blows[k]!.sides, mine = sides.find((side) => side.fighter === me), theirs = sides.find((side) => side.fighter !== me);
-    if (mine && theirs && mine.segment.startsWith("hand.")) paid += theirs.damage ** power;
-  }
-  return paid / dt;
-}
+const handBlows = (built: Parameters<typeof stepBlows>[0], power: number): number =>
+  stepBlows(built, (left, right) => left.segment.startsWith("hand.") ? right.damage ** power : 0);
 
 /** Contact outcomes and diagnostic failures; an observation with incomplete motion coverage cannot pass. */
 const strikeOutcome = (reading: StrikeReading) => {
