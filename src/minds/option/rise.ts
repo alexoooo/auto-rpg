@@ -124,7 +124,7 @@ function attempt(given: ProfileOptionContext, part: TechniquePart, skill: PartCo
   };
   const note = (done: boolean): void => { if (memory.from !== null) record.note(name, memory.from, done); memory.from = null; };
   return {
-    name, claims: WHOLE, state: memory, ...extra,
+    name, kind: "way up", claims: WHOLE, state: memory, ...extra,
     entry(now) {
       // Begun, it runs on until it ends, however the body is read.
       if (memory.id !== null) return READY;
@@ -226,7 +226,7 @@ export const REGAIN_OPTION = groundKind("regaining", "Regain", "regain", null, (
   const name = part.defaults.kind as string, record = given.record, { way, priced } = groundWay(given, config.skill, name, REGAIN_PRIOR);
   const memory = { id: null as number | null, start: part.starts[0]!,  from: null, regained: 0 }, sides = bindingSegments(part, given.spec, config.skill), NOT_ON_FEET = blocked("not on its feet in a rise");
   return [{
-    name: "regain", claims: WHOLE, state: memory, priced,
+    name: "regain", kind: "regain", claims: WHOLE, state: memory, priced,
     entry: (now) => { const g = now.ground; return g && onFeet(g) ? READY : NOT_ON_FEET; },
     status(now): Status {
       if (now.rising) return "yields";
@@ -254,7 +254,7 @@ export const REGAIN_OPTION = groundKind("regaining", "Regain", "regain", null, (
 export const LAND_OPTION = groundKind("landing", "Land", "land", null, (given, config, part) => {
   const name = part.defaults.kind as string, memory = { id: null as number | null, start: part.starts[0]!,  from: null }, sides = bindingSegments(part, given.spec, config.skill), NOT_LANDING = blocked("not landing");
   return [{
-    name, claims: WHOLE, state: memory,
+    name, kind: "land", claims: WHOLE, state: memory,
     entry: (now) => { const g = now.ground; return g && !onFeet(g) && !g.settled && calm(now, g) ? READY : NOT_LANDING; },
     status: () => "yields",
     model: (at) => at.ground ? downTerms(at, 1 / given.hz, UNMOVED) : null,
@@ -290,7 +290,7 @@ export const BRACE_TUMBLING_OPTION = groundKind("brace-tumbling", "Brace while t
     return begins;
   };
   return [{
-    name: "brace while tumbling", claims: WHOLE, state: memory, priced,
+    name: "brace while tumbling", kind: "brace", claims: WHOLE, state: memory, priced,
     entry: (now) => { const g = now.ground; return g && !onFeet(g) && (!calm(now, g) || g.settled && unready(now, g)) ? READY : NOT_MOVING; },
     status: () => "yields",
     model(at) {

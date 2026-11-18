@@ -593,7 +593,7 @@ function searching(make: (now: Situation) => Lines): Appraise<Situation, OfferTe
       range += outcome.chance * end.range; down += outcome.chance * (end.down ? 1 : 0);
     }
     const letGo = terms.letGo ? Math.max(0, terms.letGo.taken - threatened(now, terms.letGo.seconds)) : 0;
-    return { name: option.name, worth, terms: { duration: terms.duration, dealt: terms.dealt, taken: terms.taken, orders: terms.orders, exit: { range, down } },
+    return { name: option.name, kind: option.kind, worth, terms: { duration: terms.duration, dealt: terms.dealt, taken: terms.taken, orders: terms.orders, exit: { range, down } },
       moves: worth - (terms.dealt - terms.taken), letGo };
   };
 }
@@ -776,7 +776,7 @@ export const RANKED_CHOOSER = deepFreeze<OptionChooserPart<RankedConfig>>({
   role: "chooser", model: PROFILE_MODEL, label: "By rank", stage: "game", offered: false, fields: [], slots: [],
   defaults: { kind: "ranked" }, keys: { kind: true }, fits: anyBody, faults: () => [],
   make: (_config: RankedConfig, options: readonly Option[], _seed: number, _parts: PartLookup, phase = 0) =>
-    chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null, moves: null, letGo: 0 }), { ...DECIDING, phase }),
+    chooser(options, (option, i) => ({ name: option.name, kind: option.kind, worth: options.length - i, terms: null, moves: null, letGo: 0 }), { ...DECIDING, phase }),
 });
 
 declare module "./parts.ts" {

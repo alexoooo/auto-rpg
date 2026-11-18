@@ -45,7 +45,7 @@ const tables = new Map();
 let bouts = 0, moments = 0;
 for (const file of files) {
   for (const [header, record] of savedBouts(file)) {
-    if (String(header).split(" ")[3] !== "empty") throw new Error(`${file}: a bout with a body holding something (${header}); tables are of empty hands`);
+    if (record.held !== "empty") throw new Error(`${file}: a bout with a body holding something (${header}); tables are of empty hands`);
     bouts++;
     for (const i of [0, 1]) {
       const rows = record.decisions[i], foe = record.sides[1 - i], own = record.sides[i];

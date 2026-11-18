@@ -19,6 +19,8 @@ export type Status = "committed" | "yields" | "exit" | "over";
  */
 export interface Choice<S> {
   readonly name: string;
+  /** What kind of course it is, as its maker names it (an option's: a strike, a walk, a hold, a back step, …): what its offers say they are (`Priced.kind`). */
+  readonly kind: string;
   /** Its memory (`src/core/state.ts`), plain data. */
   readonly state: object;
   /** The resources it takes from the set while it runs (`Resource`; `WHOLE`, all of them): what no other choice chosen beside it may hold. */
@@ -59,6 +61,8 @@ export interface Choice<S> {
  */
 export interface Priced<T> {
   readonly name: string;
+  /** Its choice's kind (`Choice.kind`). */
+  readonly kind: string;
   readonly worth: number;
   readonly terms: T | null;
   readonly moves: number | null;

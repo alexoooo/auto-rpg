@@ -33,7 +33,8 @@
  * (`withBackStep`), one flag a side.
  *
  * A saved bout keeps as well each stretch either body was down (`grounded`, s, from the step one went
- * down to the step both stood): what `bout-readings.mjs` splits a silence by.
+ * down to the step both stood): what `bout-readings.mjs` splits a silence by; and what each body's
+ * right hand held (`held`, the left empty).
  *
  * A bout whose body's control throws is a fault: named and counted, and left out of what is saved
  * and read; the others play on.
@@ -202,7 +203,8 @@ if (isMainThread) {
         byId[side].set(action.id, attempt); track[side].attempts.push(attempt); return attempt;
       };
       // When each side went down; and at each decision of its mind (its offers anew), [s, apart m centre to centre, the offer chosen, its terms'
-      // duration s, dealt and taken (life), its own life then, the foe's, holding's price a second (life), each strike offered: [its skill and limb, its terms]].
+      // duration s, dealt and taken (life), its own life then, the foe's, holding's price a second (life), each strike offered: [its skill and limb, its terms],
+      // what it read the foe doing, where each body's centre stood, its then the foe's, and the kind of the option it runs (`Engagement.kind`)].
       const downs = { left: [], right: [] }, wasDown = { left: false, right: false }, grounded = [], state = { groundedSince: null }, decisions = { left: [], right: [] }, offered = { left: null, right: null };
       while (!duel.verdict && duel.clock < seconds) {
         world.step();
@@ -222,8 +224,8 @@ if (isMainThread) {
             const hold = offers.find((offer) => offer.name === "hold")?.terms;
             decisions[side].push([+duel.clock.toFixed(4), +Math.hypot(a.x - b.x, a.z - b.z).toFixed(3), engagement.phase, ...termsOf(terms), +me.pool.bar().toFixed(5), +foe.pool.bar().toFixed(5),
               hold && hold.duration > 0 ? +(hold.taken / hold.duration).toFixed(6) : null,
-              offers.filter((offer) => /^[a-z-]+ (hand|foot)\.[a-z]+(:|$)/.test(offer.name)).map((offer) => [offer.name.split(":")[0], ...termsOf(offer.terms)]), engagement.foe ?? null,
-              [+a.x.toFixed(3), +a.z.toFixed(3)], [+b.x.toFixed(3), +b.z.toFixed(3)]]);
+              offers.filter((offer) => offer.kind === "strike").map((offer) => [offer.name.split(":")[0], ...termsOf(offer.terms)]), engagement.foe ?? null,
+              [+a.x.toFixed(3), +a.z.toFixed(3)], [+b.x.toFixed(3), +b.z.toFixed(3)], engagement.kind ?? null]);
           }
         }
         for (const side of SIDES) {
@@ -282,7 +284,7 @@ if (isMainThread) {
         }
         return [...keyed.values()];
       });
-      parentPort.postMessage({ result: { schema: BOUT_SCHEMA, strikes, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
+      parentPort.postMessage({ result: { schema: BOUT_SCHEMA, held, strikes, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
         bars: SIDES.map(side => duel.duelists[side].pool.bar()), hp: SIDES.map(side => duel.duelists[side].body.built.spec.wounds.hp.value), downs: SIDES.map(side => downs[side]), grounded: state.groundedSince === null ? grounded : [...grounded, [state.groundedSince, duel.clock]], decisions: SIDES.map(side => decisions[side]), sides: SIDES.map(side => track[side]) } });
     } catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
     finally { dispose?.(); }

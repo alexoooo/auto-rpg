@@ -55,6 +55,8 @@ export interface EngagementDetail {
  */
 export interface Engagement {
   readonly phase: string;
+  /** What kind of course its phase is (a chooser's: the running choice's, `Choice.kind`), where it says. */
+  readonly kind?: string;
   readonly focus?: string | null;
   /** What the focus is doing as the mind last read it (an Option Mind's `FoePhase`), where it reads so. */
   readonly foe?: string;

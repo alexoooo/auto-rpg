@@ -329,7 +329,7 @@ export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at gua
   const part = given.parts.of("guard", config);
   const options = [...guardOf(given.spec, { covering: part.covering === true })];
   // A guard without hands is still an enabled posture the mind can choose.
-  if (!options.length) options.push({ ...hold(given.walk), name: "guard", claims: [] });
+  if (!options.length) options.push({ ...hold(given.walk), name: "guard", kind: "guard", claims: [] });
   return options.map(option => choosingSkill(option, config, part.label, "guardSkill"));
 })), phases: { guard: "Guarding" } });
 

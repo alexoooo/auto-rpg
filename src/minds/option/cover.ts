@@ -37,7 +37,7 @@ export function covers(spec: BodySpec): readonly Option[] {
   const claims: Readonly<Record<Side, readonly Resource[]>> = { left: Object.freeze([segmentResource(pairedSegment("hand", "left"))]), right: Object.freeze([segmentResource(pairedSegment("hand", "right"))]) };
   const sides = sidesWith(spec, "hand");
   const option: Option = {
-    name: "cover", state,
+    name: "cover", kind: "cover", state,
     /** The hand on the blow's side, as the entry last read it. */
     get claims() { return state.hand ? claims[state.hand] : NOTHING; },
     entry: (now) => {

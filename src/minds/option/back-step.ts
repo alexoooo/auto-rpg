@@ -66,7 +66,7 @@ export function backStepping(spec: BodySpec, outcomes: OutcomeModel, walk: Walke
   };
   const NO_FOE = blocked("no foe within the back step's measured range"), CARRIAGE = blocked("not standing in the back step's carriage");
   return [{
-    name: "back step", state, claims: LEGS,
+    name: "back step", kind: "back step", state, claims: LEGS,
     entry: (now) => {
       const legs = legsReadiness(now.sight.view);
       if (legs.kind !== "ready") return legs;

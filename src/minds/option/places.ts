@@ -147,7 +147,7 @@ export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker,
   };
   return {
     get name() { return `${label} to ${names[state.at] ?? "nowhere"}`; },
-    claims: LEGS, state, targets: names,
+    kind: "walk", claims: LEGS, state, targets: names,
     aim(index) { state.at = index; },
     entry: (now) => {
       const legs = legsReadiness(now.sight.view);

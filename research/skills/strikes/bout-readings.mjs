@@ -72,7 +72,7 @@ if (pairs) {
   console.log("\nPairs: each side's punches, landed (at least 0.5 hp) a bout-minute, the median landed blow, wins left-right");
   for (const [label, all] of loaded) {
     const byPair = new Map();
-    for (const [key, bout] of all) { const [left, right] = key.split(" "), pair = `${left} v ${right}`; (byPair.get(pair) ?? byPair.set(pair, []).get(pair)).push(bout); }
+    for (const [, bout] of all) { const pair = `${bout.sides[0].model} v ${bout.sides[1].model}`; (byPair.get(pair) ?? byPair.set(pair, []).get(pair)).push(bout); }
     for (const [pair, bouts] of byPair) {
       const minutes = sum(bouts.map((b) => b.seconds)) / 60;
       const side = (i) => {
@@ -97,8 +97,8 @@ function reachOf(foe, body) {
   return reach;
 }
 
-/** What a chosen offer is, by its name: a walk (to close or keep away), a hold, a strike, else. */
-const kindOf = (name) => / to /.test(name) ? "walk" : name === "hold" ? "hold" : /^[a-z-]+ (hand|foot)\./.test(name) ? "strike" : "else";
+/** What a body chose, by the kind of the option it ran (`Engagement.kind`): a walk (to close or keep away), a hold, a strike, else. */
+const doingOf = (kind) => kind === "walk" || kind === "hold" || kind === "strike" ? kind : "else";
 
 if (prices) {
   const [{ lifeFactor }, { rulebook }, { duelSpec }] = await Promise.all([import("../../../src/combat/pool.ts"), import("../../../src/combat/rulebook.ts"), import("../../../src/game/arena/duel.ts")]);
@@ -113,8 +113,8 @@ if (prices) {
   for (const [label, all] of loaded) {
     const rows = new Map(), reaches = new Map();
     const add = (row, dealt, given, taken, lost) => { const r = rows.get(row) ?? rows.set(row, { n: 0, dealt: 0, given: 0, taken: 0, lost: 0 }).get(row); r.n++; r.dealt += dealt; r.given += given; r.taken += taken; r.lost += lost; };
-    for (const [key, bout] of all) {
-      const models = key.split(" ").slice(0, 2);
+    for (const [, bout] of all) {
+      const models = bout.sides.map((side) => side.model);
       // Each side's life at a time: the last reading at or before it, of either side's decisions, then the bout's end.
       const lives = [...bout.decisions[0].map((d) => [d[0], d[6], d[7]]), ...bout.decisions[1].map((d) => [d[0], d[7], d[6]]), [bout.seconds, bout.bars[0], bout.bars[1]]].sort((a, b) => a[0] - b[0]);
       const lifeAt = (t, s) => { let lo = 0, hi = lives.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (lives[mid][0] <= t + 1e-9) lo = mid; else hi = mid - 1; } return lives[lo][1 + s]; };
@@ -123,11 +123,11 @@ if (prices) {
         const body = models[s], foe = models[1 - s], pair = `${foe} ${body}`;
         if (!reaches.has(pair)) reaches.set(pair, reachOf(foe, body));
         const reach = reaches.get(pair), decisions = bout.decisions[s];
-        decisions.forEach(([t, apart, name, duration, , taken, , , holding], i) => {
+        decisions.forEach(([t, apart, , duration, , taken, , , holding, , , , , kind], i) => {
           if (apart < reach) {
             const next = decisions[i + 1]?.[0] ?? bout.seconds, dt = next - t;
             if (holding !== null) add("seconds in reach", 0, 0, holding * dt, lost(s, t, dt));
-          } else if (duration !== null) add(`out of reach, ${kindOf(name)}`, 0, 0, taken, lost(s, t, duration));
+          } else if (duration !== null) add(`out of reach, ${doingOf(kind)}`, 0, 0, taken, lost(s, t, duration));
         });
         // Each punch: the strike offered with its limb at the last decision at or before it began.
         for (const attempt of bout.sides[s].attempts) {

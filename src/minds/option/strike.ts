@@ -276,7 +276,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
       && kept.spot.x === where.x && kept.spot.z === where.z && kept.spot.face === where.face);
   };
   return {
-    name, get claims() { return claimed.claims; }, state,
+    name, kind: "strike", get claims() { return claimed.claims; }, state,
     modelled: { name, limbs: action.effectors, profiles: read },
     entry, bound,
     status: (now) => { if (state.over) return "over"; const phase = live(now)?.phase; return phase === "release" ? "exit" : phase === "commit" ? "committed" : "yields"; },

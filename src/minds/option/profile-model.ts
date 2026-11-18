@@ -34,6 +34,7 @@ export function profileModel(tables: ProfileTables, outcomes: "nearest" | "coars
     let foe = "clear";
     const engagement = {
       get phase() { return chosen.running[0]?.name ?? "hold"; },
+      get kind() { return chosen.running[0]?.kind ?? "hold"; },
       get offers() { return chosen.offers; },
       get foe() { return foe; },
       get details() { return state.details; },

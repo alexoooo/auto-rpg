@@ -45,7 +45,7 @@ export function followOrders(gaits: readonly GaitName[], walk: Pick<Walker, "obe
     return best;
   };
   return {
-    name: "follow orders", claims, state: {},
+    name: "follow orders", kind: "orders", claims, state: {},
     entry: (now) => {
       const legs = legsReadiness(now.sight.view);
       if (legs.kind !== "ready") return legs;

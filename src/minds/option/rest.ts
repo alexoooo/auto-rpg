@@ -58,7 +58,7 @@ const OUT_OF_REACH: Site = Object.freeze({
  * of the focus's reach (`OUT_OF_REACH`), where holding costs less.
  */
 export function hold(walk: Pick<Walker, "facing" | "kept">): Option {
-  return { name: "hold", claims: LEGS, state: {}, ...RESTING, sites: [OUT_OF_REACH],
+  return { name: "hold", kind: "hold", claims: LEGS, state: {}, ...RESTING, sites: [OUT_OF_REACH],
     entry: (now) => legsReadiness(now.sight.view), model: (at, ask) => standing(at) ? holding(at, ask) : null, step: still(walk) };
 }
 
@@ -72,7 +72,7 @@ export function holdAt(x: number, z: number, within: number, walk: Pick<Walker, 
   const AWAY = blocked("away from its place"), off = (at: Situation): number => hypot(x - at.where.x, z - at.where.z);
   const site: Site = Object.freeze({ name: `(${x}, ${z})`,
     spot: (at: Situation) => ({ x, z, near: within, face: off(at) > 0 ? atan2(x - at.where.x, z - at.where.z) : at.where.face }) });
-  return { name: `hold at (${x}, ${z})`, claims: LEGS, state: {}, ...RESTING, sites: [site],
+  return { name: `hold at (${x}, ${z})`, kind: "hold at", claims: LEGS, state: {}, ...RESTING, sites: [site],
     entry: (now) => {
       const legs = legsReadiness(now.sight.view);
       return legs.kind !== "ready" ? legs : off(now) <= within ? READY : AWAY;
@@ -90,7 +90,7 @@ export function holdAt(x: number, z: number, within: number, walk: Pick<Walker, 
  */
 function guard(hands: readonly string[], shields: readonly string[] = []): Option {
   const covers: Record<string, Cover> = {};
-  return { name: "guard", claims: Object.freeze(hands.map(segmentResource)), state: {}, ...RESTING,
+  return { name: "guard", kind: "guard", claims: Object.freeze(hands.map(segmentResource)), state: {}, ...RESTING,
     entry: (now) => legsReadiness(now.sight.view), model: (at, ask) => standing(at) ? holding(at, ask) : null,
     step: (now) => {
       const asked = { move: null, face: now.sight.report.legs.heading, actions: [] };
@@ -118,7 +118,7 @@ const HERE: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });
  */
 export function brace(by: { readonly action: string; readonly effector: string } | null): Option {
   const STANDING = blocked("the legs carry the body"), state = { id: null as number | null };
-  return { name: "brace", claims: WHOLE, state, ...RESTING,
+  return { name: "brace", kind: "brace", claims: WHOLE, state, ...RESTING,
     begin() { state.id = null; }, end() { state.id = null; },
     entry: (now) => legsReadiness(now.sight.view).kind === "ready" ? STANDING : READY, model: (at, ask) => at.down ? holding(at, ask) : null,
     step(now) {
