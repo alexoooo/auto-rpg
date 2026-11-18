@@ -3,11 +3,15 @@ import type { DataKey } from "../../core/data/store.ts";
 import type { ActionConfig } from "../config.ts";
 import type { Executor } from "./action.ts";
 import type { ExecutorMaking } from "./executor-part.ts";
-import type { PartConfig } from "../../parts/parts.ts";
+import { fitsAll, type PartConfig } from "../../parts/parts.ts";
+import type { PartLookup } from "../../parts/lookup.ts";
 import { recordFault } from "./records.ts";
 
+/** **A part's config that may name a variation** (`Varied`). */
+export type VariedConfig = PartConfig & Varied;
+
 /** The name a decision uses for one held variation, also used in combat reports. */
-export const skillName = (config: PartConfig): string => `${config.kind}/${(config as Varied).variation ?? ""}`;
+export const skillName = (config: VariedConfig): string => `${config.kind}/${config.variation ?? ""}`;
 
 /**
  * **A skill's variations**, by name (`Part.variations`): each what its part makes of it, `V`, by
@@ -43,10 +47,10 @@ export const makersOf = <V>(variations: Variations<RecordedVariation<V>>): Varia
  * A part's `reads` for its `variations` (`Recorded`): the records of the variation a config names,
  * and every variation's where it names none, each key once.
  */
-export function variationReads(variations: Variations<Recorded>): (config: object) => readonly DataKey[] {
+export function variationReads(variations: Variations<Recorded>): (config: VariedConfig) => readonly DataKey[] {
   const every = [...new Set(Object.values(variations).flatMap((one) => one.reads))];
   return (config) => {
-    const named = (config as Varied).variation;
+    const named = config.variation;
     return named !== undefined && Object.hasOwn(variations, named) ? variations[named]!.reads : every;
   };
 }
@@ -57,11 +61,11 @@ export function variationReads(variations: Variations<Recorded>): (config: objec
  * else each its character holds), or null (`recordFault`, of that variation's `bodies`, which
  * names the variation where the skill has several).
  */
-export function variationRecordFault<T>(skill: string, label: string, variations: Variations<Recorded>, whole: (tuning: T) => boolean): (spec: BodySpec, config: { readonly tuning?: T }) => string | null {
+export function variationRecordFault<T>(skill: string, label: string, variations: Variations<Recorded>, whole: (tuning: T) => boolean): (spec: BodySpec, config: VariedConfig & { readonly tuning?: T }) => string | null {
   const several = Object.keys(variations).length > 1;
   const faults = new Map(Object.entries(variations).map(([name, one]) => [name, recordFault(several ? `${label} ${name}` : label, one.bodies, whole)]));
   return (spec, config) => {
-    const named = (config as Varied).variation;
+    const named = config.variation;
     for (const variation of named !== undefined ? [named] : heldVariations(spec, skill)) {
       const fault = faults.get(variation)?.(spec, config) ?? null;
       if (fault !== null) return fault;
@@ -76,17 +80,16 @@ export interface Varied {
 }
 
 /** Whether a configured skill selects this kind and variation; an unnamed variation selects every held one. */
-export function selectsVariation(config: PartConfig, held: PartConfig): boolean {
-  const named = (config as Varied).variation;
-  return config.kind === held.kind && (named === undefined || named === (held as Varied).variation);
+export function selectsVariation(config: VariedConfig, held: VariedConfig): boolean {
+  return config.kind === held.kind && (config.variation === undefined || config.variation === held.variation);
 }
 
 /**
  * **The variation of `skill` a config runs on a body of `spec`**: the one it names; where it names
  * none, the one variation of the skill the body holds; undefined where it holds none, or several.
  */
-export function chosenVariation(spec: Pick<BodySpec, "skills">, skill: string, config: object): string | undefined {
-  const named = (config as Varied).variation;
+export function chosenVariation(spec: Pick<BodySpec, "skills">, skill: string, config: VariedConfig): string | undefined {
+  const named = config.variation;
   if (named !== undefined) return named;
   const held = heldVariations(spec, skill);
   return held.length === 1 ? held[0] : undefined;
@@ -97,10 +100,10 @@ export function chosenVariation(spec: Pick<BodySpec, "skills">, skill: string, c
  * `skill` (its `label`) as `config` names it, or null: its character holds no variation of it, not
  * the one `config` names, or one it has no code for.
  */
-export function variationFault(skill: string, label: string, variations: Variations<unknown> | readonly string[]): (spec: BodySpec, config: object) => string | null {
+export function variationFault<C extends VariedConfig>(skill: string, label: string, variations: Variations<unknown> | readonly string[]): (spec: BodySpec, config: C) => string | null {
   const known: readonly string[] = Array.isArray(variations) ? variations : Object.keys(variations);
   return (spec, config) => {
-    const named = (config as Varied).variation;
+    const named = config.variation;
     const held = heldVariations(spec, skill);
     if (held.length === 0) return `the character has no ${label}`;
     if (named !== undefined && !held.includes(named)) return `the character has no ${label} ${named}`;
@@ -114,22 +117,32 @@ export function variationFault(skill: string, label: string, variations: Variati
  * `variationFault` refused the rest): what its part makes of it. A body holding several must be
  * given the one in its config.
  */
-export function heldVariation<V>(spec: Pick<BodySpec, "skills" | "model">, skill: string, config: object, variations: Variations<V>): V {
+export function heldVariation<V>(spec: Pick<BodySpec, "skills" | "model">, skill: string, config: VariedConfig, variations: Variations<V>): V {
   const chosen = chosenVariation(spec, skill, config);
   if (chosen === undefined || !Object.hasOwn(variations, chosen)) throw new Error(`${spec.model}'s character runs no one variation of ${skill} it has: name it`);
   return variations[chosen]!;
 }
 
+/** A part's `fits` (`Part.fits`) for a config of `C`. */
+export type Fits<C> =(spec: BodySpec, config: C, parts: PartLookup) => string | null;
+
 /**
- * **A part's `make` over its `variations`**, each a maker of the part's own arguments: the maker of
- * the one its body runs (`heldVariation`), the body's spec and the config read from the arguments by `of`.
+ * **A skill's part over its `variations`**, each a maker of the part's own arguments: their names
+ * (`Part.variations`); its `fits`, a body whose character holds the variation it runs, with code
+ * for it (`variationFault`, `label` in its refusals), and then each of `fits`; and its `make`, the
+ * maker of the variation its body runs (`heldVariation`), the body's spec and config read from the
+ * maker's arguments by `of`.
  */
-export function variedMake<A extends unknown[], R>(skill: string, variations: Variations<(...args: A) => R>,
-  of: (...args: A) => readonly [Pick<BodySpec, "skills" | "model">, object]): (...args: A) => R {
-  return (...args) => { const [spec, config] = of(...args); return heldVariation(spec, skill, config, variations)(...args); };
+export function varied<A extends unknown[], R, C extends VariedConfig>({ skill, label, variations, of, fits }: {
+  readonly skill: string; readonly label: string; readonly variations: Variations<(...args: A) => R>;
+  readonly of: (...args: A) => readonly [Pick<BodySpec, "skills" | "model">, C]; readonly fits: readonly Fits<C>[];
+}): { readonly fits: Fits<C>; readonly make: (...args: A) => R; readonly variations: readonly string[] } {
+  return {
+    fits: fitsAll<C>(variationFault(skill, label, variations), ...fits),
+    make: (...args) => { const [spec, config] = of(...args); return heldVariation(spec, skill, config, variations)(...args); },
+    variations: Object.keys(variations),
+  };
 }
 
-/** An executor's `make` for its `variations` (`variedMake`). */
-export function variationMaker<C extends Varied>(skill: string, variations: ExecutorVariations<C>): ExecutorVariations<C>[string] {
-  return variedMake(skill, variations, (making, config) => [making.body.built.spec, config]);
-}
+/** An executor's body's spec and config (`varied`'s `of`). */
+export const executorOf = <C>(making: ExecutorMaking, config: C): readonly [BodySpec, C] => [making.body.built.spec, config];

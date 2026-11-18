@@ -1,4 +1,4 @@
-import { heldVariation, type Variations } from "./variations.ts";
+import { heldVariation, varied, type Fits, type VariedConfig, type Variations } from "./variations.ts";
 import type { BodyView } from "../../control/body.ts";
 import type { EffectorGoal, PointTask } from "../../control/motor.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
@@ -50,14 +50,16 @@ export interface GuardPart<C extends PartConfig = PartConfig> extends Part<C> {
 export type GuardVariation<C extends PartConfig> = Pick<GuardPart<C>, "posture" | "make">;
 
 /**
- * **A guard's `posture`, `make` and `variations` over its variations**: each the one its body runs
- * (`heldVariation`), and the part's own fit refusing a body whose character holds none (`variationFault`).
+ * **A guard's part over its `variations`** (`varied`): their names, its `fits` and its `make`, and
+ * its `posture`, the posture of the variation its body runs (`heldVariation`).
  */
-export function guardVariations<C extends PartConfig>(skill: string, variations: Variations<GuardVariation<C>>): Pick<GuardPart<C>, "posture" | "make" | "variations"> {
+export function guardVariations<C extends VariedConfig>({ skill, label, variations, fits }: {
+  readonly skill: string; readonly label: string; readonly variations: Variations<GuardVariation<C>>; readonly fits: readonly Fits<C>[];
+}): Pick<GuardPart<C>, "fits" | "posture" | "make" | "variations"> {
+  const makers = Object.fromEntries(Object.entries(variations).map(([name, one]) => [name, one.make]));
   return {
+    ...varied({ skill, label, variations: makers, of: (built: ReadBody, config: C) => [built.spec, config], fits }),
     posture: (spec, config) => heldVariation(spec, skill, config, variations).posture(spec, config),
-    make: (built, config) => heldVariation(built.spec, skill, config, variations).make(built, config),
-    variations: Object.keys(variations),
   };
 }
 

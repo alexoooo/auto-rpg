@@ -1,5 +1,5 @@
 import { guardVariations, type GuardPart, type GuardSkill } from "../../framework/guard.ts";
-import { variationFault, type Varied } from "../../framework/variations.ts";
+import type { Varied } from "../../framework/variations.ts";
 import type { Pose } from "../../../core/bodies/spec/pose.ts";
 
 /** **At rest**: the body's reference pose, without active cover. */
@@ -16,8 +16,7 @@ const VARIATIONS = { rest: { posture: () => NO_POSTURE, make: () => AT_REST } };
 
 export const REST_GUARD: GuardPart<RestGuardConfig> = {
   role: "guard", label: "At rest", stage: "game", fields: [], slots: [], defaults: { kind: "rest" }, keys: { kind: true, variation: true },
-  fits: variationFault("rest", "rest", VARIATIONS), faults: () => [],
-  skillGroup: "Guard", ...guardVariations("rest", VARIATIONS),
+  faults: () => [], skillGroup: "Guard", ...guardVariations({ skill: "rest", label: "rest", variations: VARIATIONS, fits: [] }),
 };
 
 declare module "../../config.ts" {

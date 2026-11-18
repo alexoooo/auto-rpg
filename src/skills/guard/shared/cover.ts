@@ -1,6 +1,6 @@
 import { guardVariations, type GuardPart, type GuardSkill } from "../../framework/guard.ts";
-import { variationFault, type Varied } from "../../framework/variations.ts";
-import { fitsAll, fitsWhen } from "../../../parts/parts.ts";
+import type { Varied } from "../../framework/variations.ts";
+import { fitsWhen } from "../../../parts/parts.ts";
 import { soleRefusal } from "../../../control/support.ts";
 import type { ReadBody } from "../../../core/bodies/read-body.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
@@ -63,8 +63,8 @@ export function coveringPart<K extends string>({ kind, label, named, wards }: { 
   return {
     covering: true,
     role: "guard", label, stage: "game", fields: [], slots: [], defaults: { kind } as CoveringConfig<K>, keys: { kind: true, variation: true, tuning: true },
-    tuning: ["covering", "hold"], fits: fitsAll(variationFault(kind, named, variations), coveringFit, coversWithHands, ...warding), faults: coveringFaults,
+    tuning: ["covering", "hold"], faults: coveringFaults,
     supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined).map(({ segment }) => segment),
-    skillGroup: "Guard", ...guardVariations(kind, variations),
+    skillGroup: "Guard", ...guardVariations({ skill: kind, label: named, variations, fits: [coveringFit, coversWithHands, ...warding] }),
   };
 }

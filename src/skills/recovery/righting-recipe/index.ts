@@ -1,11 +1,11 @@
-import { variationFault, variedMake, type Varied } from "../../framework/variations.ts";
+import { varied, type Varied } from "../../framework/variations.ts";
 import type { MotorAndGuard } from "../../framework/motor-and-guard.ts";
 import meta from "../../../../assets/skills/recovery/righting/righting.meta.json" with { type: "json" };
 import type { BodyView } from "../../../control/body.ts";
 import type { Clock } from "../../../core/world/clock.ts";
 import { dataOf } from "../../../core/data/store.ts";
 import type { OwnBody } from "../../../core/bodies/own-body.ts";
-import { fitsAll, type KeysOf } from "../../../parts/parts.ts";
+import type { KeysOf } from "../../../parts/parts.ts";
 import type { TechniquePart } from "../shared/technique.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../../framework/records.ts";
 import { deepFreeze } from "../../../core/state.ts";
@@ -36,11 +36,11 @@ const RECIPE_VARIATIONS = {
 
 export const RIGHTING_RECIPE = deepFreeze<TechniquePart<RecipeConfig>>({
   ...RIGHTING, edges: toStanding(LYING), label: "Right by recipe", defaults: { kind: "righting-recipe" }, keys: { kind: true, variation: true, tuning: true } as KeysOf<RecipeConfig>, tuning: ["settle", "servo", "upright", "calm", "still", "limit", "side", "back"],
-  fits: fitsAll<RecipeConfig>(variationFault("righting-recipe", "righting by recipe", RECIPE_VARIATIONS), fitsPaws, recordFault("righting", deepFreeze(meta.bodies), wholeRecipe)),
+  ...varied({ skill: "righting-recipe", label: "righting by recipe", variations: RECIPE_VARIATIONS, of: (own, _view, _clock, _fitted, config) => [own.spec, config],
+    fits: [fitsPaws, recordFault("righting", deepFreeze(meta.bodies), wholeRecipe)] }),
   faults: (config: RecipeConfig) => config.tuning === undefined || wholeRecipe(config.tuning) ? [] : ["invalid righting recipe"],
   reads: () => ["righting"],
-  make: variedMake("righting-recipe", RECIPE_VARIATIONS, (own, _view, _clock, _fitted, config) => [own.spec, config]),
-  skillGroup: "Stand-up", variations: Object.keys(RECIPE_VARIATIONS),
+  skillGroup: "Stand-up",
 });
 
 declare module "../shared/technique.ts" {

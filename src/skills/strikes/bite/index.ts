@@ -1,8 +1,7 @@
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
 import type { ExecutorMaking, ExecutorPart } from "../../framework/executor-part.ts";
 import type { ActionConfig } from "../../config.ts";
-import { fitsAll } from "../../../parts/parts.ts";
-import { variationFault, variationMaker, type Varied } from "../../framework/variations.ts";
+import { executorOf, varied, type Varied } from "../../framework/variations.ts";
 import { biteExecutor, biteSettings, BITE_SETTINGS, fitsBite, validBite, type BiteTuning } from "./bite/bite.ts";
 import { jawOf } from "../shared/jaw.ts";
 
@@ -24,12 +23,12 @@ const VARIATIONS = {
  */
 export const BITE_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Bite", stage: "game", defaults: { kind: "bite" }, keys: { kind: true, variation: true, tuning: true }, fields: [], slots: [],
-  tuning: [...BITE_SETTINGS], fits: fitsAll(variationFault("bite", "bite", VARIATIONS), fitsBite), fitReads: ["bite/bite"], reads: () => ["bite/bite"],
+  tuning: [...BITE_SETTINGS], ...varied({ skill: "bite", label: "bite", variations: VARIATIONS, of: executorOf, fits: [fitsBite] }),
+  fitReads: ["bite/bite"], reads: () => ["bite/bite"],
   faults: (config) => config.tuning === undefined || validBite(config.tuning) ? [] : ["invalid bite tuning"],
   effectors: ["head"], aims: true, meets: "point",
   strikesWith: (spec, _config, effector) => jawOf(spec).head.name === effector,
-  make: variationMaker("bite", VARIATIONS),
-  skillGroup: "Strikes", variations: Object.keys(VARIATIONS),
+  skillGroup: "Strikes",
 };
 
 declare module "../../config.ts" {

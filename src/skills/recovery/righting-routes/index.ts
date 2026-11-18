@@ -1,10 +1,10 @@
-import { variationFault, variedMake, type Varied } from "../../framework/variations.ts";
+import { varied, type Varied } from "../../framework/variations.ts";
 import type { MotorAndGuard } from "../../framework/motor-and-guard.ts";
 import { MOTOR_SUPPORT } from "../../../control/motor-part.ts";
 import type { BodyView } from "../../../control/body.ts";
 import type { Clock } from "../../../core/world/clock.ts";
 import type { OwnBody } from "../../../core/bodies/own-body.ts";
-import { fitsAll, fitsWhen } from "../../../parts/parts.ts";
+import { fitsWhen } from "../../../parts/parts.ts";
 import type { TechniquePart } from "../shared/technique.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { fitsPaws } from "../../../control/quadruped/fit.ts";
@@ -25,9 +25,9 @@ const ROUTES_VARIATIONS = {
 
 export const RIGHTING_ROUTES = deepFreeze<TechniquePart<RoutesConfig>>({
   ...RIGHTING, requires: [MOTOR_SUPPORT], edges: toStanding([...LYING, "crouch", "between"]), label: "Right by routes", defaults: { kind: "righting-routes" }, keys: { kind: true, variation: true },
-  fits: fitsAll(variationFault("righting-routes", "righting by routes", ROUTES_VARIATIONS), fitsPaws, fitsWhen(holdsRoutes, "needs legs whose ranges hold the righting routes' poses")), faults: () => [],
-  make: variedMake("righting-routes", ROUTES_VARIATIONS, (own, _view, _clock, _fitted, config) => [own.spec, config]),
-  skillGroup: "Stand-up", variations: Object.keys(ROUTES_VARIATIONS),
+  ...varied({ skill: "righting-routes", label: "righting by routes", variations: ROUTES_VARIATIONS, of: (own, _view, _clock, _fitted, config) => [own.spec, config],
+    fits: [fitsPaws, fitsWhen(holdsRoutes, "needs legs whose ranges hold the righting routes' poses")] }), faults: () => [],
+  skillGroup: "Stand-up",
 });
 
 declare module "../shared/technique.ts" {

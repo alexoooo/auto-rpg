@@ -1,5 +1,4 @@
-import { variationFault, variedMake, type Varied } from "../../framework/variations.ts";
-import { fitsAll } from "../../../parts/parts.ts";
+import { varied, type Varied } from "../../framework/variations.ts";
 import type { Body } from "../../../control/body.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
 import { STANCE_GAIT, validGaitTuning, type GaitTuning } from "../../../control/stance/stance-tuning.ts";
@@ -7,7 +6,7 @@ import { SIDES } from "../../../core/bodies/bilateral.ts";
 import { dataOf } from "../../../core/data/store.ts";
 import type { GaitPart } from "../../framework/locomotion-part.ts";
 import type { SkillRecords } from "../../framework/records.ts";
-import { fitsSoles } from "../../../control/support.ts";
+import { soleRefusal } from "../../../control/support.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { runCycleSettings, validRunCycle, type RunCycleSettings } from "./walk-run/cycle-run.ts";
@@ -63,7 +62,7 @@ const DEFAULTS: WalkRunRecord = deepFreeze({ walk: WALK_RUN, run: WALK_RUN_CYCLE
 
 /** The named anatomical channels consumed by the cycle and its arm swing. */
 function walkRunRefusal(spec: BodySpec): string | null {
-  const soles = fitsSoles(spec);
+  const soles = soleRefusal(spec);
   if (soles) return soles;
   for (const side of SIDES) for (const [joint, motions] of [
     ["hip", ["flexion", "abduction", "internal rotation"]], ["knee", ["flexion"]],
@@ -96,7 +95,8 @@ const VARIATIONS = {
 export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk and run", stage: "game", fields: [], slots: [], defaults: { kind: "walk-run" },
   keys: { kind: true, variation: true, tuning: true },
-  tuning: ["walk", "run", "braking", "stride", "learned", "envelope", "steered"], fits: fitsAll(variationFault("walk-run", "walk and run", VARIATIONS), walkRunRefusal),
+  tuning: ["walk", "run", "braking", "stride", "learned", "envelope", "steered"],
+  ...varied({ skill: "walk-run", label: "walk and run", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [walkRunRefusal] }),
   faults: (config) => {
     if (config.tuning !== undefined && (!config.tuning || typeof config.tuning !== "object" || Array.isArray(config.tuning))) return ["invalid walk and run tuning"];
     if (config.tuning && Object.entries(config.tuning).some(([key, value]) => key === "steered" ? value !== true : !value || typeof value !== "object" || Array.isArray(value))) return ["invalid walk and run tuning"];
@@ -111,8 +111,7 @@ export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
     ];
   },
   reads: () => ["walk-run"],
-  make: variedMake("walk-run", VARIATIONS, (body, config) => [body.built.spec, config]),
-  skillGroup: "Travel", variations: Object.keys(VARIATIONS),
+  skillGroup: "Travel",
 });
 
 declare module "../../config.ts" {

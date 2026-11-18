@@ -1,4 +1,4 @@
-import { variationFault, variedMake, type Varied } from "../../framework/variations.ts";
+import { varied, type Varied } from "../../framework/variations.ts";
 import type { ReadBody, ReadSegment } from "../../../core/bodies/read-body.ts";
 import { REPTILE_TROT } from "../shared/quadruped/tuning.ts";
 import { deepFreeze } from "../../../core/state.ts";
@@ -23,12 +23,11 @@ const VARIATIONS = {
 /** **The trot** as a gait: the quadruped's travel. */
 export const TROT_PART = deepFreeze<PawGaitPart<TrotConfig>>({
   role: "paw-gait", label: "Trot", stage: "game", fields: [], slots: [], defaults: { kind: "paw-trot" }, keys: { kind: true, variation: true, tuning: true },
-  tuning: Object.keys(REPTILE_TROT), fits: (spec, config) => variationFault("paw-trot", "trot", VARIATIONS)(spec, config)
-    ?? fitsPaws(spec) ?? (validTrot({ ...REPTILE_TROT, ...config.tuning }) ? null : "invalid trot settings"),
+  tuning: Object.keys(REPTILE_TROT), ...varied({ skill: "paw-trot", label: "trot", variations: VARIATIONS, of: (built, _root, _paws, _names, config) => [built.spec, config],
+    fits: [fitsPaws, (_spec, config) => validTrot({ ...REPTILE_TROT, ...config.tuning }) ? null : "invalid trot settings"] }),
   faults: (config: TrotConfig) => config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning)
     && validTrot({ ...REPTILE_TROT, ...config.tuning }) ? [] : ["invalid trot settings"],
-  make: variedMake("paw-trot", VARIATIONS, (built, _root, _paws, _names, config) => [built.spec, config]),
-  skillGroup: "Travel", variations: Object.keys(VARIATIONS),
+  skillGroup: "Travel",
 });
 
 declare module "../shared/quadruped/parts.ts" {

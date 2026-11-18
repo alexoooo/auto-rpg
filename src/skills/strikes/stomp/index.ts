@@ -4,10 +4,9 @@ import { soleRefusal } from "../../../control/support.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import meta from "../../../../assets/skills/strikes/stomp/stomp.meta.json" with { type: "json" };
 import { dataOf } from "../../../core/data/store.ts";
-import { fitsAll } from "../../../parts/parts.ts";
 import { aimedPoint, type ExecutorMaking, type ExecutorPart } from "../../framework/executor-part.ts";
 import type { ActionConfig } from "../../config.ts";
-import { variationFault, variationMaker, type Varied } from "../../framework/variations.ts";
+import { executorOf, varied, type Varied } from "../../framework/variations.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../../framework/records.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { stompExecutor, STOMP_PATH, validStompTuning, type StompTuning } from "./stomp/stomp.ts";
@@ -82,12 +81,11 @@ const VARIATIONS = {
 export const STOMP_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Stomp", stage: "experimental", defaults: { kind: "stomp" },
   keys: { kind: true, variation: true, tuning: true }, fields: [], slots: [], tuning: Object.keys(STOMP_PATH),
-  fits: fitsAll(variationFault("stomp", "stomp", VARIATIONS), stompRefusal, recordFault("stomp", deepFreeze(meta.bodies), wholeStomp),
-    (spec, config) => validStompTuning(tunedSettings(dataOf("stomp/stomp"), spec, config)) ? null : "invalid stomp executor settings"),
+  ...varied({ skill: "stomp", label: "stomp", variations: VARIATIONS, of: executorOf, fits: [stompRefusal, recordFault("stomp", deepFreeze(meta.bodies), wholeStomp),
+    (spec, config) => validStompTuning(tunedSettings(dataOf("stomp/stomp"), spec, config)) ? null : "invalid stomp executor settings"] }),
   faults: (config) => config.tuning === undefined || validStompPart(config.tuning) ? [] : ["invalid stomp tuning"],
   fitReads: ["stomp/stomp"], reads: () => ["stomp/stomp"], effectors: ["foot.left", "foot.right"], aims: true,
-  make: variationMaker("stomp", VARIATIONS),
-  skillGroup: "Strikes", variations: Object.keys(VARIATIONS),
+  skillGroup: "Strikes",
 };
 
 declare module "../../config.ts" {

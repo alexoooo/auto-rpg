@@ -1,6 +1,6 @@
-import { heldVariation, variationFault, type Variations, type Varied } from "../../framework/variations.ts";
+import { varied, type Varied } from "../../framework/variations.ts";
 import { soleRefusal } from "../../../control/support.ts";
-import { fitsAll, type Part } from "../../../parts/parts.ts";
+import type { Part } from "../../../parts/parts.ts";
 import type { TechniquePart, TechniqueRun } from "./technique.ts";
 import { segmentOf, type BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Side } from "../../../core/bodies/bilateral.ts";
@@ -39,26 +39,26 @@ export function mirrorPosture(posture: Readonly<Record<string, number>>): Readon
     / (lateral flexion right|rotation right)$/.test(name) ? -value : value]));
 }
 
-/** A technique's `fits`: a body the stance stands on its feet (`soleRefusal`), as a technique's regain and stance do. Experimental techniques stay out of gameplay defaults until their physical evidence qualifies them. */
-const fitsStance = (spec: BodySpec): string | null => soleRefusal(spec);
-
-/** A technique part of `kind` with no settings of its own, fitted to a body the stance stands (`fitsStance`) and, where `fits` is given, that `fits` admits. */
+/**
+ * A technique part of `kind` with no settings of its own, its one variation the technique itself
+ * (`varied`), fitted to a body the stance stands on its feet (`soleRefusal`), as a technique's
+ * regain and stance do.
+ */
 export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "edges" | "mode"> & {
   readonly skillGroup: string;
   readonly sides: readonly Side[];
   readonly make: (...args: Parameters<TechniquePart["make"]>) => TechniqueRun<Side>;
   readonly requires?: TechniquePart["requires"];
-  readonly reads?: Part["reads"]; readonly moving?: boolean; readonly fits?: (spec: BodySpec) => string | null;
+  readonly reads?: Part["reads"]; readonly moving?: boolean;
 }): TechniquePart<{ readonly kind: K } & Varied> => {
-  const { fits, sides, make, ...rest } = part;
+  const { sides, make, ...rest } = part;
   const supported = (start: string): start is Side => sides.some(side => side === start);
-  // Its one variation, the technique itself: a skill its character holds (`variationFault`).
-  const variations: Variations<typeof make> = { [kind]: make }, held = variationFault(kind, part.label.toLowerCase(), variations);
+  const held = varied({ skill: kind, label: part.label.toLowerCase(), variations: { [kind]: make }, of: (own, _view, _clock, _fitted, config) => [own.spec, config], fits: [soleRefusal] });
   const made: TechniquePart<{ readonly kind: K } & Varied> = { moving: false, starts: sides, bindings: (spec: BodySpec) => bilateralBindings(spec, sides), ...rest,
     role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true, variation: true }), fields: [], slots: [],
-    fits: fits ? fitsAll(held, fitsStance, fits) : fitsAll(held, fitsStance), faults: () => [], variations: Object.keys(variations),
+    fits: held.fits, faults: () => [], variations: held.variations,
     make(...args: Parameters<TechniquePart["make"]>): TechniqueRun {
-      const run = heldVariation(args[0].spec, kind, args[4], variations)(...args);
+      const run = held.make(...args);
       return { state: run.state, get phase() { return run.phase; }, get yields() { return run.yields; },
         admits: (reading, start) => supported(start) && run.admits(reading, start),
         reached: (reading, to) => run.reached(reading, to),

@@ -1,4 +1,4 @@
-import { variationFault, variedMake, type Varied } from "../../framework/variations.ts";
+import { varied, type Varied } from "../../framework/variations.ts";
 import type { Body } from "../../../control/body.ts";
 import type { Legs } from "../../framework/locomotion-part.ts";
 import type { Locomotion } from "../../framework/locomotion-part.ts";
@@ -83,14 +83,9 @@ export const MOVE_PART = deepFreeze<LocomotionPart<MoveConfig>>({
   children: config => Array.isArray(config.gaits) ? config.gaits.map((gait, i) => ({ path: ["gaits", i, "legs"], role: "gait", config: gait?.legs, picked: true as const })) : [],
   // The stock gaits' legs, where it names no gaits of its own.
   supplies: config => config.gaits == null ? STOCK_GAITS.map((gait) => ({ role: "gait" as const, config: gait.legs })) : [],
-  fits: (spec, config, parts) => {
-    const unheld = variationFault("move", "move", VARIATIONS)(spec, config);
-    if (unheld) return unheld;
-    return gaitsOf(config).some(gait => parts.of("gait", gait.legs).fits(spec, gait.legs, parts) === null) ? null : "has no enabled gait to move by";
-  },
-  faults: gaitFaults, gaits: gaitsOfMove,
-  make: variedMake("move", VARIATIONS, (body, config) => [body.built.spec, config]),
-  skillGroup: "Travel", variations: Object.keys(VARIATIONS),
+  ...varied({ skill: "move", label: "move", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [
+    (spec, config, parts) => gaitsOf(config).some(gait => parts.of("gait", gait.legs).fits(spec, gait.legs, parts) === null) ? null : "has no enabled gait to move by"] }),
+  faults: gaitFaults, gaits: gaitsOfMove, skillGroup: "Travel",
 });
 
 declare module "../../config.ts" {

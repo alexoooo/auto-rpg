@@ -4,7 +4,7 @@ import { deepFreeze } from "../../../core/state.ts";
 import type { BalancePart } from "../../../control/balance-part.ts";
 import { stanceControl } from "../../../control/stance/stance.ts";
 import { validGaitTuning, type StanceTuning } from "../../../control/stance/stance-tuning.ts";
-import { fitsSoles, standingHeight } from "../../../control/support.ts";
+import { soleRefusal, standingHeight } from "../../../control/support.ts";
 import { stanceCalibration } from "../shared/stance/calibration.ts";
 import { stanceEnvelope } from "../shared/stance/envelope.ts";
 
@@ -34,8 +34,8 @@ const tuned = (config: StanceBalanceConfig): boolean => Object.keys(config.tunin
 export const STANCE_BALANCE = deepFreeze<BalancePart<StanceBalanceConfig>>({
   role: "balance", label: "Stance", stage: "game", fields: [], slots: [], defaults: { kind: "stance" }, keys: { kind: true, variation: true, tuning: true },
   tuning: ["seconds", "track", "soleMargin", "kneeBend", "ankleSpare", "supportInset", "recovery", "gait", "heelOff"],
-  reference: { fits: fitsSoles, read: standingHeight },
-  fits: fitsAll(fitsSoles, variationFault("stance", "stance", VARIATIONS)),
+  reference: { fits: soleRefusal, read: standingHeight },
+  fits: fitsAll(soleRefusal, variationFault("stance", "stance", VARIATIONS)),
   faults: (config) => config.tuning === undefined ? []
     : typeof config.tuning !== "object" || config.tuning === null || Array.isArray(config.tuning) ? ["a stance's tuning is a record of its settings (`StanceTuning`)"]
     : config.tuning.gait !== undefined && !validGaitTuning(config.tuning.gait) ? ["a stance's tuned gait gives every setting of a walk's steps, each valid"] : [],

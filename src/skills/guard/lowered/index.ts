@@ -1,7 +1,7 @@
 import { guardVariations, type GuardPart, type GuardSkill } from "../../framework/guard.ts";
-import { variationFault, type Varied } from "../../framework/variations.ts";
+import type { Varied } from "../../framework/variations.ts";
 import type { Pose } from "../../../core/bodies/spec/pose.ts";
-import { fitsAll, fitsWhen } from "../../../parts/parts.ts";
+import { fitsWhen } from "../../../parts/parts.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 
 /** **Arms lowered**: the arms hang at the sides and cover nothing, a drill's open target. */
@@ -24,10 +24,9 @@ const VARIATIONS = { lowered: { posture: () => LOWERED, make: () => LOWERED_SKIL
 
 export const LOWERED_GUARD: GuardPart<LoweredGuardConfig> = {
   role: "guard", label: "Arms lowered", stage: "experimental", fields: [], slots: [], defaults: { kind: "lowered" }, keys: { kind: true, variation: true },
-  fits: fitsAll(variationFault("lowered", "lowered arms", VARIATIONS),
+  faults: () => [], skillGroup: "Guard", ...guardVariations({ skill: "lowered", label: "lowered arms", variations: VARIATIONS, fits: [
     fitsWhen((spec: BodySpec) => Object.keys(LOWERED).every((channel) => spec.joints.some((joint) => joint.dofs.some((dof) => `${joint.name} ${dof.positive}` === channel))),
-      "has no two arms to lower")), faults: () => [],
-  skillGroup: "Guard", ...guardVariations("lowered", VARIATIONS),
+      "has no two arms to lower")] }),
 };
 
 declare module "../../config.ts" {

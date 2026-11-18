@@ -1,4 +1,4 @@
-import { variationFault, variedMake, type Varied } from "../../framework/variations.ts";
+import { varied, type Varied } from "../../framework/variations.ts";
 import type { ReadBody, ReadSegment } from "../../../core/bodies/read-body.ts";
 import { REPTILE_CRAWL } from "../shared/quadruped/tuning.ts";
 import { deepFreeze } from "../../../core/state.ts";
@@ -24,12 +24,11 @@ const VARIATIONS = {
 /** **The crawl** as a gait: the quadruped's close and careful steps. */
 export const CRAWL_PART = deepFreeze<PawGaitPart<CrawlConfig>>({
   role: "paw-gait", label: "Crawl", stage: "game", fields: [], slots: [], defaults: { kind: "paw-crawl" }, keys: { kind: true, variation: true, tuning: true },
-  tuning: Object.keys(REPTILE_CRAWL), fits: (spec, config) => variationFault("paw-crawl", "crawl", VARIATIONS)(spec, config)
-    ?? fitsPaws(spec) ?? (validCrawl({ ...REPTILE_CRAWL, ...config.tuning }) ? null : "invalid crawl settings"),
+  tuning: Object.keys(REPTILE_CRAWL), ...varied({ skill: "paw-crawl", label: "crawl", variations: VARIATIONS, of: (built, _root, _reading, _paws, config) => [built.spec, config],
+    fits: [fitsPaws, (_spec, config) => validCrawl({ ...REPTILE_CRAWL, ...config.tuning }) ? null : "invalid crawl settings"] }),
   faults: (config: CrawlConfig) => config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning)
     && validCrawl({ ...REPTILE_CRAWL, ...config.tuning }) ? [] : ["invalid crawl settings"],
-  make: variedMake("paw-crawl", VARIATIONS, (built, _root, _reading, _paws, config) => [built.spec, config]),
-  skillGroup: "Travel", variations: Object.keys(VARIATIONS),
+  skillGroup: "Travel",
 });
 
 declare module "../shared/quadruped/parts.ts" {

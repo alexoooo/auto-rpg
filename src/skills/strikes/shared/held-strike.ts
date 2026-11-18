@@ -15,12 +15,12 @@ import { dataOf, type DataKey, type DataOf } from "../../../core/data/store.ts";
 import { recoveryNetwork, type Network } from "../../../core/math/learning/recovery-network.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import type { Body } from "../../../control/body.ts";
-import { fitsAll, strikesWithOneOf } from "../../../parts/parts.ts";
+import { strikesWithOneOf } from "../../../parts/parts.ts";
 import type { PartLookup } from "../../../parts/lookup.ts";
 import type { Executor, TargetResolver } from "../../framework/action.ts";
 import { aimedPoint, type ExecutorPart } from "../../framework/executor-part.ts";
 import { recordFault, tunedSettings, type SkillRecord } from "../../framework/records.ts";
-import { variationFault, variationMaker, type Varied } from "../../framework/variations.ts";
+import { executorOf, varied, type ExecutorVariations, type Varied } from "../../framework/variations.ts";
 import { handConfigurationRefusal } from "../../reach/hand.ts";
 import { heldFace, heldFaces, type StrikingFace } from "./held-face.ts";
 import type { SteerLayout } from "./steer.ts";
@@ -103,18 +103,17 @@ export function heldStrikePart<K extends string, S>(strike: HeldStrike<K, S>): E
       return strike.executor({ body, guard, actions: actions.map((action) => action.name), settings: tunedSettings(records, spec, config), resolve: aimedPoint(aim),
         faces: heldFaces(spec, item, mechanism), ...(strike.layout ? { layout: strike.layout } : {}), ...(network ? { policy: recoveryNetwork(network) } : {}) });
     },
-  } satisfies Parameters<typeof variationMaker<HeldStrikeConfig<K, S>>>[1];
+  } satisfies ExecutorVariations<HeldStrikeConfig<K, S>>;
   return {
     role: "executor", requires: [SUPPORT_REFERENCE], label, stage: strike.stage, defaults: { kind } as HeldStrikeConfig<K, S>,
     keys: { kind: true, variation: true, tuning: true }, tuning: settings.keys,
     fields: [], slots: [],
-    fits: fitsAll(variationFault(kind, named, variations), (spec) => handConfigurationRefusal(spec, (spec.held ?? []).map((held) => held.segment), "grip"),
+    ...varied({ skill: kind, label: named, variations, of: executorOf, fits: [(spec) => handConfigurationRefusal(spec, (spec.held ?? []).map((held) => held.segment), "grip"),
       strikesWithOneOf("hand.left", "hand.right"), ...strike.fits, recordFault(named, deepFreeze(strike.bodies), settings.valid),
-      (spec, config) => config.tuning ? settings.channelFault(spec, config.tuning) : null),
+      (spec, config) => config.tuning ? settings.channelFault(spec, config.tuning) : null] }),
     faults: (config) => config.tuning === undefined || settings.validPart(config.tuning) ? [] : [`invalid ${named} tuning`],
     reads: () => [strike.data], effectors: ["hand.left", "hand.right"], aims: true, meets: mechanism,
     strikesWith: (spec, _config, effector) => heldFace(spec, effector, item, mechanism) !== null,
-    make: variationMaker(kind, variations),
-    skillGroup: "Strikes", variations: Object.keys(variations),
+    skillGroup: "Strikes",
   };
 }

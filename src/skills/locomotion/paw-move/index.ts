@@ -1,9 +1,9 @@
-import { variationFault, variedMake, type Varied } from "../../framework/variations.ts";
+import { varied, type Varied } from "../../framework/variations.ts";
 import type { Locomotion } from "../../framework/locomotion-part.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
 import type { Body } from "../../../control/body.ts";
 import type { ConfigFor } from "../../../parts/lookup.ts";
-import { fitsAll, slotOne } from "../../../parts/parts.ts";
+import { slotOne } from "../../../parts/parts.ts";
 import { whenEmpty } from "../../../parts/tree.ts";
 import type { Legs, LocomotionPart } from "../../framework/locomotion-part.ts";
 import { deepFreeze } from "../../../core/state.ts";
@@ -43,14 +43,13 @@ const VARIATIONS = {
 export const PAW_MOVE = deepFreeze<LocomotionPart<PawMoveConfig>>({
   role: "locomotion", requires: [SUPPORT_REFERENCE], label: "Paw gaits", stage: "game", fields: [], defaults: { kind: "paw-move" }, keys: { kind: true, variation: true, trot: true, crawl: true },
   slots: PAW_SLOTS, supplies: (config) => whenEmpty(PAW_SLOTS, config, STOCK),
-  fits: fitsAll<PawMoveConfig>(variationFault("paw-move", "paw gaits", VARIATIONS), fitsPaws,
+  ...varied({ skill: "paw-move", label: "paw gaits", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [fitsPaws,
     (spec, config, parts) => GAIT_NAMES.some(name => {
       const gait = config[name] ?? STOCK[name];
       return parts.of("paw-gait", gait).fits(spec, gait, parts) === null;
-    }) ? null : "has no enabled paw gait"), faults: () => [],
+    }) ? null : "has no enabled paw gait"] }), faults: () => [],
   gaits: (config) => GAIT_NAMES.map((name) => ({ name, label: LABELS[name], legs: config[name] ?? STOCK[name] })),
-  make: variedMake("paw-move", VARIATIONS, (body, config) => [body.built.spec, config]),
-  skillGroup: "Travel", variations: Object.keys(VARIATIONS),
+  skillGroup: "Travel",
 });
 
 declare module "../../config.ts" {

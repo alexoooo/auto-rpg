@@ -1,8 +1,7 @@
-import { variationFault, variedMake, type Varied } from "../../framework/variations.ts";
-import { fitsAll } from "../../../parts/parts.ts";
+import { varied, type Varied } from "../../framework/variations.ts";
 import type { Body } from "../../../control/body.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
-import { fitsSoles } from "../../../control/support.ts";
+import { soleRefusal } from "../../../control/support.ts";
 import { supportFold } from "./support-fold/support-fold.ts";
 import type { LowSupportPart } from "../../framework/low-support.ts";
 
@@ -17,8 +16,7 @@ const VARIATIONS = { "support-fold": (body: Body, _config: SupportFoldConfig) =>
 /** Fighting from low support, offered as an experimental part (`stage`). */
 export const SUPPORT_FOLD: LowSupportPart<SupportFoldConfig> = {
   role: "support", requires: [SUPPORT_REFERENCE], label: "Fight from low support", stage: "experimental", fields: [], slots: [], defaults: { kind: "support-fold" }, keys: { kind: true, variation: true },
-  fits: fitsAll(variationFault("support-fold", "low support", VARIATIONS), fitsSoles), faults: () => [],
-  make: variedMake("support-fold", VARIATIONS, (body, config) => [body.built.spec, config]), skillGroup: "Balance", variations: Object.keys(VARIATIONS),
+  ...varied({ skill: "support-fold", label: "low support", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [soleRefusal] }), faults: () => [], skillGroup: "Balance",
 };
 
 

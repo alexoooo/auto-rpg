@@ -1,8 +1,7 @@
-import { variationFault, variedMake, type Varied } from "../../framework/variations.ts";
-import { fitsAll } from "../../../parts/parts.ts";
+import { varied, type Varied } from "../../framework/variations.ts";
 import type { Body } from "../../../control/body.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
-import { fitsSoles, standingFooting } from "../../../control/support.ts";
+import { soleRefusal, standingFooting } from "../../../control/support.ts";
 import type { GaitPart } from "../../framework/locomotion-part.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "../shared/stance-feet.ts";
 import { deepFreeze } from "../../../core/state.ts";
@@ -50,14 +49,13 @@ const VARIATIONS = {
 export const STANCE_WALK_PART = deepFreeze<GaitPart<StanceWalkConfig>>({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk in the stance", stage: "game", fields: [], slots: [], defaults: { kind: "stance-walk" },
   keys: { kind: true, variation: true, tuning: true, carriage: true }, tuning: ["turnLimit", "turnStartup"],
-  fits: fitsAll(variationFault("stance-walk", "walk in the stance", VARIATIONS), fitsSoles),
+  ...varied({ skill: "stance-walk", label: "walk in the stance", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [soleRefusal] }),
   faults: (config) => [
     ...(validTurnLimit(config.tuning?.turnLimit) ? [] : ["locomotion turn limit must be finite and positive"]),
     ...(validTurnStartup(config.tuning?.turnStartup) ? [] : ["invalid combat turn startup settings"]),
     ...(config.carriage === undefined || validCarriage(config.carriage) ? [] : ["a carriage needs a positive width or none, and a finite stagger and lowering"]),
   ],
-  make: variedMake("stance-walk", VARIATIONS, (body, config) => [body.built.spec, config]),
-  skillGroup: "Travel", variations: Object.keys(VARIATIONS),
+  skillGroup: "Travel",
 });
 
 declare module "../../config.ts" {

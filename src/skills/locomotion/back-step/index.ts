@@ -1,8 +1,7 @@
-import { fitsAll } from "../../../parts/parts.ts";
 import type { Body, BodyView } from "../../../control/body.ts";
 import type { BearingEnd } from "../../../core/bodies/spec/body.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
-import { fitsSoles } from "../../../control/support.ts";
+import { soleRefusal } from "../../../control/support.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { cos, sin } from "../../../core/math/real.ts";
 import { wrap } from "../../../core/math/turn.ts";
@@ -176,7 +175,7 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
 export const BACK_STEP_PART = deepFreeze<GaitPart<BackStepConfig>>({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Back step", stage: "experimental", fields: [], slots: [], defaults: { kind: "back-step" }, travels: false,
   keys: { kind: true, carriage: true, out: true, back: true, beyond: true, stepIn: true, shuffle: true, follow: true, turn: true },
-  fits: fitsAll(fitsSoles),
+  fits: soleRefusal,
   faults: (config) => [
     ...(config.carriage === undefined || validCarriage(config.carriage) ? [] : ["a carriage needs a positive width or none, and a finite stagger and lowering"]),
     ...(["shuffle", "follow"] as const).flatMap((key) => config[key] === undefined || Number.isFinite(config[key]) && config[key]! > 0 && config[key]! <= .4 ? [] : [`back step: ${key} from 0 to 0.4 m`]),
