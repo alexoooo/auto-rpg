@@ -34,13 +34,23 @@ const GAITS: Readonly<Record<string, { readonly label: string; readonly legs: Co
   "run": { label: "Run", legs: { kind: "walk-run" } },
 });
 
+/** The back step's legs (`BackStepConfig`), as `BACK_STEP_GAIT` has them. */
+const BACK_STEP_LEGS = deepFreeze({ kind: "back-step", carriage: STAGGERED, out: .7, back: .5, stepIn: .1, follow: .15, turn: 2 } as const);
+
 /**
  * **The back step** as a gait (`BackStepConfig`): the body swayed back in the staggered carriage and
  * in again, as the back step's evaluation reads best (out 0.7 s, back 0.5 s, the lead foot stepping
  * 0.1 m in, its follow 0.15 m). A gait no walk goes by (`GaitPart.travels`), which its Option orders
  * (`backStepping`); no stock gait yet, so a mind that takes the Option takes it too (`withBackStep`).
  */
-export const BACK_STEP_GAIT: Gait = deepFreeze({ name: "back-step", label: "Back step", legs: { kind: "back-step", carriage: STAGGERED, out: .7, back: .5, stepIn: .1, follow: .15, turn: 2 } });
+export const BACK_STEP_GAIT: Gait = deepFreeze({ name: "back-step", label: "Back step", legs: BACK_STEP_LEGS });
+
+/**
+ * **How long the back step's gait is ordered**, s: held through its sway out and back (`swayed`, its
+ * legs' `out` and `back`), so the stance is not let go with the body over its rear foot; and at most
+ * `held`, its step in and follow, as the back step's evaluation reads best.
+ */
+export const BACK_STEP_SECONDS = deepFreeze({ swayed: BACK_STEP_LEGS.out + BACK_STEP_LEGS.back, held: 1.65 });
 
 /** **The stock gaits** (`GAITS`) as gaits: what Move walks by where its config names none. */
 export const STOCK_GAITS: readonly Gait[] = deepFreeze(Object.entries(GAITS).map(([name, gait]) => ({ name, label: gait.label, legs: gait.legs })));

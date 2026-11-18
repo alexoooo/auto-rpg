@@ -1,4 +1,5 @@
 import { deepFreeze } from "../../core/state.ts";
+import { BACK_STEP_SECONDS } from "../../skills/locomotion/move/gaits.ts";
 import type { CommanderEntry, CommanderConfig } from "./kind.ts";
 import { direction, distance } from "./goals.ts";
 import type { Orders } from "../orders.ts";
@@ -69,8 +70,8 @@ function swayCommander(config: SwayConfig): Commander {
   };
 }
 
-/** The sway Commander's settings as the back step's drill reads best: in the carriage within 3 m, the sway at 1.05 m held 1.65 s, 0.3 s between. */
-const SWAY_DEFAULTS = deepFreeze<SwayConfig>({ kind: "sway", range: 1.05, near: 0, seconds: 1.65, rest: .3, set: 3, follow: 0, fight: 0 });
+/** The sway Commander's settings as the back step's drill reads best: in the carriage within 3 m, the sway at 1.05 m held as its gait is (`BACK_STEP_SECONDS`), 0.3 s between. */
+const SWAY_DEFAULTS = deepFreeze<SwayConfig>({ kind: "sway", range: 1.05, near: 0, seconds: BACK_STEP_SECONDS.held, rest: .3, set: 3, follow: 0, fight: 0 });
 
 /** The keys of a sway config, each a number but its kind. */
 const SWAY_KEYS = ["range", "near", "seconds", "rest", "set", "follow", "fight"] as const;

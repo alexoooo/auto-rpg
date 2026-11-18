@@ -2,7 +2,7 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { measuredOn, type Expected } from "../../skills/framework/profile.ts";
 import type { OutcomeModel } from "../../skills/framework/outcomes.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
-import { swayStance } from "../../skills/locomotion/move/gaits.ts";
+import { BACK_STEP_GAIT, BACK_STEP_SECONDS, swayStance } from "../../skills/locomotion/move/gaits.ts";
 import type { Status } from "../choice.ts";
 import { blocked, exitOutcomes, LEGS, READY, standing, type Option, type Situation } from "./option.ts";
 import { startOf } from "./percepts.ts";
@@ -22,25 +22,16 @@ function phased(striking: number | undefined, outcomes: (phase: FoePhase | null)
 }
 import type { Walker } from "./walk.ts";
 
-/** How long the back step is ordered at most, s: its sway out and back and its step in (`BACK_STEP_GAIT`). */
-const HELD = 1.65;
-
-/** How long it is held before another Option may take the body, s: its sway out and back (the gait's `out` and `back`), so a counter may follow from where it left the two. */
-const SWAYED = 1.2;
-
-/** The gait it orders (`BACK_STEP_GAIT`). */
-const GAIT = "back-step";
-
 /**
- * **The back step**: the legs ordered the gait `back-step` for `HELD` s, facing the focus, as a
+ * **The back step**: the legs ordered its gait (`BACK_STEP_GAIT`) for `held` s (`BACK_STEP_SECONDS`), facing the focus, as a
  * body of `spec` sways back over its rear foot out of a punch's way and in again. On offer where
  * what `outcomes` answers of it (measured as a body of `spec` at `hz` whose mind decides at `rate`
  * Hz and whose command is `delay` steps late, against the focus's body) reads the focus at the
  * range it stands at (`ProfileReading.reach`), the body
  * standing in the back step's carriage (`swayStance`, as the Mind reads its stance), its legs ready;
  * none for a body with no such profile, or whose legs do not go by the gait (`goes`). Once begun it
- * is held through its sway out and back (`committed`, `SWAYED`): an order let go mid-sway leaves the
- * stance to catch a body over its rear foot; then, to `HELD`, it yields to what the Mind would
+ * is held through its sway out and back (`committed`, `swayed`): an order let go mid-sway leaves the
+ * stance to catch a body over its rear foot; then, to `held`, it yields to what the Mind would
  * rather (a counter from where the sway left the two). Its trials are its own as a Mind took it
  * (`spar-chosen`), so they run as long as it did.
  *
@@ -51,7 +42,7 @@ const GAIT = "back-step";
  * says them (`Predictions.steps`), still, in its carriage; and down in the share of its trials that fell.
  */
 export function backStepping(spec: BodySpec, outcomes: OutcomeModel, walk: Walker, hz: number, rate: number, delay: number, goes: boolean): readonly Option[] {
-  const act = outcomes.act("steps", measuredOn(spec, GAIT, null, hz, null, rate, delay)), read = act?.read ?? [];
+  const act = outcomes.act("steps", measuredOn(spec, BACK_STEP_GAIT.name, null, hz, null, rate, delay)), read = act?.read ?? [];
   const carriage = swayStance(spec.model);
   if (!goes || !read.length || !carriage) return [];
   const state = { since: null as number | null };
@@ -84,7 +75,7 @@ export function backStepping(spec: BodySpec, outcomes: OutcomeModel, walk: Walke
       if (!standing(now) || now.stances.own !== carriage) return CARRIAGE;
       return expected(now) ? READY : NO_FOE;
     },
-    status: (now): Status => state.since === null || now.time < state.since + SWAYED ? "committed" : now.time < state.since + HELD ? "yields" : "over",
+    status: (now): Status => state.since === null || now.time < state.since + BACK_STEP_SECONDS.swayed ? "committed" : now.time < state.since + BACK_STEP_SECONDS.held ? "yields" : "over",
     begin(now) { state.since = now.time; },
     end() { state.since = null; },
     priced: (now) => {
@@ -97,6 +88,6 @@ export function backStepping(spec: BodySpec, outcomes: OutcomeModel, walk: Walke
       if (!expect) return null;
       return { duration: expect.seconds, dealt: 0, taken: expect.taken, orders: 0, outcomes: phased(expect.exit?.striking, (phase) => exitOutcomes(at, apartOf(at, expect), expect.down, { velocity: STILL, stance: carriage, ...(phase ? { phase } : {}) })) };
     },
-    step: (now) => ({ asked: { ...walk.kept(now, { move: null, face: walk.facing(now), actions: [] }, null), gait: GAIT }, holds: LEGS }),
+    step: (now) => ({ asked: { ...walk.kept(now, { move: null, face: walk.facing(now), actions: [] }, null), gait: BACK_STEP_GAIT.name }, holds: LEGS }),
   }];
 }
