@@ -387,9 +387,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   function setupAddress(): string {
     const models: Matchup = { left: pickers.left.value, right: pickers.right.value };
     const query = new URLSearchParams(location.search);
-    query.delete("steadiness"); query.delete("haste"); query.delete("held");
     query.set("control", SIDES.map(side => controlPickers[side].value).join(","));
-    query.set("level", levelPicker.value); query.delete("recovery");
+    query.set("level", levelPicker.value);
     for (const side of SIDES) {
       const draft = attributeEditors[side].read();
       if (draft) writeAttributes(query, side, draft);
@@ -592,13 +591,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         if (given) context.replace(arenaViewSearch(appearanceSearch(caseSearch(given.world.recipe), matchup, appearances), view) + reelAt());
         else {
           const query = new URLSearchParams(location.search);
-          query.delete("steadiness"); query.delete("haste");
           for (const side of SIDES) { writeAttributes(query, side, attributes[side]); writeSkills(query, side, skills[side]); }
           query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
           query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
-          query.delete("held");
           for (const side of SIDES) query.set(`${side}.loadout`, SIDES.map((hand) => loadoutPickers[side][hand].value).join(","));
-          query.delete("recovery");
           const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
           context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view));
         }
