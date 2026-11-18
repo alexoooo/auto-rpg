@@ -62,7 +62,7 @@ export function formReading(profile: Profile, striker: BodySpec, postures: Postu
   if (known) return known;
   const trials = profileReading(profile, striker, postures), own = striker.wounds.hp.value;
   const started = heldAsMeasured(profile.trials, striker).filter((trial) => startedAt(trial.start, postures));
-  const begun = started.filter((trial) => !trial.letGo), numbers = bodyNumbers(started, profile);
+  const begun = started.filter((trial) => !trial.letGo), numbers = bodyNumbers(started);
   const phases = new Map<string, PhaseForm | null>();
   /** A start's terms (`termsOf`), then `values` of its bodies' numbers. */
   const termsWith = (range: number, velocity: readonly [number, number] | undefined, values: readonly number[]): Float64Array => {

@@ -9,7 +9,7 @@
  * as it is (held out by gap); no start the trials record tells them apart. Each sway seen through
  * is a trial (`Sway`): its start where the subject sensed the attacker as it began (the range
  * centre to centre, the attacker's phase and posture, the subject's velocity against the
- * attacker's, how each body stood, and the levels its bodies' characters set, `startLevels`); it
+ * attacker's, and how each body stood); it
  * deals nothing; the life the subject lost while it swayed, HP; the seconds it swayed; the range
  * head to head it left the two at (`exit.range`), and whether it left them within `ARRIVED` of
  * where they began centre to centre (`exit.stays`), else by how much further apart (`exit.moved`;
@@ -28,7 +28,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
-import { measuredOn, specDigest, startHeld, startLevels, struckNumbers, trialExit } from "../../../src/skills/framework/profile.ts";
+import { measuredOn, specDigest, startHeld, struckNumbers, trialExit } from "../../../src/skills/framework/profile.ts";
 import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 
@@ -70,11 +70,11 @@ for (const path of paths) {
     profile.commits.add(row.from.commit);
     profile.dates.add(row.from.date.slice(0, 10));
     profile.changed ||= row.from.changed;
-    const levels = startLevels(spec, struck), held = startHeld(spec, struck);
+    const held = startHeld(spec, struck);
     for (const sway of row.reading.sways) {
       const posture = sway.foeAt.posture ?? "standing";
       const start = { range: round(sway.foeAt.apart), phase: sway.phase, ...(posture === "standing" ? {} : { postures: { own: "standing", target: posture } }),
-        velocity: sway.foeAt.velocity.map(round), ...(sway.foeAt.stance ? { stance: sway.foeAt.stance } : {}), ...(levels ? { levels } : {}), ...(held ? { held } : {}), struck: struckNumbers(struck) };
+        velocity: sway.foeAt.velocity.map(round), ...(sway.foeAt.stance ? { stance: sway.foeAt.stance } : {}), ...(held ? { held } : {}), struck: struckNumbers(struck) };
       profile.trials.push({ start, done: !sway.down, dealt: 0, taken: round(sway.lost), seconds: round(sway.seconds), recovers: null, down: sway.down, ...(sway.exit ? { exit: { ...trialExit(sway.exit, sway.foeAt.apart), ...(sway.moved ? { own: round(-sway.moved.own) } : {}), ...(sway.exit.phase ? { striking: sway.exit.phase === "striking" ? 1 : 0 } : {}) } } : {}) });
     }
   }

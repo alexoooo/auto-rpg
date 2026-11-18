@@ -19,10 +19,7 @@
  * `foeAt` and `foePhase`): the range centre to centre, the target's phase and posture, the
  * striker's velocity against the target's (`foeAt.velocity`), and where it stood in its strike's
  * window (`inWindow`), and how each body stood (`foeAt.stance`); each absent in a record from before
- * the reading held it. With them, the
- * Steadiness and haste of each body as its row's bout built it, where its character set one apart
- * from its model's own (`startLevels`): rows played at several levels make one profile, read at
- * the level nearest a body's. A profile keeps
+ * the reading held it. A profile keeps
  * the trials that record the most of their start alone: fresh trials replace the older. A record
  * that does not hold the phase is refused: its rung is played again.
  *

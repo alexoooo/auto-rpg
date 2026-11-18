@@ -152,31 +152,6 @@ test("a skill's identity includes the selected aim's declared data", async () =>
 });
 
 /**
- * **A number a character sets is a condition of a profile's trials** (`Start.levels`): a profile
- * whose trials began at two Steadinesses was read as measured at one, whatever its reader's Steadiness.
- * A striker and a struck body are each read by the trials begun at the level nearest theirs, a
- * level no trial began at by the nearest that one did, and a profile that records none as before.
- */
-test("a profile whose trials began at several Steadinesses is read at the level nearest each body's", async () => {
-  const { profileReading, startLevels, validProfiles } = await import("../../src/skills/framework/profile.ts");
-  const body = (steadiness) => resolveCharacter({ model: "man", ...(steadiness === undefined ? {} : { attributes: { steadiness } }) }).spec;
-  const plain = body(), own = plain.attributes.steadiness.value, raised = body(own + 25), beyond = body(own + 60);
-  assert.deepEqual([startLevels(plain, plain), startLevels(raised, plain), startLevels(plain, raised)], [undefined, { own: { steadiness: own + 25 } }, { target: { steadiness: own + 25 } }]);
-  const trial = (range, done, levels) => ({ start: { phase: "clear", range, ...(levels ? { levels } : {}) }, done, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false });
-  const ranges = Array.from({ length: 12 }, (_, k) => .5 + k * .02), measured = { body: "man", skill: "straight-punch/drive", hz: 120, reaction: null }, target = {};
-  const at = { phase: "clear", range: .6 };
-  for (const side of ["own", "target"]) {
-    const profile = { measured, target, trials: ranges.flatMap((range) => [trial(range, false), trial(range, true, { [side]: { steadiness: own + 25 } })]) };
-    assert.ok(validProfiles([profile]));
-    const done = (striker, struck) => profileReading(profile, striker).expect(at, struck).done;
-    const read = side === "own" ? (spec) => done(spec, plain) : (spec) => done(plain, spec);
-    assert.deepEqual([read(plain), read(raised), read(beyond)], [0, 1, 1], `${side}'s Steadiness`);
-  }
-  const unlevelled = { measured, target, trials: ranges.flatMap((range) => [trial(range, false), trial(range, true)]) };
-  assert.equal(profileReading(unlevelled, raised).expect(at, raised).done, profileReading(unlevelled, plain).expect(at, plain).done);
-});
-
-/**
  * **How each body stood is a condition of a profile's trials** (`Start.stance`): a strike thrown
  * from a stagger and one from square are read apart, each body's stance by the trials begun
  * nearest it, beyond their span by the nearest that one did; a start asked at no stance, or a
