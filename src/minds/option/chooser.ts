@@ -289,7 +289,8 @@ function space(root: Situation, options: readonly Option[], objective: Objective
   const leaf = (at: Situation, reach: Reach, dealt: number, taken: number, orders: number, seconds: number): number => {
     if (written) {
       const left = Math.max(0, horizon - seconds);
-      if ("exchange" in written) return exchanged(at, fade(seconds, left) * left * written.exchange, dealt, taken, orders, seconds);
+      if ("exchange" in written) return exchanged(at, fade(seconds, left) * left * written.exchange, false, dealt, taken, orders, seconds);
+      if ("once" in written) return exchanged(at, fade(seconds, left) * written.once, true, dealt, taken, orders, seconds);
       const near = at.focus ? Math.max(0, 1 - at.apart / written.reach) : 0, counts = fade(seconds, left) * left * near;
       return price(dealt + counts * written.dealt, taken + counts * written.taken, orders, Math.max(seconds, horizon), at);
     }
@@ -342,18 +343,20 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     return worth;
   };
   /**
-   * **A line's end by the next exchange** (`ByExchange`), at `at`, `seconds` s into the horizon:
-   * the best of each Option on offer there traded at the rate of one try (its life dealt and taken
-   * over its time; an open Option's to the horizon), `counts` s of it; a walk to a site
+   * **A line's end by the next exchange** (`ByExchange`, `ByNext`), at `at`, `seconds` s into the
+   * horizon: the best of each Option on offer there, one try of it (its life dealt and taken; an
+   * open Option's to the horizon) counted `counts` times its rate, a second (`ByExchange`), or,
+   * `once`, `counts` times itself, open Options left out (`ByNext`); a walk to a site
    * (`Option.sites`) counted with the best try where each way it ends leaves the body. The path as
    * it is where none is.
    */
-  const exchanged = (at: Situation, counts: number, dealt: number, taken: number, orders: number, seconds: number): number => {
+  const exchanged = (at: Situation, counts: number, once: boolean, dealt: number, taken: number, orders: number, seconds: number): number => {
     const end = Math.max(seconds, horizon);
-    const atRate = (d: number, t: number, duration: number): number =>
-      duration > 0 ? price(dealt + counts * d / duration, taken + counts * t / duration, orders, end, at) : -Infinity;
+    const atRate = (d: number, t: number, duration: number): number => !(duration > 0) ? -Infinity
+      : once ? price(dealt + counts * d, taken + counts * t, orders, end, at) : price(dealt + counts * d / duration, taken + counts * t / duration, orders, end, at);
     let top = -Infinity;
     for (const pair of pairsAt(at)) {
+      if (once && pair.option.open) continue;
       const terms = termsOf(pair, at, seconds);
       if (!toSite(pair)) { top = Math.max(top, atRate(terms.dealt, terms.taken, terms.duration)); continue; }
       let worth = 0;
@@ -361,6 +364,7 @@ function space(root: Situation, options: readonly Option[], objective: Objective
         const there = child(at, outcome.leaves, terms.duration), after = seconds + terms.duration;
         let then = atRate(terms.dealt, terms.taken, terms.duration);
         for (const next of readsAt(there, "arrived")) {
+          if (once && next.option.open) continue;
           const tried = termsOf(next, there, after);
           then = Math.max(then, atRate(terms.dealt + tried.dealt, terms.taken + tried.taken, terms.duration + tried.duration));
         }
@@ -619,9 +623,9 @@ function obedienceField<C extends SearchConfig>(): PartField<C> {
 /**
  * **A line's end** (`SearchConfig.end`): what is traded from where a line's last Option leaves
  * the body to the horizon, priced by the objective as the line's own life. Written by distance
- * (`ByDistance`), or the next exchange's (`ByExchange`).
+ * (`ByDistance`), or the next exchange's, at its rate (`ByExchange`) or once (`ByNext`).
  */
-type LineEnd = ByDistance | ByExchange;
+type LineEnd = ByDistance | ByExchange | ByNext;
 
 /**
  * **A line's end by distance**: each side trades life at a steady rate by how far apart the two
@@ -637,21 +641,37 @@ interface ByDistance { readonly dealt: number; readonly taken: number; readonly 
  */
 interface ByExchange { readonly exchange: number }
 
-/** What the picker offers for a line's end (`endField`): none, the tail; by distance; by the next exchange. By distance at the rate bouts trade with the two in reach; by the next exchange at its rate as priced. */
+/**
+ * **A line's end by the next exchange, once**: the best try begun from there, a walk to a site
+ * counted with the best try where it arrives, its life dealt and taken counted `once` times, and
+ * nothing after; an open Option, which has no one try, is none.
+ */
+interface ByNext { readonly once: number }
+
+/**
+ * What the picker offers for a line's end (`endField`) besides none, the tail: by distance, at the
+ * rate bouts trade with the two in reach; by the next exchange at its rate as priced; and once,
+ * at the scale that scored best against the tail on `warrior`.
+ */
 const ENDS = Object.freeze({
   distance: Object.freeze({ dealt: .027, taken: .027, reach: 2 }) as LineEnd,
   exchange: Object.freeze({ exchange: 1 }) as LineEnd,
+  next: Object.freeze({ once: 3 }) as LineEnd,
 });
 
-/** A searching chooser's line's end (`LineEnd`): the tail where none is written, else by distance or by the next exchange, at the settings `ENDS` gives. */
+/** Which of `ENDS` `end` is, by its kind. */
+const endKind = (end: LineEnd): keyof typeof ENDS => "exchange" in end ? "exchange" : "once" in end ? "next" : "distance";
+
+/** A searching chooser's line's end (`LineEnd`): the tail where none is written, else one of `ENDS`, at the settings it gives. */
 function endField<C extends SearchConfig>(): PartField<C> {
   return {
-    kind: "choice", key: "end", label: "Line's end", options: [["", "Tail"], ["distance", "By distance"], ["exchange", "By the next exchange"]],
-    read: (config) => config.end === undefined ? "" : "exchange" in config.end ? "exchange" : "distance",
+    kind: "choice", key: "end", label: "Line's end",
+    options: [["", "Tail"], ["distance", "By distance"], ["exchange", "By the next exchange's rate"], ["next", "By the next exchange, once"]],
+    read: (config) => config.end === undefined ? "" : endKind(config.end),
     write: (config, text) => {
       const { end: _, ...rest } = config;
       if (text === "") return rest as C;
-      return text === "distance" || text === "exchange" ? { ...rest, end: ENDS[text] } as C : null;
+      return Object.hasOwn(ENDS, text) ? { ...rest, end: ENDS[text as keyof typeof ENDS] } as C : null;
     },
   };
 }
@@ -662,8 +682,9 @@ const searchFaults = (config: SearchConfig): readonly string[] => [
   ...config.halfLife === undefined || Number.isFinite(config.halfLife) && config.halfLife > 0 ? [] : ["halfLife: a finite time, more than none"],
   ...config.end === undefined || typeof config.end === "object" && config.end !== null && ("exchange" in config.end
     ? Number.isFinite(config.end.exchange) && config.end.exchange >= 0
+    : "once" in config.end ? Number.isFinite(config.end.once) && config.end.once >= 0
     : [config.end.dealt, config.end.taken].every((rate) => Number.isFinite(rate) && rate >= 0) && Number.isFinite(config.end.reach) && config.end.reach > 0)
-    ? [] : ["end: exchange a finite share, not negative; or dealt and taken a finite rate, not negative, and reach a finite distance, more than none"],
+    ? [] : ["end: exchange or once a finite share, not negative; or dealt and taken a finite rate, not negative, and reach a finite distance, more than none"],
   ...config.margin === undefined || Number.isFinite(config.margin) && config.margin >= 0 ? [] : ["margin: a finite worth, not negative"],
   ...config.obedience === undefined || OBEDIENCE.some(([value]) => value === config.obedience) ? [] : [`obedience: one of ${OBEDIENCE.map(([value]) => value).join(", ")}`]];
 

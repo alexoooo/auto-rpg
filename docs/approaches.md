@@ -263,6 +263,16 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   minute less lost (-0.07 to 0.94); but the mirror standing silent 8.6% without it (6.4% with the
   game's tail) and 18.7% with it, paired 10.1 points (8.1 to 12.0). Offered in the picker beside the
   tail and by distance; not the game's. *Shown.*
+- **The next exchange counted once pays the back step most and quiets the mirror most**: its life
+  dealt and taken, a walk counted with it, nothing after, open Options none (`ByNext`), at the
+  scale best against the tail on `warrior` (0.451 at 1, 0.507 at 3, 0.451 at 6): held out on
+  `warrior-drawn` 0.490 (0.431 to 0.542). The Warrior with the back step against one without
+  0.63 HP a minute less lost (0.20 to 1.07), won 0.558 (0.514 to 0.604) over 432 bouts; the
+  mirror standing silent 9.8% without it and 21.6% with it, paired 11.8 points (9.9 to 13.7).
+  Where the back step pays (the exchange's rate, once: won 0.550 and 0.558), the mirror with it in
+  both is 10 to 12 points quieter than without; where it pays nothing (by distance, 0.521), 1.8.
+  Both exchange ends leave the mirror without it quieter than the tail (8.6% and 9.8% against
+  6.4%). In the picker; not the game's. *Shown.*
 - **A bar read on bouts won needs its spread**: the back step's Warrior against one without won
   79 to 65 on the game's Mind, 0.549 with 0.472 to 0.632 over bouts, and 0.521 (0.472 to 0.567)
   over 432 under the written line's end: neither a win (`fc29f4f3d`). *Shown.*
