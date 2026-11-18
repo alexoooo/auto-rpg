@@ -4,11 +4,13 @@
  * (`strike-profiles.json`) and each body its trials struck, that body's trials taken away and
  * priced from the rest, by the trials struck at the measured body nearest its stature and mass
  * (`profileAgainst`, `STRUCK_SPANS`) and by those struck at the first body the profile's trials
- * struck (the rule before the struck body was numbers), against what its own trials brought. Each
+ * struck (the rule before the struck body was numbers), against what its own trials brought, and
+ * by its own: its trials split by turns, the even ones read and the odd ones scored, all three
+ * rules on the odd ones alone, so its own is what a body loses read from another's. Each
  * trial is read at its own start (`ProfileReading.expect`): the share landed against whether it
  * landed, and the life dealt, a share of the struck body's, against what it dealt; the squared
  * error of each, paired trial by trial, and the difference's spread (twice its standard error).
- * Where the two rules read the same body there is nothing to tell them apart, and it is left out.
+ * Every body measured is held out in turn, whether or not the nearest and the first read the same.
  *
  *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/struck-held-out.mjs
  */
@@ -21,7 +23,8 @@ const MODELS = ["man", "woman", "skeleton"], specs = new Map(MODELS.map((model) 
 const keyOf = (at) => `${at.stature} ${at.mass}`, modelAt = new Map(MODELS.map((model) => [keyOf(struckNumbers(specs.get(model))), model]));
 const mean = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
 const spread = (xs) => { const m = mean(xs); return 2 * Math.sqrt(xs.reduce((s, x) => s + (x - m) ** 2, 0) / (xs.length - 1) / xs.length); };
-const all = { nearest: [], first: [], unread: { nearest: 0, first: 0 } };
+const RULES = ["own", "nearest", "first"];
+const all = { own: [], nearest: [], first: [], unread: 0 };
 
 for (const profile of profiles) {
   const striker = specs.get(profile.measured.body), bodies = [...new Set(profile.trials.map((trial) => keyOf(trial.start.struck)))];
@@ -29,31 +32,29 @@ for (const profile of profiles) {
     const struck = specs.get(modelAt.get(out)), rest = { ...profile, trials: profile.trials.filter((trial) => keyOf(trial.start.struck) !== out) };
     const nearest = profileAgainst([rest], struck), first = { ...rest, trials: rest.trials.filter((trial) => keyOf(trial.start.struck) === keyOf(rest.trials[0].start.struck)) };
     const nearestAt = keyOf(nearest.trials[0].start.struck), firstAt = keyOf(first.trials[0].start.struck);
-    if (nearestAt === firstAt) continue;
-    const errors = { nearest: { done: [], dealt: [] }, first: { done: [], dealt: [] } };
-    for (const trial of profile.trials) {
-      if (keyOf(trial.start.struck) !== out || trial.letGo) continue;
+    const mine = profile.trials.filter((trial) => keyOf(trial.start.struck) === out), own = { ...profile, trials: mine.filter((_, k) => k % 2 === 0) };
+    const errors = Object.fromEntries(RULES.map((rule) => [rule, { done: [], dealt: [] }]));
+    for (const trial of mine.filter((_, k) => k % 2 === 1)) {
+      if (trial.letGo) continue;
       const { levels: _, held: __, ...asked } = trial.start, postures = trial.start.postures;
       const read = (by) => profileReading(by, striker, postures).expect(asked, struck);
-      const [a, b] = [read(nearest), read(first)];
-      if (!a || !b) { all.unread.nearest += a ? 0 : 1; all.unread.first += b ? 0 : 1; continue; }
+      const readings = { own: read(own), nearest: read(nearest), first: read(first) };
+      if (RULES.some((rule) => !readings[rule])) { all.unread++; continue; }
       const dealt = trial.dealt / struck.wounds.hp.value;
-      errors.nearest.done.push((a.done - +trial.done) ** 2); errors.first.done.push((b.done - +trial.done) ** 2);
-      errors.nearest.dealt.push((a.dealt - dealt) ** 2); errors.first.dealt.push((b.dealt - dealt) ** 2);
+      for (const rule of RULES) { errors[rule].done.push((readings[rule].done - +trial.done) ** 2); errors[rule].dealt.push((readings[rule].dealt - dealt) ** 2); }
     }
     const n = errors.nearest.done.length;
     if (!n) continue;
-    all.nearest.push(...errors.nearest.done.map((done, k) => ({ done, dealt: errors.nearest.dealt[k] })));
-    all.first.push(...errors.first.done.map((done, k) => ({ done, dealt: errors.first.dealt[k] })));
-    const diff = (key) => errors.nearest[key].map((x, k) => x - errors.first[key][k]);
+    for (const rule of RULES) all[rule].push(...errors[rule].done.map((done, k) => ({ done, dealt: errors[rule].dealt[k] })));
     console.log(`${profile.measured.body} ${profile.measured.skill} ${profile.measured.limb}, ${modelAt.get(out)} held out (${n} trials): nearest ${modelAt.get(nearestAt)}, first ${modelAt.get(firstAt)};`
-      + ` landed error ${mean(errors.nearest.done).toFixed(4)} against ${mean(errors.first.done).toFixed(4)} (difference ${mean(diff("done")).toFixed(4)} ± ${spread(diff("done")).toFixed(4)}),`
-      + ` dealt ${mean(errors.nearest.dealt).toFixed(5)} against ${mean(errors.first.dealt).toFixed(5)} (${mean(diff("dealt")).toFixed(5)} ± ${spread(diff("dealt")).toFixed(5)})`);
+      + ` ${summary(errors, (rule, key) => errors[rule][key])}`);
   }
 }
-if (all.nearest.length) {
-  const diff = (key) => all.nearest.map((one, k) => one[key] - all.first[k][key]);
-  console.log(`all, ${all.nearest.length} trials: landed error ${mean(all.nearest.map((one) => one.done)).toFixed(4)} nearest against ${mean(all.first.map((one) => one.done)).toFixed(4)} first`
-    + ` (${mean(diff("done")).toFixed(4)} ± ${spread(diff("done")).toFixed(4)}); dealt ${mean(all.nearest.map((one) => one.dealt)).toFixed(5)} against ${mean(all.first.map((one) => one.dealt)).toFixed(5)}`
-    + ` (${mean(diff("dealt")).toFixed(5)} ± ${spread(diff("dealt")).toFixed(5)}); unread by the nearest ${all.unread.nearest}, by the first ${all.unread.first}`);
+if (all.nearest.length) console.log(`all, ${all.nearest.length} trials: ${summary(all, (rule, key) => all[rule].map((one) => one[key]))}; ${all.unread} unread by one rule or more`);
+
+/** Each rule's mean squared error of landed and of dealt, and the nearest's and the first's less the own's, paired, with its spread. */
+function summary(_, of) {
+  const line = (key, places) => RULES.map((rule) => `${rule} ${mean(of(rule, key)).toFixed(places)}`).join(", ")
+    + ` (${RULES.slice(1).map((rule) => { const d = of(rule, key).map((x, k) => x - of("own", key)[k]); return `${rule} less own ${mean(d).toFixed(places)} ± ${spread(d).toFixed(places)}`; }).join(", ")})`;
+  return `landed error ${line("done", 4)}; dealt error ${line("dealt", 5)}`;
 }
