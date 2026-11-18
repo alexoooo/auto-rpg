@@ -339,11 +339,13 @@ function ratePressure(seen: Seen): Pressure {
  * or what bouts measured (`measuredOthers`). And where the focus's own steps carry it over the
  * seconds after while the body does `doing` (`steps`, m on the ground): with none, it stands,
  * and an Option's measured exit holds its trials' foe's steps; its velocity persisting
- * (`persisting`); or what bouts measured (`measuredSteps`).
+ * (`persisting`); or what bouts measured (`measuredSteps`). And whether its pressure holds the
+ * blow coming (`holdsBlow`), so none is priced beside it (`Predictions.danger`).
  */
 export interface OthersModel {
   readonly kind: string;
   pressure(seen: Seen): Pressure;
+  holdsBlow?(seen: Seen): boolean;
   steps?(seen: Seen, seconds: number, doing: Doing): Ground;
 }
 
@@ -425,16 +427,20 @@ export const RATE_OTHERS: OthersModel = Object.freeze({ kind: "rate", pressure: 
  * **What bouts measured**: where `tables` hold one of a standing focus's body fighting this one
  * (`pressureTable`), the rate read by it (`Pressure.measured`), the focus doing as it is now
  * (`foePhase`): its moments carry how soon its blows came, so no grace is kept of it (its latency
- * none); else the rate.
+ * none), and what a blow under way took, so it holds the blow coming (`holdsBlow`); else the rate.
  */
 export function measuredOthers(tables: readonly PressureTable[]): OthersModel {
+  const tableOf = (seen: Seen): PressureTable | null => {
+    const focus = seen.focus;
+    return focus && sensedPosture(focus) === "standing" ? pressureTable(tables, focus.spec, seen.spec) : null;
+  };
   return {
     kind: "measured",
     pressure(seen) {
-      const pressure = ratePressure(seen), focus = seen.focus;
-      const table = focus && sensedPosture(focus) === "standing" ? pressureTable(tables, focus.spec, seen.spec) : null;
-      return table ? { ...pressure, latency: 0, priced: `${pressure.priced}; measured in bouts`, measured: { table, doing: foePhase(focus!, seen.blow) } } : pressure;
+      const pressure = ratePressure(seen), table = tableOf(seen);
+      return table ? { ...pressure, latency: 0, priced: `${pressure.priced}; measured in bouts`, measured: { table, doing: foePhase(seen.focus!, seen.blow) } } : pressure;
     },
+    holdsBlow: (seen) => tableOf(seen) !== null,
   };
 }
 
@@ -629,7 +635,7 @@ export const threatened = (now: Situation, seconds: number, apart = now.range, g
  * (`startVelocity`) and this body's phase, to their reach (a blow predicted to reach the head is in
  * reach); with none, its prior (`prior`): its
  * energy at the speed it closes, landing as often as `LANDS`. 0 with none: the blow coming's
- * (`danger`).
+ * (`danger`), where the foe's pressure does not hold it already (`OthersModel.holdsBlow`).
  */
 function lifeOf(seen: Seen, blow: Seen["blow"]): number {
   const { spec, sight } = seen;
@@ -745,14 +751,15 @@ export interface Prediction<V> {
 
 /**
  * **Every prediction Option Mind reads**, by name: the own life the blow coming is expected to take
- * (`lifeOf`), 0 with none; what the focus is expected to deal the body (`Pressure`), and
+ * (`lifeOf`), 0 with none or where the foe's pressure holds it (`OthersModel.holdsBlow`); what the
+ * focus is expected to deal the body (`Pressure`), and
  * what its own strikes are expected to deal the focus (`pressingOf`); what a second down in each
  * posture costs (`downRateAtOf`); how fast the focus turns to face (`turnOf`), rad/s, Infinity with none; where its own
  * steps carry it over a number of seconds while the body does one thing (`OthersModel.steps`), null where its model has none; and the
  * focus's life a blow of a limb at a segment of its takes by the rules (`blowLife`), 0 with no focus.
  */
 const PREDICTIONS = Object.freeze({
-  danger: { read: (seen) => lifeOf(seen, seen.blow) } as Prediction<number>,
+  danger: { read: (seen) => (seen.others ?? RATE_OTHERS).holdsBlow?.(seen) ? 0 : lifeOf(seen, seen.blow) } as Prediction<number>,
   pressure: { read: (seen) => (seen.others ?? RATE_OTHERS).pressure(seen) } as Prediction<Pressure>,
   pressing: { read: pressingOf } as Prediction<Pressure>,
   downRate: { read: downRateAtOf } as Prediction<(posture: Position) => number>,

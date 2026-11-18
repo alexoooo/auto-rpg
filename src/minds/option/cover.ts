@@ -18,8 +18,9 @@ const STOPS = .6;
  * On offer while there is such a hand and no action under way holds it, down or standing. It claims that hand,
  * asks it between the blow and the head, and is priced as holding the body as it is (`holding`)
  * less the share of the blow's life it keeps off (`STOPS` of `Predictions.danger`), at a state with
- * a blow coming. It runs as long as it is held (`Option.open`) and always yields. Its memory is
- * the hand, read once a step. None for a body without hands.
+ * a blow coming; as holding, where the foe's pressure holds the blow (`OthersModel.holdsBlow`). It
+ * runs as long as it is held (`Option.open`) and always yields. Its memory is the hand, read once a
+ * step. None for a body without hands.
  */
 export function covers(spec: BodySpec): readonly Option[] {
   const state = { read: -Infinity, hand: null as Side | null };

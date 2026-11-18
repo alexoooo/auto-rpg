@@ -208,6 +208,15 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   with the back step 72 to 79 % silent, read nearest-first, over a span, or sharp to 3 s and
   pooled past (`e4225d62a`, `470e9b2f6`). It is the old Minds' value, which a search that changes
   their policy is off. *Shown.*
+- **A pressure measured in bouts holds the blow coming; priced beside it, the blow counted twice**:
+  its moments read the foe's phase, a blow under way's landing among them, and every Option but
+  the back step (its trials' own taken) added the blow's life (`Predictions.danger`) on top. In
+  the Warrior mirror, in reach at a foe striking, a walk, a hold at reach's edge and a punch were
+  priced 7 to 8% of a life taken against about 3% given, the back step 3.9% against 2.0%; a sway
+  read 4 points better than the rest where it was 1. With the measured pressure holding it
+  (`OthersModel.holdsBlow`) they read 0.7 to 0.9 of what they get, and the old pricing scored 0.503
+  (0.451 to 0.556) against the new on `warrior-drawn`. A cover is priced as a hold there; it was
+  chosen 5 times in 45,000 decisions. *Shown.*
 - **The Option Mind's prices ran over what a fight gives**: in Warrior mirror bouts it expected
   2.4 times the life it lost in reach and 3.0 times what its punches dealt (`aee4b6342`, on one
   draw, its reader counting damage, not life). *Shown.*
