@@ -290,7 +290,7 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     if (written) {
       const left = Math.max(0, horizon - seconds);
       if ("exchange" in written) return exchanged(at, fade(seconds, left) * left * written.exchange, false, dealt, taken, orders, seconds);
-      if ("once" in written) return exchanged(at, fade(seconds, left) * written.once, true, dealt, taken, orders, seconds);
+      if ("once" in written) return exchanged(at, written.once, true, dealt, taken, orders, seconds);
       const near = at.focus ? Math.max(0, 1 - at.apart / written.reach) : 0, counts = fade(seconds, left) * left * near;
       return price(dealt + counts * written.dealt, taken + counts * written.taken, orders, Math.max(seconds, horizon), at);
     }
@@ -346,14 +346,15 @@ function space(root: Situation, options: readonly Option[], objective: Objective
    * **A line's end by the next exchange** (`ByExchange`, `ByNext`), at `at`, `seconds` s into the
    * horizon: the best of each Option on offer there, one try of it (its life dealt and taken; an
    * open Option's to the horizon) counted `counts` times its rate, a second (`ByExchange`), or,
-   * `once`, `counts` times itself, open Options left out (`ByNext`); a walk to a site
+   * `once`, `counts` times itself as it fades over its own seconds (`fade`), open Options left
+   * out (`ByNext`); a walk to a site
    * (`Option.sites`) counted with the best try where each way it ends leaves the body. The path as
    * it is where none is.
    */
   const exchanged = (at: Situation, counts: number, once: boolean, dealt: number, taken: number, orders: number, seconds: number): number => {
     const end = Math.max(seconds, horizon);
     const atRate = (d: number, t: number, duration: number): number => !(duration > 0) ? -Infinity
-      : once ? price(dealt + counts * d, taken + counts * t, orders, end, at) : price(dealt + counts * d / duration, taken + counts * t / duration, orders, end, at);
+      : once ? price(dealt + counts * fade(seconds, duration) * d, taken + counts * fade(seconds, duration) * t, orders, end, at) : price(dealt + counts * d / duration, taken + counts * t / duration, orders, end, at);
     let top = -Infinity;
     for (const pair of pairsAt(at)) {
       if (once && pair.option.open) continue;
