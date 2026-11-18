@@ -5,7 +5,7 @@
 import { skillsOf } from "../../../src/minds/option/skills.ts";
 import { partLookup } from "../../../src/app/catalog.ts";
 import { limbAction } from "../../../src/minds/option/kinds.ts";
-import { holdsOf, measuredOn, skillDigest, specDigest, strikeSkill } from "../../../src/skills/framework/profile.ts";
+import { measuredOn, skillDigest, specDigest, strikeSkill } from "../../../src/skills/framework/profile.ts";
 import { everyOf } from "../../../src/minds/decider.ts";
 
 /**
@@ -35,7 +35,7 @@ export const marksOf = (action) => (action.regions ?? []).every((region) => regi
  * it is measured against, and the digests of each body and its skill (`Origin`).
  */
 export function strikeKey(spec, struck, mind, executors, action, effector, hz, reaction, delay) {
-  const limbed = limbAction(action, effector), held = holdsOf(struck), target = { body: struck.model, ...(held === undefined ? {} : { holds: held }) };
+  const limbed = limbAction(action, effector), target = { body: struck.model };
   return { measured: measuredOn(spec, strikeSkill(spec, executors, limbed), effector, hz, reaction, hz / everyOf(mind.rate, hz), delay), target,
     digests: { spec: specDigest(spec), skill: skillDigest(partLookup, spec, executors, limbed), target: specDigest(struck) } };
 }

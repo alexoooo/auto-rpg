@@ -294,9 +294,11 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   summed plainly, but it expected about 20 times what they took (`16d74daf4`,
   `research/minds/two-on-one.mjs`). *Shown.*
 - **Not built**: the ground as numbers (room behind, slope, the nearest wall: nothing reads it);
-  what a body holds as numbers (a profile is still keyed by what it holds, `holdsOf`, so each
-  loadout pair is its own table or none; only stature carries across bodies); one model a skill
-  across bodies in the game (the nearest body's trials scaled is). The skeletons' overprice two on
+  one model a skill across bodies in the game (the nearest body's trials scaled is). What a body
+  holds is numbers on a profile's trials (`Start.held`) and no part of what finds one, but no
+  trial yet crosses a loadout with a skill measured without it: a body holding a sword reads its
+  punches' and its stomp's empty-handed trials, coarse; the pressure is still found by what each
+  body holds (`holdsOf`, `pressure.ts`). The skeletons' overprice two on
   one is likely their pricing by rate: the measured pressure has a table for a man on a man only,
   so any other foe is priced by the most its strikes could deal at reach (`measuredOthers`,
   `ratePressure`); not isolated. The kinds were fitted by bouts on the Warrior empty-handed

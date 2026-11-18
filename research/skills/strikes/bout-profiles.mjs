@@ -32,6 +32,6 @@ for (const path of positionals) for (const [, result] of JSON.parse(readFileSync
 }
 console.log(`${bouts} bouts, ${profiles.size} profiles`);
 for (const { measured: m, target, trials } of profiles.values())
-  console.log(`  ${m.body}${m.holds ? ` holding ${m.holds}` : ""} ${m.skill} with ${m.limb} on ${target.body}: ${trials.length} trials, landed ${round(mean(trials.map((t) => +t.done)))},`
+  console.log(`  ${m.body} ${m.skill} with ${m.limb} on ${target.body}: ${trials.length} trials, landed ${round(mean(trials.map((t) => +t.done)))},`
     + ` dealt ${round(mean(trials.map((t) => t.dealt)))} hp, taken ${round(mean(trials.map((t) => t.taken)))} hp, ${round(mean(trials.map((t) => t.seconds)))} s, down ${round(mean(trials.map((t) => +t.down)))}`);
 if (values.out) writeFileSync(values.out, `${JSON.stringify({ source: { script: SCRIPT, bouts: positionals }, profiles: [...profiles.values()] }, null, 2)}\n`);

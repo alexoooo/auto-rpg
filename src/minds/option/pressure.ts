@@ -1,5 +1,14 @@
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { holdsOf } from "../../skills/framework/profile.ts";
+
+/**
+ * **What a body of `spec` holds**, each item's name by the segment that holds it, in the segments'
+ * order by name; undefined with nothing. What a pressure table is found by, beside the bodies'
+ * models, until it is read by numbers as the strikes' profiles are.
+ */
+export function holdsOf(spec: Pick<BodySpec, "held">): string | undefined {
+  const held = spec.held ?? [];
+  return held.length ? held.map((one) => `${one.segment}:${one.item.name}`).sort().join(",") : undefined;
+}
 
 /**
  * **A measured pressure**: what a striker's fighting took from a struck body in bouts, by how far

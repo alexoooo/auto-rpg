@@ -12,8 +12,9 @@ import { workerJobs } from "../../worker-jobs.mjs";
  * where its Option noted it done and the body is then where it goes (a way up's edge, on its feet
  * for one to standing; flatten's lie; a brace's, where a way up is begun next); else it ended down
  * where the body lies then (`Trial.end`).
- * Each profile names what it was measured on: the body's model and what it holds, the technique
- * as the body holds it, the world's rate and the command's delay; and where it came from
+ * Each profile names what it was measured on: the body's model (what it held is on each trial's
+ * start, `Start.held`, so every loadout's falls are one profile), the technique as the body holds
+ * it, the world's rate and the command's delay; and where it came from
  * (`Origin`): its body's and its technique's digests, and the commit, whether a build input
  * differed from it, and the day of the oldest fall read. Node, core world, the gameplay engine, 120 Hz.
  *
@@ -72,7 +73,7 @@ if (isMainThread) {
   for (const p of sorted) {
     const byFrom = new Map();
     for (const t of p.trials) { const f = byFrom.get(t.start.postures.own) ?? { n: 0, done: 0, seconds: 0 }; f.n++; f.done += t.done ? 1 : 0; f.seconds += t.seconds; byFrom.set(t.start.postures.own, f); }
-    console.log(`${p.label}${p.measured.holds ? ` holding ${p.measured.holds}` : ""}: ${[...byFrom].map(([from, f]) => `from ${from} ${f.done}/${f.n} done, ${(f.seconds / f.n).toFixed(2)} s`).join("; ")}`);
+    console.log(`${p.label}: ${[...byFrom].map(([from, f]) => `from ${from} ${f.done}/${f.n} done, ${(f.seconds / f.n).toFixed(2)} s`).join("; ")}`);
   }
   const { modelSpec } = await import("../../../src/core/bodies/models.ts");
   const body = values.model ? modelSpec(values.model).model : null;

@@ -175550,7 +175550,6 @@
     {
       "measured": {
         "body": "man",
-        "holds": "hand.right:wooden club",
         "skill": "bonk/swing",
         "limb": "hand.right",
         "hz": 120,
@@ -175578,7 +175577,15 @@
             "window": [
               -0.0348,
               -0.1356
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.1751,
@@ -175598,7 +175605,15 @@
             "window": [
               -0.0917,
               -0.0428
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.2396,
@@ -175621,7 +175636,15 @@
             "window": [
               -0.0915,
               -0.0125
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 1.7877,
@@ -175644,7 +175667,15 @@
             "window": [
               -0.0943,
               -0.0073
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.6907,
@@ -175664,7 +175695,15 @@
             "window": [
               -0.0936,
               -0.0001
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.5079,
@@ -175687,7 +175726,15 @@
             "window": [
               -0.0976,
               -0.005
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0149,
@@ -175710,7 +175757,15 @@
             "window": [
               -0.0875,
               0.0016
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.1601,
@@ -175730,7 +175785,15 @@
             "window": [
               -0.0908,
               -0.0009
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0278,
@@ -175750,7 +175813,15 @@
             "window": [
               -0.0905,
               -0.0282
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0302,
@@ -175770,7 +175841,15 @@
             "window": [
               0.0915,
               0.0544
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.8012,
@@ -175790,7 +175869,15 @@
             "window": [
               -0.0088,
               0.1331
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.9673,
@@ -175810,7 +175897,15 @@
             "window": [
               -0.0256,
               0.1388
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0039,
@@ -175830,7 +175925,15 @@
             "window": [
               -0.0221,
               0.1038
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0,
@@ -175850,7 +175953,15 @@
             "window": [
               -0.0957,
               0.0823
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.2568,
@@ -175873,7 +175984,15 @@
             "window": [
               0.0983,
               -0.0011
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.9331,
@@ -175896,7 +176015,15 @@
             "window": [
               0.0964,
               0.0033
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0,
@@ -175919,7 +176046,15 @@
             "window": [
               -0.0836,
               0.1378
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0,
@@ -175942,7 +176077,15 @@
             "window": [
               0.0984,
               0.0015
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0043,
@@ -175965,7 +176108,15 @@
             "window": [
               0.0971,
               -0.0049
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.3108,
@@ -175988,7 +176139,15 @@
             "window": [
               0.0979,
               -0.0043
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.7358,
@@ -176011,7 +176170,15 @@
             "window": [
               0.0954,
               0.009
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.9325,
@@ -176034,7 +176201,15 @@
             "window": [
               -0.0389,
               0.2281
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0028,
@@ -176057,7 +176232,15 @@
             "window": [
               0.0874,
               -0.0053
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 2.6256,
@@ -176080,7 +176263,15 @@
             "window": [
               0.0965,
               -0.002
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0544,
@@ -176103,7 +176294,15 @@
             "window": [
               0.0928,
               0.0006
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.7079,
@@ -176126,7 +176325,15 @@
             "window": [
               0.0846,
               -0.0003
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.0382,
@@ -176149,7 +176356,15 @@
             "window": [
               0.0789,
               0.0047
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0273,
@@ -176172,7 +176387,15 @@
             "window": [
               0.0876,
               0.0002
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.7744,
@@ -176195,7 +176418,15 @@
             "window": [
               0.0843,
               -0.0026
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0937,
@@ -176218,7 +176449,15 @@
             "window": [
               0.08,
               -0.0035
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 2.0307,
@@ -176241,7 +176480,15 @@
             "window": [
               0.0785,
               0.0016
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0139,
@@ -176264,7 +176511,15 @@
             "window": [
               0.0858,
               0.0008
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.2818,
@@ -176287,7 +176542,15 @@
             "window": [
               -0.0545,
               -0.0441
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 2.1665,
@@ -176307,7 +176570,15 @@
             "window": [
               -0.1026,
               0.0229
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0,
@@ -176327,7 +176598,15 @@
             "window": [
               0.0851,
               0.1388
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0,
@@ -176344,7 +176623,6 @@
     {
       "measured": {
         "body": "man",
-        "holds": "hand.right:wooden club",
         "skill": "bonk/swing",
         "limb": "hand.right",
         "hz": 120,
@@ -176372,7 +176650,15 @@
             "window": [
               -0.0925,
               -0.0018
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.2553,
@@ -176395,7 +176681,15 @@
             "window": [
               -0.0997,
               0.0029
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.1729,
@@ -176418,7 +176712,15 @@
             "window": [
               -0.0936,
               -0.0011
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.3022,
@@ -176441,7 +176743,15 @@
             "window": [
               -0.0928,
               0.0045
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 0.4634,
@@ -176464,7 +176774,15 @@
             "window": [
               -0.0964,
               -0.0168
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.3001,
@@ -176487,7 +176805,15 @@
             "window": [
               -0.0934,
               0.0822
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0328,
@@ -176510,7 +176836,15 @@
             "window": [
               0.0697,
               -0.0222
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.6012,
@@ -176530,7 +176864,15 @@
             "window": [
               -0.0005,
               -0.1218
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.9874,
@@ -176550,7 +176892,15 @@
             "window": [
               -0.0853,
               -0.1279
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0026,
@@ -176573,7 +176923,15 @@
             "window": [
               0.0934,
               0.1372
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.4593,
@@ -176593,7 +176951,15 @@
             "window": [
               0.0687,
               0.137
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 0.3626,
@@ -176616,7 +176982,15 @@
             "window": [
               0.0948,
               -0.0013
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0091,
@@ -176639,7 +177013,15 @@
             "window": [
               0.0938,
               -0.0002
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0,
@@ -176662,7 +177044,15 @@
             "window": [
               0.0984,
               -0.0012
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.1874,
@@ -176685,7 +177075,15 @@
             "window": [
               0.0982,
               -0.0013
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.2418,
@@ -176708,7 +177106,15 @@
             "window": [
               0.0933,
               0.0004
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0,
@@ -176731,7 +177137,15 @@
             "window": [
               0.0956,
               0.0124
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.3008,
@@ -176751,7 +177165,15 @@
             "window": [
               0.0961,
               0.0011
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.2195,
@@ -176774,7 +177196,15 @@
             "window": [
               0.0983,
               -0.0003
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.1563,
@@ -176797,7 +177227,15 @@
             "window": [
               0.0967,
               0.0009
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 0.2903,
@@ -176820,7 +177258,15 @@
             "window": [
               0.0952,
               -0.0017
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.302,
@@ -176843,7 +177289,15 @@
             "window": [
               0.0974,
               -0.0001
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.4523,
@@ -176866,7 +177320,15 @@
             "window": [
               0.0975,
               -0.0015
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.4268,
@@ -176889,7 +177351,15 @@
             "window": [
               0.0974,
               -0.0018
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.4168,
@@ -176912,7 +177382,15 @@
             "window": [
               0.0971,
               -0.0019
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.4052,
@@ -176935,7 +177413,15 @@
             "window": [
               0.0973,
               0.0022
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 0.3235,
@@ -176958,7 +177444,15 @@
             "window": [
               0.0985,
               -0.0005
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 0.3443,
@@ -176981,7 +177475,15 @@
             "window": [
               0.0978,
               0.0004
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.488,
@@ -177004,7 +177506,15 @@
             "window": [
               0.0977,
               0.0004
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.2733,
@@ -177027,7 +177537,15 @@
             "window": [
               0.098,
               -0.0014
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.2859,
@@ -177050,7 +177568,15 @@
             "window": [
               0.0983,
               -0.0016
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 0.3545,
@@ -177073,7 +177599,15 @@
             "window": [
               0.0974,
               0.0009
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.3431,
@@ -177096,7 +177630,15 @@
             "window": [
               0.0978,
               -0.0013
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.8257,
@@ -177119,7 +177661,15 @@
             "window": [
               0.0964,
               0.0002
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 0.3244,
@@ -177142,7 +177692,15 @@
             "window": [
               0.0897,
               0.0021
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.3751,
@@ -177165,7 +177723,15 @@
             "window": [
               0.0939,
               0.0004
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.0582,
@@ -177188,7 +177754,15 @@
             "window": [
               0.095,
               -0.001
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0764,
@@ -177211,7 +177785,15 @@
             "window": [
               0.0992,
               0
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0794,
@@ -177234,7 +177816,15 @@
             "window": [
               0.0963,
               0.0003
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 0.3831,
@@ -177257,7 +177847,15 @@
             "window": [
               0.0903,
               0.0039
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.357,
@@ -177274,7 +177872,6 @@
     {
       "measured": {
         "body": "man",
-        "holds": "hand.right:wooden club",
         "skill": "bonk/swing",
         "limb": "hand.right",
         "hz": 120,
@@ -177302,7 +177899,15 @@
             "window": [
               -0.0715,
               -0.0332
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.1227,
@@ -177322,7 +177927,15 @@
             "window": [
               -0.0952,
               -0.1026
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.2285,
@@ -177345,7 +177958,15 @@
             "window": [
               -0.0934,
               0.0937
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.5969,
@@ -177368,7 +177989,15 @@
             "window": [
               -0.0831,
               -0.1388
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.568,
@@ -177388,7 +178017,15 @@
             "window": [
               -0.0925,
               0.0715
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.3429,
@@ -177411,7 +178048,15 @@
             "window": [
               -0.066,
               -0.008
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.0165,
@@ -177431,7 +178076,15 @@
             "window": [
               -0.0966,
               0.0116
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.5496,
@@ -177454,7 +178107,15 @@
             "window": [
               -0.0974,
               -0.0017
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.4881,
@@ -177477,7 +178138,15 @@
             "window": [
               -0.0098,
               0.1275
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.1039,
@@ -177497,7 +178166,15 @@
             "window": [
               -0.0975,
               -0.0063
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.1851,
@@ -177520,7 +178197,15 @@
             "window": [
               -0.097,
               -0.0032
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 2.0361,
@@ -177543,7 +178228,15 @@
             "window": [
               -0.095,
               -0.0004
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.8222,
@@ -177566,7 +178259,15 @@
             "window": [
               -0.0878,
               -0.103
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0268,
@@ -177586,7 +178287,15 @@
             "window": [
               -0.0826,
               0.0322
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.1437,
@@ -177606,7 +178315,15 @@
             "window": [
               -0.0798,
               -0.015
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.5199,
@@ -177626,7 +178343,15 @@
             "window": [
               -0.0931,
               -0.0031
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.3464,
@@ -177646,7 +178371,15 @@
             "window": [
               -0.0884,
               0.0117
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.6051,
@@ -177669,7 +178402,15 @@
             "window": [
               -0.0691,
               -0.1302
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0511,
@@ -177689,7 +178430,15 @@
             "window": [
               -0.073,
               0.0658
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.2627,
@@ -177709,7 +178458,15 @@
             "window": [
               0.095,
               0.0003
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.6774,
@@ -177732,7 +178489,15 @@
             "window": [
               0.0985,
               -0.097
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.053,
@@ -177755,7 +178520,15 @@
             "window": [
               0.0955,
               0.0007
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0,
@@ -177778,7 +178551,15 @@
             "window": [
               0.0964,
               0.0008
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.3203,
@@ -177801,7 +178582,15 @@
             "window": [
               0.0999,
               0.0173
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.9425,
@@ -177824,7 +178613,15 @@
             "window": [
               0.096,
               -0.0004
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 2.126,
@@ -177847,7 +178644,15 @@
             "window": [
               0.0989,
               0.0036
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.751,
@@ -177870,7 +178675,15 @@
             "window": [
               0.0907,
               0.0069
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 1.7384,
@@ -177893,7 +178706,15 @@
             "window": [
               0.0987,
               -0.0021
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.3001,
@@ -177916,7 +178737,15 @@
             "window": [
               0.0982,
               -0.0017
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.969,
@@ -177939,7 +178768,15 @@
             "window": [
               0.0977,
               0.0012
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.8352,
@@ -177962,7 +178799,15 @@
             "window": [
               0.0976,
               0
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.2846,
@@ -177985,7 +178830,15 @@
             "window": [
               0.0973,
               -0.0005
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 2.1206,
@@ -178008,7 +178861,15 @@
             "window": [
               0.096,
               -0.0073
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.9429,
@@ -178031,7 +178892,15 @@
             "window": [
               0.0987,
               -0.0002
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.0718,
@@ -178054,7 +178923,15 @@
             "window": [
               0.0983,
               0.0013
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": true,
           "dealt": 1.8034,
@@ -178077,7 +178954,15 @@
             "window": [
               0.0837,
               -0.0029
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0.0056,
@@ -178097,7 +178982,15 @@
             "window": [
               0.0794,
               0.0097
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 1.0505,
@@ -178120,7 +179013,15 @@
             "window": [
               0.0854,
               0.0133
-            ]
+            ],
+            "held": {
+              "own": {
+                "hand.right": {
+                  "mass": 1.1626,
+                  "reach": 0.7
+                }
+              }
+            }
           },
           "done": false,
           "dealt": 0,

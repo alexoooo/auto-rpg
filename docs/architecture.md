@@ -214,8 +214,9 @@ config, `description.ts` what a config builds, `build.ts` the running mind.
 
 - **Predictions** price an Option from measured profiles (`Profile`,
   `src/skills/framework/profile.ts`): a sample of trials, a strike's thrown sparring and a ground
-  Option's tried in falls. A profile is found by its skill and variation, its limb, the body's
-  model and what it holds.
+  Option's tried in falls. A profile is found by its skill and variation, its limb and the body's
+  model; what each body held is on each trial as numbers (`Start.held`: an item's mass and reach),
+  read by the trials nearest it.
 - **The chooser** (`CHOOSERS`): the tree chooser prices each Option by a Monte Carlo tree search
   over the models (`treeSearch`) and is the application's default; the valued chooser searches one
   or two deep; the ranked chooser (`RANKED_CHOOSER`) prices nothing and takes firm orders first,

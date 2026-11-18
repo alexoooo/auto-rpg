@@ -91,12 +91,12 @@ if (pairs) {
   }
 }
 
-/** How far a foe of `foe` is priced to reach a body of `body`, m centre to centre: its measured strikes' farthest start begun clear, both standing (`ProfileReading.reach`). */
+/** How far a foe of `foe` is priced to reach a body of `body`, m centre to centre: its measured strikes' farthest start begun clear, both standing and empty-handed (`ProfileReading.reach`). */
 function reachOf(foe, body) {
   let reach = 0;
   for (const profile of JSON.parse(readFileSync(profiles, "utf8")).profiles) {
-    if (profile.measured.body !== foe || profile.measured.holds !== undefined || profile.target?.body !== body || profile.target.holds !== undefined) continue;
-    for (const trial of profile.trials) if (!trial.letGo && trial.start.phase === "clear" && !trial.start.postures) reach = Math.max(reach, trial.start.range);
+    if (profile.measured.body !== foe || profile.target?.body !== body) continue;
+    for (const trial of profile.trials) if (!trial.letGo && !trial.start.held && trial.start.phase === "clear" && !trial.start.postures) reach = Math.max(reach, trial.start.range);
   }
   return reach;
 }

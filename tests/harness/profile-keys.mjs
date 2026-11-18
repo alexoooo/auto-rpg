@@ -6,8 +6,8 @@ import { LOADOUTS, loadoutFaults, withLoadout } from "../../src/core/bodies/item
 import { limbAction } from "../../src/minds/option/kinds.ts";
 import { measuredOn, strikeSkill, techniqueSkill } from "../../src/skills/framework/profile.ts";
 
-/** **What a profile is found by** (`Measured`), a key: its body's model and what it holds, its skill as the body holds it, and its limb. */
-export const profileKey = ({ body, holds, skill, limb }) => `${body} [${holds ?? ""}] ${skill} [${limb ?? ""}]`;
+/** **What a profile is found by** (`Measured`), a key: its body's model, its skill as the body holds it, and its limb. */
+export const profileKey = ({ body, skill, limb }) => `${body} ${skill} [${limb ?? ""}]`;
 
 /**
  * **What a measured profile can be of now** (`profileKey`): the bodies are each model at its

@@ -15,7 +15,7 @@ export async function edgeTrial(job, given) {
   const { MINDS, partLookup, controllerOf } = await import("../../../src/app/catalog.ts");
   const { TECHNIQUES } = await import("../../../src/app/registration/techniques.ts");
   const { tumbling } = await import("../../../src/control/ground-reading.ts");
-  const { measuredOn, specDigest, techniqueDigest, techniqueSkill } = await import("../../../src/skills/framework/profile.ts");
+  const { heldNumbers, measuredOn, specDigest, techniqueDigest, techniqueSkill } = await import("../../../src/skills/framework/profile.ts");
   const { groundStart } = await import("../../../src/skills/recovery/data/profiles.ts");
   // Its priors alone (`PRIOR_PREDICTIONS`), so what it measures does not depend on what it measured before.
   const template = given ?? MINDS.option.config;
@@ -70,7 +70,7 @@ export async function edgeTrial(job, given) {
     const r = built.reading(), stood = r.stood && r.verified !== null, g = built.combatant.body.view.ground, t = built.world.time;
     for (const trial of [...open, ...waiting]) close(trial, t, g, stood, null);
     return { job, reading: r, trials: trials.map((trial) => ({ ...trial, measured: measuredOn(spec, techniqueSkill(spec, trial.skill), null, hz, null, hz, delay),
-      origin: { spec: specDigest(spec), skill: techniqueDigest(partLookup, spec, trial.skill) }, postures: groundStart(trial.from) })) };
+      origin: { spec: specDigest(spec), skill: techniqueDigest(partLookup, spec, trial.skill) }, postures: groundStart(trial.from), held: heldNumbers(spec) ?? null })) };
   } finally { built.dispose(); }
 }
 
@@ -80,8 +80,8 @@ export function edgeProfiles(all) {
   for (const trial of all) {
     const key = JSON.stringify(trial.measured), profile = profiles.get(key) ?? { measured: trial.measured, target: null, from: trial.origin, label: `${trial.measured.body} ${trial.skill.kind}`, trials: [] };
     profiles.set(key, profile);
-    profile.trials.push({ start: { range: 0, phase: "clear", postures: trial.postures }, done: trial.done, dealt: 0, taken: 0, seconds: trial.seconds, recovers: null, down: trial.down,
+    profile.trials.push({ start: { range: 0, phase: "clear", postures: trial.postures, ...(trial.held ? { held: { own: trial.held } } : {}) }, done: trial.done, dealt: 0, taken: 0, seconds: trial.seconds, recovers: null, down: trial.down,
       ...(trial.end ? { end: trial.end } : {}) });
   }
-  return [...profiles.values()].sort((a, b) => a.label < b.label ? -1 : a.label > b.label ? 1 : (a.measured.holds ?? "") < (b.measured.holds ?? "") ? -1 : 1);
+  return [...profiles.values()].sort((a, b) => a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
 }

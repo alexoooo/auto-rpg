@@ -143,7 +143,7 @@ const made = [...profiles.values()].map((profile) => {
 });
 for (const profile of profiles.values()) {
   const m = profile.measured, run = profile.trials.filter((t) => !t.letGo), lets = profile.trials.length - run.length;
-  console.log(`${profile.label} (${m.body}${m.holds ? ` holding ${m.holds}` : ""}, ${m.skill} with ${m.limb}, ${m.hz} Hz${m.rate ? `, its mind at ${m.rate} Hz` : ""}${m.delay ? `, its command ${m.delay} steps late` : ""}, senses ${m.reaction} s late)`);
+  console.log(`${profile.label} (${m.body}, ${m.skill} with ${m.limb}, ${m.hz} Hz${m.rate ? `, its mind at ${m.rate} Hz` : ""}${m.delay ? `, its command ${m.delay} steps late` : ""}, senses ${m.reaction} s late)`);
   if (!run.length) { console.log(`  no trial run; ${lets} let go`); continue; }
   const ranges = run.map((t) => t.start.range), closing = run.map((t) => t.start.velocity?.[0] ?? 0), across = run.map((t) => t.start.velocity?.[1] ?? 0);
   const ahead = run.map((t) => t.start.window?.[0] ?? 0), aside = run.map((t) => t.start.window?.[1] ?? 0);
@@ -158,7 +158,7 @@ if (write) {
   // Each of the asset's profiles keeps its place; one a run made again is replaced there, and the new follow.
   // The same body, skill and target replace a profile, whether or not it records its body's stature.
   const keyOf = ({ measured: { stature: _, ...measured }, target }) => JSON.stringify([measured, target]), current = profileKeys().strike;
-  const named = (m) => `${m.body}${m.holds ? ` holding ${m.holds}` : ""}, ${m.skill}${m.limb ? ` with ${m.limb}` : ""}`;
+  const named = (m) => `${m.body}, ${m.skill}${m.limb ? ` with ${m.limb}` : ""}`;
   const remade = new Map(made.map((profile) => [keyOf(profile), profile])), kept = [], asset = JSON.parse(readFileSync(OUT, "utf8"));
   // An asset measured on other rungs holds no profile to keep beside these.
   const measuredOnRungs = JSON.stringify(asset.source?.protocols ?? null) === JSON.stringify(PROTOCOLS);

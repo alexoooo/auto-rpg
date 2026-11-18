@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolveCharacter } from "../../src/core/bodies/models.ts";
 import { sensedSpec } from "../../src/core/bodies/senses.ts";
-import { holdsOf, profileAgainst, profilesFor, profilesOn, skillDigest } from "../../src/skills/framework/profile.ts";
+import { limbHoldsAsMeasured, profileAgainst, profilesFor, profilesOn, skillDigest } from "../../src/skills/framework/profile.ts";
 import { record } from "../../src/minds/option/value.ts";
 import { buildBout } from "../../src/app/node/evaluation.ts";
 import { recipeOf } from "../../src/app/node/setup.ts";
@@ -13,7 +13,7 @@ import { reportNow } from "../../src/minds/seat/apart.ts";
 
 /**
  * Every measured profile (`assets/skills/strikes/strike-profiles/strike-profiles.json`, and the edges' and steps') is of a skill the game has, on a body
- * it builds (`profileKeys`): a profile is read only where its body, what it holds, its skill and its limb are the reader's
+ * it builds (`profileKeys`): a profile is read only where its body, its skill and its limb are the reader's
  * (`staleness`), so one keyed to a skill or body that has moved on is never read, and a strike or
  * edge that has none is priced by hand in silence.
  */
@@ -45,7 +45,7 @@ test("a strike is read by its profile measured against the body it strikes", () 
   for (const [key, measured] of skills) {
     const found = profilesFor(profiles, { ...measured, reaction: null });
     for (const struck of specs) {
-      const against = found.read.filter((profile) => profile.target.body === struck.model && profile.target.holds === holdsOf(struck));
+      const against = found.read.filter((profile) => profile.target.body === struck.model);
       if (against.length === 0) continue;
       read++;
       const profile = profileAgainst(found.read, struck);
@@ -67,7 +67,7 @@ test("a foe is modelled alike whatever skills its character holds", () => {
   const { profiles } = JSON.parse(readFileSync(new URL("../../assets/skills/strikes/strike-profiles/strike-profiles.json", import.meta.url), "utf8"));
   let both = 0;
   for (const model of ["man", "woman", "skeleton"]) {
-    const spec = resolveCharacter({ model }).spec, on = profiles.filter(({ measured }) => measured.body === model && measured.holds === holdsOf(spec));
+    const spec = resolveCharacter({ model }).spec, on = profiles.filter((profile) => profile.measured.body === model && limbHoldsAsMeasured(profile, spec));
     assert.ok(on.length > 0, `the stored profiles hold a ${model}'s strikes`);
     const skills = [...new Set(on.map(({ measured }) => measured.skill))];
     if (skills.some((skill) => !spec.skills.includes(skill))) both++;
@@ -176,6 +176,56 @@ test("a profile whose trials began in two stances is read at the stance nearest 
   const unrecorded = { measured, target, trials: ranges.flatMap((range) => [trial(range, false), trial(range, true)]) };
   assert.equal(profileReading(unrecorded, spec).expect({ phase: "clear", range: .6, stance: { own: staggered } }, spec).done,
     profileReading(unrecorded, spec).expect({ phase: "clear", range: .6 }, spec).done);
+});
+
+/**
+ * **What each body held is a condition of a profile's trials, as numbers** (`Start.held`): no
+ * item's name finds a profile, so a strike thrown holding a club and one thrown empty-handed are
+ * one profile, read apart by the trials begun nearest what each body holds, by the nearest trials
+ * and by the written form alike; a profile that records nothing held reads as before, and says it
+ * is read past what its trials held.
+ */
+test("a profile whose trials began holding two ways is read at what each body holds", async () => {
+  const { heldNumbers, profileReading, startHeld, validProfiles } = await import("../../src/skills/framework/profile.ts");
+  const { formReading } = await import("../../src/skills/framework/form.ts");
+  const { withLoadout } = await import("../../src/core/bodies/items/held.ts");
+  const plain = resolveCharacter({ model: "man" }).spec, club = withLoadout(plain, { left: "empty", right: "club" });
+  const held = heldNumbers(club);
+  assert.ok(held["hand.right"].mass > 0 && held["hand.right"].reach > 0, `a club has mass and reach: ${JSON.stringify(held)}`);
+  assert.deepEqual([startHeld(plain, plain), startHeld(club, plain), startHeld(plain, club)], [undefined, { own: held }, { target: held }]);
+  const trial = (range, done, hold) => ({ start: { phase: "clear", range, ...(hold ? { held: hold } : {}) }, done, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false });
+  const ranges = Array.from({ length: 12 }, (_, k) => .5 + k * .02), measured = { body: "man", skill: "straight-punch/drive", limb: "hand.left", hz: 120, reaction: null }, target = { body: "man" };
+  const at = { phase: "clear", range: .6 };
+  for (const side of ["own", "target"]) {
+    const profile = { measured, target, trials: ranges.flatMap((range) => [trial(range, false), trial(range, true, { [side]: held })]) };
+    assert.ok(validProfiles([profile]));
+    for (const [kind, reading] of [["nearest", profileReading], ["written", formReading]]) {
+      const done = (striker, struck) => reading(profile, striker).expect(at, struck).done;
+      const read = side === "own" ? (spec) => done(spec, plain) : (spec) => done(plain, spec);
+      assert.deepEqual([read(plain), read(club)].map((x) => Math.round(x * 1e9) / 1e9), [0, 1], `${kind}: ${side}'s club`);
+    }
+  }
+  const empty = { measured, target, trials: ranges.flatMap((range) => [trial(range, false), trial(range, true)]) };
+  assert.equal(profileReading(empty, club).expect(at, club).done, profileReading(empty, plain).expect(at, plain).done);
+  assert.equal(profileReading(empty, plain).scaled(plain), null);
+  assert.match(profileReading(empty, club).scaled(plain) ?? "", /holding .* at hand\.right/, "a body holding past its trials is read so, and says it");
+});
+
+/**
+ * **A foe's limb throws what its trials' limb threw, holding or empty** (`limbHoldsAsMeasured`):
+ * with no loadout in a profile's key, a club's swing would model an empty-handed foe, and a punch a
+ * hand that grips a sword. A limb holds as its trials did or the strike is not read of it; a foot,
+ * which holds nothing either way, throws its stomp whatever the hands hold.
+ */
+test("a foe's limb is read throwing only what its trials' limb threw, holding or empty", async () => {
+  const { withLoadout } = await import("../../src/core/bodies/items/held.ts");
+  const { heldNumbers } = await import("../../src/skills/framework/profile.ts");
+  const plain = resolveCharacter({ model: "man" }).spec, club = withLoadout(plain, { left: "empty", right: "club" });
+  const of = (limb, hold) => ({ measured: { body: "man", skill: "s", limb, hz: 120, reaction: null }, target: { body: "man" },
+    trials: [{ start: { phase: "clear", range: 1, ...(hold ? { held: { own: heldNumbers(club) } } : {}) }, done: true, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false }] });
+  const swing = of("hand.right", true), punch = of("hand.right", false), stomp = of("foot.right", false), offhand = of("hand.left", true);
+  assert.deepEqual([swing, punch, stomp, offhand].map((profile) => [limbHoldsAsMeasured(profile, plain), limbHoldsAsMeasured(profile, club)]),
+    [[false, true], [true, false], [true, true], [true, true]]);
 });
 
 /**
