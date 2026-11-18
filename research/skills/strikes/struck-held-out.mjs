@@ -19,11 +19,11 @@ import { readFileSync } from "node:fs";
 import { resolveCharacter } from "../../../src/core/bodies/models.ts";
 import { formReading } from "../../../src/skills/framework/form.ts";
 import { profileAgainst, readProfile, struckNumbers } from "../../../src/skills/framework/profile.ts";
+import { mean } from "../../../src/evaluation/stats.ts";
 
 const { profiles } = JSON.parse(readFileSync("assets/skills/strikes/strike-profiles/strike-profiles.json", "utf8"));
 const MODELS = ["man", "woman", "skeleton"], specs = new Map(MODELS.map((model) => [model, resolveCharacter({ model }).spec]));
 const keyOf = (at) => `${at.stature} ${at.mass}`, modelAt = new Map(MODELS.map((model) => [keyOf(struckNumbers(specs.get(model))), model]));
-const mean = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
 const spread = (xs) => { const m = mean(xs); return 2 * Math.sqrt(xs.reduce((s, x) => s + (x - m) ** 2, 0) / (xs.length - 1) / xs.length); };
 const RULES = ["own", "nearest", "first", "form"];
 const all = { own: [], nearest: [], first: [], form: [], unread: 0 };

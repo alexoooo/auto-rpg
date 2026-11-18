@@ -43,12 +43,13 @@ export function draws(seed: number): () => number {
 const RESAMPLES = 2000, SEED = 1;
 
 /**
- * `statistic` of `values`, one a pair, with its 95 % percentile interval over `RESAMPLES` resamples
- * of the pairs whole from `SEED`: the same interval for the same values every time. Null for none.
+ * `statistic` of `values` (each a pair, a bout, a unit read whole), with its 95 % percentile
+ * interval over `RESAMPLES` resamples of the values whole from `SEED`: the same interval for the
+ * same values every time. Null for none.
  */
-export function pairBootstrap(values: readonly number[], statistic: (values: readonly number[]) => number): Estimate | null {
+export function pairBootstrap<T>(values: readonly T[], statistic: (values: readonly T[]) => number): Estimate | null {
   if (values.length === 0) return null;
-  const next = draws(SEED), sample = new Array<number>(values.length), stats = new Array<number>(RESAMPLES);
+  const next = draws(SEED), sample = new Array<T>(values.length), stats = new Array<number>(RESAMPLES);
   for (let r = 0; r < RESAMPLES; r++) {
     for (let k = 0; k < values.length; k++) sample[k] = values[Math.floor(next() * values.length)];
     stats[r] = statistic(sample);

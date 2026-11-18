@@ -55,6 +55,7 @@ import { strikeTrial } from "../../../src/evaluation/strike/trial.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 import { profileKey, profileKeys } from "../../../tests/harness/profile-keys.mjs";
 import { rulebook } from "../../../src/combat/rulebook.ts";
+import { medianOf } from "../../../src/evaluation/stats.ts";
 
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
 /** The Strike drill's rungs a profile is measured on: a strike thrown from drawn starts at a foe fighting back (`SPARRING`, `SPARRING_LAID`, `src/evaluation/strike/cases.ts`). */
@@ -71,7 +72,6 @@ const read = (path) => {
   return [header, ...cases];
 };
 const round = (x) => Number(x.toFixed(4));
-const median = (xs) => { const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length ? s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 : null; };
 
 /** Each side's body's spec as the bout builds it (`duelSpec`): its character, the variations it holds, its attributes and its loadout; by what of the recipe it reads. */
 const specs = new Map();
@@ -137,7 +137,7 @@ for (const profile of profiles.values()) {
   console.log(`  ${run.length} trials run (${lets} let go): range ${Math.min(...ranges)} to ${Math.max(...ranges)} m, closing ${round(Math.min(...closing))} to ${round(Math.max(...closing))} m/s, across ${round(Math.min(...across))} to ${round(Math.max(...across))} m/s;`
     + ` in its window ${round(Math.min(...ahead))} to ${round(Math.max(...ahead))} m ahead, ${round(Math.min(...aside))} to ${round(Math.max(...aside))} m to its right;`
     + ` landed ${round(run.filter((t) => t.done).length / run.length)}, dealt ${round(dealing.length / run.length)} of them, down ${round(run.filter((t) => t.down).length / run.length)};`
-    + ` run median ${round(median(seconds))} s; recovers ${recovered.length ? `median ${round(median(recovered))} s, ${round(Math.min(...recovered))} to ${round(Math.max(...recovered))} s, in ${recovered.length} of ${run.length}` : "recorded by none"}; cycle ${round(cycle)} s`);
+    + ` run median ${round(medianOf(seconds))} s; recovers ${recovered.length ? `median ${round(medianOf(recovered))} s, ${round(Math.min(...recovered))} to ${round(Math.max(...recovered))} s, in ${recovered.length} of ${run.length}` : "recorded by none"}; cycle ${round(cycle)} s`);
 }
 if (write) {
   // Each of the asset's profiles keeps its place; one a run made again is replaced there, and the new follow.

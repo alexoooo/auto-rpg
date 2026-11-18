@@ -32,6 +32,7 @@ import { measuredOn, startHeld, struckNumbers, trialExit } from "../../../src/sk
 import { specDigest } from "../profile-origin.mjs";
 import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
+import { medianOf } from "../../../src/evaluation/stats.ts";
 
 const OUT = "assets/skills/locomotion/step-profiles.json", SCRIPT = "research/skills/locomotion/back-step-profiles.mjs", PROTOCOLS = Object.freeze(["spar", "spar-fight", "spar-chosen", "spar-mirror"]);
 const SKILL = "back-step";
@@ -40,7 +41,6 @@ const paths = process.argv.slice(2).filter((arg) => arg !== "--write");
 if (!paths.length) throw new Error("name a run of the back step's sparring: npm run evaluate -- back-step <subject> --protocol spar --json <run.json>");
 
 const round = (x) => Number(x.toFixed(4));
-const median = (xs) => { const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length ? s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 : null; };
 const specs = new Map();
 /** Each side's body's spec as the bout builds it (`duelSpec`), by what of the recipe it reads. */
 function specOf(recipe, side = "left") {
@@ -90,8 +90,8 @@ const made = [...profiles.values()].filter((profile) => profile.trials.length).m
 for (const profile of profiles.values()) {
   const t = profile.trials, ranges = t.map((one) => one.start.range), taken = t.map((one) => one.taken);
   const phases = Object.entries(t.reduce((by, one) => ({ ...by, [one.start.phase]: (by[one.start.phase] ?? 0) + 1 }), {})).map(([phase, n]) => `${phase} ${n}`).join(", ");
-  console.log(`${profile.label}: ${t.length} sways, range ${Math.min(...ranges)} to ${Math.max(...ranges)} m (median ${round(median(ranges))}); phases ${phases};`
-    + ` lost a mean ${round(taken.reduce((s, x) => s + x, 0) / t.length)} HP, any in ${t.filter((one) => one.taken > 0).length}; down in ${t.filter((one) => one.down).length}; median ${round(median(t.map((one) => one.seconds)))} s`);
+  console.log(`${profile.label}: ${t.length} sways, range ${Math.min(...ranges)} to ${Math.max(...ranges)} m (median ${round(medianOf(ranges))}); phases ${phases};`
+    + ` lost a mean ${round(taken.reduce((s, x) => s + x, 0) / t.length)} HP, any in ${t.filter((one) => one.taken > 0).length}; down in ${t.filter((one) => one.down).length}; median ${round(medianOf(t.map((one) => one.seconds)))} s`);
 }
 if (write) {
   // The same question replaces a profile.

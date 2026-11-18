@@ -25,6 +25,7 @@ import { readFileSync } from "node:fs";
 import { savedBouts } from "./bout-save.mjs";
 import { LANDED } from "../../../src/evaluation/strike/read.ts";
 import { QUIET, silenceOf } from "../../../src/evaluation/scorecard/read.ts";
+import { median, pairBootstrap } from "../../../src/evaluation/stats.ts";
 import { resolveCharacter } from "../../../src/core/bodies/models.ts";
 import { struckNumbers } from "../../../src/skills/framework/profile.ts";
 
@@ -35,7 +36,6 @@ const args = process.argv.slice(2), pairs = args.includes("--pairs"), prices = a
 const at = args.indexOf("--profiles"), profiles = at < 0 ? PROFILES : args.splice(at, 2)[1];
 const files = args.filter((arg) => !arg.startsWith("--")).map((arg) => { const at = arg.indexOf("="); return [arg.slice(0, at), arg.slice(at + 1)]; });
 const sum = (xs) => xs.reduce((a, b) => a + b, 0);
-const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[s.length >> 1] : NaN; };
 const punchesOf = (bout) => bout.sides.flatMap((side) => side.attempts.filter((a) => a.action === "straight-punch" && a.committed));
 const dealtBy = (attempt) => sum(attempt.wounds.map((w) => w.damage));
 
@@ -56,13 +56,11 @@ for (const [label, all] of loaded) {
     (sum(rows.map((r) => r.hp)) / n).toFixed(2).padStart(8), String(n - ends("drained") - ends("time")).padStart(9), String(ends("drained")).padStart(8), String(ends("time")).padStart(5),
     (sum(rows.map((r) => r.downs)) / n).toFixed(2).padStart(11));
   if (spread) {
-    // The shares over bouts drawn again with replacement, 2,000 times, from a seeded stream.
-    let word = 7;
-    const draw = () => { word = (word + 0x6d2b79f5) | 0; let t = Math.imul(word ^ (word >>> 15), 1 | word); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    // The shares over the bouts drawn again whole (`pairBootstrap`).
     const share = (of, key) => 100 * sum(of.map((r) => r[key])) / sum(of.map((r) => r.len - r.first));
     const interval = (key) => {
-      const xs = Array.from({ length: 2000 }, () => share(rows.map(() => rows[Math.floor(draw() * n)]), key)).sort((a, b) => a - b);
-      return `${share(rows, key).toFixed(1)} (${xs[50].toFixed(1)} to ${xs[1949].toFixed(1)})`;
+      const { value, low, high } = pairBootstrap(rows, (of) => share(of, key));
+      return `${value.toFixed(1)} (${low.toFixed(1)} to ${high.toFixed(1)})`;
     };
     console.log(`  ${label}: silent ${interval("silent")}%, standing ${interval("standing")}%`);
   }

@@ -57,6 +57,8 @@ import { availableParallelism } from "node:os";
 import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { BOUT_SCHEMA, savedBouts } from "./bout-save.mjs";
+import { workerJobs } from "../../worker-jobs.mjs";
+import { medianOf } from "../../../src/evaluation/stats.ts";
 
 /** A completed action's wound correlation includes a quarter second after its last interval. */
 const AFTER = .25;
@@ -101,30 +103,19 @@ if (isMainThread) {
   const loaded = new Map(values.load ? savedBouts(values.load) : []);
   for (const job of jobs) job.result = loaded.get(key(job));
   const played = jobs.filter(job => !job.result), started = Date.now();
-  let next = 0;
-  await Promise.all(Array.from({ length: Math.min(lanes, played.length) }, () => new Promise((resolve, reject) => {
-    const worker = new Worker(new URL(import.meta.url));
-    worker.once("error", reject);
-    const feed = () => {
-      if (next >= played.length) { worker.terminate(); resolve(); return; }
-      const job = played[next++];
-      worker.once("message", ({ result, error }) => {
-        // A bout whose body's control threw is a fault: counted and named, kept out of what is saved and read, the rest played on.
-        if (error) { job.fault = error.split("\n")[0]; process.stderr.write(`${key(job)}: faulted, ${job.fault}\n`); feed(); return; }
-        job.result = result;
-        process.stderr.write(`${key(job)}: ${result.seconds.toFixed(1)} s ${result.ending}\n`);
-        feed();
-      });
-      const { result: _, ...settings } = job; worker.postMessage(settings);
-    };
-    feed();
-  })));
+  await workerJobs(played, { lanes, create: () => new Worker(new URL(import.meta.url)),
+    message: ({ result: _, ...settings }) => settings,
+    result: ({ result, fault }, job) => {
+      // A bout whose body's control threw is a fault: counted and named, kept out of what is saved and read, the rest played on.
+      if (fault) { job.fault = fault.split("\n")[0]; process.stderr.write(`${key(job)}: faulted, ${job.fault}\n`); return; }
+      job.result = result;
+      process.stderr.write(`${key(job)}: ${result.seconds.toFixed(1)} s ${result.ending}\n`);
+    } });
   const faulted = jobs.filter(job => job.fault);
   if (faulted.length) console.log(`${faulted.length} of ${jobs.length} bouts faulted, left out: ${faulted.map(job => `${key(job)} (${job.fault})`).join("; ")}`);
   jobs.splice(0, jobs.length, ...jobs.filter(job => !job.fault));
   if (values.save) await writeFile(values.save, JSON.stringify(jobs.map(job => [key(job), job.result])));
   const sum = xs => xs.reduce((total, value) => total + value, 0);
-  const median = xs => xs.length ? [...xs].sort((a, b) => a - b)[xs.length >> 1] : null;
   for (const held of helds) {
     const bouts = jobs.filter(job => job.held === held).map(job => job.result), sides = bouts.flatMap(bout => bout.sides);
     const attempts = sides.flatMap(side => side.attempts), committed = attempts.filter(attempt => attempt.committed);
@@ -133,7 +124,7 @@ if (isMainThread) {
     for (const attempt of attempts) { const kind = attempt.record?.ending.kind ?? "live-at-verdict"; endings[kind] = (endings[kind] ?? 0) + 1; }
     console.log(`Held ${held}: ${bouts.length} bouts, ${sum(bouts.map(bout => bout.seconds)).toFixed(1)} s; Node core world, Rapier, 120 Hz, the arena's rulebook`);
     console.log(`  action-seconds: ${["prepare", "commit", "release"].map(phase => `${phase} ${sum(sides.map(side => side.phases[phase])).toFixed(2)}`).join(", ")}; idle side-seconds ${sum(sides.map(side => side.idle)).toFixed(2)}`);
-    console.log(`  requests ${attempts.length}, committed ${committed.length}; endings ${JSON.stringify(endings)}; median preparation ${median(timings)?.toFixed(2) ?? "unobserved"} s`);
+    console.log(`  requests ${attempts.length}, committed ${committed.length}; endings ${JSON.stringify(endings)}; median preparation ${medianOf(timings)?.toFixed(2) ?? "unobserved"} s`);
     for (const model of models) {
       const mine = sides.filter(side => side.model === model).flatMap(side => side.attempts).filter(attempt => attempt.committed);
       console.log(`  ${model}: committed ${mine.length}, target-touch ${mine.filter(attempt => attempt.contacts.counts.commit.target > 0).length}, blocked ${mine.filter(attempt => attempt.contacts.counts.commit.block > 0).length}, `
@@ -148,7 +139,7 @@ if (isMainThread) {
         const touched = committed.filter(attempt => attempt.wounds.length > 0), damage = touched.map(attempt => sum(attempt.wounds.map(wound => wound.damage)));
         const landed = damage.filter(hp => hp >= LANDED);
         console.log(`  ${side} (${holds[side] ?? "own"}) ${name}: begun ${all.length}, committed ${committed.length}, with a foot off the ground ${committed.filter(attempt => attempt.airborne).length} (the lead ${committed.filter(attempt => attempt.leadUp).length}), `
-          + `touched ${touched.length}, landed ${landed.length} (${(landed.length / minutes).toFixed(1)} a minute, each at least ${LANDED} hp), damage a touching blow median ${median(damage)?.toFixed(3) ?? "none"}, `
+          + `touched ${touched.length}, landed ${landed.length} (${(landed.length / minutes).toFixed(1)} a minute, each at least ${LANDED} hp), damage a touching blow median ${medianOf(damage)?.toFixed(3) ?? "none"}, `
           + `total ${sum(damage).toFixed(2)}; down within ${DOWN} s ${committed.filter(attempt => attempt.down).length}`);
       }
     }
@@ -286,7 +277,7 @@ if (isMainThread) {
       });
       parentPort.postMessage({ result: { schema: BOUT_SCHEMA, held, strikes, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
         bars: SIDES.map(side => duel.duelists[side].pool.bar()), hp: SIDES.map(side => duel.duelists[side].body.built.spec.wounds.hp.value), downs: SIDES.map(side => downs[side]), grounded: state.groundedSince === null ? grounded : [...grounded, [state.groundedSince, duel.clock]], decisions: SIDES.map(side => decisions[side]), sides: SIDES.map(side => track[side]) } });
-    } catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
+    } catch (error) { parentPort.postMessage({ fault: String(error?.stack ?? error) }); }
     finally { dispose?.(); }
   });
 }
