@@ -2,7 +2,7 @@ import { heldBy, type Held } from "../../../core/bodies/items/held.ts";
 import type { Mechanism } from "../../../combat/rulebook.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../core/quantity.ts";
-import type { Side } from "../../../core/bodies/bilateral.ts";
+import { SIDES, type Side } from "../../../core/bodies/bilateral.ts";
 
 /**
  * **What a hand strikes with where it is not its fist**: a named point of what it holds (`point`),
@@ -37,4 +37,11 @@ export function faceOf(spec: BodySpec, hand: Side, mechanism: Mechanism): Striki
 export function heldFace(spec: BodySpec, effector: string, item: Held, mechanism: Mechanism): StrikingFace | null {
   const hand: Side | null = effector === "hand.left" ? "left" : effector === "hand.right" ? "right" : null;
   return hand && heldBy(spec, hand) === item ? faceOf(spec, hand, mechanism) : null;
+}
+
+/** **The faces each hand of `spec` strikes with by `mechanism`** (`heldFace`), those holding `item`. */
+export function heldFaces(spec: BodySpec, item: Held, mechanism: Mechanism): Partial<Record<Side, StrikingFace>> {
+  const faces: Partial<Record<Side, StrikingFace>> = {};
+  for (const hand of SIDES) { const face = heldFace(spec, `hand.${hand}`, item, mechanism); if (face) faces[hand] = face; }
+  return faces;
 }

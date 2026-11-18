@@ -12,6 +12,7 @@ import { footOn } from "../../../control/support.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../../framework/action.ts";
 import { placedHeightFits } from "../../reach/arm-reach.ts";
 import type { StrikingFace } from "./held-face.ts";
+import type { HeldStrikeMaking, StrikeSettings } from "./held-strike.ts";
 import { faceSteering } from "./face-steering.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { bodyAhead } from "../../locomotion/shared/navigation/held-clearance.ts";
@@ -92,6 +93,13 @@ export function swingChannelFault(spec: BodySpec, settings: Partial<Swing>): str
   const missing = [...new Set(named.filter((channel) => !channels.has(channel)))];
   return missing.length ? `has no ${missing.join(", ")} to swing` : null;
 }
+
+/** **The swings' settings** (`StrikeSettings`). */
+export const SWING_SETTINGS: StrikeSettings<Swing> = Object.freeze({ keys: SWING_KEYS, validPart: validSwingPart, valid: validSwing, channelFault: swingChannelFault });
+
+/** **A swing's executor as a held strike makes it** (`swingExecutor`). */
+export const swingStrike = (making: HeldStrikeMaking<Swing>): Executor =>
+  swingExecutor(making.body, making.guard, making.actions, making.settings, making.resolve, making.faces, making);
 
 /** The longest a swing waits for its stance to be quiet and its windup reached before it gives up, s. */
 const SWING_PREPARE_LIMIT = 6;
