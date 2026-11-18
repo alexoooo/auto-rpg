@@ -31,6 +31,9 @@
  * with the back step, its Option and its gait, which the game's minds do not take yet
  * (`withBackStep`), one flag a side.
  *
+ * A saved bout keeps as well each stretch either body was down (`grounded`, s, from the step one went
+ * down to the step both stood): what `bout-readings.mjs` splits a silence by.
+ *
  * A bout whose body's control throws is a fault: named and counted, and left out of what is saved
  * and read; the others play on.
  *
@@ -251,7 +254,7 @@ if (isMainThread) {
       const before = new Map();
       // When each side went down; and at each decision of its mind (its offers anew), [s, apart m centre to centre, the offer chosen, its terms'
       // duration s, dealt and taken (life), its own life then, the foe's, holding's price a second (life), each strike offered: [its skill and limb, its terms]].
-      const downs = { left: [], right: [] }, wasDown = { left: false, right: false }, decisions = { left: [], right: [] }, offered = { left: null, right: null };
+      const downs = { left: [], right: [] }, wasDown = { left: false, right: false }, grounded = [], state = { groundedSince: null }, decisions = { left: [], right: [] }, offered = { left: null, right: null };
       while (!duel.verdict && duel.clock < seconds) {
         if (process.env.HOLDS) for (const s of SIDES) for (const name of ["hand.left", "hand.right", "upperArm.left", "upperArm.right"]) {
           const v = new Vector3(); duel.duelists[s].body.built.segments.get(name).body.linearVelocityToRef(v); before.set(`${s} ${name}`, v);
@@ -281,6 +284,9 @@ if (isMainThread) {
               arms.set(blow, shape);
             }
         }
+        const either = SIDES.some((side) => duel.duelists[side].body.view.down);
+        if (either && state.groundedSince === null) state.groundedSince = duel.clock;
+        else if (!either && state.groundedSince !== null) { grounded.push([state.groundedSince, duel.clock]); state.groundedSince = null; }
         for (const side of SIDES) {
           const me = duel.duelists[side], foe = duel.duelists[side === "left" ? "right" : "left"], down = me.body.view.down;
           if (down && !wasDown[side]) downs[side].push(duel.clock);
@@ -400,7 +406,7 @@ if (isMainThread) {
         return [...keyed.values()];
       });
       parentPort.postMessage({ result: { schema: SCHEMA, strikes, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
-        bars: SIDES.map(side => duel.duelists[side].pool.bar()), hp: SIDES.map(side => duel.duelists[side].body.built.spec.wounds.hp.value), downs: SIDES.map(side => downs[side]), decisions: SIDES.map(side => decisions[side]), sides: SIDES.map(side => track[side]) } });
+        bars: SIDES.map(side => duel.duelists[side].pool.bar()), hp: SIDES.map(side => duel.duelists[side].body.built.spec.wounds.hp.value), downs: SIDES.map(side => downs[side]), grounded: state.groundedSince === null ? grounded : [...grounded, [state.groundedSince, duel.clock]], decisions: SIDES.map(side => decisions[side]), sides: SIDES.map(side => track[side]) } });
     } catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
     finally { dispose?.(); }
   });

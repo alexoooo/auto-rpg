@@ -37,21 +37,26 @@ const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.lengt
 const punchesOf = (bout) => bout.sides.flatMap((side) => side.attempts.filter((a) => a.action === "straight-punch" && a.committed));
 const dealtBy = (attempt) => sum(attempt.wounds.map((w) => w.damage));
 
-console.log(`Silence: share of a bout after its first punch in gaps over ${QUIET} s with no punch begun; landed at least ${LANDED} hp`);
-console.log("label".padEnd(24), "bouts  len  silent%  1st  punches/bout  landed/bout  hp/bout  knockout  drained  time  downs/bout");
+console.log(`Silence: share of a bout after its first punch in gaps over ${QUIET} s with no punch begun, and of it with both bodies standing (NaN where a bout kept no stretches down); landed at least ${LANDED} hp`);
+console.log("label".padEnd(24), "bouts  len  silent%  standing%  1st  punches/bout  landed/bout  hp/bout  knockout  drained  time  downs/bout");
 const loaded = files.map(([label, file]) => [label, JSON.parse(readFileSync(file, "utf8"))]);
 for (const [label, all] of loaded) {
   const rows = all.map(([, bout]) => {
     const punches = punchesOf(bout), times = punches.map((a) => a.began).sort((a, b) => a - b), first = times[0] ?? bout.seconds;
     const marks = [...times, bout.seconds];
-    let silent = 0;
-    for (let i = 1; i < marks.length; i++) { const gap = marks[i] - marks[i - 1]; if (gap > QUIET) silent += gap; }
+    let silent = 0, down = 0;
+    for (let i = 1; i < marks.length; i++) {
+      const from = marks[i - 1], to = marks[i];
+      if (to - from <= QUIET) continue;
+      silent += to - from;
+      for (const [a, b] of bout.grounded ?? []) down += Math.max(0, Math.min(b, to) - Math.max(a, from));
+    }
     const dealt = punches.map(dealtBy);
-    return { len: bout.seconds, first, silent, punches: punches.length, landed: dealt.filter((hp) => hp >= LANDED).length, hp: sum(dealt), ending: bout.ending,
+    return { len: bout.seconds, first, silent, standing: bout.grounded ? silent - down : NaN, punches: punches.length, landed: dealt.filter((hp) => hp >= LANDED).length, hp: sum(dealt), ending: bout.ending,
       downs: bout.downs ? bout.downs[0].length + bout.downs[1].length : NaN };
   });
   const n = rows.length, fought = sum(rows.map((r) => r.len - r.first)), ends = (kind) => rows.filter((r) => r.ending === kind).length;
-  console.log(label.padEnd(24), String(n).padStart(5), (sum(rows.map((r) => r.len)) / n).toFixed(0).padStart(4), (100 * sum(rows.map((r) => r.silent)) / fought).toFixed(0).padStart(8),
+  console.log(label.padEnd(24), String(n).padStart(5), (sum(rows.map((r) => r.len)) / n).toFixed(0).padStart(4), (100 * sum(rows.map((r) => r.silent)) / fought).toFixed(0).padStart(8), (100 * sum(rows.map((r) => r.standing)) / fought).toFixed(0).padStart(10),
     median(rows.map((r) => r.first)).toFixed(1).padStart(5), (sum(rows.map((r) => r.punches)) / n).toFixed(1).padStart(13), (sum(rows.map((r) => r.landed)) / n).toFixed(2).padStart(12),
     (sum(rows.map((r) => r.hp)) / n).toFixed(2).padStart(8), String(n - ends("drained") - ends("time")).padStart(9), String(ends("drained")).padStart(8), String(ends("time")).padStart(5),
     (sum(rows.map((r) => r.downs)) / n).toFixed(2).padStart(11));

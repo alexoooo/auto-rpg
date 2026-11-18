@@ -46,10 +46,13 @@ export type SideReading = {
  * A bout as the scorecard reads it: the contest's reading (`BoutReading`), each side's own
  * (`SideReading`), and the wall time of its steps, ms: of all of them, of those in which a mind
  * decided, and the worst. Wall time is the machine's and its load's, the one reading of a case
- * that is not the same each time it is played.
+ * that is not the same each time it is played. And when either body was down, each stretch from
+ * the step one went down to the step both stood again, s (`grounded`; absent in a reading kept from
+ * before it was read).
  */
 export type ScorecardReading = BoutReading & {
   readonly sides: readonly [SideReading, SideReading];
+  readonly grounded?: readonly (readonly [number, number])[];
   readonly ms: { readonly steps: number; readonly total: number; readonly deciding: number; readonly decidingTotal: number; readonly worst: number };
 };
 
@@ -60,7 +63,8 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
   const { duel } = built, contest = readBout(built);
   const times: number[] = [], lives: [number[], number[]] = [[], []];
   const decisions: [Decision[], Decision[]] = [[], []], strikes: [number[], number[]] = [[], []], downs = [0, 0], wasDown = [false, false];
-  const offered: unknown[] = [null, null], sequence = [0, 0];
+  const offered: unknown[] = [null, null], sequence = [0, 0], grounded: [number, number][] = [];
+  let groundedSince: number | null = null;
   const ms = { steps: 0, total: 0, deciding: 0, decidingTotal: 0, worst: 0 };
   let last = performance.now();
   return {
@@ -89,6 +93,9 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
         const kind = terms.dealt > 0 ? "strike" : Math.abs(terms.exit.range - range) > STAYS ? "move" : "stay";
         decisions[s]!.push({ t: duel.clock, duration: terms.duration, dealt: terms.dealt, taken: terms.taken, slices: ["all", kind, ...engagement.foe ? [`foe ${engagement.foe}`] : [], `range ${(Math.floor(range / BAND) * BAND).toFixed(2)}`] });
       });
+      const either = SIDES.some((side) => duel.duelists[side].body.down);
+      if (either && groundedSince === null) groundedSince = duel.clock;
+      else if (!either && groundedSince !== null) { grounded.push([groundedSince, duel.clock]); groundedSince = null; }
       ms.steps++; ms.total += spent; ms.worst = Math.max(ms.worst, spent);
       if (decided) { ms.deciding++; ms.decidingTotal += spent; }
       last = performance.now();
@@ -118,17 +125,26 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
         }
         return { decisions: decisions[s]!.length, prices, strikes: strikes[s]!, downs: downs[s]! };
       }) as unknown as readonly [SideReading, SideReading];
-      return { ...read, sides, ms };
+      return { ...read, sides, ms, grounded: groundedSince === null ? grounded : [...grounded, [groundedSince, end] as [number, number]] };
     },
   };
 }
 
-/** Of `seconds` of bout after its first strike begun, how many passed in gaps over `QUIET` s with no strike begun by either side; null where none began. */
-export function silenceOf(reading: ScorecardReading): { readonly silent: number; readonly fought: number } | null {
+/**
+ * Of `seconds` of bout after its first strike begun, how many passed in gaps over `QUIET` s with no
+ * strike begun by either side (`silent`), and of those how many with both bodies standing
+ * (`standing`, null where the reading kept no `grounded`); null where none began.
+ */
+export function silenceOf(reading: ScorecardReading): { readonly silent: number; readonly standing: number | null; readonly fought: number } | null {
   const times = [...reading.sides[0].strikes, ...reading.sides[1].strikes].sort((a, b) => a - b);
   if (!times.length) return null;
-  const marks = [...times, reading.seconds];
-  let silent = 0;
-  for (let i = 1; i < marks.length; i++) { const gap = marks[i]! - marks[i - 1]!; if (gap > QUIET) silent += gap; }
-  return { silent, fought: reading.seconds - times[0]! };
+  const marks = [...times, reading.seconds], grounded = reading.grounded;
+  let silent = 0, down = 0;
+  for (let i = 1; i < marks.length; i++) {
+    const from = marks[i - 1]!, to = marks[i]!;
+    if (to - from <= QUIET) continue;
+    silent += to - from;
+    for (const [a, b] of grounded ?? []) down += Math.max(0, Math.min(b, to) - Math.max(a, from));
+  }
+  return { silent, standing: grounded ? silent - down : null, fought: reading.seconds - times[0]! };
 }

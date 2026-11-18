@@ -36,6 +36,7 @@ export const createScorecardIndex = perContext((context: GameContext) => {
     subjects: (choice) => mindSubjects(choice, ["option"]),
     figures: [
       { name: "silent", unit: "share of a bout after its first strike in gaps with none begun", kind: "mean", better: "lower", of: (r) => { const s = silenceOf(r); return s && s.fought > 0 ? s.silent / s.fought : null; } },
+      { name: "standing silent", unit: "share of a bout after its first strike in gaps with none begun and both bodies standing", kind: "mean", better: "lower", of: (r) => { const s = silenceOf(r); return s && s.fought > 0 && s.standing !== null ? s.standing / s.fought : null; } },
       { name: "knockout", unit: "share of bouts ended by a body's life", kind: "rate", better: "higher", of: (r) => knockedOut(r) },
       { name: "downs", unit: "falls a bout, both sides", kind: "mean", better: "lower", of: (r) => r.sides[0].downs + r.sides[1].downs },
       { name: "deciding", unit: "wall ms a step a mind decided in", kind: "mean", better: "lower", of: (r) => r.ms.deciding > 0 ? r.ms.decidingTotal / r.ms.deciding : null },
@@ -46,9 +47,13 @@ export const createScorecardIndex = perContext((context: GameContext) => {
       for (const subject of subjects) {
         const own = cases.filter((one) => one.subjects[0] === subject.id), draws = [...new Set(own.map((one) => one.condition.draw))].sort((a, b) => a - b);
         const bouts = (rows: typeof own) => {
-          let silent = 0, fought = 0, downs = 0;
-          for (const { reading } of rows) { const s = silenceOf(reading); if (s) { silent += s.silent; fought += s.fought; } downs += reading.sides[0].downs + reading.sides[1].downs; }
-          return { bouts: rows.length, knockouts: rows.filter((one) => knockedOut(one.reading)).length, silent: fought > 0 ? silent / fought : null, downs: rows.length ? downs / rows.length : null,
+          let silent = 0, fought = 0, downs = 0, standing = 0, read = 0;
+          for (const { reading } of rows) {
+            const s = silenceOf(reading);
+            if (s) { silent += s.silent; fought += s.fought; if (s.standing !== null) { standing += s.standing; read += s.fought; } }
+            downs += reading.sides[0].downs + reading.sides[1].downs;
+          }
+          return { bouts: rows.length, knockouts: rows.filter((one) => knockedOut(one.reading)).length, silent: fought > 0 ? silent / fought : null, standing: read > 0 ? standing / read : null, downs: rows.length ? downs / rows.length : null,
             seconds: rows.length ? rows.reduce((t, one) => t + one.reading.seconds, 0) / rows.length : null };
         };
         const byDraw = draws.map((draw) => ({ draw, ...bouts(own.filter((one) => one.condition.draw === draw)) })), all = bouts(own);
@@ -60,9 +65,9 @@ export const createScorecardIndex = perContext((context: GameContext) => {
         const ms = own.reduce((t, { reading: { ms: m } }) => ({ steps: t.steps + m.steps, total: t.total + m.total, deciding: t.deciding + m.deciding, decidingTotal: t.decidingTotal + m.decidingTotal, worst: Math.max(t.worst, m.worst) }),
           { steps: 0, total: 0, deciding: 0, decidingTotal: 0, worst: 0 });
         const slices = Object.keys(prices).sort((a, b) => (a === "all" ? -1 : b === "all" ? 1 : a.localeCompare(b)));
-        const row = (label: string, b: ReturnType<typeof bouts>) => `| ${label} | ${b.bouts} | ${b.knockouts} | ${b.silent === null ? "-" : pct(b.silent)} | ${b.downs?.toFixed(2) ?? "-"} | ${b.seconds?.toFixed(0) ?? "-"} |`;
+        const row = (label: string, b: ReturnType<typeof bouts>) => `| ${label} | ${b.bouts} | ${b.knockouts} | ${b.silent === null ? "-" : pct(b.silent)} | ${b.standing === null ? "-" : pct(b.standing)} | ${b.downs?.toFixed(2) ?? "-"} | ${b.seconds?.toFixed(0) ?? "-"} |`;
         lines.push(`${subject.label} (${sha256Text(recordingKey(subject.value)).slice(0, 16)})`, "",
-          "| Draw | Bouts | Knockouts | Silent, % | Downs a bout | Seconds a bout |", "|---|---|---|---|---|---|",
+          "| Draw | Bouts | Knockouts | Silent, % | Both standing, % | Downs a bout | Seconds a bout |", "|---|---|---|---|---|---|---|",
           ...byDraw.map((b) => row(String(b.draw), b)), row("all", all), "",
           "Priced against given, each side's decisions, % of a life each a mean; a ratio over 1 a price above what the bout gave; dealt read over the decisions priced to deal:", "",
           "| Slice | Decisions | Priced taken | Lost | Ratio | Dealing | Priced dealt | Given | Ratio |", "|---|---|---|---|---|---|---|---|---|",
