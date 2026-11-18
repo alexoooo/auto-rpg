@@ -660,40 +660,48 @@ function within(sample: Sample, at: Asked, read: Nearest["read"]): void {
 }
 
 /**
- * **How far `sample`'s trial `i` lies from the start `near` asks**, written to its distances
- * (`Sample.distances`): from its range (`Nearest.range`) and its velocity and place read within
- * the sample's (`Nearest.read`, `within`); where its trials record levels, at `Nearest.levels`;
- * and where they record how their bodies stood, at `Nearest.stance` (NaN where not asked: a number
- * a trial or the question lacks is no part of it), each part over its span (`NEAREST`, the body
- * numbers', `STANCES`): the square root of its parts' squares, which `hypot` reads several times
- * slower. Written, not returned: a number a call returns is a heap object, one an array holds is not.
+ * **How far `tree`'s trial `i` lies from `query`** (`squaredFrom`, its square root), written to
+ * `distances` (`Sample.distances`): `hypot` reads it several times slower. Written, not returned:
+ * a number a call returns is a heap object, one an array holds is not.
  */
-function measureApart(sample: Sample, i: number, near: Nearest): void {
-  const read = near.read, levels = near.levels, stance = near.stance;
-  let stanced = 0;
-  if (sample.stances) {
-    const at = sample.stances.at;
-    for (let k = 0, from = i * STANCES.length; k < STANCES.length; k++) { const by = (at[from + k]! - stance[k]!) / STANCES[k]!.span; if (by === by) stanced += by * by; }
+function measureApart(tree: Tree, i: number, query: Float64Array, distances: Float64Array): void {
+  distances[i] = Math.sqrt(squaredFrom(tree, tree.coords, i * tree.dims, i * tree.dims, query));
+}
+
+/**
+ * **The square distance from `query` to what `tree` holds at `low` and `high`** in `values`: a
+ * trial's numbers (`Tree.coords`, `low` and `high` one place) or a node's box (`Tree.box`): each
+ * number's part what lies between the query and the span, over its span (`Tree.spans`), none
+ * within it. The numbers before the stances' summed, then the stances', a number the question lacks
+ * (NaN) no part of it, then the two: the one arithmetic for a trial and a box, so a box's is never
+ * more than a trial's within it, and a search that prunes by it misses none.
+ */
+function squaredFrom(tree: Tree, values: Float64Array, low: number, high: number, query: Float64Array): number {
+  const dims = tree.dims, spans = tree.spans;
+  let squared = 0, stanced = 0;
+  for (let d = 0; d < dims; d++) {
+    const q = query[d]!;
+    if (q !== q) continue;
+    const from = values[low + d]!, to = values[high + d]!, by = (q < from ? from - q : q > to ? q - to : 0) / spans[d]!;
+    if (d < tree.stanced) squared += by * by; else stanced += by * by;
   }
-  const r = (sample.range[i]! - near.range[0]!) / NEAREST.range, c = (sample.closing[i]! - read[0]) / NEAREST.speed, a = (sample.across[i]! - read[1]) / NEAREST.speed,
-    h = (sample.ahead[i]! - read[2]) / NEAREST.place, s = (sample.aside[i]! - read[3]) / NEAREST.place;
-  let squared = r * r + c * c + a * a + h * h + s * s;
-  if (sample.levels) for (let k = 0; k < sample.levels.kept.length; k++) { const by = (sample.levels.at[k]![i]! - levels[k]!) / sample.levels.spans[k]!; squared += by * by; }
-  sample.distances[i] = Math.sqrt(squared + stanced);
+  return squared + stanced;
 }
 
 /**
  * **Those of a sample's trials that record the same stance numbers, as a tree** (a k-d tree): each
- * trial's numbers a distance reads, each over its span (`coords`, `dims` a trial: range, velocity,
- * place, the levels where its sample records them, and the stance numbers its trials record), its
- * trials (`order`, indices of the sample) in the tree's order, and its nodes, each the trials
- * `[start, end)` of `order`, the box their numbers lie in (`box`, low then high for each number)
- * and its two halves (`left`, `right`; -1 at a leaf). A search reads a node
- * only where the least distance its box allows is within the farthest kept: what a sample's size
- * costs a reading grows as its log, not as its size.
+ * trial's numbers a distance reads (`coords`, `dims` a trial: range, velocity, place, the levels
+ * where its sample records them, and from `stanced` on the stance numbers its trials record), each
+ * one's span (`spans`, `NEAREST`, the body numbers', `STANCES`), its trials (`order`, indices of the
+ * sample) in the tree's order, and its nodes, each the trials `[start, end)` of `order`, the box
+ * their numbers lie in (`box`, low then high for each number) and its two halves (`left`, `right`;
+ * -1 at a leaf). A search reads a node only where the least distance its box allows is within the
+ * farthest kept: what a sample's size costs a reading grows as its log, not as its size.
  */
 interface Tree {
   readonly dims: number;
+  readonly stanced: number;
+  readonly spans: Float64Array;
   readonly coords: Float64Array;
   readonly order: Int32Array;
   readonly start: Int32Array;
@@ -728,14 +736,14 @@ function forestOf(sample: Sample): readonly Tree[] {
 /** **A tree of `sample`'s `trials`**, each recording the stance numbers `stances` (`Tree`). */
 function treeOf(sample: Sample, trials: Int32Array, stances: readonly number[]): Tree {
   const n = trials.length, stanceAt = sample.stances?.at ?? null;
-  const dims = 5 + (sample.levels?.kept.length ?? 0) + stances.length, coords = new Float64Array(sample.range.length * dims);
+  const stanced = 5 + (sample.levels?.kept.length ?? 0), dims = stanced + stances.length, coords = new Float64Array(sample.range.length * dims);
+  const spans = Float64Array.from([NEAREST.range, NEAREST.speed, NEAREST.speed, NEAREST.place, NEAREST.place, ...sample.levels?.spans ?? [], ...stances.map((k) => STANCES[k]!.span)]);
   for (const i of trials) {
     const at = i * dims;
-    coords[at] = sample.range[i]! / NEAREST.range; coords[at + 1] = sample.closing[i]! / NEAREST.speed; coords[at + 2] = sample.across[i]! / NEAREST.speed;
-    coords[at + 3] = sample.ahead[i]! / NEAREST.place; coords[at + 4] = sample.aside[i]! / NEAREST.place;
+    coords[at] = sample.range[i]!; coords[at + 1] = sample.closing[i]!; coords[at + 2] = sample.across[i]!; coords[at + 3] = sample.ahead[i]!; coords[at + 4] = sample.aside[i]!;
     let d = 5;
-    if (sample.levels) for (let k = 0; k < sample.levels.kept.length; k++) coords[at + d++] = sample.levels.at[k]![i]! / sample.levels.spans[k]!;
-    for (const k of stances) coords[at + d++] = stanceAt![i * STANCES.length + k]! / STANCES[k]!.span;
+    if (sample.levels) for (let k = 0; k < sample.levels.kept.length; k++) coords[at + d++] = sample.levels.at[k]![i]!;
+    for (const k of stances) coords[at + d++] = stanceAt![i * STANCES.length + k]!;
   }
   const order = trials, most = Math.max(1, 2 * Math.ceil(n / LEAF) * 2);
   const start = new Int32Array(most), end = new Int32Array(most), left = new Int32Array(most).fill(-1), right = new Int32Array(most).fill(-1), box = new Float64Array(most * dims * 2);
@@ -749,14 +757,14 @@ function treeOf(sample: Sample, trials: Int32Array, stances: readonly number[]):
     }
     if (to - from <= LEAF) return node;
     let split = 0, widest = -1;
-    for (let d = 0; d < dims; d++) { const width = box[at + dims + d]! - box[at + d]!; if (width > widest) { widest = width; split = d; } }
+    for (let d = 0; d < dims; d++) { const width = (box[at + dims + d]! - box[at + d]!) / spans[d]!; if (width > widest) { widest = width; split = d; } }
     if (!(widest > 0)) return node;
     const part = order.subarray(from, to).sort((a, b) => coords[a * dims + split]! - coords[b * dims + split]! || a - b), mid = from + (part.length >> 1);
     left[node] = build(from, mid); right[node] = build(mid, to);
     return node;
   };
   build(0, n);
-  return { dims, coords, order, start, end, left, right, box, stances };
+  return { dims, stanced, spans, coords, order, start, end, left, right, box, stances };
 }
 
 /** The nearest distances found, ascending, of a search (`nearestOf`): made once, as long as `NEAREST.trials`. */
@@ -764,15 +772,15 @@ const BEST = new Float64Array(NEAREST.trials);
 
 /**
  * A nearest query's clamped coordinates and its bound, held through aggregation: where it is asked
- * over each number's span (`query`, NaN where it asks none) and the trials within the bound found
- * (`hits`, `count`), in the sample's order; the range asked (`range`); and the nodes its search has yet to read, each with
+ * in each number a tree reads (`query`, NaN where it asks none) and the trials within the bound found
+ * (`hits`, `count`), in the sample's order; and the nodes its search has yet to read, each with
  * the least square distance its box allows (`nodes`, `leasts`, a stack).
  */
-interface Nearest { bound: number; readonly range: Float64Array; readonly read: [number, number, number, number]; levels: Float64Array; readonly stance: Float64Array; query: Float64Array; hits: Int32Array; count: number; mark: number;
+interface Nearest { bound: number; readonly read: [number, number, number, number]; levels: Float64Array; readonly stance: Float64Array; query: Float64Array; hits: Int32Array; count: number; mark: number;
   nodes: Int32Array; leasts: Float64Array }
 
 /** One query's work; nested queries use a frame of their own until the outer aggregation ends. Its body numbers (`levels`), query, hits and stack grow to the most a sample asks. */
-const nearestWork = (): Nearest => ({ bound: 0, range: new Float64Array(1), read: [0, 0, 0, 0], levels: new Float64Array(0), stance: new Float64Array(STANCES.length),
+const nearestWork = (): Nearest => ({ bound: 0, read: [0, 0, 0, 0], levels: new Float64Array(0), stance: new Float64Array(STANCES.length),
   query: new Float64Array(5 + STANCES.length), hits: new Int32Array(64), count: 0, mark: 0, nodes: new Int32Array(64), leasts: new Float64Array(64) });
 const QUERY_WORK = { depth: 0, frames: [nearestWork()], marks: 0 };
 
@@ -786,25 +794,9 @@ function keepNearest(distances: Float64Array, i: number, found: number, want: nu
   return found;
 }
 
-/**
- * How much a node's least distance may fall short of a trial's and still prune it, over a
- * distance's square: its parts' rounding, read over spans, against the exact distance read from
- * the trial's own numbers (`apart`).
- */
-const ROUNDING_SQUARED = 1e-9;
 
-/** The least square distance from `query` (NaN numbers not asked) to `tree`'s `node`'s box. */
-function boxSquared(tree: Tree, node: number, query: Float64Array): number {
-  const dims = tree.dims, at = node * dims * 2, box = tree.box;
-  let squared = 0;
-  for (let d = 0; d < dims; d++) {
-    const q = query[d]!;
-    if (q !== q) continue;
-    const low = box[at + d]!, high = box[at + dims + d]!, by = q < low ? low - q : q > high ? q - high : 0;
-    squared += by * by;
-  }
-  return squared;
-}
+/** The least square distance from `query` to `tree`'s `node`'s box (`squaredFrom`). */
+const boxSquared = (tree: Tree, node: number, query: Float64Array): number => squaredFrom(tree, tree.box, node * tree.dims * 2, node * tree.dims * 2 + tree.dims, query);
 
 /** **A start as a sample reads it** (`readWithin`): its velocity and place in its window (`Read`), its bodies' levels the sample's trials differ in (`Sample.levels`), and its stance numbers (`STANCES`' order, NaN where not asked). */
 export interface ReadStart {
@@ -844,24 +836,23 @@ function nearestOf(sample: Sample, at: Asked, asked: Float64Array, near: Nearest
   const read = near.read, levels = near.levels, stance = near.stance;
   readWithin(sample, at, asked, near);
   const forest = forestOf(sample), query = near.query, mark = near.mark = ++QUERY_WORK.marks;
-  near.range[0] = at.range;
-  query[0] = at.range / NEAREST.range; query[1] = read[0] / NEAREST.speed; query[2] = read[1] / NEAREST.speed; query[3] = read[2] / NEAREST.place; query[4] = read[3] / NEAREST.place;
+  query[0] = at.range; query[1] = read[0]; query[2] = read[1]; query[3] = read[2]; query[4] = read[3];
   const levelled = 5 + kept;
-  if (sample.levels) for (let k = 0; k < kept; k++) query[5 + k] = levels[k]! / sample.levels.spans[k]!;
+  for (let k = 0; k < kept; k++) query[5 + k] = levels[k]!;
   const want = Math.min(NEAREST.trials, n);
   // Each trial measured, once a query; every trial within the bound is among them.
   let found = 0, measured = 0;
   for (let t = 0; t < forest.length; t++) {
     const tree = forest[t]!;
     // The query asked of this tree: its stance numbers after the levels.
-    for (let k = 0, d = levelled; k < tree.stances.length; k++) { const s = tree.stances[k]!; query[d++] = stance[s]! / STANCES[s]!.span; }
+    for (let k = 0, d = levelled; k < tree.stances.length; k++) { query[d++] = stance[tree.stances[k]!]!; }
     // The nearest: each node nearer first, as a stack of the nodes yet to read (the farther child below the nearer), none whose box
     // lies past the farthest kept and the tie beyond it, which is never nearer than the last.
     let top = 0;
     near.nodes[top] = 0; near.leasts[top++] = 0;
     while (top > 0) {
       const node = near.nodes[--top]!, least = near.leasts[top]!;
-      if (found === want) { const bound = BEST[want - 1]! + TIE; if (!(least <= bound * bound + ROUNDING_SQUARED)) continue; }
+      if (found === want) { const bound = BEST[want - 1]! + TIE; if (!(least <= bound * bound)) continue; }
       const l = tree.left[node]!;
       if (l < 0) {
         for (let p = tree.start[node]!; p < tree.end[node]!; p++) {
@@ -870,7 +861,7 @@ function nearestOf(sample: Sample, at: Asked, asked: Float64Array, near: Nearest
             sample.asked[i] = mark;
             if (measured === near.hits.length) { const more = new Int32Array(measured * 2); more.set(near.hits); near.hits = more; }
             near.hits[measured++] = i;
-            measureApart(sample, i, near);
+            measureApart(tree, i, query, sample.distances);
           }
           found = keepNearest(sample.distances, i, found, want);
         }
