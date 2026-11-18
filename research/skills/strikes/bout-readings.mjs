@@ -23,13 +23,11 @@
  */
 import { readFileSync } from "node:fs";
 import { savedBouts } from "./bout-save.mjs";
+import { LANDED } from "../../../src/evaluation/strike/read.ts";
+import { QUIET } from "../../../src/evaluation/scorecard/read.ts";
 import { resolveCharacter } from "../../../src/core/bodies/models.ts";
 import { struckNumbers } from "../../../src/skills/framework/profile.ts";
 
-/** A silence is this long with no punch begun by either side, s. */
-const QUIET = 3;
-/** A landed blow takes at least this much life, HP (`strike-bouts.mjs`). */
-const LANDED = .5;
 /** The profiles a mind prices its foe by, unless `--profiles <file>` names those the bouts were played with. */
 const PROFILES = "assets/skills/strikes/strike-profiles/strike-profiles.json";
 

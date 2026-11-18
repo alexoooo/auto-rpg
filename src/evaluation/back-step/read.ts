@@ -14,9 +14,7 @@ import { ownStance, sensedStance } from "../../skills/perception/stance-numbers.
 import { startVelocity, type Stances } from "../../skills/framework/profile.ts";
 import { Vector3 } from "../../core/math/vector.ts";
 import type { HostedBody } from "../../minds/seat/hosted-body.ts";
-
-/** A landed blow takes at least this much life, HP (`strike-bouts.mjs`). */
-const LANDED = .5;
+import { LANDED } from "../strike/read.ts";
 
 /** The range, m centre to centre, beyond which a punch is out of reach: where the Warrior mirror's punches fire (0.79 to 0.97). */
 export const REACH = .95;

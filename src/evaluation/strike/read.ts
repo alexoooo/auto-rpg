@@ -32,6 +32,12 @@ import { swellShapes } from "./swell.ts";
 
 export type Mark = "high" | "middle" | "legs";
 
+/**
+ * A landed blow takes at least this much life, HP: half a solid punch (a hit point is 100 J of blunt
+ * blow, `Rulebook.unit`), a twelfth of a Warrior's: a graze is not a landed punch.
+ */
+export const LANDED = .5;
+
 /** The segment `steps` joints above `segment` in `spec`'s tree: a hand's forearm at 1, its upper arm at 2. */
 function limbAbove(spec: BodySpec, segment: string, steps: number): string | undefined {
   let at: string | undefined = segment;

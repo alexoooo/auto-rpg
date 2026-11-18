@@ -61,12 +61,6 @@ import { BOUT_SCHEMA, savedBouts } from "./bout-save.mjs";
 const AFTER = .25;
 /** Falls are read for two seconds from commitment; stance recovery continues one second past ending. */
 const DOWN = 2, RECOVERY = 1;
-/**
- * A landed blow takes at least this much life, HP: half a solid punch (a hit point is 100 J of blunt
- * blow, `Rulebook.unit`), a twelfth of a Warrior's. The owner: "a gentle accidental graze to me is
- * not a 'landed punch'".
- */
-const LANDED = .5;
 
 if (isMainThread) {
   const { values } = parseArgs({ options: {
@@ -94,7 +88,7 @@ if (isMainThread) {
   if (Object.keys(holds).some(side => side !== "left" && side !== "right")) throw new Error("--holds is <left|right>=<skill/variation>");
   const added = Object.fromEntries(values["back-step"].map(side => [side, true]));
   if (Object.keys(added).some(side => side !== "left" && side !== "right")) throw new Error("--back-step is left or right");
-  const { HUMANOID_MODELS } = await import("../../../src/core/bodies/models.ts");
+  const [{ HUMANOID_MODELS }, { LANDED }] = await Promise.all([import("../../../src/core/bodies/models.ts"), import("../../../src/evaluation/strike/read.ts")]);
   const models = values.models?.split(",") ?? HUMANOID_MODELS, gaps = values.gaps.split(",").map(Number), seconds = Number(values.seconds);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), helds = values.held.split(",");
   if (!models.length || models.some(model => !HUMANOID_MODELS.includes(model)) || gaps.some(gap => !Number.isFinite(gap) || gap <= 0)

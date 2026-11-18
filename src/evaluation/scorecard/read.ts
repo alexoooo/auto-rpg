@@ -6,12 +6,10 @@
  */
 import { SIDES } from "../../game/arena/duel.ts";
 import { hypot } from "../../core/math/real.ts";
+import { ARRIVED } from "../../skills/framework/movement.ts";
 import { readBout, type BoutReading } from "../contest.ts";
 import type { BuiltBout } from "../bout.ts";
 import type { Reader } from "../evaluation.ts";
-
-/** An offer's run leaves the range within this of where it was, m, and it stays (`ARRIVED`, `src/minds/option/option.ts`). */
-const STAYS = .04;
 
 /** The range slices are this wide, m head to head. */
 const BAND = .25;
@@ -30,8 +28,8 @@ export type Prices = { n: number; taken: number; lost: number; dealing: number; 
 
 /**
  * What one side's decisions came to, by slice: `all`; by what the chosen offer was priced to do
- * (`strike` where it deals, else `move` where it leaves the range further than `STAYS` from where
- * it was, else `stay`); by what its mind read the foe doing (`foe <label>`, `Engagement.foe`); and by
+ * (`strike` where it deals, else `move` where it leaves the range further than `ARRIVED` from where
+ * it was, as the chooser tells a staying run, else `stay`); by what its mind read the foe doing (`foe <label>`, `Engagement.foe`); and by
  * the range head to head it decided at, in bands `BAND` wide (`range <from>`).
  */
 export type SideReading = {
@@ -89,7 +87,7 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
         const terms = offers.find((offer) => offer.name === engagement.phase)?.terms;
         if (!terms) return;
         const a = me.body.physical.head, b = foe.body.physical.head, range = hypot(a.x - b.x, a.z - b.z);
-        const kind = terms.dealt > 0 ? "strike" : Math.abs(terms.exit.range - range) > STAYS ? "move" : "stay";
+        const kind = terms.dealt > 0 ? "strike" : Math.abs(terms.exit.range - range) > ARRIVED ? "move" : "stay";
         decisions[s]!.push({ t: duel.clock, duration: terms.duration, dealt: terms.dealt, taken: terms.taken, slices: ["all", kind, ...engagement.foe ? [`foe ${engagement.foe}`] : [], `range ${(Math.floor(range / BAND) * BAND).toFixed(2)}`] });
       });
       const either = SIDES.some((side) => duel.duelists[side].body.down);
