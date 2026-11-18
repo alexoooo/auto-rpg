@@ -258,14 +258,14 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   *Shown.*
 - **A line's end read from the next exchange plays even, and pays the back step, but quiets the
   mirror**: each side trading at the rate of the best try begun from where the line ends, by its
-  own model, a walk to a site counted with the best try where it arrives (`ByExchange`, at that
+  own model, a walk to a site counted with the best try where it arrives (`LineEnd` of kind `exchange`, at that
   rate as priced): 0.497 (0.441 to 0.552) against the game's Mind on `warrior-drawn`; the Warrior
   with the back step against one without won 0.550 (0.501 to 0.597) over 432 bouts, 0.44 HP a
   minute less lost (-0.07 to 0.94); but the mirror standing silent 8.6% without it (6.4% with the
   game's tail) and 18.7% with it, paired 10.1 points (8.1 to 12.0). Offered in the picker beside the
   tail and by distance; not the game's. *Shown.*
 - **The next exchange counted once pays the back step most and quiets the mirror most**: its life
-  dealt and taken, a walk counted with it, nothing after, open Options none (`ByNext`), at the
+  dealt and taken, a walk counted with it, nothing after, open Options none (`LineEnd` of kind `next`), at the
   scale best against the tail on `warrior` (0.451 at 1, 0.507 at 3, 0.451 at 6): held out on
   `warrior-drawn` 0.490 (0.431 to 0.542). The Warrior with the back step against one without
   0.63 HP a minute less lost (0.20 to 1.07), won 0.558 (0.514 to 0.604) over 432 bouts; the

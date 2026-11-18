@@ -10,8 +10,8 @@ import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding
 import { placed, placing, type Option, type Situation } from "./option.ts";
 import { FEW_TERMS_PART, type Objective, type Path } from "./objective.ts";
 import { cachedPressure, threatened, type Pressure } from "./percepts.ts";
-import { ARRIVED } from "../../skills/framework/movement.ts";
 import { exp, log } from "../../core/math/real.ts";
+import { leafOf, lineEndFaults, lineEndField, type LineEnd } from "./line-ends.ts";
 import { randomStream } from "../../core/math/random.ts";
 import { DECIDING, OBEDIENCE, STEADY, type Leaves, type Obedience, type ObedienceLevel, type Terms } from "./value.ts";
 
@@ -96,17 +96,17 @@ const depthFaults = (depths: readonly number[]) => (config: { readonly depth: nu
   depths.includes(config.depth) ? [] : [`depth: ${depths.join(" or ")}`];
 
 /** An Option and target (0 where it has none), with its slot in each situation's model row, and what its model is asked there (`Option.model`): the same each time, so made once. */
-interface Pair { readonly option: Option; readonly target: number; readonly slot: number; readonly ask: Readonly<{ target: number; until?: number }> }
+export interface Pair { readonly option: Option; readonly target: number; readonly slot: number; readonly ask: Readonly<{ target: number; until?: number }> }
 
 /** **A line's price at a decision**: its worth, life, and the model of the Option it begins with there. */
 interface Line { readonly worth: number; readonly terms: Terms }
 
 /**
- * **What a leaf weighs** (`search`'s `leaf`): `whole`, where a line's last Option ends, every Option
- * held or run again and a walk to a site; `arrived`, where that walk ends, all but another walk;
- * `held`, where a run again leaves the body, the open Options only.
+ * **What a leaf weighs** (`Leaf`): `whole`, where a line's last Option ends, every Option held or
+ * run again and a walk to a site; `arrived`, where that walk ends, all but another walk; `held`,
+ * where a run again leaves the body, the open Options only.
  */
-type Reach = "whole" | "arrived" | "held";
+export type Reach = "whole" | "arrived" | "held";
 
 /** Whether `leaves` changes nothing (`AS_IS`). */
 const unchanged = (leaves: Leaves): boolean => leaves.where === undefined && leaves.around === undefined && leaves.posture === undefined && leaves.velocity === undefined && leaves.grace === undefined;
@@ -139,14 +139,12 @@ function madeFrom(made: Made, leaves: Leaves, seconds: number): boolean {
  * the body in made once from each state for each place it names (`child`, `placed`). A path is
  * priced whole by the objective (`price`, `Path`). A line (`line`) runs its Option (`Option.model`),
  * then at each way it ends (`Outcome`) the best single Option from there where it goes deeper
- * (`best`), and ends at a leaf (`leaf`: the best Option held or run again until the horizon, where
- * the body is or at a site, `Option.sites`); a line is cut at the horizon, so every worth is
- * absolute over the same seconds and lines compare alike. Each side of the life a line trades
- * counts as the objective weighs it by when it comes (`Objective.weigh`: `dealtWeight`,
- * `takenWeight`), as itself where it weighs none.
- * Given `written`, a leaf is the line's end it gives (`LineEnd`) instead.
+ * (`best`), and ends at a leaf, as its line's `end` makes it (`leafOf`, `LineEnd`); a line is cut
+ * at the horizon, so every worth is absolute over the same seconds and lines compare alike. Each
+ * side of the life a line trades counts as the objective weighs it by when it comes
+ * (`Objective.weigh`: `dealtWeight`, `takenWeight`), as itself where it weighs none.
  */
-function space(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, horizon: number, written: LineEnd | null) {
+function space(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, horizon: number, end: LineEnd | undefined) {
   const place = placing();
   /** What life dealt, and taken, traded evenly over `span` s from `from` s on counts for, a share (`Objective.weigh`); 1 where the objective weighs none. */
   const dealtWeight = (from: number, span: number): number => objective.weigh ? objective.weigh("dealt", from, span, horizon) : 1;
@@ -283,106 +281,8 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     for (let i = 0; i < pairs.length; i++) top = Math.max(top, line(pairs[i]!, at, left, dealt, taken, orders, seconds));
     return top > -Infinity ? top : price(dealt, taken, orders, seconds, at);
   };
-  /**
-   * **Where a line ends**, at `at`, `seconds` s into the horizon, as `reach` says: the best, to the
-   * horizon, of each Option on offer there that leaves the body where it began, run again and again
-   * (an open Option, `Option.open`, held, the case of none; unless `held`, any other, `again`), and,
-   * where `whole`, of each Option reached at its sites (`Option.sites`: a walk to one, then the best
-   * there, `arrived`); the path as it is where none is.
-   */
-  const leaf = (at: Situation, reach: Reach, dealt: number, taken: number, orders: number, seconds: number): number => {
-    if (written) {
-      const left = Math.max(0, horizon - seconds);
-      if ("exchange" in written) return exchanged(at, dealtWeight(seconds, left) * left * written.exchange, takenWeight(seconds, left) * left * written.exchange, false, dealt, taken, orders, seconds);
-      if ("once" in written) return exchanged(at, written.once, written.once, true, dealt, taken, orders, seconds);
-      const near = at.focus ? Math.max(0, 1 - at.apart / written.reach) : 0, counts = takenWeight(seconds, left) * left * near, dealing = dealtWeight(seconds, left) * left * near;
-      return price(dealt + dealing * written.dealt, taken + counts * written.taken, orders, Math.max(seconds, horizon), at);
-    }
-    let top = -Infinity;
-    // A leaf where a walk has arrived never walks on to a site, and a held leaf reads only open Options.
-    // Such a leaf models only the pairs it reads. Most leaves are where a walk arrives, so modelling every
-    // walk from each of them would be most of a search's cost.
-    const pairs = reach === "whole" ? pairsAt(at) : readsAt(at, reach);
-    for (let i = 0; i < pairs.length; i++) {
-      const pair = pairs[i]!, option = pair.option, target = pair.target;
-      if (option.open) top = Math.max(top, line(pair, at, 1, dealt, taken, orders, seconds));
-      else if (reach === "held") continue;
-      else if (option.targets && sites.has(option.targets[target]!)) { if (reach === "whole") top = Math.max(top, line(pair, at, 0, dealt, taken, orders, seconds)); }
-      else top = Math.max(top, again(pair, at, dealt, taken, orders, seconds));
-    }
-    return top > -Infinity ? top : price(dealt, taken, orders, seconds, at);
-  };
-  /**
-   * **`pair` run again and again from `at` to the horizon**, where a try of it leaves
-   * the body where it began (`stays`, its staying outcome, by the chance it stays): the life each try
-   * deals and takes, the tries as many as fit in the time left, and the orders it carries out once
-   * (`Terms.orders`: an order carried out is carried out, and a try that leaves the state as it found
-   * it carries out nothing more of it); each the chance of leaving compounding, the body leaving after
-   * as many tries as it is expected to, then held where it went (`leaf`, an open Option). -Infinity
-   * where no outcome stays, or a try takes no time.
-   */
-  const again = (pair: Pair, at: Situation, dealt: number, taken: number, orders: number, seconds: number): number => {
-    const terms = modelAt(pair, at)!, duration = terms.duration;
-    if (!(duration > 0) || seconds >= horizon) return -Infinity;
-    let stay = 0, there: Situation | null = null;
-    for (let i = 0; i < terms.outcomes.length; i++) {
-      const end = child(at, terms.outcomes[i]!.leaves, duration);
-      if (end.posture === at.posture && Math.abs(end.range - at.range) <= ARRIVED) { stay += terms.outcomes[i]!.chance; there = end; }
-    }
-    if (!there) return -Infinity;
-    // Of `full` whole tries, the chance all stay (`through`), and the tries the body is expected to run where one leaves (`run`).
-    const tries = (horizon - seconds) / duration, full = Math.floor(tries), through = full === 0 ? 1 : stay === 0 ? 0 : exp(full * log(stay)), left = 1 - through;
-    const o = orders + Math.min(1, tries) * terms.orders;
-    const whole = takenWeight(seconds, horizon - seconds), wholeDealt = dealtWeight(seconds, horizon - seconds);
-    let worth = through * price(dealt + wholeDealt * tries * terms.dealt, taken + whole * tries * terms.taken, o, horizon, there);
-    if (left > 0) {
-      const run = (1 - (full + 1) * through + full * through * stay) / ((1 - stay) * left), part = takenWeight(seconds, run * duration);
-      const d = dealt + dealtWeight(seconds, run * duration) * run * terms.dealt, t = taken + part * run * terms.taken, after = seconds + run * duration;
-      for (let i = 0; i < terms.outcomes.length; i++) {
-        const outcome = terms.outcomes[i]!, end = child(at, outcome.leaves, duration);
-        if (end === there || end.posture === at.posture && Math.abs(end.range - at.range) <= ARRIVED) continue;
-        worth += left * outcome.chance / (1 - stay) * leaf(end, "held", d, t, o, after);
-      }
-    }
-    return worth;
-  };
-  /**
-   * **A line's end by the next exchange** (`ByExchange`, `ByNext`), at `at`, `seconds` s into the
-   * horizon: the best of each Option on offer there, one try of it (its life dealt and taken; an
-   * open Option's to the horizon) counted `counts` times its rate, a second (`ByExchange`), or,
-   * `once`, `counts` times itself as it fades over its own seconds (`takenWeight`; its life dealt
-   * `countsDealt` times, `dealtWeight`), open Options left
-   * out (`ByNext`); a walk to a site
-   * (`Option.sites`) counted with the best try where each way it ends leaves the body. The path as
-   * it is where none is.
-   */
-  const exchanged = (at: Situation, countsDealt: number, counts: number, once: boolean, dealt: number, taken: number, orders: number, seconds: number): number => {
-    const end = Math.max(seconds, horizon);
-    const atRate = (d: number, t: number, duration: number): number => !(duration > 0) ? -Infinity
-      : once ? price(dealt + countsDealt * dealtWeight(seconds, duration) * d, taken + counts * takenWeight(seconds, duration) * t, orders, end, at) : price(dealt + countsDealt * d / duration, taken + counts * t / duration, orders, end, at);
-    let top = -Infinity;
-    const pairs = pairsAt(at);
-    for (let p = 0; p < pairs.length; p++) {
-      const pair = pairs[p]!;
-      if (once && pair.option.open) continue;
-      const terms = termsOf(pair, at, seconds);
-      if (!toSite(pair)) { top = Math.max(top, atRate(terms.dealt, terms.taken, terms.duration)); continue; }
-      let worth = 0;
-      for (let i = 0; i < terms.outcomes.length; i++) {
-        const outcome = terms.outcomes[i]!, there = child(at, outcome.leaves, terms.duration), after = seconds + terms.duration, reads = readsAt(there, "arrived");
-        let then = atRate(terms.dealt, terms.taken, terms.duration);
-        for (let k = 0; k < reads.length; k++) {
-          const next = reads[k]!;
-          if (once && next.option.open) continue;
-          const tried = termsOf(next, there, after);
-          then = Math.max(then, atRate(terms.dealt + tried.dealt, terms.taken + tried.taken, terms.duration + tried.duration));
-        }
-        worth += outcome.chance * then;
-      }
-      top = Math.max(top, worth);
-    }
-    return top > -Infinity ? top : price(dealt, taken, orders, end, at);
-  };
+  /** Where a line ends (`Leaf`), as its line's end makes it of what this search reads. */
+  const leaf = leafOf(end, { horizon, dealtWeight, takenWeight, price, pairsAt, readsAt, modelAt, termsOf, child, toSite, line });
   return { pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
 }
 
@@ -409,8 +309,8 @@ function pricedLines(prices: readonly (Line & { readonly pair: Pair })[]): Lines
 }
 
 /** **The valued chooser's search at `root`**: each Option's line from there at each of its targets, `depth` Options deep (`space`'s `line`). */
-function search(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, depth: number, horizon: number, written: LineEnd | null): Lines {
-  const at = space(root, options, objective, obedience, horizon, written), lines = new Map<Option, (Line | null)[]>();
+function search(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, depth: number, horizon: number, end: LineEnd | undefined): Lines {
+  const at = space(root, options, objective, obedience, horizon, end), lines = new Map<Option, (Line | null)[]>();
   return (option, target) => {
     let byTarget = lines.get(option);
     if (!byTarget) lines.set(option, byTarget = []);
@@ -502,13 +402,13 @@ const NO_ENDS = Object.freeze([]) as unknown as (TreeNode | null)[];
  * root's Options start from what `start` gives them, as evidence of as many runs as it says.
  */
 function treeSearch(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, horizon: number, runs: number,
-  exploration: number, stream: { next(): number }, written: LineEnd | null, start: RootStart): Lines {
+  exploration: number, stream: { next(): number }, end: LineEnd | undefined, start: RootStart): Lines {
   const predictions = root.predictions;
   let pressure: Pressure | undefined;
   root = Object.create(root, { predictions: { value: Object.create(predictions, {
     pressure: { get: () => pressure ??= cachedPressure(predictions.pressure) },
   }) } }) as Situation;
-  const at = space(root, options, objective, obedience, horizon, written);
+  const at = space(root, options, objective, obedience, horizon, end);
   const nodeAt = (state: Situation, dealt: number, taken: number, orders: number, seconds: number): TreeNode => {
     const floor = at.leaf(state, "whole", dealt, taken, orders, seconds);
     return { at: state, dealt, taken, orders, seconds, floor, runs: 0, worth: floor, edges: null };
@@ -655,70 +555,10 @@ function obedienceField<C extends SearchConfig>(): PartField<C> {
   };
 }
 
-/**
- * **A line's end** (`SearchConfig.end`): what is traded from where a line's last Option leaves
- * the body to the horizon, priced by the objective as the line's own life. Written by distance
- * (`ByDistance`), or the next exchange's, at its rate (`ByExchange`) or once (`ByNext`).
- */
-type LineEnd = ByDistance | ByExchange | ByNext;
-
-/**
- * **A line's end by distance**: each side trades life at a steady rate by how far apart the two
- * stand, centre to centre (`Situation.apart`): `dealt` and `taken` a second (a share of a life) at
- * none apart, falling straight to none at `reach`, m, and none with no focus.
- */
-interface ByDistance { readonly dealt: number; readonly taken: number; readonly reach: number }
-
-/**
- * **A line's end by the next exchange**: each side trades at the rate of the best try begun from
- * there (life dealt and taken over its time, its own model's), a walk to a site counted with the
- * best try where it arrives; that rate `exchange` times over the time left.
- */
-interface ByExchange { readonly exchange: number }
-
-/**
- * **A line's end by the next exchange, once**: the best try begun from there, a walk to a site
- * counted with the best try where it arrives, its life dealt and taken counted `once` times, and
- * nothing after; an open Option, which has no one try, is none.
- */
-interface ByNext { readonly once: number }
-
-/**
- * What the picker offers for a line's end (`endField`) besides none, the tail: by distance, at the
- * rate bouts trade with the two in reach; by the next exchange at its rate as priced; and once,
- * at the scale that scored best against the tail on `warrior`.
- */
-const ENDS = Object.freeze({
-  distance: Object.freeze({ dealt: .027, taken: .027, reach: 2 }) as LineEnd,
-  exchange: Object.freeze({ exchange: 1 }) as LineEnd,
-  next: Object.freeze({ once: 3 }) as LineEnd,
-});
-
-/** Which of `ENDS` `end` is, by its kind. */
-const endKind = (end: LineEnd): keyof typeof ENDS => "exchange" in end ? "exchange" : "once" in end ? "next" : "distance";
-
-/** A searching chooser's line's end (`LineEnd`): the tail where none is written, else one of `ENDS`, at the settings it gives. */
-function endField<C extends SearchConfig>(): PartField<C> {
-  return {
-    kind: "choice", key: "end", label: "Line's end",
-    options: [["", "Tail"], ["distance", "By distance"], ["exchange", "By the next exchange's rate"], ["next", "By the next exchange, once"]],
-    read: (config) => config.end === undefined ? "" : endKind(config.end),
-    write: (config, text) => {
-      const { end: _, ...rest } = config;
-      if (text === "") return rest as C;
-      return Object.hasOwn(ENDS, text) ? { ...rest, end: ENDS[text as keyof typeof ENDS] } as C : null;
-    },
-  };
-}
-
 /** What is wrong with what a searching chooser is given (`SearchConfig`), each a sentence. */
 const searchFaults = (config: SearchConfig): readonly string[] => [
   ...config.horizon === undefined || Number.isFinite(config.horizon) && config.horizon > 0 ? [] : ["horizon: a finite time, more than none"],
-  ...config.end === undefined || typeof config.end === "object" && config.end !== null && ("exchange" in config.end
-    ? Number.isFinite(config.end.exchange) && config.end.exchange >= 0
-    : "once" in config.end ? Number.isFinite(config.end.once) && config.end.once >= 0
-    : [config.end.dealt, config.end.taken].every((rate) => Number.isFinite(rate) && rate >= 0) && Number.isFinite(config.end.reach) && config.end.reach > 0)
-    ? [] : ["end: exchange or once a finite share, not negative; or dealt and taken a finite rate, not negative, and reach a finite distance, more than none"],
+  ...lineEndFaults(config.end),
   ...config.margin === undefined || Number.isFinite(config.margin) && config.margin >= 0 ? [] : ["margin: a finite worth, not negative"],
   ...config.obedience === undefined || OBEDIENCE.some(([value]) => value === config.obedience) ? [] : [`obedience: one of ${OBEDIENCE.map(([value]) => value).join(", ")}`]];
 
@@ -738,12 +578,12 @@ function pricing(config: SearchConfig, parts: PartLookup): { readonly obedience:
  * targets keeps the one it runs at `KEEP` s.
  */
 export const VALUED_CHOOSER = deepFreeze<OptionChooserPart<ValuedConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By worth", stage: "game", fields: [obedienceField<ValuedConfig>(), endField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  role: "chooser", model: PROFILE_MODEL, label: "By worth", stage: "game", fields: [obedienceField<ValuedConfig>(), lineEndField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, end: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(VALUED_DEPTHS)(config), ...searchFaults(config)],
   make: (config: ValuedConfig, options: readonly Option[], seed: number, parts: PartLookup, phase = 0) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON;
-    return chooser(options, searching((now) => search(now, options, objective, obedience, config.depth, horizon, config.end ?? null)), { ...DECIDING, phase, keep: KEEP },
+    return chooser(options, searching((now) => search(now, options, objective, obedience, config.depth, horizon, config.end)), { ...DECIDING, phase, keep: KEEP },
       { margin: config.margin ?? 0, seed }, objective, FOE_HOLDING);
   },
 });
@@ -775,7 +615,7 @@ interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs
  * targets keeps the one it runs at `KEEP` s.
  */
 export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By tree", stage: "game", fields: [obedienceField<TreeConfig>(), endField<TreeConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  role: "chooser", model: PROFILE_MODEL, label: "By tree", stage: "game", fields: [obedienceField<TreeConfig>(), lineEndField<TreeConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "tree" }, keys: { kind: true, runs: true, exploration: true, keeps: true, horizon: true, end: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
@@ -784,7 +624,7 @@ export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
   make: (config: TreeConfig, options: readonly Option[], seed: number, parts: PartLookup, phase = 0) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
-    return chooser(options, searching((now) => treeSearch(now, options, objective, obedience, horizon, runs, exploration, stream, config.end ?? null, warm?.start ?? COLD)),
+    return chooser(options, searching((now) => treeSearch(now, options, objective, obedience, horizon, runs, exploration, stream, config.end, warm?.start ?? COLD)),
       { ...DECIDING, phase, keep: KEEP }, { margin: config.margin ?? 0, seed }, objective, FOE_HOLDING, { tree: stream.state, ...(warm ? { warm: warm.state } : {}) });
   },
 });
