@@ -5,7 +5,10 @@ named these. This plan holds everything that plan named and nothing built, but f
 what they hold, which is [the numbers plan](2026-11-18-numbers.md)'s; the ground, struck from that
 plan by the owner, is item 14 here. **The numbers
 plan's items are the owner's must-haves; these are a list kept so none is lost, and which of them
-is needed is the owner's to say.** Not begun, and none is begun until the owner orders it. The
+is needed is the owner's to say.** Not begun, and none is begun until the owner orders it; it
+sits, none of it pending or next (the owner, 2026-11-18, through the reviewing session: "re the
+testbed-rest, i'm not sure yet exactly what parts of that we need. that plan can just sit there
+for now, it doesn't have to be pending"). The
 order of this plan, the numbers plan and [the back step](2026-11-16-back-step.md) is the owner's
 to give.
 
