@@ -6,9 +6,10 @@
  * those trials, fitted when the form is first read and none typed. A share (landed, down) is held
  * within 0 and 1 and an amount at none or more. Its reach, extremes and what letting go costs are
  * its trials' (`profileReading`); a read is the form's weights once, however many trials there are.
+ * A profile measured on another body is read by stature (`acrossBodies`).
  */
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { readProfile, startedAt, STANDING, type Expected, type Postures, type Profile, type ProfileReading } from "./profile.ts";
+import { acrossBodies, profileReading, startedAt, STANDING, type Expected, type Postures, type Profile, type ProfileReading } from "./profile.ts";
 
 /** A start's numbers as the form weighs them: none, the range, its square, closing and across. */
 const TERMS = 5;
@@ -54,7 +55,7 @@ export function formReading(profile: Profile, striker: BodySpec, postures: Postu
   if (!byPostures) bySpec.set(striker, byPostures = new Map());
   const key = `${postures.own}|${postures.target}`, known = byPostures.get(key);
   if (known) return known;
-  const trials = readProfile(profile, striker, postures), own = striker.wounds.hp.value;
+  const trials = profileReading(profile, striker, postures), own = striker.wounds.hp.value;
   const begun = profile.trials.filter((trial) => startedAt(trial.start, postures) && !trial.letGo);
   const phases = new Map<string, PhaseForm | null>(), x = new Float64Array(TERMS);
   const phaseOf = (phase: string): string => begun.some((trial) => trial.start.phase === phase) ? phase : "clear";
@@ -101,6 +102,7 @@ export function formReading(profile: Profile, striker: BodySpec, postures: Postu
     fastest: (phase) => trials.fastest(phase),
     scaled: (struck) => trials.scaled(struck),
   };
-  byPostures.set(key, reading);
-  return reading;
+  const read = acrossBodies(profile, striker, reading);
+  byPostures.set(key, read);
+  return read;
 }

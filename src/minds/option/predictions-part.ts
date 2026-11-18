@@ -3,10 +3,12 @@ import { profileModel } from "./profile-model.ts";
 import { dataOf } from "../../core/data/store.ts";
 import type { PredictionsPart } from "./parts.ts";
 import { anyBody } from "../../parts/parts.ts";
-import { validProfiles, type Profile } from "../../skills/framework/profile.ts";
+import { validProfiles, withStatures, type BodyNumbers, type Profile } from "../../skills/framework/profile.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { validPressures } from "./pressure.ts";
 import { validFoeSteps, type FoeSteps } from "./percepts.ts";
+
+declare module "../../core/data/store.ts" { interface DataOf { "body-numbers": Readonly<Record<string, BodyNumbers>> } }
 
 /**
  * An experiment may supply the ground profiles measured for the skill settings it runs. Its foe's
@@ -16,6 +18,8 @@ import { validFoeSteps, type FoeSteps } from "./percepts.ts";
  * coarse table of their answers (`coarse`, `coarseTable`), or of a form fitted to them (`written`, `writtenForms`). Its foe stands where it is as an
  * Option runs, or, given `foeSteps` in seconds, goes on as it goes now, its velocity fading over
  * about that long (`persisting`), or, given a table of them, as bouts measured (`measuredSteps`).
+ * Each profile is read with its body's stature (`dataOf("body-numbers")`, `withStatures`), so a
+ * body measured on none reads another's trials by stature (`acrossBodies`).
  */
 interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly Profile[]; readonly pressure?: "rate" | "measured"; readonly outcomes?: "nearest" | "coarse" | "written"; readonly foeSteps?: number | FoeSteps }
 
@@ -26,8 +30,9 @@ export const MEASURED_PREDICTIONS = deepFreeze<PredictionsPart<MeasuredConfig>>(
     ...config.pressure === undefined || config.pressure === "rate" || config.pressure === "measured" ? [] : ["pressure: rate or measured"],
     ...config.outcomes === undefined || config.outcomes === "nearest" || config.outcomes === "coarse" || config.outcomes === "written" ? [] : ["outcomes: nearest, coarse or written"],
     ...config.foeSteps === undefined || (typeof config.foeSteps === "number" ? Number.isFinite(config.foeSteps) && config.foeSteps > 0 : validFoeSteps(config.foeSteps)) ? [] : ["foeSteps: seconds over 0, or a table of the foe's steps"]],
-  reads: config => [...config.edges === undefined ? ["strike-profiles", "edge-profiles", "step-profiles"] as const : ["strike-profiles", "step-profiles"] as const, ...config.pressure === "measured" ? ["pressure-profiles"] as const : []],
-  make: config => profileModel(deepFreeze({ strikes: dataOf("strike-profiles"), edges: config.edges ?? dataOf("edge-profiles"), steps: dataOf("step-profiles"),
+  reads: config => [...config.edges === undefined ? ["strike-profiles", "edge-profiles", "step-profiles", "body-numbers"] as const : ["strike-profiles", "step-profiles", "body-numbers"] as const, ...config.pressure === "measured" ? ["pressure-profiles"] as const : []],
+  make: config => profileModel(deepFreeze({ strikes: withStatures(dataOf("strike-profiles"), dataOf("body-numbers")), edges: withStatures(config.edges ?? dataOf("edge-profiles"), dataOf("body-numbers")),
+    steps: withStatures(dataOf("step-profiles"), dataOf("body-numbers")),
     ...config.pressure === "measured" ? { pressures: measuredPressures() } : {} }), config.outcomes ?? "nearest", config.foeSteps ?? null),
 });
 

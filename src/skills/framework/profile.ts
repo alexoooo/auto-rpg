@@ -68,6 +68,8 @@ export function trialExit(exit: { readonly range: number; readonly apart?: numbe
  */
 export interface Measured {
   readonly body: string;
+  /** The body's stature, m (`BodySpec.stature`), where it was recorded: what another body reads its trials by (`acrossBodies`). */
+  readonly stature?: number;
   readonly holds?: string;
   readonly skill: string;
   readonly limb?: string;
@@ -308,6 +310,7 @@ const profileOrigin = (value: unknown): boolean => profileObject(value)
   && [value.spec, value.skill, value.target, value.commit, value.date].every((one) => one === undefined || profileText(one))
   && (value.changed === undefined || typeof value.changed === "boolean");
 const profileMeasured = (value: unknown): boolean => profileTarget(value) && profileObject(value)
+  && (value.stature === undefined || profileNumber(value.stature) && value.stature > 0)
   && profileText(value.skill) && (value.limb === undefined || profileText(value.limb)) && profileNumber(value.hz) && value.hz > 0
   && (value.reaction === null || profileNonnegative(value.reaction))
   && (value.rate === undefined || profileNumber(value.rate) && value.rate > 0)
@@ -399,12 +402,57 @@ export const PROFILE_SPANS: { readonly range: number; readonly speed: number; re
 /** How near two distances are taken as one: the nearest trials' ties. */
 const TIE = 1e-9;
 
+/** **A body's numbers**, by its model (`dataOf("body-numbers")`): its stature, m (`BodySpec.stature`). */
+export interface BodyNumbers { readonly stature: number }
+
+/** Each list of profiles with each one's body's stature (`Measured.stature`), made once a list and a table of bodies. */
+const STATURED = new WeakMap<readonly Profile[], WeakMap<object, readonly Profile[]>>();
+
+/**
+ * **`profiles`, each with the stature of the body it was measured on** (`Measured.stature`) from
+ * `bodies`, where it records none and `bodies` has its body; the same profile where it does, or
+ * the body is not there. Made once for the two, so a reading of one is made once.
+ */
+export function withStatures(profiles: readonly Profile[], bodies: Readonly<Record<string, BodyNumbers>>): readonly Profile[] {
+  let byBodies = STATURED.get(profiles);
+  if (!byBodies) STATURED.set(profiles, byBodies = new WeakMap());
+  const known = byBodies.get(bodies);
+  if (known) return known;
+  const made = profiles.map((profile) => {
+    const stature = Object.hasOwn(bodies, profile.measured.body) ? bodies[profile.measured.body]!.stature : undefined;
+    return profile.measured.stature !== undefined || stature === undefined ? profile : { ...profile, measured: { ...profile.measured, stature } };
+  });
+  byBodies.set(bodies, made);
+  return made;
+}
+
+/**
+ * **`reading` of `profile`, for a body of `striker`**: as it is where the profile was measured on
+ * that body, else read at ranges scaled by the two bodies' statures (`Measured.stature`,
+ * `BodySpec.stature`), what the measured body did at as far for its height; as it is where the
+ * profile records none. One
+ * number of a body, so a body measured on none is fought with by another's trials, coarsely.
+ */
+export function acrossBodies(profile: Profile, striker: BodySpec, reading: ProfileReading): ProfileReading {
+  const from = profile.measured.stature, to = striker.stature.value;
+  if (profile.measured.body === striker.model || from === undefined || !(to > 0) || from === to) return reading;
+  const ratio = from / to, at = <A extends { readonly range: number }>(asked: A): A => ({ ...asked, range: asked.range * ratio });
+  return {
+    profile: reading.profile,
+    reach: (phase) => reading.reach(phase) / ratio,
+    expect: (asked, struck) => reading.expect(at(asked), struck),
+    rate: (asked, struck) => reading.rate(at(asked), struck),
+    peak: (phase, struck) => reading.peak(phase, struck), fastest: (phase) => reading.fastest(phase), scaled: (struck) => reading.scaled(struck),
+  };
+}
+
 /** Each profile's readings, by the striker's spec and the postures read at, own then target: a profile and a spec are immutable. */
 const READINGS = new WeakMap<Profile, WeakMap<BodySpec, Map<string, Map<string, ProfileReading>>>>();
 
 /**
  * **`profile` read for a skill of a body of `striker`** (`ProfileReading`) at `postures`: its trials
- * begun there alone (`Start.postures`), none where none was; made once for the three.
+ * begun there alone (`Start.postures`), none where none was, at ranges by stature where it was
+ * measured on another body (`acrossBodies`); made once for the three.
  */
 export function readProfile(profile: Profile, striker: BodySpec, postures: Postures = STANDING): ProfileReading {
   let bySpec = READINGS.get(profile);
@@ -415,7 +463,7 @@ export function readProfile(profile: Profile, striker: BodySpec, postures: Postu
   if (!byTarget) byOwn.set(postures.own, byTarget = new Map());
   const known = byTarget.get(postures.target);
   if (known) return known;
-  const reading = profileReading(profile, striker, postures);
+  const reading = acrossBodies(profile, striker, profileReading(profile, striker, postures));
   byTarget.set(postures.target, reading);
   return reading;
 }
@@ -946,7 +994,7 @@ export function techniqueDigest(parts: PartLookup, spec: BodySpec, technique: Pa
  */
 export function measuredOn(spec: BodySpec, skill: string, limb: string | null, hz: number, reaction: number | null, rate: number, delay: number): Measured {
   const holds = holdsOf(spec);
-  return { body: spec.model, ...(holds === undefined ? {} : { holds }), skill, ...(limb === null ? {} : { limb }), hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) };
+  return { body: spec.model, stature: spec.stature.value, ...(holds === undefined ? {} : { holds }), skill, ...(limb === null ? {} : { limb }), hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) };
 }
 
 /** **Whether a reaction time `now` s reads as `was` s** at `hz`: within half a step, or either unknown. */
@@ -982,7 +1030,8 @@ export function staleness(profile: Profile, now: Measured): string | null {
 /**
  * A skill's profiles looked up (`profilesFor`), one a body it was measured against: those it reads
  * (`read`), the ones measured as it is read where there are any, else those asked the same
- * question at another setting; and why those are stale, or why none is read (`stale`, null where
+ * question at another setting, else those asked it on another body (the nearest in stature, read
+ * by stature, `acrossBodies`); and why those are stale, or why none is read (`stale`, null where
  * they are fresh).
  */
 interface Found {
@@ -992,22 +1041,30 @@ interface Found {
 
 /**
  * **The profiles of the skill and limb `now` names** among `profiles` (`Found`): each measured as
- * it is read, else each of the same question at another setting, stale (`staleness`), one a body it
- * was measured against (`profileAgainst` reads the struck body's); with none, why one on its body,
- * else any of the skill's, answers another question; null where the skill was never measured with
- * that limb.
+ * it is read, else each of the same question at another setting, stale (`staleness`), else each
+ * of it measured on the other body nearest this one in stature, stale; one a body it was measured
+ * against (`profileAgainst` reads the struck body's); with none, why one on its body, else any of
+ * the skill's, answers another question; null where the skill was never measured with that limb.
  */
 export function profilesFor(profiles: readonly Profile[], now: Measured): Found | null {
-  const fresh: Profile[] = [], stale: Profile[] = [];
+  const fresh: Profile[] = [], stale: Profile[] = [], elsewhere: Profile[] = [];
   let body: Profile | null = null, any: Profile | null = null;
   for (const profile of profiles) {
     if (profile.measured.skill !== now.skill || profile.measured.limb !== now.limb) continue;
-    if (askedOtherwise(profile, now) !== null) { if (profile.measured.body === now.body) body ??= profile; }
-    else (staleness(profile, now) === null ? fresh : stale).push(profile);
+    if (askedOtherwise(profile, now) !== null) {
+      if (profile.measured.body === now.body) body ??= profile;
+      else if (profile.measured.holds === now.holds) elsewhere.push(profile);
+    } else (staleness(profile, now) === null ? fresh : stale).push(profile);
     any ??= profile;
   }
   if (fresh.length) return { read: fresh, stale: null };
   if (stale.length) return { read: stale, stale: staleness(stale[0]!, now) };
+  if (elsewhere.length) {
+    const own = now.stature, apart = (profile: Profile): number => own === undefined ? 0 : Math.abs((profile.measured.stature ?? Infinity) - own);
+    const nearest = elsewhere.reduce((best, profile) => apart(profile) < apart(best) ? profile : best).measured.body;
+    const read = elsewhere.filter((profile) => profile.measured.body === nearest);
+    return { read, stale: `${staleness(read[0]!, now)}, read by stature: coarse` };
+  }
   const found = body ?? any;
   return found ? { read: [], stale: staleness(found, now) } : null;
 }
