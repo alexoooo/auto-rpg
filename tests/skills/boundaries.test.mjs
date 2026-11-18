@@ -12,7 +12,7 @@ import { validStepUp } from "../../src/skills/recovery/shared/staged/records.ts"
 import { validStraightDrivePart } from "../../src/skills/strikes/shared/straight-drive.ts";
 import { surfaceContains } from "../../src/skills/perception/openings.ts";
 import { actionResources } from "../../src/skills/framework/action-resources.ts";
-import { profileReading } from "../../src/skills/framework/profile.ts";
+import { readProfile } from "../../src/skills/framework/profile.ts";
 import { skillDigest } from "../../research/skills/profile-origin.mjs";
 import { loadData, dataIdentity } from "../../src/core/data/store.ts";
 import { bodyRecords } from "../../src/skills/framework/records.ts";
@@ -74,8 +74,8 @@ test("assist writes require ownership and conflict across otherwise independent 
  * establish data identity.
  */
 test("profiles retain every observed exit percept and hash global data", async () => {
-  const profile = { target: null, trials: [{ start: { range: 1, phase: "clear" }, done: true, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false, exit: { balance: .4 } }] };
-  assert.deepEqual(profileReading(profile, stock).expect({ range: 1, phase: "clear" }, null).exit, { balance: .4 });
+  const profile = { measured: { body: stock.model, stature: stock.stature.value, skill: "s", hz: 120, reaction: null }, target: null, trials: [{ start: { range: 1, phase: "clear" }, done: true, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false, exit: { balance: .4 } }] };
+  assert.deepEqual(readProfile(profile, stock).expect({ range: 1, phase: "clear" }, null).exit, { balance: .4 });
   await loadData(["boundary-global-a", "boundary-global-b", "boundary-row"], {
     "boundary-global-a": async () => ({ gain: 1 }), "boundary-global-b": async () => ({ gain: 2 }),
     "boundary-row": bodyRecords(async () => ({ [stock.model]: { gain: 3 } })),

@@ -200,7 +200,7 @@ function stanceInto(stance: Stances | undefined, out: Float64Array, at = 0): voi
 }
 
 /** Where a reading is asked at: a start less what its bodies hold, which the reading takes from their specs. */
-type Asked = Omit<Start, "held">;
+export type Asked = Omit<Start, "held">;
 
 /** A reading of a profile whose trials record no body numbers (`bodyNumbers`): asked at none. */
 const NO_NUMBERS = new Float64Array(0);
@@ -552,27 +552,33 @@ export function acrossBodies(profile: Profile, striker: BodySpec, reading: Profi
   };
 }
 
-/** Each profile's readings, by the striker's spec and the postures read at, own then target: a profile and a spec are immutable. */
-const READINGS = new WeakMap<Profile, WeakMap<BodySpec, Map<string, Map<string, ProfileReading>>>>();
+/** **A reader of profiles** (`profileReading`) for a skill of a body, at the postures it stands in. */
+export type ReadsProfile = (profile: Profile, striker: BodySpec, postures?: Postures) => ProfileReading;
 
 /**
- * **`profile` read for a skill of a body of `striker`** (`ProfileReading`) at `postures`: its trials
- * begun there alone (`Start.postures`), none where none was, at ranges by stature where it was
- * measured on another body (`acrossBodies`); made once for the three.
+ * **Profiles read with their run trials read by `runs`** (`profileReading`), at ranges by stature
+ * where one was measured on another body (`acrossBodies`); each made once for its profile, the
+ * striker's spec and the postures read at, own then target, as a profile and a spec are immutable.
  */
-export function readProfile(profile: Profile, striker: BodySpec, postures: Postures = STANDING): ProfileReading {
-  let bySpec = READINGS.get(profile);
-  if (!bySpec) READINGS.set(profile, bySpec = new WeakMap());
-  let byOwn = bySpec.get(striker);
-  if (!byOwn) bySpec.set(striker, byOwn = new Map());
-  let byTarget = byOwn.get(postures.own);
-  if (!byTarget) byOwn.set(postures.own, byTarget = new Map());
-  const known = byTarget.get(postures.target);
-  if (known) return known;
-  const reading = acrossBodies(profile, striker, profileReading(profile, striker, postures));
-  byTarget.set(postures.target, reading);
-  return reading;
+export function profileReader(runs: RunReader): ReadsProfile {
+  const readings = new WeakMap<Profile, WeakMap<BodySpec, Map<string, Map<string, ProfileReading>>>>();
+  return (profile, striker, postures = STANDING) => {
+    let bySpec = readings.get(profile);
+    if (!bySpec) readings.set(profile, bySpec = new WeakMap());
+    let byOwn = bySpec.get(striker);
+    if (!byOwn) bySpec.set(striker, byOwn = new Map());
+    let byTarget = byOwn.get(postures.own);
+    if (!byTarget) byOwn.set(postures.own, byTarget = new Map());
+    const known = byTarget.get(postures.target);
+    if (known) return known;
+    const reading = acrossBodies(profile, striker, profileReading(profile, striker, postures, runs));
+    byTarget.set(postures.target, reading);
+    return reading;
+  };
 }
+
+/** **`profile` read for a skill of a body of `striker`** (`ProfileReading`) at `postures`, by its trials nearest a start (`nearestRun`). */
+export const readProfile: ReadsProfile = profileReader(nearestRun);
 
 /** A start's velocity and place in its window, read as a reading reads them (`within`): closing, across, ahead and aside. */
 type Read = readonly [number, number, number, number];
@@ -587,7 +593,7 @@ type Read = readonly [number, number, number, number];
  * stances, the same of those (`stances`). The nearest to a start are found through trees of its
  * trials (`Tree`), made when first asked.
  */
-interface Sample {
+export interface Sample {
   readonly trials: readonly Trial[];
   readonly range: Float64Array;
   readonly closing: Float64Array;
@@ -800,6 +806,29 @@ function boxSquared(tree: Tree, node: number, query: Float64Array): number {
   return squared;
 }
 
+/** **A start as a sample reads it** (`readWithin`): its velocity and place in its window (`Read`), its bodies' levels the sample's trials differ in (`Sample.levels`), and its stance numbers (`STANCES`' order, NaN where not asked). */
+export interface ReadStart {
+  readonly read: [number, number, number, number];
+  readonly levels: Float64Array;
+  readonly stance: Float64Array;
+}
+
+/** **A start's reading, written by `readWithin`**: as long as `sample` reads. */
+export const readStartOf = (sample: Sample): ReadStart =>
+  ({ read: [0, 0, 0, 0], levels: new Float64Array(sample.levels?.kept.length ?? 0), stance: new Float64Array(STANCES.length) });
+
+/**
+ * **`at`, its bodies at the levels `asked`, as `sample` reads it**, into `out` (`ReadStart`): each
+ * number within the span the sample's trials began at, as a velocity is (`within`). How the bodies
+ * stand, where its trials record it: NaN, not asked, stays NaN.
+ */
+export function readWithin(sample: Sample, at: Asked, asked: Float64Array, out: ReadStart): void {
+  within(sample, at, out.read);
+  const levels = sample.levels, stances = sample.stances;
+  if (levels) for (let k = 0; k < levels.kept.length; k++) out.levels[k] = Math.min(levels.high[k]!, Math.max(levels.low[k]!, asked[levels.kept[k]!]!));
+  if (stances) { stanceInto(at.stance, out.stance); for (let k = 0; k < STANCES.length; k++) out.stance[k] = Math.min(stances.high[k]!, Math.max(stances.low[k]!, out.stance[k]!)); }
+}
+
 /**
  * **The trials of `sample` nearest `at`** (`NEAREST`), its bodies at the levels `asked`, nearer
  * first and ties together: written into `near`, the distance the farthest of them lies at and the
@@ -813,10 +842,7 @@ function nearestOf(sample: Sample, at: Asked, asked: Float64Array, near: Nearest
   const kept = sample.levels?.kept.length ?? 0;
   if (near.levels.length < kept) { near.levels = new Float64Array(kept); near.query = new Float64Array(5 + kept + STANCES.length); }
   const read = near.read, levels = near.levels, stance = near.stance;
-  within(sample, at, read);
-  if (sample.levels) for (let k = 0; k < kept; k++) levels[k] = Math.min(sample.levels.high[k]!, Math.max(sample.levels.low[k]!, asked[sample.levels.kept[k]!]!));
-  // How the bodies stand is read within the span its trials stood at, as a velocity is; NaN, not asked, stays NaN.
-  if (sample.stances) { stanceInto(at.stance, stance); for (let k = 0; k < STANCES.length; k++) stance[k] = Math.min(sample.stances.high[k]!, Math.max(sample.stances.low[k]!, stance[k]!)); }
+  readWithin(sample, at, asked, near);
   const forest = forestOf(sample), query = near.query, mark = near.mark = ++QUERY_WORK.marks;
   near.range[0] = at.range;
   query[0] = at.range / NEAREST.range; query[1] = read[0] / NEAREST.speed; query[2] = read[1] / NEAREST.speed; query[3] = read[2] / NEAREST.place; query[4] = read[3] / NEAREST.place;
@@ -887,10 +913,52 @@ interface Phase {
   readonly reach: number;
   /** The most hit points a second, and the fewest seconds of a start that deals any, of any start of its trials (`ProfileReading.peak`, `fastest`); found when first asked. */
   extremes?: { readonly peak: number; readonly fastest: number };
+  /** Its run trials as its reading reads them (`RunReader`); made when first asked. */
+  runs?: RunReading;
+}
+
+/** The hit points a start deals and its cycle, s: the seconds it runs, and those with the seconds until its limb is back (`Trial.recovers`). */
+export type Cycle = { readonly dealt: number; readonly cycle: number; readonly seconds: number };
+
+/**
+ * **A phase's run trials as a reading reads them at a start** (`ProfileReading.expect`, `rate`), its
+ * bodies at the levels `levels` (`bodyNumbers`' order): what they bring against `struck` but what
+ * letting go costs, and the hit points they deal and their cycle; null where they read nothing.
+ */
+export interface RunReading {
+  expect(at: Asked, levels: Float64Array, struck: BodySpec | null): Omit<Expected, "letGo"> | null;
+  cycle(at: Asked, levels: Float64Array): Cycle | null;
+}
+
+/** **A way to read a phase's run trials** (`RunReading`), for a body of `own` hit points. */
+export type RunReader = (run: Sample, own: number) => RunReading;
+
+/** **The nearest trials** (`NEAREST`, `eachNearest`): the mean of what the trials nearest the start brought. */
+export function nearestRun(run: Sample, own: number): RunReading {
+  return {
+    expect(at, levels, struck) {
+      const shares = new Map<string, number>();
+      let done = 0, dealt = 0, taken = 0, seconds = 0, recovered = 0, recovers = 0, down = 0;
+      const exits: Record<string, number> = {}, exited: Record<string, number> = {};
+      const n = eachNearest(run, at, levels, (trial) => {
+        if (trial.done) done++;
+        if (trial.down) down++;
+        dealt += trial.dealt; taken += trial.taken; seconds += trial.seconds;
+        if (trial.recovers !== null) { recovered++; recovers += trial.recovers; }
+        if (trial.end !== undefined) shares.set(trial.end, (shares.get(trial.end) ?? 0) + 1);
+        for (const key in trial.exit) { exits[key] = (exits[key] ?? 0) + trial.exit[key]!; exited[key] = (exited[key] ?? 0) + 1; }
+      });
+      if (n === 0) return null;
+      return { done: done / n, dealt: struck ? dealt / n / struck.wounds.hp.value : 0, taken: taken / n / own, seconds: seconds / n, recovers: recovered ? recovers / recovered : 0, down: down / n,
+        ends: [...shares].map(([end, count]) => ({ at: end, share: count / n })),
+        ...(Object.keys(exits).length ? { exit: Object.fromEntries(Object.keys(exits).map(key => [key, exits[key]! / exited[key]!])) } : {}) };
+    },
+    cycle: (at, levels) => cycleAt(run, at, levels),
+  };
 }
 
 /** **The hit points `sample`'s trials nearest `at` deal, and their cycle**, s: the mean seconds they ran and, of those that recorded it, until their limb was back (`Trial.recovers`). */
-function cycleAt(sample: Sample, at: Asked, asked: Float64Array): { readonly dealt: number; readonly cycle: number; readonly seconds: number } | null {
+function cycleAt(sample: Sample, at: Asked, asked: Float64Array): Cycle | null {
   let dealt = 0, seconds = 0, recovered = 0, recovers = 0;
   const n = eachNearest(sample, at, asked, (trial) => {
     dealt += trial.dealt; seconds += trial.seconds;
@@ -899,8 +967,13 @@ function cycleAt(sample: Sample, at: Asked, asked: Float64Array): { readonly dea
   return n === 0 ? null : { dealt: dealt / n, seconds: seconds / n, cycle: seconds / n + (recovered ? recovers / recovered : 0) };
 }
 
-/** `profile` read for a skill of a body of `striker` at `postures` (`readProfile`), made anew: for a profile made for one reading, which no later read asks again. */
-export function profileReading(profile: Profile, striker: BodySpec, postures: Postures = STANDING): ProfileReading {
+/**
+ * **`profile` read for a skill of a body of `striker` at `postures`** (`ProfileReading`), its run
+ * trials read by `runs`: its trials begun there alone (`Start.postures`), none where none was, a
+ * phase with none read at its clear trials; its reach, extremes and what letting go costs its
+ * nearest trials'. Made anew; `profileReader` keeps them.
+ */
+function profileReading(profile: Profile, striker: BodySpec, postures: Postures, runs: RunReader): ProfileReading {
   const own = striker.wounds.hp.value;
   const trials = profile.trials.filter((trial) => startedAt(trial.start, postures));
   const numbers = bodyNumbers(trials);
@@ -950,28 +1023,15 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
     expect(at, struck) {
       const of = read(at.phase);
       if (at.range > of.reach) return null;
-      const shares = new Map<string, number>();
-      let done = 0, dealt = 0, taken = 0, seconds = 0, recovered = 0, recovers = 0, down = 0;
-      const exits: Record<string, number> = {}, exited: Record<string, number> = {};
-      const levels = asked(struck);
-      const n = eachNearest(of.run, at, levels, (trial) => {
-        if (trial.done) done++;
-        if (trial.down) down++;
-        dealt += trial.dealt; taken += trial.taken; seconds += trial.seconds;
-        if (trial.recovers !== null) { recovered++; recovers += trial.recovers; }
-        if (trial.end !== undefined) shares.set(trial.end, (shares.get(trial.end) ?? 0) + 1);
-        for (const key in trial.exit) { exits[key] = (exits[key] ?? 0) + trial.exit[key]!; exited[key] = (exited[key] ?? 0) + 1; }
-      });
-      if (n === 0) return null;
-      const letGo = at.progress === undefined ? null : letGoAt(of, at, levels, at.progress);
-      return { done: done / n, dealt: struck ? dealt / n / struck.wounds.hp.value : 0, taken: taken / n / own, seconds: seconds / n, recovers: recovered ? recovers / recovered : 0, down: down / n,
-        ends: [...shares].map(([end, count]) => ({ at: end, share: count / n })),
-        ...(letGo ? { letGo: { seconds: letGo.seconds, taken: letGo.taken / own } } : {}), ...(Object.keys(exits).length ? { exit: Object.fromEntries(Object.keys(exits).map(key => [key, exits[key]! / exited[key]!])) } : {}) };
+      const levels = asked(struck), run = (of.runs ??= runs(of.run, own)).expect(at, levels, struck);
+      if (!run || at.progress === undefined) return run;
+      const letGo = letGoAt(of, at, levels, at.progress);
+      return letGo ? { ...run, letGo: { seconds: letGo.seconds, taken: letGo.taken / own } } : run;
     },
     rate(at, struck) {
       const of = read(at.phase);
       if (at.range > of.reach) return null;
-      const cycle = cycleAt(of.run, at, asked(struck));
+      const cycle = (of.runs ??= runs(of.run, own)).cycle(at, asked(struck));
       return cycle ? cycle.cycle > 0 ? (struck ? cycle.dealt / struck.wounds.hp.value : 0) / cycle.cycle : 0 : null;
     },
     peak: (phase, struck) => extremes(phase).peak / struck.wounds.hp.value,

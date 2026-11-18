@@ -66,7 +66,7 @@ test("a strike is read by its trials struck at the body it strikes", async () =>
  * mass, and its reading says so (`ProfileReading.scaled`).
  */
 test("a body measured against none reads the trials struck at the measured body nearest it", async () => {
-  const { profileReading } = await import("../../src/skills/framework/profile.ts");
+  const { readProfile } = await import("../../src/skills/framework/profile.ts");
   const trial = (stature, mass, done) => ({ start: { phase: "clear", range: .6, struck: { stature, mass, steadiness: 50, haste: 50 } }, done, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false });
   const profile = { measured: { body: "man", skill: "s", limb: "hand.left", hz: 120, reaction: null }, target: {}, trials: [trial(1.77, 79, true), trial(1.62, 15, false)] };
   const man = resolveCharacter({ model: "man" }).spec;
@@ -74,8 +74,8 @@ test("a body measured against none reads the trials struck at the measured body 
   const tall = body(1.77, 79), light = body(1.62, 15), heavy = body(1.3, 70), small = body(1.7, 20);
   const read = (struck) => profileAgainst([profile], struck).trials.map((one) => one.start.struck.mass);
   assert.deepEqual([read(tall), read(light), read(heavy), read(small)], [[79], [15], [79], [15]]);
-  assert.equal(profileReading(profileAgainst([profile], tall), man).scaled(tall), null);
-  assert.match(profileReading(profileAgainst([profile], heavy), man).scaled(heavy) ?? "", /measured against a body of 1\.77 m and 79 kg, read against one of 1\.3 m and 70 kg/);
+  assert.equal(readProfile(profileAgainst([profile], tall), man).scaled(tall), null);
+  assert.match(readProfile(profileAgainst([profile], heavy), man).scaled(heavy) ?? "", /measured against a body of 1\.77 m and 79 kg, read against one of 1\.3 m and 70 kg/);
 });
 
 /**
@@ -159,20 +159,20 @@ test("a skill's identity includes the selected aim's declared data", async () =>
  * profile that records none, reads as before.
  */
 test("a profile whose trials began in two stances is read at the stance nearest each body's", async () => {
-  const { profileReading } = await import("../../src/skills/framework/profile.ts");
+  const { readProfile } = await import("../../src/skills/framework/profile.ts");
   const spec = resolveCharacter({ model: "man" }).spec;
   const square = { stagger: 0, width: .25, height: 1 }, staggered = { stagger: .4, width: .25, height: .9 }, beyond = { stagger: .6, width: .25, height: .85 };
   const trial = (range, done, stance) => ({ start: { phase: "clear", range, ...(stance ? { stance } : {}) }, done, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false });
   const ranges = Array.from({ length: 12 }, (_, k) => .5 + k * .02), measured = { body: "man", skill: "straight-punch/drive", hz: 120, reaction: null }, target = {};
   for (const side of ["own", "target"]) {
     const profile = { measured, target, trials: ranges.flatMap((range) => [trial(range, false, { [side]: square }), trial(range, true, { [side]: staggered })]) };
-    const done = (stance) => profileReading(profile, spec).expect({ phase: "clear", range: .6, ...(stance ? { stance: { [side]: stance } } : {}) }, spec).done;
+    const done = (stance) => readProfile(profile, spec).expect({ phase: "clear", range: .6, ...(stance ? { stance: { [side]: stance } } : {}) }, spec).done;
     assert.deepEqual([done(square), done(staggered), done(beyond)], [0, 1, 1], `${side}'s stance`);
     assert.equal(done(undefined), .5, `${side}: a start asked at no stance reads both`);
   }
   const unrecorded = { measured, target, trials: ranges.flatMap((range) => [trial(range, false), trial(range, true)]) };
-  assert.equal(profileReading(unrecorded, spec).expect({ phase: "clear", range: .6, stance: { own: staggered } }, spec).done,
-    profileReading(unrecorded, spec).expect({ phase: "clear", range: .6 }, spec).done);
+  assert.equal(readProfile(unrecorded, spec).expect({ phase: "clear", range: .6, stance: { own: staggered } }, spec).done,
+    readProfile(unrecorded, spec).expect({ phase: "clear", range: .6 }, spec).done);
 });
 
 /**
@@ -183,7 +183,7 @@ test("a profile whose trials began in two stances is read at the stance nearest 
  * is read past what its trials held.
  */
 test("a profile whose trials began holding two ways is read at what each body holds", async () => {
-  const { heldNumbers, profileReading, startHeld, validProfiles } = await import("../../src/skills/framework/profile.ts");
+  const { heldNumbers, readProfile, startHeld, validProfiles } = await import("../../src/skills/framework/profile.ts");
   const { formReading } = await import("../../src/skills/framework/form.ts");
   const { withLoadout } = await import("../../src/core/bodies/items/held.ts");
   const plain = resolveCharacter({ model: "man" }).spec, club = withLoadout(plain, { left: "empty", right: "club" });
@@ -196,16 +196,16 @@ test("a profile whose trials began holding two ways is read at what each body ho
   for (const side of ["own", "target"]) {
     const profile = { measured, target, trials: ranges.flatMap((range) => [trial(range, false), trial(range, true, { [side]: held })]) };
     assert.ok(validProfiles([profile]));
-    for (const [kind, reading] of [["nearest", profileReading], ["written", formReading]]) {
+    for (const [kind, reading] of [["nearest", readProfile], ["written", formReading]]) {
       const done = (striker, struck) => reading(profile, striker).expect(at, struck).done;
       const read = side === "own" ? (spec) => done(spec, plain) : (spec) => done(plain, spec);
       assert.deepEqual([read(plain), read(club)].map((x) => Math.round(x * 1e9) / 1e9), [0, 1], `${kind}: ${side}'s club`);
     }
   }
   const empty = { measured, target, trials: ranges.flatMap((range) => [trial(range, false), trial(range, true)]) };
-  assert.equal(profileReading(empty, club).expect(at, club).done, profileReading(empty, plain).expect(at, plain).done);
-  assert.equal(profileReading(empty, plain).scaled(plain), null);
-  assert.match(profileReading(empty, club).scaled(plain) ?? "", /holding .* at hand\.right/, "a body holding past its trials is read so, and says it");
+  assert.equal(readProfile(empty, club).expect(at, club).done, readProfile(empty, plain).expect(at, plain).done);
+  assert.equal(readProfile(empty, plain).scaled(plain), null);
+  assert.match(readProfile(empty, club).scaled(plain) ?? "", /holding .* at hand\.right/, "a body holding past its trials is read so, and says it");
 });
 
 /**
@@ -229,10 +229,10 @@ test("a foe's limb is read throwing only what its trials' limb threw, holding or
  * A failed zero-duration trial produced NaN instead of a failed finite rate.
  */
 test("a zero-length failed profile trial has a finite failed rate", async () => {
-  const { profileReading } = await import("../../src/skills/framework/profile.ts");
+  const { readProfile } = await import("../../src/skills/framework/profile.ts");
   const spec = resolveCharacter({ model: "man" }).spec;
   const start = { phase: "clear", range: 1 };
-  const reading = profileReading({ target: null, trials: [{ start, done: false, dealt: 0, taken: 0, seconds: 0, recovers: null, down: false }] }, spec);
+  const reading = readProfile({ measured: { body: spec.model, stature: spec.stature.value, skill: "s", hz: 120, reaction: null }, target: null, trials: [{ start, done: false, dealt: 0, taken: 0, seconds: 0, recovers: null, down: false }] }, spec);
   assert.equal(reading.rate(start, spec), 0);
   assert.equal(reading.expect(start, spec).done, 0);
   assert.equal(reading.peak("clear", spec), 0);

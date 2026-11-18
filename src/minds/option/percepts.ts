@@ -13,7 +13,7 @@ import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs
 import { deepFreeze } from "../../core/state.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
 import { ordersAsked, type Orders } from "../orders.ts";
-import { measuredAt, profileAgainst, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Postures, type Profile, type ProfileReading, type StanceNumbers, type Stances } from "../../skills/framework/profile.ts";
+import { measuredAt, profileAgainst, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Postures, type Profile, type ProfileReading, type StanceNumbers, type Stances } from "../../skills/framework/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../../skills/perception/threat.ts";
@@ -166,7 +166,7 @@ const PRIORS = new WeakMap<BodySpec, WeakMap<BodySpec, Map<number, Map<number, M
 
 /** A prior (`prior`), made anew: of `striker`'s body, measured on nothing, its skill set by hand. */
 const priorOf = (striker: BodySpec, struck: BodySpec, range: number, life: number, seconds: number): ProfileReading =>
-  profileReading({ measured: { body: striker.model, stature: striker.stature.value, skill: "by hand", hz: 0, reaction: null }, target: null,
+  readProfile({ measured: { body: striker.model, stature: striker.stature.value, skill: "by hand", hz: 0, reaction: null }, target: null,
     trials: [{ start: { range, phase: "clear" }, done: true, dealt: life * struck.wounds.hp.value, taken: 0, seconds, recovers: null, down: false }] }, striker);
 
 /**

@@ -18,7 +18,7 @@
 import { readFileSync } from "node:fs";
 import { resolveCharacter } from "../../../src/core/bodies/models.ts";
 import { formReading } from "../../../src/skills/framework/form.ts";
-import { profileAgainst, profileReading, struckNumbers } from "../../../src/skills/framework/profile.ts";
+import { profileAgainst, readProfile, struckNumbers } from "../../../src/skills/framework/profile.ts";
 
 const { profiles } = JSON.parse(readFileSync("assets/skills/strikes/strike-profiles/strike-profiles.json", "utf8"));
 const MODELS = ["man", "woman", "skeleton"], specs = new Map(MODELS.map((model) => [model, resolveCharacter({ model }).spec]));
@@ -39,7 +39,7 @@ for (const profile of profiles) {
     for (const trial of mine.filter((_, k) => k % 2 === 1)) {
       if (trial.letGo) continue;
       const { levels: _, held: __, ...asked } = trial.start, postures = trial.start.postures;
-      const read = (by, reading = profileReading) => reading(by, striker, postures).expect(asked, struck);
+      const read = (by, reading = readProfile) => reading(by, striker, postures).expect(asked, struck);
       const readings = { own: read(own), nearest: read(nearest), first: read(first), form: read(rest, formReading) };
       if (RULES.some((rule) => !readings[rule])) { all.unread++; continue; }
       const dealt = trial.dealt / struck.wounds.hp.value;
