@@ -3,10 +3,11 @@
  * long it runs, where it leaves the body and whether it falls (`ProfileReading`). An Option asks
  * it and reads no table of its own; which kind answers is its mind's (its predictions part). The
  * kind of today is its trials nearest the start (`nearestTrials`); another, those answers kept by
- * a start rounded to a cell (`coarseTable`). One that has no act answers none, and the Option
+ * a start rounded to a cell (`coarseTable`); or a form fitted to its trials (`writtenForms`). One that has no act answers none, and the Option
  * prices it by hand.
  */
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import { formReading } from "./form.ts";
 import { PROFILE_SPANS, profileAgainst, profilesFor, readProfile, STANCE_SPANS, type Expected, type Measured, type Postures, type Profile, type ProfileReading, type StanceNumbers } from "./profile.ts";
 
 /** The acts an outcome model answers for: strikes, a body's ways up off the ground (`edges`) and its steps. */
@@ -135,6 +136,27 @@ export function coarseTable(model: OutcomeModel): OutcomeModel {
         reading(struck, spec, postures) {
           const reading = act.reading(struck, spec, postures);
           return reading ? coarseReading(reading) : null;
+        },
+      };
+    },
+  };
+}
+
+/**
+ * **The written forms**: an act's profile found as the nearest trials find it (`profilesFor`,
+ * `profileAgainst`), read by a form fitted to its trials (`formReading`).
+ */
+export function writtenForms(tables: Readonly<Partial<Record<ActTable, readonly Profile[]>>>): OutcomeModel {
+  return {
+    act(table, asked) {
+      const found = profilesFor(tables[table] ?? [], asked);
+      if (!found) return null;
+      const read = found.read;
+      return {
+        stale: found.stale, read,
+        reading(struck, spec, postures) {
+          const profile = profileAgainst(read, struck);
+          return profile ? formReading(profile, spec, postures) : null;
         },
       };
     },

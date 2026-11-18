@@ -273,7 +273,7 @@ export interface Trial {
 }
 
 /** Whether `start` began with the bodies standing as `postures` say (both standing where it names none). */
-const startedAt = (start: Start, postures: Postures): boolean =>
+export const startedAt = (start: Pick<Start, "postures">, postures: Postures): boolean =>
   (start.postures ?? STANDING).own === postures.own && (start.postures ?? STANDING).target === postures.target;
 
 /** **Whether `profile` measured its skill with the bodies standing as `postures` say**: a trial of it began so; one that did not says nothing of them. */
