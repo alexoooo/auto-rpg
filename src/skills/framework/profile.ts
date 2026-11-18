@@ -18,9 +18,11 @@
  * their specs', within those its trials began at (`LEVELS`). A
  * skill with no foe, a ground edge, begins at no range, clear. A profile is found by the question
  * it answers (`Measured`): its skill and variation, the limb that throws it, its body's model, the
- * world's rates and the senses' reaction time; and by the body it was measured against (`Target`,
- * none for a skill with no foe). What either body held is no part of it: each trial records it as
- * numbers (`Start.held`) and a reading takes the trials nearest what they hold. The code it was measured on is no
+ * world's rates and the senses' reaction time; and whether it was measured against a foe (`Target`,
+ * none for a skill with no foe). Neither the body struck nor what either body held is part of it:
+ * each trial records them as numbers (`Start.struck`, `Start.held`), and a reading takes the
+ * trials struck at the numbers nearest the struck body's (`profileAgainst`) and held as its body
+ * holds (`heldAsMeasured`). The code it was measured on is no
  * part of what finds it: a retrained network or a tuned setting leaves it read until its own tool
  * measures it again, a number its character sets is read at the nearest its trials began at, and
  * where it came from is kept on it (`Origin`), which labels it and finds nothing. One of another
@@ -84,10 +86,8 @@ const delayOf = (measured: Measured): number => measured.delay ?? 0;
 /** **The rate the mind's driver ran at** where `measured` was measured, Hz: its `rate`, else the world's. */
 const rateOf = (measured: Measured): number => measured.rate ?? measured.hz;
 
-/** The body a profile was measured against: its model. */
-interface Target {
-  readonly body: string;
-}
+/** **A profile of a skill at a foe** (`Profile.target`): the body each trial struck is on its start, as numbers (`Start.struck`). */
+type Target = Readonly<Record<string, never>>;
 
 /**
  * **Where a profile came from**, which finds and refuses none: the digests of its body's spec, of
@@ -126,8 +126,9 @@ export const STANDING: Postures = Object.freeze({ own: "standing", target: "stan
  * (`placeInWindow`: the target's offset from the window's middle, ahead and to the right, m),
  * absent where it begins from none or its drill did not record it, read as at the middle; how each
  * body stood (`Stances`), absent where its drill did not record it, read as alike any. A trial
- * records as well the levels its bodies began at (`Levels`) and what they held (`Held`); a reading
- * is asked at neither, its bodies' being their specs' (`Asked`).
+ * records as well the levels its bodies began at (`Levels`), what they held (`Held`) and the body
+ * it struck (`StruckNumbers`, absent for a skill with no foe); a reading is asked at none of them,
+ * its bodies' being their specs' (`Asked`).
  */
 interface Start {
   readonly range: number;
@@ -138,7 +139,38 @@ interface Start {
   readonly stance?: Stances;
   readonly levels?: Levels;
   readonly held?: Held;
+  readonly struck?: StruckNumbers;
 }
+
+/**
+ * **The body a trial struck, as numbers** (`struckNumbers`): its stature, m (`BodySpec.stature`),
+ * its mass, kg, and its Steadiness and haste, per cent, as its spec had them.
+ */
+export interface StruckNumbers {
+  readonly stature: number;
+  readonly mass: number;
+  readonly steadiness: number;
+  readonly haste: number;
+}
+
+/** Each spec's struck numbers (`struckNumbers`), found once: a spec is frozen data. */
+const STRUCK_NUMBERS = new WeakMap<BodySpec, StruckNumbers>();
+
+/** **A body of `spec` as a trial records it struck** (`StruckNumbers`), at the 4 places a trial is written at. */
+export function struckNumbers(spec: BodySpec): StruckNumbers {
+  let numbers = STRUCK_NUMBERS.get(spec);
+  if (!numbers) STRUCK_NUMBERS.set(spec, numbers = Object.freeze({ stature: fourPlaces(spec.stature.value), mass: fourPlaces(spec.mass.value),
+    steadiness: spec.attributes.steadiness.value, haste: spec.attributes.haste.value }));
+  return numbers;
+}
+
+/**
+ * **The spans a struck body's stature and mass are compared over**: a tenth of a metre and ten
+ * kilograms. Set on no reading of their error: a body reads the trials struck at its own numbers
+ * where it was measured, and the spans choose only which measured body one never measured is read
+ * as (`profileAgainst`).
+ */
+const STRUCK_SPANS = Object.freeze({ stature: .1, mass: 10 });
 
 /**
  * **How a body stands**, m (`stanceNumbers`, `src/skills/perception/stance-numbers.ts`): its feet's stagger along the line to the other
@@ -320,15 +352,17 @@ const HELD_SPANS: Readonly<Record<keyof ItemNumbers, number>> = Object.freeze({ 
  * **The numbers `trials` of `profile` are compared by**
  * (`BodyNumber`): each level (`LEVELS`) where any trial records one, a trial that records none at
  * its model's own; and the mass and reach held in each segment any trial records holding, a trial
- * that records nothing there at none. A reading's own body is the striker's, a struck one's
- * the target's; with none struck, the target's levels its model's and what it holds nothing.
+ * that records nothing there at none; and the stature and mass of the body struck, where any trial
+ * records one (`Start.struck`). A reading's own body is the striker's, a struck one's the target's;
+ * a trial's target that records no level is at its struck numbers' (`StruckNumbers`), else at the
+ * striker's model's own, as is a reading with none struck; and with none struck, it holds nothing.
  */
 export function bodyNumbers(trials: readonly Trial[], profile: Pick<Profile, "measured" | "target">): readonly BodyNumber[] {
   const numbers: BodyNumber[] = [];
   if (trials.some((trial) => trial.start.levels)) {
-    const base = { own: ownLevels(profile.measured.body), target: ownLevels((profile.target ?? profile.measured).body) };
+    const base = { own: ownLevels(profile.measured.body), target: ownLevels(profile.measured.body) };
     for (const { of, level, span } of LEVELS) numbers.push({ span,
-      trial: (start) => start.levels?.[of]?.[level] ?? base[of][level]!,
+      trial: (start) => start.levels?.[of]?.[level] ?? (of === "target" ? start.struck?.[level] : undefined) ?? base[of][level]!,
       asked: (striker, struck) => of === "own" ? striker.attributes[level].value : struck ? struck.attributes[level].value : base.target[level]! });
   }
   for (const body of ["own", "target"] as const) {
@@ -337,6 +371,9 @@ export function bodyNumbers(trials: readonly Trial[], profile: Pick<Profile, "me
       trial: (start) => start.held?.[body]?.[segment]?.[key] ?? 0,
       asked: (striker, struck) => { const spec = body === "own" ? striker : struck; return spec ? heldNumbers(spec)?.[segment]?.[key] ?? 0 : 0; } });
   }
+  if (trials.some((trial) => trial.start.struck)) for (const key of ["stature", "mass"] as const) numbers.push({ span: STRUCK_SPANS[key],
+    trial: (start) => start.struck?.[key] ?? 0,
+    asked: (_, struck) => struck ? struckNumbers(struck)[key] : 0 });
   return numbers;
 }
 
@@ -397,7 +434,7 @@ export const measuredAt = (profile: Profile, postures: Postures): boolean => pro
 
 export interface Profile {
   readonly measured: Measured;
-  /** The body it was measured against; null for a skill with no foe. */
+  /** Whether it was measured against a foe (`Target`); null for a skill with no foe. */
   readonly target: Target | null;
   readonly trials: readonly Trial[];
   /** Where it came from (`Origin`); absent where its tool kept none. */
@@ -421,11 +458,13 @@ const profileStanceNumbers = (value: unknown): boolean => profileObject(value) &
 const profileStances = (value: unknown): boolean => profileObject(value) && [value.own, value.target].every((body) => body === undefined || profileStanceNumbers(body));
 const profileHeld = (value: unknown): boolean => profileObject(value) && [value.own, value.target].every((body) => body === undefined
   || profileObject(body) && Object.values(body).every((item) => profileObject(item) && profileNonnegative(item.mass) && profileNonnegative(item.reach)));
-const profileTarget = (value: unknown): boolean => profileObject(value) && profileText(value.body);
+const profileTarget = (value: unknown): boolean => profileObject(value) && Object.keys(value).length === 0;
+const profileStruck = (value: unknown): boolean => profileObject(value) && [value.stature, value.mass].every((one) => profileNumber(one) && one > 0)
+  && [value.steadiness, value.haste].every(profileNumber);
 const profileOrigin = (value: unknown): boolean => profileObject(value)
   && [value.spec, value.skill, value.target, value.commit, value.date].every((one) => one === undefined || profileText(one))
   && (value.changed === undefined || typeof value.changed === "boolean");
-const profileMeasured = (value: unknown): boolean => profileTarget(value) && profileObject(value)
+const profileMeasured = (value: unknown): boolean => profileObject(value) && profileText(value.body)
   && (value.stature === undefined || profileNumber(value.stature) && value.stature > 0)
   && profileText(value.skill) && (value.limb === undefined || profileText(value.limb)) && profileNumber(value.hz) && value.hz > 0
   && (value.reaction === null || profileNonnegative(value.reaction))
@@ -439,6 +478,7 @@ const profileTrial = (value: unknown): boolean => profileObject(value) && profil
   && (value.start.levels === undefined || profileLevels(value.start.levels))
   && (value.start.stance === undefined || profileStances(value.start.stance))
   && (value.start.held === undefined || profileHeld(value.start.held))
+  && (value.start.struck === undefined || profileStruck(value.start.struck))
   && typeof value.done === "boolean" && typeof value.down === "boolean"
   && profileNonnegative(value.dealt) && profileNonnegative(value.taken) && profileNonnegative(value.seconds)
   && (value.recovers === null || profileNonnegative(value.recovers))
@@ -1005,7 +1045,9 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
     peak: (phase, struck) => extremes(phase).peak / struck.wounds.hp.value,
     fastest: (phase) => extremes(phase).fastest,
     scaled(struck) {
-      const target = profile.target, why = [...target && struck && struck.model !== target.body ? [`measured against ${target.body}, read against ${struck.model}`] : [], ...heldBeyond(struck)];
+      const was = profile.target && struck ? trials.find((trial) => trial.start.struck)?.start.struck : undefined, now = struck && struckNumbers(struck);
+      const why = [...was && now && (was.stature !== now.stature || was.mass !== now.mass)
+        ? [`measured against a body of ${was.stature} m and ${was.mass} kg, read against one of ${now.stature} m and ${now.mass} kg`] : [], ...heldBeyond(struck)];
       return why.length ? why.join("; ") : null;
     },
   };
@@ -1222,15 +1264,55 @@ export function profilesFor(profiles: readonly Profile[], now: Measured): Found 
   return null;
 }
 
+/** Each profile's struck bodies (`Start.struck`), in the order its trials first struck each: found once a profile. */
+const STRUCK_BODIES = new WeakMap<Profile, readonly StruckNumbers[]>();
+
+/** The bodies `profile`'s trials struck (`STRUCK_BODIES`), told apart by stature and mass. */
+function struckBodies(profile: Profile): readonly StruckNumbers[] {
+  let bodies = STRUCK_BODIES.get(profile);
+  if (!bodies) {
+    const seen = new Map<string, StruckNumbers>();
+    for (const trial of profile.trials) { const at = trial.start.struck; if (at && !seen.has(`${at.stature} ${at.mass}`)) seen.set(`${at.stature} ${at.mass}`, at); }
+    STRUCK_BODIES.set(profile, bodies = [...seen.values()]);
+  }
+  return bodies;
+}
+
+/** Each profile's trials struck at one body's numbers (`struckAt`), by that body's stature and mass. */
+const STRUCK_VIEWS = new WeakMap<Profile, Map<string, Profile>>();
+
 /**
- * **The profile among one skill's `profiles` that a body of `struck` is read by**: the one
- * measured against its model, else the first of any, read scaled (`ProfileReading.scaled`). A
+ * **`profile` read against a body of `struck`**: its trials struck at the body it measured
+ * nearest `struck`'s stature and mass (`STRUCK_SPANS`; of bodies as near, the first it struck),
+ * which is `struck`'s own where it was measured; the profile itself where its trials struck one
+ * body or record none. Made once a profile and a body's numbers, so a reading of it is made once.
+ */
+function struckAt(profile: Profile, struck: BodySpec): Profile {
+  const bodies = struckBodies(profile);
+  if (bodies.length < 2) return profile;
+  const now = struckNumbers(struck), key = `${now.stature} ${now.mass}`;
+  let views = STRUCK_VIEWS.get(profile);
+  if (!views) STRUCK_VIEWS.set(profile, views = new Map());
+  let view = views.get(key);
+  if (!view) {
+    const apart = (at: StruckNumbers): number => hypot((at.stature - now.stature) / STRUCK_SPANS.stature, (at.mass - now.mass) / STRUCK_SPANS.mass);
+    const nearest = bodies.reduce((best, at) => apart(at) < apart(best) ? at : best);
+    views.set(key, view = Object.freeze({ ...profile, trials: profile.trials.filter((trial) => trial.start.struck?.stature === nearest.stature && trial.start.struck.mass === nearest.mass) }));
+  }
+  return view;
+}
+
+/**
+ * **The profile among one skill's `profiles` that a body of `struck` is read by**: the first
+ * whose trials struck a body of its numbers, else the first; read at the body it measured nearest
+ * `struck` (`struckAt`), scaled where that is not `struck`'s own (`ProfileReading.scaled`). A
  * skill with no foe has one, read with none struck. Null with none.
  */
 export function profileAgainst(profiles: readonly Profile[], struck: BodySpec | null): Profile | null {
   if (!struck) return profiles[0] ?? null;
-  for (const profile of profiles) if (!profile.target || profile.target.body === struck.model) return profile;
-  return profiles[0] ?? null;
+  const now = struckNumbers(struck);
+  const profile = profiles.find((one) => !one.target || struckBodies(one).some((at) => at.stature === now.stature && at.mass === now.mass)) ?? profiles[0];
+  return profile ? profile.target ? struckAt(profile, struck) : profile : null;
 }
 
 /** Whether each profile's limb held an item in its trials, found once a profile. */

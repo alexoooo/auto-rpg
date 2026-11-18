@@ -1,8 +1,9 @@
 # The testbed's rest: what its plan named and nothing built
 
 The testbed plan was deleted at `76b8da80e` on six bars the reviewing session wrote, none of which
-named these. This plan holds everything that plan named and nothing built, but for bodies, what
-they hold and the ground, which is [the numbers plan](2026-11-18-numbers.md)'s. **The numbers
+named these. This plan holds everything that plan named and nothing built, but for bodies and
+what they hold, which is [the numbers plan](2026-11-18-numbers.md)'s; the ground, struck from that
+plan by the owner, is item 14 here. **The numbers
 plan's items are the owner's must-haves; these are a list kept so none is lost, and which of them
 is needed is the owner's to say.** Not begun, and none is begun until the owner orders it. The
 order of this plan, the numbers plan and [the back step](2026-11-16-back-step.md) is the owner's
@@ -15,6 +16,9 @@ Of the testbed (2026-11-17):
 > if we will be adding many more skills and many more loadouts and character bodies, and fights
 > will happen in many more environments (randomly generated levels, multiple units fighting each
 > other, etc.) -- how do we handle this all in a clean/systematic/general/simple way?
+> what we have now is just a small fraction of where i want to get, if we want to have a scalable
+> system (boht in terms of scope, and also interms of throughput/latency), then is there a
+> different way that you would apporach the problem?
 > i am open to different ideas, including making the "profiles" a pluggable contract that can have
 > multiple implementations (e.g. hard-coded esimator, vs coarse lookup table, vs decision forest,
 > vs any other approach).
@@ -32,7 +36,10 @@ Of the chooser, and to its place in the testbed "yes, add the chooser work to th
 > pluggable (and it might already be there with the Chooser).
 
 Of a line played out by a policy: "i'm not sure how the policy play-out would scale". Standing: "We
-just need to keep things simple and general, I don't want any ad-hoc hard-coded hacks."
+just need to keep things simple and general, I don't want any ad-hoc hard-coded hacks." And: "I
+want to avoid have to re-calculate things, the goal is development velocity so we want to
+gracefully fall back to stale data. If we need to do a lot of re-calculation, that will result in
+weaker fighting due to fewer iterations vs accepting some degree of staleness."
 
 On 2026-11-18, shown the list below: "please add a new plan to docs/plans/ -- it should have these
 items in it (ie. everything other than the N^2 `numbers` plan, which are all must-have)": the
@@ -68,7 +75,8 @@ gathered by a script of their own (`research/minds/pressure-profiles.mjs`,
 
 The list, and what built would mean for each; the wording is the agent's. Whose each is: 1 to 5
 are the owner's own ask of the chooser (above), of which 1 and 2 are what they described; 6 is
-the owner's example of a kind; 7 to 13 are the testbed plan's design, the agent's candidates.
+the owner's example of a kind; 7 to 17 are the testbed plan's design, the agent's candidates, 14
+to 17 found after this list was first written.
 
 **A chooser that keeps its work.** What a search found is evidence of a situation that has since
 moved: it is used again by how like the new situation is and how old it is.
@@ -115,16 +123,33 @@ bout makes again and the bout plays the same without.
     past it, the cause found and mended. (The Skeletons priced at about 20 times what they deal
     is the numbers plan's item 3.)
 
+**Named by the testbed plan and found unbuilt later.**
+
+14. **The ground near as numbers** in the situation (room behind, slope, the nearest wall), read by
+    the outcome and by a line's end. Struck from the numbers plan by the owner (2026-11-18): "i
+    don't care about the ground stuff, what I am asking is to remove N^2 bottlenecks."
+15. **The punch measured again with one dealt**: the strike table was measured counting every
+    touch of the striker, while a strike's dealt is now read as its limb's touches while its action
+    ran, a drill's and a fight's alike (`StrikeReading.dealt`, `src/evaluation/strike/read.ts`), so
+    the game's table counts dealt another way than its reader. Measured again once, on
+    `sparring-stances`, and not kept: priced right, the punch stood off and was walked into, the
+    over-priced punch paying for a stay's unpriced cost. To be read once the foe's steps or the
+    line's end price a stay.
+16. **A model's own reading held out by bout** on the scorecard: a kind's table (the pressure's)
+    built from half the bouts and read on the rest.
+17. **The strikes' exits split** into the body's own change and the foe's, as the back step's is
+    (`exit.own`), the foe's asked of the others' model.
+
 **Of every item.**
 
-14. It is a kind named in a Mind's config with no source changed, in the picker where a person
+18. It is a kind named in a Mind's config with no source changed, in the picker where a person
     chooses that part, and every number in it is fitted, none typed.
-15. It is read as the testbed read a kind: the scorecard, and a match against the game's Mind
+19. It is read as the testbed read a kind: the scorecard, and a match against the game's Mind
     chosen on one set and held out on another, each figure with its spread. Built and read is
     met, whatever it reads; a kind is the game's only where it holds held out.
-16. The game's Mind is unmoved where a kind is unset (the fingerprint).
+20. The game's Mind is unmoved where a kind is unset (the fingerprint).
 
-An item leaves this list when it is built and read by 14 to 16, or when the owner strikes it by
+An item leaves this list when it is built and read by 18 to 20, or when the owner strikes it by
 name; no agent drops one. The plan is deleted when none is left.
 
 ## Not items: what the testbed plan left open

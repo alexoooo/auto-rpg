@@ -28,7 +28,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
-import { measuredOn, specDigest, startHeld, startLevels, trialExit } from "../../../src/skills/framework/profile.ts";
+import { measuredOn, specDigest, startHeld, startLevels, struckNumbers, trialExit } from "../../../src/skills/framework/profile.ts";
 import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 
@@ -61,10 +61,10 @@ for (const path of paths) {
   for (const row of rows) {
     const recipe = row.world?.recipe, mind = recipe?.minds?.left;
     if (row.fault || !row.reading?.sways || row.world.kind !== "bout") continue;
-    const spec = specOf(recipe), struck = specOf(recipe, "right"), target = { body: struck.model };
+    const spec = specOf(recipe), struck = specOf(recipe, "right"), target = {};
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const measured = measuredOn(spec, SKILL, null, hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
-    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${SKILL} at ${struck.model}`, digests: { spec: specDigest(spec), target: specDigest(struck) },
+    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${SKILL} at ${struck.model}`, digests: { spec: specDigest(spec) },
       commits: new Set(), dates: new Set(), changed: false, trials: [] };
     profiles.set(key, profile);
     profile.commits.add(row.from.commit);
@@ -74,7 +74,7 @@ for (const path of paths) {
     for (const sway of row.reading.sways) {
       const posture = sway.foeAt.posture ?? "standing";
       const start = { range: round(sway.foeAt.apart), phase: sway.phase, ...(posture === "standing" ? {} : { postures: { own: "standing", target: posture } }),
-        velocity: sway.foeAt.velocity.map(round), ...(sway.foeAt.stance ? { stance: sway.foeAt.stance } : {}), ...(levels ? { levels } : {}), ...(held ? { held } : {}) };
+        velocity: sway.foeAt.velocity.map(round), ...(sway.foeAt.stance ? { stance: sway.foeAt.stance } : {}), ...(levels ? { levels } : {}), ...(held ? { held } : {}), struck: struckNumbers(struck) };
       profile.trials.push({ start, done: !sway.down, dealt: 0, taken: round(sway.lost), seconds: round(sway.seconds), recovers: null, down: sway.down, ...(sway.exit ? { exit: { ...trialExit(sway.exit, sway.foeAt.apart), ...(sway.moved ? { own: round(-sway.moved.own) } : {}) } } : {}) });
     }
   }

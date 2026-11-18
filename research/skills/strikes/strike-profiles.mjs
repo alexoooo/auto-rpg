@@ -8,10 +8,10 @@
  * strike's trials are those on a mark its action aims at, with a limb
  * that throws it with what it holds (`strikesOf`). Sparring's starts drawn from another stream
  * (`DRAWS`: its twin, its training draws, its judge) measure the same rung, on another draw or ten
- * times the starts: a run of one is read as sparring is. A profile a skill on a body against a target: its measured-on read
+ * times the starts: a run of one is read as sparring is. A profile a skill and limb on a body, whatever it struck: its measured-on read
  * from each row's world (the left body's spec as the bout builds it, the skill's digest as the mind
  * holds it, the harness's rate and command delay (`harnessRule`), the recipe's sense delay, the rate
- * its mind decides at), its target the right body's; its trials those whose strike began (a trial
+ * its mind decides at), each trial recording the right body as numbers (`Start.struck`); its trials those whose strike began (a trial
  * whose action never began measures the fight, not the strike). A strike no trial began has no
  * profile, and its mind prices it by hand.
  *
@@ -49,7 +49,7 @@
  *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/strike-profiles.mjs <run.json> ... [--write]
  *
  * `--write` puts the runs' profiles in the asset, each in place of the one measured on the same
- * body, skill and target; the asset's others stay while a preset still throws their skill on a body
+ * body, skill and limb; the asset's others stay while a preset still throws their skill on a body
  * the game builds (`profileKeys`), so one skill is measured again without the rest. The asset names
  * the rungs its profiles were measured on (`source.protocols`): those of an asset that names others
  * are not kept beside these.
@@ -113,7 +113,7 @@ for (const path of paths) {
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const struck = specOf(recipe, "right"), { measured, target, digests } = strikeKey(spec, struck, mind, executors, action, drill.effector, hz, reaction, delay);
     const key = JSON.stringify([measured, target]);
-    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector} on ${struck.model}`,
+    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector}`,
       digests, commits: new Set(), dates: new Set(), changed: false, trials: [] };
     profiles.set(key, profile);
     profile.commits.add(row.from.commit);
@@ -156,7 +156,7 @@ for (const profile of profiles.values()) {
 }
 if (write) {
   // Each of the asset's profiles keeps its place; one a run made again is replaced there, and the new follow.
-  // The same body, skill and target replace a profile, whether or not it records its body's stature.
+  // The same body, skill and limb replace a profile, whether or not it records its body's stature.
   const keyOf = ({ measured: { stature: _, ...measured }, target }) => JSON.stringify([measured, target]), current = profileKeys().strike;
   const named = (m) => `${m.body}, ${m.skill}${m.limb ? ` with ${m.limb}` : ""}`;
   const remade = new Map(made.map((profile) => [keyOf(profile), profile])), kept = [], asset = JSON.parse(readFileSync(OUT, "utf8"));
