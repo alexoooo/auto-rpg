@@ -51,12 +51,19 @@ const DRILLING = deepFreeze({ kind: "drill", skill: "straight-punch", region: { 
  * A rung: its attacker, the gaps it starts at, m, how long a trial plays, s, and how long past the
  * first punch's fire it plays where that ends it. A change here is a new protocol.
  */
-type Rung = { readonly attacker: Attacker; readonly gaps: readonly number[]; readonly seconds: number; readonly after?: number; readonly sways?: readonly number[]; readonly fight?: true; readonly chosen?: true; readonly mirror?: true };
+type Rung = { readonly attacker: Attacker; readonly gaps: readonly number[]; readonly seconds: number; readonly after?: number; readonly sways?: readonly number[]; readonly recorded?: true; readonly fight?: true; readonly chosen?: true; readonly mirror?: true };
 
 const range = (from: number, to: number, step: number): number[] => Array.from({ length: Math.round((to - from) / step) + 1 }, (_, k) => Number((from + k * step).toFixed(4)));
 
 const DRILLED: Rung = deepFreeze({ attacker: "drill", gaps: range(2, 3, .05), seconds: 12, after: 3 });
 const MIND: Rung = deepFreeze({ attacker: "mind", gaps: range(2.6, 4.9, .1), seconds: 20 });
+
+/**
+ * **The drill's sways recorded**: `drilled`, each sway its Commander orders a trial (`Sway`), the
+ * attacker walked straight in along the line the two start on, so how the subject faces after a
+ * sway is its own turn's and not a foe's stepping across.
+ */
+const DRILLED_SWAYS: Rung = deepFreeze({ ...DRILLED, recorded: true });
 
 /**
  * **Sparring**: what the back step's profile is measured on (`research/skills/locomotion/back-step-profiles.mjs`).
@@ -137,7 +144,7 @@ export const createBackStepCases = perContext((context: GameContext) => {
           minds: { left: rung.chosen ? withBackStep(context.defaultMind("man")) : rung.fight ? fighter() : defenderOf(value), right: attacker === "drill" ? MINDS["option-drill"]!.config : rung.mirror ? withBackStep(context.defaultMind("man")) : context.defaultMind("man") },
           commanders: { ...rung.chosen ? {} : { left: sway === undefined ? SWAYING : { ...rung.fight ? FIGHTING : SPARRING, range: sway } }, ...(attacker === "drill" ? { right: DRILLING } : {}) } },
       }),
-      read: (built) => readBackStep(built, { ...rung, sways: rung.sways !== undefined, chosen: rung.chosen === true }),
+      read: (built) => readBackStep(built, { ...rung, sways: rung.sways !== undefined || rung.recorded === true, chosen: rung.chosen === true }),
     };
   }
 
@@ -147,7 +154,7 @@ export const createBackStepCases = perContext((context: GameContext) => {
 
   /** Every protocol the back step's evaluation may be played on, by name. */
   const BACK_STEP_CASES: Readonly<Record<string, Cases<BackStepCondition, BackStepReading>>> = Object.freeze({ ...twinned("drilled", DRILLED), ...twinned("mind", MIND),
-    "mind-held": backStepCases(MIND_HELD), "drilled-held": backStepCases(DRILLED_HELD), spar: backStepCases(SPAR), "spar-fight": backStepCases(SPAR_FIGHT), "spar-chosen": backStepCases(SPAR_CHOSEN), "spar-mirror": backStepCases(SPAR_MIRROR) });
+    "mind-held": backStepCases(MIND_HELD), "drilled-held": backStepCases(DRILLED_HELD), "drilled-sways": backStepCases(DRILLED_SWAYS), spar: backStepCases(SPAR), "spar-fight": backStepCases(SPAR_FIGHT), "spar-chosen": backStepCases(SPAR_CHOSEN), "spar-mirror": backStepCases(SPAR_MIRROR) });
 
   return { BACK_STEP_CASES };
 });

@@ -7,7 +7,8 @@
 import type { Duel } from "../../game/arena/duel.ts";
 import type { World } from "../../core/world/world.ts";
 import type { Reader } from "../evaluation.ts";
-import { hypot } from "../../core/math/real.ts";
+import { atan2, hypot } from "../../core/math/real.ts";
+import { wrap } from "../../core/math/turn.ts";
 import { sensedPhase, sensedPosture } from "../../skills/perception/threat.ts";
 import { centreReading } from "../../control/observation.ts";
 import { ownStance, sensedStance } from "../../skills/perception/stance-numbers.ts";
@@ -65,8 +66,8 @@ export type BackStepReading = {
  * long it was ordered, s; the life the subject lost meanwhile, HP; where it left the two (`exit`:
  * their range head to head as it was ordered no more, m, as a strike's trial records it, and centre
  * to centre, `apart`); and
- * how far each moved along the line between them meanwhile (`moved`); and whether it went down then
- * or within `SETTLE` s of its end.
+ * how far each moved along the line between them meanwhile (`moved`); how the subject faced the
+ * attacker (`facing`); and whether it went down then or within `SETTLE` s of its end.
  */
 export type Sway = {
   readonly at: number;
@@ -78,6 +79,16 @@ export type Sway = {
   readonly exit: { readonly range: number; readonly apart: number };
   /** How far each moved along the line between them meanwhile, m: the subject toward the attacker, the attacker away from it. */
   readonly moved?: { readonly own: number; readonly foe: number };
+  /**
+   * How far the subject faced off the attacker, rad, the way its legs face against the line to the
+   * attacker's centre, positive with the attacker to its left: as it was ordered (`start`), as it
+   * was ordered no more (`end`), and `SETTLE` s after (`later`); and from the order to the end,
+   * how far the subject turned (`turned`) and the line to the attacker swung (`swung`), so that
+   * `end` is `start` + `swung` - `turned`: the body's yaw apart from the line's swing; and of the
+   * swing, what the subject's own move across made of it, the attacker where it was (`stepped`), the
+   * rest the attacker's.
+   */
+  readonly facing?: { readonly start: number; readonly end: number; readonly later: number; readonly turned: number; readonly swung: number; readonly stepped: number };
   readonly down: boolean;
 };
 
@@ -96,13 +107,21 @@ export function readBackStep({ world, duel }: { readonly world: World; readonly 
   if (!foe) throw new Error("the attacker runs no skills");
   const punches: Punch[] = [], seen = new Set<number>(), state = { down: false, heard: 0 };
   /** Each sway seen through (`Sway`), the one under way, and those ended whose `SETTLE` is not over. */
-  const sways: Sway[] = [], settling: { sway: Omit<Sway, "down">; until: number; down: boolean }[] = [];
+  const sways: Sway[] = [], settling: { sway: Omit<Sway, "down" | "facing">; facing: Omit<NonNullable<Sway["facing"]>, "later"> | null; until: number; down: boolean }[] = [];
   let going: { at: number; phase: string; foeAt: Sway["foeAt"]; own?: string; lost: number; down: boolean; from: Places | null } | null = null;
-  /** Where the two stand on the ground now, m; null where the subject has no view or does not see the attacker. */
-  type Places = { readonly own: readonly [number, number]; readonly foe: readonly [number, number] };
+  /** Where the two stand on the ground now, m, the way the subject's legs face, rad (`LegsReport.heading`, what its strikes' windows read), and the line from it to the attacker; null where the subject has no view or its legs no heading, or it does not see the attacker. */
+  type Places = { readonly own: readonly [number, number]; readonly foe: readonly [number, number]; readonly heading: number; readonly line: number };
   const places = (): Places | null => {
-    const other = view && subject.senses().others.find((one) => one.id === attacker.id);
-    return view && other ? { own: [view.stance.centre.x, view.stance.centre.z], foe: [other.centre.x, other.centre.z] } : null;
+    const other = view && subject.senses().others.find((one) => one.id === attacker.id), heading = subject.minded.skills?.report.legs?.heading;
+    if (!view || !other || heading === undefined) return null;
+    const own = [view.stance.centre.x, view.stance.centre.z] as const;
+    return { own, foe: [other.centre.x, other.centre.z], heading, line: atan2(other.centre.x - own[0], other.centre.z - own[1]) };
+  };
+  /** How the subject faces the attacker from `from` to now (`Sway.facing`, but `later`). */
+  const facingFrom = (from: Places | null): Omit<NonNullable<Sway["facing"]>, "later"> | null => {
+    const to = places();
+    return from && to ? { start: wrap(from.line - from.heading), end: wrap(to.line - to.heading), turned: wrap(to.heading - from.heading), swung: wrap(to.line - from.line),
+      stepped: wrap(atan2(from.foe[0] - to.own[0], from.foe[1] - to.own[1]) - from.line) } : null;
   };
   /** How far each moved from `from` to now along the line between them then (`Sway.moved`). */
   const movedFrom = (from: Places | null): Sway["moved"] | null => {
@@ -136,9 +155,12 @@ export function readBackStep({ world, duel }: { readonly world: World; readonly 
     const swaying = chosen ? subject.minded.report?.engagement?.phase === "back step" : duel.commanded("left")?.task === "swaying";
     if (going) { going.lost += lost; going.down ||= subject.body.down; }
     for (const one of settling) one.down ||= subject.body.down;
-    while (settling.length && settling[0]!.until <= now) { const one = settling.shift()!; sways.push({ ...one.sway, down: one.down }); }
+    while (settling.length && settling[0]!.until <= now) {
+      const one = settling.shift()!, at = places();
+      sways.push({ ...one.sway, ...(one.facing && at ? { facing: { ...one.facing, later: wrap(at.line - at.heading) } } : {}), down: one.down });
+    }
     if (going && !swaying) {
-      settling.push({ sway: { at: going.at, phase: going.phase, foeAt: going.foeAt, ...(going.own ? { own: going.own } : {}), seconds: now - going.at, lost: going.lost, exit: { range: range(), apart: apartOf(duel) }, ...((moved) => moved ? { moved } : {})(movedFrom(going.from)) }, until: now + SETTLE, down: going.down || subject.body.down });
+      settling.push({ sway: { at: going.at, phase: going.phase, foeAt: going.foeAt, ...(going.own ? { own: going.own } : {}), seconds: now - going.at, lost: going.lost, exit: { range: range(), apart: apartOf(duel) }, ...((moved) => moved ? { moved } : {})(movedFrom(going.from)) }, facing: facingFrom(going.from), until: now + SETTLE, down: going.down || subject.body.down });
       going = null;
     } else if (!going && swaying) {
       const start = sensed();

@@ -150,7 +150,11 @@ bout makes again and the bout plays the same without.
     bouts won and held out. Built of a written line's end: `ByDistance` (three numbers, one scale
     fitted), `ByExchange` and `ByNext` (one number each, `src/minds/option/chooser.ts`); none
     reads the state past distance and the next exchange. What [the back step](2026-11-16-back-step.md)'s
-    order asks of a sway's pricing.
+    order asks of a sway's pricing. The owner (through the reviewing session, 2026-11-18): "my
+    suspition is that the pricing problems can be fixed with a proper Stockfish-style authored
+    features + weights design. it's on if we don't have one universal best value function, we can
+    have player agency (choosing the Mind config) if it turns otu that the fighting performance
+    hasa rock-paper-scissors dynamic (i.e. if there is no single dominant strategy)."
 
 **Of every item.**
 
@@ -158,7 +162,10 @@ bout makes again and the bout plays the same without.
     chooses that part, and every number in it is fitted, none typed.
 20. It is read as the testbed read a kind: the scorecard, and a match against the game's Mind
     chosen on one set and held out on another, each figure with its spread. Built and read is
-    met, whatever it reads; a kind is the game's only where it holds held out.
+    met, whatever it reads; a kind is the game's only where it holds held out. A kind that does
+    not beat the game's Mind is not for that alone dropped: by the owner's word (item 18), several
+    with none dominant is an outcome, each a Mind config a player chooses; a match among them reads
+    whether they go round.
 21. The game's Mind is unmoved where a kind is unset (the fingerprint).
 
 An item leaves this list when it is built and read by 19 to 21, or when the owner strikes it by
