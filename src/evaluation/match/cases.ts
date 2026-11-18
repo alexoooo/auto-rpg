@@ -13,6 +13,7 @@ import type { BodyModel } from "../../core/bodies/models.ts";
 import { readBout, type BoutReading } from "../contest.ts";
 import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
+import { drawnGap, WARRIOR_GAPS } from "../scorecard/cases.ts";
 import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
 
@@ -48,7 +49,7 @@ const WARRIOR_DRAWN = warriorOn([3, 4, 5, 6, 7, 8]);
 /** The Warrior empty-handed on itself at the scorecard's 24 gaps on each of `draws`, a draw shifting them 0.5 cm more. */
 function warriorOn(draws: readonly number[]) {
   return Object.freeze({ ...MATCH,
-    levels: Object.freeze([Object.freeze({ level: "open" as ArenaLevel, gaps: Object.freeze(draws.flatMap((draw) => Array.from({ length: 24 }, (_, k) => Number((2.65 + .12 * k + .005 * draw).toFixed(4))))) })]),
+    levels: Object.freeze([Object.freeze({ level: "open" as ArenaLevel, gaps: Object.freeze(draws.flatMap((draw) => WARRIOR_GAPS.map((gap) => drawnGap(gap, draw)))) })]),
     bodies: Object.freeze(["man"] as BodyModel[]),
     loadouts: Object.freeze(REPRESENTATIVE.filter((loadout) => loadoutKey(loadout) === "empty,empty")),
   });

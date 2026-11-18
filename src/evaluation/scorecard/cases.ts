@@ -19,6 +19,12 @@ export type ScorecardCondition = { readonly draw: number; readonly gap: number }
 /** How far each draw's gaps are shifted from the last's, m. */
 const SHIFT = .005;
 
+/** `gap` on draw `draw`, m: shifted `SHIFT` a draw. */
+export const drawnGap = (gap: number, draw: number): number => Number((gap + draw * SHIFT).toFixed(4));
+
+/** The Warrior's first draw's gaps, 24 from 2.65 to 5.41 m: the scorecard's and the match's. */
+export const WARRIOR_GAPS: readonly number[] = Object.freeze(Array.from({ length: 24 }, (_, k) => Number((2.65 + .12 * k).toFixed(4))));
+
 /**
  * A protocol: the body on both sides, empty-handed; the first draw's gaps, m; how many draws; the
  * longest a bout plays, s. A change here is a new protocol.
@@ -26,7 +32,7 @@ const SHIFT = .005;
 type Protocol = { readonly body: BodyModel; readonly gaps: readonly number[]; readonly draws: number; readonly seconds: number };
 
 /** The Warrior on itself, 24 gaps from 2.65 to 5.41 m, three draws, two minutes a bout. */
-const WARRIOR: Protocol = Object.freeze({ body: "man", gaps: Object.freeze(Array.from({ length: 24 }, (_, k) => Number((2.65 + .12 * k).toFixed(4)))), draws: 3, seconds: 120 });
+const WARRIOR: Protocol = Object.freeze({ body: "man", gaps: WARRIOR_GAPS, draws: 3, seconds: 120 });
 
 /** The Warrior on itself as `WARRIOR`, nine draws: a reading the three draws' spread cannot tell apart. */
 const WARRIOR_DRAWN: Protocol = Object.freeze({ ...WARRIOR, draws: 9 });
@@ -35,7 +41,7 @@ export const createScorecardCases = perContext((context: GameContext) => {
   const mindFaults = mindFaultsOf(context), EMPTY = { left: "empty", right: "empty" } as const;
 
   function scorecardCases(protocol: Protocol): Cases<ScorecardCondition, ScorecardReading> {
-    const conditions = Array.from({ length: protocol.draws }, (_, draw) => protocol.gaps.map((gap) => ({ draw, gap: Number((gap + draw * SHIFT).toFixed(4)) }))).flat();
+    const conditions = Array.from({ length: protocol.draws }, (_, draw) => protocol.gaps.map((gap) => ({ draw, gap: drawnGap(gap, draw) }))).flat();
     return {
       arity: 1,
       play: protocol as unknown as Json,
