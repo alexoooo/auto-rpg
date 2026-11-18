@@ -19,11 +19,25 @@ Initiative plan, which might unlock the back-step."
 
 ## Where it stands
 
-The Objective's picker has one field, Aggression (`FEW_TERMS_PART`, `src/minds/option/objective.ts`).
-A cost on delay exists as the chooser's half-life (`SearchConfig.halfLife`,
-`src/minds/option/chooser.ts`: life a line trades counts half as much each half-life later), a
-config key with no picker field. Read: won nothing held out (0.483, [the approaches](../approaches.md#minds));
-on the back step's mirrors it lowers both, not the gap between them (the back step plan, step 4).
+**Built.** Initiative is a setting of the few terms beside Aggression (`SETTINGS`,
+`src/minds/option/objective.ts`), a rate a second from 0 to 0.3, none unless set: life the body
+deals counts less by that rate the later in a line it comes and more than itself sooner, scaled so
+that over the horizon it counts as itself on the mean (`initiativeWeight`); life taken counts as
+itself. So a blow now is worth more than as much later, and a line that deals evenly, or deals
+nothing, is worth what it was.
+
+**Where it lives, the owner's question.** In the objective, as Aggression is: it is what a body
+values, a blow now against one later, and its meaning is the few terms' alone. The objective
+interface names nothing of it: an objective may say what life dealt or taken counts for by when in
+a line it comes (`Objective.weigh`), and the chooser, which alone knows when, asks as it adds a
+line up, knowing nothing of what the weight means. The chooser's own half-life (`halfLife`, a
+discount on both sides alike, which won nothing held out, 0.483, and on the back step's mirrors
+lowered both, not the gap) is removed: one way to weigh time, the objective's.
+
+**The first mapping, dropped**: life dealt alone fading at 0.2 a second, unscaled, made every
+trade worth less than waiting; two Warriors waited out every bout (bar 3's 144 bouts all drained,
+the first punch at 85 s, 1.1 HP lost a minute). Scaled, at 0.05 and 0.1 the empty-handed mirror
+fights as the game's (standing silence 10% and 8% against 8%, 24 gaps).
 
 ## What done is
 

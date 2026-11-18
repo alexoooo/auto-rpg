@@ -247,7 +247,8 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   (`SearchConfig.end`), its shape from bout rows and one scale by bouts won: 0.503 at half the
   rows' rate, 0.417 at it, 0.434 at a quarter; 20.1 ms a deciding step against 49.6; with the back
   step in both minds 13% standing silent against 5% without, the most any kind moved that. It
-  reads no walk to a site. A half-life on life traded later won nothing held out (0.483). Unset
+  reads no walk to a site. A half-life on life traded later, both sides alike, won nothing held out (0.483), and is gone:
+  the objective weighs life by when it comes (`Objective.weigh`, the few terms' Initiative). Unset
   (`d87df83c2`, `eb2876fb1`). With the blow held once, 8.1% against 6.3% on 216 gaps, paired 1.8
   points (0.2 to 3.4), and 3.6 at 1,000 runs: crediting by distance alone, it pays any cheap way
   to stand near, and a deeper search finds more of them (`cdbe93aba`). Credited instead from when

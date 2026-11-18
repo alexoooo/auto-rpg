@@ -78,14 +78,20 @@ export function optionalChoice<C, K extends keyof C & string>(key: K, label: str
   };
 }
 
-/** The numeric field `key` of a config, from `least` to `most`. */
-export function number<C, K extends keyof C & string>(key: K, label: string, least: number, most: number, step: number, unit: string): NumberField<C> {
+/**
+ * The numeric field `key` of a config, from `least` to `most`; given `preset`, the value an absent
+ * key means, shown where it is absent and written as absent, so a config at it equals one without it.
+ */
+export function number<C, K extends keyof C & string>(key: K, label: string, least: number, most: number, step: number, unit: string, preset?: number): NumberField<C> {
   return {
     kind: "number", key, label, least, most, step, unit,
-    read: (config) => String(config[key]),
+    read: (config) => String(config[key] ?? preset),
     write: (config, text) => {
       const value = text.trim() === "" ? NaN : Number(text);
-      return Number.isFinite(value) && value >= least && value <= most ? { ...config, [key]: value } : null;
+      if (!(Number.isFinite(value) && value >= least && value <= most)) return null;
+      if (value !== preset) return { ...config, [key]: value };
+      const { [key]: _, ...rest } = config;
+      return rest as C;
     },
   };
 }
