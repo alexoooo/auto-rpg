@@ -64,8 +64,8 @@ export type BackStepReading = {
  * subject's velocity against the attacker's, `startVelocity`; how each stood, `Stances`); the
  * subject's own action under way then, by its name and phase, where one was (`own`); how
  * long it was ordered, s; the life the subject lost meanwhile, HP; where it left the two (`exit`:
- * their range head to head as it was ordered no more, m, as a strike's trial records it, and centre
- * to centre, `apart`); and
+ * their range head to head as it was ordered no more, m, as a strike's trial records it, centre
+ * to centre, `apart`, and the attacker's phase as the subject sensed it then, `phase`); and
  * how far each moved along the line between them meanwhile (`moved`); how the subject faced the
  * attacker (`facing`); and whether it went down then or within `SETTLE` s of its end.
  */
@@ -76,7 +76,7 @@ export type Sway = {
   readonly own?: string;
   readonly seconds: number;
   readonly lost: number;
-  readonly exit: { readonly range: number; readonly apart: number };
+  readonly exit: { readonly range: number; readonly apart: number; readonly phase?: string };
   /** How far each moved along the line between them meanwhile, m: the subject toward the attacker, the attacker away from it. */
   readonly moved?: { readonly own: number; readonly foe: number };
   /**
@@ -160,7 +160,7 @@ export function readBackStep({ world, duel }: { readonly world: World; readonly 
       sways.push({ ...one.sway, ...(one.facing && at ? { facing: { ...one.facing, later: wrap(at.line - at.heading) } } : {}), down: one.down });
     }
     if (going && !swaying) {
-      settling.push({ sway: { at: going.at, phase: going.phase, foeAt: going.foeAt, ...(going.own ? { own: going.own } : {}), seconds: now - going.at, lost: going.lost, exit: { range: range(), apart: apartOf(duel) }, ...((moved) => moved ? { moved } : {})(movedFrom(going.from)) }, facing: facingFrom(going.from), until: now + SETTLE, down: going.down || subject.body.down });
+      settling.push({ sway: { at: going.at, phase: going.phase, foeAt: going.foeAt, ...(going.own ? { own: going.own } : {}), seconds: now - going.at, lost: going.lost, exit: { range: range(), apart: apartOf(duel), ...((phase) => phase ? { phase } : {})(sensed()?.phase) }, ...((moved) => moved ? { moved } : {})(movedFrom(going.from)) }, facing: facingFrom(going.from), until: now + SETTLE, down: going.down || subject.body.down });
       going = null;
     } else if (!going && swaying) {
       const start = sensed();

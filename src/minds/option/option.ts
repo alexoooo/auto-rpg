@@ -189,6 +189,7 @@ function placedWith(at: Situation, leaves: Leaves, seconds: number, sight: Sight
     }
   } else if (leaves.around !== undefined) define(there, "around", leaves.around);
   if (leaves.posture) { define(there, "posture", leaves.posture); define(there, "down", leaves.posture !== "standing"); }
+  if (leaves.phase) define(there, "phase", leaves.phase);
   if (leaves.velocity) {
     define(there, "velocity", leaves.velocity);
     if (hypot(leaves.velocity.x, leaves.velocity.z) <= SETTLED) define(there, "stride", "stand");

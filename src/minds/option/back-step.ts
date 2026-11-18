@@ -6,7 +6,20 @@ import { swayStance } from "../../skills/locomotion/move/gaits.ts";
 import type { Status } from "../choice.ts";
 import { blocked, exitOutcomes, LEGS, READY, standing, type Option, type Situation } from "./option.ts";
 import { startOf } from "./percepts.ts";
-import { STILL, type Terms } from "./value.ts";
+import { STILL, type Outcome, type Terms } from "./value.ts";
+import type { FoePhase } from "../../skills/perception/threat.ts";
+
+/**
+ * **The ways a sway ends, split by what the focus is doing as it ends**: `striking` of them with
+ * the focus striking, the rest with it clear, each as `outcomes` gives them; as `outcomes` gives
+ * them alone, the focus as at the decision, where its trials record none.
+ */
+function phased(striking: number | undefined, outcomes: (phase: FoePhase | null) => readonly Outcome[]): readonly Outcome[] {
+  if (striking === undefined) return outcomes(null);
+  const share = Math.min(1, Math.max(0, striking));
+  return [...(share > 0 ? outcomes("striking").map((one) => ({ ...one, chance: one.chance * share })) : []),
+    ...(share < 1 ? outcomes("clear").map((one) => ({ ...one, chance: one.chance * (1 - share) })) : [])];
+}
 import type { Walker } from "./walk.ts";
 
 /** How long the back step is ordered at most, s: its sway out and back and its step in (`BACK_STEP_GAIT`). */
@@ -82,7 +95,7 @@ export function backStepping(spec: BodySpec, outcomes: OutcomeModel, walk: Walke
       if (!standing(at) || at.stances.own !== carriage) return null;
       const expect = expected(at);
       if (!expect) return null;
-      return { duration: expect.seconds, dealt: 0, taken: expect.taken, orders: 0, outcomes: exitOutcomes(at, apartOf(at, expect), expect.down, { velocity: STILL, stance: carriage }) };
+      return { duration: expect.seconds, dealt: 0, taken: expect.taken, orders: 0, outcomes: phased(expect.exit?.striking, (phase) => exitOutcomes(at, apartOf(at, expect), expect.down, { velocity: STILL, stance: carriage, ...(phase ? { phase } : {}) })) };
     },
     step: (now) => ({ asked: { ...walk.kept(now, { move: null, face: walk.facing(now), actions: [] }, null), gait: GAIT }, holds: LEGS }),
   }];

@@ -75,7 +75,7 @@ for (const path of paths) {
       const posture = sway.foeAt.posture ?? "standing";
       const start = { range: round(sway.foeAt.apart), phase: sway.phase, ...(posture === "standing" ? {} : { postures: { own: "standing", target: posture } }),
         velocity: sway.foeAt.velocity.map(round), ...(sway.foeAt.stance ? { stance: sway.foeAt.stance } : {}), ...(levels ? { levels } : {}), ...(held ? { held } : {}), struck: struckNumbers(struck) };
-      profile.trials.push({ start, done: !sway.down, dealt: 0, taken: round(sway.lost), seconds: round(sway.seconds), recovers: null, down: sway.down, ...(sway.exit ? { exit: { ...trialExit(sway.exit, sway.foeAt.apart), ...(sway.moved ? { own: round(-sway.moved.own) } : {}) } } : {}) });
+      profile.trials.push({ start, done: !sway.down, dealt: 0, taken: round(sway.lost), seconds: round(sway.seconds), recovers: null, down: sway.down, ...(sway.exit ? { exit: { ...trialExit(sway.exit, sway.foeAt.apart), ...(sway.moved ? { own: round(-sway.moved.own) } : {}), ...(sway.exit.phase ? { striking: sway.exit.phase === "striking" ? 1 : 0 } : {}) } } : {}) });
     }
   }
 }

@@ -1,4 +1,5 @@
 import type { Spot } from "../../skills/framework/menu.ts";
+import type { FoePhase } from "../../skills/perception/threat.ts";
 import { impactEnergy } from "../../combat/impact.ts";
 import { lifeFactor } from "../../combat/pool.ts";
 import { sideDamage, type Rulebook } from "../../combat/rulebook.ts";
@@ -36,6 +37,8 @@ export interface Leaves {
   readonly grace?: number;
   readonly velocity?: Ground;
   readonly stance?: StanceNumbers;
+  /** What the focus is doing as it leaves it (`FoePhase`), where its trials say; as at the decision where none do. */
+  readonly phase?: FoePhase;
 }
 
 /** **One way an Option ends**: where it leaves the body (`Leaves`), and the chance it ends so. */
