@@ -170,11 +170,8 @@ if (isMainThread) {
     import("../../../src/evaluation/strike/trial.ts"), import("../../../src/game/arena/duel.ts"), import("./strike-keys.mjs")]);
   const { characterSkills } = await import("../../../src/core/bodies/models.ts");
   const { footOn } = await import("../../../src/control/support.ts");
-  const { Vector3 } = await import("../../../src/core/math/vector.ts");
   const { CONTEXT } = await import("../../../src/app/node/context.ts");
   const { createDrillOpponents } = await import("../../../src/evaluation/drill-opponents.ts");
-  const { surfaceEntry } = await import("../../../src/skills/perception/openings.ts");
-  const { centreOfToRef } = await import("../../../src/core/bodies/read-motion.ts");
   /** A model's own mind with its chooser's objective the few terms at `aggression`, and `initiative` where it is not null. */
   const mindAt = (model, aggression, initiative) => { const mind = CONTEXT.defaultMind(model); return { ...mind, chooser: { ...mind.chooser, objective: { kind: "few-terms", aggression, ...initiative === null ? {} : { initiative } } } }; };
   const { inCarriage: carried, withBackStep } = await import("../../../src/minds/option/config.ts");
@@ -199,10 +196,9 @@ if (isMainThread) {
           const mind = added[side] ? withBackStep(chosen) : chosen;
           return [side, carriages[side] ? carried(mind, carriages[side]) : mind];
         })) }) };
-      // With ACTUATION (`symmetric` or `directional`), the world's muscle law (`World.actuation`); else the world's own.
-      const bout = await buildBout(recipe, { engine: BOUT_ENGINE, ...(process.env.ACTUATION ? { actuation: process.env.ACTUATION } : {}) }); dispose = bout.dispose;
+      const bout = await buildBout(recipe, { engine: BOUT_ENGINE }); dispose = bout.dispose;
       const { world, duel } = bout, track = Object.fromEntries(SIDES.map(side => [side, {
-        side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, apart: {}, attempts: [], sequence: 0,
+        side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, attempts: [], sequence: 0,
       }]));
       const byId = Object.fromEntries(SIDES.map(side => [side, new Map()]));
       const fought = readFought(bout);
@@ -215,88 +211,12 @@ if (isMainThread) {
           from: duel.duelists[side].body.view.stance.recoveries, downAt: null, wounds: [], struck: 0 };
         byId[side].set(action.id, attempt); track[side].attempts.push(attempt); return attempt;
       };
-      // With OPENING, what lies between the fist and the foe at the fire: for the aim and each other point (the head's, the upper and middle trunk's centres, and
-      // each trunk's 10 cm to either side across the line), the part each of five lines meets first (the fist's centre line, and four 4 cm off it), carried 15 cm past the point.
-      // The centres of `foe`'s arms' segments, world, by name.
-      const armCentres = (foe) => Object.fromEntries(["upperArm", "forearm", "hand"].flatMap((part) => ["left", "right"].map((s) => {
-        const v = new Vector3(); centreOfToRef(foe.body.built.segments.get(`${part}.${s}`), v); return [`${part}.${s}`, [+v.x.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)]];
-      })));
-      const openingAt = (me, foe, effector, aim) => {
-        const sense = { spec: foe.body.built.spec, segments: new Map([...foe.body.built.segments].map(([name, s]) => [name, { position: s.pose.position, rotation: s.pose.rotation, configuration: s.configuration?.applied }])) };
-        const knuckles = me.body.view.pointMotion?.[effector]?.knuckles?.position ?? me.body.built.segments.get(effector).pose.position, fist = [knuckles.x, knuckles.y, knuckles.z];
-        const centre = (name) => { const v = new Vector3(); centreOfToRef(foe.body.built.segments.get(name), v); return [v.x, v.y, v.z]; };
-        const unit = (v) => { const l = Math.hypot(...v) || 1; return v.map((x) => x / l); };
-        const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-        const first = (from, to) => {
-          let best = null, distance = Infinity;
-          for (const name of sense.segments.keys()) {
-            const hit = surfaceEntry(sense, name, from, to); if (!hit) continue;
-            const d = Math.hypot(hit.at[0] - from[0], hit.at[1] - from[1], hit.at[2] - from[2]); if (d < distance) { distance = d; best = name; }
-          }
-          return best;
-        };
-        const lanes = (point) => {
-          const d = unit(point.map((x, i) => x - fist[i])), u = unit(cross(d, [0, 1, 0])), v = cross(u, d), to = point.map((x, i) => x + .15 * d[i]);
-          return [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].map(([a, b]) => {
-            const off = [0, 1, 2].map((i) => .04 * (a * u[i] + b * v[i]));
-            return first(fist.map((x, i) => x + off[i]), to.map((x, i) => x + off[i]));
-          });
-        };
-        const points = { aim: [...aim], head: centre("head") };
-        for (const name of ["upperTrunk", "middleTrunk"]) {
-          const c = centre(name), u = unit(cross(unit(c.map((x, i) => x - fist[i])), [0, 1, 0]));
-          points[name] = c; points[`${name} +10`] = c.map((x, i) => x + .1 * u[i]); points[`${name} -10`] = c.map((x, i) => x - .1 * u[i]);
-        }
-        return { fist, arms: armCentres(foe), points: Object.fromEntries(Object.entries(points).map(([name, p]) => [name, { at: p.map((x) => +x.toFixed(3)), first: lanes(p) }])) };
-      };
-      // The striking arm's shape at each blow of a fist, by the blow: the elbow's bend, the shoulder-to-fist line against the blow's normal, and how far the fist is from the shoulder.
-      const arms = new Map(); let heard = 0;
-      const armAt = (body, hand, normal) => {
-        const at = (name) => body.built.segments.get(name).pose.position, side = hand.slice(hand.indexOf(".") + 1);
-        const upper = at(`upperArm.${side}`), fore = at(`forearm.${side}`), fist = at(hand);
-        const a = [fore.x - upper.x, fore.y - upper.y, fore.z - upper.z], b = [fist.x - fore.x, fist.y - fore.y, fist.z - fore.z], c = [fist.x - upper.x, fist.y - upper.y, fist.z - upper.z];
-        const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2], len = (u) => Math.sqrt(dot(u, u));
-        return { bend: Math.acos(Math.max(-1, Math.min(1, dot(a, b) / len(a) / len(b)))) * 180 / Math.PI,
-          line: Math.acos(Math.max(-1, Math.min(1, Math.abs(dot(c, normal)) / len(c) / len(normal)))) * 180 / Math.PI, out: len(c),
-          // The normal's tilt from level, and the level line's turn from the fist's level line, deg; and the fist's line's own tilt (down is negative).
-          tilt: Math.asin(Math.min(1, Math.abs(normal[1]) / len(normal))) * 180 / Math.PI,
-          turn: Math.acos(Math.max(-1, Math.min(1, Math.abs(c[0] * normal[0] + c[2] * normal[2]) / Math.hypot(c[0], c[2]) / Math.hypot(normal[0], normal[2]) || 0))) * 180 / Math.PI,
-          dip: Math.asin(c[1] / len(c)) * 180 / Math.PI };
-      };
-      // With HOLDS, each side's hands' and upper arms' velocities before the step, world m/s: a blow's speeds are read from them, not from the step that met it.
-      const before = new Map();
       // When each side went down; and at each decision of its mind (its offers anew), [s, apart m centre to centre, the offer chosen, its terms'
       // duration s, dealt and taken (life), its own life then, the foe's, holding's price a second (life), each strike offered: [its skill and limb, its terms]].
       const downs = { left: [], right: [] }, wasDown = { left: false, right: false }, grounded = [], state = { groundedSince: null }, decisions = { left: [], right: [] }, offered = { left: null, right: null };
       while (!duel.verdict && duel.clock < seconds) {
-        if (process.env.HOLDS) for (const s of SIDES) for (const name of ["hand.left", "hand.right", "upperArm.left", "upperArm.right"]) {
-          const v = new Vector3(); duel.duelists[s].body.built.segments.get(name).body.linearVelocityToRef(v); before.set(`${s} ${name}`, v);
-        }
         world.step();
         fought.afterStep();
-        for (; heard < duel.blows.length; heard++) {
-          const blow = duel.blows[heard];
-          for (const s of SIDES) for (const part of blow.sides)
-            if (part.fighter === duel.duelists[s].id && part.segment.startsWith("hand.")) {
-              const shape = armAt(duel.duelists[s].body, part.segment, blow.normal);
-              // With OPENING, the striking fist's knuckles and the foe's arms' centres as the blow's step left them, world.
-              if (process.env.OPENING) {
-                const k = duel.duelists[s].body.view.pointMotion?.[part.segment]?.knuckles?.position ?? duel.duelists[s].body.built.segments.get(part.segment).pose.position;
-                shape.fist = [+k.x.toFixed(3), +k.y.toFixed(3), +k.z.toFixed(3)]; shape.foeArms = armCentres(duel.duelists[s === "left" ? "right" : "left"]);
-              }
-              // With HOLDS, each freedom of the striking arm and the trunk as the blow's step left it: its speed, rad/s, and its muscles' ceilings either way, N m (`bounds`).
-              if (process.env.HOLDS) {
-                const m = duel.duelists[s].body.muscles, hand = part.segment.slice(5);
-                shape.holds = m.channels.flatMap((c, i) => c.name.includes(`.${hand} `) && /^(shoulder|elbow|wrist)/.test(c.name) || /^(thoracic|lumbar) /.test(c.name)
-                  ? [[c.name, +m.speed(i).toFixed(1), +m.bounds.negative[i].toFixed(0), +m.bounds.positive[i].toFixed(0), +m.strength(i, -1).toFixed(0), +m.strength(i, 1).toFixed(0)]] : []);
-                // The fist's and the upper arm's speeds along the blow's normal the step before it, m/s, the fist's way positive.
-                const along = (name) => { const v = before.get(`${s} ${name}`), n = blow.normal; return (v.x * n[0] + v.y * n[1] + v.z * n[2]) / Math.hypot(n[0], n[1], n[2]); };
-                const fist = along(part.segment), sign = Math.sign(fist) || 1;
-                shape.speeds = { fist: +(fist * sign).toFixed(2), shoulder: +(along(`upperArm.${hand}`) * sign).toFixed(2) };
-              }
-              arms.set(blow, shape);
-            }
-        }
         const either = SIDES.some((side) => duel.duelists[side].body.view.down);
         if (either && state.groundedSince === null) state.groundedSince = duel.clock;
         else if (!either && state.groundedSince !== null) { grounded.push([state.groundedSince, duel.clock]); state.groundedSince = null; }
@@ -319,47 +239,14 @@ if (isMainThread) {
         for (const side of SIDES) {
           const t = track[side], me = duel.duelists[side], report = me.minded.skills.report;
           if (!report.actions.length) t.idle += world.dt;
-          // Seconds spent with the stance centres apart by each 2 cm, keyed by the bin's lower edge, m: [all, with no action].
-          { const foe = duel.duelists[side === "left" ? "right" : "left"].body.view.stance.centre, c = me.body.view.stance.centre;
-            const bin = (Math.floor(Math.hypot(foe.x - c.x, foe.z - c.z) / .02) * .02).toFixed(2), at = (t.apart[bin] ??= [0, 0]);
-            at[0] += world.dt; if (!report.actions.length) at[1] += world.dt; }
           for (const action of report.actions) {
             t.phases[action.phase] += world.dt;
             const attempt = attemptOf(side, action); attempt.contacts = structuredClone(action.contacts);
-            // The fist's fastest while committed, m/s, and when, s from the fire.
-            if (action.phase === "commit" && action.effector.startsWith("hand.")) {
-              const v = new Vector3(); me.body.built.segments.get(action.effector).body.linearVelocityToRef(v);
-              const speed = Math.hypot(v.x, v.y, v.z);
-              if (!(attempt.fastest?.speed >= speed)) attempt.fastest = { speed, at: duel.clock - attempt.commit };
-              // The stroke step by step: s from the fire, the fist's speed, the elbow's and the shoulder's angles, and how far the fist is from the aim, m.
-              if (process.env.TRACE && duel.clock - attempt.commit <= .45) {
-                const angles = me.body.view.angles, hand = action.effector.slice(5), fist = me.body.built.segments.get(action.effector).pose.position;
-                (attempt.trace ??= []).push([+(duel.clock - attempt.commit).toFixed(3), +speed.toFixed(2),
-                  ...Object.keys(angles).filter((name) => name.includes(`.${hand} `) && /^(elbow|shoulder)/.test(name) || /^(thoracic|lumbar) (rotation|flexion)/.test(name))
-                    .map((name) => `${name.includes(".") ? name.split(" ").slice(1).join(" ") : name} ${angles[name].toFixed(2)}`),
-                  `to aim ${Math.hypot(fist.x - action.aim[0], fist.y - action.aim[1], fist.z - action.aim[2]).toFixed(3)}`,
-                  ...(() => { const s = me.body.built.segments.get(`upperArm.${hand}`).pose.position, c = me.body.view.stance.centre;
-                    return [`shoulder to aim ${Math.hypot(s.x - action.aim[0], s.y - action.aim[1], s.z - action.aim[2]).toFixed(3)}`, `centre to aim ${Math.hypot(c.x - action.aim[0], c.z - action.aim[2]).toFixed(3)}`]; })()]);
-              }
-            }
-            // The fist's nearest pass to its aim while committed: how far, and which way it is off (up, to its right, past along the line from the head), m.
-            if (action.phase === "commit" && action.aim && action.effector.startsWith("hand.")) {
-              const fist = me.body.built.segments.get(action.effector).pose.position, [ax, ay, az] = action.aim, head = me.body.view.head;
-              const d = [fist.x - ax, fist.y - ay, fist.z - az], gone = Math.hypot(...d), fl = Math.hypot(ax - head.x, az - head.z), f = [(ax - head.x) / fl, (az - head.z) / fl];
-              if (!(attempt.miss?.gone <= gone)) attempt.miss = { gone, up: d[1], right: d[0] * f[1] - d[2] * f[0], past: d[0] * f[0] + d[2] * f[1], at: duel.clock - attempt.commit };
-            }
             if (action.phase === "commit" && attempt.commit === null) {
               attempt.commit = duel.clock; attempt.committed = true; attempt.from = me.body.view.stance.recoveries;
               attempt.airborne = Object.values(me.body.view.stance.ends).some(end => end.touching === false);
               const hand = attempt.effector === "hand.left" ? "left" : attempt.effector === "hand.right" ? "right" : null;
               attempt.leadUp = hand !== null && me.body.view.stance.ends[footOn(me.body.built.spec, hand === "left" ? "right" : "left")]?.touching === false;
-              const foe = duel.duelists[side === "left" ? "right" : "left"].body.view, mine = me.body.view;
-              attempt.apart = Math.hypot(foe.stance.centre.x - mine.stance.centre.x, foe.stance.centre.z - mine.stance.centre.z);
-              attempt.heads = Math.hypot(foe.head.x - mine.head.x, foe.head.z - mine.head.z);
-              attempt.pace = Math.hypot(mine.stance.velocity.x, mine.stance.velocity.z);
-              attempt.fired = [mine.stance.centre.x, mine.stance.centre.z, foe.stance.centre.x, foe.stance.centre.z];
-              if (hand) { attempt.foot = footOn(me.body.built.spec, hand === "left" ? "right" : "left"); const s = mine.stance.ends[attempt.foot].middle; attempt.sole = [s.x, s.z]; }
-              if (process.env.OPENING && hand && action.aim) attempt.opening = openingAt(me, duel.duelists[side === "left" ? "right" : "left"], attempt.effector, action.aim);
             }
           }
           for (const record of report.ledger) if (record.sequence > t.sequence) {
@@ -368,16 +255,6 @@ if (isMainThread) {
             attempt.contacts = structuredClone(record.contacts); attempt.record = structuredClone(record); t.sequence = record.sequence;
           }
           for (const attempt of t.attempts) if (attempt.commit !== null) {
-            // How far its centre of mass travelled toward the foe's (as the foe stood at the fire) in the 0.2 s from the fire, m.
-            if (attempt.fired && attempt.travel === undefined && duel.clock - attempt.commit >= .2) {
-              const [x, z, fx, fz] = attempt.fired, d = Math.hypot(fx - x, fz - z), c = me.body.view.stance.centre;
-              attempt.travel = d > 0 ? ((c.x - x) * (fx - x) + (c.z - z) * (fz - z)) / d : 0;
-            }
-            // How far the foot opposite the striking hand went toward the foe in the 0.3 s from the fire, m.
-            if (attempt.sole && attempt.stepped === undefined && duel.clock - attempt.commit >= .3) {
-              const [x, z, fx, fz] = attempt.fired, d = Math.hypot(fx - x, fz - z), s = me.body.view.stance.ends[attempt.foot].middle;
-              attempt.stepped = d > 0 ? ((s.x - attempt.sole[0]) * (fx - x) + (s.z - attempt.sole[1]) * (fz - z)) / d : 0;
-            }
             if (attempt.ended === null || duel.clock <= attempt.ended + RECOVERY) attempt.recoveries = me.body.view.stance.recoveries - attempt.from;
             if (!attempt.down && duel.clock <= attempt.commit + DOWN && me.body.view.down) { attempt.down = true; attempt.downAt = duel.clock; }
           }
@@ -394,9 +271,6 @@ if (isMainThread) {
               if (!mine || !theirs) continue;
               if (blow.time <= attempt.ended + AFTER && mine.segment === attempt.effector && theirs.damage > 0)
                 attempt.wounds.push({ time: blow.time, body: theirs.fighter, part: theirs.segment, damage: theirs.damage, energy: blow.energy });
-              if (blow.time <= attempt.ended + AFTER && mine.segment === attempt.effector)
-                (attempt.touches ??= []).push({ after: blow.time - attempt.commit, part: theirs.segment, kind: blow.kind, damage: theirs.damage,
-                  kg: theirs.kg, own: mine.kg, closing: blow.closing ?? null, energy: blow.energy ?? null, arm: arms.get(blow) ?? null });
               if (blow.time <= until) attempt.struck += mine.damage;
             }
           }
