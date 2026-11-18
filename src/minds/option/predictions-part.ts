@@ -7,7 +7,8 @@ import { validProfiles, type Profile } from "../../skills/framework/profile.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { validPressures } from "./pressure.ts";
 import { measuredOthers, measuredSteps, persisting, RATE_OTHERS, validFoeSteps, type FoeSteps } from "./percepts.ts";
-import { coarseTable, nearestTrials, writtenForms, type OutcomeModel, type Tables } from "../../skills/framework/outcomes.ts";
+import { nearestTrials, writtenForms, type OutcomeModel, type Tables } from "../../skills/framework/outcomes.ts";
+import { coarseTable } from "../../skills/framework/coarse.ts";
 
 /**
  * An experiment may supply the ground profiles measured for the skill settings it runs. Its foe's
