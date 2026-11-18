@@ -248,7 +248,16 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   rows' rate, 0.417 at it, 0.434 at a quarter; 20.1 ms a deciding step against 49.6; with the back
   step in both minds 13% standing silent against 5% without, the most any kind moved that. It
   reads no walk to a site. A half-life on life traded later won nothing held out (0.483). Unset
-  (`d87df83c2`, `eb2876fb1`). *Shown.*
+  (`d87df83c2`, `eb2876fb1`). With the blow held once, 8.1% against 6.3% on 216 gaps, paired 1.8
+  points (0.2 to 3.4), and 3.6 at 1,000 runs: crediting by distance alone, it pays any cheap way
+  to stand near, and a deeper search finds more of them (`cdbe93aba`). Credited instead from when
+  a strike can begin, it pays standing far off with a walk to a window ahead, and both stand off:
+  17.6% against 11.3%; by both together 12.0% against 7.1% (`008eb67d9`, `fc29f4f3d`). A leaf
+  from those bouts by range and a strike on offer is flat past 3 s as before (`42a69f3b9`).
+  *Shown.*
+- **A bar read on bouts won needs its spread**: the back step's Warrior against one without won
+  79 to 65 on the game's Mind, 0.549 with 0.472 to 0.632 over bouts, and 0.521 (0.472 to 0.567)
+  over 432 under the written line's end: neither a win (`fc29f4f3d`). *Shown.*
 - **The foe's steps, measured or carried on, add nothing**: the foe's own steps by range and what
   the body does, from bout rows, left the walk's time and the back step's exit to them (`FoeSteps`,
   `measuredSteps`): standing silence 20% with the back step as without them; its velocity carried
