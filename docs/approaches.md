@@ -257,6 +257,15 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   the Mind's expectation of each foe fell with two as the loss did, within about 15%; skeletons
   summed plainly, but it expected about 20 times what they took (`16d74daf4`,
   `research/minds/two-on-one.mjs`). *Shown.*
+- **Not built**: the ground as numbers (room behind, slope, the nearest wall: nothing reads it);
+  what a body holds as numbers (a profile is still keyed by what it holds, `holdsOf`, so each
+  loadout pair is its own table or none; only stature carries across bodies); one model a skill
+  across bodies in the game (the nearest body's trials scaled is). The skeletons' overprice two on
+  one is likely their pricing by rate: the measured pressure has a table for a man on a man only,
+  so any other foe is priced by the most its strikes could deal at reach (`measuredOthers`,
+  `ratePressure`); not isolated. The kinds were fitted by bouts on the Warrior empty-handed
+  alone, the stature reading went into the game on held-out trials with no bouts, and the
+  written form into it with no look in a browser. *Suspected* where a cause is named.
 - **Not yet read**: the search spread over steps and the branch kept (each rests on a kept worth
   standing for a situation since moved, as the warm start's does); a value read from bouts is the
   Minds' that fought them, and how a table stays true as the Mind reading it changes is not
