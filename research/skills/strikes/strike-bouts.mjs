@@ -14,7 +14,7 @@
  *
  * `--aggression 2` has both sides fight their model's own mind (`defaultMind`) with its chooser's
  * objective the few terms at that aggression (`FewTermsConfig`), and at `--initiative <rate>`
- * where given (`Objective.initiative`, a second); without it, the objective is the
+ * where given (`FewTermsConfig.initiative`, a rate a second, which the part bounds); without it, the objective is the
  * mind's own. A saved bout keeps its winner, each side's life left (`bars`), when each went down,
  * and, at each decision of a mind that reports its offers (`Engagement.offers`), the offer it chose
  * and its terms, the life each side had then, and where on the ground each body's centre stood
@@ -84,7 +84,7 @@ if (isMainThread) {
   const aggression = values.aggression === undefined ? null : Number(values.aggression);
   if (aggression !== null && !(aggression >= 1 && aggression <= 5)) throw new Error("--aggression is a number from 1 to 5");
   const initiative = values.initiative === undefined ? null : Number(values.initiative);
-  if (initiative !== null && (aggression === null || !(initiative >= 0 && initiative <= 1))) throw new Error("--initiative is a rate from 0 to 1 a second, with --aggression");
+  if (initiative !== null && (aggression === null || !Number.isFinite(initiative))) throw new Error("--initiative is a rate a second, with --aggression");
   // With `--drill stand|guard`, the left side is drilled at the right's trunk's middle with its punch (the Strike drill's Option Mind and Commander,
   // walking into the window at `--pace` m/s, or ordering it where it stands with none), the right a drill opponent (`drill-stand`, `drill-guard`),
   // the two set the gap apart, centre to centre, facing.

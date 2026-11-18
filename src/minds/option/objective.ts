@@ -101,8 +101,6 @@ function fewTermsWorth(path: Path, now: Situation, obedience: Obedience, aggress
  * so that over the horizon it counts as itself on the mean (`Objective.weigh`). So a blow now is
  * worth more than as much later and a line that puts off its blows pays for it, while one that
  * deals evenly to the horizon, or deals nothing, is worth what it was; life taken counts as itself.
- * Fading the life dealt alone, unscaled, made every trade worth less than waiting: two Warriors at
- * 0.2 a second waited out every bout.
  */
 function initiativeWeight(initiative: number): NonNullable<Objective["weigh"]> {
   /** The mean of `exp(-initiative t)` over `span` s from `from` s on (its value at `from` where the span is none). */
