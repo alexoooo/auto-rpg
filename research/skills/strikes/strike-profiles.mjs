@@ -156,7 +156,8 @@ for (const profile of profiles.values()) {
 }
 if (write) {
   // Each of the asset's profiles keeps its place; one a run made again is replaced there, and the new follow.
-  const keyOf = (profile) => JSON.stringify([profile.measured, profile.target]), current = profileKeys().strike;
+  // The same body, skill and target replace a profile, whether or not it records its body's stature.
+  const keyOf = ({ measured: { stature: _, ...measured }, target }) => JSON.stringify([measured, target]), current = profileKeys().strike;
   const named = (m) => `${m.body}${m.holds ? ` holding ${m.holds}` : ""}, ${m.skill}${m.limb ? ` with ${m.limb}` : ""}`;
   const remade = new Map(made.map((profile) => [keyOf(profile), profile])), kept = [], asset = JSON.parse(readFileSync(OUT, "utf8"));
   // An asset measured on other rungs holds no profile to keep beside these.
