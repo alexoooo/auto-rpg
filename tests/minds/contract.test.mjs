@@ -241,7 +241,7 @@ test("a bout's save loads under another tuning of its striker's punch, and plays
   const cases = EVALUATIONS.strike.protocols.still, [subject] = EVALUATIONS.strike.subjects(["option/straight-punch"]);
   const [condition, further] = cases.conditions.filter((one) => one.model === "man" && one.mark === "middle" && one.across === 0 && one.gap >= .9);
   const tuned = { ...subject.value, mind: { ...subject.value.mind, options: subject.value.mind.options.map((option) =>
-    option.skill?.kind !== "straight-punch" ? option : { ...option, skill: { ...option.skill, keepsNetwork: true, tuning: { hips: .2 } } }) } };
+    option.skill?.kind !== "straight-punch" ? option : { ...option, skill: { ...option.skill, tuning: { hips: .2 } } }) } };
   const build = async (value, at) => {
     const world = cases.world([value], at, cases.engine ?? DEFAULT_ENGINE, [subject]), built = await BOUT_WORLD.build(world, {});
     BOUT_WORLD.start(built, world);
