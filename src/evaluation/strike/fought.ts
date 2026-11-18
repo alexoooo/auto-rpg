@@ -46,7 +46,7 @@ export function readFought(built: BuiltBout): { afterStep(): void; done(): reado
           const target = action.target, limb = limbOf(action.effector);
           if (target.kind !== "body" || target.body !== foe.id || target.region.kind !== "mark" || !limb) continue;
           live.push({ strike: { striker, action: action.action, effector: action.effector, mark: target.region.mark as Mark },
-            reader: readStrike(built, { mark: target.region.mark as Mark, ...limb }, ENDING, undefined, { striker, action: action.id }) });
+            reader: readStrike(built, { mark: target.region.mark as Mark, ...limb }, ENDING, { striker, action: action.id }) });
         }
       }
     },

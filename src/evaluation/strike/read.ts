@@ -291,7 +291,7 @@ export type StrikeReading = {
   readonly ending: string | null;
   /** A hand's first touch on the mark with the intended mechanism, or else its fastest; a foot's fastest; null where none. */
   readonly hit: StrikeHit | null;
-  /** The bar the striker's blow was judged by (`barOf` its body, unless the reader was given one). */
+  /** The bar the striker's blow was judged by (`barOf` its body). */
   readonly bar: Bar;
   /**
    * The hit points each of the target's segments lost to the striking limb's touches (its effector
@@ -382,15 +382,14 @@ export type FreeStrike = { readonly striker: Side; readonly action: number };
 
 /**
  * The reader of a trial in which the striker, the bout's left side, asks one action with `limb` at
- * the right side's `mark`, ending as `ending` says, a hand's judged by `bar`, its side led by the
- * drill Commander (`Duel.commanded`, `drillTask`). The striker's actions while its drill is
- * fighting (`DrillPhase`) are the fight's, not the drill's. With no `bar`, a hand's blow is judged
- * by its body's (`barOf`). Given `free`, the strike that side's fight threw at the other side,
+ * the right side's `mark`, ending as `ending` says, a hand's judged by its body's bar (`barOf`),
+ * its side led by the drill Commander (`Duel.commanded`, `drillTask`). The striker's actions while
+ * its drill is fighting (`DrillPhase`) are the fight's, not the drill's. Given `free`, the strike that side's fight threw at the other side,
  * read the same way from the step it is made, its `ending` seconds counted from there: a bout's
  * strikes read as a drill's trials are.
  */
 export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "duel" | "catalog">, limbAsked: { readonly mark: Mark } & Limb,
-  ending: Ending, given?: Bar, free?: FreeStrike): Reader<StrikeReading> {
+  ending: Ending, free?: FreeStrike): Reader<StrikeReading> {
   const strikerSide: Side = free?.striker ?? "left", struck = duel.duelists[strikerSide === "left" ? "right" : "left"];
   const left = duel.duelists[strikerSide], skills = left.minded.skills, since = free ? world.time : 0;
   if (!skills) throw new Error("the striker runs no skills");
@@ -403,7 +402,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   const motion = ending.motion ? swingMotion(left.built, effector) : null;
   /** The skill its drill Commander asks. */
   const drilled = free ? undefined : (duel.recipe.commanders?.left as { readonly skill?: string } | undefined)?.skill;
-  const spec = left.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3(), bar = given ?? barOf(spec);
+  const spec = left.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3(), bar = barOf(spec);
   /** The striking limb: its effector and the two segments above it, as a target's arm is read (`arms`). */
   const striking = new Set([0, 1, 2].map((steps) => limbAbove(spec, effector, steps)).filter((name) => name !== undefined));
   /** Whether the asked hand holds an item, its blow judged by the held item's bar (`Bar.held`) and its strike point the item's. */
