@@ -314,7 +314,7 @@ export const HOLD_AT_OPTION = deepFreeze<ProfileOptionPart<PlaceConfig>>({
 /** **The cover** of the head by the hand on the side a blow closes from (`covers`). */
 export const COVER_OPTION = kind("covers", "Cover", given => (given.guards ?? given.parts.selected("guard", given.spec)).flatMap(config => {
   const part = given.parts.of("guard", config);
-  return part.covering ? covers(given.spec).map(option => choosingSkill(option, config, part.label, "guardSkill")) : [];
+  return covers(given.spec, part.covers?.(given.spec, config) ?? []).map(option => choosingSkill(option, config, part.label, "guardSkill"));
 }));
 
 /** **The back step** (`backStepping`), where its body's steps' profiles measured it. */
@@ -327,7 +327,7 @@ export const HOLD_OPTION = kind("hold-position", "Hold the position", (given) =>
 /** Each enabled guard as its own rest option, explicitly selected by the mind. */
 export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at guard", given => (given.guards ?? given.parts.selected("guard", given.spec)).flatMap(config => {
   const part = given.parts.of("guard", config);
-  const options = [...guardOf(given.spec, { covering: part.covering === true })];
+  const options = [...guardOf(given.spec, part.covers?.(given.spec, config) ?? [])];
   // A guard without hands is still an enabled posture the mind can choose.
   if (!options.length) options.push({ ...hold(given.walk), name: "guard", kind: "guard", claims: [] });
   return options.map(option => choosingSkill(option, config, part.label, "guardSkill"));

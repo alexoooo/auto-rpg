@@ -20,9 +20,9 @@ const STOPS = .6;
  * less the share of the blow's life it keeps off (`STOPS` of `Predictions.danger`), at a state with
  * a blow coming; as holding, where the foe's pressure holds the blow (`OthersModel.holdsBlow`). It
  * runs as long as it is held (`Option.open`) and always yields. Its memory is the hand, read once a
- * step. None for a body without hands.
+ * step. None for a body without hands among `hands` (those its guard covers with, `GuardPart.covers`).
  */
-export function covers(spec: BodySpec): readonly Option[] {
+export function covers(spec: BodySpec, hands: readonly string[]): readonly Option[] {
   const state = { read: -Infinity, hand: null as Side | null };
   /** The blow at `now`, once a step: which hand covers it, or null where none does. The blow is asked for at each call, so a chooser watches it (`Cues`). */
   const handAt = (now: Situation): Side | null => {
@@ -35,7 +35,7 @@ export function covers(spec: BodySpec): readonly Option[] {
   };
   const OFF = blocked("no blow for a hand to cover"), HELD = blocked("an action holds the covering hand");
   const claims: Readonly<Record<Side, readonly Resource[]>> = { left: Object.freeze([segmentResource(pairedSegment("hand", "left"))]), right: Object.freeze([segmentResource(pairedSegment("hand", "right"))]) };
-  const sides = sidesWith(spec, "hand");
+  const sides = sidesWith(spec, "hand").filter((side) => hands.includes(pairedSegment("hand", side)));
   const option: Option = {
     name: "cover", kind: "cover", state,
     /** The hand on the blow's side, as the entry last read it. */
