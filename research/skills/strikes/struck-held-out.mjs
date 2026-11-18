@@ -5,7 +5,8 @@
  * priced from the rest, by the trials struck at the measured body nearest its stature and mass
  * (`profileAgainst`, `STRUCK_SPANS`) and by those struck at the first body the profile's trials
  * struck (the rule before the struck body was numbers), against what its own trials brought, and
- * by its own: its trials split by turns, the even ones read and the odd ones scored, all three
+ * by the rest pooled, read as a written form with the struck body's numbers among its terms
+ * (`formReading`, `bodyNumbers`), and by its own: its trials split by turns, the even ones read and the odd ones scored, all three
  * rules on the odd ones alone, so its own is what a body loses read from another's. Each
  * trial is read at its own start (`ProfileReading.expect`): the share landed against whether it
  * landed, and the life dealt, a share of the struck body's, against what it dealt; the squared
@@ -16,6 +17,7 @@
  */
 import { readFileSync } from "node:fs";
 import { resolveCharacter } from "../../../src/core/bodies/models.ts";
+import { formReading } from "../../../src/skills/framework/form.ts";
 import { profileAgainst, profileReading, struckNumbers } from "../../../src/skills/framework/profile.ts";
 
 const { profiles } = JSON.parse(readFileSync("assets/skills/strikes/strike-profiles/strike-profiles.json", "utf8"));
@@ -23,8 +25,8 @@ const MODELS = ["man", "woman", "skeleton"], specs = new Map(MODELS.map((model) 
 const keyOf = (at) => `${at.stature} ${at.mass}`, modelAt = new Map(MODELS.map((model) => [keyOf(struckNumbers(specs.get(model))), model]));
 const mean = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
 const spread = (xs) => { const m = mean(xs); return 2 * Math.sqrt(xs.reduce((s, x) => s + (x - m) ** 2, 0) / (xs.length - 1) / xs.length); };
-const RULES = ["own", "nearest", "first"];
-const all = { own: [], nearest: [], first: [], unread: 0 };
+const RULES = ["own", "nearest", "first", "form"];
+const all = { own: [], nearest: [], first: [], form: [], unread: 0 };
 
 for (const profile of profiles) {
   const striker = specs.get(profile.measured.body), bodies = [...new Set(profile.trials.map((trial) => keyOf(trial.start.struck)))];
@@ -37,8 +39,8 @@ for (const profile of profiles) {
     for (const trial of mine.filter((_, k) => k % 2 === 1)) {
       if (trial.letGo) continue;
       const { levels: _, held: __, ...asked } = trial.start, postures = trial.start.postures;
-      const read = (by) => profileReading(by, striker, postures).expect(asked, struck);
-      const readings = { own: read(own), nearest: read(nearest), first: read(first) };
+      const read = (by, reading = profileReading) => reading(by, striker, postures).expect(asked, struck);
+      const readings = { own: read(own), nearest: read(nearest), first: read(first), form: read(rest, formReading) };
       if (RULES.some((rule) => !readings[rule])) { all.unread++; continue; }
       const dealt = trial.dealt / struck.wounds.hp.value;
       for (const rule of RULES) { errors[rule].done.push((readings[rule].done - +trial.done) ** 2); errors[rule].dealt.push((readings[rule].dealt - dealt) ** 2); }
