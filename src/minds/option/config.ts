@@ -19,6 +19,12 @@ export interface OptionMindConfig {
   readonly predictions?: ConfigFor<"predictions"> | null;
   /** The rate it decides at, Hz (`everyOf`, `Pace`): every control step unless given; its skills make the command every step from what it last decided. */
   readonly rate?: number;
+  /**
+   * The runs a decision it hands its chooser (`Budget`), shared evenly among the situations it
+   * prices then, its focus's and each other foe's, at least one each: so a decision costs alike
+   * however many foes. The chooser's own a search unless given.
+   */
+  readonly budget?: number;
   /** An experiment's research tuning, which a link does not carry: `parts`, a part in place of what lies under its skills, by its place (`Filled`). */
   readonly tuning?: { readonly parts?: Filled };
 }
@@ -99,5 +105,6 @@ export function optionMindFaults(config: ResolvedConfig, parts: PartLookup): rea
   if (parts.of("chooser", config.chooser).model !== model) faults.push(`chooser: incompatible with prediction model ${model}`);
   for (const option of options) if (parts.of("option", option).model !== model) faults.push(`options: ${option.kind} is incompatible with prediction model ${model}`);
   if (config.rate !== undefined && !(Number.isFinite(config.rate) && config.rate > 0)) faults.push("rate: a positive number of times a second");
+  if (config.budget !== undefined && !(Number.isSafeInteger(config.budget) && config.budget > 0)) faults.push("budget: a whole number of runs, more than none");
   return faults;
 }

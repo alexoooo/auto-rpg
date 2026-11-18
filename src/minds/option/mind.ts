@@ -37,7 +37,7 @@ export function optionMind(assembly: OptionAssembly) {
     resolveConfig(config, assembly).options.flatMap((option) => { const part = parts.find("option", option); return part ? [[part, option] as const] : []; });
   return controller<OptionMindConfig>({
     role: "mind", label: "Option Mind", stage: "game", fields: [], slots, defaults,
-    keys: { kind: true, chooser: true, options: true, predictions: true, rate: true, tuning: true }, tuning: ["parts"],
+    keys: { kind: true, chooser: true, options: true, predictions: true, rate: true, budget: true, tuning: true }, tuning: ["parts"],
     // The parts an experiment passes in under its skills, each at its place in the config.
     children: config => isSettings(config.tuning?.parts) ? Object.entries(config.tuning.parts).flatMap(([place, value]) => Object.hasOwn(FILLED, place)
       ? [{ path: ["tuning", "parts", place], role: FILLED[place as keyof typeof FILLED], config: value }] : []) : [],
