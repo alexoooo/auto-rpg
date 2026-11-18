@@ -28,6 +28,9 @@ type Protocol = { readonly body: BodyModel; readonly gaps: readonly number[]; re
 /** The Warrior on itself, 24 gaps from 2.65 to 5.41 m, three draws, two minutes a bout. */
 const WARRIOR: Protocol = Object.freeze({ body: "man", gaps: Object.freeze(Array.from({ length: 24 }, (_, k) => Number((2.65 + .12 * k).toFixed(4)))), draws: 3, seconds: 120 });
 
+/** The Warrior on itself as `WARRIOR`, nine draws: a reading the three draws' spread cannot tell apart. */
+const WARRIOR_DRAWN: Protocol = Object.freeze({ ...WARRIOR, draws: 9 });
+
 export const createScorecardCases = perContext((context: GameContext) => {
   const mindFaults = mindFaultsOf(context), EMPTY = { left: "empty", right: "empty" } as const;
 
@@ -50,7 +53,7 @@ export const createScorecardCases = perContext((context: GameContext) => {
   }
 
   /** Every protocol the scorecard may be played on, by name. */
-  const SCORECARD_CASES: Readonly<Record<string, Cases<ScorecardCondition, ScorecardReading>>> = Object.freeze({ warrior: scorecardCases(WARRIOR) });
+  const SCORECARD_CASES: Readonly<Record<string, Cases<ScorecardCondition, ScorecardReading>>> = Object.freeze({ warrior: scorecardCases(WARRIOR), "warrior-drawn": scorecardCases(WARRIOR_DRAWN) });
 
   return { SCORECARD_CASES };
 });
