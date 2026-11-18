@@ -272,6 +272,25 @@ export function heldNumbers(spec: Pick<BodySpec, "held">): BodyHeld | undefined 
   return numbers ?? undefined;
 }
 
+/** Whether two bodies hold alike (`BodyHeld`): the same segments, each item's numbers the same; holding nothing is undefined. */
+function holdsAlike(a: BodyHeld | undefined, b: BodyHeld | undefined): boolean {
+  const as = Object.keys(a ?? {}), bs = Object.keys(b ?? {});
+  return as.length === bs.length && as.every((segment) => b?.[segment] !== undefined && a![segment]!.mass === b[segment]!.mass && a![segment]!.reach === b[segment]!.reach);
+}
+
+/**
+ * **The trials of `trials` a body of `striker` reads by what it holds**: those begun holding as
+ * it holds (`Start.held.own`), where any were; all of them, read by their held numbers and said
+ * coarse, where none were. What is held is read across only where nothing was measured holding
+ * so: until a held-out reading sets it, a body reads a loadout's own trials as it did when each
+ * loadout was a table of its own. Asked of a profile's whole trials, before its postures are
+ * taken: a loadout measured begun from none of a position reads none there, as its table did.
+ */
+export function heldAsMeasured<T extends { readonly start: Start }>(trials: readonly T[], striker: Pick<BodySpec, "held">): readonly T[] {
+  const mine = heldNumbers(striker), alike = trials.filter((trial) => holdsAlike(trial.start.held?.own, mine));
+  return alike.length ? alike : trials;
+}
+
 /** **What a trial of `own` against `target` records its bodies held** (`Start.held`); undefined where neither held anything. */
 export function startHeld(own: BodySpec, target: BodySpec | null): Held | undefined {
   const mine = heldNumbers(own), its = target ? heldNumbers(target) : undefined;
@@ -894,7 +913,7 @@ function cycleAt(sample: Sample, at: Asked, asked: Float64Array): { readonly dea
 /** `profile` read for a skill of a body of `striker` at `postures` (`readProfile`), made anew: for a profile made for one reading, which no later read asks again. */
 export function profileReading(profile: Profile, striker: BodySpec, postures: Postures = STANDING): ProfileReading {
   const own = striker.wounds.hp.value;
-  const trials = profile.trials.filter((trial) => startedAt(trial.start, postures));
+  const trials = heldAsMeasured(profile.trials, striker).filter((trial) => startedAt(trial.start, postures));
   const numbers = bodyNumbers(trials, profile);
   const askedAt = new WeakMap<BodySpec, Float64Array>();
   let askedAlone: Float64Array | null = null;

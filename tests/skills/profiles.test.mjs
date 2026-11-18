@@ -212,6 +212,25 @@ test("a profile whose trials began holding two ways is read at what each body ho
 });
 
 /**
+ * **A body reads its own loadout's trials where it has any** (`heldAsMeasured`): the edges were a
+ * table a loadout, merged into one profile a technique; a body empty-handed read the others'
+ * falls where its own began from no such position, and fought otherwise (5 of 24 mirror bouts).
+ * Its own trials alone, decided over the whole profile, so a position its loadout never began
+ * from reads nothing; another loadout's trials only where its own has none at all.
+ */
+test("a body reads the trials begun holding as it holds, and others' only where there are none", async () => {
+  const { heldNumbers, profileReading } = await import("../../src/skills/framework/profile.ts");
+  const { withLoadout } = await import("../../src/core/bodies/items/held.ts");
+  const plain = resolveCharacter({ model: "man" }).spec, club = withLoadout(plain, { left: "empty", right: "club" }), sword = withLoadout(plain, { left: "empty", right: "sword" });
+  const fall = (from, done, hold) => ({ start: { phase: "clear", range: 0, postures: { own: from, target: "none" }, ...(hold ? { held: { own: hold } } : {}) },
+    done, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false });
+  const profile = { measured: { body: "man", skill: "rise", hz: 120, reaction: null }, target: null,
+    trials: [...Array.from({ length: 4 }, () => fall("back", false)), ...Array.from({ length: 4 }, () => [fall("back", true, heldNumbers(club)), fall("front", true, heldNumbers(club))]).flat()] };
+  const read = (spec, from) => profileReading(profile, spec, { own: from, target: "none" }).expect({ phase: "clear", range: 0 }, null)?.done ?? null;
+  assert.deepEqual([read(plain, "back"), read(plain, "front"), read(club, "back"), read(club, "front"), read(sword, "front")], [0, null, 1, 1, 1]);
+});
+
+/**
  * **A foe's limb throws what its trials' limb threw, holding or empty** (`limbHoldsAsMeasured`):
  * with no loadout in a profile's key, a club's swing would model an empty-handed foe, and a punch a
  * hand that grips a sword. A limb holds as its trials did or the strike is not read of it; a foot,
