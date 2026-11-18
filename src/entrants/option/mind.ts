@@ -1,6 +1,6 @@
 import type { MindPreset } from "../../minds/index.ts";
 import type { OptionMindConfig } from "../../minds/option/index.ts";
-import { BASE_OPTIONS as OPTIONS, BITE_OPTION, BONK_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../minds/option/index.ts";
+import { withBackStep, BASE_OPTIONS as OPTIONS, BITE_OPTION, BONK_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../minds/option/index.ts";
 import type { ConfigFor } from "../../parts/index.ts";
 import { deepFreeze } from "../../core/state.ts";
 
@@ -47,10 +47,12 @@ const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: 
  * priors alone (`PRIOR_PREDICTIONS`); and the drills' mind (`option-drill`): on its priors, its
  * options run by their rank (`RANKED_CHOOSER`), nothing priced, searched or drawn. A drill (the
  * table's cells, their opponents, a skill's search) drives a skill fast and the same each time, and
- * no profile decides what its mind does there.
+ * no profile decides what its mind does there. And the same with the back step (`withBackStep`),
+ * offered in the menus to be watched beside it; not the game's.
  */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   option: { label: "Option Mind", config: OPTION_DEFAULTS },
   "option-prior": { label: "Option Mind on its priors alone", config: { ...OPTION_DEFAULTS, predictions: { kind: "prior" } }, offered: false },
   "option-drill": { label: "Option Mind for drills", config: { ...OPTION_DEFAULTS, chooser: { kind: "ranked" }, predictions: { kind: "prior" } }, offered: false },
+  "option-back-step": { label: "Option Mind with the back step", config: withBackStep(OPTION_DEFAULTS) },
 });
