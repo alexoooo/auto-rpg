@@ -101,16 +101,14 @@ export const createBackStepCases = perContext((context: GameContext) => {
   /**
    * The subject's mind as the drill's defender: its Option Mind's standing choices and its orders,
    * throwing nothing, walking only as ordered; Move's stock gaits beside its carriage (`set`) and
-   * the back step (`back-step`), its actor the subject's own back step's where it has one.
+   * the back step (`back-step`).
    */
   function defenderOf(value: Json): MindConfig {
     const mind = mindOf(value) as OptionMindConfig;
-    const own = ((mind.tuning?.parts as { readonly legs?: { readonly gaits?: readonly Gait[] } } | undefined)?.legs?.gaits ?? []).find((gait) => gait.name === "back-step")?.legs as { readonly learned?: Json; readonly steered?: true } | undefined;
-    const actor = { ...(own?.learned ? { learned: own.learned } : {}), ...(own?.steered ? { steered: own.steered } : {}) };
     const standing = (mind.options ?? []).filter((option) => !option.kind.startsWith("strike-") && !["orders", "walk", "covers", "steps-back"].includes(option.kind));
     const gaits: Gait[] = [...STOCK_GAITS,
       { name: "set", label: "Set", legs: { kind: "stance-walk", variation: "stance-walk", carriage: CARRIAGE } as ConfigFor<"gait"> },
-      { name: "back-step", label: "Back step", legs: { ...BACK_STEP, ...actor } as ConfigFor<"gait"> }];
+      { name: "back-step", label: "Back step", legs: BACK_STEP as ConfigFor<"gait"> }];
     return withLegs({ ...mind, options: [ORDERS_OPTION.defaults, ...standing] }, { ...GOING, gaits });
   }
 
