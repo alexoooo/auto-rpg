@@ -16,7 +16,8 @@
  * objective the few terms at that aggression (`FewTermsConfig`); without it, the objective is the
  * mind's own. A saved bout keeps its winner, each side's life left (`bars`), when each went down,
  * and, at each decision of a mind that reports its offers (`Engagement.offers`), the offer it chose
- * and its terms, and the life each side had then (`decisions`): what `bout-readings.mjs` reads the
+ * and its terms, the life each side had then, and where on the ground each body's centre stood
+ * (`decisions`, the side's then the foe's, last in a row): what `bout-readings.mjs` reads the
  * prices against. And each strike each side threw at the other's body, read as the Strike drill
  * reads a sparring trial (`readFought`) and made a profile's trial as its sparring's are
  * (`strikeTrial`), under the key its profile is found by and the digests it came from
@@ -279,7 +280,8 @@ if (isMainThread) {
             const hold = offers.find((offer) => offer.name === "hold")?.terms;
             decisions[side].push([+duel.clock.toFixed(4), +Math.hypot(a.x - b.x, a.z - b.z).toFixed(3), engagement.phase, ...termsOf(terms), +me.pool.bar().toFixed(5), +foe.pool.bar().toFixed(5),
               hold && hold.duration > 0 ? +(hold.taken / hold.duration).toFixed(6) : null,
-              offers.filter((offer) => /^[a-z-]+ (hand|foot)\.[a-z]+(:|$)/.test(offer.name)).map((offer) => [offer.name.split(":")[0], ...termsOf(offer.terms)]), engagement.foe ?? null]);
+              offers.filter((offer) => /^[a-z-]+ (hand|foot)\.[a-z]+(:|$)/.test(offer.name)).map((offer) => [offer.name.split(":")[0], ...termsOf(offer.terms)]), engagement.foe ?? null,
+              [+a.x.toFixed(3), +a.z.toFixed(3)], [+b.x.toFixed(3), +b.z.toFixed(3)]]);
           }
         }
         for (const side of SIDES) {
