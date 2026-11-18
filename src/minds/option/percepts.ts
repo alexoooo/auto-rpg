@@ -13,7 +13,7 @@ import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs
 import { deepFreeze } from "../../core/state.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
 import { ordersAsked, type Orders } from "../orders.ts";
-import { measuredAt, profileAgainst, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Measured, type Postures, type Profile, type ProfileReading, type StanceNumbers, type Stances } from "../../skills/framework/profile.ts";
+import { measuredAt, profileAgainst, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Postures, type Profile, type ProfileReading, type StanceNumbers, type Stances } from "../../skills/framework/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../../skills/perception/threat.ts";
@@ -138,9 +138,6 @@ export function bearingAround(body: BodySense, x: number, z: number): number {
 const reactionOf = ({ focus, sight }: Seen): number | null =>
   focus?.time === undefined ? null : sight.view.senses.reaction ?? sight.view.senses.time - focus.time;
 
-/** What a prior was measured on: nothing; it is set by hand. */
-const BY_HAND: Measured = Object.freeze({ body: "", spec: "", skill: "by hand", hz: 0, reaction: null });
-
 /**
  * **A prior**: what a strike of `striker` is taken to bring before a drill measures it, a profile
  * of one trial read like any measured one (`readProfile`): within `range` m centre to centre, in any
@@ -167,9 +164,9 @@ function prior(striker: BodySpec, struck: BodySpec, range: number, life: number,
 /** Each prior made (`prior`), by its striker's spec, the struck body's, its range, its life and its seconds. */
 const PRIORS = new WeakMap<BodySpec, WeakMap<BodySpec, Map<number, Map<number, Map<number, ProfileReading>>>>>();
 
-/** A prior (`prior`), made anew. */
+/** A prior (`prior`), made anew: of `striker`'s body, measured on nothing, its skill set by hand. */
 const priorOf = (striker: BodySpec, struck: BodySpec, range: number, life: number, seconds: number): ProfileReading =>
-  profileReading({ measured: BY_HAND, target: null,
+  profileReading({ measured: { body: striker.model, stature: striker.stature.value, skill: "by hand", hz: 0, reaction: null }, target: null,
     trials: [{ start: { range, phase: "clear" }, done: true, dealt: life * struck.wounds.hp.value, taken: 0, seconds, recovers: null, down: false }] }, striker);
 
 /**

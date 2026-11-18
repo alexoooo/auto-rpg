@@ -94,8 +94,8 @@ for (const profile of profiles.values()) {
     + ` lost a mean ${round(taken.reduce((s, x) => s + x, 0) / t.length)} HP, any in ${t.filter((one) => one.taken > 0).length}; down in ${t.filter((one) => one.down).length}; median ${round(median(t.map((one) => one.seconds)))} s`);
 }
 if (write) {
-  // The same body, skill and target replace a profile, whether or not it records its body's stature.
-  const keyOf = ({ measured: { stature: _, ...measured }, target }) => JSON.stringify([measured, target]), remade = new Map(made.map((profile) => [keyOf(profile), profile]));
+  // The same question replaces a profile.
+  const keyOf = ({ measured, target }) => JSON.stringify([measured, target]), remade = new Map(made.map((profile) => [keyOf(profile), profile]));
   const asset = JSON.parse(readFileSync(OUT, "utf8")), kept = asset.profiles.map((profile) => { const again = remade.get(keyOf(profile)); remade.delete(keyOf(profile)); return again ?? profile; });
   writeFileSync(OUT, `${JSON.stringify({ source: { script: SCRIPT, protocols: [...read] }, profiles: [...kept, ...remade.values()] }, null, 2)}\n`);
 }

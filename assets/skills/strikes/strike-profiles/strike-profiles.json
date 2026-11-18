@@ -10,6 +10,7 @@
     {
       "measured": {
         "body": "man",
+        "stature": 1.77,
         "skill": "straight-punch/drive",
         "limb": "hand.left",
         "hz": 120,
@@ -2971,6 +2972,7 @@
     {
       "measured": {
         "body": "man",
+        "stature": 1.77,
         "skill": "straight-punch/drive",
         "limb": "hand.right",
         "hz": 120,
@@ -5955,6 +5957,7 @@
     {
       "measured": {
         "body": "woman",
+        "stature": 1.6288145507034335,
         "skill": "straight-punch/drive",
         "limb": "hand.left",
         "hz": 120,
@@ -59924,6 +59927,7 @@
     {
       "measured": {
         "body": "woman",
+        "stature": 1.6288145507034335,
         "skill": "straight-punch/drive",
         "limb": "hand.right",
         "hz": 120,
@@ -113678,6 +113682,7 @@
     {
       "measured": {
         "body": "skeleton",
+        "stature": 1.62,
         "skill": "straight-punch/drive",
         "limb": "hand.left",
         "hz": 120,
@@ -167607,6 +167612,7 @@
     {
       "measured": {
         "body": "skeleton",
+        "stature": 1.62,
         "skill": "straight-punch/drive",
         "limb": "hand.right",
         "hz": 120,
@@ -222030,6 +222036,7 @@
     {
       "measured": {
         "body": "man",
+        "stature": 1.77,
         "skill": "bonk/swing",
         "limb": "hand.right",
         "hz": 120,
@@ -226151,6 +226158,7 @@
     {
       "measured": {
         "body": "man",
+        "stature": 1.77,
         "skill": "stomp/stomp",
         "limb": "foot.left",
         "hz": 120,
@@ -228047,6 +228055,7 @@
     {
       "measured": {
         "body": "man",
+        "stature": 1.77,
         "skill": "stomp/stomp",
         "limb": "foot.right",
         "hz": 120,
@@ -229670,6 +229679,7 @@
     {
       "measured": {
         "body": "woman",
+        "stature": 1.6288145507034335,
         "skill": "stomp/stomp",
         "limb": "foot.left",
         "hz": 120,
@@ -231134,6 +231144,7 @@
     {
       "measured": {
         "body": "woman",
+        "stature": 1.6288145507034335,
         "skill": "stomp/stomp",
         "limb": "foot.right",
         "hz": 120,
@@ -232682,6 +232693,7 @@
     {
       "measured": {
         "body": "man",
+        "stature": 1.77,
         "skill": "straight-punch/moving",
         "limb": "hand.left",
         "hz": 120,
@@ -376482,6 +376494,7 @@
     {
       "measured": {
         "body": "man",
+        "stature": 1.77,
         "skill": "straight-punch/moving",
         "limb": "hand.right",
         "hz": 120,
@@ -520795,6 +520808,7 @@
     {
       "measured": {
         "body": "woman",
+        "stature": 1.6288145507034335,
         "skill": "straight-punch/moving",
         "limb": "hand.left",
         "hz": 120,
@@ -523564,6 +523578,7 @@
     {
       "measured": {
         "body": "woman",
+        "stature": 1.6288145507034335,
         "skill": "straight-punch/moving",
         "limb": "hand.right",
         "hz": 120,
@@ -526397,6 +526412,7 @@
     {
       "measured": {
         "body": "skeleton",
+        "stature": 1.62,
         "skill": "straight-punch/moving",
         "limb": "hand.left",
         "hz": 120,
@@ -529017,6 +529033,7 @@
     {
       "measured": {
         "body": "skeleton",
+        "stature": 1.62,
         "skill": "straight-punch/moving",
         "limb": "hand.right",
         "hz": 120,

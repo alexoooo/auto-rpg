@@ -191,7 +191,7 @@ test("a profile whose trials began holding two ways is read at what each body ho
   assert.ok(held["hand.right"].mass > 0 && held["hand.right"].reach > 0, `a club has mass and reach: ${JSON.stringify(held)}`);
   assert.deepEqual([startHeld(plain, plain), startHeld(club, plain), startHeld(plain, club)], [undefined, { own: held }, { target: held }]);
   const trial = (range, done, hold) => ({ start: { phase: "clear", range, ...(hold ? { held: hold } : {}) }, done, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false });
-  const ranges = Array.from({ length: 12 }, (_, k) => .5 + k * .02), measured = { body: "man", skill: "straight-punch/drive", limb: "hand.left", hz: 120, reaction: null }, target = {};
+  const ranges = Array.from({ length: 12 }, (_, k) => .5 + k * .02), measured = { body: "man", stature: plain.stature.value, skill: "straight-punch/drive", limb: "hand.left", hz: 120, reaction: null }, target = {};
   const at = { phase: "clear", range: .6 };
   for (const side of ["own", "target"]) {
     const profile = { measured, target, trials: ranges.flatMap((range) => [trial(range, false), trial(range, true, { [side]: held })]) };
