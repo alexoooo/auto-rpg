@@ -17,7 +17,7 @@ import { Vector3 } from "../../core/math/vector.ts";
 import type { HostedBody } from "../../minds/seat/hosted-body.ts";
 
 /** A landed blow takes at least this much life, HP (`strike-bouts.mjs`). */
-export const LANDED = .5;
+const LANDED = .5;
 
 /** The range, m centre to centre, beyond which a punch is out of reach: where the Warrior mirror's punches fire (0.79 to 0.97). */
 export const REACH = .95;

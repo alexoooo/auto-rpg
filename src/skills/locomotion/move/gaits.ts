@@ -52,7 +52,7 @@ export const STOCK_GAITS: readonly Gait[] = deepFreeze(Object.entries(GAITS).map
  * height). What a walk by it leaves the body standing at in a search (`Leaves.stance`); a gait or
  * body none was measured walking by has none.
  */
-export const GAIT_STANCES: Readonly<Record<string, Readonly<Record<string, StanceNumbers>>>> = deepFreeze({
+const GAIT_STANCES: Readonly<Record<string, Readonly<Record<string, StanceNumbers>>>> = deepFreeze({
   "stance-walk/stance-walk": { man: { stagger: -.008, width: .279, height: .967 } },
   "stance-walk/staggered": { man: { stagger: -.01, width: .283, height: .922 } },
 });

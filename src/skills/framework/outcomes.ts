@@ -11,7 +11,7 @@ import { formReading } from "./form.ts";
 import { PROFILE_SPANS, profileAgainst, profilesFor, readProfile, STANCE_SPANS, type Expected, type Measured, type Postures, type Profile, type ProfileReading, type StanceNumbers } from "./profile.ts";
 
 /** The acts an outcome model answers for: strikes, a body's ways up off the ground (`edges`) and its steps. */
-export type ActTable = "strikes" | "edges" | "steps";
+type ActTable ="strikes" | "edges" | "steps";
 
 /** What an outcome model has of one act, as one body's mind asks it (`OutcomeModel.act`). */
 export interface ActOutcomes {

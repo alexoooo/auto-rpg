@@ -86,15 +86,13 @@ const rateOf = (measured: Measured): number => measured.rate ?? measured.hz;
 type Target = Readonly<Record<string, never>>;
 
 /**
- * **Where a profile came from**, which finds and refuses none: the digests of its body's spec, of
- * its skill and of the spec of the body it was measured against, as its trials were played
- * (`specDigest`, `skillDigest`, `techniqueDigest`); and the commit its trials were played on,
+ * **Where a profile came from**, which finds and refuses none: the digests of its body's spec and
+ * of its skill, as its trials were played (`specDigest`, `skillDigest`, `techniqueDigest`); and the commit its trials were played on,
  * whether a build input differed from it, and the day, where its tool knew them.
  */
 export interface Origin {
   readonly spec?: string;
   readonly skill?: string;
-  readonly target?: string;
   readonly commit?: string;
   readonly changed?: boolean;
   readonly date?: string;
@@ -140,7 +138,7 @@ interface Start {
  * **The body a trial struck, as numbers** (`struckNumbers`): its stature, m (`BodySpec.stature`),
  * its mass, kg, and its Steadiness and haste, per cent, as its spec had them.
  */
-export interface StruckNumbers {
+interface StruckNumbers {
   readonly stature: number;
   readonly mass: number;
   readonly steadiness: number;
@@ -215,7 +213,7 @@ const NO_NUMBERS = new Float64Array(0);
  * its contacts' (a sword's blade is its contacts), from its frame's origin, which for an item a
  * hand closes on is the grip's end (`ItemSpec.grip`).
  */
-export interface ItemNumbers {
+interface ItemNumbers {
   readonly mass: number;
   readonly reach: number;
 }
@@ -410,7 +408,7 @@ const profileTarget = (value: unknown): boolean => profileObject(value) && Objec
 const profileStruck = (value: unknown): boolean => profileObject(value) && [value.stature, value.mass].every((one) => profileNumber(one) && one > 0)
   && [value.steadiness, value.haste].every(profileNumber);
 const profileOrigin = (value: unknown): boolean => profileObject(value)
-  && [value.spec, value.skill, value.target, value.commit, value.date].every((one) => one === undefined || profileText(one))
+  && [value.spec, value.skill, value.commit, value.date].every((one) => one === undefined || profileText(one))
   && (value.changed === undefined || typeof value.changed === "boolean");
 const profileMeasured = (value: unknown): boolean => profileObject(value) && profileText(value.body)
   && (value.stature === undefined || profileNumber(value.stature) && value.stature > 0)
@@ -496,9 +494,6 @@ export interface ProfileReading {
  * change of pace, and a quarter of the depth of a stomp's window.
  */
 const NEAREST = Object.freeze({ trials: 10, range: .1, speed: .25, place: .1 });
-
-/** The span of range over which a reading takes its trials as alike, m (`NEAREST.range`). */
-export const PROFILE_RANGE_SPAN = NEAREST.range;
 
 /** The spans over which a reading takes its trials' starts as alike (`NEAREST`): range and place in the window, m, and velocity, m/s. */
 export const PROFILE_SPANS: { readonly range: number; readonly speed: number; readonly place: number } = Object.freeze({ range: NEAREST.range, speed: NEAREST.speed, place: NEAREST.place });
@@ -1149,7 +1144,7 @@ export function measuredOn(spec: BodySpec, skill: string, limb: string | null, h
 export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= .5 / hz;
 
 /** **Why `profile` answers another question than `now` asks**, a sentence: another body, skill or limb; null where it answers the same. One that does is never read for it. */
-export function askedOtherwise(profile: Profile, now: Measured): string | null {
+function askedOtherwise(profile: Profile, now: Measured): string | null {
   const was = profile.measured;
   if (was.body !== now.body) return `measured on ${was.body}, read on ${now.body}`;
   if (was.skill !== now.skill || was.limb !== now.limb) return `measured of ${was.skill}${was.limb ? ` with ${was.limb}` : ""}`;

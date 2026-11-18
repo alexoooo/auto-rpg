@@ -40,7 +40,7 @@ export const SWORD_THRUST_LAYOUT: SteerLayout = deepFreeze(checkedLayout(layoutF
  * that steers it where it was trained (`SWORD_THRUST_LAYOUT`'s inputs in, its outputs out,
  * `recoveryNetwork`), or null.
  */
-export interface SwordThrustRecord extends SkillRecord<SwordThrust> {
+interface SwordThrustRecord extends SkillRecord<SwordThrust> {
   readonly network: Network | null;
 }
 

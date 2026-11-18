@@ -19,14 +19,14 @@ import { SIDES, type Side } from "../../../core/bodies/bilateral.ts";
 const ITEM = "club", MECHANISM = "blunt";
 
 /** How the bonk's steer reads and pushes, where one is trained (`assets/skills/strikes/bonk/swing.layout.json`). */
-export const BONK_LAYOUT: SteerLayout = deepFreeze(checkedLayout(layoutFile as SteerLayout));
+const BONK_LAYOUT: SteerLayout = deepFreeze(checkedLayout(layoutFile as SteerLayout));
 
 /**
  * **A bonk's record for one body** (`dataOf("bonk/swing")`, by model): its settings, whole, and
  * the network that steers it where one was trained (`BONK_LAYOUT`'s inputs in, its outputs out,
  * `recoveryNetwork`), or none.
  */
-export interface BonkRecord extends SkillRecord<Swing> {
+interface BonkRecord extends SkillRecord<Swing> {
   readonly network?: Network | null;
 }
 

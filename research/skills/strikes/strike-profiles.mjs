@@ -39,8 +39,7 @@
  * its guard (the trial's end where it was not), and the hit points the striker lost meanwhile.
  * A profile is of one limb, as one Option strikes with one (`limbAction`), and names it
  * (`Measured.limb`) beside its skill as the body holds it (`strikeSkill`). Where it came from
- * (`Origin`) is the digests of its body, of the action struck with that limb and of the body
- * struck, and its rows' commit and day where they share one (`RowOrigin`, each row's own), with
+ * (`Origin`) is the digests of its body and of the action struck with that limb, and its rows' commit and day where they share one (`RowOrigin`, each row's own), with
  * whether a build input differed from that commit under any of them.
  *
  *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/strike-profiles.mjs <run.json> ... [--write]

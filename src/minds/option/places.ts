@@ -5,7 +5,7 @@ import { approachSpot, atSpot } from "../../skills/intent/action-window.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { PROFILE_RANGE_SPAN, startVelocity, type StanceNumbers } from "../../skills/framework/profile.ts";
+import { PROFILE_SPANS, startVelocity, type StanceNumbers } from "../../skills/framework/profile.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
 import { blocked, LEGS, READY, standing, still, type Option, type Sites, type Situation } from "./option.ts";
 import type { Status } from "../choice.ts";
@@ -34,9 +34,9 @@ export const goesBy = (parts: PartLookup, legs: PartConfig, spec: BodySpec, name
 
 /**
  * How far apart a walk's way is read within the focus's reach, m: half the span over which a
- * profile takes its trials as alike (`PROFILE_RANGE_SPAN`), so each span is read about twice.
+ * profile takes its trials as alike (`PROFILE_SPANS.range`), so each span is read about twice.
  */
-const WALK_SPACING = PROFILE_RANGE_SPAN / 2;
+const WALK_SPACING = PROFILE_SPANS.range / 2;
 
 /**
  * **A walk's model** from `at`: from where the body stands there to `spot` (by its route where it
