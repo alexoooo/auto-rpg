@@ -26,6 +26,11 @@ Of the testbed (2026-11-17):
 > way of doing things (unless we have a good reason to believe that one way is optimal or
 > dominant).
 
+And, of the predictions:
+
+> what about authored code for the predictions functions? this reminds me a bit of Stockfish where
+> pre-deep-learning the eval was authored code, and that went pretty far.
+
 Of the chooser, and to its place in the testbed "yes, add the chooser work to the testbed plan":
 
 > right now it does 100 per step, and discards everything every step.
@@ -75,8 +80,8 @@ gathered by a script of their own (`research/minds/pressure-profiles.mjs`,
 
 The list, and what built would mean for each; the wording is the agent's. Whose each is: 1 to 5
 are the owner's own ask of the chooser (above), of which 1 and 2 are what they described; 6 is
-the owner's example of a kind; 7 to 17 are the testbed plan's design, the agent's candidates, 14
-to 17 found after this list was first written.
+the owner's example of a kind; 7 to 18 are the testbed plan's design, the agent's candidates, 14
+to 18 found after this list was first written.
 
 **A chooser that keeps its work.** What a search found is evidence of a situation that has since
 moved: it is used again by how like the new situation is and how old it is.
@@ -139,17 +144,24 @@ bout makes again and the bout plays the same without.
     built from half the bouts and read on the rest.
 17. **The strikes' exits split** into the body's own change and the foe's, as the back step's is
     (`exit.own`), the foe's asked of the others' model.
+18. **A line's end written over the state**, the owner's authored evaluation (the goal): each
+    side's life, range by each one's reach, who is how far into what, who is down, and what the
+    back step found (the body's facing, whether a strike is on offer), several weights fitted by
+    bouts won and held out. Built of a written line's end: `ByDistance` (three numbers, one scale
+    fitted), `ByExchange` and `ByNext` (one number each, `src/minds/option/chooser.ts`); none
+    reads the state past distance and the next exchange. What [the back step](2026-11-16-back-step.md)'s
+    order asks of a sway's pricing.
 
 **Of every item.**
 
-18. It is a kind named in a Mind's config with no source changed, in the picker where a person
+19. It is a kind named in a Mind's config with no source changed, in the picker where a person
     chooses that part, and every number in it is fitted, none typed.
-19. It is read as the testbed read a kind: the scorecard, and a match against the game's Mind
+20. It is read as the testbed read a kind: the scorecard, and a match against the game's Mind
     chosen on one set and held out on another, each figure with its spread. Built and read is
     met, whatever it reads; a kind is the game's only where it holds held out.
-20. The game's Mind is unmoved where a kind is unset (the fingerprint).
+21. The game's Mind is unmoved where a kind is unset (the fingerprint).
 
-An item leaves this list when it is built and read by 18 to 20, or when the owner strikes it by
+An item leaves this list when it is built and read by 19 to 21, or when the owner strikes it by
 name; no agent drops one. The plan is deleted when none is left.
 
 ## Not items: what the testbed plan left open

@@ -170,7 +170,7 @@ export function struckNumbers(spec: BodySpec): StruckNumbers {
  * where it was measured, and the spans choose only which measured body one never measured is read
  * as (`profileAgainst`).
  */
-const STRUCK_SPANS = Object.freeze({ stature: .1, mass: 10 });
+export const STRUCK_SPANS = Object.freeze({ stature: .1, mass: 10 });
 
 /**
  * **How a body stands**, m (`stanceNumbers`, `src/skills/perception/stance-numbers.ts`): its feet's stagger along the line to the other
@@ -305,7 +305,7 @@ export function heldNumbers(spec: Pick<BodySpec, "held">): BodyHeld | undefined 
 }
 
 /** Whether two bodies hold alike (`BodyHeld`): the same segments, each item's numbers the same; holding nothing is undefined. */
-function holdsAlike(a: BodyHeld | undefined, b: BodyHeld | undefined): boolean {
+export function holdsAlike(a: BodyHeld | undefined, b: BodyHeld | undefined): boolean {
   const as = Object.keys(a ?? {}), bs = Object.keys(b ?? {});
   return as.length === bs.length && as.every((segment) => b?.[segment] !== undefined && a![segment]!.mass === b[segment]!.mass && a![segment]!.reach === b[segment]!.reach);
 }

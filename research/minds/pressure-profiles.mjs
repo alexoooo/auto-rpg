@@ -15,12 +15,14 @@
  * comes, and what it takes on arriving is in the later horizons. Past the end of a bout a body's
  * life ended, its last bars hold; a moment whose last horizon is past the end of a bout that
  * ended otherwise is none, as is one within `UNSETTLED` s of either side's fall. Moments are kept summed in bins of `BIN` m by phase. A table is of
- * a striker's body on a struck body (each side of a bout the struck, the other the striker); it is
+ * a striker's body on a struck body, each as numbers (`pressureBody`: each side of a bout the struck, the other the striker); it is
  * measured from the minds that fought them, and read again where those change. Bouts are empty-handed
  * (a record's `held` `empty`), so a table is of bodies holding nothing; others are refused.
  */
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { resolveCharacter } from "../../src/core/bodies/models.ts";
+import { pressureBody } from "../../src/minds/option/pressure.ts";
 
 const OUT = "assets/minds/pressure-profiles.json", SCRIPT = "research/minds/pressure-profiles.mjs";
 /** The seconds after a moment its life lost is read at. */
@@ -45,8 +47,9 @@ for (const file of files) {
     bouts++;
     for (const i of [0, 1]) {
       const rows = record.decisions[i], foe = record.sides[1 - i], own = record.sides[i];
-      const key = JSON.stringify([foe.model, own.model]);
-      const table = tables.get(key) ?? { measured: { body: foe.model }, target: { body: own.model }, bins: new Map() };
+      const measured = pressureBody(resolveCharacter({ model: foe.model }).spec), target = pressureBody(resolveCharacter({ model: own.model }).spec);
+      const key = JSON.stringify([measured, target]);
+      const table = tables.get(key) ?? { measured, target, bins: new Map() };
       tables.set(key, table);
       const falls = [...record.downs[0], ...record.downs[1]];
       /** The side's bar at `t`: its last decision's at or before it; past the bout's end, its last. */
@@ -73,7 +76,7 @@ const profiles = [...tables.values()].map((table) => ({ measured: table.measured
 for (const profile of profiles) {
   const by = {};
   for (const bin of profile.bins) { const b = by[bin.phase] ??= { n: 0 }; b.n += bin.n; }
-  console.log(`${profile.measured.body} on ${profile.target.body}: ${Object.entries(by).map(([phase, b]) => `${phase} ${b.n}`).join(", ")} moments in ${profile.bins.length} bins`);
+  console.log(`${profile.measured.stature} m, ${profile.measured.mass} kg on ${profile.target.stature} m, ${profile.target.mass} kg: ${Object.entries(by).map(([phase, b]) => `${phase} ${b.n}`).join(", ")} moments in ${profile.bins.length} bins`);
 }
 console.log(`${moments} moments from ${bouts} bouts in ${files.length} files`);
 if (write) {

@@ -12,10 +12,12 @@
  "profiles": [
   {
    "measured": {
-    "body": "man"
+    "stature": 1.77,
+    "mass": 79
    },
    "target": {
-    "body": "man"
+    "stature": 1.77,
+    "mass": 79
    },
    "horizons": [
     0.2,

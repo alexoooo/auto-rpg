@@ -280,3 +280,19 @@ test("a zero-length failed profile trial has a finite failed rate", async () => 
   assert.equal(reading.expect(start, spec).done, 0);
   assert.equal(reading.peak("clear", spec), 0);
 });
+
+/**
+ * **A pressure table is found by its bodies' numbers** (`pressureTable`): no model or item names
+ * one, so a pairing near the bodies measured reads it, and one far from them, or holding otherwise,
+ * reads none and is priced by its strikes' rate.
+ */
+test("a pressure table is read by a pairing near the bodies it measured and by no other", async () => {
+  const { pressureBody, pressureTable } = await import("../../src/minds/option/pressure.ts");
+  const { withLoadout } = await import("../../src/core/bodies/items/held.ts");
+  const man = resolveCharacter({ model: "man" }).spec, skeleton = resolveCharacter({ model: "skeleton" }).spec;
+  const near = { ...man, mass: { ...man.mass, value: man.mass.value + 5 } }, club = withLoadout(man, { left: "empty", right: "club" });
+  const table = { measured: pressureBody(man), target: pressureBody(man), horizons: [1], bins: [] };
+  const found = (striker, struck) => pressureTable([table], striker, struck) === table;
+  assert.deepEqual([found(man, man), found(near, man), found(man, near), found(skeleton, man), found(man, skeleton), found(club, man), found(man, club)],
+    [true, true, true, false, false, false, false]);
+});

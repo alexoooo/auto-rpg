@@ -4,12 +4,16 @@
  * the foe's centre came toward the body along the line between them over each horizon after, by
  * the range centre to centre in bands and what the body chose then (`Doing`: the back step; a walk,
  * to a strike's window or a reach's edge; a strike; a hold; else). The foe is read where the side's
- * later decisions saw it; a moment whose horizon runs past its bout's end is not read.
+ * later decisions saw it; a moment whose horizon runs past its bout's end is not read. A table is of
+ * one pairing, a foe's body on the body's, each as numbers (`pressureBody`), and bouts of more than
+ * one are refused.
  *
  *   node research/minds/foe-steps.mjs <bouts.json> ... --out <table.json>
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { resolveCharacter } from "../../src/core/bodies/models.ts";
+import { pressureBody } from "../../src/minds/option/pressure.ts";
 
 const HORIZONS = [.25, .5, 1, 2], BAND = .25, FARTHEST = 3;
 const { values, positionals } = parseArgs({ options: { out: { type: "string" } }, allowPositionals: true });
@@ -20,9 +24,13 @@ const doingOf = (chosen) => /back step/.test(chosen) ? "back step" : / to /.test
   : /^[a-z-]+ (hand|foot)\./.test(chosen) ? "strike" : /^hold/.test(chosen) ? "hold" : "other";
 
 const cells = new Map();
-let moments = 0;
-for (const path of positionals) for (const [, bout] of JSON.parse(readFileSync(path, "utf8"))) for (const rows of bout.decisions) {
+let moments = 0, pairing = null;
+for (const path of positionals) for (const [header, bout] of JSON.parse(readFileSync(path, "utf8"))) for (const [i, rows] of bout.decisions.entries()) {
   if (!rows.length || rows[0].length < 13) throw new Error(`${path}: decisions saved without the bodies' centres; play them again`);
+  if (String(header).split(" ")[3] !== "empty") throw new Error(`${path}: a bout with a body holding something (${header}); a table is of empty hands`);
+  const these = { measured: pressureBody(resolveCharacter({ model: bout.sides[1 - i].model }).spec), target: pressureBody(resolveCharacter({ model: bout.sides[i].model }).spec) };
+  if (pairing && JSON.stringify(pairing) !== JSON.stringify(these)) throw new Error(`${path}: bouts of more than one pairing; a table is of one`);
+  pairing = these;
   for (const [i, row] of rows.entries()) {
     const [t, apart, chosen] = row, own = row[11], foe = row[12];
     if (t + HORIZONS.at(-1) > bout.seconds || !(apart > 0) || apart >= FARTHEST) continue;
@@ -39,7 +47,7 @@ for (const path of positionals) for (const [, bout] of JSON.parse(readFileSync(p
     });
   }
 }
-const table = { horizons: HORIZONS, band: BAND, cells: [...cells.values()].sort((a, b) => a.doing.localeCompare(b.doing) || a.range - b.range)
+const table = { ...pairing, horizons: HORIZONS, band: BAND, cells: [...cells.values()].sort((a, b) => a.doing.localeCompare(b.doing) || a.range - b.range)
   .map((cell) => ({ ...cell, toward: cell.toward.map((x) => Number((x / cell.n).toFixed(4))) })) };
 console.log(`${moments} moments, ${table.cells.length} cells`);
 for (const cell of table.cells) if (cell.n >= 30) console.log(`  ${cell.doing} ${cell.range.toFixed(2)} m: ${cell.toward.join(" / ")} (${cell.n})`);

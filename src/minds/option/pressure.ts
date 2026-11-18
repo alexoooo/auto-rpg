@@ -1,13 +1,21 @@
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import { heldNumbers, holdsAlike, STRUCK_SPANS, struckNumbers, type BodyHeld } from "../../skills/framework/profile.ts";
 
 /**
- * **What a body of `spec` holds**, each item's name by the segment that holds it, in the segments'
- * order by name; undefined with nothing. What a pressure table is found by, beside the bodies'
- * models, until it is read by numbers as the strikes' profiles are.
+ * **A body as a pressure table is found by** (`pressureBody`): its stature, m, and mass, kg, as a
+ * struck body's are (`struckNumbers`), and what it holds as numbers (`heldNumbers`; absent, holding
+ * nothing). No body or item is found by its name.
  */
-export function holdsOf(spec: Pick<BodySpec, "held">): string | undefined {
-  const held = spec.held ?? [];
-  return held.length ? held.map((one) => `${one.segment}:${one.item.name}`).sort().join(",") : undefined;
+export interface PressureBody {
+  readonly stature: number;
+  readonly mass: number;
+  readonly held?: BodyHeld;
+}
+
+/** **`spec` as a pressure table is found by** (`PressureBody`). */
+export function pressureBody(spec: BodySpec): PressureBody {
+  const { stature, mass } = struckNumbers(spec), held = heldNumbers(spec);
+  return held ? { stature, mass, held } : { stature, mass };
 }
 
 /**
@@ -17,10 +25,10 @@ export function holdsOf(spec: Pick<BodySpec, "held">): string | undefined {
  * It is the minds' that fought the bouts it was read from, and is read again where those change.
  */
 export interface PressureTable {
-  /** The striker's body, and what it held (`holdsOf`; none, empty-handed). */
-  readonly measured: { readonly body: string; readonly holds?: string };
-  /** The struck body, and what it held. */
-  readonly target: { readonly body: string; readonly holds?: string };
+  /** The striker's body, as numbers (`PressureBody`). */
+  readonly measured: PressureBody;
+  /** The struck body, as numbers. */
+  readonly target: PressureBody;
   /** The seconds after a moment the life its bins hold was lost by, rising. */
   readonly horizons: readonly number[];
   readonly bins: readonly PressureBin[];
@@ -48,7 +56,12 @@ export function validPressures(value: unknown): value is readonly PressureTable[
   return Array.isArray(value) && value.every((one) => {
     const table = one as Partial<PressureTable>;
     const horizons = table.horizons;
-    const side = (one: unknown) => { const it = one as { body?: unknown; holds?: unknown } | undefined; return typeof it?.body === "string" && (it.holds === undefined || typeof it.holds === "string"); };
+    const finite = (x: unknown) => typeof x === "number" && Number.isFinite(x);
+    const side = (one: unknown) => {
+      const it = one as { stature?: unknown; mass?: unknown; held?: unknown } | undefined;
+      return !!it && finite(it.stature) && finite(it.mass) && (it.held === undefined || !!it.held && typeof it.held === "object"
+        && Object.values(it.held).every((item: { mass?: unknown; reach?: unknown }) => finite(item?.mass) && finite(item?.reach)));
+    };
     return side(table.measured) && side(table.target) && Array.isArray(horizons) && horizons.length > 0
       && horizons.every((h, k) => Number.isFinite(h) && h > (k === 0 ? 0 : horizons[k - 1]!)) && Array.isArray(table.bins)
       && table.bins.every((bin) => typeof bin?.phase === "string" && Number.isFinite(bin.range) && Number.isSafeInteger(bin.n) && bin.n > 0
@@ -56,10 +69,31 @@ export function validPressures(value: unknown): value is readonly PressureTable[
   });
 }
 
-/** The table of `tables` of `striker`'s body holding what it holds on `struck`'s holding what it holds (`holdsOf`); null where none is. */
-export const pressureTable = (tables: readonly PressureTable[], striker: BodySpec, struck: BodySpec): PressureTable | null =>
-  tables.find((table) => table.measured.body === striker.model && table.measured.holds === holdsOf(striker)
-    && table.target.body === struck.model && table.target.holds === holdsOf(struck)) ?? null;
+/**
+ * **The table of `tables` measured nearest `striker` on `struck`** (`PressureBody`): of those whose
+ * bodies each hold as these do and stand within a span of their stature and mass (`STRUCK_SPANS`),
+ * the nearest over both; of as near, the first. Null where none is, and the pairing is priced by
+ * its strikes' rate: a table is read across bodies only where it was measured on bodies as near.
+ */
+export function pressureTable(tables: readonly PressureTable[], striker: BodySpec, struck: BodySpec): PressureTable | null {
+  let found: PressureTable | null = null, least = 1;
+  for (const table of tables) {
+    const far = pairingApart(table, striker, struck);
+    if (far <= least && (!found || far < least)) { found = table; least = far; }
+  }
+  return found;
+}
+
+/**
+ * **How far a pairing measured, `measured` striking `target`, lies from `striker` on `struck`**, in
+ * spans (`STRUCK_SPANS`): the farther of the two bodies' stature or mass, either; within one, near
+ * enough to be read. Infinite where either holds otherwise than the body measured.
+ */
+export function pairingApart(pairing: { readonly measured: PressureBody; readonly target: PressureBody }, striker: BodySpec, struck: BodySpec): number {
+  const apart = (a: PressureBody, b: PressureBody): number =>
+    holdsAlike(a.held, b.held) ? Math.max(Math.abs(a.stature - b.stature) / STRUCK_SPANS.stature, Math.abs(a.mass - b.mass) / STRUCK_SPANS.mass) : Infinity;
+  return Math.max(apart(pairing.measured, pressureBody(striker)), apart(pairing.target, pressureBody(struck)));
+}
 
 /** Each table's curves read, by phase (`any` for every phase) and range. */
 const CURVES = new WeakMap<PressureTable, Map<string, PressureCurve | null>>();
