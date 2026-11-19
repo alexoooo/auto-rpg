@@ -486,7 +486,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     column.style.setProperty("--side-colour", ARENA_SIDES[side].colour);
     const status = document.createElement("small"), target = document.createElement("small"), mind = document.createElement("details"), summary = document.createElement("summary");
     target.hidden = true;
-    const condition = fighterHud(ARENA_SIDES[side].label, (skill) => allParts()[skill]?.icon ?? null);
+    const condition = fighterHud(ARENA_SIDES[side].label, (kind) => allParts()[kind]);
     mind.className = "hud-mind"; summary.textContent = "Mind"; mind.append(summary);
     bar.setAttribute("aria-label", `${ARENA_SIDES[side].label} fighter health`);
     // A choice orders an attack on the person's side and resumes the bout.
@@ -781,6 +781,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const side = news.sides[row.side], controller = controllers[row.side];
       row.bar.value = bodies.get(row.side)?.body.life ?? 1;
       row.condition.render(side.hud, time);
+      // What its line says: the verdict, its time down, or what it is doing, which its chips show too where its mind reports them.
+      const saying = news.verdict ? "verdict" : side.down ? "down" : side.hud.now.length ? "doing" : "plain";
+      if (row.status.dataset.kind !== saying) row.status.dataset.kind = saying;
       row.status.textContent = news.verdict
         ? news.verdict.winner === null ? "Draw" : news.verdict.winner === row.side ? "Winner" : "Defeated"
         : side.down

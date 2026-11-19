@@ -93,6 +93,8 @@ const VARIATIONS = {
  * `RUN_STOPPING` (`walkRun`).
  */
 export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
+  // Two footprints, with the marks of their speed behind them.
+  icon: "M12 3.3a2.8 4.2 0 0 1 0 8.4a2.8 4.2 0 0 1 0-8.4ZM12 12.6a1.9 1.9 0 0 1 0 3.8a1.9 1.9 0 0 1 0-3.8ZM19 7.8a2.8 4.2 0 0 1 0 8.4a2.8 4.2 0 0 1 0-8.4ZM19 17.1a1.9 1.9 0 0 1 0 3.8a1.9 1.9 0 0 1 0-3.8ZM2 6h5v1.5H2ZM1 11.3h5v1.5H1ZM2 16.6h5v1.5H2Z",
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk and run", travels: true, fields: [], slots: [], defaults: { kind: "walk-run" },
   gaits: [{ name: "run", label: "Run", legs: { kind: "walk-run" } }],
   keys: { kind: true, variation: true, tuning: true },

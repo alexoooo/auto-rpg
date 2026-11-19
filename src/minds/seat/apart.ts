@@ -244,7 +244,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
 export type SaidReport = Omit<ReportNow, "engagement">;
 
 /** The fields of what a mind says (`SaidReport`), in `reportNow`'s order. */
-export const SAID_FIELDS: readonly (keyof SaidReport)[] = Object.freeze(["prospects", "heading", "gaits", "navigation", "kit", "actions", "ended"]);
+export const SAID_FIELDS: readonly (keyof SaidReport)[] = Object.freeze(["prospects", "heading", "gaits", "navigation", "running", "kit", "actions", "ended"]);
 
 /**
  * **What `report` says now**, beside what it said last, `previous`: each field whose value is not
@@ -267,7 +267,7 @@ export function saidNow(report: SaidReport, previous: SaidReport | null): SaidRe
 
 /** What `report` says now, its menu aside (`ReportNow`), each field read once. */
 export const reportNow = (report: MindReport): ReportNow => ({ engagement: report.engagement, prospects: report.prospects, heading: report.heading, gaits: report.gaits,
-  navigation: report.navigation, kit: report.kit, actions: report.actions, ended: report.ended });
+  navigation: report.navigation, running: report.running, kit: report.kit, actions: report.actions, ended: report.ended });
 
 /** The name `catalogs` knows `catalog` by. */
 export function catalogName(catalogs: Readonly<Record<string, Catalog>>, catalog: Catalog): string {

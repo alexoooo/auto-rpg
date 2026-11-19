@@ -90,8 +90,8 @@ export interface PawGaitConfig<K extends string, S> extends Varied {
  * paw legs' gait `gait` on a body on three paws or more (`fitsPaws`). Its one variation, its
  * kind's name, is `make` by `settings` under its config's tuning, which `valid` admits.
  */
-export function pawGaitPart<K extends string, S extends Readonly<Record<string, number>>>({ kind, label, gait, settings, valid, make }: {
-  readonly kind: K; readonly label: string; readonly gait: PawGaitName; readonly settings: S;
+export function pawGaitPart<K extends string, S extends Readonly<Record<string, number>>>({ kind, label, icon, gait, settings, valid, make }: {
+  readonly kind: K; readonly label: string; readonly icon: string; readonly gait: PawGaitName; readonly settings: S;
   readonly valid: (settings: S) => boolean; readonly make: (body: PawGaitBody, settings: S) => Gait;
 }): PawGaitPart<PawGaitConfig<K, S>> {
   const refusal = `invalid ${label.toLowerCase()} settings`;
@@ -99,7 +99,7 @@ export function pawGaitPart<K extends string, S extends Readonly<Record<string, 
     || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning) && valid({ ...settings, ...config.tuning }) ? [] : [refusal];
   const variations = { [kind]: (body: PawGaitBody, config: PawGaitConfig<K, S>) => make(body, { ...settings, ...config.tuning }) };
   return deepFreeze<PawGaitPart<PawGaitConfig<K, S>>>({
-    role: "paw-gait", label, travels: true, gait, fields: [], slots: [], defaults: { kind }, keys: { kind: true, variation: true, tuning: true },
+    role: "paw-gait", label, icon, travels: true, gait, fields: [], slots: [], defaults: { kind }, keys: { kind: true, variation: true, tuning: true },
     tuning: Object.keys(settings), ...varied({ skill: kind, label: label.toLowerCase(), variations, of: (body, config) => [body.built.spec, config],
       fits: [fitsPaws, (_spec, config) => faults(config)[0] ?? null] }),
     faults, skillGroup: "Travel",

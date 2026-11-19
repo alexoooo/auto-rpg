@@ -1,5 +1,5 @@
 import type { GaitLimits } from "../skills/framework/locomotion-part.ts";
-import type { Skills } from "../skills/framework/skills.ts";
+import type { Running, Skills } from "../skills/framework/skills.ts";
 import type { ActionStatus, Ended } from "../skills/framework/action.ts";
 import type { KitEntry, MenuEntry } from "../skills/framework/menu.ts";
 import type { NavigationReport } from "../skills/framework/navigation.ts";
@@ -19,7 +19,7 @@ export interface Prospect {
  * **What a mind publishes of itself** (`MindMade.report`), for a screen and its Commander, never
  * for the rules: what it reports doing (`Engagement`), what it expects of each foe it has priced
  * (`Prospect`), and where it walks, its heading, each of its gaits' limits (`GaitLimits`) and its
- * navigation's report; the actions its body has (`KitEntry`), those under way and those ended, and
+ * navigation's report; the skills always on that run now (`Running`); the actions its body has (`KitEntry`), those under way and those ended, and
  * its choices now (`MenuEntry`), read when asked and changing nothing of it; null for what it does not
  * say. A mind that runs the game's skills publishes theirs and its decider's (`skillsReport`); any
  * other may publish its own. Each field's owner gives it a new value when it changes and never
@@ -31,6 +31,7 @@ export interface MindReport {
   readonly heading: number | null;
   readonly gaits: readonly GaitLimits[] | null;
   readonly navigation: NavigationReport | null;
+  readonly running: readonly Running[] | null;
   readonly kit: readonly KitEntry[] | null;
   readonly actions: readonly ActionStatus[] | null;
   readonly ended: readonly Ended[] | null;
@@ -44,6 +45,6 @@ export interface MindReport {
  */
 export function skillsReport(skills: Skills, decider: { readonly engagement?: Engagement; readonly prospects?: readonly Prospect[] }): MindReport {
   return { get engagement() { return decider.engagement ?? null; }, get prospects() { return decider.prospects ?? null; }, get heading() { return skills.report.legs.heading; }, get gaits() { return skills.legs.gaits; },
-    get navigation() { return skills.report.navigation ?? null; }, kit: skills.actions.kit, get actions() { return skills.report.actions; },
+    get navigation() { return skills.report.navigation ?? null; }, get running() { return skills.report.running; }, kit: skills.actions.kit, get actions() { return skills.report.actions; },
     get ended() { return skills.report.ledger; }, get menu() { return skills.actions.menu(); } };
 }

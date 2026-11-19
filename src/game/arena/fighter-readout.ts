@@ -7,6 +7,7 @@ import type { ActionStatus, Ended, Phase } from "../../skills/framework/action.t
 import { blocked, cleanMiss, landed } from "../../skills/framework/action-instances.ts";
 import { skillOf } from "../../skills/framework/menu.ts";
 import type { MindReport } from "../../minds/report.ts";
+import type { Running } from "../../skills/framework/skills.ts";
 import { partLabel } from "../part-label.ts";
 
 /** A front-facing body; screen left is the fighter's anatomical right. */
@@ -203,12 +204,14 @@ type FeedLine = ReturnType<ReturnType<typeof actionFeed>["read"]>[number];
 /**
  * **What a fighter's HUD shows at a moment** (`fighterReading`), plain data a worker sends: each
  * part's health, a fraction, whether it is attached, and until when it flashes, s; the recent
- * actions; and whether its mind reports them at all.
+ * actions; the skills always on that run now (`Running`: its gait, its guard), none while its mind
+ * does not command its body; and whether its mind reports at all.
  */
 export interface FighterReading {
   /** Each part: the limb it is in (null for none), what is left of that limb's bar or of the body's life, whether it is on, whether its limb is crippled, and until when it flashes. */
   readonly parts: readonly { readonly name: string; readonly limb: string | null; readonly remaining: number; readonly attached: boolean; readonly crippled: boolean; readonly flashUntil: number }[];
   readonly feed: readonly FeedLine[];
+  readonly now: readonly Running[];
   readonly reports: boolean;
 }
 
@@ -223,7 +226,7 @@ export function fighterReading(fighter: Combatant, blows: () => readonly LandedB
     },
     read(time: number): FighterReading {
       return { parts: damage.parts.map((part) => ({ ...part })),
-        feed: history.read(time), reports: !!fighter.minded.report };
+        feed: history.read(time), now: commandsBody(fighter.body) ? fighter.minded.report?.running ?? [] : [], reports: !!fighter.minded.report };
     },
   };
 }

@@ -18,6 +18,8 @@ export interface GuardSkill extends Skill {
   readonly posture: Pose;
   /** All channels this service can write, for guards selected during combat. */
   readonly channels?: readonly string[];
+  /** The config of the guard selected now, null with none yet; absent, a guard that does not say. */
+  readonly selected?: PartConfig | null;
   /** Select an enabled guard by its `skill/variation` name; absent, this is one fixed guard. */
   select?(name: string | undefined, view: BodyView): void;
   /** A point task for a free effector, or null to retain the reference posture. */

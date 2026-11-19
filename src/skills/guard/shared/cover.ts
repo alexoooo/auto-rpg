@@ -57,12 +57,12 @@ function coveringSkill(built: ReadBody, config: CoveringConfig<string>, { wards 
  * One that `wards` also holds an item's declared face out at the threat, no faster than the body's
  * balance allows (`wardSpeed`): it needs soles to balance on and an item with a face.
  */
-export function coveringPart<K extends string>({ kind, label, named, wards }: { readonly kind: K; readonly label: string; readonly named: string; readonly wards: boolean }): GuardPart<CoveringConfig<K>> {
+export function coveringPart<K extends string>({ kind, label, icon, named, wards }: { readonly kind: K; readonly label: string; readonly icon: string; readonly named: string; readonly wards: boolean }): GuardPart<CoveringConfig<K>> {
   const variations = { [kind]: { posture: (spec: BodySpec) => guardPosture(spec), make: (built: ReadBody, config: CoveringConfig<K>) => coveringSkill(built, config, { wards }) } };
   const warding = wards ? [soleRefusal, fitsWhen(wardsWithFace, "holds no item with a face to ward with")] : [];
   return {
     covers: (spec) => handsOf(spec),
-    role: "guard", label, fields: [], slots: [], defaults: { kind } as CoveringConfig<K>, keys: { kind: true, variation: true, tuning: true },
+    role: "guard", label, icon, fields: [], slots: [], defaults: { kind } as CoveringConfig<K>, keys: { kind: true, variation: true, tuning: true },
     tuning: ["covering", "hold"], faults: coveringFaults,
     supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined).map(({ segment }) => segment),
     skillGroup: "Guard", ...guardVariations({ skill: kind, label: named, variations, fits: [coveringFit, coversWithHands, ...warding] }),

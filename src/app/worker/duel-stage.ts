@@ -67,7 +67,11 @@ export type DuelInput =
 
 /** One side of a duel as its HUD shows it after a step. */
 interface SideNews {
-  /** What its controller is doing: its first action's stage, else its engagement's phase, else who has its body. */
+  /**
+   * What its controller is doing, in words: its first action's stage, else its engagement's phase,
+   * else that it guards and moves; with no skills, who has its body. The page shows it where the
+   * side has no chips for what runs now (`FighterReading.now`).
+   */
   readonly phase: string;
   /** Who has its body (`PhysicalBody.has`). */
   readonly has: string;

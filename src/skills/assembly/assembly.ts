@@ -38,7 +38,8 @@ export function makeSkills(made: Body, clock: Clock, parts: PartLookup, config: 
   // Read each time an action aims, which is after the skills are made.
   const ledger = (): readonly Ended[] => skills.report.ledger;
   const skills: Skills = skillSet(made, {
-    legs, navigation, clearance: navigation, guard, spot: windowSpotFinder,
+    legs, gaits: (parts.of("locomotion", config.legs).gaits?.(config.legs, made.built.spec, parts) ?? [])
+      .map((gait) => ({ ...gait, travels: (parts.find("gait", gait.legs) ?? parts.find("paw-gait", gait.legs))?.travels ?? true })), navigation, clearance: navigation, guard, spot: windowSpotFinder,
     support: config.supports.length ? supportRepertoire(parts, made, config.supports) : null,
     aims: configured,
     executors: [...configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger, configured), ...more.executors],

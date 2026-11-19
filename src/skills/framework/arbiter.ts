@@ -1,6 +1,6 @@
 import type { StanceGoal } from "../../control/stance/goal.ts";
 import type { Clearance } from "./navigation.ts";
-import type { GaitLimits, Locomotion } from "./locomotion-part.ts";
+import type { GaitLimits, Locomotion, LocomotionPart } from "./locomotion-part.ts";
 import { kitOf, menuOf, type SpotFinder } from "./menu.ts";
 import { aimsState, keepingNothing, type Aims } from "./aim-part.ts";
 import { facesTravel, SERVICES, type Intent, type Service } from "./intent.ts";
@@ -13,6 +13,8 @@ import { LEG_RESOURCE, type ActionAround, type ActionClaim } from "./action.ts";
 import { actionInstances, type ActionBinding, type ActionContact, type ExecutorBinding } from "./action-instances.ts";
 import { actionResources } from "./action-resources.ts";
 import type { GuardSkill } from "./guard.ts";
+import type { Running } from "./skills.ts";
+import type { VariedConfig } from "./variations.ts";
 import type { LowSupportSkill } from "./low-support.ts";
 import type { NavigationSight, Navigator } from "./navigation.ts";
 import { ALL_MET, type LegsAsked, type LegsGoal, type GaitName } from "./skill.ts";
@@ -30,6 +32,12 @@ interface SkillParts {
   readonly executors: readonly ExecutorBinding[];
   readonly actions: readonly ActionBinding[];
   readonly legs: Locomotion;
+  /**
+   * The gaits the legs go by, as their locomotion names them (`LocomotionPart.gaits`), and whether
+   * each carries the body to a place (`GaitPart.travels`): what the report names the one running by
+   * (`Running`); none, it names no gait.
+   */
+  readonly gaits?: readonly (ReturnType<NonNullable<LocomotionPart["gaits"]>>[number] & { readonly travels: boolean })[];
   readonly guard: GuardSkill;
   /**
    * What turns the mind's movement requests into walks and keeps a walk asked clear of what is
@@ -121,7 +129,20 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     }
     instances.observe(step, time, contacts);
   });
+  // The skills always on as last read (`Running`): a new array where the gait, the guard or which is at work has changed since, so a report holds what it read.
+  let running: readonly Running[] | null = null;
+  const ran = { gait: null as NonNullable<SkillParts["gaits"]>[number] | null, guard: null as VariedConfig | null, walking: false, covering: false };
+  const runningNow = (): readonly Running[] => {
+    const gait = (legs.gait !== undefined && services.gaits?.find((one) => one.name === legs.gait)) || null, selected = guard.selected ?? null;
+    const walking = (legs.pace ?? 0) > 0, covering = state.covering.length > 0;
+    if (running && gait === ran.gait && selected === ran.guard && walking === ran.walking && covering === ran.covering) return running;
+    ran.gait = gait; ran.guard = selected; ran.walking = walking; ran.covering = covering;
+    const of = (config: VariedConfig) => ({ kind: config.kind, ...(config.variation === undefined ? {} : { variation: config.variation }) });
+    return running = [...(gait ? [{ service: "legs" as const, ...of(gait.legs), label: gait.label, working: walking || !gait.travels }] : []),
+      ...(selected ? [{ service: "guard" as const, ...of(selected), working: covering }] : [])];
+  };
   const report = {
+    get running() { return runningNow(); },
     legs: { get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference ?? null; }, get unmet() { return legs.unmet ?? ALL_MET; } },
     guard: { get covering() { return state.covering; } },
     get navigation() { return navigation?.report; },

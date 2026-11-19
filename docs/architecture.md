@@ -199,7 +199,8 @@ A body is a different type to each holder:
   body: never its mind, nor the skills its character holds (a sensed spec has none,
   `sensedSpec`). A mind's source reaches neither the world nor the characters' registry
   (`tests/core-boundary.test.mjs`).
-- **The report** (`MindReport`, `report.ts`) says what a mind is engaged in, weighing and doing.
+- **The report** (`MindReport`, `report.ts`) says what a mind is engaged in, weighing and doing,
+  and the skills always on that run now (`Running`: its gait, its guard).
   Screens and Commanders read the report, never a mind's kind or state, and reading it moves
   nothing.
 - **A mind is a tree of parts** (`Part`, `src/parts/`), each with a role, slots and defaults,

@@ -34,6 +34,7 @@ export function guardRepertoire(parts: PartLookup, built: ReadBody, configs: rea
   });
   return {
     state, channels, posture: state.posture, effectors: [...new Set(guards.flatMap(guard => guard.effectors))],
+    get selected() { return configs[state.selected] ?? null; },
     select,
     hold: effector => current()?.hold?.(effector) ?? null,
     configuration: effector => current()?.configuration?.(effector) ?? null,

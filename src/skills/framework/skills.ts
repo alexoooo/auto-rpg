@@ -72,6 +72,21 @@ export interface SkillsActions {
 }
 
 /**
+ * **A skill that is always on, as it runs now** (`SkillReport.running`), for a readout to draw:
+ * what of the body it runs (`service`), its part's kind and the variation of it it runs (as
+ * `KitEntry` names an action's), the name it goes by where its skill gives it one of its own (a
+ * gait's label), and whether it is at work: legs that walk, or that go by a gait that carries the
+ * body nowhere (the back step's sway), and a guard that covers.
+ */
+export interface Running {
+  readonly service: "legs" | "guard";
+  readonly kind: string;
+  readonly variation?: string;
+  readonly label?: string;
+  readonly working: boolean;
+}
+
+/**
  * **How a body's skills are going** (`Skills.report`), as the last step left them: each skill
  * that is always on under its name, the actions under way and ended, and what holds each control
  * of the body. It contains no executor's own counters or motion state.
@@ -79,6 +94,12 @@ export interface SkillsActions {
 export interface SkillReport {
   readonly legs: LegsReport;
   readonly guard: GuardReport;
+  /**
+   * The skills that are always on and run now (`Running`): the gait the legs go by, where they go
+   * by gaits by name, and the guard selected. A new array where one has changed since it was last
+   * read, never written in place.
+   */
+  readonly running: readonly Running[];
   /** How its navigation is going; absent with none. */
   readonly navigation?: NavigationReport;
   /** The actions under way. */

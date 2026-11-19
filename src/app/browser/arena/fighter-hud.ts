@@ -16,9 +16,9 @@ function partText(label: string, part: FighterReading["parts"][number]): string 
 }
 
 /**
- * **An action's chip**: its skill's picture (`icon`), or the first letter of `label` where it has
- * none, and the side of the limb it uses, L or R, where the limb has one. Its state is marked by
- * its line's `data-state`, in the style sheet.
+ * **A skill's chip**: its picture (`icon`), or the first letter of `label` where it has none, and
+ * the side of the limb it uses, L or R, where it uses one with a side. How it stands is marked on
+ * its line (`data-state`, `data-working`), in the style sheet.
  */
 function feedChip(label: string, icon: string | null, limb: string | null): HTMLElement {
   const chip = document.createElement("span");
@@ -34,15 +34,17 @@ function feedChip(label: string, icon: string | null, limb: string | null): HTML
 }
 
 /**
- * One fighter's diagram and feed own DOM only: what they show is read where the bout steps
- * (`fighterReading`). An action's line is its chip (`feedChip`) and its words; a narrow window
- * shows the chips alone. `icon` gives a skill's picture (`Part.icon`), or null where it has none.
+ * One fighter's diagram and its two streams own DOM only: what they show is read where the bout
+ * steps (`fighterReading`). The feed is its recent actions, each a line of its chip (`feedChip`)
+ * and its words; the row above it is the skills always on that run now, its gait and its guard,
+ * each a round chip, lit while it is at work. A narrow window shows the chips alone. `skill` gives
+ * a skill's part by its kind, for its picture and its label (`Part.icon`, `Part.label`).
  */
-export function fighterHud(side: string, icon: (skill: string) => string | null) {
+export function fighterHud(side: string, skill: (kind: string) => { readonly label: string; readonly icon?: string } | undefined) {
   const element = document.createElement("section"), damage = document.createElement("div"), feed = document.createElement("ol");
   const diagram = document.createElementNS(SVG, "svg"), caption = document.createElement("output");
   const details = document.createElement("details"), summary = document.createElement("summary"), list = document.createElement("ul");
-  const unavailable = document.createElement("small");
+  const unavailable = document.createElement("small"), now = document.createElement("ul");
   element.className = "fighter-readout"; element.setAttribute("aria-label", `${side} fighter condition and actions`);
   damage.className = "fighter-damage"; diagram.classList.add("damage-diagram");
   diagram.setAttribute("viewBox", "0 0 100 204"); diagram.setAttribute("role", "group"); diagram.setAttribute("aria-label", `${side} fighter body damage`);
@@ -50,17 +52,20 @@ export function fighterHud(side: string, icon: (skill: string) => string | null)
   details.className = "damage-details"; summary.textContent = "Damage details"; details.append(summary, list);
   feed.className = "fighter-feed"; feed.setAttribute("aria-label", `${side} fighter recent actions`); feed.setAttribute("aria-live", "off");
   unavailable.className = "feed-unavailable"; unavailable.textContent = "Action reporting unavailable"; unavailable.hidden = true;
-  damage.append(diagram, caption, details); element.append(damage, feed, unavailable);
+  now.className = "fighter-now"; now.setAttribute("aria-label", `${side} fighter gait and guard`);
+  damage.append(diagram, caption, details); element.append(damage, now, feed, unavailable);
   for (const type of ["pointerdown", "pointermove", "wheel"]) element.addEventListener(type, event => event.stopPropagation());
   element.addEventListener("keydown", event => { if (event.key !== "Escape") event.stopPropagation(); });
   summary.addEventListener("click", () => summary.blur());
   const nodes = new Map<string, { path: SVGPathElement; text: HTMLLIElement; previous: string }>();
   const entries = new Map<string, { readonly node: HTMLLIElement; readonly words: HTMLSpanElement }>();
+  // Each skill running now by what it runs (`Running.service`), and the skill and name its line was last drawn for.
+  const running = new Map<string, { readonly node: HTMLLIElement; readonly words: HTMLSpanElement; shown: string }>();
   let parts: readonly { readonly name: string; readonly label: string; readonly path: string }[] | null = null, reading: FighterReading | null = null;
   let selected: string | null = null, pinned: string | null = null, description = "";
   const reset = () => {
     parts = null; reading = null; selected = null; pinned = null; description = "";
-    nodes.clear(); entries.clear(); diagram.replaceChildren(); list.replaceChildren(); feed.replaceChildren();
+    nodes.clear(); entries.clear(); running.clear(); diagram.replaceChildren(); list.replaceChildren(); feed.replaceChildren(); now.replaceChildren();
     details.open = false; unavailable.hidden = true; caption.textContent = "No damage";
   };
   const labelOf = (name: string) => parts?.find(part => part.name === name)?.label ?? name;
@@ -117,6 +122,22 @@ export function fighterHud(side: string, icon: (skill: string) => string | null)
         ? [crippled.size ? `${crippled.size} crippled` : "", severed.size ? `${severed.size} severed` : ""].filter(Boolean).join(" · ")
         : wounded ? "Wounded" : "No damage";
       describe();
+      for (const [service, { node }] of running) if (!next.now.some(one => one.service === service)) { node.remove(); running.delete(service); }
+      next.now.forEach((one, i) => {
+        let made = running.get(one.service);
+        if (!made) {
+          made = { node: document.createElement("li"), words: document.createElement("span"), shown: "" };
+          made.node.dataset.service = one.service; made.words.className = "feed-words"; running.set(one.service, made);
+        }
+        const part = skill(one.kind), label = one.label ?? part?.label ?? one.kind, shown = `${one.kind} ${label}`;
+        if (made.shown !== shown) {
+          made.shown = shown; made.words.textContent = label; made.node.title = label;
+          made.node.replaceChildren(feedChip(label, part?.icon ?? null, null), made.words);
+        }
+        const working = String(one.working);
+        if (made.node.dataset.working !== working) made.node.dataset.working = working;
+        if (now.children[i] !== made.node) now.insertBefore(made.node, now.children[i] ?? null);
+      });
       const visible = next.feed, keys = new Set(visible.map(entry => entry.key));
       for (const [key, { node }] of entries) if (!keys.has(key)) { node.remove(); entries.delete(key); }
       visible.forEach((entry, i) => {
@@ -124,7 +145,7 @@ export function fighterHud(side: string, icon: (skill: string) => string | null)
         if (!made) {
           made = { node: document.createElement("li"), words: document.createElement("span") };
           made.node.dataset.kind = entry.kind; made.node.dataset.key = entry.key; made.words.className = "feed-words";
-          if (entry.skill !== null) made.node.append(feedChip(entry.label, icon(entry.skill), entry.limb));
+          if (entry.skill !== null) made.node.append(feedChip(entry.label, skill(entry.skill)?.icon ?? null, entry.limb));
           made.node.append(made.words); entries.set(entry.key, made);
         }
         const { node, words } = made, text = `${entry.label}${entry.detail ? ` — ${entry.detail}` : ""}`;
