@@ -10,7 +10,7 @@ export type DataKey = keyof DataOf;
  * body's record of each other skill tuned per body (`SkillRecords`, `skills/framework/records.ts`,
  * declared by the skill's part or module), and what
  * the Strike and Rise drills measured every strike and ground edge to bring (`Profile`,
- * `skills/framework/profile.ts`). A key is read (`dataOf`) only as declared.
+ * `skills/framework/profile/profile.ts`). A key is read (`dataOf`) only as declared.
  */
 export interface DataOf {}
 

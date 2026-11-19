@@ -13,7 +13,11 @@ import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs
 import { deepFreeze } from "../../core/state.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
 import { ordersAsked, type Orders } from "../orders.ts";
-import { limbHoldsAsMeasured, measuredAt, profileAgainst, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Postures, type Profile, type ProfileReading, type StanceNumbers, type Stances } from "../../skills/framework/profile.ts";
+import { limbHoldsAsMeasured, profilesOn, sameReaction } from "../../skills/framework/profile/lookup.ts";
+import { measuredAt, STANDING, type Postures, type Profile, type StanceNumbers, type Stances } from "../../skills/framework/profile/profile.ts";
+import { profileAgainst } from "../../skills/framework/profile/across.ts";
+import { readProfile, type ProfileReading } from "../../skills/framework/profile/reading.ts";
+import { startVelocity } from "../../skills/framework/profile/numbers.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../../skills/perception/threat.ts";

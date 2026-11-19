@@ -1,5 +1,5 @@
 /**
- * **The strikes' profiles** (`src/skills/framework/profile.ts`, `assets/skills/strikes/strike-profiles/strike-profiles.json`): from
+ * **The strikes' profiles** (`src/skills/framework/profile/profile.ts`, `assets/skills/strikes/strike-profiles/strike-profiles.json`): from
  * the Strike drill's sparring rungs (`npm run evaluate -- strike <subject> --protocol sparring --json <run.json>`,
  * and `sparring-laid` for a strike at a body lying), where each strike is thrown from starts drawn
  * at random against Option Mind fighting back. A profile says what a strike brings against a foe

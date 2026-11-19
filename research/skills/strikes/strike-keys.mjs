@@ -5,7 +5,7 @@
 import { skillsOf } from "../../../src/minds/option/skills.ts";
 import { partLookup } from "../../../src/app/catalog.ts";
 import { limbAction } from "../../../src/minds/option/kinds.ts";
-import { measuredOn, strikeSkill } from "../../../src/skills/framework/profile.ts";
+import { measuredOn, strikeSkill } from "../../../src/skills/framework/profile/lookup.ts";
 import { skillDigest, specDigest } from "../profile-origin.mjs";
 import { everyOf } from "../../../src/minds/decider.ts";
 

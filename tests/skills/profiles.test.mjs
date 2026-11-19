@@ -5,7 +5,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolveCharacter } from "../../src/core/bodies/models.ts";
 import { sensedSpec } from "../../src/core/bodies/senses.ts";
-import { limbHoldsAsMeasured, profileAgainst, profilesFor, profilesOn } from "../../src/skills/framework/profile.ts";
+import { limbHoldsAsMeasured, profilesFor, profilesOn } from "../../src/skills/framework/profile/lookup.ts";
+import { profileAgainst } from "../../src/skills/framework/profile/across.ts";
 import { skillDigest } from "../../research/skills/profile-origin.mjs";
 import { record } from "../../src/minds/option/value.ts";
 import { buildBout } from "../../src/app/node/evaluation.ts";
@@ -39,7 +40,7 @@ test("every measured profile is of a current skill on a current body", () => {
  * its trials at a Rogue.
  */
 test("a strike is read by its trials struck at the body it strikes", async () => {
-  const { struckNumbers } = await import("../../src/skills/framework/profile.ts");
+  const { struckNumbers } = await import("../../src/skills/framework/profile/numbers.ts");
   const { profiles } = JSON.parse(readFileSync(new URL("../../assets/skills/strikes/strike-profiles/strike-profiles.json", import.meta.url), "utf8"));
   const specs = ["man", "woman", "skeleton"].map((model) => resolveCharacter({ model }).spec);
   const skills = new Map(profiles.map(({ measured }) => [profileKey(measured), measured]));
@@ -66,7 +67,7 @@ test("a strike is read by its trials struck at the body it strikes", async () =>
  * mass, and its reading says so (`ProfileReading.scaled`).
  */
 test("a body measured against none reads the trials struck at the measured body nearest it", async () => {
-  const { readProfile } = await import("../../src/skills/framework/profile.ts");
+  const { readProfile } = await import("../../src/skills/framework/profile/reading.ts");
   const trial = (stature, mass, done) => ({ start: { phase: "clear", range: .6, struck: { stature, mass, steadiness: 50, haste: 50 } }, done, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false });
   const profile = { measured: { body: "man", skill: "s", limb: "hand.left", hz: 120, reaction: null }, target: {}, trials: [trial(1.77, 79, true), trial(1.62, 15, false)] };
   const man = resolveCharacter({ model: "man" }).spec;
@@ -159,7 +160,7 @@ test("a skill's identity includes the selected aim's declared data", async () =>
  * profile that records none, reads as before.
  */
 test("a profile whose trials began in two stances is read at the stance nearest each body's", async () => {
-  const { readProfile } = await import("../../src/skills/framework/profile.ts");
+  const { readProfile } = await import("../../src/skills/framework/profile/reading.ts");
   const spec = resolveCharacter({ model: "man" }).spec;
   const square = { stagger: 0, width: .25, height: 1 }, staggered = { stagger: .4, width: .25, height: .9 }, beyond = { stagger: .6, width: .25, height: .85 };
   const trial = (range, done, stance) => ({ start: { phase: "clear", range, ...(stance ? { stance } : {}) }, done, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false });
@@ -183,7 +184,9 @@ test("a profile whose trials began in two stances is read at the stance nearest 
  * is read past what its trials held.
  */
 test("a profile whose trials began holding two ways is read at what each body holds", async () => {
-  const { heldNumbers, readProfile, startHeld, validProfiles } = await import("../../src/skills/framework/profile.ts");
+  const { heldNumbers, startHeld } = await import("../../src/skills/framework/profile/numbers.ts");
+  const { readProfile } = await import("../../src/skills/framework/profile/reading.ts");
+  const { validProfiles } = await import("../../src/skills/framework/profile/profile.ts");
   const { formReading } = await import("../../src/skills/framework/form.ts");
   const { withLoadout } = await import("../../src/core/bodies/items/held.ts");
   const plain = resolveCharacter({ model: "man" }).spec, club = withLoadout(plain, { left: "empty", right: "club" });
@@ -216,7 +219,7 @@ test("a profile whose trials began holding two ways is read at what each body ho
  */
 test("a foe's limb is read throwing only what its trials' limb threw, holding or empty", async () => {
   const { withLoadout } = await import("../../src/core/bodies/items/held.ts");
-  const { heldNumbers } = await import("../../src/skills/framework/profile.ts");
+  const { heldNumbers } = await import("../../src/skills/framework/profile/numbers.ts");
   const plain = resolveCharacter({ model: "man" }).spec, club = withLoadout(plain, { left: "empty", right: "club" });
   const of = (limb, hold) => ({ measured: { body: "man", skill: "s", limb, hz: 120, reaction: null }, target: {},
     trials: [{ start: { phase: "clear", range: 1, ...(hold ? { held: { own: heldNumbers(club) } } : {}) }, done: true, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false }] });
@@ -229,7 +232,7 @@ test("a foe's limb is read throwing only what its trials' limb threw, holding or
  * A failed zero-duration trial produced NaN instead of a failed finite rate.
  */
 test("a zero-length failed profile trial has a finite failed rate", async () => {
-  const { readProfile } = await import("../../src/skills/framework/profile.ts");
+  const { readProfile } = await import("../../src/skills/framework/profile/reading.ts");
   const spec = resolveCharacter({ model: "man" }).spec;
   const start = { phase: "clear", range: 1 };
   const reading = readProfile({ measured: { body: spec.model, stature: spec.stature.value, skill: "s", hz: 120, reaction: null }, target: null, trials: [{ start, done: false, dealt: 0, taken: 0, seconds: 0, recovers: null, down: false }] }, spec);

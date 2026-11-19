@@ -11,7 +11,7 @@ import { dataOf } from "../../core/data/store.ts";
 import { measuredReach } from "../../minds/option/percepts.ts";
 import { wrap } from "../../core/math/turn.ts";
 import { centreReading } from "../../control/observation.ts";
-import type { Stances } from "../../skills/framework/profile.ts";
+import type { Stances } from "../../skills/framework/profile/profile.ts";
 import type { HostedBody } from "../../minds/seat/hosted-body.ts";
 import { LANDED, sensedFoe } from "../strike/read.ts";
 import { stepBlows } from "../contest.ts";

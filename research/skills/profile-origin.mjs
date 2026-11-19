@@ -1,5 +1,5 @@
 /**
- * **Where a profile came from** (`Origin`, `src/skills/framework/profile.ts`), as the tools that
+ * **Where a profile came from** (`Origin`, `src/skills/framework/profile/profile.ts`), as the tools that
  * measure profiles write it: the digests of its body's spec (`specDigest`) and of its skill
  * (`skillDigest` for a strike, `techniqueDigest` for a ground technique). A digest labels a
  * profile and finds none.

@@ -213,7 +213,7 @@ deals and takes, the ways it ends) and its step. `mind.ts` is the controller, `c
 config, `description.ts` what a config builds, `build.ts` the running mind.
 
 - **Predictions** price an Option from measured profiles (`Profile`,
-  `src/skills/framework/profile.ts`): a sample of trials, a strike's thrown sparring and a ground
+  `src/skills/framework/profile/profile.ts`): a sample of trials, a strike's thrown sparring and a ground
   Option's tried in falls. A profile is found by its skill and variation, its limb and the body's
   model; what each body held is on each trial as numbers (`Start.held`: an item's mass and reach),
   read by the trials nearest it.

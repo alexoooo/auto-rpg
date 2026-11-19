@@ -1,6 +1,8 @@
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { PartConfig } from "../../../parts/parts.ts";
-import { measuredOn, techniqueSkill, type Expected, type Postures, type Profile } from "../../framework/profile.ts";
+import { measuredOn, techniqueSkill } from "../../framework/profile/lookup.ts";
+import { type Expected } from "../../framework/profile/reading.ts";
+import { type Postures, type Profile } from "../../framework/profile/profile.ts";
 import type { OutcomeModel } from "../../framework/outcomes.ts";
 
 declare module "../../../core/data/store.ts" { interface DataOf { "edge-profiles": readonly Profile[] } }

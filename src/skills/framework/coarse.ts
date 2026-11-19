@@ -4,7 +4,9 @@
  */
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { OutcomeModel } from "./outcomes.ts";
-import { PROFILE_SPANS, STANCE_SPANS, type Expected, type ProfileReading, type StanceNumbers } from "./profile.ts";
+import { PROFILE_SPANS, STANCE_SPANS } from "./profile/nearest.ts";
+import { type Expected, type ProfileReading } from "./profile/reading.ts";
+import { type StanceNumbers } from "./profile/profile.ts";
 
 /** Where a reading is asked at, and the progress a let-go is asked at. */
 type At = Parameters<ProfileReading["expect"]>[0];

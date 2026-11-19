@@ -1,5 +1,6 @@
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { measuredOn, type Expected } from "../../skills/framework/profile.ts";
+import { measuredOn } from "../../skills/framework/profile/lookup.ts";
+import { type Expected } from "../../skills/framework/profile/reading.ts";
 import type { OutcomeModel } from "../../skills/framework/outcomes.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
 import { gaitStance } from "../../skills/locomotion/move/gaits.ts";

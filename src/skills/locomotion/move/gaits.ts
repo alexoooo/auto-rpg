@@ -1,7 +1,8 @@
 import type { GaitName } from "../../framework/skill.ts";
 import type { ConfigFor } from "../../../parts/lookup.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { STANCE_SPANS, type StanceNumbers } from "../../framework/profile.ts";
+import { STANCE_SPANS } from "../../framework/profile/nearest.ts";
+import { type StanceNumbers } from "../../framework/profile/profile.ts";
 
 /**
  * **A gait**: what a body gets about by, as Move walks by it (`MoveConfig.gaits`): its name, which

@@ -10,7 +10,9 @@
  * phase is first read. A share (landed, down) is held within 0 and 1 and an amount at none or more.
  * A phase whose trials do not determine a form is read by its nearest trials (`nearestRun`).
  */
-import { nearestRun, profileReader, readStartOf, readWithin, type Asked, type Cycle, type Expected, type ReadStart, type ReadsProfile, type RunReading, type Sample } from "./profile.ts";
+import { nearestRun, profileReader, type Cycle, type Expected, type ReadsProfile, type RunReading } from "./profile/reading.ts";
+import { readStartOf, readWithin, type ReadStart, type Sample } from "./profile/nearest.ts";
+import { type Asked } from "./profile/profile.ts";
 
 /** A start's numbers the form always weighs: none, the range, its square, closing and across. */
 const START_TERMS = 5;

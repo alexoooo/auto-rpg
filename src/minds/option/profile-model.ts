@@ -13,7 +13,7 @@ import { optionRecord } from "./record.ts";
 import { situationReader } from "./situation.ts";
 import { walker } from "./walk.ts";
 import type { OutcomeModel } from "../../skills/framework/outcomes.ts";
-import type { Profile } from "../../skills/framework/profile.ts";
+import type { Profile } from "../../skills/framework/profile/profile.ts";
 import type { OthersModel } from "./percepts.ts";
 
 /**

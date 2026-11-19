@@ -6,7 +6,7 @@ import { resolveCharacter, resolveCharacterChecked } from "../../src/core/bodies
 import { MINDS, treeLookup } from "../../src/app/catalog.ts";
 import { skillsOf } from "../../src/minds/option/skills.ts";
 import { limbAction } from "../../src/minds/option/kinds.ts";
-import { strikeSkill } from "../../src/skills/framework/profile.ts";
+import { strikeSkill } from "../../src/skills/framework/profile/lookup.ts";
 import { skillDigest } from "../../research/skills/profile-origin.mjs";
 import { readSkills, writeSkills } from "../../src/game/skill-link.ts";
 import { allParts, partLookup, GAME } from "../../src/app/catalog.ts";

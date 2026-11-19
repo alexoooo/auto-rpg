@@ -2,7 +2,7 @@ import { DEFAULT_ENGINE } from "../../../src/core/physics/engines.ts";
 import { workerJobs } from "../../worker-jobs.mjs";
 /**
  * **The ground Options' profiles** (`assets/skills/recovery/edge-profiles.json`, in the profiles' one type,
- * `src/skills/framework/profile.ts`): Option Mind, the game's preset on its priors alone and
+ * `src/skills/framework/profile/profile.ts`): Option Mind, the game's preset on its priors alone and
  * choosing by chance among the Options near the best (`MARGIN`), rising from the stand-up target's falls (`risingJobs`) turned by offsets neither of its protocols
  * plays (`--offsets`), every body in every loadout; each try of a ground technique it runs is a
  * trial begun where the body lay (`groundStart`): a way up or a reposition, flatten, and a brace

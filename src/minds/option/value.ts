@@ -13,7 +13,7 @@ import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { effectorAim } from "../../control/effectors.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Situation } from "./option.ts";
-import type { StanceNumbers } from "../../skills/framework/profile.ts";
+import type { StanceNumbers } from "../../skills/framework/profile/profile.ts";
 import type { Position } from "../../control/ground-reading.ts";
 import { segmentOf } from "../../core/bodies/spec/body.ts";
 import type { Deciding } from "../choice.ts";

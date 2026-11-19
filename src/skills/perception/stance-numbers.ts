@@ -2,7 +2,7 @@ import { stanceFeet } from "../../control/support.ts";
 import type { BodyView } from "../../control/body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
-import type { StanceNumbers, Stances } from "../framework/profile.ts";
+import type { StanceNumbers, Stances } from "../framework/profile/profile.ts";
 
 /** A point in the world, m. */
 type Point = { readonly x: number; readonly y: number; readonly z: number };

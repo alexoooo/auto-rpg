@@ -3,7 +3,7 @@ import { profileModel } from "./profile-model.ts";
 import { dataOf } from "../../core/data/store.ts";
 import type { PredictionsPart } from "./parts.ts";
 import { anyBody } from "../../parts/parts.ts";
-import { validProfiles, type Profile } from "../../skills/framework/profile.ts";
+import { validProfiles, type Profile } from "../../skills/framework/profile/profile.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { validPressures } from "./pressure.ts";
 import { measuredOthers, measuredSteps, persisting, RATE_OTHERS, validFoeSteps, type FoeSteps } from "./percepts.ts";

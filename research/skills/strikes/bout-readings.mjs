@@ -27,7 +27,7 @@ import { LANDED } from "../../../src/evaluation/strike/read.ts";
 import { QUIET, silenceOf } from "../../../src/evaluation/scorecard/read.ts";
 import { median, pairBootstrap } from "../../../src/evaluation/stats.ts";
 import { resolveCharacter } from "../../../src/core/bodies/models.ts";
-import { struckNumbers } from "../../../src/skills/framework/profile.ts";
+import { struckNumbers } from "../../../src/skills/framework/profile/numbers.ts";
 
 /** The profiles a mind prices its foe by, unless `--profiles <file>` names those the bouts were played with. */
 const PROFILES = "assets/skills/strikes/strike-profiles/strike-profiles.json";

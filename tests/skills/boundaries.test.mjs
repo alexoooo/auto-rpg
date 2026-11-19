@@ -12,7 +12,7 @@ import { validStepUp } from "../../src/skills/recovery/shared/staged/records.ts"
 import { validStraightDrivePart } from "../../src/skills/strikes/shared/straight-drive.ts";
 import { surfaceContains } from "../../src/skills/perception/openings.ts";
 import { actionResources } from "../../src/skills/framework/action-resources.ts";
-import { readProfile } from "../../src/skills/framework/profile.ts";
+import { readProfile } from "../../src/skills/framework/profile/reading.ts";
 import { skillDigest } from "../../research/skills/profile-origin.mjs";
 import { loadData, dataIdentity } from "../../src/core/data/store.ts";
 import { bodyRecords } from "../../src/skills/framework/records.ts";

@@ -5,7 +5,8 @@
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { lifeFactor } from "../../combat/pool.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
-import { startHeld, struckNumbers, trialExit, type Trial } from "../../skills/framework/profile.ts";
+import { startHeld, struckNumbers, trialExit } from "../../skills/framework/profile/numbers.ts";
+import { type Trial } from "../../skills/framework/profile/profile.ts";
 import type { StrikeReading } from "./read.ts";
 
 const round = (x: number): number => Number(x.toFixed(4));

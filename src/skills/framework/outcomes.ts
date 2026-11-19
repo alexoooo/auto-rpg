@@ -8,7 +8,10 @@
  */
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { formReading } from "./form.ts";
-import { profileAgainst, profilesFor, readProfile, type Measured, type Postures, type Profile, type ProfileReading } from "./profile.ts";
+import { profileAgainst } from "./profile/across.ts";
+import { profilesFor } from "./profile/lookup.ts";
+import { readProfile, type ProfileReading } from "./profile/reading.ts";
+import { type Measured, type Postures, type Profile } from "./profile/profile.ts";
 
 /** The acts an outcome model answers for: strikes, a body's ways up off the ground (`edges`) and its steps. */
 type ActTable ="strikes" | "edges" | "steps";

@@ -1,4 +1,4 @@
-import type { Profile } from "../../../framework/profile.ts";
+import type { Profile } from "../../../framework/profile/profile.ts";
 
 declare module "../../../../core/data/store.ts" { interface DataOf { "step-profiles": readonly Profile[] } }
 

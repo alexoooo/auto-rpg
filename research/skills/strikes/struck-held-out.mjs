@@ -18,7 +18,9 @@
 import { readFileSync } from "node:fs";
 import { resolveCharacter } from "../../../src/core/bodies/models.ts";
 import { formReading } from "../../../src/skills/framework/form.ts";
-import { profileAgainst, readProfile, struckNumbers } from "../../../src/skills/framework/profile.ts";
+import { profileAgainst } from "../../../src/skills/framework/profile/across.ts";
+import { readProfile } from "../../../src/skills/framework/profile/reading.ts";
+import { struckNumbers } from "../../../src/skills/framework/profile/numbers.ts";
 import { mean } from "../../../src/evaluation/stats.ts";
 
 const { profiles } = JSON.parse(readFileSync("assets/skills/strikes/strike-profiles/strike-profiles.json", "utf8"));

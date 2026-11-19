@@ -1,5 +1,7 @@
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { heldNumbers, holdsAlike, STRUCK_SPANS, struckNumbers, type BodyHeld } from "../../skills/framework/profile.ts";
+import { heldNumbers, holdsAlike, struckNumbers } from "../../skills/framework/profile/numbers.ts";
+import { STRUCK_SPANS } from "../../skills/framework/profile/nearest.ts";
+import { type BodyHeld } from "../../skills/framework/profile/profile.ts";
 
 /**
  * **A body as a pressure table is found by** (`pressureBody`): its stature, m, and mass, kg, as a

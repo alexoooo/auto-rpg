@@ -1,5 +1,5 @@
 /**
- * **Strikes' profiles from bouts** (`Profile`, `src/skills/framework/profile.ts`): each strike a
+ * **Strikes' profiles from bouts** (`Profile`, `src/skills/framework/profile/profile.ts`): each strike a
  * bout's side threw at the other's body, read as the Strike drill reads a sparring trial and made a
  * trial the one way (`strikeTrial`), merged by the key a profile is found by (`strikeKey`) over the
  * records `strike-bouts.mjs --save` wrote. The profiles are in the strikes' table's format

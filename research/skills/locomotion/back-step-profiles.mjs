@@ -1,5 +1,5 @@
 /**
- * **The back step's profiles** (`src/skills/framework/profile.ts`, `assets/skills/locomotion/step-profiles.json`):
+ * **The back step's profiles** (`src/skills/framework/profile/profile.ts`, `assets/skills/locomotion/step-profiles.json`):
  * from the back step's evaluation's sparring (`npm run evaluate -- back-step <subject> --protocol <protocol> --json <run.json>`)
  * against the Warrior's Mind fighting: `spar-chosen`, the subject the Warrior's Mind with the back
  * step taking it where it chooses (`SPAR_CHOSEN`, `src/evaluation/back-step/cases.ts`), which the
@@ -28,7 +28,8 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
-import { measuredOn, startHeld, struckNumbers, trialExit } from "../../../src/skills/framework/profile.ts";
+import { measuredOn } from "../../../src/skills/framework/profile/lookup.ts";
+import { startHeld, struckNumbers, trialExit } from "../../../src/skills/framework/profile/numbers.ts";
 import { specDigest } from "../profile-origin.mjs";
 import { everyOf } from "../../../src/minds/decider.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
