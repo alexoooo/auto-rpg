@@ -1,5 +1,4 @@
-import type { Resource } from "../../skills/framework/action.ts";
-import { sameResource, LEG_RESOURCE } from "../../skills/framework/action.ts";
+import { sameResource, LEG_RESOURCE, LEGS } from "../../skills/framework/action.ts";
 import { NO_COVER } from "../../skills/framework/intent.ts";
 import { orderedIntent } from "../ordered.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
@@ -34,8 +33,8 @@ const fights = (now: Situation): boolean => now.orders?.foe !== undefined && (no
  * a state where the body stands (`standing`) with such orders.
  */
 export function followOrders(gaits: readonly GaitName[], walk: Pick<Walker, "obeying" | "kept">): Option {
-  const UNORDERED = blocked("no orders to move, stand or face"), LEGS_HELD: readonly Resource[] = Object.freeze([LEG_RESOURCE]);
-  const claims = LEGS_HELD;
+  const UNORDERED = blocked("no orders to move, stand or face");
+  const claims = LEGS;
   /** The gait it goes by at `now`, and how fast that carries out the orders, m/s. */
   const by = (now: Situation): { readonly gait: GaitName | null; readonly speed: number } => {
     const named = now.orders?.gait;
@@ -62,7 +61,7 @@ export function followOrders(gaits: readonly GaitName[], walk: Pick<Walker, "obe
       // The body an ordered way goes round (`MovementRequest`'s `by`) is not kept off as a fallen one.
       const move = now.orders?.move, round = move?.kind === "place" ? move.by ?? null : null;
       const kept = walk.kept(now, { ...ordered, actions: [] }, round), gait = by(now).gait, asked = gait === null ? kept : { ...kept, gait };
-      return { asked, holds: [...LEGS_HELD, ...asking(now, asked).filter((resource) => !sameResource(resource, LEG_RESOURCE))] };
+      return { asked, holds: [...LEGS, ...asking(now, asked).filter((resource) => !sameResource(resource, LEG_RESOURCE))] };
     },
   };
 }

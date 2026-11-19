@@ -1,6 +1,6 @@
 import type { Spot } from "../../skills/framework/menu.ts";
 import type { Exit } from "../../skills/framework/profile/profile.ts";
-import { hasResource, LEG_RESOURCE } from "../../skills/framework/action.ts";
+import { hasResource } from "../../skills/framework/action.ts";
 import type { Readiness, Resource } from "../../skills/framework/action.ts";
 import { SETTLED } from "../../skills/intent/action-window.ts";
 import { intentOfSet, type Intent, type SelectedAsk } from "../../skills/framework/intent.ts";
@@ -268,8 +268,6 @@ export function asking(now: Situation, asked: Asked): readonly Resource[] {
   return held;
 }
 
-/** What footwork holds: the legs. */
-export const LEGS: readonly Resource[] = Object.freeze([LEG_RESOURCE]);
 
 /**
  * **What a set of options asks in a step**: each member's step as a selected set's

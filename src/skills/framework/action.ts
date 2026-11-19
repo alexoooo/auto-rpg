@@ -24,6 +24,8 @@ export type Resource = { readonly kind: "segment" | "pose"; readonly name: strin
 export const segmentResource = (name: string): Resource => Object.freeze({ kind: "segment", name });
 export const poseResource = (name: string): Resource => Object.freeze({ kind: "pose", name });
 export const LEG_RESOURCE: Resource = Object.freeze({ kind: "service", name: "legs" });
+/** The legs alone, as a list of resources: what footwork holds. */
+export const LEGS: readonly Resource[] = Object.freeze([LEG_RESOURCE]);
 export const TRUNK_RESOURCE: Resource = Object.freeze({ kind: "service", name: "trunk" });
 export const GUARD_RESOURCE: Resource = Object.freeze({ kind: "service", name: "guard" });
 export const ASSIST_RESOURCE: Resource = Object.freeze({ kind: "service", name: "assist" });

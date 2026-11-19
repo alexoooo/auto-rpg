@@ -1,4 +1,4 @@
-import { copyActionTarget, sameActionIdentity, hasResource, segmentResource, LEG_RESOURCE } from "./action.ts";
+import { copyActionTarget, sameActionIdentity, hasResource, segmentResource, LEG_RESOURCE, LEGS } from "./action.ts";
 import type { BodyView } from "../../control/body.ts";
 import type { ContactTarget } from "../../core/bodies/contact-identity.ts";
 import type { ActionAround, ActionEnding, ActionRequest, ActionStatus, ContactKind, Ended, Executor, LifecycleUpdate, Observation, Phase, Readiness, Region, Resource, TargetRef } from "./action.ts";
@@ -72,8 +72,6 @@ export interface ActionContact {
   readonly onset: boolean;
 }
 
-/** The legs alone, as a list of resources. */
-const LEGS: readonly Resource[] = Object.freeze([LEG_RESOURCE]);
 
 /**
  * Protocol state belongs to the body; executors only own their motion and shared timing. An action

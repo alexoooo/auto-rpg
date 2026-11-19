@@ -6,7 +6,7 @@ import { orderAllows, orderedTarget } from "../orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
 import { measuredOn, staleness, strikeSkill } from "../../skills/framework/profile/lookup.ts";
 import { type Expected, type ProfileReading } from "../../skills/framework/profile/reading.ts";
-import { type Postures, type Stances, type Measured } from "../../skills/framework/profile/profile.ts";
+import { type Asked as StartAsked, type Postures, type Measured } from "../../skills/framework/profile/profile.ts";
 import type { ActOutcomes } from "../../skills/framework/outcomes.ts";
 import type { ProfileOptionContext } from "./profile-contract.ts";
 import type { Sight } from "../decider.ts";
@@ -56,9 +56,18 @@ export const strikeMeasure = ({ spec, outcomes, hz, rate = hz, delay }: Pick<Pro
 type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" | "modelled">>;
 
 /**
- * **Strike**: `action` at the focus with the first of its limbs that is ready, named `name` (the
- * action's unless given), on offer where one
- * is (its executor's readiness, which refuses a body down and a target out of its band). It
+ * **A strike's site as last read with the body up**, for the focus `focus` standing at `foe` (x, z):
+ * a body down reads no window, so its site there is this spot moved as its focus has moved since,
+ * and where it is in the window (`place`), as it was.
+ */
+interface Stood { readonly focus: string; readonly spot: Spot; readonly place: [number, number] | null; readonly foe: readonly [number, number]; readonly through: number }
+
+/** What a strike is made of (`strike`): its action, the walker, how many blows it throws, its outcome model and its name. */
+interface Striking { readonly action: ActionConfig; readonly walk: Walker; readonly throws: number; readonly measure: StrikeMeasure; readonly name: string }
+
+/**
+ * **Strike**: `action` at the focus with the first of its limbs that is ready, named `name`, on
+ * offer where one is (its executor's readiness, which refuses a body down and a target out of its band). It
  * never walks: where no limb is ready and the first with a window says where it could begin (its
  * readiness's `position`), its sites are the spots in that window, one each side of the body its
  * target is on where that body lies (`windowSpot`, `SIDES`, each side's place held while it holds),
@@ -98,15 +107,8 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * on offer; elsewhere, at one of its sites (`atSite`), or where the spot it stands at is within its
  * window now, ready or not (`windowAny`, `windowHolds`), its model there as it would be here.
  */
-/**
- * **A strike's site as last read with the body up**, for the focus `focus` standing at `foe` (x, z):
- * a body down reads no window, so its site there is this spot moved as its focus has moved since,
- * and where it is in the window (`place`), as it was.
- */
-interface Stood { readonly focus: string; readonly spot: Spot; readonly place: [number, number] | null; readonly foe: readonly [number, number]; readonly through: number }
-
-export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure, name = action.name): StrikeOption {
-  const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null,
+export function strike({ action, walk, throws, measure, name }: Striking): StrikeOption {
+  const state = { target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null,
     // Each side's place beside a body lying (`HeldBeside`), and its spot as last read: at what time, for what focus, and where in its window (`placeInWindow`);
     // and the spot last read with the body up (`Stood`).
     sides: SIDES.map(() => ({ beside: heldBeside(), time: NaN, focus: null as string | null, spot: null as Spot | null, place: null as [number, number] | null, stood: null as Stood | null })),
@@ -125,10 +127,8 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   const expected = (now: Situation, place?: readonly [number, number] | null, progress?: number): Expected | null => {
     const focus = now.focus, reading = focus ? readingOf(now, { own: "standing", target: now.foePosture }) : null;
     if (!reading || !focus) return null;
-    const start: { range: number; phase: string; velocity: readonly [number, number]; stance: Stances; window?: readonly [number, number]; progress?: number } =
-      { range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase, velocity: startOf(now), stance: now.stances };
-    if (place) start.window = place;
-    if (progress !== undefined) start.progress = progress;
+    const start: StartAsked & { readonly progress?: number } = { range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase, velocity: startOf(now), stance: now.stances,
+      ...(place ? { window: place } : {}), ...(progress === undefined ? {} : { progress }) };
     return reading.expect(start, focus.spec);
   };
   const targetOf = (now: Situation): TargetRef | null => {
@@ -170,7 +170,10 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   const UNFIT = blocked("no focus to strike"), UNAIMED = blocked("the focus has none of its regions"), UNREADY = blocked("no limb in its entry");
   /** Whether the focus and its blow under way leave it a target to strike. */
   const unfit = (now: Situation): boolean => !now.focus || state.target !== null && state.target.body !== now.focus.id;
-  /** What it claims (`Option.claims`), as its entry last read it: what its blow needs with the limb it strikes with. */
+  /**
+   * What it claims (`Option.claims`), as its entry last read it: what its blow needs with the limb it strikes with. A reading,
+   * not memory: every entry reads it again, and the list is the actions' own, which a load writing into `state` would overwrite.
+   */
   const claimed = { claims: Object.freeze([]) as readonly Resource[] };
   const claim = (now: Situation, limb: string | undefined): void => { if (limb !== undefined) claimed.claims = now.sight.actions.needs(action.name, limb); };
   const entry = (now: Situation): Readiness => {
@@ -289,8 +292,8 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     entry, bound,
     status: (now) => { if (state.over) return "over"; const phase = live(now)?.phase; return phase === "release" ? "exit" : phase === "commit" ? "committed" : "yields"; },
     sites,
-    begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; state.began = null; state.place = null; },
-    end() { state.id = null; state.limb = null; state.target = null; state.began = null; state.place = null; },
+    begin(now) { state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; state.began = null; state.place = null; },
+    end() { state.id = null; state.target = null; state.began = null; state.place = null; },
     priced(now) {
       if (!act) return "by hand, no fight measured it";
       const reading = readingOf(now), stale = reading ? staleness(reading.profile, { ...measured, reaction: now.reaction }) : act.stale;
@@ -329,7 +332,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     if (state.id !== null || !state.target || now.time - state.since >= PATIENCE) { state.over = true; return still; }
     const chosen = scan(now, state.target).ready;
     if (!chosen) { state.over = true; return still; }
-    state.limb = chosen.limb; state.place = placeOf(now);
+    state.place = placeOf(now);
     state.id = now.sight.actions.instance();
     return { ...still, actions: [{ id: state.id, action: action.name, effector: chosen.limb, target: structuredClone(state.target) }] };
   }
