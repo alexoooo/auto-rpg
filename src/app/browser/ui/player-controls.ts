@@ -1,7 +1,14 @@
 import type { GroundPoint } from "../../../skills/framework/movement.ts";
 import type { PlayerLead } from "../../../game/player-input.ts";
 
-/** Clicks and held pointers give the same order; keys steer relative to the camera. */
+/** How long a finger rests before it orders, ms. A second finger that lands within it makes the two a camera gesture, and nothing is ordered. */
+const TOUCH_BEAT_MS = 120;
+
+/**
+ * Clicks and held pointers give the same order; keys steer relative to the camera. A lone finger
+ * orders as the left button does: a tap when it lifts, a hold after a beat (`TOUCH_BEAT_MS`). Two
+ * fingers order nothing: they are the camera's (`cameraControls`).
+ */
 export function playerControls<T>(canvas: HTMLCanvasElement, options: {
   readonly signal: AbortSignal;
   readonly enabled: () => boolean;
@@ -11,15 +18,17 @@ export function playerControls<T>(canvas: HTMLCanvasElement, options: {
 }) {
   const { signal } = options;
   const state = { keys: new Set<string>(), pointer: null as { clientX: number; clientY: number } | null,
-    pressed: null as number | null, sent: "" };
+    pressed: null as number | null, sent: "", from: 0 };
+  /** Each finger down on the canvas. */
+  const fingers = new Set<number>();
   const release = () => {
     const id = state.pressed;
     state.pressed = null; state.sent = "";
     if (id !== null && canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
   };
-  const reset = () => { release(); state.keys.clear(); state.pointer = null; };
+  const reset = () => { release(); state.keys.clear(); state.pointer = null; fingers.clear(); };
   const point = () => {
-    if (state.pressed === null || !state.pointer || !options.enabled()) return;
+    if (state.pressed === null || !state.pointer || !options.enabled() || performance.now() < state.from) return;
     const picked = options.pick(state.pointer);
     if (picked === null) return;
     const sent = JSON.stringify(picked);
@@ -27,11 +36,17 @@ export function playerControls<T>(canvas: HTMLCanvasElement, options: {
     state.sent = sent; options.order(picked);
   };
   canvas.addEventListener("pointerdown", event => {
+    if (event.pointerType !== "mouse") {
+      fingers.add(event.pointerId);
+      // The first finger stays captured while it is down: only its order is dropped.
+      if (fingers.size > 1) { state.pressed = null; state.sent = ""; return; }
+    }
     if (event.button !== 0 || !options.enabled()) return;
     canvas.focus();
     if (options.select?.(event, event.shiftKey)) return;
     state.pointer = { clientX: event.clientX, clientY: event.clientY };
     state.pressed = event.pointerId; state.sent = "";
+    state.from = event.pointerType === "mouse" ? 0 : performance.now() + TOUCH_BEAT_MS;
     canvas.setPointerCapture(event.pointerId);
     point();
   }, { signal });
@@ -40,11 +55,12 @@ export function playerControls<T>(canvas: HTMLCanvasElement, options: {
     if (!(event.buttons & 1)) release();
   }, { signal });
   canvas.addEventListener("pointerup", event => {
-    if (event.button !== 0) return;
+    fingers.delete(event.pointerId);
+    if (event.button !== 0 || event.pointerId !== state.pressed) return;
     state.pointer = { clientX: event.clientX, clientY: event.clientY };
-    point(); release();
+    state.from = 0; point(); release();
   }, { signal });
-  canvas.addEventListener("pointercancel", release, { signal });
+  canvas.addEventListener("pointercancel", event => { fingers.delete(event.pointerId); release(); }, { signal });
   canvas.addEventListener("lostpointercapture", release, { signal });
   const movement = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"]);
   window.addEventListener("keydown", event => {

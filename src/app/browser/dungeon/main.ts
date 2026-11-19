@@ -628,11 +628,13 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
   /** Shared player and camera gestures, with the Dungeon's selection and world picking. */
   function wirePointer(page: DungeonPage, party: Party): void {
     const { signal, hover, engine } = page;
-    cameraControls(canvas, { signal, enabled: () => page.rig !== null && !page.launching,
-      camera: { orbit: (dx, dy) => page.rig?.orbit(dx, dy), zoom: delta => page.rig?.zoom(delta) } });
+    /** Whether the person's pointer gives the party an order now. */
+    const orders = () => !!page.run && !page.paused && !page.launching && page.run.status === "playing";
+    cameraControls(canvas, { signal, enabled: () => page.rig !== null && !page.launching, orders,
+      camera: { orbit: (dx, dy) => page.rig?.orbit(dx, dy), zoom: factor => page.rig?.zoom(factor) } });
     page.controls = playerControls<Command>(canvas, {
       signal,
-      enabled: () => !!page.run && !page.paused && !page.launching && page.run.status === "playing",
+      enabled: orders,
       select: (point, extend) => {
         const { run, scene, camera } = page;
         if (!run || !scene || !camera) return false;

@@ -367,5 +367,6 @@ Lab has its own `index.html`.
   visible room is checked against them (`validateRoomPlacements`).
 - **Drawing** (`src/app/browser/render/`): a skin reads only segment poses; art comes through the
   asset pipeline ([assets](art/assets.md)).
-- **Input, view and sound** are shared by the screens: `src/app/browser/ui/player-controls.ts`,
-  `ui/view-controls.ts` and `src/app/browser/audio/`.
+- **Input, view and sound** are shared by the screens: `src/app/browser/ui/player-controls.ts`
+  (orders: the left button or a lone finger), `ui/camera-controls.ts` (orbit and zoom: the middle
+  or right button and the wheel, or two fingers), `ui/view-controls.ts` and `src/app/browser/audio/`.

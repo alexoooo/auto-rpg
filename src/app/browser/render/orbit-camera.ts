@@ -7,7 +7,7 @@ import { CHASE_BETA, followCameraAngles, ISO_ALPHA, ISO_BETA, orthoExtents, VIEW
 
 /** Orbit angles, distance and pointer sensitivity, set by eye. Distances scale with the opening frame. */
 const ORBIT = Object.freeze({ azimuth: 0, pitch: .32, distance: 7, nearest: 2.5, farthest: 16,
-  lowest: .05, highest: 1.35, turn: .006, tilt: .004, zoom: .001 });
+  lowest: .05, highest: 1.35, turn: .006, tilt: .004 });
 
 export interface CameraSubject extends CameraFacing {
   readonly position: Vector3;
@@ -53,8 +53,9 @@ export function orbitCamera(camera: FreeCamera, initial: ViewSettings, framing: 
       state.pitch = Math.min(ORBIT.highest, Math.max(ORBIT.lowest, state.pitch + dy * ORBIT.tilt));
       state.free.azimuth = state.azimuth; state.free.pitch = state.pitch;
     },
-    zoom(delta: number) {
-      state.distance = Math.min(ORBIT.farthest * scale, Math.max(ORBIT.nearest * scale, state.distance * Math.exp(delta * ORBIT.zoom)));
+    /** Multiply the camera's distance by `factor`, kept between its nearest and its farthest. */
+    zoom(factor: number) {
+      state.distance = Math.min(ORBIT.farthest * scale, Math.max(ORBIT.nearest * scale, state.distance * factor));
     },
     get azimuth() { return Math.atan2(target.x - camera.position.x, target.z - camera.position.z); },
     get pitch() { return state.pitch; },

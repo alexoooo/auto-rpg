@@ -694,9 +694,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const help = (open: boolean) => show("help", open);
   need("help-open").addEventListener("click", () => help(true));
   need("help-close").addEventListener("click", () => help(false));
+  /** Whether the person's pointer gives their side an order now. */
+  const orders = () => !!bout?.person && !paused && screen === "fight" && !bout.news?.verdict;
   const player = playerControls<Ray>(canvas, {
     signal: context.signal,
-    enabled: () => !!bout?.person && !paused && screen === "fight" && !bout.news?.verdict,
+    enabled: orders,
     pick: ({ clientX, clientY }) => {
       const pick = pickingCoordinates(engine, { clientX, clientY }, canvas.getBoundingClientRect());
       const ray = scene.createPickingRay(pick.x, pick.y, null, camera);
@@ -735,7 +737,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     releaseInput();
     if (bout && !bout.news?.verdict) setPaused(true);
   }, { signal: context.signal });
-  cameraControls(canvas, { signal: context.signal, enabled: () => screen === "fight", camera: rig });
+  cameraControls(canvas, { signal: context.signal, enabled: () => screen === "fight", orders, camera: rig });
   const steer = () => {
     if (!bout?.person) return;
     const lead = player.sample({ x: -Math.sin(rig.azimuth), z: -Math.cos(rig.azimuth) });
