@@ -48,7 +48,7 @@ export function resolveSubjects(evaluation, names, previous, ablations) {
     if (!belongsTo(one.id, subject.id)) return [one];
     const before = inherited.get(one.id.slice(subject.id.length));
     return !before ? [] : [{ ...one, ...(before.models === undefined ? {} : { models: before.models }),
-      ...(before.character === undefined ? {} : { character: before.character, parts: [...one.parts, ...before.parts.filter(part => part.id.startsWith("character:"))] }) }];
+      ...(before.character === undefined ? {} : { character: before.character }) }];
   });
   return { choice, subjects };
 }
