@@ -36,11 +36,9 @@ strikes, guarding and minds are there.
   "step back, step forward, punch, sword"". A step is a locomotion skill and a strike is a strike,
   each made and measured once and met by the Mind and the Move, never a strike made again for each
   step it could be thrown from.
-- **A skill is just a skill**, the owner's word, 2026-11-19: "What we have now is broken. I always
-  want everything to be just a skill. I don't want any ad-hoc hard-coded hacks." A skill is made,
-  measured, and then is in every Mind that can use it by that Mind's config: its character holds
-  it, its part is registered, its Option is among the others. None is held in a preset or behind a
-  helper of its own; a reading without it is the Mind's config less it.
+- **A skill is just a skill** (the owner's standard, `AGENTS.md`): made, measured, and then in
+  every Mind that can use it by that Mind's config, its character holding it; none is held in a
+  preset or behind a helper of its own, and a reading without it is the Mind's config less it.
 
 ### A skill's value
 

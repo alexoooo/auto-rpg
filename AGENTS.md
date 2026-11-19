@@ -1,12 +1,15 @@
 # Working on Auto-RPG
 
-[README](README.md) says what the game is; the [architecture](docs/architecture.md) how it is
-built; a plan in `docs/plans/`, where there is one, what is in work, in the owner's words.
-Work toward the owner's goal runs unattended, overnight included.
+**The owner's standard**: "the most important thing is to maintain and even increase the code
+quality of this project. we need to implement everything in the most simple and general way that
+we can"; "I always want everything to be just a skill. I don't want any ad-hoc hard-coded hacks."
+A new capability enters by the config path those already there take. Work not yet kept lives in a
+worktree (`.tmp/worktrees/<name>/`), never on main behind a helper, a preset or a flag.
 
-Where a second session reviews the work, it reads read-only and sends a note only with its
-evidence; it never asks the work to wait for the owner and never adds to the owner's bar. The
-worker answers a note with a reading and keeps going.
+[README](README.md) says what the game is, the documents below the rest. Work toward the owner's
+goal runs unattended. A second session that reviews it reads read-only and sends a note only with
+its evidence, never asking the work to wait for the owner or adding to the owner's bar; the worker
+answers a note with a reading and keeps going.
 
 ## Commands
 
@@ -18,8 +21,7 @@ npm test                  # the gate
 npm run build             # type-check, then the bundle
 npm run pull:merge        # fetch, merge, validate once, commit; -- --continue after resolving conflicts
 npm run match -- <a> <b>  # two minds, each on each side, one digest
-npm run evaluate -- <id>  # an evaluation's cases where no row has them; --fresh plays its subjects' again; --write keeps its results
-npm run evaluate -- table # the grid from saved results; plays nothing (its flags: docs/reference/the-table.md)
+npm run evaluate -- <id>  # an evaluation's cases where no row has them; --fresh plays its subjects' again; --write keeps its results; `table`, the grid (docs/reference/the-table.md)
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 node scripts/fingerprint.mjs          # what the game computes, before and after a refactor
 ```
@@ -31,16 +33,14 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   claiming no behaviour change, the fingerprint; prose only, `node --test tests/documents.test.mjs`
   (the links) and `git diff --check`, nothing more.
 - **Landing**: commit each landable change on main, naming the checks run and any failure left.
-  No push and no branch unless the owner asks: a push to main publishes the README's Play link
-  (`.github/workflows/pages.yml` runs `npm run build` and `npm test` on a fresh checkout).
+  No push and no branch unless the owner asks: a push to main publishes the README's Play link.
 - **Pull and merge** with `npm run pull:merge`; resolve conflicts by meaning, stage only those
   files and `-- --continue`. Never stash or commit unrelated work.
 - **Servers**: leave none running. Port 5180 may be the owner's: never restart or kill it; use
   `npm run preview` on another port and kill it by PID (`netstat -ano | findstr :<port>`; killing
   `npx` leaves `vite` running).
-- **Temporary files** in `.tmp/<task>/`, a run's output among them, worktrees in
-  `.tmp/worktrees/<name>/`; deleted when the task lands. Something kept outside Git gets its own
-  `.gitignore` line (`npm run clean` lists what has none).
+- **Temporary files** in `.tmp/<task>/`, deleted when the task lands; something kept outside Git
+  gets its own `.gitignore` line (`npm run clean` lists what has none).
 
 ## Documents
 
@@ -56,6 +56,5 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 | `docs/reference/` | only what code needs and a comment cannot hold |
 | `docs/art/`, asset and vendor READMEs | where each asset comes from and how to rebuild it |
 
-A document says what is true of the code now, once. The story of a change goes in its commit
-message; a finding goes in the document above that holds its kind, never in an agent's own
-memory. A wrong document is corrected or deleted. Links resolve: `tests/documents.test.mjs`.
+A document says what is true of the code now, once; a wrong one is corrected or deleted. A change's
+story goes in its commit message, a finding in the document holding its kind, never in a memory.

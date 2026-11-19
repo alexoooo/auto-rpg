@@ -59,14 +59,9 @@ of a test.
   speed rewrite does the same operations in the same order, moves no fingerprint, and reads its
   time before and after ([step cost](../reference/step-cost.md)).
 - **An identical fingerprint is not "no bout moves"**: it plays a few fixed bouts and scenes, so a
-  change that moves only states those never reach leaves it identical. It plays no back-step
-  mirror of two men, none of the back step's drills, and no rise from the states those bouts reach:
-  cleanup 76's climb, its quintic's arithmetic grouped otherwise, read "fingerprint identical"
-  and moved 3 of 144 of those mirror bouts by rounding (`98bbd2ae8`); cleanup 28's reading of a
-  start, read on the scorecard within its spread, moved that mirror's gap from 9.3 to 13.0
-  points and the back step's drill's falls from 4 to 6 of 48 (`e1d6b1d7d`, `76f63b6ec`). A
-  change claiming none plays the cases of the skills it touches as well, saved, and compares
-  them bout by bout. *Shown.*
+  change that moves only states those never reach leaves it identical (`98bbd2ae8` moved 3 of 144
+  mirror bouts by rounding). A change claiming none plays the cases of the skills it touches as
+  well, saved, and compares them bout by bout. *Shown.*
 - **A screen is an explicit argument**, never inferred from a state machine. Pause freezes the
   world, not the camera.
 - **Two watchers on one body**: set a flag in the callback; act on it at the next control step.
@@ -86,8 +81,8 @@ of a test.
 - **A fix adds no flag, cast, optional parameter or second copy.** A field every maker gives is
   required; what two modules need is one export of the module that owns it; a cast a type could
   carry is that type (a generic over the config, a type guard).
-- **An experiment is a kind behind its contract**, selected by a config, or it is deleted when its
-  reading is in; never a flag, a string or an optional parameter in the code every kind shares.
+- **An experiment is tried in a worktree** and lands as the general thing or is dropped: nothing
+  stays selectable because it was once tried.
 - **A stored file has one shape.** When the shape changes, the file is rewritten or made again in
   the same commit; no reader allows for the old one.
 - **A new need is not a new trailing parameter.** A function written, reshaped or added to takes
