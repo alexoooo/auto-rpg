@@ -19,14 +19,9 @@ import { riseLimbs } from "./limbs.ts";
 import { RISE, stageFaults, stagesOf, type BearStage, type PoseStage, type Recipe, type Stage, type Until } from "./stages.ts";
 import type { ReadSegment } from "../../../../core/bodies/read-body.ts";
 import { rollCoast } from "./roll-coast.ts";
+import { POSE_DRIVING } from "../technique.ts";
 import { SIDES } from "../../../../core/bodies/bilateral.ts";
 
-/**
- * The pose drive: a freedom is asked the speed that would close its error in `POSE_SECONDS`, no
- * faster than `POSE_SPEED`, rad/s, at full activation. Speeds, not the joint servo, which takes
- * the root as held and knows no contact, as a body pressing off the ground is not.
- */
-const POSE_SECONDS = 0.2, POSE_SPEED = 3;
 /**
  * Lying still: the centre of mass under `SLOW`, m/s, for `STILL_SECONDS`. The centre of mass, not
  * the segments, since a limp hand can turn for as long as it is watched.
@@ -135,7 +130,7 @@ function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleReading["cha
  * is, as often as it takes.
  *
  * A pose stage drives every freedom toward its posture for its time, at its drive or the pose
- * drive (`POSE_SECONDS`, `POSE_SPEED`). A bearing stage is a step of
+ * drive (`POSE_DRIVING`). A bearing stage is a step of
  * motor control's shape on the body's bearing ends (`riseLimbs`): the centre of mass asked toward the
  * place over the limbs it bears on, the pelvis toward its pitch, the bearing solve
  * (`src/control/bearing.ts`) for the root's acceleration and those limbs' torques, and the
@@ -301,7 +296,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     if (phase === "rise" && index > state.furthest) state.furthest = index;
   };
   const pose = (stage: PoseStage, control: BodyControl, dt: number): void => {
-    const top = stage.drive?.speed ?? POSE_SPEED, within = stage.drive?.within ?? POSE_SECONDS, { pace, press, level, follow } = stage;
+    const top = stage.drive?.speed ?? POSE_DRIVING.top, within = stage.drive?.within ?? POSE_DRIVING.within, { pace, press, level, follow } = stage;
     let goals = goalsOf.get(stage)!;
     if (pace || press || level || follow) {
       const asked = work.goals;

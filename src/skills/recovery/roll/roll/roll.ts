@@ -1,24 +1,14 @@
 import type { BodyView } from "../../../../control/body.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
-import { deepFreeze } from "../../../../core/state.ts";
 import type { GroundReading, Position } from "../../../../control/ground-reading.ts";
-import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "../../shared/technique.ts";
-import { mirrorPosture } from "../../shared/bilateral.ts";
+import { phaseClock, poseDrive, postureError, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "../../shared/technique.ts";
+import { rollOver } from "../../shared/staged/stages.ts";
 import type { Side } from "../../../../core/bodies/bilateral.ts";
 
-/** The roll's successive postures over the right side. */
-const POSES = deepFreeze<readonly { readonly name: string; readonly posture: Readonly<Record<string, number>> }[]>([
-  { name: "wind", posture: { "hip.left flexion": 1.2, "hip.left abduction": .54, "hip.right flexion": .2, "shoulder.right flexion": 2.8 } },
-  { name: "swing", posture: { "hip.left flexion": .8, "hip.left internal rotation": .6, "hip.right abduction": .2, "lumbar flexion": .8,
-    "shoulder.left flexion": 1.4, "shoulder.right flexion": 1.2, "shoulder.right abduction": 2 } },
-  { name: "over", posture: { "hip.left flexion": 1.2, "hip.left abduction": .54, "shoulder.right flexion": 2.8 } },
-  { name: "flat", posture: { "shoulder.right flexion": 2.8, "shoulder.left internal rotation": -.8, "elbow.left flexion": 2.1 } },
-]);
-
-/** A side roll ends on loaded front support, preserving its real momentum for the next technique. */
+/** A side roll, through the staged roll's postures over its side (`rollOver`), ends on loaded front support, preserving its real momentum for the next technique. */
 export function rollToFront(own: OwnBody, _view: BodyView): TechniqueRun<Side> {
   const drive = poseDrive(own.muscles), clock = phaseClock();
-  const sides = { right: POSES, left: POSES.map(pose => ({ ...pose, posture: mirrorPosture(pose.posture) })) };
+  const sides = { right: rollOver("right"), left: rollOver("left") };
   const channels = { right: sides.right.map(pose => Object.keys(pose.posture).map(name => own.muscles.channel(name)).filter(i => i !== undefined)),
     left: sides.left.map(pose => Object.keys(pose.posture).map(name => own.muscles.channel(name)).filter(i => i !== undefined)) };
   const trunk = own.spec.segments.flatMap((segment, i) => segment.name.endsWith("Trunk") ? [i] : []);
@@ -41,13 +31,8 @@ export function rollToFront(own: OwnBody, _view: BodyView): TechniqueRun<Side> {
       state.reached = reached(g, "front") ? state.reached + dt : 0;
       if (state.reached + 1e-9 >= REACHED_SECONDS) return finish("done");
       const poses = sides[state.side], pose = poses[state.stage]!, indices = channels[state.side][state.stage]!;
-      drive(control.muscles, pose.posture, .2, 3);
-      let error = 0;
-      for (const i of indices) {
-        const c = own.muscles.channels[i]!, target = Math.max(c.dof.spec.min.value, Math.min(c.dof.spec.max.value, (pose.posture[c.name] ?? 0) - c.dof.spec.bind.value));
-        error += Math.abs(target - own.muscles.angle(i));
-      }
-      const event = state.stage === 0 ? indices.length > 0 && error / indices.length < .25
+      drive(control.muscles, pose.posture);
+      const event = state.stage === 0 ? postureError(own.muscles, indices, pose.posture) < .25
         : state.stage === 1 ? g.lie === state.side || g.lie === "front" : state.stage === 2 && g.lie === "front";
       const result = clock.step({ inside: true, event: state.stage < poses.length - 1 && event, deadline: 2 }, dt);
       if (result === "done") { state.stage++; clock.reset(); state.yieldPending = true; }

@@ -82,16 +82,34 @@ export function phaseClock() {
   };
 }
 
+/**
+ * How a posture is driven (`poseDrive`): each freedom asked the rate that closes its gap to the
+ * posture in `within` seconds, no faster than `top`, rad/s, at `activation`. Speeds, not the joint
+ * servo, which takes the root as held and knows no contact, as a body pressing off the ground is not.
+ */
+export interface PoseDriving { readonly within: number; readonly top: number; readonly activation: number }
+
+/** The pose drive as a way up drives its postures: a gap closed in 0.2 s, no faster than 3 rad/s, at full activation. */
+export const POSE_DRIVING: PoseDriving = Object.freeze({ within: 0.2, top: 3, activation: 1 });
+
+/** The angle `posture` asks of `channel`, rad from its reference pose, within its range: none named, the reference. */
+export function postureGoal(channel: MuscleReading["channels"][number], posture: Readonly<Record<string, number>>): number {
+  const dof = channel.dof.spec;
+  return Math.max(dof.min.value, Math.min(dof.max.value, (posture[channel.name] ?? 0) - dof.bind.value));
+}
+
+/** How far the channels `indices` are from what `posture` asks of them (`postureGoal`), on average, rad; NaN with none. */
+export function postureError(muscles: MuscleReading, indices: readonly number[], posture: Readonly<Record<string, number>>): number {
+  let error = 0;
+  for (const i of indices) error += Math.abs(postureGoal(muscles.channels[i]!, posture) - muscles.angle(i));
+  return error / indices.length;
+}
 
 /** Rate goals use the joint's actual turning map before they become motor speeds. Work is per body. */
 export function poseDrive(muscles: MuscleReading) {
   const rates = new Float64Array(muscles.channels.length);
-  return (command: MuscleCommand, posture: Readonly<Record<string, number>>, within = .2, top = 3, activation = 1): void => {
-    for (let i = 0; i < rates.length; i++) {
-      const channel = muscles.channels[i]!, dof = channel.dof.spec;
-      const goal = Math.max(dof.min.value, Math.min(dof.max.value, (posture[channel.name] ?? 0) - dof.bind.value));
-      rates[i] = Math.max(-top, Math.min(top, (goal - muscles.angle(i)) / within));
-    }
+  return (command: MuscleCommand, posture: Readonly<Record<string, number>>, { within, top, activation }: PoseDriving = POSE_DRIVING): void => {
+    for (let i = 0; i < rates.length; i++) rates[i] = Math.max(-top, Math.min(top, (postureGoal(muscles.channels[i]!, posture) - muscles.angle(i)) / within));
     for (let i = 0; i < rates.length; i++) {
       command.velocity[i] = channelSpeed(muscles, i, rates, i - muscles.channels[i]!.index); command.activation[i] = activation;
     }

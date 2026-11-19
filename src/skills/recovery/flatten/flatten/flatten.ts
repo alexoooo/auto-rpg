@@ -10,6 +10,9 @@ const FLAT = deepFreeze({ "shoulder.left abduction": 1.3, "shoulder.right abduct
   "elbow.left flexion": .2, "elbow.right flexion": .2, "hip.left flexion": .1, "hip.right flexion": .1,
   "knee.left flexion": .2, "knee.right flexion": .2 });
 
+/** How the body is laid flat, softly (`poseDrive`): the seconds a gap closes in, the top rate, rad/s, and the activation. */
+const LAYING = deepFreeze({ within: .35, top: 2, activation: .35 });
+
 /** Repositioning proves anatomical arm clearance independently of filtered self-contacts. */
 export function flatten(own: OwnBody, _view: BodyView): TechniqueRun {
   const drive = poseDrive(own.muscles), clear = armClearance(own.built), clock = phaseClock();
@@ -25,7 +28,7 @@ export function flatten(own: OwnBody, _view: BodyView): TechniqueRun {
     end() { state.ended = "interrupted"; },
     step(g, _senses, control, dt) {
       if (state.ended) return state.ended;
-      drive(control.muscles, FLAT, .35, 2, .35);
+      drive(control.muscles, FLAT, LAYING);
       state.ended = clock.step({ inside: g.height < 1 && g.spin < 15,
         event: reached(g, g.lie), hold: REACHED_SECONDS, deadline: 3 }, dt);
       return state.ended;

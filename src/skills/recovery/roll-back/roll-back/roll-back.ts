@@ -2,7 +2,7 @@ import type { BodyView } from "../../../../control/body.ts";
 import { deepFreeze } from "../../../../core/state.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import type { GroundReading, Position } from "../../../../control/ground-reading.ts";
-import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "../../shared/technique.ts";
+import { phaseClock, poseDrive, postureError, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "../../shared/technique.ts";
 import { mirrorPosture } from "../../shared/bilateral.ts";
 import type { Side } from "../../../../core/bodies/bilateral.ts";
 
@@ -41,13 +41,7 @@ export function rollBack(own: OwnBody, _view: BodyView): TechniqueRun<Side> {
       if (state.reached + 1e-9 >= REACHED_SECONDS) return state.ended = "done";
       const pose = sides[state.side][state.stage]!, indices = channels[state.side];
       drive(control.muscles, pose);
-      let error = 0;
-      for (const i of indices) {
-        const c = own.muscles.channels[i]!, dof = c.dof.spec;
-        const goal = Math.max(dof.min.value, Math.min(dof.max.value, (pose[c.name] ?? 0) - dof.bind.value));
-        error += Math.abs(own.muscles.angle(i) - goal);
-      }
-      const event = state.stage === 0 ? error / indices.length < .25 : state.stage === 1 && (g.lie === state.side || g.lie === "back");
+      const event = state.stage === 0 ? postureError(own.muscles, indices, pose) < .25 : state.stage === 1 && (g.lie === state.side || g.lie === "back");
       const result = clock.step({ inside: g.height < .8 && g.spin < 15, event, deadline: 2 }, dt);
       if (result === "done") { state.stage++; clock.reset(); state.yieldPending = g.lie === "back"; }
       else if (result) state.ended = result;

@@ -285,7 +285,7 @@ export async function witnessTrial({ move, model = "man", held = "empty", seed, 
           let at = control.time, k = 0;
           while (k < plan.length - 1 && at >= plan[k].duration) { at -= plan[k].duration; k++; }
           const phase = plan[k], g = view.ground ?? reader.read();
-          if (phase.kind === "pose") drive(pending.control.muscles, phase.posture, WITHIN, phase.top, phase.activation);
+          if (phase.kind === "pose") drive(pending.control.muscles, phase.posture, { within: WITHIN, top: phase.top, activation: phase.activation });
           else {
             if (control.phase < 0 || plan[control.phase].kind !== "bear") bearing.begin(g);
             bearing.step(phase, g, pending.control, dt);

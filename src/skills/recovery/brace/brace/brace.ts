@@ -11,4 +11,4 @@ const BRACE = deepFreeze({ "cervical flexion": .3, "shoulder.left flexion": .8, 
 const BRACING = deepFreeze({ within: .3, top: 2, activation: .4 });
 
 /** Drive the brace (`BRACE`, `BRACING`) with `drive` (`poseDrive`). */
-export const brace = (drive: ReturnType<typeof poseDrive>, command: MuscleCommand): void => drive(command, BRACE, BRACING.within, BRACING.top, BRACING.activation);
+export const brace = (drive: ReturnType<typeof poseDrive>, command: MuscleCommand): void => drive(command, BRACE, BRACING);
