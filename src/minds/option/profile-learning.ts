@@ -2,13 +2,13 @@ import { PROFILE_MODEL } from "./profile-contract.ts";
 import type { Refused } from "../../core/refusal.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { MindConfig } from "../catalog/config.ts";
-import type { OptionMindConfig } from "./config.ts";
+import { optionsOf, type OptionMindConfig } from "./config.ts";
 import { strikesIn, type StrikeConfig } from "./kinds.ts";
 
 /** The profile fighter's training adapter selects one configured strike and may steer its executor. */
 export function profileLearningMind(parts: PartLookup, preset: MindConfig, request: { readonly skill: string; readonly steered?: true }): MindConfig | Refused {
   if (preset.kind !== "option") return { refused: `${preset.kind} is not a profile Option fighter` };
-  const config = preset as OptionMindConfig, options = config.options ?? [];
+  const config = preset as OptionMindConfig, options = optionsOf(config, parts);
   if (config.predictions && parts.of("predictions", config.predictions).model !== PROFILE_MODEL
     || options.some(option => parts.of("option", option).model !== PROFILE_MODEL))
     return { refused: "the selected mind does not use the profile Option protocol" };

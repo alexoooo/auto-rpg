@@ -62,6 +62,7 @@ import { readFileSync } from 'node:fs';
 import '../tests/harness/preload-data.mjs';
 import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";
 import { MINDS } from "../src/app/catalog.ts";
+import { optionsOf } from "../src/minds/option/config.ts";
 import { EVALUATIONS } from "../src/app/node/evaluation.ts";
 import { WORLD_BUILDERS } from "../src/app/node/evaluation.ts";
 import { caseName } from "../src/evaluation/results.ts";
@@ -126,8 +127,9 @@ function presetMind(given, configureMind) {
  * the strike near nothing, and a walk outbids it as it winds and lets it go. Else `preset`.
  */
 export function owning(game, preset, skill) {
-  const options = preset.options ?? [], kind = `strike-${skill}`;
-  if (preset.kind !== 'option' || !game.isKind(kind) || options.some((option) => option.skill?.kind === skill)) return preset;
+  if (preset.kind !== 'option') return preset;
+  const options = optionsOf(preset, game.partLookup), kind = `strike-${skill}`;
+  if (!game.isKind(kind) || options.some((option) => option.skill?.kind === skill)) return preset;
   return { ...preset, options: [...options.filter((option) => option.kind !== 'walk'), game.partLookup.of('option', { kind }).defaults] };
 }
 

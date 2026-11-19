@@ -2,14 +2,15 @@ import "./fixtures/swap/hooks.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 const { BOUT_ENGINE } = await import("../../research/bout.mjs");
-const { MINDS } = await import("../../src/app/catalog.ts");
+const { MINDS, partLookup } = await import("../../src/app/catalog.ts");
+const { optionsOf } = await import("../../src/minds/option/config.ts");
 const { EVALUATIONS } = await import("../../src/app/node/evaluation.ts");
 const { resolveSubjects } = await import("../../scripts/evaluation-subjects.mjs");
 const { casesOf } = await import("../../src/evaluation/run.ts");
 const { slotsOf } = await import("../../src/evaluation/compare.ts");
 
 /** Sword strikes expose loadout widening when added to a calibrated bare-hand source. */
-const SWORD_STRIKES = MINDS.option.config.options.filter(option => option.kind === "strike-sword-thrust");
+const SWORD_STRIKES = optionsOf(MINDS.option.config, partLookup).filter(option => option.kind === "strike-sword-thrust");
 
 /**
  * Prevent an ablated configuration from expanding to bodies/loadouts outside its source

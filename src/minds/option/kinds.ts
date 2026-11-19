@@ -17,7 +17,7 @@ import { followOrders } from "./orders.ts";
 import { gaitsOf, goesBy, walkBy } from "./places.ts";
 import { PROFILE_MODEL, type ProfileOptionContext } from "./profile-contract.ts";
 import type { NamedSkills } from "./skills.ts";
-import { chosenVariation, selectsVariation, type Varied } from "../../skills/framework/variations.ts";
+import { chosenVariation, type Varied } from "../../skills/framework/variations.ts";
 import { guardOf, hold, holdAt } from "./rest.ts";
 import { strike, strikeMeasure } from "./strike.ts";
 import { choosingSkill } from "./selection.ts";
@@ -198,7 +198,7 @@ function aimingFaults(config: StrikeConfig, parts: PartLookup): readonly string[
  * and the limb), each priced by its profile among the strikes' where one is measured as the body
  * reads it (`strikeMeasure`); none where the body does not fit its skill or has no limb of its role.
  */
-function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, limbs: LimbRole): StrikeKindPart<K> {
+function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, settings: Omit<StrikeConfig<K>, "kind" | "skill">): StrikeKindPart<K> {
   const of = (config: StrikeConfig<K>, given: ProfileOptionContext): readonly Option[] =>
     strikeSkills(given.parts, given.spec, config, given.options).flatMap(({ executor, action }) => {
       const executors = [executor], blows = given.parts.of("executor", executor).blows?.(executor) ?? 1;
@@ -213,7 +213,7 @@ function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, li
     role: "option", model: PROFILE_MODEL, label, stands: false, skill,
     fields: [choice<StrikeConfig<K>, "limbs">("limbs", "Limbs", LIMB_ROLES), json<StrikeConfig<K>, "regions">("regions", "Target regions", "target-regions")],
     slots: [slotSkill("skill", "Skill", "executor"), { ...slotSkill("support", "Low support", "support"), optional: true }, slotOne("aim", "Aim", "aim", true)],
-    defaults: { kind: `strike-${skill}`, skill: { kind: skill }, limbs, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "centre", lead: 0 } } as StrikeConfig<K>,
+    defaults: { kind: `strike-${skill}`, skill: { kind: skill }, ...settings } as StrikeConfig<K>,
     keys: { kind: true, skill: true, limbs: true, regions: true, aim: true, support: true } as KeysOf<StrikeConfig<K>>,
     fits: anyBody,
     faults: (config: StrikeConfig<K>, parts: PartLookup) => config.skill.kind !== skill ? [`skill: a ${skill}`]
@@ -232,45 +232,48 @@ function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, li
 export const strikesIn = (parts: PartLookup, options: readonly PartConfig[]): readonly StrikeConfig[] =>
   options.filter((option): option is PartConfig & StrikeConfig => "skill" in (parts.of("option", option) as ProfileOptionPart));
 
-/** Every toolkit strike template, for dependency declarations. */
-export const strikeDefaults = (parts: PartLookup): readonly StrikeConfig[] => parts.candidates("option").flatMap(config => {
-  const part = parts.of("option", config);
-  return isProfileOption(part) && "skill" in part ? [part.defaults as StrikeConfig] : [];
-});
 
-/** Selected strike variations omitted by a preset remain available through their skill's default use. */
-export function selectedOptions(parts: PartLookup, spec: BodySpec, options: readonly ConfigFor<"option">[]): readonly ConfigFor<"option">[] {
-  const configured = strikesIn(parts, options), missing: StrikeConfig[] = [];
-  for (const template of strikeDefaults(parts)) {
-    const held = heldVariations(spec, template.skill.kind);
-    for (const variation of held) {
-      const config = { ...template, skill: { ...template.skill, variation } };
-      if (configured.some(known => selectsVariation(known.skill, config.skill))) continue;
-      if (strikeSkills(parts, spec, config, [...options, ...missing]).length) missing.push(config);
-    }
-  }
-  return missing.length ? [...options, ...missing] : options;
-}
+/** A strike at the trunk's middle. */
+const MIDDLE: readonly Region[] = deepFreeze([{ kind: "mark", mark: "middle" }]);
 
-/** **The straight punch** (`straight-punch`), with either hand. */
-export const STRAIGHT_PUNCH_OPTION = strikeKind("straight-punch", "Straight punch", "either-hand");
+/** A strike aimed at its region's centre. */
+const CENTRE: ConfigFor<"aim"> = deepFreeze({ kind: "centre", lead: 0 });
 
-/** **The club's blow** (`club-blow`), with the hand that holds the club. */
-export const CLUB_BLOW_OPTION = strikeKind("club-blow", "Club blow", "holding-hand");
+/** Aimed at the trunk's opening as the learned puncher aims. */
+const TRUNK_OPENING: ConfigFor<"aim"> = deepFreeze({ kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } });
 
-const BONK_KIND = strikeKind("bonk", "Bonk", "holding-hand");
-/** A descending held-club use aimed at the head with the centre aim. */
-export const BONK_OPTION = deepFreeze({ ...BONK_KIND,
-  defaults: { ...BONK_KIND.defaults, regions: [{ kind: "mark" as const, mark: "high" as const }] } });
+/** Its low support, under a blow of the hands: the support fold. */
+const SUPPORT_FOLD: ConfigFor<"support"> = deepFreeze({ kind: "support-fold" });
 
-/** **The sword's thrust** (`sword-thrust`), with the hand that holds the sword. */
-export const SWORD_THRUST_OPTION = strikeKind("sword-thrust", "Sword thrust", "holding-hand");
+/**
+ * **The straight punch** (`straight-punch`, `assets/skills/strikes/straight-punch/drive.json`, the
+ * Warrior's trained): with either hand at the trunk's opening, aimed as the learned puncher aims,
+ * from its low support.
+ */
+export const STRAIGHT_PUNCH_OPTION = strikeKind("straight-punch", "Straight punch", { limbs: "either-hand", regions: MIDDLE, aim: TRUNK_OPENING, support: SUPPORT_FOLD });
 
-/** **The stomp** (`stomp`), with either foot. */
-export const STOMP_OPTION = strikeKind("stomp", "Stomp", "either-foot");
+/** **The club's blow** (`club-blow`), with the hand that holds the club, at the trunk's middle. */
+export const CLUB_BLOW_OPTION = strikeKind("club-blow", "Club blow", { limbs: "holding-hand", regions: MIDDLE, aim: CENTRE });
 
-/** **The bite** (`bite`), with the jaw. */
-export const BITE_OPTION = strikeKind("bite", "Bite", "jaw");
+/** **The bonk** (`bonk`): the club swung overhead at the head, with the hand that holds the club. */
+export const BONK_OPTION = strikeKind("bonk", "Bonk", { limbs: "holding-hand", regions: [{ kind: "mark", mark: "high" }], aim: CENTRE });
+
+/**
+ * **The sword's thrust** (`sword-thrust`, as its body's record has it,
+ * `assets/skills/strikes/sword-thrust/drive.json`): with the hand that holds the sword, aimed at
+ * the trunk's opening as the straight punch is, from its low support.
+ */
+export const SWORD_THRUST_OPTION = strikeKind("sword-thrust", "Sword thrust", { limbs: "holding-hand", regions: MIDDLE, aim: TRUNK_OPENING, support: SUPPORT_FOLD });
+
+/**
+ * **The stomp** (`stomp`, `assets/skills/strikes/stomp/stomp.json`): with either foot at the
+ * trunk's middle, aimed at its centre; its chamber high and its height band low, so it strikes down
+ * on a body lying ahead and nothing standing.
+ */
+export const STOMP_OPTION = strikeKind("stomp", "Stomp", { limbs: "either-foot", regions: MIDDLE, aim: CENTRE });
+
+/** **The bite** (`bite`), with the jaw, at any part of a foe, aimed at the first surface its teeth meet as the jaw closes (`first-exposed`). */
+export const BITE_OPTION = strikeKind("bite", "Bite", { limbs: "jaw", regions: [{ kind: "mark", mark: "any" }], aim: { kind: "first-exposed" } });
 
 /** A walk's gait and planner; omitted, every enabled gait and navigation is available to the chooser. */
 export interface WalkConfig {
@@ -306,7 +309,7 @@ const placeFaults = (config: PlaceConfig): readonly string[] => [
 
 /** **Holding at a place on the ground** (`holdAt`), whatever the focus: a rest option at the place its config names, which is its site. */
 export const HOLD_AT_OPTION = deepFreeze<ProfileOptionPart<PlaceConfig>>({
-  role: "option", model: PROFILE_MODEL, label: "Hold at a place", stands: false, fields: [], slots: [], defaults: { kind: "hold-at-place", x: 0, z: 0, within: .3 },
+  role: "option", model: PROFILE_MODEL, label: "Hold at a place", offered: false, stands: false, fields: [], slots: [], defaults: { kind: "hold-at-place", x: 0, z: 0, within: .3 },
   keys: { kind: true, x: true, z: true, within: true }, fits: anyBody, faults: placeFaults,
   make: (config: PlaceConfig, given: ProfileOptionContext) => [holdAt(config.x, config.z, config.within, given.walk)],
 });

@@ -23,6 +23,8 @@ import { standIntent } from "../../src/skills/framework/intent.ts";
 import { stockMotor } from "../../src/app/registration/stock-motor.ts";
 import { isOrdersEntry } from "../../src/game/arena/duel.ts";
 import { MOVE_PART } from "../../src/skills/locomotion/move/index.ts";
+import { optionsOf } from "../../src/minds/option/config.ts";
+import { partLookup } from "../../src/app/catalog.ts";
 import { PAW_MOVE } from "../../src/skills/locomotion/paw-move/index.ts";
 
 /** The command's delay a world is made with to show it: more than one step, so its ring is read through. */
@@ -240,7 +242,7 @@ test("a bout's save made on another build loads its bodies, and starts fresh a m
 test("a bout's save loads under another tuning of its striker's punch, and plays on as a bout built under it", async () => {
   const cases = EVALUATIONS.strike.protocols.still, [subject] = EVALUATIONS.strike.subjects(["option/straight-punch"]);
   const [condition, further] = cases.conditions.filter((one) => one.model === "man" && one.mark === "middle" && one.across === 0 && one.gap >= .9);
-  const tuned = { ...subject.value, mind: { ...subject.value.mind, options: subject.value.mind.options.map((option) =>
+  const tuned = { ...subject.value, mind: { ...subject.value.mind, options: optionsOf(subject.value.mind, partLookup).map((option) =>
     option.skill?.kind !== "straight-punch" ? option : { ...option, skill: { ...option.skill, tuning: { hips: .2 } } }) } };
   const build = async (value, at) => {
     const world = cases.world([value], at, cases.engine ?? DEFAULT_ENGINE, [subject]), built = await BOUT_WORLD.build(world, {});
@@ -323,7 +325,7 @@ test("a fallback recovery Option does not count its own transition as an ordinar
   const { walker } = await import("../../src/minds/option/walk.ts");
   const { optionRecord } = await import("../../src/minds/option/record.ts");
   const { nearestTrials } = await import("../../src/skills/framework/outcomes.ts");
-  const spec = modelSpec("man"), fallback = REPOSITION_OPTION.defaults;
+  const spec = modelSpec("man"), [fallback] = REPOSITION_OPTION.each(REPOSITION_OPTION.defaults, GAME.partLookup);
   const technique = GAME.partLookup.of("technique", fallback.skill), from = technique.edges[0]?.from;
   assert.equal(technique.fits(spec, fallback.skill, GAME.partLookup), null, "the real fallback technique must fit the fixture body");
   assert.ok(from && technique.starts.length, "the fallback must expose a transition and a declared beginning");

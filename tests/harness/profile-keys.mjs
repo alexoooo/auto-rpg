@@ -1,4 +1,5 @@
 import { skillsOf } from "../../src/minds/option/skills.ts";
+import { optionsOf } from "../../src/minds/option/config.ts";
 import { allParts, MINDS, treeLookup } from "../../src/app/catalog.ts";
 import { presetFitsModel } from "../../src/minds/catalog/controller.ts";
 import { BODY_MODELS, modelHolds, resolveCharacter } from "../../src/core/bodies/models.ts";
@@ -28,10 +29,10 @@ export function profileKeys() {
   const techniques = Object.entries(allParts()).filter(([, part]) => part.role === "technique").map(([kind]) => ({ kind }));
   for (const preset of Object.values(MINDS)) {
     const config = preset.config, parts = treeLookup(config);
-    if (config.frame || !Array.isArray(config.options)) continue;
+    if (config.kind !== "option") continue;
     for (const { model, spec } of bodies) {
       if (!presetFitsModel(preset, model)) continue;
-      const { executors, actions } = skillsOf(parts, spec, config.options);
+      const { executors, actions } = skillsOf(parts, spec, optionsOf(config, parts));
       for (const action of actions) for (const limb of action.effectors) keys.strike.add(on(spec, strikeSkill(spec, executors, limbAction(action, limb)), limb));
     }
   }

@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { HUMANOID_MODELS, resolveCharacter } from "../../src/core/bodies/models.ts";
 import { MINDS, treeLookup, partLookup, GAME } from "../../src/app/catalog.ts";
 import { skillsOf } from "../../src/minds/option/skills.ts";
+import { optionsOf } from "../../src/minds/option/config.ts";
 import { GUARD_OPTION, WALK_OPTION } from "../../src/minds/option/kinds.ts";
 import { withLoadout } from "../../src/core/bodies/items/held.ts";
 import { legsOf, motorAndGuardOf, motorOf } from "../../src/skills/assembly/filled.ts";
@@ -29,7 +30,7 @@ test("deselecting an optional skill leaves the remaining combat repertoire usabl
   for (const dropped of ["support-fold/support-fold", "staged-roll/staged-roll", "walk-run/walk-run", "stance-walk/stance-walk"]) {
     const spec = { ...base, skills: base.skills.filter(name => name !== dropped) };
     assert.equal(GAME.stageRefusal(spec, config, []), null, `${dropped}: remaining selected skills can start`);
-    const made = skillsOf(parts, spec, config.options);
+    const made = skillsOf(parts, spec, optionsOf(config, parts));
     assert.ok(made.executors.some(one => one.kind === "straight-punch"), "optional support is not a requirement for the punch");
     if (dropped.startsWith("support-fold/")) assert.deepEqual(made.supports, []);
     if (dropped.startsWith("staged-roll/")) assert.equal(made.techniques.some(one => one.kind === "staged-roll"), false);

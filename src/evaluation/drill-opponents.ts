@@ -1,7 +1,7 @@
 import type { MindConfig } from "../minds/catalog/config.ts";
 import type { BeatsConfig } from "../minds/command/beats.ts";
 import type { CommanderConfig } from "../minds/command/kind.ts";
-import { standingOptions, type OptionMindConfig } from "../minds/option/config.ts";
+import { optionsOf, standingOptions, type OptionMindConfig } from "../minds/option/config.ts";
 import { ORDERS_OPTION, COVER_OPTION, BONK_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../minds/option/kinds.ts";
 import { deepFreeze } from "../core/state.ts";
 import { type GameContext, perContext } from "../game/arena/context.ts";
@@ -34,7 +34,10 @@ export const createDrillOpponents = perContext((context: GameContext) => {
   /** The drill's stationary and travelling choices from the registered fighter's configuration. */
   const STANDING_OPTIONS = standingOptions(OPTION, context.catalog.partLookup);
 
-  const WALKS = (OPTION.options ?? []).filter((option) => option.kind === "walk");
+  /** What it is built of (`optionsOf`). */
+  const OPTIONS = optionsOf(OPTION, context.catalog.partLookup);
+
+  const WALKS = OPTIONS.filter((option) => option.kind === "walk");
 
   /**
    * Option Mind standing where it is (`STANDING_OPTIONS`), its hands at guard, throwing nothing and
@@ -62,9 +65,9 @@ export const createDrillOpponents = perContext((context: GameContext) => {
    * Option Mind does not offer is a defect here: an opponent without it would strike nothing.
    */
   function striking(kinds: readonly StrikeKindPart[]): MindConfig {
-    const missing = kinds.filter((kind) => !(OPTION.options ?? []).some((option) => option.kind === kind.defaults.kind));
+    const missing = kinds.filter((kind) => !OPTIONS.some((option) => option.kind === kind.defaults.kind));
     if (missing.length > 0) throw new Error(`Option Mind offers no ${missing.map((kind) => kind.defaults.kind).join(", ")}, so a drill opponent striking with it strikes nothing`);
-    const strikes = (OPTION.options ?? []).filter((option) => kinds.some((kind) => kind.defaults.kind === option.kind));
+    const strikes = OPTIONS.filter((option) => kinds.some((kind) => kind.defaults.kind === option.kind));
     return deepFreeze({ ...AT_GUARD, options: [ORDERS_OPTION.defaults, ...strikes, ...WALKS, ...STANDING_OPTIONS] });
   }
 

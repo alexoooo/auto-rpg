@@ -10,6 +10,7 @@ import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
 import { coreStand } from "../../../../tests/harness/core-stand.mjs";
 import { createMind } from "../../../../src/minds/seat/create-mind.ts";
 import { GAME, defaultMind } from "../../../../src/app/catalog.ts";
+import { optionsOf } from "../../../../src/minds/option/config.ts";
 import { quadrupedSpec } from "../../../../src/core/bodies/quadruped/spec.ts";
 import { STAND_ORDERS } from "../../../../src/minds/orders.ts";
 import { buildBout } from "../../../../src/app/node/evaluation.ts";
@@ -20,7 +21,7 @@ import { readFileSync } from "node:fs";
 /** The model's game mind, its way up by recipe playing `recipe`. */
 const withRecipe = (model, recipe) => {
   const base = defaultMind(model);
-  return { ...base, options: base.options.map((option) => option.skill?.kind === "righting-recipe" ? { ...option, skill: { kind: "righting-recipe", tuning: recipe } } : option) };
+  return { ...base, options: optionsOf(base, GAME.partLookup).map((option) => option.skill?.kind === "righting-recipe" ? { ...option, skill: { kind: "righting-recipe", tuning: recipe } } : option) };
 };
 
 /** The righting by recipe's run in a mind's state (`rightingByRecipe`): its ground executor's. */

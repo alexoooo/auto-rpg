@@ -2,7 +2,8 @@ import type { Entrant } from "../../minds/index.ts";
 import type { MindPreset } from "../../minds/index.ts";
 import type { ConfigFor } from "../../parts/index.ts";
 import type { OptionMindConfig } from "../../minds/option/index.ts";
-import { BRACE_OPTION, GUARD_OPTION, HOLD_OPTION, RISE_OPTIONS, type WalkConfig } from "../../minds/option/index.ts";
+import { BRACE_OPTION, BRACE_TUMBLING_OPTION, FLATTEN_OPTION, GUARD_OPTION, HOLD_OPTION, LAND_OPTION, REGAIN_OPTION, REPOSITION_OPTION, WAY_UP_OPTION,
+  type WalkConfig } from "../../minds/option/index.ts";
 import { deepFreeze } from "../../core/state.ts";
 
 /** The gaits this fighter may walk by, in preference order. */
@@ -16,11 +17,11 @@ const WITHIN = .3;
 
 /**
  * Its options: holding at the place, which names it as its site (`hold-at-place`), the walk to the
- * sites by each gait (`WALKS`), the rise (`RISE_OPTIONS`), and the rest options, with no blow
- * and nothing that answers a foe.
+ * sites by each gait (`WALKS`), the rise (bracing as it tumbles, regaining, every way up and
+ * reposition, flattening and landing), and the rest options, with no blow and nothing that answers a foe.
  */
-const OPTIONS: readonly ConfigFor<"option">[] = deepFreeze([{ kind: "hold-at-place", ...PLACE, within: WITHIN }, ...WALKS, ...RISE_OPTIONS,
-  HOLD_OPTION.defaults, GUARD_OPTION.defaults, BRACE_OPTION.defaults]);
+const OPTIONS: readonly ConfigFor<"option">[] = deepFreeze([{ kind: "hold-at-place", ...PLACE, within: WITHIN }, ...WALKS,
+  ...[BRACE_TUMBLING_OPTION, REGAIN_OPTION, WAY_UP_OPTION, REPOSITION_OPTION, FLATTEN_OPTION, LAND_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION].map((part) => part.defaults)]);
 
 /**
  * The Option framework whose objective is reaching a place (`reach-place`),

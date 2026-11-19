@@ -24,6 +24,8 @@ import { isRefused } from "../src/core/refusal.ts";
 import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
 import { EVALUATIONS, playCase, tableCells } from "../src/app/node/evaluation.ts";
+import { partLookup } from "../src/app/catalog.ts";
+import { optionsOf } from "../src/minds/option/config.ts";
 import { casesOf } from "../src/evaluation/run.ts";
 import { caseName } from "../src/evaluation/results.ts";
 import { casesOn, FALL_PRICE, keep, trialValue, unitOf } from "../src/evaluation/table/judge.ts";
@@ -130,7 +132,7 @@ export async function confirmRow(cells, valueOf, options = {}) {
  */
 export function withTuning(value, tuning) {
   let found = 0;
-  const options = value.mind.options.map((option) => option.skill?.kind !== value.skill ? option : (found++, { ...option, skill: { ...option.skill, tuning } }));
+  const options = optionsOf(value.mind, partLookup).map((option) => option.skill?.kind !== value.skill ? option : (found++, { ...option, skill: { ...option.skill, tuning } }));
   if (found !== 1) throw new Error(`the subject's mind has ${found} Options of ${value.skill}, not one`);
   return { ...value, mind: { ...value.mind, options } };
 }

@@ -19,7 +19,7 @@ import type { TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { mindOf, seatBody, seatCharacter, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { FALL_AFTER, FALL_CAP, fallCases, readFall, type BuiltFall, type FallReading } from "../fall.ts";
 import { declaredWaysUp } from "../../minds/option/rise.ts";
-import type { OptionMindConfig } from "../../minds/option/config.ts";
+import { optionsOf, type OptionMindConfig } from "../../minds/option/config.ts";
 import { FRESH_OFFSET, risingJobs } from "../rising.ts";
 import type { BuiltBout } from "../bout.ts";
 import { BOUT_PLACES, BOUT_SECONDS, boutFallWorld, boutFalls, readBoutFall, TWIN_PLACES, type WayUpBoutCondition } from "./bouts.ts";
@@ -59,7 +59,7 @@ export const createWayUpCases = perContext((context: GameContext) => {
   }
 
   /** The way up a riser of `config` ranks first: the one a way-up subject reads. */
-  const wayOf = (config: unknown): string | null => declaredWaysUp(parts, (config as OptionMindConfig | undefined)?.options ?? [])[0]?.kind ?? null;
+  const wayOf = (config: unknown): string | null => declaredWaysUp(parts, config ? optionsOf(config as OptionMindConfig, parts) : [])[0]?.kind ?? null;
 
   /** `conditions` risen by a way-up subject's mind, refused where the mind or its way up does not fit the body holding the fall's loadout. */
   function wayUpCases(play: Json, conditions: readonly WayUpCondition[]): Cases<WayUpCondition, WayUpReading, BuiltFall> {

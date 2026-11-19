@@ -50,6 +50,12 @@ export interface TechniquePart<C extends PartConfig = PartConfig> extends Part<C
   /** Physical segment identifiers used to select the declared start tokens. */
   bindings(spec: BodySpec, config: C): readonly { readonly segment: string; readonly start: string }[];
   readonly edges: readonly { readonly from: Position; readonly to: Position }[];
+  /**
+   * Where it is a way up (its `edges`), what a mind that names no technique of its own takes it for:
+   * rising (`ascent`, a way up, `WAY_UP_OPTION`) or changing the lie the body rises from
+   * (`fallback`, a reposition, `REPOSITION_OPTION`).
+   */
+  readonly purpose?: "ascent" | "fallback";
   /** Its entry (`TechniqueRun.admits`) reads the body's motion and its raw position (`GroundReading.raw`): a stand-up begins it on a body still tumbling where it admits it, and braces one only where none does. */
   readonly moving: boolean;
   /** A run of it under `config` on the body, driving it with the mind's motor and guard (`fitted`). */

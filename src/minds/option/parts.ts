@@ -1,7 +1,7 @@
 import type { NamedSkills } from "./skills.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { OptionEvaluation } from "./model.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
+import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 
 /**
@@ -53,6 +53,8 @@ export interface OptionPart<C extends PartConfig = PartConfig, G = unknown, O = 
   /** Whether its Options keep the body where it stands, striking and covering nothing: a rest, or a way of the ground (`standingOptions`). */
   readonly stands: boolean;
   readonly keys: KeysOf<C>;
+  /** The configs a config of it stands for, where it stands for several (`optionsOf`); itself where absent. */
+  each?(config: C, parts: PartLookup): readonly ConfigFor<"option">[];
   /** The options a config of it makes, from what the mind gives (`given`), in their rank order. */
   make(config: C, given: G): readonly O[];
 }

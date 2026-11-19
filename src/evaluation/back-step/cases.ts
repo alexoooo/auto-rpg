@@ -14,7 +14,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readBackStep, type BackStepReading, type BackStepReads } from "./read.ts";
 import { between } from "../twin.ts";
-import { optionMind, standingOptions, withLegs, type OptionMindConfig } from "../../minds/option/config.ts";
+import { optionMind, optionsOf, standingOptions, withLegs, type OptionMindConfig } from "../../minds/option/config.ts";
 import { BACK_STEP_OPTION, ORDERS_OPTION } from "../../minds/option/kinds.ts";
 import { GOING } from "../../skills/locomotion/move/index.ts";
 import { STOCK_GAITS, type Gait } from "../../skills/locomotion/move/gaits.ts";
@@ -96,7 +96,7 @@ export const createBackStepCases = perContext((context: GameContext) => {
   /** The subject's mind fighting as in the game, its Options less the back step, so it chooses none of its own: what `SPAR_FIGHT` orders the sway. */
   function fighterOf(subject: MindConfig): OptionMindConfig {
     const mind = optionMind(subject, "the back step's fighter");
-    return { ...mind, options: (mind.options ?? []).filter((option) => option.kind !== BACK_STEP_OPTION.defaults.kind) };
+    return { ...mind, options: optionsOf(mind, context.catalog.partLookup).filter((option) => option.kind !== BACK_STEP_OPTION.defaults.kind) };
   }
 
   /** The subject's own mind, choosing its back steps itself. */

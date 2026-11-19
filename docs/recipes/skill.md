@@ -268,7 +268,10 @@ Follows [Training](#training). What is particular to a new skill:
   foe's guard over the mark); training on fight moments failed twice (`d664e869`, `d11e7e9d`,
   `843a8f8b`). *Suspected.*
 - Confirm once on the cells' cases at 120 and 480 Hz, on the chosen checkpoint or record.
-- Register it in Option Mind, install its record in the game and build its profiles sparring
+- Register it (its Option kind in `OPTION_KINDS`; a way up's technique part with its
+  `purpose`): every Option Mind that names no Options of its own fights by every registered
+  one, and a way up naming no technique rises by every registered one (`optionsOf`), so there is
+  no list to add it to. Install its record in the game and build its profiles sparring
   (a strike's: the Strike drill's `sparring` and `sparring-laid` kept with `--json`, then
   `research/skills/strikes/strike-profiles.mjs --write`); a drill Commander using it alone does
   not show the Mind uses it.

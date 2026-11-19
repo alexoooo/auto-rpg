@@ -12,7 +12,8 @@ const round = (x) => Number(x.toFixed(3));
 export async function edgeTrial(job, given) {
   await import("../../../tests/harness/preload-data.mjs");
   const { buildFall } = await import("../../../src/app/node/evaluation.ts");
-  const { MINDS, partLookup, controllerOf } = await import("../../../src/app/catalog.ts");
+  const { MINDS, partLookup } = await import("../../../src/app/catalog.ts");
+  const { optionsOf } = await import("../../../src/minds/option/config.ts");
   const { TECHNIQUES } = await import("../../../src/app/registration/techniques.ts");
   const { tumbling } = await import("../../../src/control/ground-reading.ts");
   const { heldNumbers } = await import("../../../src/skills/framework/profile/numbers.ts");
@@ -24,7 +25,7 @@ export async function edgeTrial(job, given) {
   const mind = { ...template, predictions: { kind: "prior" }, chooser: { ...template.chooser, margin: MARGIN } };
   /** Each ground Option measured and the technique it runs: a way up's and flatten's named as their technique, a brace while tumbling as itself. */
   const skills = new Map();
-  for (const option of mind.options ?? controllerOf(mind).defaults.options) {
+  for (const option of optionsOf(mind, partLookup)) {
     if (!option.skill || option.kind === "brace-down" || option.kind === "regaining" || option.kind === "landing") continue;
     skills.set(option.kind === "brace-tumbling" ? "brace while tumbling" : option.skill.kind, option.skill);
   }

@@ -50,6 +50,7 @@ import { standIntent } from "../src/skills/framework/intent.ts";
 import { driveBy } from "../src/minds/decider.ts";
 import { standingSkills } from "../src/app/standing-skills.ts";
 import { MINDS, GAME } from "../src/app/catalog.ts";
+import { optionsOf } from "../src/minds/option/config.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/bodies/models.ts";
 import { createMind } from "../src/minds/seat/create-mind.ts";
 import { generateCryptDungeon } from "../src/game/dungeon/crypt-dungeon.ts";
@@ -405,7 +406,7 @@ const elsewhere = () => Object.entries(MINDS).filter(([id]) => warriorMinds().ev
 const DATA_CASES = [
   { name: "data: straight-punch", run: () => {
     const option = MINDS.option.config, mind = { ...option,
-      options: option.options.filter((one) => !one.kind.startsWith("strike-") || one.kind === "strike-straight-punch") };
+      options: optionsOf(option, GAME.partLookup).filter((one) => !one.kind.startsWith("strike-") || one.kind === "strike-straight-punch") };
     return arena({ left: "man", right: "man", loadouts: both("empty"), minds: { left: mind, right: mind } });
   } },
 ];

@@ -5,13 +5,13 @@ import type { Carriage } from "../../skills/locomotion/shared/locomotion.ts";
 import type { MindConfig } from "../catalog/config.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import { FILLED, type Filled } from "../../skills/assembly/filled.ts";
+import { partOffered } from "../../parts/fields.ts";
 
 /**
  * **An Option Mind's config**: the selected chooser, decision provider, options and decision rate.
- * Omitted or null options and predictions use the values supplied by the calling assembly
- * (`OptionAssembly`, `resolveConfig`). The profile model also offers a default use of any selected
- * strike variation the configured list omits. Research tuning replaces the configured continuous
- * services by their declared place.
+ * Omitted or null options are every registered Option on offer (`optionsOf`); omitted predictions,
+ * the calling assembly's (`OptionAssembly`, `resolveConfig`). Research tuning replaces the
+ * configured continuous services by their declared place.
  */
 export interface OptionMindConfig {
   readonly kind: "option";
@@ -56,23 +56,32 @@ export function inCarriage(mind: MindConfig, carriage: Carriage): MindConfig {
   return withLegs(config, { ...move, gaits: (move.gaits ?? STOCK_GAITS).map((gait) => gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait) });
 }
 
-/** **The Options of `mind` that keep the body where it stands**: those whose kind among `parts` says so (`OptionPart.stands`). */
-export function standingOptions(mind: OptionMindConfig, parts: PartLookup): readonly ConfigFor<"option">[] {
-  return (mind.options ?? []).filter((option) => parts.of("option", option).stands);
+/**
+ * **The Options `mind` is built of**: those it names, or, naming none, every registered kind on
+ * offer among `parts` (`partOffered`) by its defaults, in the order registered; each as what it
+ * stands for (`OptionPart.each`: a way up naming no technique, every registered one).
+ */
+export function optionsOf(mind: OptionMindConfig, parts: PartLookup): readonly ConfigFor<"option">[] {
+  const named = mind.options ?? parts.candidates("option").filter((option) => partOffered(parts.of("option", option)));
+  return named.flatMap((option) => parts.of("option", option).each?.(option, parts) ?? [option]);
 }
 
-/** The Options, chooser and predictions supplied where a config names none. */
+/** **The Options of `mind` that keep the body where it stands**: those whose kind among `parts` says so (`OptionPart.stands`). */
+export function standingOptions(mind: OptionMindConfig, parts: PartLookup): readonly ConfigFor<"option">[] {
+  return optionsOf(mind, parts).filter((option) => parts.of("option", option).stands);
+}
+
+/** The chooser and predictions supplied where a config names none. */
 export interface OptionAssembly {
-  readonly options: readonly ConfigFor<"option">[];
   readonly chooser: ConfigFor<"chooser">;
   readonly predictions: ConfigFor<"predictions">;
 }
 
-/** **A config with its assembly's defaults filled in** (`resolveConfig`): what the checks, the description and the build read. */
+/** **A config with its Options and its assembly's defaults filled in** (`resolveConfig`): what the checks, the description and the build read. */
 export type ResolvedConfig = OptionMindConfig & { readonly options: readonly ConfigFor<"option">[]; readonly predictions: ConfigFor<"predictions"> };
 
-/** `config` with `assembly`'s options and predictions where it names none. */
-export const resolveConfig = (config: OptionMindConfig, assembly: OptionAssembly): ResolvedConfig => ({ ...config, options: config.options ?? assembly.options,
+/** `config` with its Options resolved (`optionsOf`) and `assembly`'s predictions where it names none. */
+export const resolveConfig = (config: OptionMindConfig, assembly: OptionAssembly, parts: PartLookup): ResolvedConfig => ({ ...config, options: optionsOf(config, parts),
   predictions: config.predictions ?? assembly.predictions });
 
 /** Whether `value` is a record of settings: an object that is no array. */

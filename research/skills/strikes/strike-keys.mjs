@@ -3,6 +3,7 @@
  * sparring (`strike-profiles.mjs`) and of a bout's strikes (`strike-bouts.mjs`, `bout-profiles.mjs`).
  */
 import { skillsOf } from "../../../src/minds/option/skills.ts";
+import { optionsOf } from "../../../src/minds/option/config.ts";
 import { partLookup } from "../../../src/app/catalog.ts";
 import { limbAction } from "../../../src/minds/option/kinds.ts";
 import { measuredOn, strikeSkill } from "../../../src/skills/framework/profile/lookup.ts";
@@ -15,7 +16,7 @@ import { everyOf } from "../../../src/minds/decider.ts";
  * those the body can use, each on the limbs its executor strikes with as the body holds what it holds.
  */
 export function strikesOf(spec, mind) {
-  if (Array.isArray(mind.options) && !mind.executors) return skillsOf(partLookup, spec, mind.options);
+  if (mind.kind === "option") return skillsOf(partLookup, spec, optionsOf(mind, partLookup));
   const executors = mind.executors.filter((executor) => partLookup.of("executor", executor).fits(spec, executor, partLookup) === null);
   const has = (limb) => spec.effectors?.some((one) => one.segment === limb) ?? false;
   return { executors, actions: (mind.actions ?? []).flatMap((action) => {

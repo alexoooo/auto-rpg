@@ -42,9 +42,10 @@ export function describeOptionMind(spec: BodySpec, config: OptionMindConfig, res
     if (!components.some(component => component.owner === owner)) components.push({ owner, role, config: selected, path: pathOf(selected, role) ?? fallback });
   };
 
-  // Each Option, and what it names of the body's skills.
+  // Each Option, and what it names of the body's skills; its path the config's Option it is, or stands among (`OptionPart.each`).
+  const sources = config.options?.flatMap((option, j) => (parts.of("option", option).each?.(option, parts) ?? [option]).map(() => j)) ?? [];
   const actions = resolved.options.flatMap((option, i) => {
-    const path = config.options == null || i >= config.options.length ? null : ["options", i] as const;
+    const path = i < sources.length ? ["options", sources[i]!] as const : null;
     const declaration = parts.of("option", option).skills?.(option, spec, parts, resolved.options);
     components.push({ config: option, role: "option", owner: `option:${i}`, path });
     for (const executor of declaration?.executors ?? []) {

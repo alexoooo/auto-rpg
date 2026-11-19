@@ -11,6 +11,8 @@
  *   const value = (trial) => stagedValue(subjectOf(trial).value, tuningOn(trial, { sitBack: settings }));
  */
 import { tableCells } from "../../../src/app/node/evaluation.ts";
+import { partLookup } from "../../../src/app/catalog.ts";
+import { optionsOf } from "../../../src/minds/option/config.ts";
 import { loadoutKey } from "../../../src/core/bodies/items/held.ts";
 import { modelHolding } from "../../../src/core/bodies/models.ts";
 import { stepUpTuningWith } from "../../../src/skills/recovery/shared/staged/records.ts";
@@ -27,7 +29,7 @@ export const wayCells = (ways, model, loadout) => tableCells().filter((cell) => 
 
 /** A way-up subject's value (`WayUpValue`) with every staged way up of its mind played on `tuning`, a whole step-up tuning. */
 export const stagedValue = (value, tuning) => ({ ...value, mind: { ...value.mind,
-  options: value.mind.options.map((option) => STAGED.has(option.skill?.kind) ? { ...option, skill: { ...option.skill, tuning } } : option) } });
+  options: optionsOf(value.mind, partLookup).map((option) => STAGED.has(option.skill?.kind) ? { ...option, skill: { ...option.skill, tuning } } : option) } });
 
 /** The step-up tuning of `trial`'s body holding its loadout with `records` (`stepUp`, `sitBack`) in place of its records (`stepUpTuningWith`). */
 export const tuningOn = (trial, records) => stepUpTuningWith(modelHolding(trial.condition.model, trial.condition.loadout), records);
