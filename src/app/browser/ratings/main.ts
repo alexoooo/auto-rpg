@@ -14,6 +14,7 @@ import { sha256Text } from "../../../evaluation/sha256.ts";
 import type { ScreenContext } from "../ui/screen.ts";
 import { commonGround, conditionText, fieldText } from "./analysis.ts";
 import { casesNow, hasResults, resultsOf, type CaseNow } from "./results.ts";
+import { isRefused } from "../../../core/refusal.ts";
 
 /** The groups evaluations are listed in, as the screen names them. */
 const GROUPS: Readonly<Record<Evaluation["group"], string>> = Object.freeze({ fighters: "Fighters", skills: "Skills", decisions: "Decisions" });
@@ -164,8 +165,8 @@ interface Trial {
  */
 function trialsView(evaluation: Evaluation, result: Result, names: readonly string[], here: string): HTMLElement {
   const section = el("section", { className: "trials" }, el("h4", { textContent: "Trials" }));
-  const made = casesNow(evaluation, result.protocol, result.subject), cases = "fault" in made ? null : made;
-  if (!cases) section.append(el("p", { className: "note", textContent: `This build makes none of its cases, so none is placed or played: ${(made as { fault: string }).fault}` }));
+  const made = casesNow(evaluation, result.protocol, result.subject), cases = isRefused(made) ? null : made;
+  if (isRefused(made)) section.append(el("p", { className: "note", textContent: `This build makes none of its cases, so none is placed or played: ${made.refused}` }));
   const trials: Trial[] = result.trials!.flatMap((row, k) => row === null ? [] : [{ name: names[k]!, outcome: result.outcomes![row[1]!]!, now: cases?.get(names[k]!) ?? null }]);
   const faults = result.trials!.length - trials.length, placed = trials.filter((one) => one.now !== null);
   const playable = (list: readonly Trial[]) => list.filter((one) => one.now?.world.kind === "bout");

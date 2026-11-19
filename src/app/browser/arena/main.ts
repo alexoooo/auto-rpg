@@ -139,10 +139,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   // A reel opened from the Ratings plays its trials in this screen, one after another; the trial
   // shown puts its choices in the address, so the pickers show them when the reel is left.
   const reel = readReel(location.hash);
-  if (reel && "fault" in reel) { need("boot-note").textContent = reel.fault; return; }
-  const reading = reel ? await reelTrials(reel) : null;
-  if (reading?.fault !== undefined) { need("boot-note").textContent = reading.fault; return; }
-  const trials = reading?.trials ?? null;
+  if (isRefused(reel)) { need("boot-note").textContent = reel.refused; return; }
+  const trials = reel ? await reelTrials(reel) : null;
+  if (isRefused(trials)) { need("boot-note").textContent = trials.refused; return; }
   context.signal.throwIfAborted();
   let at = reel?.at ?? 0, auto = reel?.auto ?? false;
   const reelAt = () => reel ? reelHash({ ...reel, at, auto }) : "";

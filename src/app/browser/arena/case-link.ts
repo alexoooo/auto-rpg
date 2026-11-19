@@ -12,6 +12,7 @@ import { writeAttributes } from "../../../game/attribute-link.ts";
 import { SIDES, type DuelRecipe } from "../../../game/arena/duel.ts";
 import { matchupSearch } from "../../../game/arena/matchup.ts";
 import { modelCharacter } from "../../../core/bodies/models.ts";
+import type { Refused } from "../../../core/refusal.ts";
 import { defaultControl, mindsSearch } from "../setup.ts";
 
 /** A reel as a link carries it. */
@@ -37,15 +38,15 @@ export function reelHash({ evaluation, protocol, subject, cases, at, auto, back 
   return `#${new URLSearchParams({ [REEL_KEY]: evaluation, protocol, subject, cases: cases.join(","), at: String(at), auto: auto ? "1" : "0", ...(back === null ? {} : { back }) })}`;
 }
 
-/** The reel `hash` carries; null where it carries none, and an error where what it carries is no reel. */
-export function readReel(hash: string): LinkedReel | { readonly fault: string } | null {
+/** The reel `hash` carries; null where it carries none, and a refusal where what it carries is no reel. */
+export function readReel(hash: string): LinkedReel | Refused | null {
   const fragment = new URLSearchParams(hash.replace(/^#/, "")), evaluation = fragment.get(REEL_KEY);
   if (evaluation === null) return null;
   const protocol = fragment.get("protocol"), subject = fragment.get("subject");
-  if (protocol === null || subject === null) return { fault: "the reel names no protocol or subject" };
+  if (protocol === null || subject === null) return { refused: "the reel names no protocol or subject" };
   const cases = (fragment.get("cases") ?? "").split(",").filter((name) => name.length > 0), at = Number(fragment.get("at") ?? 0);
-  if (cases.length === 0) return { fault: "the reel names no case" };
-  if (!Number.isSafeInteger(at) || at < 0 || at >= cases.length) return { fault: `the reel has no case ${fragment.get("at")}` };
+  if (cases.length === 0) return { refused: "the reel names no case" };
+  if (!Number.isSafeInteger(at) || at < 0 || at >= cases.length) return { refused: `the reel has no case ${fragment.get("at")}` };
   const back = fragment.get("back");
   return { evaluation, protocol, subject, cases, at, auto: fragment.get("auto") !== "0", back: back !== null && back.startsWith("?play=ratings") ? back : null };
 }

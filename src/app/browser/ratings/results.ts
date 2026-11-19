@@ -4,7 +4,7 @@
  * build makes them, by the names a result's trials are on.
  */
 import { DEFAULT_ENGINE } from "../../../core/physics/engines.ts";
-import { isRefused } from "../../../core/refusal.ts";
+import { isRefused, type Refused } from "../../../core/refusal.ts";
 import type { CaseWorld, Evaluation, Json } from "../../../evaluation/evaluation.ts";
 import { NO_RESULTS, caseName, type Results } from "../../../evaluation/results.ts";
 import { casesOf } from "../../../evaluation/run.ts";
@@ -44,16 +44,16 @@ export interface CaseNow {
  * `subject`'s cases on `protocol` of `evaluation` as this build makes them, by name (`caseName`):
  * what a result's trial is played again from. The refusal's words where the build makes none.
  */
-export function casesNow(evaluation: Evaluation, protocol: string, subject: string): ReadonlyMap<string, CaseNow> | { readonly fault: string } {
+export function casesNow(evaluation: Evaluation, protocol: string, subject: string): ReadonlyMap<string, CaseNow> | Refused {
   const cases = evaluation.protocols[protocol];
-  if (!cases) return { fault: `${evaluation.id} has no protocol ${protocol}` };
+  if (!cases) return { refused: `${evaluation.id} has no protocol ${protocol}` };
   try {
     const scheduled = casesOf(evaluation, protocol, evaluation.subjects([subject]), { engine: cases.engine ?? DEFAULT_ENGINE, schedule: { kind: "all" } });
-    if (isRefused(scheduled)) return { fault: scheduled.refused };
+    if (isRefused(scheduled)) return scheduled;
     return new Map(scheduled.units.flat().filter((one) => one.subjects.length === 0 || one.subjects.includes(subject))
       .map((one) => [caseName(one.condition), { condition: one.condition, world: one.world }]));
   } catch (error) {
     // The catalogue throws for a subject it no longer has; the screen says so.
-    return { fault: error instanceof Error ? error.message : String(error) };
+    return { refused: error instanceof Error ? error.message : String(error) };
   }
 }

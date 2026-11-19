@@ -5,6 +5,7 @@
  * commit it was read at, and its condition.
  */
 import { isEngineName } from "../../../core/physics/engines.ts";
+import { isRefused, type Refused } from "../../../core/refusal.ts";
 import { BODY_MODELS } from "../../../core/bodies/models.ts";
 import { validBoutTiming, type CaseWorld } from "../../../evaluation/evaluation.ts";
 import { resultOf } from "../../../evaluation/results.ts";
@@ -39,28 +40,28 @@ function refusal(world: CaseWorld): string | null {
   return null;
 }
 
-/** `reel`'s trials, in its order; an error naming the first case that is missing or cannot be played, or where they need more than one engine or level. */
-export async function reelTrials(reel: LinkedReel): Promise<{ readonly trials: Trial[]; readonly fault?: never } | { readonly fault: string; readonly trials?: never }> {
+/** `reel`'s trials, in its order; a refusal naming the first case that is missing or cannot be played, or where they need more than one engine or level. */
+export async function reelTrials(reel: LinkedReel): Promise<Trial[] | Refused> {
   const evaluation = Object.hasOwn(EVALUATIONS, reel.evaluation) ? EVALUATIONS[reel.evaluation]! : null;
-  if (!evaluation) return { fault: `the reel's evaluation ${reel.evaluation} is not one this build has` };
+  if (!evaluation) return { refused: `the reel's evaluation ${reel.evaluation} is not one this build has` };
   const results = await resultsOf(reel.evaluation), result = resultOf(results, reel.protocol, reel.subject);
-  if (!result) return { fault: `${reel.evaluation} keeps no result of ${reel.subject} on ${reel.protocol}` };
+  if (!result) return { refused: `${reel.evaluation} keeps no result of ${reel.subject} on ${reel.protocol}` };
   const cases = casesNow(evaluation, reel.protocol, reel.subject);
-  if ("fault" in cases) return { fault: cases.fault };
+  if (isRefused(cases)) return cases;
   const names = results.cases[result.cases ?? ""] ?? [], trials: Trial[] = [];
   for (const name of reel.cases) {
     const found = cases.get(name), row = result.trials?.[names.indexOf(name)] ?? null;
-    if (!found) return { fault: `this build makes no case ${name} of ${reel.subject} on ${reel.evaluation} ${reel.protocol}` };
+    if (!found) return { refused: `this build makes no case ${name} of ${reel.subject} on ${reel.evaluation} ${reel.protocol}` };
     const refused = refusal(found.world);
-    if (refused !== null) return { fault: `the case ${name} cannot be played: ${refused}` };
+    if (refused !== null) return { refused: `the case ${name} cannot be played: ${refused}` };
     trials.push({ world: found.world as BoutWorld, played: row?.[0] ?? null, commit: result.commit, outcome: row ? result.outcomes?.[row[1]!]?.label ?? null : null, condition: conditionText(found.condition) });
   }
-  if (!trials.length) return { fault: "the reel names no case" };
+  if (!trials.length) return { refused: "the reel names no case" };
   // The Arena builds its engine and level once, for every trial it plays.
   const { engine, recipe, timing } = trials[0]!.world;
   if (trials.some(({ world }) => world.engine !== engine || (world.recipe.level ?? "open") !== (recipe.level ?? "open")
     || (world.timing?.hz ?? 120) !== (timing?.hz ?? 120) || (world.timing?.delay ?? 1) !== (timing?.delay ?? 1))) {
-    return { fault: "the reel's cases use different engines, levels, rates or command delays" };
+    return { refused: "the reel's cases use different engines, levels, rates or command delays" };
   }
-  return { trials };
+  return trials;
 }
