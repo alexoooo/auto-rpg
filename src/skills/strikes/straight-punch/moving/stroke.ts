@@ -15,6 +15,8 @@ interface StrokeAt {
   readonly guard: Pose;
   /** What the stroke keeps from step to step of one commit: empty at its start. */
   readonly kept: Record<string, number>;
+  /** How far past the target the fist is steered toward, m (`StraightDrive.through`, its record's). */
+  readonly through: number;
   /** The arm's pose with its striking point `out(apart, along)` m from the shoulder on the line to the target (`StraightTechnique`'s `reach`). */
   reach(out: (apart: number, along: number) => number, turned: boolean): StrokeReach;
 }
@@ -44,18 +46,16 @@ export const MOVING_THROW: ThrowMaker = ({ body, guard, technique, settings, pol
     begin() { kept = {}; },
     touches: (met) => !(met?.kind === "body" && met.guard),
     drive(view, hand, since, touched, pushes) {
-      const posture = drive({ view, since, touched, guard, kept, reach: (out, turned) => technique.reach(view, hand, out, turned) }, pushes);
+      const posture = drive({ view, since, touched, guard, kept, through: settings.through, reach: (out, turned) => technique.reach(view, hand, out, turned) }, pushes);
       if (settings.steered) technique.steer(view, hand, since, pushes, policy);
       return posture;
     },
-    done: (since, touched) => touched !== null ? touched >= HOLD : since >= LONGEST,
+    done: (since, touched) => touched !== null ? touched >= settings.follow : since >= settings.longest,
     leaves: (hand) => borne[hand],
     legs: () => null,
   };
 };
 
-/** How far past the target the fist is steered toward, m. */
-const THROUGH = 0.2;
 /** The fist's speed along the line it is steered toward, m/s, and how far ahead of it, s, its pose is solved. */
 const SPEED = 10, AHEAD = 0.02;
 /** The fastest an arm's freedom is driven, rad/s; the trunk's. */
@@ -66,8 +66,6 @@ const TURN = 1;
 const NEARER = 0.03, TRUNK_FIRST = 0.14;
 /** Within this of its goal a trunk freedom is held there, rad. */
 const NEAR = 0.02;
-/** How long the stroke holds from its first touch, s; and the longest it runs touching nothing. */
-const HOLD = 0.08, LONGEST = 0.35;
 
 /**
  * **`moving`'s stroke**: a punch that meets its target fast and held. Read on a target that stands,
@@ -84,13 +82,15 @@ const HOLD = 0.08, LONGEST = 0.35;
  *   muscles are weaker than the throw), and its fist ends short.
  * - **Thrown**, the fist is steered along the line from the shoulder to the target: each step the
  *   arm's pose is solved for the fist `SPEED` × `AHEAD` m further along that line than it stands
- *   (no further than `THROUGH` m past the target), with the trunk as it stands, and each of the
+ *   (no further than its record's `through` m past the target), with the trunk as it stands, and each of the
  *   arm's freedoms is pushed at full level toward the speed that would reach that pose in `AHEAD`
  *   s (no faster than `ARM_SPEED`), the elbow flat out toward its pose, never braked short of it.
  * - **Held**: from the fist's first touch of the body (a guard it drives through), the arm is held
- *   where it is at full strength, speed nought, for `HOLD` s, a strut with the turning trunk behind
- *   it.
- * - **Done** `HOLD` s after its first touch, or `LONGEST` s after the fire with none.
+ *   where it is at full strength, speed nought, for its record's `follow` s, a strut with the
+ *   turning trunk behind it.
+ * - **Done** `follow` s after its first touch, or its record's `longest` s after the fire with none.
+ * - **Its joints** as its reach names them (`StrokeReach`): the trunk's turns, chest and waist, and
+ *   the elbow.
  *
  * On a Warrior at a target that stands, swept from 0.45 to 1.2 m trunk to trunk: thrown at once it
  * lands 0.6 to 0.9 hp from 0.67 to 0.70 m; trunk first, 0.5 to 1.5 hp from 0.75 to 0.87 m, the fist
@@ -98,12 +98,12 @@ const HOLD = 0.08, LONGEST = 0.35;
  */
 function drive(at: StrokeAt, pushes: MusclePush[]): Pose {
   const { view, touched, kept } = at, posture: Record<string, number> = { ...at.guard };
-  const reached = at.reach((apart, along) => Math.min(apart + THROUGH, Math.max(0, along) + SPEED * AHEAD), false), pose = reached.pose;
+  const reached = at.reach((apart, along) => Math.min(apart + at.through, Math.max(0, along) + SPEED * AHEAD), false), pose = reached.pose;
   const trunk: Goal[] = [];
   for (const goal of reached.trunk) {
-    if (!/rotation/.test(goal.channel)) { trunk.push(goal); continue; }
+    if (!reached.turns.includes(goal.channel)) { trunk.push(goal); continue; }
     const sense = Math.sign(goal.angle) || 1;
-    trunk.push({ channel: goal.channel, angle: sense * TURN }, { channel: goal.channel.replace(/^thoracic/, "lumbar"), angle: sense * TURN });
+    for (const channel of reached.turns) trunk.push({ channel, angle: sense * TURN });
   }
   const held = (channel: string) => pushes.push({ channel, sense: 1, level: 1, speed: 0 });
   const toward = (goal: Goal, speed: number) => {
@@ -125,7 +125,7 @@ function drive(at: StrokeAt, pushes: MusclePush[]): Pose {
     return posture;
   }
   for (const goal of pose) {
-    if (/^elbow\.\w+ flexion$/.test(goal.channel)) {
+    if (reached.elbow.has(goal.channel)) {
       const sense = goal.angle >= (view.angles[goal.channel] ?? 0) ? 1 : -1;
       pushes.push({ channel: goal.channel, sense, level: 1, speed: sense * ARM_SPEED });
     } else toward(goal, ARM_SPEED);

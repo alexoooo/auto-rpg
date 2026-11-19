@@ -167,6 +167,9 @@ interface Limb {
   readonly trunkAngles: number[][];
   /** The trunk's goals at contact, by channel: the chest's turn and the lean, each the way that brings this shoulder forward. */
   readonly goals: readonly { readonly channel: string; readonly joint: number; readonly k: number; readonly angle: number }[];
+  /** The trunk's turning channels, the chest's and then the waist's, each of those it has; and the elbow's. */
+  readonly turns: readonly string[];
+  readonly elbow: ReadonlySet<string>;
   /** The angles the solve works in, by chain joint. */
   readonly angles: number[][];
 }
@@ -259,6 +262,9 @@ export interface StrokeReach {
   readonly arm: number;
   /** The trunk's contact goals: the chest's turn and the lean that bring the shoulder forward (`StraightDrive.turn`, `lean`). */
   readonly trunk: readonly Goal[];
+  /** The trunk's turning channels, the chest's and then the waist's, each of those it has; and the elbow's, among the arm's. */
+  readonly turns: readonly string[];
+  readonly elbow: ReadonlySet<string>;
   /** The arm's angles the reach asks. */
   readonly pose: readonly Goal[];
 }
@@ -301,12 +307,17 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
     const shoulder = chain[trunk]!.spec.centre.value;
     // Each trunk freedom named, signed by which way of it carries the shoulder forward (+z) from the reference pose.
     const goals: Limb["goals"][number][] = [];
-    const goal = (joint: string, pattern: RegExp, amount: number) => {
+    /** The trunk's freedom of `joint` whose channel `pattern` matches, by its chain joint and its place there; null where it has none. */
+    const freedomOf = (joint: string, pattern: RegExp): { readonly j: number; readonly k: number } | null => {
       const j = chain.findIndex((c) => c.spec.name === joint);
-      if (j < 0 || j >= trunk) return;
+      if (j < 0 || j >= trunk) return null;
       const k = chain[j]!.dofs.findIndex((_, i) => pattern.test(channelName(chain[j]!, i)));
-      if (k < 0) return;
-      const dof = chain[j]!.dofs[k]!.spec;
+      return k < 0 ? null : { j, k };
+    };
+    const goal = (joint: string, pattern: RegExp, amount: number) => {
+      const found = freedomOf(joint, pattern);
+      if (!found) return;
+      const { j, k } = found, dof = chain[j]!.dofs[k]!.spec;
       pointAtToRef(chain.slice(0, trunk), angles.slice(0, trunk), shoulder, before);
       angles[j]![k] = 0.1;
       pointAtToRef(chain.slice(0, trunk), angles.slice(0, trunk), shoulder, at);
@@ -316,12 +327,14 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
     };
     goal("thoracic", /rotation/, settings.turn);
     goal("lumbar", /^lumbar flexion$/, settings.lean);
-    for (const f of effector.free) if (/^elbow/.test(f.name)) angles[f.joint]![f.k] = f.min;
+    const turns = ["thoracic", "lumbar"].flatMap((joint) => { const found = freedomOf(joint, /rotation/); return found ? [channelName(chain[found.j]!, found.k)] : []; });
+    const elbow: ReadonlySet<string> = new Set(effector.free.filter((f) => /^elbow/.test(f.name)).map((f) => f.name));
+    for (const f of effector.free) if (elbow.has(f.name)) angles[f.joint]![f.k] = f.min;
     pointAtToRef(chain, angles, effector.points.get(aim)!, at);
     for (const f of effector.free) angles[f.joint]![f.k] = 0;
     const arm = hypot(at.x - shoulder[0], at.y - shoulder[1], at.z - shoulder[2]);
     return { chain, free: copyFreedoms(effector.free), work: reachWork(effector.free.length), point: effector.points.get(aim)!, aim, behind,
-      trunk, shoulder, arm, goals, angles, trunkChain: chain.slice(0, trunk),
+      trunk, shoulder, arm, goals, turns, elbow, angles, trunkChain: chain.slice(0, trunk),
       trunkNames: chain.slice(0, trunk).map((joint) => joint.dofs.map((_, k) => channelName(joint, k))), trunkAngles: angles.slice(0, trunk) };
   };
   const limbs = { left: limbOf("left"), right: limbOf("right") };
@@ -403,7 +416,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
     const along = p ? ((p.x - shoulder.x) * dx + (p.y - shoulder.y) * dy + (p.z - shoulder.z) * dz) / apart : 0;
     state.apart = apart; state.along = along;
     const reach = out(apart, along) / apart;
-    for (const f of free) f.preferred = /^elbow/.test(f.name) ? elbow ?? f.min : /^wrist/.test(f.name) && !limb.behind ? 0 : angles[f.joint]![f.k]!;
+    for (const f of free) f.preferred = limb.elbow.has(f.name) ? elbow ?? f.min : /^wrist/.test(f.name) && !limb.behind ? 0 : angles[f.joint]![f.k]!;
     const tx = shoulder.x + dx * reach, ty = shoulder.y + dy * reach, tz = shoulder.z + dz * reach, back = FACE_LEVER / apart;
     solveReach(chain, angles, free, limb.behind ? [{ point: limb.point, target: [tx, ty, tz] }, { point: limb.behind, target: [tx - dx * back, ty - dy * back, tz - dz * back] }]
       : [{ point: limb.point, target: [tx, ty, tz] }], undefined, limb.work);
@@ -442,7 +455,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
     const start = state.fired ?? settings.lead;
     if (share(start, Infinity) > 0) {
       for (const f of limb.free) {
-        const part = share(/^elbow/.test(f.name) ? start + settings.elbow : start, Infinity);
+        const part = share(limb.elbow.has(f.name) ? start + settings.elbow : start, Infinity);
         if (part > 0) push(f.name, limb.angles[f.joint]![f.k]!, part);
       }
     }
@@ -505,7 +518,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
   const reach = (view: BodyView, hand: Side, out: (apart: number, along: number) => number, turned: boolean): StrokeReach => {
     const limb = limbs[hand];
     solve(view, limb, turned, out, null);
-    return { apart: state.apart, along: state.along, arm: limb.arm, trunk: limb.goals.map((g) => ({ channel: g.channel, angle: g.angle })),
+    return { apart: state.apart, along: state.along, arm: limb.arm, trunk: limb.goals.map((g) => ({ channel: g.channel, angle: g.angle })), turns: limb.turns, elbow: limb.elbow,
       pose: limb.free.map((f) => ({ channel: f.name, angle: limb.angles[f.joint]![f.k]! })) };
   };
   return { state, seen, end, enter, read, standOff, chamber, drive, steer, reach, sense, steeredChannels, aimAt,
