@@ -207,7 +207,7 @@ test("replacement paw gaits normalize both travel axes and supply their own brak
   const seen = {};
   const gait = (name, speed, stopping) => ({
     state: { phase: "settle", steps: 0, placed: 0, sequence: 0, standing: true },
-    settings: { crawlHeight: 1, lift: .02, plantSpeed: .1, plant: .1, swing: .1 },
+    settings: { lift: .02, plantSpeed: .1, plant: .1, swing: .1 }, grounded: null, holding: true,
     reach: { forward: speed, aside: 1, turn: 1 }, travel: { speed, stopping }, resume() {},
     command(view, orders) {
       seen[name] = orders;
@@ -220,10 +220,10 @@ test("replacement paw gaits normalize both travel axes and supply their own brak
     const legs = PAW_MOVE.make(body.commanded, { kind: "paw-move", trot: { kind: "customTrot" }, crawl: { kind: "customCrawl" } },
       { parts: { of: (_role, config) => ({ fits: () => null, make: () => gaits[config.kind] }) } });
     legs.goal(body.view, { walk: [1, .5], face: 0, gait: "trot" }, body.commanded.dt);
-    assert.deepEqual(seen.trot, { move: { x: .25, z: .5 }, face: { x: 0, z: 1 } });
+    assert.deepEqual(seen.trot, { move: { x: .25, z: .5 }, face: { x: 0, z: 1 }, height: null });
     assert.equal(legs.stopping, .7);
     legs.goal(body.view, { walk: [1, .5], face: 0, gait: "crawl" }, body.commanded.dt);
-    assert.deepEqual(seen.crawl, { move: { x: .125, z: .25 }, face: { x: 0, z: 1 } });
+    assert.deepEqual(seen.crawl, { move: { x: .125, z: .25 }, face: { x: 0, z: 1 }, height: null });
     assert.equal(legs.stopping, 1.1);
   } finally { body.dispose(); stand.dispose(); }
 });

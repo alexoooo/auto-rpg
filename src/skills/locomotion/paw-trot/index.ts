@@ -13,10 +13,7 @@ interface TrotConfig extends Varied { readonly kind: "paw-trot"; readonly tuning
 /** The trot's variations: the trot. */
 const VARIATIONS = {
   "paw-trot"(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], config: TrotConfig) {
-    const settings = { ...REPTILE_TROT, ...config.tuning }, skill = trot(built, root, paws, names, settings);
-    // It carries the body forward at its speed, no faster than its stance's sweep lets it; aside and back at what it keeps of travel across its heading.
-    const reach = { forward: Math.min(settings.speed, skill.fastest), aside: settings.sideways, turn: settings.turnRate };
-    return { state: skill.state, settings, reach, travel: { speed: settings.speed, stopping: settings.acceleration }, resume: skill.resume, command: skill.command };
+    return trot(built, root, paws, names, { ...REPTILE_TROT, ...config.tuning });
   },
 };
 

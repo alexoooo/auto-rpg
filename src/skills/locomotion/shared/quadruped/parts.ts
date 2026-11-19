@@ -7,18 +7,12 @@ import type { TravelOrders } from "./travel.ts";
 import type { PawGaitName } from "./paw-legs.ts";
 import type { PawReading, PawView } from "../../../../control/quadruped/paws.ts";
 
-/** What a quadruped reads of a gait beside its command: how high it carries the body and how its paws lift, swing and plant. */
+/** What a quadruped reads of a gait beside its command: how its paws lift, swing and plant. */
 interface GaitSettings {
-  readonly crawlHeight: number;
   readonly lift: number;
   readonly plantSpeed: number;
   readonly plant: number;
   readonly swing: number;
-  /**
-   * Where the gait keeps its swings on the ground: each swinging paw's path held where it left the
-   * floor, driven firm (`EffectorGoal.firm`) at this tracking response, s.
-   */
-  readonly swingResponse?: number;
 }
 
 /**
@@ -34,18 +28,25 @@ export interface GaitReach {
 
 /**
  * **A gait over support chains**: where the body and each paw go this step for the travel asked
- * (`SupportedCommand`), at `height` of its standing height where it takes one. Its state says the
- * phase it is in (`settle` between steps), the steps it has made (paws that cleared the floor),
- * its placements (paws that landed, cleared or dragged), its count of paths (`sequence`) and
- * whether it stands.
+ * (`SupportedCommand`). Its state says the phase it is in (`settle` between steps), the steps it
+ * has made (paws that cleared the floor), its placements (paws that landed, cleared or dragged),
+ * its count of paths (`sequence`) and whether it stands.
  */
 export interface Gait extends Skill<PawView> {
   readonly state: { readonly phase: string; readonly steps: number; readonly placed: number; readonly sequence: number; readonly standing: boolean };
   readonly settings: GaitSettings;
+  /**
+   * Where the gait keeps its swings on the ground: each swinging paw's path held where it left the
+   * floor, carried against the trunk's motion and driven firm (`EffectorGoal.firm`) at this
+   * tracking response, s; none, its swings go through the root frame.
+   */
+  readonly grounded: number | null;
+  /** Whether it holds the body still as its last command left it (the motor's holding response, `SupportGoal.hold`). */
+  readonly holding: boolean;
   readonly reach: GaitReach;
   /** Travel normalization, m/s, and braking acceleration, m/s^2, owned by this gait. */
   readonly travel: { readonly speed: number; readonly stopping: number };
-  command(view: PawView, orders: TravelOrders, dt: number, height?: number): SupportedCommand;
+  command(view: PawView, orders: TravelOrders, dt: number): SupportedCommand;
 }
 
 /**

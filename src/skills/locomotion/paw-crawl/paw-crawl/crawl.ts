@@ -1,7 +1,5 @@
-import type { TravelOrders } from "../../shared/quadruped/travel.ts";
+import type { Gait } from "../../shared/quadruped/parts.ts";
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
-import type { Skill } from "../../../framework/skill.ts";
-import type { SupportedCommand } from "../../../../control/supported-motor.ts";
 import type { ReadBody, ReadSegment } from "../../../../core/bodies/read-body.ts";
 import { withinSupport } from "../../../../control/support.ts";
 import { atan2, cos, sin } from "../../../../core/math/real.ts";
@@ -28,7 +26,7 @@ function overPaws(built: ReadBody, paws: readonly string[]): readonly [number, n
  * One paw moves after the centre enters the other three paws' support triangle: a gait of the body
  * `built`, its trunk `root`, on its paws `names` as `paws` reads them.
  */
-export function crawl(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_CRAWL) {
+export function crawl(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_CRAWL): Gait {
   if (!validCrawl(T)) throw new Error("invalid crawl settings");
   const nominal = names.map(name => built.segments.get(name)!.spec.points!.sole!.value);
   const mass = built.spec.mass.value, reference = built.spec.segments.reduce((c, p) => {
@@ -55,9 +53,13 @@ export function crawl(built: ReadBody, root: ReadSegment, paws: PawReading, name
     state.centre[0] = view.centre.x; state.centre[2] = view.centre.z;
     view.feet.forEach((e, i) => { state.anchors[i]![0] = e.at.x; state.anchors[i]![1] = e.ground; state.anchors[i]![2] = e.at.z; });
   };
-  const skill: Skill<PawView> & { readonly state: typeof state; command(view: PawView, intent: TravelOrders, dt: number, height?: number): SupportedCommand } = {
-    state, resume,
-    command(view, intent, dt, height = T.crawlHeight) {
+  // A paw's step takes its settle, its shift, its swing and its plant; each paw steps once a stride, and a heading turns a yaw step a stride. It steps any way.
+  const stride = names.length * (T.settle + T.shift + T.swing + T.plant), forward = T.stride / stride;
+  return {
+    state, resume, settings: T, grounded: null, holding: true,
+    reach: { forward, aside: 1, turn: T.yawStep / stride },
+    travel: { speed: forward, stopping: forward / stride },
+    command(view, intent, dt) {
       const face = intent.face ?? intent.move;
       let error = 0;
       if (face && (face.x * face.x + face.z * face.z) > 0) {
@@ -75,7 +77,7 @@ export function crawl(built: ReadBody, root: ReadSegment, paws: PawReading, name
       const average = [0, 0, 0];
       for (const anchor of state.anchors) for (let k = 0; k < 3; k++) average[k] += anchor[k]! / names.length;
       const ground = average[1]!;
-      state.command.centre[1] = ground + reference[1] * (state.phase === "settle" ? 1 : height);
+      state.command.centre[1] = ground + reference[1] * (state.phase === "settle" ? 1 : (intent.height ?? T.height));
       if (state.phase === "settle") {
         if (moving || !state.standing) {
           const c = cos(state.yaw), s = sin(state.yaw);
@@ -150,7 +152,6 @@ export function crawl(built: ReadBody, root: ReadSegment, paws: PawReading, name
       return state.command;
     },
   };
-  return skill;
 }
 
 /** The crawl's complete settings keep travel and every consumed time divisor positive. */

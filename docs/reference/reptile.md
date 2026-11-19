@@ -73,7 +73,7 @@ comment saying why:
 
 Controller choices live with their capabilities, each record a line of values whose comment says
 what each group of them serves: `PAW_SUPPORT` and `PAW_TRAVEL`
-(`src/control/quadruped/tuning.ts`), `REPTILE_TROT` and `REPTILE_CRAWL`
+(`src/control/quadruped/tuning.ts`), `REPTILE_TROT`, `REPTILE_CRAWL` and the paw legs' `PAW_LEGS`
 (`src/skills/locomotion/shared/quadruped/tuning.ts`), the bite's (`BITE_SETTINGS`,
 `src/skills/strikes/bite/bite/bite.ts`), the righting recipe's (`RightingRecipe`,
 `src/skills/recovery/righting-recipe/righting-recipe/recipe.ts`) and `REPTILE_RECOVERY`

@@ -13,11 +13,7 @@ interface CrawlConfig extends Varied { readonly kind: "paw-crawl"; readonly tuni
 /** The crawl's variations: the crawl. */
 const VARIATIONS = {
   "paw-crawl"(built: ReadBody, root: ReadSegment, reading: PawReading, paws: readonly string[], config: CrawlConfig) {
-    const settings = { ...REPTILE_CRAWL, ...config.tuning }, skill = crawl(built, root, reading, paws, settings);
-    // A paw's step takes its settle, its shift, its swing and its plant; each paw steps once a stride, and a heading turns a yaw step a stride. It steps any way.
-    const stride = paws.length * (settings.settle + settings.shift + settings.swing + settings.plant);
-    const reach = { forward: settings.stride / stride, aside: 1, turn: settings.yawStep / stride };
-    return { state: skill.state, settings, reach, travel: { speed: reach.forward, stopping: reach.forward / stride }, resume: skill.resume, command: skill.command };
+    return crawl(built, root, reading, paws, { ...REPTILE_CRAWL, ...config.tuning });
   },
 };
 

@@ -1,11 +1,9 @@
 import { Quaternion } from "../../../../core/math/vector.ts";
-import type { Skill } from "../../../framework/skill.ts";
-import type { SupportedCommand } from "../../../../control/supported-motor.ts";
 import type { ReadBody, ReadSegment } from "../../../../core/bodies/read-body.ts";
 import { atan2, cos, sin } from "../../../../core/math/real.ts";
 import type { Vec3 } from "../../../../core/quantity.ts";
 import { REPTILE_TROT } from "../../shared/quadruped/tuning.ts";
-import type { TravelOrders } from "../../shared/quadruped/travel.ts";
+import type { Gait } from "../../shared/quadruped/parts.ts";
 import type { PawReading, PawView } from "../../../../control/quadruped/paws.ts";
 import { chainTo, reachWork, solveReach } from "../../../../control/kinematics.ts";
 
@@ -14,7 +12,7 @@ import { chainTo, reachWork, solveReach } from "../../../../control/kinematics.t
  * Each pair stands under the centre of mass (`stanceOf`) and lands led by the travel it will bear
  * through; the trunk goes no faster than its bearing paws' reach lets it, and turns as it travels.
  */
-export function trot(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_TROT) {
+export function trot(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_TROT): Gait {
   if (!validTrot(T)) throw new Error("invalid trot settings");
   const nominal = names.map(name => built.segments.get(name)!.spec.points!.sole!.value);
   const mass = built.spec.mass.value, reference = built.spec.segments.reduce((c, p) => {
@@ -64,8 +62,12 @@ export function trot(built: ReadBody, root: ReadSegment, paws: PawReading, names
     state.command.velocity.fill(0); state.pace.fill(0);
     view.feet.forEach((e, i) => { state.anchors[i]![0] = e.at.x; state.anchors[i]![1] = e.ground; state.anchors[i]![2] = e.at.z; });
   };
-  const skill: Skill<PawView> & { readonly state: typeof state; readonly fastest: number; command(view: PawView, intent: TravelOrders, dt: number): SupportedCommand } = {
-    state, resume, fastest,
+  return {
+    state, resume, settings: T, grounded: T.swingResponse,
+    get holding() { return state.standing && state.phase === "settle"; },
+    // It carries the body forward at its speed, no faster than its stance's sweep lets it; aside and back at what it keeps of travel across its heading.
+    reach: { forward: Math.min(T.speed, fastest), aside: T.sideways, turn: T.turnRate },
+    travel: { speed: T.speed, stopping: T.acceleration },
     command(view, intent, dt) {
       const face = intent.face ?? intent.move;
       let error = 0;
@@ -127,7 +129,7 @@ export function trot(built: ReadBody, root: ReadSegment, paws: PawReading, names
       }
       state.standing = !travelling;
       state.command.centre[0] = state.centre[0]; state.command.centre[2] = state.centre[2];
-      state.command.centre[1] = ground + reference[1] * (travelling || state.phase !== "settle" ? T.crawlHeight : 1);
+      state.command.centre[1] = ground + reference[1] * (travelling || state.phase !== "settle" ? (intent.height ?? T.height) : 1);
       if (state.phase === "settle" && moving && state.time >= T.settle && view.feet.every(down)) {
         state.phase = "swing"; state.time = 0; state.since = 0; state.sequence++;
         state.liftedPaws.fill(false);
@@ -169,7 +171,6 @@ export function trot(built: ReadBody, root: ReadSegment, paws: PawReading, names
       return state.command;
     },
   };
-  return skill;
 }
 
 /** The diagonal pairs of four paws (the first paw and the one farthest from it, and the other two); any other count steps one paw at a time. */

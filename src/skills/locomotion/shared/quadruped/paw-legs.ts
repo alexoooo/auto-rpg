@@ -12,15 +12,18 @@ import type { LegsAsked } from "../../../framework/skill.ts";
 import { derive } from "../../../../core/quantity.ts";
 import { deepFreeze } from "../../../../core/state.ts";
 import { soleGoal } from "../../../../control/quadruped/motion.ts";
-import { STAND_TRAVEL, type TravelOrders } from "./travel.ts";
+import { standAt, type TravelOrders } from "./travel.ts";
 import { type Gait, type GaitReach } from "./parts.ts";
 import { pawEndpoints, pawReader, pawView } from "../../../../control/quadruped/paws.ts";
-import { REPTILE_CRAWL, REPTILE_TROT } from "./tuning.ts";
+import { PAW_LEGS } from "./tuning.ts";
 import { pawsOf } from "../../../../core/bodies/spec/body.ts";
 
 /** The gaits the paw legs go by, by name (`LegsGoal.gait`), in the order a walk offers them. */
 export const GAIT_NAMES = Object.freeze(["trot", "crawl"] as const);
 export type PawGaitName = typeof GAIT_NAMES[number];
+
+/** A walk of none that still steps (`TravelOrders.move`): each paw placed again where it stands. */
+const IN_PLACE = Object.freeze({ x: 0, z: 0 });
 
 /** The way `reach` carries the body as the speed rule and a walk read it (`StanceEnvelope`): forward at its travel, aside and back at its share of it, turning at its turn. */
 function envelopeOf(name: PawGaitName, reach: GaitReach): StanceEnvelope {
@@ -37,19 +40,19 @@ function envelopeOf(name: PawGaitName, reach: GaitReach): StanceEnvelope {
  * - **The walk asked** (m/s, along the heading and to its right) is the gait's travel, a share of
  *   its selected gait's travel speed (`Gait.travel`), and the facing asked its heading. A gait named is the
  *   one it goes by, changing to it once the one it goes by settles; none named, it trots to walk
- *   and keeps its gait to stand. The crawl carries the body at the height asked, a share of its
- *   standing height (`BodyView.standing`), its own where none is asked.
+ *   and keeps its gait to stand. The height asked, a share of its standing height
+ *   (`BodyView.standing`), is the gait's to carry (`TravelOrders.height`).
  * - **A centre asked** is leaned toward where every paw but one bears, held within their support
- *   (`withinSupport`, `REPTILE_CRAWL.leanInset`).
+ *   (`withinSupport`, `PAW_LEGS.leanInset`).
  * - **Each paw** that bears and touches is the support's; any other is carried along its path to
- *   its place (`soleGoal`), in the root frame: the trot's kept on the ground from where it left the
- *   floor, against the trunk's motion there.
+ *   its place (`soleGoal`), in the root frame: kept on the ground from where it left the floor,
+ *   against the trunk's motion there, by a gait that keeps it so (`Gait.grounded`).
  * - **Finding its footing** (`resume`): back from another, it crawls, standing where it stands, until
  *   each paw has been placed again and every paw bears flat and the body is slow for
- *   `REPTILE_TROT.resumeHold` s.
+ *   `PAW_LEGS.resumeHold` s.
  *
- * It holds the body still (the motor's holding response) crawling or standing settled, and travels
- * else. Its heading is the body's facing, it stops at the trot's acceleration and goes on nothing
+ * It holds the body still (the motor's holding response) where its gait holds it (`Gait.holding`),
+ * and travels else. Its heading is the body's facing, it stops at the gait's braking and goes on nothing
  * once asked to slow, and it has placed its paws once its gait has settled and it is not finding
  * its footing. Its memory is its gaits', the gait it goes by, its footing and each paw's path.
  */
@@ -73,39 +76,38 @@ export function pawLegs(body: Body, gaits: Readonly<Partial<Record<PawGaitName, 
   const origin = new Vector3(), drift = new Vector3(), grounded = { origin, drift, firm: false, response: 0 };
   const support = paws.map(() => ({ corners: [new Vector3()] })), loaded: typeof support = [];
   const resumeGaits = (): void => { for (const name of names) gaits[name]!.resume(seen); state.support++; };
-  /** The orders `goal` asks of a gait: its walk a share of that gait's travel, world, and its facing. */
-  const ordersOf = (goal: LegsAsked, heading: number, speed: number): TravelOrders => {
-    const walk = goal.walk, s = sin(heading), c = cos(heading);
+  /** The orders `goal` asks of a gait, `view` as it stands: its walk a share of that gait's travel, world, its facing and its height. */
+  const ordersOf = (goal: LegsAsked, view: BodyView, speed: number): TravelOrders => {
+    const walk = goal.walk, s = sin(view.stance.facing), c = cos(view.stance.facing);
     return { move: walk ? { x: (walk[0] * s + walk[1] * c) / speed, z: (walk[0] * c - walk[1] * s) / speed } : null,
-      face: { x: sin(goal.face), z: cos(goal.face) } };
+      face: { x: sin(goal.face), z: cos(goal.face) }, height: goal.height === undefined ? null : goal.height / supportHeight(view) };
   };
   const goalOf = (view: BodyView, goal: LegsAsked, dt: number): SupportGoal => {
     const placing = !!creep && creep.state.placed < state.homeAt;
     if (state.reacquire && creep && !placing && creep.state.phase === "settle") {
-      const stable = seen.feet.every((foot) => foot.contact && foot.flat) && seen.velocity.lengthSquared() < REPTILE_TROT.resumeSpeed * REPTILE_TROT.resumeSpeed;
+      const stable = seen.feet.every((foot) => foot.contact && foot.flat) && seen.velocity.lengthSquared() < PAW_LEGS.resumeSpeed * PAW_LEGS.resumeSpeed;
       state.stable = stable ? state.stable + dt : 0;
-      if (state.stable >= REPTILE_TROT.resumeHold) state.reacquire = false;
+      if (state.stable >= PAW_LEGS.resumeHold) state.reacquire = false;
     }
     const named = names.find(name => name === goal.gait);
     const wanted: PawGaitName = state.reacquire ? "crawl" : named ?? (goal.walk && gaits.trot ? "trot" : state.kind);
-    const asked = ordersOf(goal, view.stance.facing, gaits[wanted]!.travel.speed);
-    const movement: TravelOrders = state.reacquire ? placing ? { move: { x: 0, z: 0 }, face: asked.face } : STAND_TRAVEL : asked;
+    const asked = ordersOf(goal, view, gaits[wanted]!.travel.speed);
+    const movement: TravelOrders = state.reacquire ? placing ? { move: IN_PLACE, face: asked.face, height: asked.height } : standAt(asked.height) : asked;
     let active = gaits[state.kind]!;
     if (wanted !== state.kind && active.state.phase === "settle") {
       state.kind = wanted; active = gaits[wanted]!;
       active.resume(seen); state.support++;
     }
-    const T = active.settings, walking = wanted !== state.kind ? STAND_TRAVEL : movement;
+    const T = active.settings, walking = wanted !== state.kind ? standAt(asked.height) : movement;
     state.pace = walking.move ? hypot(walking.move.x, walking.move.z) * active.travel.speed : 0;
-    const command = active.command(seen, walking, dt, state.kind === "crawl"
-      ? goal.height === undefined ? active.settings.crawlHeight : goal.height / supportHeight(view) : undefined);
+    const command = active.command(seen, walking, dt);
     const centre: [number, number, number] = [command.centre[0], command.centre[1], command.centre[2]];
     if (goal.centre) {
       let bearing = 0;
       support.forEach((sole, i) => { if (reading.endpoints[i]!.contact) { sole.corners[0]!.copyFrom(reading.endpoints[i]!.at); loaded[bearing++] = sole; } });
       loaded.length = bearing;
       if (bearing >= support.length - 1) {
-        const placed = withinSupport(loaded, goal.centre[0], goal.centre[1], REPTILE_CRAWL.leanInset);
+        const placed = withinSupport(loaded, goal.centre[0], goal.centre[1], PAW_LEGS.leanInset);
         centre[0] = placed[0]; centre[2] = placed[1];
       }
     }
@@ -117,23 +119,22 @@ export function pawLegs(body: Body, gaits: Readonly<Partial<Record<PawGaitName, 
     const ends = command.endpoints.map((end, i) => {
       const paw = paws[i]!, swing = state.swing;
       if (end.bearing && reading.endpoints[i]!.contact) { swing.key[i] = -1; return { target: end.target, bearing: end.bearing, rotation: end.rotation, swing: null }; }
-      const kept = state.kind === "trot" && T.swingResponse !== undefined;
-      if (state.kind === "trot") motionAtToRef(root, target.set(...end.target), carried, spin);
-      if (kept) {
+      const response = active.grounded;
+      if (response !== null) {
         // Kept on the ground: the path begins where the paw left the floor and moves through
         // the root frame against the root's motion at the target.
+        motionAtToRef(root, target.set(...end.target), carried, spin);
         const key = active.state.sequence * 2 + (end.bearing ? 1 : 0), foot = reading.endpoints[i]!.at;
         if (swing.key[i] !== key) { swing.key[i] = key; swing.start[i]!.splice(0, 3, foot.x, foot.y, foot.z); }
         intoFrameToRef(frame, swing.start[i]!, origin);
         drift.copyFrom(carried).scaleInPlace(-1).applyRotationQuaternionToRef(inverse, drift);
-        grounded.firm = !end.bearing; grounded.response = T.swingResponse!;
-      } else if (state.kind === "trot") descending.set(-carried.x, -T.plantSpeed - carried.y, -carried.z).applyRotationQuaternionToRef(inverse, descending);
+        grounded.firm = !end.bearing; grounded.response = response;
+      }
       intoFrameToRef(frame, end.target, target);
       return { target: end.target, bearing: end.bearing, rotation: end.rotation,
-        swing: soleGoal(paw.point, target, end.bearing ? T.plant : T.swing, active.state.sequence, descending, flat, end.bearing ? still : lift, kept ? grounded : undefined) };
+        swing: soleGoal(paw.point, target, end.bearing ? T.plant : T.swing, active.state.sequence, descending, flat, end.bearing ? still : lift, response === null ? undefined : grounded) };
     });
-    const hold = state.kind === "crawl" || active.state.standing && active.state.phase === "settle";
-    return { centre, velocity: [command.velocity[0], command.velocity[1], command.velocity[2]], rotation: command.rotation, ends, hold, sequence: state.support };
+    return { centre, velocity: [command.velocity[0], command.velocity[1], command.velocity[2]], rotation: command.rotation, ends, hold: active.holding, sequence: state.support };
   };
   return {
     state,
