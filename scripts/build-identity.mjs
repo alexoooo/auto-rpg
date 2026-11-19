@@ -11,16 +11,34 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const OUTPUTS = Object.freeze(["assets/minds/notes.json", "assets/evaluations/", "public/assets/generated/"]);
 const isOutput = path => OUTPUTS.some(output => output.endsWith("/") ? `${path}/`.startsWith(output) : path === output);
 const TEXT = new Set([".ts", ".mts", ".mjs", ".cjs", ".js", ".json", ".css", ".html", ".svg", ".wgsl", ".glsl", ".sh", ".patch", ".py", ".ps1", ".md", ".txt", ".yml", ".yaml", ".xml", ".toml", ".csv", ".obj", ".mtl", ".gltf"]);
+/** The modules: what of research and the test harness is a build input, and the files whose imports the walk reads. */
+const CODE = new Set([".ts", ".mts", ".mjs", ".js"]);
+/** The installed solver's files the build loads. */
+const SOLVER = Object.freeze(["package.json", "dist/rapier.mjs", "dist/rapier_wasm3d.js", "dist/rapier_wasm3d_bg.wasm"].map((file) => `node_modules/@dimforge/rapier3d-simd-compat/${file}`));
+/**
+ * **The folders the build's inputs lie in**, each with which of its files are inputs, by path:
+ * runtime code and input assets, the vendored solver's files beside its notes, and the modules of
+ * research (its runs aside) and of the test harness.
+ */
+const FOLDERS = Object.freeze({
+  src: () => true,
+  assets: () => true,
+  public: () => true,
+  scripts: () => true,
+  "vendor/rapier": (file) => !file.slice("vendor/rapier/".length).includes("/") && !file.endsWith(".md"),
+  research: (file) => !file.startsWith("research/runs/") && CODE.has(extname(file)),
+  "tests/harness": (file) => CODE.has(extname(file)),
+});
 
-/** Whether a path contributes to the build, including a removed input in a historical Git diff. */
-export function isBuildInput(file) {
-  return !isOutput(file) && !file.split("/").includes("__pycache__") && !/\.py[co]$/.test(file) && (
-    ["package.json", "package-lock.json", "vite.config.ts", "tsconfig.json"].includes(file)
-    || !file.includes("/") && file.endsWith(".html")
-    || /^(src|assets|public|scripts)\//.test(file)
-    || file.startsWith("vendor/rapier/") && file.slice("vendor/rapier/".length).includes("/") === false && !file.endsWith(".md")
-    || (file.startsWith("research/") && !file.startsWith("research/runs/") || file.startsWith("tests/harness/")) && [".ts", ".mjs", ".js"].includes(extname(file))
-    || file.startsWith("node_modules/@dimforge/rapier3d-simd-compat/"));
+/**
+ * Whether a path contributes to the build: the configs and pages at the root, the solver's files
+ * and what `FOLDERS` holds; never an output, nor Python's bytecode.
+ */
+function isBuildInput(file) {
+  if (isOutput(file) || file.split("/").includes("__pycache__") || /\.py[co]$/.test(file)) return false;
+  if (!file.includes("/")) return ["package.json", "package-lock.json", "vite.config.ts", "tsconfig.json"].includes(file) || file.endsWith(".html");
+  const folder = Object.keys(FOLDERS).find((one) => file.startsWith(`${one}/`));
+  return SOLVER.includes(file) || folder !== undefined && FOLDERS[folder](file);
 }
 
 /** A file's content as identities read it: a text file's line endings normalised. */
@@ -29,26 +47,18 @@ function contentOf(root, file) {
   return TEXT.has(extname(file)) ? Buffer.from(bytes.toString("utf8").replace(/\r\n/g, "\n")) : bytes;
 }
 
-/** The build inputs, by path: runtime code, input assets, dependency lock and the installed solver. */
+/** The build inputs (`isBuildInput`), by path: of the files at the root, the solver's and every file under `FOLDERS`. */
 function buildInputs() {
-  const files = ["package.json", "package-lock.json", "vite.config.ts", "tsconfig.json"];
-  for (const entry of readdirSync(ROOT, { withFileTypes: true })) if (entry.isFile() && entry.name.endsWith(".html")) files.push(entry.name);
-  const walk = (directory, codeOnly = false) => {
-    if (!existsSync(resolve(ROOT, directory))) return;
+  const files = [...readdirSync(ROOT, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => entry.name), ...SOLVER];
+  const walk = (directory) => {
     for (const entry of readdirSync(resolve(ROOT, directory), { withFileTypes: true })) {
-      if (entry.name === "__pycache__" || /\.py[co]$/.test(entry.name)) continue;
       const file = `${directory}/${entry.name}`;
-      if (entry.isDirectory() && file !== "research/runs" && !isOutput(file)) walk(file, codeOnly);
-      else if (entry.isFile() && !isOutput(file) &&(!codeOnly || [".ts", ".mjs", ".js"].includes(extname(file)))) files.push(file);
+      if (entry.isDirectory()) walk(file);
+      else if (entry.isFile()) files.push(file);
     }
   };
-  for (const directory of ["src", "assets", "public", "scripts"]) walk(directory);
-  for (const entry of readdirSync(resolve(ROOT, "vendor/rapier"), { withFileTypes: true })) if (entry.isFile() && !entry.name.endsWith(".md")) files.push(`vendor/rapier/${entry.name}`);
-  const solver = "node_modules/@dimforge/rapier3d-simd-compat";
-  for (const file of ["package.json", "dist/rapier.mjs", "dist/rapier_wasm3d.js", "dist/rapier_wasm3d_bg.wasm"]) files.push(`${solver}/${file}`);
-  walk("research", true);
-  walk("tests/harness", true);
-  return files.map(file => relative(ROOT, resolve(ROOT, file)).replaceAll("\\", "/")).filter(isBuildInput);
+  for (const folder of Object.keys(FOLDERS)) if (existsSync(resolve(ROOT, folder))) walk(folder);
+  return files.filter(isBuildInput);
 }
 
 /** The commit checked out, or null outside a repository. */
@@ -79,9 +89,6 @@ export function currentBuildIdentity() {
 export const BUILD_IDENTITY = BUILD_IDENTITY_FORM.test(process.env.AUTO_RPG_BUILD_IDENTITY ?? "")
   ? process.env.AUTO_RPG_BUILD_IDENTITY : currentBuildIdentity();
 process.env.AUTO_RPG_BUILD_IDENTITY = BUILD_IDENTITY;
-
-/** The modules whose imports the walk reads. */
-const CODE = new Set([".ts", ".mts", ".mjs", ".js"]);
 
 /**
  * **What module `file` (its source `text`) imports**, read from its syntax, each relative
