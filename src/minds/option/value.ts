@@ -1,3 +1,4 @@
+import { heldAt } from "../../core/bodies/spec/body.ts";
 import type { Spot } from "../../skills/framework/menu.ts";
 import type { FoePhase } from "../../skills/perception/threat.ts";
 import { impactEnergy } from "../../combat/impact.ts";
@@ -184,7 +185,7 @@ function blowEnergy(striker: BodySpec, limb: string, struck: BodySpec, at: strin
 
 /** How stiff the face `limb` of `spec` strikes with is, N/m: what it holds, else the limb's own; null for a rigid one. */
 function strikingStiffness(spec: BodySpec, limb: string): number | null {
-  const held = spec.held?.find((item) => item.segment === limb);
+  const held = heldAt(spec, limb);
   return (held ? held.item.surface : segmentOf(spec, limb)?.surface)?.stiffness.value ?? null;
 }
 

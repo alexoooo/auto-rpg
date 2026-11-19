@@ -1,3 +1,4 @@
+import { heldAt } from "../../core/bodies/spec/body.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import poses from "../../../assets/research/posture-holds.json" with { type: "json" };
 import type { buildBody } from "../../core/bodies/build/build-body.ts";
@@ -93,7 +94,7 @@ function geometry(spec: BodySpec, placement: Placement): Convex[] {
   const rotation = new Quaternion(...(placement.rotation ?? [0, 0, 0, 1])).normalize();
   const translated = new Vector3(...placement.position), out: Convex[] = [];
   for (const original of spec.segments) {
-    const segment = { ...original, shape: configurationShapeAt(spec, original, spec.held?.some(h => h.segment === original.name) ? "grip" : "open") };
+    const segment = { ...original, shape: configurationShapeAt(spec, original, heldAt(spec, original.name) !== undefined ? "grip" : "open") };
     const chain = specChainTo(spec, segment.name), angles = chain.map(j => placement.joints?.[j.spec.name] ?? j.dofs.map(() => 0));
     for (const shape of rigidOf(spec, segment).shapes) {
       const lows = lowsOf(shape, frameOf(segment));

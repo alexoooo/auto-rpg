@@ -1,3 +1,4 @@
+import { heldAt } from "../../../core/bodies/spec/body.ts";
 import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../framework/action.ts";
 import { supportHeight } from "../../../control/support-reference.ts";
 
@@ -293,7 +294,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
     const effector = effectors.find((e) => e.segment.spec.name === `hand.${hand}`)!, face = faces?.[hand];
     const { chain } = effector, trunk = effector.free[0]!.joint, aim = face?.point ?? effector.model.point;
     if (!effector.points.has(aim)) throw new Error(`${spec.model}'s ${hand} hand has no point ${aim} to strike with`);
-    const held = face ? spec.held?.find((h) => h.segment === `hand.${hand}`) : undefined;
+    const held = face ? heldAt(spec, `hand.${hand}`) : undefined;
     if (face && !held) throw new Error(`${spec.model}'s ${hand} hand holds nothing to strike with`);
     /** The face's facing in the body frame, reference pose, and the point behind the striking point against it. */
     const behind = held && face ? (() => {

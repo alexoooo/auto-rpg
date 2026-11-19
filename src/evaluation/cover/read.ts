@@ -3,6 +3,7 @@
  * subject, by where it met the subject (its head, its guard, the rest of it), the hit points each
  * took, and whether the subject went down.
  */
+import { heldAt } from "../../core/bodies/spec/body.ts";
 import { regionSegments } from "../../skills/framework/action-aim.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs.ts";
@@ -80,7 +81,7 @@ export function readCover({ world, duel }: { readonly world: World; readonly due
   if (!skills) throw new Error("the subject runs no skills");
   const spec = left.built.spec, head = new Set(regionSegments(spec, { kind: "mark", mark: "high" }));
   const guard = new Set(SIDES.flatMap((side) => armOf(spec, `hand.${side}`)));
-  const shield = spec.held?.find((held) => held.segment === "hand.left")?.item.name ?? null;
+  const shield = heldAt(spec, "hand.left")?.item.name ?? null;
   const foe = duel.duelists.right.minded.skills;
   const attacks = new Set((foe?.actions.kit ?? []).filter(entry => entry.regions.length > 0).map(entry => entry.action));
   const state = { down: false, covering: 0, last: world.time, attempted: false };

@@ -1,3 +1,4 @@
+import { heldAt } from "../../../core/bodies/spec/body.ts";
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
 
 import { bodyEffectors } from "../../../control/effectors.ts";
@@ -20,7 +21,7 @@ const HOLD_SECONDS = 0.1;
 export function holdUp(built: ReadBody): (hand: string) => PointTask | null {
   const n = 1 / HOLD_SECONDS;
   const hands = new Map(bodyEffectors(built).flatMap((effector) => {
-    const name = effector.model.segment, segment = built.segments.get(name), held = built.spec.held?.find((h) => h.segment === name);
+    const name = effector.model.segment, segment = built.segments.get(name), held = heldAt(built.spec, name);
     if (!segment || !held) return [];
     const [x, y, z] = held.along.value, size = Math.sqrt(x * x + y * y + z * z);
     return [[name, { segment, point: effector.model.point, along: new Vector3(x / size, y / size, z / size) }] as const];

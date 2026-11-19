@@ -1,3 +1,4 @@
+import { heldAt } from "../../../core/bodies/spec/body.ts";
 import { HAND_CONFIGURATION } from "../../../core/bodies/human/hand-configurations.ts";
 /**
  * The Warrior's robot appearances, Industrial, Steampunk and Futuristic, built in code with no
@@ -55,7 +56,7 @@ export function dressRobot(built: DrawnBody, scene: Scene, appearance: Robot, op
       const hand = name.endsWith("right") ? "right" : "left", k = local(segment, segment.spec.points!.knuckles.value);
       const little = local(segment, segment.spec.points!.little.value), halfWidth = Math.abs(little.x - k.x) * 1.20;
       const radius = segment.spec.shape.kind === "capsule" ? segment.spec.shape.radius.value : size.z / 2;
-      const held = built.spec.held?.find(item => item.segment === name), holding = held !== undefined;
+      const held = heldAt(built.spec, name), holding = held !== undefined;
       const grip = held ? local(segment, held.origin.value) : null;
       const bendRadius = held?.item.grip ? held.item.grip.value + radius * .25 : radius * .90;
       for (let digit = 0; digit < 4; digit++) {

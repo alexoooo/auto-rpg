@@ -1,3 +1,4 @@
+import { heldAt } from "../../../core/bodies/spec/body.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
 import { recoveryNetwork } from "../../../core/math/learning/recovery-network.ts";
 import { dataOf } from "../../../core/data/store.ts";
@@ -10,7 +11,7 @@ import { DRIVE_THROW, STRAIGHT_DRIVE_KEYS, timedChannelFault, straightDriveExecu
 import { checkedLayout, type SteerLayout } from "../shared/steer.ts";
 import layoutFile from "../../../../assets/skills/strikes/straight-punch/drive.layout.json" with { type: "json" };
 import movingLayoutFile from "../../../../assets/skills/strikes/straight-punch/moving.layout.json" with { type: "json" };
-import { handConfigurationRefusal, holdsNothing } from "../../reach/hand.ts";
+import { handConfigurationRefusal } from "../../reach/hand.ts";
 import { DRIVE_BODIES, MOVING_BODIES, type PunchRecordKey } from "./data/records.ts";
 import { MOVING_THROW } from "./moving/stroke.ts";
 import { executorOf, makersOf, varied, variationReads, variationRecordFault, type ExecutorVariations, type RecordedVariation, type Varied, type Variations } from "../../framework/variations.ts";
@@ -76,7 +77,7 @@ export const PUNCH_PART: ExecutorPart<Config> = {
   faults: (config) => config.tuning === undefined || validStraightDrivePart(config.tuning) ? [] : ["invalid straight punch tuning"],
   reads: variationReads(VARIATIONS), effectors: ["hand.left", "hand.right"], aims: true,
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.
-  strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),
+  strikesWith: (spec, _config, effector) => heldAt(spec, effector) === undefined,
   skillGroup: "Strikes",
 };
 

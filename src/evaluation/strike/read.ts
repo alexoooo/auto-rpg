@@ -3,6 +3,7 @@
  * each touch of the asked limb on the target, its physical reading reported beside the person's reference
  * (`BAR`), which does not decide whether the action lands. Every rung reads its trials so.
  */
+import { heldAt } from "../../core/bodies/spec/body.ts";
 import { pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
@@ -11,7 +12,7 @@ import { regionSegments } from "../../skills/framework/action-aim.ts";
 import { drillTask, type DrillPhase } from "../../minds/command/drill.ts";
 import { sensedPhase } from "../../skills/perception/threat.ts";
 import { centreReading } from "../../control/observation.ts";
-import { aimOf, holdsNothing } from "../../skills/reach/hand.ts";
+import { aimOf } from "../../skills/reach/hand.ts";
 import { effectorAim } from "../../control/effectors.ts";
 import { sensedPosture } from "../../skills/perception/threat.ts";
 import { ownStance, sensedStance } from "../../skills/perception/stance-numbers.ts";
@@ -461,7 +462,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   /** The striking limb: its effector and the two segments above it, as a target's arm is read (`arms`). */
   const striking = new Set([0, 1, 2].map((steps) => limbAbove(spec, effector, steps)).filter((name) => name !== undefined));
   /** Whether the asked hand holds an item, its blow judged by the held item's bar (`Bar.held`) and its strike point the item's. */
-  const armed = hand !== null && !holdsNothing(spec, effector);
+  const armed = hand !== null && heldAt(spec, effector) !== undefined;
   /** What the action asked meets the target with (`ExecutorPart.meets`), read where it begins: blunt where its executor says none. */
   let meets: Mechanism = "blunt";
   /** The strike point: a hand's fist, or the face of what it holds its action meets with (`faceOf`), its item's aim where it has none such; a foot's own. */

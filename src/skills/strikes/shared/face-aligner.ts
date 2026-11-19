@@ -1,3 +1,4 @@
+import { heldAt } from "../../../core/bodies/spec/body.ts";
 import { Vector3 } from "../../../core/math/vector.ts";
 import type { BodyView } from "../../../control/body.ts";
 import { heldFrame, rigidPoints } from "../../../core/bodies/build/rigid.ts";
@@ -36,7 +37,7 @@ const ALIGN_FULL = 0.2;
  * Null where `hand` holds no item or has no wrist.
  */
 export function faceAligner(spec: BodySpec, hand: Side, face: StrikingFace) {
-  const held = spec.held?.find((one) => one.segment === `hand.${hand}`), segment = spec.segments.find((one) => one.name === `hand.${hand}`);
+  const held = heldAt(spec, `hand.${hand}`), segment = spec.segments.find((one) => one.name === `hand.${hand}`);
   if (!held || !segment) return null;
   const chain: JointKinematics[] = specChainTo(spec, `hand.${hand}`), wrist = chain.findIndex((joint) => joint.spec.name === `wrist.${hand}`);
   const at = rigidPoints(spec, segment).get(face.point)?.value;

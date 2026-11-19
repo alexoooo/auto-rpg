@@ -1,3 +1,4 @@
+import { heldAt } from "../../core/bodies/spec/body.ts";
 import { effectorAim } from "../../control/effectors.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { segmentOf } from "../../core/bodies/spec/body.ts";
@@ -26,11 +27,10 @@ export function handConfigurationRefusal(spec: BodySpec, hands: readonly string[
  */
 export function closesToStrike(spec: BodySpec, hand: Side): boolean {
   const segment = segmentOf(spec, `hand.${hand}`);
-  return handConfiguration(spec, `hand.${hand}`, "fist") !== null && !!segment?.points?.strike && holdsNothing(spec, segment.name);
+  return handConfiguration(spec, `hand.${hand}`, "fist") !== null && !!segment?.points?.strike && heldAt(spec, segment.name) === undefined;
 }
 
 /** Whether `segment` of `spec` holds nothing. */
-export const holdsNothing = (spec: BodySpec, segment: string): boolean => !spec.held?.some((h) => h.segment === segment);
 
 /** The point `hand` of `spec` strikes with: a hand that closes to strike, its fist's `strike`; else its effector's (`effectorAim`). */
 export function aimOf(spec: BodySpec, hand: Side): string {

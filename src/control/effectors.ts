@@ -1,3 +1,4 @@
+import { heldAt } from "../core/bodies/spec/body.ts";
 import { rigidPoints } from "../core/bodies/build/rigid.ts";
 import { chainTo } from "./kinematics.ts";
 import { deepFreeze } from "../core/state.ts";
@@ -19,7 +20,7 @@ export interface EffectorModel {
  * its declaration names.
  */
 export function effectorAim(spec: BodySpec, segment: string): string {
-  const aim = spec.held?.find((h) => h.segment === segment)?.item.aim ?? spec.effectors?.find((e) => e.segment === segment)?.point;
+  const aim = heldAt(spec, segment)?.item.aim ?? spec.effectors?.find((e) => e.segment === segment)?.point;
   if (aim === undefined) throw new Error(`${spec.model} has no effector ${segment}`);
   return aim;
 }

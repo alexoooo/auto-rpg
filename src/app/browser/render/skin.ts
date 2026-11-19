@@ -1,3 +1,4 @@
+import { heldAt } from "../../../core/bodies/spec/body.ts";
 import { HAND_CONFIGURATION } from "../../../core/bodies/human/hand-configurations.ts";
 import type { Clothing, SkinView } from "./skin-view.ts";
 import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
@@ -129,8 +130,8 @@ export function dressBody(built: DrawnBody, container: AssetContainer, scene: Sc
   const relaxed = rig.grips.empty;
   // A hand closes into a fist, or on what it holds.
   const holding = {
-    left: built.spec.held?.some((held) => held.segment === "hand.left") ?? false,
-    right: built.spec.held?.some((held) => held.segment === "hand.right") ?? false,
+    left: heldAt(built.spec, "hand.left") !== undefined,
+    right: heldAt(built.spec, "hand.right") !== undefined,
   };
   const fist = new Map<string, Quaternion>();
   const gripping = new Map<string, Quaternion>();

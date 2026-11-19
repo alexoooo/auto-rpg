@@ -1,3 +1,4 @@
+import { heldAt } from "../../core/bodies/spec/body.ts";
 import { fistOn } from "../../core/bodies/human/endpoints.ts";
 import { predictIntercept } from "../../control/whole-body/intercept.ts";
 import { Vector3, type Quaternion } from "../../core/math/vector.ts";
@@ -83,7 +84,7 @@ function strikingPoints(spec: BodySpec): readonly Striking[] {
     const segment = segmentOf(spec, limb), hand = fistOn(spec, "left") === limb ? "left" : fistOn(spec, "right") === limb ? "right" : null;
     const points = segment && rigidPoints(spec, segment), at = points && points.get(hand ? aimOf(spec, hand) : effectorAim(spec, limb));
     if (!segment || !points || !at) return [];
-    const own = spec.held?.some((held) => held.segment === limb) ? spec.effectors?.find((effector) => effector.segment === limb)?.point : undefined;
+    const own = heldAt(spec, limb) !== undefined ? spec.effectors?.find((effector) => effector.segment === limb)?.point : undefined;
     const grip = own === undefined ? undefined : points.get(own);
     const { origin, x, y, z } = frameOf(segment), local = (point: Vec3): Vec3 => { const from = sub(point, origin); return [dot(from, x), dot(from, y), dot(from, z)]; };
     return [{ limb, local: local(at.value), grip: grip ? local(grip.value) : null }];

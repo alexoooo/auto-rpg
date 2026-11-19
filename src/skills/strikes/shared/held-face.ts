@@ -1,3 +1,4 @@
+import { heldAt } from "../../../core/bodies/spec/body.ts";
 import { heldIn, type Held } from "../../../core/bodies/items/held.ts";
 import type { Mechanism } from "../../../combat/rulebook.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
@@ -26,7 +27,7 @@ const BLUNT_FACING: Vec3 = Object.freeze([1, 0, 0]) as unknown as Vec3;
  * facing `BLUNT_FACING`. Null where the hand holds nothing, or nothing with such a face.
  */
 export function faceOf(spec: BodySpec, hand: Side, mechanism: Mechanism): StrikingFace | null {
-  const item = spec.held?.find((h) => h.segment === `hand.${hand}`)?.item;
+  const item = heldAt(spec, `hand.${hand}`)?.item;
   if (!item) return null;
   if (mechanism === "blunt") return item.aim ? { point: item.aim, facing: BLUNT_FACING } : null;
   const region = item.contacts?.find((one) => one.surface.directed?.mechanism === mechanism && item.points[one.name]);

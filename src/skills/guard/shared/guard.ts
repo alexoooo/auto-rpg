@@ -1,3 +1,4 @@
+import { heldAt, heldBy } from "../../../core/bodies/spec/body.ts";
 import type { GuardSkill } from "../../framework/guard.ts";
 import { handConfiguration } from "../../reach/hand.ts";
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
@@ -167,7 +168,7 @@ interface Covers {
 function coversOf(spec: BodySpec, hand: string): Covers {
   const segment = segmentOf(spec, hand);
   if (!segment) throw new Error(`${spec.model} has no ${hand}`);
-  const held = spec.held?.find((h) => h.segment === segment.name), points = held?.item.cover ?? ["knuckles"];
+  const held = heldAt(spec, segment.name), points = held?.item.cover ?? ["knuckles"];
   const normal = held?.item.coverNormal, frame = held ? heldFrame(held) : null;
   const known = rigidPoints(spec, segment);
   const at = points.map((name) => {
@@ -190,7 +191,7 @@ const NO_HANDS: Readonly<Record<string, EffectorGoal | null>> = Object.freeze({}
  */
 export function handsOf(spec: BodySpec): readonly string[] {
   return (spec.effectors ?? []).map((effector) => effector.segment).filter((name) =>
-    !!segmentOf(spec, name)?.points?.knuckles || spec.held?.some((h) => h.segment === name && h.item.cover !== undefined));
+    !!segmentOf(spec, name)?.points?.knuckles || heldBy(spec, name).some((h) => h.item.cover !== undefined));
 }
 
 /** The body frame's up and right: the ways an item's line is laid when how it lies now says nothing. */
