@@ -238,6 +238,21 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   profile; against the nearest trials 0.559 (0.503 to 0.615) on `warrior-drawn`, a bout 26%
   faster; the game's since (`bc643f6d7`, `ba17ae71c`). The same answers kept by a start rounded to
   a cell (`coarseTable`) ran 12% faster and lost, 0.451 (`5a85cb5f1`). *Shown.*
+- **Initiative, a blow now worth more than one later, fights as the game's Mind and does not
+  unlock the back step**: a setting of the few terms beside Aggression (`SETTINGS`,
+  `src/minds/option/objective.ts`), a rate a second from 0 to 0.3, none unless set. Life dealt
+  counts less by that rate the later in a line it comes and more sooner, scaled to count as
+  itself over the horizon on the mean (`initiativeWeight`); life taken counts as itself. It lives
+  in the objective, as Aggression does, since it is what a body values; the chooser asks the
+  objective what life counts for by when it comes (`Objective.weigh`) and knows nothing of what
+  the weight means (`ffc71efcc`). Unscaled, life dealt fading at 0.2 a second made every trade
+  worth less than waiting: two Warriors waited out every bout. At 0.1 against the game's Mind,
+  the Warrior empty-handed: the match 0.531 (0.451 to 0.615) on `warrior` and 0.451 (0.396 to
+  0.510) held out on `warrior-drawn`; on the scorecard's 72 bouts, standing silent 4.3% against
+  5.4% (paired -1.1 points, -3.4 to 1.3) and 0.40 falls a bout against 0.19 (paired 0.21, -0.03
+  to 0.49), every bout a knockout. With the back step on both sides it met neither of its bars:
+  0.517 (0.434 to 0.597) won, and standing silent 16.2% against 8.1% (`c6c3d95fb`). It stays in
+  the Arena's Mind picker, unset, for a person to set and watch. *Shown.*
 - **A search that starts from its last decision's worths wins by fighting less**: each Option's
   worth at the last root kept as as many runs, fading by half each 0.5 s (`TreeConfig.keeps`), won
   0.635 (0.580 to 0.691) held out at the same runs, but silent 16.2% of a bout against 9.4%: an
