@@ -120,6 +120,8 @@
 /* The skills always on that run now, its gait and its guard: round chips, lit while each is at work. */
 :where(#screen-root[data-screen="arena"]) .fighter-now { display: flex; flex-wrap: wrap; gap: 4px 12px; grid-column: 2; list-style: none; margin: 0; padding: 2px 0 0; min-width: 0; }
 :where(#screen-root[data-screen="arena"]) .fighter-now:empty { display: none; }
+/* A side's line says in words what it is doing only where it has no chips that show it. */
+:where(#screen-root[data-screen="arena"]) .hud-col > small[data-kind="doing"] { display: none; }
 :where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .fighter-now { flex-direction: row-reverse; }
 :where(#screen-root[data-screen="arena"]) .fighter-now li { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 11px; line-height: 1.4; }
 :where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .fighter-now li { flex-direction: row-reverse; }
@@ -142,7 +144,6 @@
 :where(#screen-root[data-screen="arena"]) .fighter-feed { grid-column: 2; list-style: none; margin: 0; padding: 2px 0; min-width: 0; overflow-wrap: anywhere; }
 :where(#screen-root[data-screen="arena"]) .fighter-feed li { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; padding: 3px 6px; border-left: 2px solid var(--side-colour); border-radius: 2px; background: #0a0e16b8; color: var(--ink); font-size: 11px; line-height: 1.4; }
 :where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .fighter-feed li { flex-direction: row-reverse; }
-:where(#screen-root[data-screen="arena"]) .fighter-feed li[data-kind="behaviour"] { color: var(--dim); border-left-color: #59616b; }
 /* An action's chip: its skill's picture and its limb's side. Its line's state marks it: dashed while it prepares, lit while it
    strikes, dim while it recovers; then green for a contact, blue for a block, struck through for a miss. */
 :where(#screen-root[data-screen="arena"]) .feed-chip { position: relative; flex: none; display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--side-colour); border-radius: 4px;
@@ -193,7 +194,6 @@
   :where(#screen-root[data-screen="arena"]) .arena-control .field-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   :where(#screen-root[data-screen="arena"]) .fighter-readout { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px; min-height: 0; }
   :where(#screen-root[data-screen="arena"]) .fighter-now { order: 1; flex: 0 0 100%; gap: 4px; padding: 0; }
-  :where(#screen-root[data-screen="arena"]) .hud-col > small[data-kind="doing"] { display: none; }
   :where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .fighter-readout { flex-direction: row-reverse; }
   :where(#screen-root[data-screen="arena"]) .fighter-damage { flex: none; width: 56px; }
   :where(#screen-root[data-screen="arena"]) .damage-diagram { width: 48px; height: 98px; }
@@ -202,7 +202,7 @@
   :where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .damage-details { display: flex; flex-direction: column; align-items: flex-end; }
   :where(#screen-root[data-screen="arena"]) .fighter-feed { display: flex; flex-direction: column; gap: 4px; max-height: 98px; overflow: hidden; padding: 0; }
   :where(#screen-root[data-screen="arena"]) .fighter-feed li, :where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .fighter-feed li { margin: 0; padding: 0; border: 0; background: none; }
-  :where(#screen-root[data-screen="arena"]) .fighter-feed li[data-kind="behaviour"], :where(#screen-root[data-screen="arena"]) .feed-words { display: none; }
+  :where(#screen-root[data-screen="arena"]) .feed-words { display: none; }
   :where(#screen-root[data-screen="arena"]) .feed-chip { width: 30px; height: 30px; }
   :where(#screen-root[data-screen="arena"]) .feed-chip svg { width: 22px; height: 22px; }
   :where(#screen-root[data-screen="arena"]) .feed-limb { font-size: 9px; }

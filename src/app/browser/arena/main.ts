@@ -781,7 +781,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const side = news.sides[row.side], controller = controllers[row.side];
       row.bar.value = bodies.get(row.side)?.body.life ?? 1;
       row.condition.render(side.hud, time);
-      // What its line says: the verdict, its time down, or what it is doing, which its chips show too where its mind reports them.
+      // What its line says: the verdict, its time down, or what it is doing, which the style sheet hides where its chips show it.
       const saying = news.verdict ? "verdict" : side.down ? "down" : side.hud.now.length ? "doing" : "plain";
       if (row.status.dataset.kind !== saying) row.status.dataset.kind = saying;
       row.status.textContent = news.verdict

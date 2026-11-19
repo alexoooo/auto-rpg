@@ -144,13 +144,12 @@ export function fighterHud(side: string, skill: (kind: string) => { readonly lab
         let made = entries.get(entry.key);
         if (!made) {
           made = { node: document.createElement("li"), words: document.createElement("span") };
-          made.node.dataset.kind = entry.kind; made.node.dataset.key = entry.key; made.words.className = "feed-words";
-          if (entry.skill !== null) made.node.append(feedChip(entry.label, skill(entry.skill)?.icon ?? null, entry.limb));
-          made.node.append(made.words); entries.set(entry.key, made);
+          made.node.dataset.key = entry.key; made.words.className = "feed-words";
+          made.node.append(feedChip(entry.label, skill(entry.skill)?.icon ?? null, entry.limb), made.words); entries.set(entry.key, made);
         }
         const { node, words } = made, text = `${entry.label}${entry.detail ? ` — ${entry.detail}` : ""}`;
         if (words.textContent !== text) { words.textContent = text; node.title = text; }
-        if (entry.state !== null && node.dataset.state !== entry.state) node.dataset.state = entry.state;
+        if (node.dataset.state !== entry.state) node.dataset.state = entry.state;
         const opacity = String(Number(entry.opacity.toFixed(3)));
         if (node.style.opacity !== opacity) node.style.opacity = opacity;
         if (feed.children[i] !== node) feed.insertBefore(node, feed.children[i] ?? null);

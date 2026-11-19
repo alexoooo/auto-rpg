@@ -1,6 +1,5 @@
 import { commandsBody } from "../../control/body.ts";
 import type { Combatant } from "../combatant.ts";
-import type { PhysicalBody } from "../../minds/seat/physical-body.ts";
 import { woundedIn, type Fighter, type LandedBlow } from "../../combat/blows.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ActionStatus, Ended, Phase } from "../../skills/framework/action.ts";
@@ -95,17 +94,16 @@ function damageReadout(fighter: Fighter, blows: () => readonly LandedBlow[]) {
 type FeedState = Phase | "contact" | "blocked" | "missed" | "over";
 
 /**
- * Feed entries persist through action updates; their age starts at termination. An action's entry
- * names its skill (its executor's kind, `skillOf` its mind's kit), the limb it uses and where it
- * stands (`FeedState`), for a readout that draws it; a behaviour's has none of the three.
+ * A feed entry is an action's: it persists through the action's updates, and its age starts at
+ * termination. It names its skill (its executor's kind, `skillOf` its mind's kit), the limb it
+ * uses and where it stands (`FeedState`), for a readout that draws it.
  */
 interface FeedEntry {
   readonly key: string;
-  readonly kind: "action" | "behaviour";
   readonly label: string;
-  readonly skill: string | null;
-  readonly limb: string | null;
-  state: FeedState | null;
+  readonly skill: string;
+  readonly limb: string;
+  state: FeedState;
   detail: string;
   active: boolean;
   time: number;
@@ -133,17 +131,13 @@ const title = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const actionLabel = (action: Pick<ActionStatus, "action" | "effector">) => `${title(action.action)} · ${partLabel(action.effector)}`;
 
 /**
- * A bounded presentation history reads reports after every step and never writes to them. Named
- * tactical decisions are quieter than executor stages or per-step control writes, each shown by
- * its name.
+ * A bounded presentation history of a mind's actions reads reports after every step and never
+ * writes to them. What its body does between them is no line of it: the skills always on show
+ * that as they run (`FighterReading.now`).
  */
 function actionFeed() {
-  const state = { entries: [] as FeedEntry[], sequence: 0, serial: 0, pending: null as string | null,
-    since: 0, settled: null as string | null, time: -Infinity };
-  const reset = () => {
-    state.entries.length = 0; state.sequence = 0; state.serial = 0;
-    state.pending = null; state.settled = null; state.since = 0; state.time = -Infinity;
-  };
+  const state = { entries: [] as FeedEntry[], sequence: 0, time: -Infinity };
+  const reset = () => { state.entries.length = 0; state.sequence = 0; state.time = -Infinity; };
   const prune = (time: number) => {
     for (let i = state.entries.length - 1; i >= 0; i--) {
       const entry = state.entries[i]!;
@@ -151,7 +145,7 @@ function actionFeed() {
     }
   };
   return { reset,
-    sample(report: Pick<MindReport, "actions" | "ended" | "engagement" | "kit"> | undefined, body: Pick<PhysicalBody, "has" | "level">, time: number): void {
+    sample(report: Pick<MindReport, "actions" | "ended" | "kit"> | undefined, time: number): void {
       if (time < state.time) reset();
       state.time = time; prune(time);
       if (!report) return;
@@ -161,7 +155,7 @@ function actionFeed() {
         const key = `action:${action.id}`;
         let entry = state.entries.find(row => row.key === key);
         if (!entry) {
-          entry = { key, kind: "action", label: actionLabel(action), skill: skill(action.action), limb: action.effector, state: action.phase, detail: "", active: true, time };
+          entry = { key, label: actionLabel(action), skill: skill(action.action), limb: action.effector, state: action.phase, detail: "", active: true, time };
           state.entries.unshift(entry);
         }
         entry.state = action.phase;
@@ -178,16 +172,8 @@ function actionFeed() {
         if (record.ending.kind === "refused") continue;
         const key = `action:${record.id}`, entry = state.entries.find(row => row.key === key);
         if (entry) { entry.active = false; entry.time = record.ended; entry.detail = result(record); entry.state = ending(record); }
-        else if (time - record.ended < 6) state.entries.unshift({ key, kind: "action", label: actionLabel(record), skill: skill(record.action), limb: record.effector,
+        else if (time - record.ended < 6) state.entries.unshift({ key, label: actionLabel(record), skill: skill(record.action), limb: record.effector,
           state: ending(record), detail: result(record), time: record.ended, active: false });
-      }
-      const behaviour = commandsBody(body) ? report.engagement?.phase ?? null : body.level === "full" && body.has !== "nobody" ? body.has : null;
-      if (behaviour !== state.pending) { state.pending = behaviour; state.since = time; }
-      if (behaviour === null) { state.settled = null; return; }
-      if (behaviour !== state.settled && time - state.since >= .3) {
-        state.settled = behaviour;
-        state.entries.unshift({ key: `behaviour:${++state.serial}`, kind: "behaviour", label: title(behaviour.replaceAll("-", " ")),
-          skill: null, limb: null, state: null, detail: "", active: false, time });
       }
     },
     read(time: number) {
@@ -222,7 +208,7 @@ export function fighterReading(fighter: Combatant, blows: () => readonly LandedB
     /** Sample at `time`, the bout's s; the actions too where `actions` (a feed stopped samples none). */
     sample(time: number, { actions }: { readonly actions: boolean }): void {
       damage.sample(time);
-      if (actions) history.sample(fighter.minded.report, fighter.body, time);
+      if (actions) history.sample(fighter.minded.report, time);
     },
     read(time: number): FighterReading {
       return { parts: damage.parts.map((part) => ({ ...part })),
