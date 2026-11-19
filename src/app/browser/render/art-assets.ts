@@ -41,8 +41,9 @@ export async function loadArtAssets(): Promise<ArtAssets> {
   return { model: id => url(value.models[id], id), texture: id => url(value.textures[id], id) };
 }
 
-export async function characterAssetUrl(model: string, animated = false): Promise<string> {
+/** The URL of character `model`'s art in `form`: as it is drawn in play, or with its animations. */
+export async function characterAssetUrl(model: string, form: "model" | "animated"): Promise<string> {
   const value = await manifest(), asset = value.characters[model];
   if (!asset) throw new Error(`Unknown character art: ${model}`);
-  return publicAssetUrl(`/assets/generated/${(animated ? asset.animated : asset.model).uri}`);
+  return publicAssetUrl(`/assets/generated/${asset[form].uri}`);
 }

@@ -35,7 +35,7 @@ const mindKey = (row: Row): string => `${row.side === "enemy" ? "enemy." : ""}${
  */
 export function runMinds(holder: HTMLElement, rows: readonly Row[], search: string): {
   /** The mind a participant plays (`DungeonRunOptions.mind`): its row's, or its model's own where that has a fault (`mindFaults`) for its body as it holds its loadout, or it has no row. */
-  mind(attributes?: (participant: Participant) => AttributeOverrides, loadout?: (participant: Participant) => Loadout | null): (participant: Participant) => MindConfig | null;
+  mind(attributes: (participant: Participant) => AttributeOverrides, loadout: (participant: Participant) => Loadout | null): (participant: Participant) => MindConfig | null;
   /** `url` with each row's mind (`mindText`), and none where it is its model's own. */
   write(url: URL): void;
 } {
@@ -65,7 +65,7 @@ export function runMinds(holder: HTMLElement, rows: readonly Row[], search: stri
       }));
       return participant => {
         const config = chosen.get(mindKey(participant));
-        return config && mindFaults(config, bodySpec(participant.model, attributes?.(participant), loadout?.(participant)), { entry: FIGHT_ENTRY }).length === 0 ? config : null;
+        return config && mindFaults(config, bodySpec(participant.model, attributes(participant), loadout(participant)), { entry: FIGHT_ENTRY }).length === 0 ? config : null;
       };
     },
     write(url) {

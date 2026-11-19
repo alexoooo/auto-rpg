@@ -106,11 +106,13 @@ export function quantity(label: string, step: number, allows: (value: number) =>
 
 /**
  * A number from `least` to `most` in steps of `step`, on a slider read out beside it as `shown`
- * writes it; a move calls `set`. Its keys are the slider's while it has focus, so it blurs once
- * the pointer lets it go.
+ * writes it; it shows `value`, and a move calls `set`. Its keys are the slider's while it has
+ * focus, so it blurs once the pointer lets it go.
  */
-export function slider(label: string, least: number, most: number, step: number, value: () => number, set: (value: number) => void,
-  shown: (value: number) => string = String): Control {
+export function slider(label: string, { least, most, step, value, set, shown }: {
+  readonly least: number; readonly most: number; readonly step: number;
+  value(): number; set(value: number): void; shown(value: number): string;
+}): Control {
   const input = Object.assign(document.createElement("input"), { type: "range", min: String(least), max: String(most), step: String(step) });
   const out = document.createElement("output");
   const refresh = (): void => { input.value = String(value()); out.textContent = shown(value()); };

@@ -16,8 +16,8 @@ const MIND_NOTES: Readonly<Record<string, NoteTree>> = notes;
 export type NoteLevel = "mind" | "loadout" | "body" | "body-loadout";
 
 /** Every note `notes` gives mind `id` played by `model` carrying `loadout`, the most particular first. */
-export function notesOf(id: string, model: BodyModel, loadout: Loadout, tree: Readonly<Record<string, NoteTree>> = MIND_NOTES): readonly { readonly level: NoteLevel; readonly note: string }[] {
-  const mind = Object.hasOwn(tree, id) ? tree[id]! : {}, body = mind.bodies?.[model];
+export function notesOf(id: string, model: BodyModel, loadout: Loadout): readonly { readonly level: NoteLevel; readonly note: string }[] {
+  const mind = Object.hasOwn(MIND_NOTES, id) ? MIND_NOTES[id]! : {}, body = mind.bodies?.[model];
   const levels: [NoteLevel, string | undefined][] = [["body-loadout", body?.loadouts?.[loadoutKey(loadout)]], ["body", body?.note], ["loadout", mind.loadouts?.[loadoutKey(loadout)]], ["mind", mind.note]];
   return levels.flatMap(([level, note]) => note === undefined ? [] : [{ level, note }]);
 }

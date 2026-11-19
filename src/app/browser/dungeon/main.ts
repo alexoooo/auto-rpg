@@ -615,8 +615,7 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
   /** Where a pointer at `clientX`, `clientY` is: on the canvas for a pick and on the ground. */
   function pointerOn(page: DungeonPage, scene: Scene, camera: FreeCamera, event: { clientX: number; clientY: number }) {
     const { engine } = page;
-    const { x, y } = pickingCoordinates(event.clientX, event.clientY, canvas.getBoundingClientRect(),
-      engine.getRenderWidth(), engine.getRenderHeight(), engine.getHardwareScalingLevel());
+    const { x, y } = pickingCoordinates(engine, event, canvas.getBoundingClientRect());
     const ray = scene.createPickingRay(x, y, Matrix.Identity(), camera);
     const t = ray.intersectsPlane(new Plane(0, 1, 0, 0));
     const p = t !== null && t >= 0 ? ray.origin.add(ray.direction.scale(t)) : null;
@@ -722,8 +721,7 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
       hover.clear();
       return;
     }
-    const p = pickingCoordinates(hoverPointer.clientX, hoverPointer.clientY, canvas.getBoundingClientRect(),
-      engine.getRenderWidth(), engine.getRenderHeight(), engine.getHardwareScalingLevel());
+    const p = pickingCoordinates(engine, hoverPointer, canvas.getBoundingClientRect());
     const hit = scene.pick(p.x, p.y, (mesh) => mesh.isVisible && run.targetAt(mesh) !== null, false, camera);
     page.hovered = hit?.pickedMesh ? run.targetAt(hit.pickedMesh) : null;
     hover.show(page.hovered);

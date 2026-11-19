@@ -139,7 +139,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
   // The chosen course's size, if it comes in sizes: made again when another course is chosen.
   const sized = following(() => chosen, (id) => {
     const size = COURSES[id].size;
-    return size ? slider(size.name, size.least, size.most, 0.5, () => sizes.get(id)!, (metres) => { sizes.set(id, metres); shell.restart(); }, (metres) => `${metres} m`) : unsized;
+    return size ? slider(size.name, { least: size.least, most: size.most, step: 0.5, value: () => sizes.get(id)!, set: (metres) => { sizes.set(id, metres); shell.restart(); }, shown: (metres) => `${metres} m` }) : unsized;
   });
 
   return {
@@ -149,8 +149,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
         menu("Course", COURSE_IDS.map((id) => ({ value: id, name: COURSES[id].name })), () => chosen, (id) => { chosen = id; sized.refresh(); shell.restart(); }),
         menu("Gait", LEGS, () => legs, (value) => { legs = value; shell.restart(); }),
         sized,
-        slider("Pace", PACES.least, MAX, PACES.step, () => top ?? MAX, (pace) => { top = pace > PACES.most ? undefined : pace; shell.restart(); },
-          (pace) => pace > PACES.most ? "Max" : `${pace.toFixed(1)} m/s`),
+        slider("Pace", { least: PACES.least, most: MAX, step: PACES.step, value: () => top ?? MAX, set: (pace) => { top = pace > PACES.most ? undefined : pace; shell.restart(); }, shown: (pace) => pace > PACES.most ? "Max" : `${pace.toFixed(1)} m/s` }),
       ],
       controls: windControls(() => wind, setWind, () => weight),
       readout: [shown, legend([MARKS.track, MARKS.centre, MARKS.aim, MARKS.wind])],

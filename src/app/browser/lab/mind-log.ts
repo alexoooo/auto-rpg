@@ -26,13 +26,13 @@ export interface MindLog {
   upTo(time: number, count: number): readonly Note[];
 }
 
-/** A log of the last `capacity` notes. */
-export function createMindLog(capacity = CAPACITY): MindLog {
+/** A log of the last `CAPACITY` notes. */
+export function createMindLog(): MindLog {
   const notes: Note[] = [];
   return {
     note(time, text) {
       notes.push({ time, text });
-      if (notes.length > capacity) notes.shift();
+      if (notes.length > CAPACITY) notes.shift();
     },
     upTo(time, count) {
       let end = notes.length;

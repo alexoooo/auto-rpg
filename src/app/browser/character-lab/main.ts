@@ -356,7 +356,7 @@ import.meta.hot?.dispose(dispose);
 /** Loads `id`'s model into the scene, hidden, with every part of it casting the key's shadow. */
 async function load(id: CharacterId): Promise<boolean> {
   const asset = await LoadAssetContainerAsync(
-    await characterAssetUrl(id, true), scene);
+    await characterAssetUrl(id, "animated"), scene);
   if (disposed) {
     asset.dispose();
     return false;

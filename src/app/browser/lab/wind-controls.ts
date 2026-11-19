@@ -7,7 +7,7 @@ import { slider, type Control } from "../ui/controls.ts";
  */
 export function windControls(read: () => WindSettings, write: (settings: WindSettings) => void, weight: () => number): Control[] {
   return [
-    slider("Gusts", 0, 2, 0.1, () => read().rate, (rate) => write({ ...read(), rate }), (rate) => `${rate.toFixed(1)} /s`),
-    slider("Gust force", 0, 200, 1, () => read().strength, (strength) => write({ ...read(), strength }), (strength) => gustText(strength, weight())),
+    slider("Gusts", { least: 0, most: 2, step: 0.1, value: () => read().rate, set: (rate) => write({ ...read(), rate }), shown: (rate) => `${rate.toFixed(1)} /s` }),
+    slider("Gust force", { least: 0, most: 200, step: 1, value: () => read().strength, set: (strength) => write({ ...read(), strength }), shown: (strength) => gustText(strength, weight()) }),
   ];
 }

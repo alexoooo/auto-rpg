@@ -113,8 +113,8 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
           seed => shell.load({ ...address, seed })),
         when(() => address.ground.start === "placed", following(() => address.model, () => menu("Posture",
           postures().map(value => ({ value, name: value })), () => address.ground.posture, posture => change({ posture })))),
-        when(() => address.ground.start === "shoved", slider("Shove direction", 0, 360, 5, () => groundShove(address).degrees, degrees => change({ degrees }), value => value.toFixed(1))),
-        when(() => address.ground.start === "shoved", slider("Shove impulse, N s", 40, 90, 1, () => groundShove(address).impulse, impulse => change({ impulse }), value => value.toFixed(1))),
+        when(() => address.ground.start === "shoved", slider("Shove direction", { least: 0, most: 360, step: 5, value: () => groundShove(address).degrees, set: degrees => change({ degrees }), shown: value => value.toFixed(1) })),
+        when(() => address.ground.start === "shoved", slider("Shove impulse, N s", { least: 40, most: 90, step: 1, value: () => groundShove(address).impulse, set: impulse => change({ impulse }), shown: value => value.toFixed(1) })),
         when(() => address.ground.start === "shoved", action("Draw shove from seed", () => change({ degrees: null, impulse: null }))),
         // A mind that names no ways up gets up only as it says.
         following(() => `${address.model} ${canRise()}`, (key) => menu("Gets up by", key.endsWith("true") ? [

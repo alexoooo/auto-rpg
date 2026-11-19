@@ -85,7 +85,7 @@ export function stanceScenario(scene: Scene): LabScenario {
     panels: {
       controls: [
         keyHints([{ keys: letters(WALK_KEYS), does: "or arrows walk" }, { keys: letters(TURN_KEYS), does: "turn once walking" }]),
-        slider("Walk, m/s", 0.2, 8, 0.1, () => walkSpeed, (value) => { walkSpeed = value; }, (value) => value.toFixed(1)),
+        slider("Walk, m/s", { least: 0.2, most: 8, step: 0.1, value: () => walkSpeed, set: (value) => { walkSpeed = value; }, shown: (value) => value.toFixed(1) }),
         choice("Impulse, N s", IMPULSES.map((value) => ({ value, name: String(value) })), () => impulse, (value) => { impulse = value; }),
         actions("Shove", SHOVES, (degrees) => current?.shove(impulse, degrees)),
       ],

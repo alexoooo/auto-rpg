@@ -12,7 +12,6 @@ import { skinReference } from "./body-deformation.ts";
 import { skinApart } from "./skin-apart.ts";
 import type { DrawnBody } from "./drawn-body.ts";
 import { readGlb } from "./glb.ts";
-import type { DecodeMeshopt } from "../../../core/bodies/art/glb.ts";
 import type { SkinView } from "./skin-view.ts";
 
 /**
@@ -56,8 +55,8 @@ interface Asset {
 }
 
 /** A skinned creature's art from its GLB's bytes. */
-async function parseSkinnedArt(buffer: ArrayBuffer, look: SkinnedLook, art: ArtAssets, decode?: DecodeMeshopt): Promise<SkinnedArt> {
-  const glb = await readGlb<Asset>(buffer, look.model, decode), { json } = glb;
+async function parseSkinnedArt(buffer: ArrayBuffer, look: SkinnedLook, art: ArtAssets): Promise<SkinnedArt> {
+  const glb = await readGlb<Asset>(buffer, look.model), { json } = glb;
   if (json.meshes.length !== 1 || json.meshes[0]!.primitives.length !== 1 || json.skins.length !== 1) throw new Error(`${look.model} is not one skinned primitive`);
   const { attributes, indices } = json.meshes[0]!.primitives[0]!;
   return {

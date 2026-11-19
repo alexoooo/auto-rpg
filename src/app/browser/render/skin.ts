@@ -72,7 +72,7 @@ export function loadSkin(model: HumanModel, scene: Scene): Promise<AssetContaine
   if (!byModel) loads.set(scene, byModel = new Map());
   let load = byModel.get(model);
   if (!load) {
-    load = characterAssetUrl(model).then(url => sceneModel(url, scene));
+    load = characterAssetUrl(model, "model").then(url => sceneModel(url, scene));
     void load.catch(() => byModel.delete(model));
     byModel.set(model, load);
   }

@@ -697,7 +697,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     signal: context.signal,
     enabled: () => !!bout?.person && !paused && screen === "fight" && !bout.news?.verdict,
     pick: ({ clientX, clientY }) => {
-      const pick = pickingCoordinates(clientX, clientY, canvas.getBoundingClientRect(), engine.getRenderWidth(), engine.getRenderHeight(), engine.getHardwareScalingLevel());
+      const pick = pickingCoordinates(engine, { clientX, clientY }, canvas.getBoundingClientRect());
       const ray = scene.createPickingRay(pick.x, pick.y, null, camera);
       return { origin: vec(ray.origin), direction: vec(ray.direction), length: camera.maxZ };
     },

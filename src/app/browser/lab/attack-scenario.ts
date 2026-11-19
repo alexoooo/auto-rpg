@@ -39,7 +39,7 @@ export function attackScenario(scene: Scene): LabScenario {
     keys: new Set(),
     panels: {
       controls: [
-        slider("Target speed, m/s", 0, 2, 0.05, () => speed, (value) => { speed = value; if (current) current.state.speed = value; }, (value) => value.toFixed(2)),
+        slider("Target speed, m/s", { least: 0, most: 2, step: 0.05, value: () => speed, set: (value) => { speed = value; if (current) current.state.speed = value; }, shown: (value) => value.toFixed(2) }),
         ...windControls(() => wind, setWind, () => weight),
       ],
       readout: [shown, { element: actionDetails.element, refresh() {} }, legend(Object.values(MARKS))],
