@@ -312,7 +312,7 @@ export const HOLD_AT_OPTION = deepFreeze<ProfileOptionPart<PlaceConfig>>({
 });
 
 /** **The cover** of the head by the hand on the side a blow closes from (`covers`). */
-export const COVER_OPTION = kind("covers", "Cover", given => (given.guards ?? given.parts.selected("guard", given.spec)).flatMap(config => {
+export const COVER_OPTION = kind("covers", "Cover", given => given.guards.flatMap(config => {
   const part = given.parts.of("guard", config);
   return covers(given.spec, part.covers?.(given.spec, config) ?? []).map(option => choosingSkill(option, config, "guard"));
 }));
@@ -324,7 +324,7 @@ export const BACK_STEP_OPTION = kind("steps-back", "Back step", given => goesBy(
 export const HOLD_OPTION = deepFreeze({ ...kind("hold-position", "Hold the position", (given) => [hold(given.walk)]), stands: true });
 
 /** Each enabled guard as its own rest option, explicitly selected by the mind. */
-export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at guard", given => (given.guards ?? given.parts.selected("guard", given.spec)).map(config =>
+export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at guard", given => given.guards.map(config =>
   choosingSkill(guardOf(given.spec, given.parts.of("guard", config).covers?.(given.spec, config) ?? []), config, "guard"))),
   phases: { guard: "Guarding" }, stands: true });
 

@@ -52,8 +52,8 @@ export interface Seen {
   readonly strikes: readonly ModelledStrike[];
   /** Every striker's measured strikes (`dataOf("strike-profiles")`), which model a foe's (`foeModel`). */
   readonly measured: readonly Profile[];
-  /** What the focus is expected to take from the body as the two fight (`OthersModel`); unless given, its strikes' rate (`RATE_OTHERS`). */
-  readonly others?: OthersModel;
+  /** What the focus is expected to take from the body as the two fight (`OthersModel`): its strikes' rate (`RATE_OTHERS`) or its measured pressures. */
+  readonly others: OthersModel;
   readonly orders: Orders | null;
   readonly focus: BodySense | null;
   readonly blow: ReturnType<Threats["blowOf"]>;
@@ -772,12 +772,12 @@ export interface Prediction<V> {
  * focus's life a blow of a limb at a segment of its takes by the rules (`blowLife`), 0 with no focus.
  */
 const PREDICTIONS = Object.freeze({
-  danger: { read: (seen) => (seen.others ?? RATE_OTHERS).holdsBlow?.(seen) ? 0 : lifeOf(seen, seen.blow) } as Prediction<number>,
-  pressure: { read: (seen) => (seen.others ?? RATE_OTHERS).pressure(seen) } as Prediction<Pressure>,
+  danger: { read: (seen) => seen.others.holdsBlow?.(seen) ? 0 : lifeOf(seen, seen.blow) } as Prediction<number>,
+  pressure: { read: (seen) => seen.others.pressure(seen) } as Prediction<Pressure>,
   pressing: { read: pressingOf } as Prediction<Pressure>,
   downRate: { read: downRateAtOf } as Prediction<(posture: Position) => number>,
   turns: { read: ({ focus }) => focus ? turnOf(focus.spec) : Infinity } as Prediction<number>,
-  steps: { read: (seen) => { const others = seen.others ?? RATE_OTHERS; return others.steps ? (seconds: number, kind: string) => others.steps!(seen, seconds, kind) : null; } } as Prediction<((seconds: number, kind: string) => Ground) | null>,
+  steps: { read: (seen) => { const others = seen.others; return others.steps ? (seconds: number, kind: string) => others.steps!(seen, seconds, kind) : null; } } as Prediction<((seconds: number, kind: string) => Ground) | null>,
   blows: { read: ({ focus, spec, rules }) => (limb: string, segment: string): number => focus ? blowLife(rules, spec, limb, focus.spec, undefined, segment) : 0 } as Prediction<(limb: string, segment: string) => number>,
 });
 

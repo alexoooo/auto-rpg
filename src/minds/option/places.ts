@@ -139,10 +139,10 @@ const NOWHERE = blocked("no site to walk to"), THERE = blocked("at its site"), N
  * every fallen body's reach but the one the spot is beside (`Walker.kept`). Named for the gait and
  * where it goes. Its memory is which site it runs at.
  */
-export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker, spec?: BodySpec): Option {
+export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker, spec: BodySpec): Option {
   const state = { at: 0 }, label = gait.label.toLowerCase();
   /** How the body stands walking by the gait (`gaitStance`), where it was measured on a body of its model. */
-  const stance = spec ? gaitStance(gait.legs as { readonly kind: string; readonly variation?: string }, spec.model) : null;
+  const stance = gaitStance(gait.legs as { readonly kind: string; readonly variation?: string }, spec.model);
   /** Where its site at `k` is at `at`, null where it has none or the body is there. */
   const away = (at: Situation, k: number): Spot | null => {
     const spot = sites[k]?.spot(at) ?? null, where = at.where;
