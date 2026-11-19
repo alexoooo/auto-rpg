@@ -24,6 +24,8 @@ its kind or running those tools.
 - **Materials belong to the scene**: a body part disposes with `dispose(false, false)`.
 - **Material plugins on one material share one shader**: a GLSL function a plugin adds is named by
   that plugin (`valueNoise(name, …)`), or two plugins' copies of it fail to compile together.
+  `getCustomCode` is first called from `MaterialPluginBase`'s constructor, before a subclass has
+  set its fields, and again when the shader compiles: it reads a field as maybe unset.
 - **Observers are removed asynchronously**: count the active ones, not the calls to remove.
 - **A transparent overlay drawing over geometry keeps stencil masks read-only**
   (`material.stencil.enabled = true`, `mask = 0`); otherwise a HighlightLayer can fill its quad

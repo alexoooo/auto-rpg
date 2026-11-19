@@ -68,7 +68,8 @@ class CryptDamp extends MaterialPluginBase {
   }
   override getClassName() { return "CryptDamp"; }
   override getCustomCode(shaderType: string) {
-    const { centres } = this;
+    // Asked first from the base constructor, before `centres` is set (the traps' Babylon section).
+    const centres = this.centres ?? [];
     return shaderType === "fragment" ? {
       CUSTOM_FRAGMENT_DEFINITIONS: `
         ${valueNoise("cryptWet", [127.1, 311.7])}
