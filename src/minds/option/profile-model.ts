@@ -1,5 +1,5 @@
 import { chooserOf } from "./chooser.ts";
-import { stepSet } from "./option.ts";
+import { intentOfSet } from "../../skills/framework/intent.ts";
 import type { Sight } from "../decider.ts";
 import type { Prospect } from "../report.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
@@ -54,7 +54,8 @@ export function profileModel({ strikes, outcomes, others }: { readonly strikes: 
         const { set, at: now, fresh } = chosen.decide(read, () => priced = reader.others());
         if (fresh) { state.prospects = prospect(state.prospects, options, read); for (const other of priced) state.prospects = prospect(state.prospects, options, other); }
         reader.keep(now);
-        const intent = stepSet(set, now, dt, () => ({ move: null, face: walk.facing(now) }));
+        // Each chosen option's step, as a selected set's, made one intent: the walk and facing of the one that claims the legs, else none, facing as the walker faces.
+        const intent = intentOfSet(set.map((option) => ({ claims: option.claims, ...option.step(now, dt) })), () => ({ move: null, face: walk.facing(now) }));
         state.details = [unmetDetail(seen.report.legs.unmet, seen.view.unmet), profileDetail(options, now)];
         return intent;
       },

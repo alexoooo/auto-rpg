@@ -10,6 +10,7 @@ import { ARRIVED } from "../../skills/framework/movement.ts";
 import { exp, log } from "../../core/math/real.ts";
 import type { Pair, Reach } from "./chooser.ts";
 import type { Situation } from "./option.ts";
+import type { Tally } from "./objective.ts";
 import type { Leaves, Terms } from "./value.ts";
 
 /** What a line's end reads of a search's states (`space` in `chooser.ts`), each as the search has it. */
@@ -19,8 +20,8 @@ export interface LineSpace {
   /** What life dealt, and taken, traded evenly over `span` s from `from` s on counts for, a share. */
   dealtWeight(from: number, span: number): number;
   takenWeight(from: number, span: number): number;
-  /** What a path is worth, priced whole. */
-  price(dealt: number, taken: number, orders: number, seconds: number, end: Situation): number;
+  /** What the path that brought `tally` and ends at `end` is worth, priced whole. */
+  price(tally: Tally, end: Situation): number;
   /** The Options on offer at `at`, at each of their targets; and those a leaf that reads `reach` reads there. */
   pairsAt(at: Situation): readonly Pair[];
   readsAt(at: Situation, reach: "held" | "arrived"): readonly Pair[];
@@ -31,12 +32,12 @@ export interface LineSpace {
   child(at: Situation, leaves: Leaves, seconds: number): Situation;
   /** Whether a pair is a walk to a site (`Option.sites`). */
   toSite(pair: Pair): boolean;
-  /** The worth of the line through `pair` from `at`, `left` deep, after what the path brought. */
-  line(pair: Pair, at: Situation, left: number, dealt: number, taken: number, orders: number, seconds: number): number;
+  /** The worth of the line through `pair` from `at`, `left` deep, after what the path brought (`from`). */
+  line(pair: Pair, at: Situation, left: number, from: Tally): number;
 }
 
-/** **A leaf**: what a line is worth that ends at `at`, `seconds` s into the horizon, as `reach` says (`Reach`), after what the path brought. */
-export type Leaf = (at: Situation, reach: Reach, dealt: number, taken: number, orders: number, seconds: number) => number;
+/** **A leaf**: what a line is worth that ends at `at`, as `reach` says (`Reach`), after what the path brought (`from`). */
+export type Leaf = (at: Situation, reach: Reach, from: Tally) => number;
 
 /** Each kind of line's end's settings, by its kind. */
 interface LineEndSettings {
@@ -85,7 +86,7 @@ const share = (x: number): boolean => Number.isFinite(x) && x >= 0;
 const TAIL: LineEndKind<LineEnd<"tail">> = {
   label: "Tail", preset: { kind: "tail" }, faults: () => [],
   leaf(_end, { horizon, dealtWeight, takenWeight, price, pairsAt, readsAt, modelAt, child, toSite, line }) {
-    const leaf: Leaf = (at, reach, dealt, taken, orders, seconds) => {
+    const leaf: Leaf = (at, reach, from) => {
       let top = -Infinity;
       // A leaf where a walk has arrived never walks on to a site, and a held leaf reads only open Options.
       // Such a leaf models only the pairs it reads. Most leaves are where a walk arrives, so modelling every
@@ -93,12 +94,12 @@ const TAIL: LineEndKind<LineEnd<"tail">> = {
       const pairs = reach === "whole" ? pairsAt(at) : readsAt(at, reach);
       for (let i = 0; i < pairs.length; i++) {
         const pair = pairs[i]!;
-        if (pair.option.open) top = Math.max(top, line(pair, at, 1, dealt, taken, orders, seconds));
+        if (pair.option.open) top = Math.max(top, line(pair, at, 1, from));
         else if (reach === "held") continue;
-        else if (toSite(pair)) { if (reach === "whole") top = Math.max(top, line(pair, at, 0, dealt, taken, orders, seconds)); }
-        else top = Math.max(top, again(pair, at, dealt, taken, orders, seconds));
+        else if (toSite(pair)) { if (reach === "whole") top = Math.max(top, line(pair, at, 0, from)); }
+        else top = Math.max(top, again(pair, at, from));
       }
-      return top > -Infinity ? top : price(dealt, taken, orders, seconds, at);
+      return top > -Infinity ? top : price(from, at);
     };
     /**
      * **`pair` run again and again from `at` to the horizon**, where a try of it leaves
@@ -109,8 +110,8 @@ const TAIL: LineEndKind<LineEnd<"tail">> = {
      * as many tries as it is expected to, then held where it went (`leaf`, an open Option). -Infinity
      * where no outcome stays, or a try takes no time.
      */
-    const again = (pair: Pair, at: Situation, dealt: number, taken: number, orders: number, seconds: number): number => {
-      const terms = modelAt(pair, at)!, duration = terms.duration;
+    const again = (pair: Pair, at: Situation, from: Tally): number => {
+      const { dealt, taken, orders, seconds } = from, terms = modelAt(pair, at)!, duration = terms.duration;
       if (!(duration > 0) || seconds >= horizon) return -Infinity;
       let stay = 0, there: Situation | null = null;
       for (let i = 0; i < terms.outcomes.length; i++) {
@@ -122,14 +123,14 @@ const TAIL: LineEndKind<LineEnd<"tail">> = {
       const tries = (horizon - seconds) / duration, full = Math.floor(tries), through = full === 0 ? 1 : stay === 0 ? 0 : exp(full * log(stay)), left = 1 - through;
       const o = orders + Math.min(1, tries) * terms.orders;
       const whole = takenWeight(seconds, horizon - seconds), wholeDealt = dealtWeight(seconds, horizon - seconds);
-      let worth = through * price(dealt + wholeDealt * tries * terms.dealt, taken + whole * tries * terms.taken, o, horizon, there);
+      let worth = through * price({ dealt: dealt + wholeDealt * tries * terms.dealt, taken: taken + whole * tries * terms.taken, orders: o, seconds: horizon }, there);
       if (left > 0) {
         const run = (1 - (full + 1) * through + full * through * stay) / ((1 - stay) * left), part = takenWeight(seconds, run * duration);
-        const d = dealt + dealtWeight(seconds, run * duration) * run * terms.dealt, t = taken + part * run * terms.taken, after = seconds + run * duration;
+        const ran: Tally = { dealt: dealt + dealtWeight(seconds, run * duration) * run * terms.dealt, taken: taken + part * run * terms.taken, orders: o, seconds: seconds + run * duration };
         for (let i = 0; i < terms.outcomes.length; i++) {
           const outcome = terms.outcomes[i]!, end = child(at, outcome.leaves, duration);
           if (end === there || end.posture === at.posture && Math.abs(end.range - at.range) <= ARRIVED) continue;
-          worth += left * outcome.chance / (1 - stay) * leaf(end, "held", d, t, o, after);
+          worth += left * outcome.chance / (1 - stay) * leaf(end, "held", ran);
         }
       }
       return worth;
@@ -143,26 +144,27 @@ const DISTANCE: LineEndKind<LineEnd<"distance">> = {
   label: "By distance", preset: { kind: "distance", dealt: .027, taken: .027, reach: 2 },
   faults: (end) => share(end.dealt) && share(end.taken) && Number.isFinite(end.reach) && end.reach > 0 ? []
     : ["dealt and taken a finite rate, not negative, and reach a finite distance, more than none"],
-  leaf: (end, { horizon, dealtWeight, takenWeight, price }) => (at, _reach, dealt, taken, orders, seconds) => {
+  leaf: (end, { horizon, dealtWeight, takenWeight, price }) => (at, _reach, { dealt, taken, orders, seconds }) => {
     const left = Math.max(0, horizon - seconds), near = at.focus ? Math.max(0, 1 - at.apart / end.reach) : 0;
     const counts = takenWeight(seconds, left) * left * near, dealing = dealtWeight(seconds, left) * left * near;
-    return price(dealt + dealing * end.dealt, taken + counts * end.taken, orders, Math.max(seconds, horizon), at);
+    return price({ dealt: dealt + dealing * end.dealt, taken: taken + counts * end.taken, orders, seconds: Math.max(seconds, horizon) }, at);
   },
 };
 
 /**
- * **A line's end by the next exchange** (`EXCHANGE`, `NEXT`), at `at`, `seconds` s into the
- * horizon: the best of each Option on offer there, one try of it (its life dealt and taken; an
+ * **A line's end by the next exchange** (`EXCHANGE`, `NEXT`), at `at`, after what the path brought
+ * (`from`): the best of each Option on offer there, one try of it (its life dealt and taken; an
  * open Option's to the horizon) counted `counts` times its rate, a second, or, `once`, `counts`
  * times itself as it fades over its own seconds (`takenWeight`; its life dealt `countsDealt`
  * times, `dealtWeight`), open Options left out; a walk to a site (`Option.sites`) counted with the
  * best try where each way it ends leaves the body. The path as it is where none is.
  */
 function exchanged({ horizon, dealtWeight, takenWeight, price, pairsAt, readsAt, termsOf, child, toSite }: LineSpace,
-  at: Situation, countsDealt: number, counts: number, once: boolean, dealt: number, taken: number, orders: number, seconds: number): number {
-  const end = Math.max(seconds, horizon);
+  { at, from, countsDealt, counts, once }: { readonly at: Situation; readonly from: Tally; readonly countsDealt: number; readonly counts: number; readonly once: boolean }): number {
+  const { dealt, taken, orders, seconds } = from, end = Math.max(seconds, horizon);
   const atRate = (d: number, t: number, duration: number): number => !(duration > 0) ? -Infinity
-    : once ? price(dealt + countsDealt * dealtWeight(seconds, duration) * d, taken + counts * takenWeight(seconds, duration) * t, orders, end, at) : price(dealt + countsDealt * d / duration, taken + counts * t / duration, orders, end, at);
+    : once ? price({ dealt: dealt + countsDealt * dealtWeight(seconds, duration) * d, taken: taken + counts * takenWeight(seconds, duration) * t, orders, seconds: end }, at)
+    : price({ dealt: dealt + countsDealt * d / duration, taken: taken + counts * t / duration, orders, seconds: end }, at);
   let top = -Infinity;
   const pairs = pairsAt(at);
   for (let p = 0; p < pairs.length; p++) {
@@ -184,16 +186,16 @@ function exchanged({ horizon, dealtWeight, takenWeight, price, pairsAt, readsAt,
     }
     top = Math.max(top, worth);
   }
-  return top > -Infinity ? top : price(dealt, taken, orders, end, at);
+  return top > -Infinity ? top : price({ dealt, taken, orders, seconds: end }, at);
 }
 
 /** **By the next exchange's rate** (`LineEndSettings.exchange`), at that rate as priced. */
 const EXCHANGE: LineEndKind<LineEnd<"exchange">> = {
   label: "By the next exchange's rate", preset: { kind: "exchange", exchange: 1 },
   faults: (end) => share(end.exchange) ? [] : ["exchange a finite share, not negative"],
-  leaf: (end, space) => (at, _reach, dealt, taken, orders, seconds) => {
-    const left = Math.max(0, space.horizon - seconds);
-    return exchanged(space, at, space.dealtWeight(seconds, left) * left * end.exchange, space.takenWeight(seconds, left) * left * end.exchange, false, dealt, taken, orders, seconds);
+  leaf: (end, space) => (at, _reach, from) => {
+    const left = Math.max(0, space.horizon - from.seconds);
+    return exchanged(space, { at, from, countsDealt: space.dealtWeight(from.seconds, left) * left * end.exchange, counts: space.takenWeight(from.seconds, left) * left * end.exchange, once: false });
   },
 };
 
@@ -201,7 +203,7 @@ const EXCHANGE: LineEndKind<LineEnd<"exchange">> = {
 const NEXT: LineEndKind<LineEnd<"next">> = {
   label: "By the next exchange, once", preset: { kind: "next", once: 3 },
   faults: (end) => share(end.once) ? [] : ["once a finite share, not negative"],
-  leaf: (end, space) => (at, _reach, dealt, taken, orders, seconds) => exchanged(space, at, end.once, end.once, true, dealt, taken, orders, seconds),
+  leaf: (end, space) => (at, _reach, from) => exchanged(space, { at, from, countsDealt: end.once, counts: end.once, once: true }),
 };
 
 /** The kinds of line's end, by their kind. */

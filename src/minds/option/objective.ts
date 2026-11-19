@@ -7,15 +7,19 @@ import type { ObjectivePart } from "./parts.ts";
 import { FIRST, type Obedience } from "./value.ts";
 
 /**
- * **One path of a line** (`Objective.worth`): what the Options along it bring, summed (each in
- * life, a share of a body's full life, and the metres walked as ordered), the seconds they run
- * before the body holds (`seconds`), and the state the path ends in (`end`).
+ * **What a path of a line has brought** (`Path`): what the Options along it bring, summed (each in
+ * life, a share of a body's full life, and the metres walked as ordered), and the seconds they run
+ * before the body holds (`seconds`).
  */
-export interface Path {
+export interface Tally {
   readonly dealt: number;
   readonly taken: number;
   readonly orders: number;
   readonly seconds: number;
+}
+
+/** **One path of a line** (`Objective.worth`): what it has brought (`Tally`), and the state it ends in (`end`). */
+export interface Path extends Tally {
   readonly end: Situation;
 }
 

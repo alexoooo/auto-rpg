@@ -3,7 +3,7 @@ import type { Exit } from "../../skills/framework/profile/profile.ts";
 import { hasResource } from "../../skills/framework/action.ts";
 import type { Readiness, Resource } from "../../skills/framework/action.ts";
 import { SETTLED } from "../../skills/intent/action-window.ts";
-import { intentOfSet, type Intent, type SelectedAsk } from "../../skills/framework/intent.ts";
+import type { SelectedAsk } from "../../skills/framework/intent.ts";
 import type { Sight } from "../decider.ts";
 import type { Choice } from "../choice.ts";
 import { bearingAround, graceAt, inReach, stancedPressure, type Cues, type ModelledStrike, type Percepts, type Predictions } from "./percepts.ts";
@@ -266,14 +266,4 @@ export function asking(now: Situation, asked: Asked): readonly Resource[] {
     for (const resource of live ? live.holds : now.sight.actions.needs(request.action, request.effector)) if (!hasResource(held, resource)) held.push(resource);
   }
   return held;
-}
-
-
-/**
- * **What a set of options asks in a step**: each member's step as a selected set's
- * (`SelectedAsk`), made one intent (`intentOfSet`): the walk and facing of the one that claims the
- * legs, else `idle`'s; every one's actions; every one's covers of a hand no one's asks hold.
- */
-export function stepSet(set: readonly Option[], now: Situation, dt: number, idle: () => Omit<Intent, "guard" | "actions">): Intent {
-  return intentOfSet(set.map((option) => ({ claims: option.claims, ...option.step(now, dt) })), idle);
 }

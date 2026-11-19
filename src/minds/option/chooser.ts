@@ -8,7 +8,7 @@ import { whenEmpty } from "../../parts/tree.ts";
 import type { OfferTerms } from "../engagement.ts";
 import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding, type Holding, type Selection } from "../choice.ts";
 import { placed, placing, type Option, type Situation } from "./option.ts";
-import { FEW_TERMS_PART, type Objective, type Path } from "./objective.ts";
+import { FEW_TERMS_PART, type Objective, type Tally } from "./objective.ts";
 import { cachedPressure, threatened, type Pressure } from "./percepts.ts";
 import { exp, log } from "../../core/math/real.ts";
 import { leafOf, lineEndFaults, lineEndField, type LineEnd } from "./line-ends.ts";
@@ -232,10 +232,10 @@ function space(root: Situation, { options, objective, obedience, horizon, end }:
     return state;
   };
   const path = { dealt: 0, taken: 0, orders: 0, seconds: 0, end: root };
-  /** What a path is worth, priced whole (`Objective.worth`). */
-  const price = (dealt: number, taken: number, orders: number, seconds: number, end: Situation): number => {
-    path.dealt = dealt; path.taken = taken; path.orders = orders; path.seconds = seconds; path.end = end;
-    const worth = objective.worth(path as Path, root, obedience);
+  /** What the path that brought `tally` and ends at `end` is worth, priced whole (`Objective.worth`). */
+  const price = (tally: Tally, end: Situation): number => {
+    path.dealt = tally.dealt; path.taken = tally.taken; path.orders = tally.orders; path.seconds = tally.seconds; path.end = end;
+    const worth = objective.worth(path, root, obedience);
     if (!Number.isFinite(worth)) throw new Error(`a path is worth ${worth}`);
     return worth;
   };
@@ -243,21 +243,20 @@ function space(root: Situation, { options, objective, obedience, horizon, end }:
   const termsOf = (pair: Pair, at: Situation, seconds: number): Terms =>
     (pair.option.open ? pair.option.model(at, { target: pair.target, until: Math.max(0, horizon - seconds) }) : modelAt(pair, at))!;
   /**
-   * **A step of a line** (`Step`): `pair` run from `at`, `seconds` s into the horizon,
-   * after a path that brought `dealt`, `taken` and `orders`, written into `out`.
+   * **A step of a line** (`Step`): `pair` run from `at`, after a path that brought `from`, written into `out`.
    */
-  const stepInto = (out: Work, pair: Pair, at: Situation, dealt: number, taken: number, orders: number, seconds: number): Step => {
-    const option = pair.option, terms = termsOf(pair, at, seconds), share = terms.duration > 0 ? Math.max(0, Math.min(1, (horizon - seconds) / terms.duration)) : 1;
+  const stepInto = (out: Work, pair: Pair, at: Situation, from: Tally): Step => {
+    const { dealt, taken, orders, seconds } = from, option = pair.option, terms = termsOf(pair, at, seconds), share = terms.duration > 0 ? Math.max(0, Math.min(1, (horizon - seconds) / terms.duration)) : 1;
     let chances = 0;
     for (let i = 0; i < terms.outcomes.length; i++) chances += terms.outcomes[i]!.chance;
     if (Math.abs(chances - 1) > 1e-9) throw new Error(`${option.name}'s outcomes' chances sum to ${chances}`);
     const after = seconds + share * terms.duration, counts = takenWeight(seconds, share * terms.duration), dealing = dealtWeight(seconds, share * terms.duration);
-    out.terms = terms; out.dealt = dealt + dealing * share * terms.dealt; out.taken = taken + counts * share * terms.taken; out.orders = orders + share * terms.orders; out.after = after;
+    out.terms = terms; out.dealt = dealt + dealing * share * terms.dealt; out.taken = taken + counts * share * terms.taken; out.orders = orders + share * terms.orders; out.seconds = after;
     out.cut = option.open === true || after >= horizon;
     return out;
   };
   /** A step of a line, made anew: what a tree's edge keeps. */
-  const stepOf = (pair: Pair, at: Situation, dealt: number, taken: number, orders: number, seconds: number): Step => stepInto(blankStep(), pair, at, dealt, taken, orders, seconds);
+  const stepOf = (pair: Pair, at: Situation, from: Tally): Step => stepInto(blankStep(), pair, at, from);
   // A line's step is read until the line's worth is found, through its deeper lines: a frame for each depth of the line under way.
   const frames: Work[] = [];
   let depth = 0;
@@ -266,48 +265,48 @@ function space(root: Situation, { options, objective, obedience, horizon, end }:
     let worth = 0;
     for (let i = 0; i < step.terms.outcomes.length; i++) {
       const outcome = step.terms.outcomes[i]!;
-      worth += outcome.chance * price(step.dealt, step.taken, step.orders, step.after, unchanged(outcome.leaves) ? at : child(at, outcome.leaves, step.terms.duration));
+      worth += outcome.chance * price(step, unchanged(outcome.leaves) ? at : child(at, outcome.leaves, step.terms.duration));
     }
     return worth;
   };
   /**
-   * The worth of the line through `pair` from `at`, `seconds` s into the horizon,
-   * after what the path brought before it; then, where it ends, the best line `left` - 1 Options
+   * The worth of the line through `pair` from `at`, after what the path brought before it (`from`); then, where it ends, the best line `left` - 1 Options
    * deep (`best`) where `left` is more than 1, else the leaf (`leaf`: whole where `left` is 1,
    * arrived where 0).
    */
-  const line = (pair: Pair, at: Situation, left: number, dealt: number, taken: number, orders: number, seconds: number): number => {
-    const step = stepInto(frames[depth] ??= blankStep(), pair, at, dealt, taken, orders, seconds), terms = step.terms;
+  const line = (pair: Pair, at: Situation, left: number, from: Tally): number => {
+    const step = stepInto(frames[depth] ??= blankStep(), pair, at, from), terms = step.terms;
     if (step.cut) return cutWorth(at, step);
     depth++;
     let worth = 0;
     for (let i = 0; i < terms.outcomes.length; i++) {
       const outcome = terms.outcomes[i]!, end = child(at, outcome.leaves, terms.duration);
-      worth += outcome.chance * (left > 1 ? best(end, left - 1, step.dealt, step.taken, step.orders, step.after)
-        : leaf(end, left === 1 ? "whole" : "arrived", step.dealt, step.taken, step.orders, step.after));
+      worth += outcome.chance * (left > 1 ? best(end, left - 1, step) : leaf(end, left === 1 ? "whole" : "arrived", step));
     }
     depth--;
     return worth;
   };
   /** The best line from `at` of any Option on offer there, `left` deep; the path as it is where none is. */
-  const best = (at: Situation, left: number, dealt: number, taken: number, orders: number, seconds: number): number => {
+  const best = (at: Situation, left: number, from: Tally): number => {
     let top = -Infinity;
     const pairs = pairsAt(at);
-    for (let i = 0; i < pairs.length; i++) top = Math.max(top, line(pairs[i]!, at, left, dealt, taken, orders, seconds));
-    return top > -Infinity ? top : price(dealt, taken, orders, seconds, at);
+    for (let i = 0; i < pairs.length; i++) top = Math.max(top, line(pairs[i]!, at, left, from));
+    return top > -Infinity ? top : price(from, at);
   };
   /** Where a line ends (`Leaf`), as its line's end makes it of what this search reads. */
   const leaf = leafOf(end, { horizon, dealtWeight, takenWeight, price, pairsAt, readsAt, modelAt, termsOf, child, toSite, line });
   return { pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
 }
 
-/** **A step of a line** (`space`'s `stepOf`): its Option's model, and the path once it has run, what it brings counted by the share of its time within the horizon (`after`, s); an open Option, or one the horizon cuts, ends the path (`cut`). */
-interface Step { readonly terms: Terms; readonly dealt: number; readonly taken: number; readonly orders: number; readonly after: number; readonly cut: boolean }
+/** **A step of a line** (`space`'s `stepOf`): its Option's model, and what the path has brought once it has run (`Tally`), what it brings counted by the share of its time within the horizon; an open Option, or one the horizon cuts, ends the path (`cut`). */
+interface Step extends Tally { readonly terms: Terms; readonly cut: boolean }
 /** A step as it is written (`stepInto`). */
 type Work = { -readonly [K in keyof Step]: Step[K] };
 /** No model yet: what a step is made with before it is written. */
 const UNWRITTEN: Terms = Object.freeze({ duration: 0, dealt: 0, taken: 0, orders: 0, outcomes: Object.freeze([]) });
-const blankStep = (): Work => ({ terms: UNWRITTEN, dealt: 0, taken: 0, orders: 0, after: 0, cut: false });
+const blankStep = (): Work => ({ terms: UNWRITTEN, dealt: 0, taken: 0, orders: 0, seconds: 0, cut: false });
+/** A path that has brought nothing yet: where every line begins. */
+const UNBEGUN: Tally = Object.freeze({ dealt: 0, taken: 0, orders: 0, seconds: 0 });
 
 /** What a search prices at a decision: each Option at each target its line from the state decided at (`Line`), null where it is not on offer. */
 type Lines = (option: Option, target: number) => Line | null;
@@ -332,7 +331,7 @@ function search(root: Situation, searched: Searched & { readonly depth: number }
     let priced = byTarget[target];
     if (priced === undefined) {
       const pair = at.pairAt(option, target);
-      byTarget[target] = priced = at.modelAt(pair, root) ? { worth: at.line(pair, root, depth, 0, 0, 0, 0), terms: at.termsOf(pair, root, 0) } : null;
+      byTarget[target] = priced = at.modelAt(pair, root) ? { worth: at.line(pair, root, depth, UNBEGUN), terms: at.termsOf(pair, root, 0) } : null;
     }
     return priced;
   };
@@ -344,7 +343,7 @@ function search(root: Situation, searched: Searched & { readonly depth: number }
  * what its leaf is worth (`floor`), and what it is worth (`worth`): the more of its floor and its
  * best Option run.
  */
-interface TreeNode { readonly at: Situation; readonly dealt: number; readonly taken: number; readonly orders: number; readonly seconds: number; readonly floor: number;
+interface TreeNode extends Tally { readonly at: Situation; readonly floor: number;
   runs: number; worth: number; edges: TreeEdge[] | null }
 
 /**
@@ -421,17 +420,17 @@ function treeSearch(root: Situation, searched: Searched & { readonly runs: numbe
     pressure: { get: () => pressure ??= cachedPressure(predictions.pressure) },
   }) } }) as Situation;
   const at = space(root, searched);
-  const nodeAt = (state: Situation, dealt: number, taken: number, orders: number, seconds: number): TreeNode => {
-    const floor = at.leaf(state, "whole", dealt, taken, orders, seconds);
-    return { at: state, dealt, taken, orders, seconds, floor, runs: 0, worth: floor, edges: null };
+  const nodeAt = (state: Situation, from: Tally): TreeNode => {
+    const floor = at.leaf(state, "whole", from);
+    return { at: state, dealt: from.dealt, taken: from.taken, orders: from.orders, seconds: from.seconds, floor, runs: 0, worth: floor, edges: null };
   };
-  const top = nodeAt(root, 0, 0, 0, 0), started = start(root);
+  const top = nodeAt(root, UNBEGUN), started = start(root);
   // A cut edge draws no way of ending (`run`): it shares one empty store.
   const edgesOf = (node: TreeNode): TreeEdge[] => {
     if (node.edges) return node.edges;
     const pairs = at.pairsAt(node.at), edges = new Array<TreeEdge>(pairs.length);
     for (let i = 0; i < pairs.length; i++) {
-      const pair = pairs[i]!, step = at.stepOf(pair, node.at, node.dealt, node.taken, node.orders, node.seconds);
+      const pair = pairs[i]!, step = at.stepOf(pair, node.at, node);
       const was = node === top ? started.kept(pair) : undefined;
       edges[i] = { pair, runs: 0, worth: was?.worth ?? 0, ends: [], step, ...(was && was.weight > 0 ? { kept: was } : {}) };
     }
@@ -495,7 +494,7 @@ function treeSearch(root: Situation, searched: Searched & { readonly runs: numbe
       if (step.cut) { if (edge.runs === 0) edge.worth = at.cutWorth(node.at, step); break; }
       const k = draw(step.terms), next = edge.ends[k];
       if (next) { node = next; continue; }
-      edge.ends[k] = nodeAt(at.child(node.at, step.terms.outcomes[k]!.leaves, step.terms.duration), step.dealt, step.taken, step.orders, step.after);
+      edge.ends[k] = nodeAt(at.child(node.at, step.terms.outcomes[k]!.leaves, step.terms.duration), step);
       break;
     }
     for (let i = taken.length - 1; i >= 0; i--) { const edge = taken[i]!; edge.runs++; reprice(edge); revalue(nodes[i]!); }
