@@ -4,13 +4,11 @@
  * 1 cm apart has read a mirror 10 to 18 % silent, so a difference inside a set's spread is not a
  * reading.
  */
-import { SIDES } from "../../game/arena/duel.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
-import type { MindConfig } from "../../minds/catalog/config.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { mindOf, seatBody, sideCharacters, type Cases, type Json } from "../evaluation.ts";
 import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
-import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
+import { bySeat } from "../../game/arena/seat.ts";
 import { readScorecard, type ScorecardReading } from "./read.ts";
 
 /** One bout's conditions: the set's draw (0 its first, each next its gaps shifted by `SHIFT` more) and the gap, m. */
@@ -51,7 +49,7 @@ export const createScorecardCases = perContext((context: GameContext) => {
       world: ([value], { gap }, engine, [seat]) => ({
         kind: "bout", engine, tape: [],
         recipe: { level: "open", left: protocol.body, right: protocol.body, gap, loadouts: { left: EMPTY, right: EMPTY },
-          minds: Object.fromEntries(SIDES.map((side) => [side, mindOf(value)])) as Record<Side, MindConfig>,
+          minds: bySeat(() => mindOf(value)),
           capSeconds: protocol.seconds, ...sideCharacters({ left: protocol.body, right: protocol.body }, { left: seat, right: seat }) },
       }),
       read: readScorecard,

@@ -35,7 +35,7 @@ import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-ru
 import { carryOnRail, railFaults, type Rail } from "./rail.ts";
 import { shoveFaults, shoveOnCue, type Shove } from "./shove.ts";
 import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "../../core/world/recording.ts";
-import { type ArenaSeat as Side, otherSeat as otherSide, ARENA_SEATS as SIDES } from "./seat.ts";
+import { type ArenaSeat as Side, otherSeat as otherSide, ARENA_SEATS as SIDES, bySeat } from "./seat.ts";
 
 /**
  * **A bout in the arena**: two bodies, each carrying what the recipe names (`DuelRecipe.loadouts`,
@@ -354,7 +354,7 @@ export class Duel {
     if ("held" in recipe) throw new Error("obsolete single-held recipe; name both hands in loadouts");
     if (recipe.recoverySeconds !== undefined && recipe.recoverySeconds !== null && (!Number.isFinite(recipe.recoverySeconds) || recipe.recoverySeconds < 0))
       throw new Error("invalid recovery window");
-    const characters = Object.fromEntries(SIDES.map(side => [side, duelCharacter(recipe, side)])) as Record<Side, ReturnType<typeof resolveCharacter>>;
+    const characters = bySeat((side) => duelCharacter(recipe, side));
     const minds = duelMinds(recipe, defaultMind);
     for (const side of SIDES) {
       const model = recipe[side], loadout = loadoutIn(recipe, side), config = minds[side];
@@ -365,12 +365,12 @@ export class Duel {
     this.world = world;
     this.recipe = Object.freeze({ ...recipe, attributes: Object.freeze({ left: characters.left.config.attributes, right: characters.right.config.attributes }) });
     const level = recipe.level ?? "open", gap = recipe.gap ?? levelDefinition(level).gap.default;
-    const spawns = Object.fromEntries(SIDES.map((side) => {
+    const spawns = bySeat((side) => {
       const spawn = levelSpawn(level, side, gap), given = recipe.start?.[side];
       if (given?.at !== undefined && !(given.at.length === 2 && given.at.every(Number.isFinite)) || given?.heading !== undefined && !Number.isFinite(given.heading))
         throw new Error(`invalid ${side} start`);
-      return [side, { position: given?.at ? [given.at[0], spawn.position[1], given.at[1]] as Vec3 : spawn.position, heading: given?.heading ?? spawn.heading }];
-    })) as Record<Side, { position: Vec3; heading: number }>;
+      return { position: given?.at ? [given.at[0], spawn.position[1], given.at[1]] as Vec3 : spawn.position, heading: given?.heading ?? spawn.heading };
+    });
     if (spawns.left.position.every((v, k) => v === spawns.right.position[k])) throw new Error("the two start on one spot");
     const railFaulted = recipe.rail ? railFaults(recipe.rail) : [];
     if (railFaulted.length) throw new Error(`invalid rail: ${railFaulted.join("; ")}`);

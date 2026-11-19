@@ -2,12 +2,11 @@
  * **The standard match's cases**: two minds over one fixed set of arena bouts, each mind on each
  * side. Bouts are the same to the bit on every machine (`src/core/math/real.ts`).
  */
-import { CAP_SECONDS, SIDES } from "../../game/arena/duel.ts";
+import { CAP_SECONDS } from "../../game/arena/duel.ts";
 import type { ArenaLevel } from "../../game/arena/levels.ts";
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
-import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 
 import { readBout, type BoutReading } from "../contest.ts";
@@ -15,7 +14,6 @@ import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject }
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { drawnGap, WARRIOR_GAPS } from "../scorecard/cases.ts";
 import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
-import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
 
 /**
  * What a match plays: each body a mind may have against each the other may have, each loadout, and
@@ -88,7 +86,7 @@ export const createMatchCases = perContext((context: GameContext) => {
       world: (values, { left, right, loadout, level, gap }, engine, seats) => ({
         kind: "bout", engine, tape: [],
         recipe: { level, left, right, gap, loadouts: { left: loadout, right: loadout },
-          minds: Object.fromEntries(SIDES.map((side, k) => [side, mindOf(values[k])])) as Record<Side, MindConfig>,
+          minds: { left: mindOf(values[0]), right: mindOf(values[1]) },
           capSeconds: protocol.capSeconds, ...sideCharacters({ left, right }, { left: seats[0], right: seats[1] }) },
       }),
       read: readBout,

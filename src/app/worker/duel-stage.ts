@@ -24,7 +24,7 @@ import { choiceWatch } from "../../game/arena/choice-watch.ts";
 import type { Inspected } from "./inspection.ts";
 import { frameLayout, packFrame, type FramedBody } from "./frame.ts";
 import type { Stage } from "./stage.ts";
-import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
+import { bySeat, type ArenaSeat as Side } from "../../game/arena/seat.ts";
 import { damageCues } from "./damage-cues.ts";
 
 /** **A duel as the Arena plays it** (`duelStage`): a drill's trial, or a bout a person may lead a side of. */
@@ -153,7 +153,7 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
   const leadSide = (side: Side | null): TeamOfOne | null => side ? teamOfOne(duel, side, { kind: "party", picks: false }, context.commanders) : null;
   let led = leadSide(start.person);
   scope.own({ dispose: () => led?.dispose() });
-  const readings = Object.fromEntries(SIDES.map((side) => [side, fighterReading(duel.duelists[side], () => duel.blows)])) as Record<Side, ReturnType<typeof fighterReading>>;
+  const readings = bySeat((side) => fighterReading(duel.duelists[side], () => duel.blows));
   const time = () => duel.state.start + (duel.verdict?.time ?? duel.clock);
   let feedStopped = false;
   scope.own(world.afterStep(() => {
@@ -165,7 +165,7 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
   const roster = SIDES.map((side) => ({ id: side, segments: [...duel.duelists[side].built.segments.keys()], card: { side } }));
   const bodies = framed(duel);
   const { length } = frameLayout(roster);
-  const looks = Object.fromEntries(SIDES.map((side) => [side, { menu: false, mind: false }])) as Record<Side, { menu: boolean; mind: boolean }>;
+  const looks = bySeat((): { menu: boolean; mind: boolean } => ({ menu: false, mind: false }));
   const watch = choiceWatch();
   const state = { person: start.person, lead: null as PlayerLead | null, hold: start.hold, choosing: false, taken: 0 };
 
