@@ -2,10 +2,7 @@ import type { MindPlace } from "../../../minds/seat/apart.ts";
 import { replyBox } from "../../apart/box.ts";
 import { decodeExact } from "../../apart/codec.ts";
 import { mindThreads, type ThreadLink } from "../../apart/host.ts";
-import { ANSWERED, COUNTERS, DONE, waitPast, type Reply } from "../../apart/wire.ts";
-
-/** How the world waits on a minds' thread, ms: spinning about a step, then sleeping; a thread silent past `timeout` is a defect. */
-const WAITING = Object.freeze({ spin: 8, timeout: 120_000 });
+import { ANSWERED, COUNTERS, DONE, WORLD_WAITING, waitPast, type Reply } from "../../apart/wire.ts";
 
 /** The room a thread's answers have, bytes, and the numbers it may make anew, bytes: far beyond a fight's. */
 const BOX_BYTES = 4 << 20, ARENA_BYTES = 4 << 20;
@@ -42,7 +39,7 @@ export async function browserMindWorkers(threads: number): Promise<MindPlace> {
     const unshelve = ({ offset, length }: { readonly offset: number; readonly length: number }) => new Float64Array(arena, 8 * offset, length);
     const received: Reply[] = [];
     const drain = () => { for (let text = box.take(); text !== null; text = box.take()) received.push(decodeExact(text, unshelve) as Reply); };
-    const waiting = { ...WAITING, drain };
+    const waiting = { ...WORLD_WAITING, drain };
     return {
       post: (batch) => worker.postMessage(batch),
       wait: (seq) => waitPast(control, DONE, seq - 1, waiting),

@@ -2,23 +2,54 @@ import { SAID_FIELDS, saidNow, seatHost, type ReportNow, type SaidReport, type S
 import type { MirrorChannel } from "../../minds/seat/mirror-channel.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { MIND_CATALOGS } from "./catalogs.ts";
-import type { AskCrossing, Batch, Reply, Said, SpecNumber, ToldCrossing } from "./wire.ts";
+import { loadBatchData } from "./load-data.ts";
+import { ANSWERED, DONE, type AskCrossing, type Batch, type Reply, type Said, type SpecNumber, type ToldCrossing } from "./wire.ts";
 import { deriveSensed } from "../../skills/perception/openings.ts";
 import { sensedSpec } from "../../core/bodies/senses.ts";
 
+/** What a minds' thread says of a value thrown: its stack, where it has one. */
+const thrownText = (error: unknown): string => error instanceof Error && error.stack !== undefined ? error.stack : String(error);
+
 /**
- * **A minds' thread, whatever carries its batches** (`mindThreads`, `src/app/apart/host.ts`): a host of
+ * **A minds' thread answering its batches, whatever carries them** (Node's worker threads,
+ * `src/app/node/mind-worker.ts`; the browser's workers, `src/app/browser/worker/mind.worker.ts`):
+ * each batch's new minds' data loaded (`loadBatchData`), the batch carried out (`mindThread`), each
+ * step ask counted answered on `control` (`ANSWERED`) as it is, then the batch answered by `send`
+ * and counted done (`DONE`). Once a batch fails, each later one is answered with its error, its
+ * step asks counted. What each seat says crosses by copy: an answer `send` cannot carry is
+ * answered again with that error. Numbers the thread makes anew are made by `allocate`.
+ */
+export function mindBatches({ allocate, control, send }: { allocate(length: number): Float64Array; readonly control: Int32Array; send(reply: Reply): void }): (batch: Batch) => Promise<void> {
+  const count = (index: number, value: number) => { Atomics.store(control, index, value); Atomics.notify(control, index); };
+  const thread = mindThread(allocate, { say: send, answered: (steps) => count(ANSWERED, steps) });
+  let failed: string | null = null, answered = 0;
+  return async (batch) => {
+    answered += batch.asks.filter(({ ask }) => ask.kind === "step").length;
+    let reply: Reply;
+    try {
+      if (failed === null) { await loadBatchData(batch); reply = thread.handle(batch); }
+      else reply = { seq: batch.seq, said: [], error: failed };
+    } catch (error) { reply = { seq: batch.seq, said: [], error: thrownText(error) }; }
+    if (reply.error !== undefined) failed = reply.error;
+    try { send(reply); } catch (error) { send({ seq: batch.seq, said: [], error: thrownText(error) }); }
+    count(ANSWERED, answered);
+    count(DONE, batch.seq);
+  };
+}
+
+/**
+ * **A minds' thread's batches carried out** (`mindThreads`, `src/app/apart/host.ts`): a host of
  * seats (`seatHost`) that carries out each batch's asks in order on the channels' shared numbers.
  * Each step ask it carries out as far as its answer (`SeatHost.handle`), says what its seat says
  * then, its numbers made anew with it (`say`), and counts it to `answered`; each step's decision
  * waits until the world says the step's asks are all in (`Batch.decide`) or the seat is asked
  * again, so the thread moves every body asked before any mind decides, and the world carries out
- * the commands and reads what the minds said while they decide. It answers the batch (`steps`) with what each seat
- * it was asked to make says, and each menu it was asked for. A spec sent is derived as it arrives
- * (`deriveSpec`). Numbers it makes anew are made by `allocate`, in memory the world shares.
- * Each batch's new minds have their declared data loaded before construction (the transport's to await).
+ * the commands and reads what the minds said while they decide. It answers the batch with what each seat
+ * it was asked to make says, and each menu it was asked for. A spec sent is derived as it arrives:
+ * its shapes as sensing reads them (`deriveSensed`), so no step of a mind that first senses a body
+ * of it pays for it. Numbers it makes anew are made by `allocate`, in memory the world shares.
  */
-export function mindThread(allocate: (length: number) => Float64Array, { say, answered }: { say(reply: Reply): void; answered(steps: number): void }): { handle(batch: Batch): Reply; readonly steps: number } {
+export function mindThread(allocate: (length: number) => Float64Array, { say, answered }: { say(reply: Reply): void; answered(steps: number): void }): { handle(batch: Batch): Reply } {
   const host = seatHost(MIND_CATALOGS), channels = new Map<number, MirrorChannel>();
   // The specs the world has sent, by their numbers.
   const specs = new Map<SpecNumber, BodySpec>();
@@ -49,14 +80,13 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
     return { seat, has: says.has, report: crossing, ...(outbound ? { outbound } : {}) };
   };
   return {
-    get steps() { return steps; },
     handle(batch) {
       let end = steps;
       for (const { ask } of batch.asks) if (ask.kind === "step") end += 1;
       // What each seat says crosses by copy: a value that cannot be copied fails the batch, said as its error.
       try {
         const said: Said[] = [];
-        for (const [number, spec] of batch.specs ?? []) { specs.set(number, spec); deriveSpec(spec); }
+        for (const [number, spec] of batch.specs ?? []) { specs.set(number, spec); deriveSensed(spec); }
         for (const { seat, ask: crossing, told: tells, inbound, outbound } of batch.asks) {
           const ask = asked(crossing);
           let channel = channels.get(seat);
@@ -87,19 +117,10 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
         if (batch.decide) while (deciding.length > 0) decide(deciding[0]!);
         return { seq: batch.seq, said };
       } catch (error) {
-        return { seq: batch.seq, said: [], error: String((error as Error)?.stack ?? error) };
+        return { seq: batch.seq, said: [], error: thrownText(error) };
       } finally {
         steps = end;
       }
     },
   };
-}
-
-/**
- * **Derive what a mind derives of a body's spec alone**, where a spec arrives in a thread: its
- * shapes as sensing reads them (`deriveSensed`), cached by the spec's own objects, so no step of a
- * mind that first senses a body of it pays for it.
- */
-export function deriveSpec(spec: BodySpec): void {
-  deriveSensed(spec);
 }

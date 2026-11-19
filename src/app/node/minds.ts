@@ -1,14 +1,7 @@
 import { MessageChannel, receiveMessageOnPort, Worker, type MessagePort } from "node:worker_threads";
 import type { MindPlace } from "../../minds/seat/apart.ts";
 import { mindThreads, type ThreadLink } from "../apart/host.ts";
-import { ANSWERED, COUNTERS, DONE, POSTED, waitPast, type Reply } from "../apart/wire.ts";
-
-/**
- * How the world waits on a minds' thread, ms: spinning `spin` first, about a step, since it has
- * nothing else to do and a mind's answer comes within it, and calling the thread stopped after
- * `timeout`, far beyond any step's thinking.
- */
-const WAITING = Object.freeze({ spin: 8, timeout: 120_000 });
+import { ANSWERED, COUNTERS, DONE, POSTED, WORLD_WAITING, waitPast, type Reply } from "../apart/wire.ts";
 
 /**
  * **Minds apart in Node's worker threads** (`mindThreads`, `src/app/apart/host.ts`): `threads` threads
@@ -33,8 +26,8 @@ export function mindWorkers(threads: number): MindPlace {
         Atomics.store(control, POSTED, batch.seq);
         Atomics.notify(control, POSTED);
       },
-      wait: (seq) => waitPast(control, DONE, seq - 1, WAITING),
-      answered: (steps) => waitPast(control, ANSWERED, steps - 1, WAITING),
+      wait: (seq) => waitPast(control, DONE, seq - 1, WORLD_WAITING),
+      answered: (steps) => waitPast(control, ANSWERED, steps - 1, WORLD_WAITING),
       *replies() { for (let got = receiveMessageOnPort(port); got; got = receiveMessageOnPort(port)) yield got.message as Reply; },
       stop() {
         port.close();

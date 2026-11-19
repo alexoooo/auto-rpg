@@ -72,6 +72,13 @@ export type Said = {
 export interface Reply { readonly seq: number; readonly said: readonly Said[]; readonly error?: string }
 
 /**
+ * How the world waits on a minds' thread, ms: spinning `spin` first, about a step, since it has
+ * nothing else to do and a mind's answer comes within it, then sleeping; a thread silent past
+ * `timeout`, far beyond any step's thinking, is a defect.
+ */
+export const WORLD_WAITING = Object.freeze({ spin: 8, timeout: 120_000 });
+
+/**
  * Wait until `control[index]` is past `was`: spinning up to `spin` ms first, then sleeping until
  * notified; a thread that does not answer in `timeout` ms is a defect.
  */
