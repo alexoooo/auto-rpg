@@ -12,7 +12,7 @@
  * the skill's target (`startVelocity`), or, for a skill with no target, the body's own (forward and
  * to its right of its facing); and for a skill begun from a window, where in it the body stood. A
  * reading takes the trials nearest the start asked at (`NEAREST`), its velocity and its place in
- * its window within the spans its trials began at (`within`). A
+ * its window within the spans its trials began at (`readWithin`). A
  * skill with no foe, a ground edge, begins at no range, clear. A profile is found by the question
  * it answers (`Measured`): its skill and variation, the limb that throws it, its body's model, the
  * world's rates and the senses' reaction time; and whether it was measured against a foe (`Target`,

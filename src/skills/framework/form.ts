@@ -11,7 +11,7 @@
  * A phase whose trials do not determine a form is read by its nearest trials (`nearestRun`).
  */
 import { nearestRun, profileReader, type Cycle, type Expected, type ReadsProfile, type RunReading } from "./profile/reading.ts";
-import { readStartOf, readWithin, type ReadStart, type Sample } from "./profile/nearest.ts";
+import { COORDINATE, readStartOf, readWithin, type Sample } from "./profile/nearest.ts";
 import { type Asked } from "./profile/profile.ts";
 
 /** A start's numbers the form always weighs: none, the range, its square, closing and across. */
@@ -36,23 +36,25 @@ function fitted(xs: readonly Float64Array[], ys: readonly number[]): Float64Arra
 /** The value of `weights` at `x`. */
 const at = (weights: Float64Array, x: Float64Array): number => { let sum = 0; for (let i = 0; i < weights.length; i++) sum += weights[i]! * x[i]!; return sum; };
 
-/** A number a form may weigh past `START_TERMS`: each run trial's, in the sample's order (`values`), and a start's as read (`asked`, `ReadStart`). */
+/** A number a form may weigh past `START_TERMS`: each run trial's, in the sample's order (`values`), and a start's as read (`asked`, `readWithin`). */
 interface Term {
   readonly values: Float64Array;
-  asked(start: ReadStart): number;
+  asked(start: Float64Array): number;
 }
 
+/** **`run`'s trials' coordinate `d`** (`Sample.coords`), in the sample's order. */
+const column = (run: Sample, d: number): Float64Array => Float64Array.from(run.trials, (_, i) => run.coords[i * run.dims + d]!);
+
 /** **The numbers past `START_TERMS` a form of `run` may weigh**, in order: its bodies' levels, the place in the window ahead and aside, and each stance number every trial records. */
-function termsOf(run: Sample, start: ReadStart): readonly Term[] {
-  const terms: Term[] = [];
-  run.levels?.at.forEach((values, k) => terms.push({ values, asked: (read) => read.levels[k]! }));
-  terms.push({ values: run.ahead, asked: (read) => read.read[2] }, { values: run.aside, asked: (read) => read.read[3] });
-  const stances = run.stances, n = run.trials.length, count = start.stance.length;
-  if (stances) for (let k = 0; k < count; k++) {
-    const values = Float64Array.from({ length: n }, (_, i) => stances.at[i * count + k]!);
+function termsOf(run: Sample): readonly Term[] {
+  const terms: Term[] = [], n = run.trials.length, of = (d: number): Term => ({ values: column(run, d), asked: (read) => read[d]! });
+  for (let d = COORDINATE.levels; d < run.stanced; d++) terms.push(of(d));
+  terms.push(of(COORDINATE.ahead), of(COORDINATE.aside));
+  for (let d = run.stanced; d < run.dims; d++) {
+    const values = column(run, d);
     if (!values.every((v) => v === v)) continue;
     const mean = values.reduce((sum, v) => sum + v, 0) / n;
-    terms.push({ values, asked: (read) => { const v = read.stance[k]!; return v === v ? v : mean; } });
+    terms.push({ values, asked: (read) => { const v = read[d]!; return v === v ? v : mean; } });
   }
   return terms;
 }
@@ -72,16 +74,16 @@ interface Form {
  * segment held one item): either would make the fit singular. Null where the trials do not
  * determine the outcomes.
  */
-function formOf(run: Sample, start: ReadStart): Form | null {
+function formOf(run: Sample): Form | null {
   const n = run.trials.length;
   const rowsOf = (terms: readonly Term[]): Float64Array[] => Array.from({ length: n }, (_, i) => {
-    const x = new Float64Array(START_TERMS + terms.length), range = run.range[i]!;
-    x[0] = 1; x[1] = range; x[2] = range * range; x[3] = run.closing[i]!; x[4] = run.across[i]!;
+    const at = i * run.dims, x = new Float64Array(START_TERMS + terms.length), range = run.coords[at + COORDINATE.range]!;
+    x[0] = 1; x[1] = range; x[2] = range * range; x[3] = run.coords[at + COORDINATE.closing]!; x[4] = run.coords[at + COORDINATE.across]!;
     terms.forEach((term, k) => { x[START_TERMS + k] = term.values[i]!; });
     return x;
   });
   const weighed: Term[] = [];
-  for (const term of termsOf(run, start)) {
+  for (const term of termsOf(run)) {
     let low = Infinity, high = -Infinity;
     for (const v of term.values) { low = Math.min(low, v); high = Math.max(high, v); }
     if (high > low && fitted(rowsOf([...weighed, term]), run.trials.map(() => 0))) weighed.push(term);
@@ -105,13 +107,13 @@ const share = (value: number): number => Math.min(1, Math.max(0, value)), amount
 
 /** **`run` read by its form** (`formOf`), a body of `own` hit points striking; by its nearest trials where it has none. */
 function formRun(run: Sample, own: number): RunReading {
-  const start = readStartOf(run), form = formOf(run, start);
+  const start = readStartOf(run), form = formOf(run);
   if (!form) return nearestRun(run, own);
   const x = new Float64Array(START_TERMS + form.terms.length);
   /** `at` as the form weighs it, into `x`. */
   const termsAt = (asked: Asked, levels: Float64Array): Float64Array => {
     readWithin(run, asked, levels, start);
-    x[0] = 1; x[1] = asked.range; x[2] = asked.range * asked.range; x[3] = start.read[0]; x[4] = start.read[1];
+    x[0] = 1; x[1] = asked.range; x[2] = asked.range * asked.range; x[3] = start[COORDINATE.closing]!; x[4] = start[COORDINATE.across]!;
     for (let k = 0; k < form.terms.length; k++) x[START_TERMS + k] = form.terms[k]!.asked(start);
     return x;
   };
