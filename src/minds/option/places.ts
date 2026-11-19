@@ -51,10 +51,7 @@ const WALK_SPACING = PROFILE_SPANS.range / 2;
  * past its grace (`graceAt`: spent as the way goes within its reach, restored as it goes out of it,
  * never past the focus's latency); leaving the body still at the spot with that grace, the focus
  * turned toward it as far as it turns in that time (`Predictions.turns`), and, in a clinch
- * (`CLINCH`), down in its chance of going down behind. A walk steers to its spot as the focus
- * stands each step, so the focus's own steps meanwhile (`Predictions.steps`) do not move where it
- * arrives but how long it takes: as much shorter, or longer, as they close, or open, what the walk
- * closes (`stepped`), the pressure along the way so much less or more. A gait's falls are its own profile's to
+ * (`CLINCH`), down in its chance of going down behind. A gait's falls are its own profile's to
  * measure; none is, so a walk is taken to stay up. Given how the gait stands the body (`stance`,
  * `gaitStance`), the pressure along the way is read at it, and the body is left standing so.
  */
@@ -94,36 +91,9 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
   }
   if (!focus) return { duration, dealt: 0, taken: at.predictions.danger, orders: 0, outcomes: upOrDown({ where: { x: spot.x, z: spot.z, face: spot.face }, velocity: STILL, ...(stance ? { stance } : {}) }, 0) };
   const where = { x: spot.x, z: spot.z, face: spot.face }, apart = hypot(where.x - focus.centre.x, where.z - focus.centre.z), bearing = bearingAround(focus, where.x, where.z);
-  const steps = at.predictions.steps;
-  if (steps) {
-    const scale = stepped(at, apart, duration, steps);
-    duration *= scale; taken *= scale;
-  }
   const around = (bearing < 0 ? -1 : 1) * Math.max(0, Math.abs(bearing) - at.predictions.turns * duration);
   return { duration, dealt: 0, taken: at.predictions.danger + taken, orders: 0,
     outcomes: upOrDown({ where, around, velocity: STILL, grace, ...(stance ? { stance } : {}) }, apart >= CLINCH.within ? 0 : clinched(at, duration)) };
-}
-
-/** The most and least a focus's steps scale a walk's time by (`stepped`). */
-const STEPPED = 4;
-
-/**
- * **How much the focus's steps scale a walk's time** that closes the two from `at.apart` to `apart`
- * in `duration` s: the time `t` in which the walk's closing, at its own rate, and the focus's
- * steps toward the body together close as much (`closed (t / duration) + toward(t) = closed`),
- * found by three rounds from `duration`, within `STEPPED` times shorter or longer; 1 for a walk
- * that closes nothing.
- */
-function stepped(at: Situation, apart: number, duration: number, steps: NonNullable<Situation["predictions"]["steps"]>): number {
-  const focus = at.focus!, closed = at.apart - apart;
-  if (!(Math.abs(closed) > 1e-3) || !(duration > 0) || !(at.apart > 0)) return 1;
-  const ux = (at.where.x - focus.centre.x) / at.apart, uz = (at.where.z - focus.centre.z) / at.apart;
-  let t = duration;
-  for (let round = 0; round < 3; round++) {
-    const came = steps(t, "walk");
-    t = Math.min(duration * STEPPED, Math.max(duration / STEPPED, duration * (closed - (came.x * ux + came.z * uz)) / closed));
-  }
-  return t / duration;
 }
 
 /** No site to walk to. */

@@ -25,7 +25,7 @@ export function pressureBody(spec: BodySpec): PressureBody {
  * read for, `target`, each as numbers (`PressureBody`), read only by a pairing near them
  * (`pairingApart`); and the seconds after a moment it holds a reading by, rising (`horizons`).
  */
-export interface MeasuredPairing {
+interface MeasuredPairing {
   readonly measured: PressureBody;
   readonly target: PressureBody;
   readonly horizons: readonly number[];
@@ -59,7 +59,7 @@ const MOMENTS = 40;
 const SPAN = .1;
 
 /** **Whether `value` is what a measured table is of** (`MeasuredPairing`): two bodies as numbers, and one horizon or more, rising from over none. */
-export function validPairing(value: unknown): value is MeasuredPairing {
+function validPairing(value: unknown): value is MeasuredPairing {
   const table = value as Partial<MeasuredPairing> | null, horizons = table?.horizons;
   const finite = (x: unknown) => typeof x === "number" && Number.isFinite(x);
   const side = (one: unknown) => {
@@ -82,7 +82,7 @@ export function validPressures(value: unknown): value is readonly PressureTable[
  * **`ys` at `seconds`**, one a horizon of `horizons`: through none at none, straight between
  * horizons, and as at the last past it; none at none or before.
  */
-export function alongHorizons(horizons: readonly number[], ys: readonly number[], seconds: number): number {
+function alongHorizons(horizons: readonly number[], ys: readonly number[], seconds: number): number {
   if (!(seconds > 0)) return 0;
   let k = 0;
   while (k < horizons.length && horizons[k]! < seconds) k++;
@@ -111,7 +111,7 @@ export function pressureTable(tables: readonly PressureTable[], striker: BodySpe
  * spans (`STRUCK_SPANS`): the farther of the two bodies' stature or mass, either; within one, near
  * enough to be read. Infinite where either holds otherwise than the body measured.
  */
-export function pairingApart(pairing: { readonly measured: PressureBody; readonly target: PressureBody }, striker: BodySpec, struck: BodySpec): number {
+function pairingApart(pairing: { readonly measured: PressureBody; readonly target: PressureBody }, striker: BodySpec, struck: BodySpec): number {
   const apart = (a: PressureBody, b: PressureBody): number =>
     holdsAlike(a.held, b.held) ? Math.max(Math.abs(a.stature - b.stature) / STRUCK_SPANS.stature, Math.abs(a.mass - b.mass) / STRUCK_SPANS.mass) : Infinity;
   return Math.max(apart(pairing.measured, pressureBody(striker)), apart(pairing.target, pressureBody(struck)));

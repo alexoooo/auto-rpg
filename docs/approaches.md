@@ -302,10 +302,10 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   79 to 65 on the game's Mind, 0.549 with 0.472 to 0.632 over bouts, and 0.521 (0.472 to 0.567)
   over 432 under the written line's end: neither a win (`fc29f4f3d`). *Shown.*
 - **The foe's steps, measured or carried on, add nothing**: the foe's own steps by range and what
-  the body does, from bout rows, left the walk's time and the back step's exit to them (`FoeSteps`,
-  `measuredSteps`): standing silence 20% with the back step as without them; its velocity carried
-  on had the walker 0.9 m past its window and the mirror fell apart (`46d7b4e09`, `c9b5e7b39`).
-  *Shown.*
+  the body does, from bout rows, left the walk's time and the back step's exit to them: standing
+  silence 20% with the back step as without them; its velocity carried on had the walker 0.9 m
+  past its window and the mirror fell apart (`46d7b4e09`, `c9b5e7b39`). Removed, no Mind taking
+  either. *Shown.*
 - **A body measured on none fights by another's trials at ranges by stature**: a profile records
   its body's stature; with none on its own body, the nearest body's in stature is read scaled and
   its price says coarse (`acrossBodies`). Held out, the woman's punches answered 1,157 of the

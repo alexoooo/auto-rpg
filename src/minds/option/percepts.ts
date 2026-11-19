@@ -5,7 +5,7 @@ import type { KeysOf, Part } from "../../parts/parts.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
 import { turnAt } from "../../control/stance/stance-envelope.ts";
 import { stanceEnvelopeOf } from "../../skills/locomotion/shared/stance/envelope.ts";
-import { atan2, exp, hypot } from "../../core/math/real.ts";
+import { atan2, hypot } from "../../core/math/real.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
 import type { LegsUnmet } from "../../skills/framework/skill.ts";
 import type { BearingEnd, BodySpec } from "../../core/bodies/spec/body.ts";
@@ -28,7 +28,7 @@ import type { RiseMemory } from "./rise-memory.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
-import { alongHorizons, pairingApart, pressureCurve, pressureTable, validPairing, type MeasuredPairing, type PressureTable } from "./pressure.ts";
+import { pressureCurve, pressureTable, type PressureTable } from "./pressure.ts";
 import { blowLife, limbReach, record, RETHINK, type Ground } from "./value.ts";
 
 /**
@@ -352,80 +352,14 @@ function ratePressure(seen: Seen): Pressure {
 /**
  * **The others' model**: what the focus is expected to take from the body as the two fight
  * (`Pressure`). A mind's predictions choose its kind: the focus's strikes' rate (`RATE_OTHERS`),
- * or what bouts measured (`measuredOthers`). And where the focus's own steps carry it over the
- * seconds after while the body runs an Option of `kind` (`Choice.kind`; `steps`, m on the ground): with none, it stands,
- * and an Option's measured exit holds its trials' foe's steps; its velocity persisting
- * (`persisting`); or what bouts measured (`measuredSteps`). And whether its pressure holds the
- * blow coming (`holdsBlow`), so none is priced beside it (`Predictions.danger`).
+ * or what bouts measured (`measuredOthers`); the focus stands, an Option's measured exit holding
+ * its trials' foe's steps. And whether its pressure holds the blow coming (`holdsBlow`), so none is
+ * priced beside it (`Predictions.danger`).
  */
 export interface OthersModel {
   pressure(seen: Seen): Pressure;
   holdsBlow?(seen: Seen): boolean;
-  steps?(seen: Seen, seconds: number, kind: string): Ground;
 }
-
-/**
- * **The foe's steps as bouts measured them**: how far the focus came toward the body, centre to
- * centre on the ground, m, by the seconds after (`horizons`), from moments `band` m apart by the
- * range centre to centre (each cell's lower edge, `range`) and the kind of the Option the body ran then (`kind`, `Choice.kind`),
- * on `n` moments; measured of a foe of `measured`'s numbers on a body of `target`'s
- * (`MeasuredPairing`).
- */
-export interface FoeSteps extends MeasuredPairing {
-  readonly band: number;
-  readonly cells: readonly { readonly kind: string; readonly range: number; readonly n: number; readonly toward: readonly number[] }[];
-}
-
-/** The fewest moments a cell of the foe's steps is read on (`FoeSteps`). */
-const STEPS_READ = 30;
-
-/** Whether `value` is a table of the foe's steps (`FoeSteps`). */
-export function validFoeSteps(value: unknown): value is FoeSteps {
-  const table = value as FoeSteps;
-  return validPairing(table) && Number.isFinite(table.band) && table.band > 0 && Array.isArray(table.cells)
-    && table.cells.every((cell) => typeof cell.kind === "string" && Number.isFinite(cell.range) && Number.isFinite(cell.n) && Array.isArray(cell.toward)
-      && cell.toward.length === table.horizons.length && cell.toward.every(Number.isFinite));
-}
-
-/**
- * **`others` with the foe's steps as bouts measured them** (`FoeSteps`): toward the body by the
- * cell of the range it stands at and the kind of Option the body runs, of those read on
- * `STEPS_READ` moments or more the nearest by range; over `seconds` as `alongHorizons` reads it.
- * None where no cell of that kind is, or where the table was measured of bodies not near these (`pairingApart`).
- */
-export function measuredSteps(others: OthersModel, table: FoeSteps): OthersModel {
-  const read = table.cells.filter((cell) => cell.n >= STEPS_READ), { horizons, band } = table;
-  return Object.freeze({ ...others,
-    steps(seen: Seen, seconds: number, kind: string): Ground {
-      const focus = seen.focus;
-      if (!focus || !(seconds > 0)) return NO_STEPS;
-      if (pairingApart(table, focus.spec, seen.spec) > 1) return NO_STEPS;
-      const where = seen.sight.view.stance.centre, dx = where.x - focus.centre.x, dz = where.z - focus.centre.z, apart = hypot(dx, dz);
-      if (!(apart > 0)) return NO_STEPS;
-      let cell: FoeSteps["cells"][number] | null = null;
-      for (const one of read) if (one.kind === kind &&(!cell || Math.abs(one.range + band / 2 - apart) < Math.abs(cell.range + band / 2 - apart))) cell = one;
-      if (!cell) return NO_STEPS;
-      const toward = alongHorizons(horizons, cell.toward, seconds);
-      return { x: dx / apart * toward, z: dz / apart * toward };
-    } });
-}
-
-/**
- * **`others` with the focus's velocity persisting**: where its own steps carry it over `seconds`,
- * its velocity now fading as `e^(-t / persists)`: `v persists (1 - e^(-seconds / persists))`.
- */
-export function persisting(others: OthersModel, persists: number): OthersModel {
-  return Object.freeze({ ...others,
-    steps(seen: Seen, seconds: number): Ground {
-      const focus = seen.focus;
-      if (!focus || !(seconds > 0)) return NO_STEPS;
-      const carried = persists * (1 - exp(-seconds / persists));
-      return { x: focus.velocity.x * carried, z: focus.velocity.z * carried };
-    } });
-}
-
-/** No steps of the focus's own. */
-const NO_STEPS: Ground = Object.freeze({ x: 0, z: 0 });
 
 /** **The rate**: the focus throwing its strikes back to back from wherever it stands, each as its profile reads it (`ratePressure`). */
 export const RATE_OTHERS: OthersModel = Object.freeze({ pressure: ratePressure });
@@ -767,8 +701,7 @@ export interface Prediction<V> {
  * (`lifeOf`), 0 with none or where the foe's pressure holds it (`OthersModel.holdsBlow`); what the
  * focus is expected to deal the body (`Pressure`), and
  * what its own strikes are expected to deal the focus (`pressingOf`); what a second down in each
- * posture costs (`downRateAtOf`); how fast the focus turns to face (`turnOf`), rad/s, Infinity with none; where its own
- * steps carry it over a number of seconds while the body does one thing (`OthersModel.steps`), null where its model has none; and the
+ * posture costs (`downRateAtOf`); how fast the focus turns to face (`turnOf`), rad/s, Infinity with none; and the
  * focus's life a blow of a limb at a segment of its takes by the rules (`blowLife`), 0 with no focus.
  */
 const PREDICTIONS = Object.freeze({
@@ -777,7 +710,6 @@ const PREDICTIONS = Object.freeze({
   pressing: { read: pressingOf } as Prediction<Pressure>,
   downRate: { read: downRateAtOf } as Prediction<(posture: Position) => number>,
   turns: { read: ({ focus }) => focus ? turnOf(focus.spec) : Infinity } as Prediction<number>,
-  steps: { read: (seen) => { const others = seen.others; return others.steps ? (seconds: number, kind: string) => others.steps!(seen, seconds, kind) : null; } } as Prediction<((seconds: number, kind: string) => Ground) | null>,
   blows: { read: ({ focus, spec, rules }) => (limb: string, segment: string): number => focus ? blowLife(rules, spec, limb, focus.spec, undefined, segment) : 0 } as Prediction<(limb: string, segment: string) => number>,
 });
 

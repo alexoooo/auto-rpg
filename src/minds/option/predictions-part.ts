@@ -6,7 +6,7 @@ import { anyBody } from "../../parts/parts.ts";
 import { validProfiles, type Profile } from "../../skills/framework/profile/profile.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { validPressures } from "./pressure.ts";
-import { measuredOthers, measuredSteps, persisting, RATE_OTHERS, validFoeSteps, type FoeSteps } from "./percepts.ts";
+import { measuredOthers, RATE_OTHERS } from "./percepts.ts";
 import { nearestTrials, writtenForms, type OutcomeModel, type Tables } from "../../skills/framework/outcomes.ts";
 import { coarseTable } from "../../skills/framework/coarse.ts";
 
@@ -16,24 +16,21 @@ import { coarseTable } from "../../skills/framework/coarse.ts";
  * took (`measured`, `PressureTable`), the rate where they measured none near. Its Options ask what
  * an act brings of its trials nearest the start (`nearest`, the default, `nearestTrials`) or of a
  * coarse table of their answers (`coarse`, `coarseTable`), or of a form fitted to them (`written`, `writtenForms`). Its foe stands where it is as an
- * Option runs, or, given `foeSteps` in seconds, goes on as it goes now, its velocity fading over
- * about that long (`persisting`), or, given a table of them, as bouts measured (`measuredSteps`).
+ * Option runs.
  */
-interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly Profile[]; readonly pressure?: "rate" | "measured"; readonly outcomes?: "nearest" | "coarse" | "written"; readonly foeSteps?: number | FoeSteps }
+interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly Profile[]; readonly pressure?: "rate" | "measured"; readonly outcomes?: "nearest" | "coarse" | "written" }
 
 /** **Measured**: supplied ground profiles where given, otherwise the drills' (`dataOf`); each model its own where fresh, else its prior. */
 export const MEASURED_PREDICTIONS = deepFreeze<PredictionsPart<MeasuredConfig>>({
-  role: "predictions", model: PROFILE_MODEL, label: "Measured", stage: "game", fields: [], slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true, pressure: true, outcomes: true, foeSteps: true }, tuning: ["edges"],
+  role: "predictions", model: PROFILE_MODEL, label: "Measured", stage: "game", fields: [], slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true, pressure: true, outcomes: true }, tuning: ["edges"],
   fits: anyBody, faults: config => [...config.edges === undefined || validProfiles(config.edges) ? [] : ["edges: invalid profiles"],
     ...config.pressure === undefined || config.pressure === "rate" || config.pressure === "measured" ? [] : ["pressure: rate or measured"],
-    ...config.outcomes === undefined || Object.hasOwn(OUTCOMES, config.outcomes) ? [] : ["outcomes: nearest, coarse or written"],
-    ...config.foeSteps === undefined || (typeof config.foeSteps === "number" ? Number.isFinite(config.foeSteps) && config.foeSteps > 0 : validFoeSteps(config.foeSteps)) ? [] : ["foeSteps: seconds over 0, or a table of the foe's steps"]],
+    ...config.outcomes === undefined || Object.hasOwn(OUTCOMES, config.outcomes) ? [] : ["outcomes: nearest, coarse or written"]],
   reads: config => [...config.edges === undefined ? ["strike-profiles", "edge-profiles", "step-profiles"] as const : ["strike-profiles", "step-profiles"] as const, ...config.pressure === "measured" ? ["pressure-profiles"] as const : []],
   make: config => {
     const tables = deepFreeze({ strikes: dataOf("strike-profiles"), edges: config.edges ?? dataOf("edge-profiles"), steps: dataOf("step-profiles") });
-    const others = config.pressure === "measured" ? measuredOthers(measuredPressures()) : RATE_OTHERS, steps = config.foeSteps;
     return profileModel({ strikes: tables.strikes, outcomes: OUTCOMES[config.outcomes ?? "nearest"](tables),
-      others: steps === undefined ? others : typeof steps === "number" ? persisting(others, steps) : measuredSteps(others, steps) });
+      others: config.pressure === "measured" ? measuredOthers(measuredPressures()) : RATE_OTHERS });
   },
 });
 

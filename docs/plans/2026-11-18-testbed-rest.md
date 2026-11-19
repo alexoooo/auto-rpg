@@ -66,7 +66,7 @@ contracts (`OutcomeModel`, `src/skills/framework/outcomes.ts`; `OthersModel`,
 | Contract | Built | Named and not built |
 | --- | --- | --- |
 | the outcome model | by hand; the nearest trials; a coarse table; a written form (the game's) | a forest; the world itself played forward |
-| the others' model | the rate; the measured pressure (the game's); the foe's steps persisting and as measured | the Mind's own choosing in the foe's place |
+| the others' model | the rate; the measured pressure (the game's); the foe's steps persisting and as measured, removed | the Mind's own choosing in the foe's place |
 | the line's end | the tail (the game's); a half-life, by distance and by the next exchange two ways, removed | a line played out by a cheap policy |
 | the chooser | tree (the game's), valued, ranked; a warm start (`TreeConfig.keeps`) | the four kinds below that keep their work; a trained policy |
 
@@ -74,9 +74,8 @@ The tree chooser decides by 100 runs (`RUNS`, `src/minds/option/chooser.ts`) of 
 its budget handed in as runs alone (`Budget`, `src/minds/option/parts.ts`). A strike is read one
 way in a drill and in a bout (`readFought`, `strikeTrial`, `src/evaluation/strike/`) and profiles
 can be built from bouts (`research/skills/strikes/bout-profiles.mjs`), but the game's tables are
-the drills', and the back step's sways, the pressure's moments and the foe's steps are each
-gathered by a script of their own (`research/minds/pressure-profiles.mjs`,
-`research/minds/foe-steps.mjs`). Several units: two men on one read once (`16d74daf4`, its
+the drills', and the back step's sways and the pressure's moments are each gathered by a script
+of their own (`research/minds/pressure-profiles.mjs`). Several units: two men on one read once (`16d74daf4`, its
 script since deleted).
 
 ## What done is
