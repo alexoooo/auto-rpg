@@ -163,6 +163,10 @@ export const boutSeedOf = (recipe: Pick<DuelRecipe, "seed">): number => recipe.s
 /** What a mind must do to enter a bout of `recipe` (`DuelRecipe.entry`): the recipe's rule, or a fight's; a page with no recipe yet plays a fight. */
 export const entryRules = (recipe?: Pick<DuelRecipe, "entry">): readonly EntryRule[] => recipe?.entry ?? FIGHT_ENTRY;
 
+/** Each side's mind in a bout of `recipe`: the recipe's, or its model's (`defaultMind`). */
+export const duelMinds = (recipe: Pick<DuelRecipe, "left" | "right" | "minds">, defaultMind: GameContext["defaultMind"]): Readonly<Record<Side, MindConfig>> =>
+  ({ left: recipe.minds?.left ?? defaultMind(recipe.left), right: recipe.minds?.right ?? defaultMind(recipe.right) });
+
 /** `spec` with each segment `factors` names as stiff as its own surface times its factor. */
 function stiffened(spec: BodySpec, factors: Readonly<Record<string, number>>): BodySpec {
   for (const name of Object.keys(factors)) if (!spec.segments.some((segment) => segment.name === name)) throw new Error(`${spec.model} has no segment ${name} to stiffen`);
@@ -351,8 +355,9 @@ export class Duel {
     if (recipe.recoverySeconds !== undefined && recipe.recoverySeconds !== null && (!Number.isFinite(recipe.recoverySeconds) || recipe.recoverySeconds < 0))
       throw new Error("invalid recovery window");
     const characters = Object.fromEntries(SIDES.map(side => [side, duelCharacter(recipe, side)])) as Record<Side, ReturnType<typeof resolveCharacter>>;
+    const minds = duelMinds(recipe, defaultMind);
     for (const side of SIDES) {
-      const model = recipe[side], loadout = loadoutIn(recipe, side), config = recipe.minds?.[side] ?? defaultMind(model);
+      const model = recipe[side], loadout = loadoutIn(recipe, side), config = minds[side];
       modelHolding(model, loadout, characters[side].config.attributes);
       const refused = modelRefusal({ model, loadout, attributes: characters[side].config.attributes, skills: characters[side].config.skills }, config, entryRules(recipe));
       if (refused !== null) throw new Error(`the ${side} mind cannot play ${model} carrying ${loadout.left},${loadout.right}: ${refused}`);
@@ -374,14 +379,14 @@ export class Duel {
     const effective = JSON.parse(recipeKey({ ...this.recipe, level, gap, capSeconds: recipe.capSeconds ?? CAP_SECONDS,
       senseDelay: senseDelayOf(recipe), seed: boutSeedOf(recipe), recoverySeconds: recipe.recoverySeconds === null ? null : recipe.recoverySeconds ?? 0,
       loadouts: { left: loadoutIn(recipe, "left"), right: loadoutIn(recipe, "right") },
-      minds: { left: recipe.minds?.left ?? defaultMind(recipe.left), right: recipe.minds?.right ?? defaultMind(recipe.right) },
+      minds,
     })) as Record<string, unknown>;
     const conditions = { solids, engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation, delay: world.delay };
     this.identity = recordingIdentity(BUILD_IDENTITY, ORDERS_PROTOCOL, { recipe: effective, ...conditions });
     this.saved = recordingIdentity(BUILD_IDENTITY, SAVE_PROTOCOL, { recipe: { ...effective, minds: null }, ...conditions });
     this.rules = rulebook("arena", recipe.rules);
     const enlistments = SIDES.map(side => {
-      const model = recipe[side], config = recipe.minds?.[side] ?? defaultMind(model);
+      const model = recipe[side], config = minds[side];
       const enlisting = { id: side, side, spec: duelSpec(recipe, side, characters[side]), at: spawns[side].position, heading: spawns[side].heading, rules: this.rules,
         seed: seedOf(boutSeedOf(recipe), side), phase: phaseOf(SIDES.indexOf(side)), life: (pool: Pool) => this.lifeOf(pool),
         ...(recipe.steadinessPercent ? { percent: recipe.steadinessPercent } : {}),

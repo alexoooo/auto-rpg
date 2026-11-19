@@ -1,4 +1,4 @@
-import { Duel, SIDES, type DuelRecipe } from "../game/arena/duel.ts";
+import { Duel, duelMinds, SIDES, type DuelRecipe } from "../game/arena/duel.ts";
 import { TeamBout, type TeamRecipe } from "../game/arena/team-bout.ts";
 import { validBoutTiming, type CaseWorld, type WorldKind } from "./evaluation.ts";
 import { addArenaSolids, arenaSolids } from "../game/arena/solids.ts";
@@ -34,6 +34,12 @@ export interface BuiltBout {
 }
 
 export const createBout = perContext((context: GameContext) => {
+  /** The keys of the mind data a bout of `recipe`'s minds load (`duelMinds`, `treeData`). */
+  const duelKeys = (recipe: DuelRecipe) => {
+    const minds = duelMinds(recipe, context.defaultMind);
+    return SIDES.flatMap((side) => context.catalog.treeData(minds[side]));
+  };
+
   /** A world with the arena's solids and `recipe`'s bout in it. */
   async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, delay, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
     const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, actuation, ...(delay === undefined ? {} : { delay }), ...(minds ? { minds } : {}) });
@@ -52,8 +58,7 @@ export const createBout = perContext((context: GameContext) => {
       if (world.timing && options?.hz !== undefined && options.hz !== world.timing.hz) return Promise.resolve({ refused: "a recorded bout's rate cannot be overridden" });
       return buildBout(world.recipe, { engine: world.engine, ...world.timing ?? (options?.hz === undefined ? {} : { hz: options.hz }) });
     },
-    loads: ({ recipe }) => ({ models: SIDES.map((side) => recipe[side]),
-      keys: SIDES.flatMap((side) => context.catalog.treeData(recipe.minds?.[side] ?? context.defaultMind(recipe[side]))) }),
+    loads: ({ recipe }) => ({ models: SIDES.map((side) => recipe[side]), keys: duelKeys(recipe) }),
     start: (built, world) => built.duel.play(world.tape),
     traced: (built) => SIDES.map((side) => built.duel.duelists[side].built),
     clock: (built) => built.duel.clock,
@@ -73,7 +78,7 @@ export const createBout = perContext((context: GameContext) => {
     } catch (error) { world.dispose(); throw error; }
   }
 
-  return { buildBout, BOUT_WORLD, buildTeamBout };
+  return { duelKeys, buildBout, BOUT_WORLD, buildTeamBout };
 });
 
 /** The registered world factory for this builder. */

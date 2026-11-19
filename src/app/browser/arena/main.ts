@@ -38,7 +38,7 @@ import { handsOf } from "../render/strike-hands.ts";
 import { puppetBody, type Puppet } from "../render/puppet.ts";
 import { bodyBetween, openWorld, posePuppet, type Between, type WorldLink } from "../worker/client.ts";
 import type { DuelCard, DuelNews, Ray } from "../../worker/duel-stage.ts";
-import { duelSpec, entryRules, SIDES, type DuelRecipe } from "../../../game/arena/duel.ts";
+import { duelMinds, duelSpec, entryRules, SIDES, type DuelRecipe } from "../../../game/arena/duel.ts";
 import { trialOverlay } from "./trial-overlay.ts";
 import { endingText, endRuleOf, GAME_ENDS } from "../../../game/arena/end-rule.ts";
 import { caseSearch, readReel, reelHash, unshown } from "./case-link.ts";
@@ -632,8 +632,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         rig.reset(); applyView();
         controlField.hidden = given !== null;
         showControl();
+        const minds = duelMinds(recipe, defaultMind);
         for (const row of rows) {
-          const config = recipe.minds?.[row.side] ?? defaultMind(recipe[row.side]);
+          const config = minds[row.side];
           row.condition.bind(specs[row.side]);
           row.inspector = mindInspector(config, specs[row.side], () => bout === current ? current.news?.sides[row.side].inspected ?? null : null);
           row.mind.replaceChildren(row.mind.firstElementChild!, row.inspector.element);

@@ -112,9 +112,8 @@ export interface DuelCard {
 
 /** A bout built and played as the Arena plays it: its verdict's aftermath shown with the defeated loose (`arenaPlayback`), stopped at `played`. */
 async function played(context: GameContext, start: DuelStart, hooks: ConstructorParameters<typeof Duel>[3]) {
-  const { defaultMind } = context, { loadData, treeData } = context.catalog;
-  const { buildBout } = createBout(context);
-  await loadData(SIDES.flatMap((side) => treeData(start.recipe.minds?.[side] ?? defaultMind(start.recipe[side]))));
+  const { duelKeys, buildBout } = createBout(context);
+  await context.catalog.loadData(duelKeys(start.recipe));
   const built = await buildBout(start.recipe, { ...start.engine === undefined ? {} : { engine: start.engine }, ...start.timing, hooks });
   let complete = false;
   try {
