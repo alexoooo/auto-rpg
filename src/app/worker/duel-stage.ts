@@ -157,10 +157,10 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
   const time = () => duel.state.start + (duel.verdict?.time ?? duel.clock);
   let feedStopped = false;
   scope.own(world.afterStep(() => {
-    for (const side of SIDES) readings[side].sample(time(), !feedStopped);
+    for (const side of SIDES) readings[side].sample(time(), { actions: !feedStopped });
     if (duel.verdict) feedStopped = true;
   }));
-  for (const side of SIDES) readings[side].sample(time());
+  for (const side of SIDES) readings[side].sample(time(), { actions: true });
 
   const roster = SIDES.map((side) => ({ id: side, segments: [...duel.duelists[side].built.segments.keys()], card: { side } }));
   const bodies = framed(duel);

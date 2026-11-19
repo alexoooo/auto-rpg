@@ -170,7 +170,7 @@ export class GameAudio {
     for (const [key, air] of this.airs) {
       const { voice } = air, at = this.context!.currentTime;
       if (!air.given || air.strength === 0) { this.stop(voice); this.airs.delete(key); continue; }
-      const place = soundPlacement(air.point, this.listener, this.toward, this.dungeon);
+      const place = soundPlacement(air.point, { listener: this.listener, toward: this.toward, dungeon: this.dungeon });
       voice.gain.gain.setTargetAtTime(MIX.swish.gain * air.strength * place.gain, at, MIX.swish.seconds);
       voice.source.playbackRate.setTargetAtTime(MIX.swish.least + MIX.swish.spread * air.strength, at, MIX.swish.seconds);
       voice.pan.pan.setTargetAtTime(place.pan, at, MIX.swish.seconds);
@@ -182,7 +182,7 @@ export class GameAudio {
       for (let i = 0; i < MIX.fires; i++) this.ambience.push(this.play("fire", 0, 0, true));
       this.nextDrip = now + MIX.drip.first.least + this.random() * MIX.drip.first.spread;
     }
-    const nearby = this.torches.map(p => soundPlacement(p, this.listener, this.toward, true)).sort((a, b) => b.gain - a.gain).slice(0, MIX.fires);
+    const nearby = this.torches.map(p => soundPlacement(p, { listener: this.listener, toward: this.toward, dungeon: true })).sort((a, b) => b.gain - a.gain).slice(0, MIX.fires);
     for (let i = 0; i < MIX.fires; i++) {
       const voice = this.ambience[i + 1], place = nearby[i];
       voice.gain.gain.setTargetAtTime((place?.gain ?? 0) * MIX.fire, this.context!.currentTime, MIX.ambienceSeconds);
@@ -191,7 +191,7 @@ export class GameAudio {
     if (now >= this.nextDrip) { if (this.voices.size < VOICES) this.play("drip", MIX.drip.gain, 0); this.nextDrip = now + MIX.drip.next.least + this.random() * MIX.drip.next.spread; }
   }
   private impact(cue: SoundCue): void {
-    const place = soundPlacement(cue.point, this.listener, this.toward, this.dungeon);
+    const place = soundPlacement(cue.point, { listener: this.listener, toward: this.toward, dungeon: this.dungeon });
     if (place.gain <= MIX.audible) return;
     const level = this.level(cue) * place.gain;
     if (this.voices.size >= VOICES) {

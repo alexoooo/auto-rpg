@@ -120,7 +120,12 @@ export class CueInbox {
   }
   clear(): void { this.pending.clear(); }
 }
-export function soundPlacement(point: SoundPoint, listener: SoundPoint, toward: SoundPoint, dungeon: boolean) {
+/**
+ * Where a sound at `point` is heard by a `listener` facing `toward` (`PLACEMENT`): its pan, how far
+ * to the side it is over `panMetres`, held within `panMost`; and its gain, which in a `dungeon` falls
+ * with distance to nothing at `reach`, and in an arena is whole.
+ */
+export function soundPlacement(point: SoundPoint, { listener, toward, dungeon }: { readonly listener: SoundPoint; readonly toward: SoundPoint; readonly dungeon: boolean }) {
   const dx = point.x - listener.x, dz = point.z - listener.z;
   const length = hypot(toward.x, toward.z) || 1;
   return { pan: Math.max(-PLACEMENT.panMost, Math.min(PLACEMENT.panMost, (-dx * toward.z + dz * toward.x) / length / PLACEMENT.panMetres)),

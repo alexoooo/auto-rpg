@@ -198,8 +198,8 @@ export interface FighterReading {
 export function fighterReading(fighter: Combatant, blows: () => readonly LandedBlow[]) {
   const damage = damageReadout(fighter, blows), history = actionFeed();
   return {
-    /** Sample at `time`, the bout's s; the actions too unless `actions` is false. */
-    sample(time: number, actions = true): void {
+    /** Sample at `time`, the bout's s; the actions too where `actions` (a feed stopped samples none). */
+    sample(time: number, { actions }: { readonly actions: boolean }): void {
       damage.sample(time);
       if (actions) history.sample(fighter.minded.report, fighter.body, time);
     },

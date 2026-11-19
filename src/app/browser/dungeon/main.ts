@@ -106,8 +106,8 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
     partyRows(): void;
     /** Brings each row up to date with its member. */
     partyStatus(): void;
-    /** Selects the member `id` alone, or with those already selected when `add`. */
-    selectMember(id: string, add: boolean): void;
+    /** Selects the member `id` alone, or added to those already selected. */
+    selectMember(id: string, selection: "alone" | "added"): void;
   }
 
   /** The crypt page: what lasts as long as the page does, what the start panel chose, and the run on show with
@@ -550,16 +550,16 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
         button.querySelector("small")!.textContent = member.alive ? `· ${member.news.task}` : "· fallen";
       }
     };
-    const selectMember = (id: string, add: boolean) => {
+    const selectMember = (id: string, selection: "alone" | "added") => {
       const { run } = page;
       if (!run) return;
-      run.select(add ? [...run.selected, id] : [id]);
+      run.select(selection === "added" ? [...run.selected, id] : [id]);
       partyStatus();
     };
     partyList.addEventListener("click", (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-member]");
       if (!button?.dataset.member) return;
-      selectMember(button.dataset.member, event.shiftKey);
+      selectMember(button.dataset.member, event.shiftKey ? "added" : "alone");
       // A focused button takes Space, which pauses here, as a second press.
       button.blur();
       canvas.focus();
@@ -598,7 +598,7 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
         if (index === 0) {
           run.select(null);
           party.partyStatus();
-        } else if (run.party[index - 1]) party.selectMember(run.party[index - 1].id, event.shiftKey);
+        } else if (run.party[index - 1]) party.selectMember(run.party[index - 1].id, event.shiftKey ? "added" : "alone");
         return;
       }
       const command = COMMAND_KEYS[event.code];
@@ -638,7 +638,7 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
         const hit = scene.pick(p.x, p.y, mesh => run.memberAt(mesh) !== null, false, camera);
         const member = hit?.pickedMesh ? run.memberAt(hit.pickedMesh) : null;
         if (!member) return false;
-        party.selectMember(member.id, extend);
+        party.selectMember(member.id, extend ? "added" : "alone");
         return true;
       },
       pick: point => {
