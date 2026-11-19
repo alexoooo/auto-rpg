@@ -19,9 +19,7 @@ import { pawsOf, segmentOf, type BodySpec, type DofSpec } from "../../../../core
 import { pawEndpoints, pawReader } from "../../../../control/quadruped/paws.ts";
 import { PAW_SUPPORT } from "../../../../control/quadruped/tuning.ts";
 import { REPTILE_RECOVERY as T } from "./tuning.ts";
-
-/** The lowered posture and planting speed used while righting. */
-const LOWERED = Object.freeze({ height: .85, plantSpeed: .05 });
+import { REPTILE_CRAWL } from "../../../locomotion/shared/quadruped/tuning.ts";
 
 /** Where the body lies for the routes to roll it: on its back or a side. */
 const ROLLED: readonly Position[] = Object.freeze(["back", "left", "right"]);
@@ -95,10 +93,10 @@ export function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, fit
   const riseGoal = { centre: state.centre, velocity: [0, 0, 0] as [number, number, number], rotation: state.rotation, hold: true, sequence: 0, ends: riseEnds } satisfies SupportGoal;
   /** The rise this step: the body carried up over its placed paws, each not bearing brought down where it stands; whether it is done. */
   const rise = (control: BodyControl, dt: number): TechniqueEnd | null => {
-    state.centre[1] = state.ground + reference * LOWERED.height;
+    state.centre[1] = state.ground + reference * REPTILE_CRAWL.height;
     rootFrameToRef(root, frame); Quaternion.InverseToRef(frame.rotation, inverse);
     inverse.multiplyToRef(heading.set(0, sin(state.yaw / 2), 0, cos(state.yaw / 2)), flat).normalize();
-    descending.set(0, -LOWERED.plantSpeed, 0).applyRotationQuaternionToRef(inverse, descending);
+    descending.set(0, -REPTILE_CRAWL.plantSpeed, 0).applyRotationQuaternionToRef(inverse, descending);
     riseGoal.sequence = state.sequence;
     for (let i = 0; i < riseEnds.length; i++) {
       const end = riseEnds[i]!, swing = swings[i]!;

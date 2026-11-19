@@ -1,13 +1,23 @@
 import { Quaternion, Vector3 } from "../math/vector.ts";
 import { attachment, type ReadBody, type ReadSegment } from "./read-body.ts";
 import type { Vec3 } from "../quantity.ts";
+import { atan2 } from "../math/real.ts";
 
-const scratch = { a: new Quaternion(), b: new Quaternion() };
+const scratch = { a: new Quaternion(), b: new Quaternion(), across: new Vector3() };
 
 /** `segment`'s turn since its reference pose, rotation times rest^-1. */
 export function turnOfToRef(segment: ReadSegment, out: Quaternion): Quaternion {
   Quaternion.InverseToRef(segment.rest, scratch.a);
   return segment.pose.rotation.multiplyToRef(scratch.a, out);
+}
+
+/**
+ * The way `segment` faces about up since its reference pose, rad: its left-to-right axis, which
+ * says it however far forward it is pitched, turned from x to (cos h, 0, -sin h).
+ */
+export function headingOf(segment: ReadSegment): number {
+  const across = scratch.across.set(1, 0, 0).applyRotationQuaternionToRef(turnOfToRef(segment, scratch.b), scratch.across);
+  return atan2(-across.z, across.x);
 }
 
 /** `point` (body frame, reference pose, on `segment`) where it is now, world. */

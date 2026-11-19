@@ -3,7 +3,7 @@ import { fitsAll } from "../../../../parts/parts.ts";
 import type { MotorAndGuard } from "../../../framework/motor-and-guard.ts";
 import { SUPPORT_REFERENCE } from "../../../../control/support-reference.ts";
 import { MOTOR_STANCE } from "../../../../control/motor-part.ts";
-import type { BodyView } from "../../../../control/body.ts";
+import { SERVO_SECONDS, type BodyView } from "../../../../control/body.ts";
 import type { Clock } from "../../../../core/world/clock.ts";
 import { carrying } from "../../../../control/motor.ts";
 import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
@@ -179,7 +179,7 @@ function risePart(own: OwnBody, view: BodyView, fitted: MotorAndGuard, kind: Sta
   const cuts = part.recipe ? [] : CUTS.map(cut => ({ index: at(cut.after), at: cut.at })).filter(cut => cut.index >= first && cut.at === part.to);
   const unrolled = routeRecipes(kind, tuning)[0]!;
   const rise: StepUpRise = stagedRise(own, view, unrolled);
-  const motor = carrying(fitted.motor.make(own.built, own.muscles, .1, fitted.posture), ["stance"], "a part of step up's route");
+  const motor = carrying(fitted.motor.make(own.built, own.muscles, SERVO_SECONDS, fitted.posture), ["stance"], "a part of step up's route");
   const regain = stanceRegain(own, view, motor, tuning.climb);
   // `cut`: the latest of `cuts` begun, -1 for none.
   const state = { phase: "rise" as "rise" | "regain", rose: false,

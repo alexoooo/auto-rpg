@@ -10,8 +10,7 @@ import { DOWN, footStatesOf, readSupport, withinSupport, type FootState } from "
 import { channelSpeed, type MuscleReading } from "../../../../core/bodies/muscle/driver.ts";
 import type { BodyControl } from "../../../../core/bodies/body-control.ts";
 import { bellyOf, type BodySpec } from "../../../../core/bodies/spec/body.ts";
-import { turnOfToRef } from "../../../../core/bodies/read-motion.ts";
-import { atan2 } from "../../../../core/math/real.ts";
+import { headingOf, turnOfToRef } from "../../../../core/bodies/read-motion.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../../../core/math/turn.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import type { Senses } from "../../../../core/bodies/senses.ts";
@@ -365,9 +364,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     const seconds = stage.seconds, n = 1 / seconds;
     const goals = goalsOf.get(stage)!, { on, share, leaves, toes, keeps } = bearsOf.get(stage)!;
     const ground = upright.lowest(), standing = upright.standing;
-    // The way the pelvis faces, about up: its left-to-right axis says it however far forward it is pitched.
-    across.set(1, 0, 0).applyRotationQuaternionToRef(turnOfToRef(root, turn), across);
-    const heading = atan2(-across.z, across.x);
+    const heading = headingOf(root);
     turnAboutToRef(Vector3.UpReadOnly, heading, yaw);
     // The limbs: those the stage names bear where they are once they are down, and are the
     // servo's until then; the place is the middle of where the body is held over those that
