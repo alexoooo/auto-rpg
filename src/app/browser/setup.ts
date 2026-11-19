@@ -6,4 +6,4 @@ import { mindLinks } from "../../minds/catalog/config-link.ts";
 /** Browser setup and configuration links. */
 export const { mindFaults, writeMind, readMind, mindText } = mindLinks(CONTEXT.catalog);
 export const { CONTROLS, readControls, controlCharacter, controlsFor, defaultControl, linkedMind, unreadMinds, mindsSearch, controlName, controllerLabel, recipeOf } = createMatchup(CONTEXT);
-export const { LAB_MIND, LAB_WALKER, labPresets, labMind, labWithMind, labAddress, labHref } = createLabScenarios(CONTEXT);
+export const { LAB_MIND, LAB_WALKER, scenarioMind, labPresets, labMind, labWithMind, labAddress, labHref } = createLabScenarios(CONTEXT);

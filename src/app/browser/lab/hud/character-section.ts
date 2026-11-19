@@ -2,7 +2,7 @@ import { appearancesFor, wearsClothing } from "../../../../game/appearance/appea
 import { loadoutAttributes } from "../../../../game/lab/loadout.ts";
 import { attributeEditor } from "../../ui/attribute-editor.ts";
 import { LAB_HANDS, LAB_WORN, MODELS, labStaging } from "../../../../game/lab/scenarios.ts";
-import { labPresets, labWithMind } from "../../setup.ts";
+import { labPresets, labWithMind, scenarioMind } from "../../setup.ts";
 import { HELD as HOLDS, heldItem, type Held } from "../../../../core/bodies/items/held.ts";
 import { choice, entries, fold, following, group, menu, switches, when, type Control, type Named } from "../../ui/controls.ts";
 import { mindEditor } from "../../ui/mind-editor.ts";
@@ -63,7 +63,7 @@ export function characterSection(page: LabPage): readonly Control[] {
       }),
       // Its tree, drawn again for each body loaded; a change loads a body under the mind changed.
       fold("Edit the mind", [following(() => page.spec, (spec) => {
-        const editor = mindEditor(page.shown.mind, { spec, ...labStaging(page.shown.scenario), onFault: page.shown.scenario === "reach" ? "the Walker is used" : "Option Mind is used",
+        const editor = mindEditor(page.shown.mind, { spec, ...labStaging(page.shown.scenario), onFault: `${scenarioMind(page.shown.scenario).label} is used`,
           onChange: (mind) => page.load(labWithMind(page.shown, mind)) });
         return { element: editor.element, refresh() {} };
       })]),

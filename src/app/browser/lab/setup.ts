@@ -1,6 +1,6 @@
 import type { ScreenContext } from "../ui/screen.ts";
 import { SCENARIOS, type LabAddress } from "../../../game/lab/scenarios.ts";
-import { labHref, labWithMind, LAB_MIND, LAB_WALKER } from "../setup.ts";
+import { labHref, labWithMind, scenarioMind, LAB_MIND, LAB_WALKER } from "../setup.ts";
 import { need as find } from "../dom.ts";
 
 /**
@@ -15,7 +15,7 @@ export function showScenarios(address: LabAddress, context: ScreenContext): void
   const cards = SCENARIOS.map((scenario) => {
     const card = document.createElement("a");
     const defaults = address.mind === LAB_MIND || address.mind === LAB_WALKER;
-    const mind = defaults ? scenario.id === "reach" ? LAB_WALKER : LAB_MIND : address.mind;
+    const mind = defaults ? scenarioMind(scenario.id).config : address.mind;
     const chosen = { ...labWithMind(address, mind), scenario: scenario.id };
     card.href = labHref(chosen, context.address.search);
     card.append(Object.assign(document.createElement("strong"), { textContent: scenario.name }));

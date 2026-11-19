@@ -33,16 +33,32 @@ export type ScenarioId = "stance" | "attack" | "locomotion" | "ground" | "reach"
 interface ScenarioInfo {
   readonly id: ScenarioId;
   readonly name: string;
+  /**
+   * What it gives a mind and asks of it (`Staging`): Attack drives a mind against targets, so it
+   * must strike; any other asks nothing beyond fitting the body, so a mind may hold what it never
+   * uses. None gives anything beyond the body and the world.
+   */
+  readonly staging: Staging;
+  /**
+   * Whether it asks its body nothing, its mind deciding for itself by its objective (Reach), and
+   * plays the Walker unless the address names another; every other drives its body by orders,
+   * and plays Option Mind.
+   */
+  readonly byItself: boolean;
 }
+
+/** What a scenario that asks nothing of a mind gives it: the menu's, and all but Attack's. */
+const NO_STAGING: Staging = { entry: [] };
 
 /** Every scenario, in the menu's order; the first is the default. */
 export const SCENARIOS: readonly ScenarioInfo[] = [
-  { id: "stance", name: "Stance" },
-  { id: "ground", name: "Stand-up" },
-  { id: "attack", name: "Attack" },
-  { id: "locomotion", name: "Locomotion" },
-  { id: "reach", name: "Reach a place" },
+  { id: "stance", name: "Stance", staging: NO_STAGING, byItself: false },
+  { id: "ground", name: "Stand-up", staging: NO_STAGING, byItself: false },
+  { id: "attack", name: "Attack", staging: { entry: ["attacks"] }, byItself: false },
+  { id: "locomotion", name: "Locomotion", staging: NO_STAGING, byItself: false },
+  { id: "reach", name: "Reach a place", staging: NO_STAGING, byItself: true },
 ];
+const infoOf = (scenario: ScenarioId | null): ScenarioInfo | undefined => SCENARIOS.find((s) => s.id === scenario);
 
 export const MODELS: readonly { readonly id: HumanoidModel; readonly name: string }[] = HUMANOID_MODELS.map((id) => ({ id, name: modelLabel(id) }));
 /** The hands that hold, and the clothing worn or not, as the loadout names them. */
@@ -82,16 +98,11 @@ export const LAB_RATES = [120, 480] as const;
 type LabRate = (typeof LAB_RATES)[number];
 
 
-/** The scenarios that ask their body nothing, its mind deciding for itself by its objective (Reach). */
-const BY_ITSELF: readonly ScenarioId[] = ["reach"];
+/** Whether `scenario` asks its body nothing (`ScenarioInfo.byItself`); the menu asks. */
+const byItself = (scenario: ScenarioId | null): boolean => infoOf(scenario)?.byItself ?? false;
 
-/**
- * What a Lab scenario gives a mind and asks of it (`Staging`): Attack drives a mind against
- * targets, so it must strike; any other scenario asks nothing beyond fitting the body, so a mind
- * may hold what it never uses. None gives anything beyond the body and the world.
- */
-export const labStaging = (scenario: ScenarioId | null): Staging => scenario === "attack"
-  ? { entry: ["attacks"] } : { entry: [] };
+/** What `scenario` gives a mind and asks of it (`ScenarioInfo.staging`); the menu, nothing. */
+export const labStaging = (scenario: ScenarioId | null): Staging => infoOf(scenario)?.staging ?? NO_STAGING;
 
 /** What a Stand-up body gets up by (`LabAddress.ground.rise`): the first, its mind's own techniques. */
 export const GROUND_RISES = ["mind", "stand-up"] as const;
@@ -163,12 +174,15 @@ export function createLabScenarios(context: GameContext) {
   /** **The Walker** (`walker`), what Reach plays unless the address names another mind that decides for itself; on no other menu. */
   const LAB_WALKER = MINDS.walker!.config;
 
+  /** The mind `scenario` plays unless the address names another: the Walker where it asks its body nothing (`byItself`), Option Mind elsewhere. */
+  const scenarioMind = (scenario: ScenarioId | null): MindPreset => byItself(scenario) ? MINDS.walker! : MINDS.option!;
+
   /**
    * Whether the Lab can drive `config` in `scenario`: by itself, where the scenario asks nothing of
-   * it (`BY_ITSELF`); elsewhere by orders, where it carries them out (`treeObeys`): the scenario's
+   * it (`byItself`); elsewhere by orders, where it carries them out (`treeObeys`): the scenario's
    * own, or its script's made orders (`Actor.drive`).
    */
-  const labDrives = (config: MindConfig, scenario: ScenarioId | null): boolean => scenario !== null && BY_ITSELF.includes(scenario) || treeObeys(config);
+  const labDrives = (config: MindConfig, scenario: ScenarioId | null): boolean => byItself(scenario) || treeObeys(config);
 
   /** Named configurations offered for a model; a custom JSON tree is still checked by its parts. */
   const labMindsForModel = (model: BodySpec["model"]): Readonly<Record<string, MindPreset>> =>
@@ -177,24 +191,23 @@ export function createLabScenarios(context: GameContext) {
   /**
    * Named calibrations the body `spec` and the scenario can run, including externally registered
    * minds; one driven by orders or by itself (`labDrives`), only where it is offered on the menus
-   * (`offered`) or is the Walker in Reach, its own (`LAB_WALKER`).
+   * (`offered`) or is the scenario's own (`scenarioMind`), as the Walker is Reach's.
    * Given the `loadout` that made `spec`, a preset that brings a character (`MindPreset.character`) is
    * judged on the body the loadout makes with it, as choosing it loads it.
    */
   const labPresets = (spec: BodySpec, scenario: ScenarioId | null, loadout?: LabLoadout) => Object.entries(labMindsForModel(spec.model))
-    .filter(([, preset]) => labDrives(preset.config, scenario) && (offered(preset) || preset.config === LAB_WALKER && scenario !== null && BY_ITSELF.includes(scenario)) && mindFaults(preset.config,
+    .filter(([, preset]) => labDrives(preset.config, scenario) && (offered(preset) || preset.config === scenarioMind(scenario).config) && mindFaults(preset.config,
       loadout && preset.character ? loadoutSpec({ ...loadout, attributes: { ...loadout.attributes, ...preset.character } }) : spec, labStaging(scenario)).length === 0)
     .map(([id, preset]) => ({ id, ...preset }));
 
   /**
    * What a Lab body of `spec` is driven by under the mind `config`, and what is wrong with `config`
-   * (`mindFaults`): a faulty mind plays the scenario's default, the Walker in Reach and Option Mind
-   * elsewhere.
+   * (`mindFaults`): a faulty mind plays the scenario's own (`scenarioMind`).
    */
   function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId | null = null): { readonly plays: MindConfig; readonly faults: readonly string[] } {
     const driven = labDrives(config, scenario);
     const faults = driven ? mindFaults(config, spec, labStaging(scenario)) : ["the Lab drives a mind that carries out orders"];
-    return { plays: driven && faults.length === 0 ? config : scenario !== null && BY_ITSELF.includes(scenario) ? LAB_WALKER : LAB_MIND, faults };
+    return { plays: driven && faults.length === 0 ? config : scenarioMind(scenario).config, faults };
   }
 
   /**
@@ -223,7 +236,8 @@ export function createLabScenarios(context: GameContext) {
       const text = query.get(key), value = text === null || text.trim() === "" ? NaN : Number(text);
       return Number.isFinite(value) && value >= lo && value <= hi ? value : fallback;
     };
-    const mind = readMind(query.get("mind"), labMindsForModel(model)) ?? (query.get("scenario") === "reach" ? LAB_WALKER : LAB_MIND);
+    const scenario = SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null;
+    const mind = readMind(query.get("mind"), labMindsForModel(model)) ?? scenarioMind(scenario).config;
     return {
       ground: {
         level: (Object.keys(GROUND_LEVELS) as GroundLevel[]).find(v => v === query.get("groundLevel")) ?? "open",
@@ -236,7 +250,7 @@ export function createLabScenarios(context: GameContext) {
         foe: ([0, 1, 2, 4] as const).find(v => String(v) === query.get("groundFoe")) ?? 0,
         gusts: flag(query.get("groundGusts"), false),
       },
-      scenario: SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null,
+      scenario,
       model,
       attributes,
       appearance: appearanceFor(model, query.get("appearance")),
@@ -296,5 +310,5 @@ export function createLabScenarios(context: GameContext) {
     if (address.seed !== LAB_TARGETS.seed) query.set("seed", String(address.seed));
     return `?${query}`;
   }
-  return { LAB_MIND, LAB_WALKER, labPresets, labMind, labWithMind, labAddress, labHref };
+  return { LAB_MIND, LAB_WALKER, scenarioMind, labPresets, labMind, labWithMind, labAddress, labHref };
 }
