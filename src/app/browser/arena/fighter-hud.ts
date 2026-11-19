@@ -15,8 +15,30 @@ function partText(label: string, part: FighterReading["parts"][number]): string 
   return `${label}: ${!part.attached ? "severed" : part.crippled ? "crippled" : `${Math.round(part.remaining * 100)}% ${part.limb === null ? "life" : "limb"}`}`;
 }
 
-/** One fighter's diagram and feed own DOM only: what they show is read where the bout steps (`fighterReading`). */
-export function fighterHud(side: string) {
+/**
+ * **An action's chip**: its skill's picture (`icon`), or the first letter of `label` where it has
+ * none, and the side of the limb it uses, L or R, where the limb has one. Its state is marked by
+ * its line's `data-state`, in the style sheet.
+ */
+function feedChip(label: string, icon: string | null, limb: string | null): HTMLElement {
+  const chip = document.createElement("span");
+  chip.className = "feed-chip"; chip.setAttribute("aria-hidden", "true");
+  if (icon === null) chip.append(label.charAt(0));
+  else {
+    const drawing = document.createElementNS(SVG, "svg"), path = document.createElementNS(SVG, "path");
+    drawing.setAttribute("viewBox", "0 0 24 24"); path.setAttribute("d", icon); drawing.append(path); chip.append(drawing);
+  }
+  const sided = limb?.split(".").find(word => word === "left" || word === "right");
+  if (sided) chip.append(Object.assign(document.createElement("b"), { className: "feed-limb", textContent: sided === "left" ? "L" : "R" }));
+  return chip;
+}
+
+/**
+ * One fighter's diagram and feed own DOM only: what they show is read where the bout steps
+ * (`fighterReading`). An action's line is its chip (`feedChip`) and its words; a narrow window
+ * shows the chips alone. `icon` gives a skill's picture (`Part.icon`), or null where it has none.
+ */
+export function fighterHud(side: string, icon: (skill: string) => string | null) {
   const element = document.createElement("section"), damage = document.createElement("div"), feed = document.createElement("ol");
   const diagram = document.createElementNS(SVG, "svg"), caption = document.createElement("output");
   const details = document.createElement("details"), summary = document.createElement("summary"), list = document.createElement("ul");
@@ -33,7 +55,7 @@ export function fighterHud(side: string) {
   element.addEventListener("keydown", event => { if (event.key !== "Escape") event.stopPropagation(); });
   summary.addEventListener("click", () => summary.blur());
   const nodes = new Map<string, { path: SVGPathElement; text: HTMLLIElement; previous: string }>();
-  const entries = new Map<string, HTMLLIElement>();
+  const entries = new Map<string, { readonly node: HTMLLIElement; readonly words: HTMLSpanElement }>();
   let parts: readonly { readonly name: string; readonly label: string; readonly path: string }[] | null = null, reading: FighterReading | null = null;
   let selected: string | null = null, pinned: string | null = null, description = "";
   const reset = () => {
@@ -96,12 +118,18 @@ export function fighterHud(side: string) {
         : wounded ? "Wounded" : "No damage";
       describe();
       const visible = next.feed, keys = new Set(visible.map(entry => entry.key));
-      for (const [key, node] of entries) if (!keys.has(key)) { node.remove(); entries.delete(key); }
+      for (const [key, { node }] of entries) if (!keys.has(key)) { node.remove(); entries.delete(key); }
       visible.forEach((entry, i) => {
-        let node = entries.get(entry.key);
-        if (!node) { node = document.createElement("li"); node.dataset.kind = entry.kind; node.dataset.key = entry.key; entries.set(entry.key, node); }
-        const text = `${entry.label}${entry.detail ? ` — ${entry.detail}` : ""}`;
-        if (node.textContent !== text) node.textContent = text;
+        let made = entries.get(entry.key);
+        if (!made) {
+          made = { node: document.createElement("li"), words: document.createElement("span") };
+          made.node.dataset.kind = entry.kind; made.node.dataset.key = entry.key; made.words.className = "feed-words";
+          if (entry.skill !== null) made.node.append(feedChip(entry.label, icon(entry.skill), entry.limb));
+          made.node.append(made.words); entries.set(entry.key, made);
+        }
+        const { node, words } = made, text = `${entry.label}${entry.detail ? ` — ${entry.detail}` : ""}`;
+        if (words.textContent !== text) { words.textContent = text; node.title = text; }
+        if (entry.state !== null && node.dataset.state !== entry.state) node.dataset.state = entry.state;
         const opacity = String(Number(entry.opacity.toFixed(3)));
         if (node.style.opacity !== opacity) node.style.opacity = opacity;
         if (feed.children[i] !== node) feed.insertBefore(node, feed.children[i] ?? null);

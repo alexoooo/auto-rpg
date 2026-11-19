@@ -3,7 +3,7 @@ import type { Combatant } from "../combatant.ts";
 import type { PhysicalBody } from "../../minds/seat/physical-body.ts";
 import { woundedIn, type Fighter, type LandedBlow } from "../../combat/blows.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { ActionStatus, Ended } from "../../skills/framework/action.ts";
+import type { ActionStatus, Ended, Phase } from "../../skills/framework/action.ts";
 import { blocked, cleanMiss, landed } from "../../skills/framework/action-instances.ts";
 import type { MindReport } from "../../minds/report.ts";
 import { partLabel } from "../part-label.ts";
@@ -89,11 +89,21 @@ function damageReadout(fighter: Fighter, blows: () => readonly LandedBlow[]) {
   } };
 }
 
-/** Feed entries persist through action updates; their age starts at termination. */
+/** Where an action stands, for a readout to mark: its phase while it runs, then how it ended (`ending`). */
+type FeedState = Phase | "contact" | "blocked" | "missed" | "over";
+
+/**
+ * Feed entries persist through action updates; their age starts at termination. An action's entry
+ * names its skill (`ActionRequest.action`, its executor's kind), the limb it uses and where it
+ * stands (`FeedState`), for a readout that draws it; a behaviour's has none of the three.
+ */
 interface FeedEntry {
   readonly key: string;
   readonly kind: "action" | "behaviour";
   readonly label: string;
+  readonly skill: string | null;
+  readonly limb: string | null;
+  state: FeedState | null;
   detail: string;
   active: boolean;
   time: number;
@@ -112,6 +122,10 @@ function result(record: Ended): string {
     default: { const never: never = record.ending.kind; throw new Error(`Unknown ending ${never}`); }
   }
 }
+
+/** How an ended action is marked: by its contact, whatever ended it; a miss where it ran its course and met nothing. */
+const ending = (record: Ended): FeedState => landed(record) ? "contact" : blocked(record) ? "blocked"
+  : record.ending.kind === "completed" && cleanMiss(record) ? "missed" : "over";
 
 const title = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const actionLabel = (action: Pick<ActionStatus, "action" | "effector">) => `${title(action.action)} · ${partLabel(action.effector)}`;
@@ -143,9 +157,10 @@ function actionFeed() {
         const key = `action:${action.id}`;
         let entry = state.entries.find(row => row.key === key);
         if (!entry) {
-          entry = { key, kind: "action", label: actionLabel(action), detail: "", active: true, time };
+          entry = { key, kind: "action", label: actionLabel(action), skill: action.action, limb: action.effector, state: action.phase, detail: "", active: true, time };
           state.entries.unshift(entry);
         }
+        entry.state = action.phase;
         switch (action.phase) {
           case "prepare": entry.detail = "Preparing"; break;
           case "commit": entry.detail = "Executing"; break;
@@ -158,9 +173,9 @@ function actionFeed() {
         state.sequence = record.sequence;
         if (record.ending.kind === "refused") continue;
         const key = `action:${record.id}`, entry = state.entries.find(row => row.key === key);
-        if (entry) { entry.active = false; entry.time = record.ended; entry.detail = result(record); }
-        else if (time - record.ended < 6) state.entries.unshift({ key, kind: "action", label: actionLabel(record),
-          detail: result(record), time: record.ended, active: false });
+        if (entry) { entry.active = false; entry.time = record.ended; entry.detail = result(record); entry.state = ending(record); }
+        else if (time - record.ended < 6) state.entries.unshift({ key, kind: "action", label: actionLabel(record), skill: record.action, limb: record.effector,
+          state: ending(record), detail: result(record), time: record.ended, active: false });
       }
       const behaviour = commandsBody(body) ? report.engagement?.phase ?? null : body.level === "full" && body.has !== "nobody" ? body.has : null;
       if (behaviour !== state.pending) { state.pending = behaviour; state.since = time; }
@@ -168,7 +183,7 @@ function actionFeed() {
       if (behaviour !== state.settled && time - state.since >= .3) {
         state.settled = behaviour;
         state.entries.unshift({ key: `behaviour:${++state.serial}`, kind: "behaviour", label: title(behaviour.replaceAll("-", " ")),
-          detail: "", active: false, time });
+          skill: null, limb: null, state: null, detail: "", active: false, time });
       }
     },
     read(time: number) {

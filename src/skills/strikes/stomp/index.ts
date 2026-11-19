@@ -80,6 +80,8 @@ const VARIATIONS = {
  */
 export const STOMP_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Stomp", defaults: { kind: "stomp" },
+  // A boot from the side, over its sole.
+  icon: "M8 2.5h6.5v9.8l4.6 2.5a3 3 0 0 1 1.6 2.6V19H8ZM6.5 20h15v1.8h-15Z",
   keys: { kind: true, variation: true, tuning: true }, fields: [], slots: [], tuning: Object.keys(STOMP_PATH),
   ...varied({ skill: "stomp", label: "stomp", variations: VARIATIONS, of: executorOf, fits: [stompRefusal, recordFault("stomp", deepFreeze(meta.bodies), wholeStomp),
     (spec, config) => validStompTuning(tunedSettings(dataOf("stomp/stomp"), spec, config)) ? null : "invalid stomp executor settings"] }),

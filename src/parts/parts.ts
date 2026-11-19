@@ -59,6 +59,11 @@ export interface Part<C extends PartConfig = PartConfig> extends Edited<C> {
   readonly role: Role;
   /** What a person calls it. */
   readonly label: string;
+  /**
+   * Its picture, where a readout shows it small: an SVG path in a box 24 by 24, filled by the
+   * even-odd rule in the text's colour. A part with none is shown by its label's first letter.
+   */
+  readonly icon?: string;
 
   // Its config.
   /** The config a slot set to this kind takes. */

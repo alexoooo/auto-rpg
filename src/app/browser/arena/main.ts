@@ -47,7 +47,7 @@ import { reelTrials, type Trial } from "./reel.ts";
 import { MATCHUP_PARAM, arenaAttributes, arenaSkills, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, readLoadouts, readMatchup, readYou, youSearch, matchupModels, type Matchup } from "../../../game/arena/matchup.ts";
 import { CONTROLS, controllerLabel, controlCharacter, controlName, controlsFor, defaultControl, readControls, recipeOf, linkedMind, mindsSearch, unreadMinds } from "../setup.ts";
 import { offered } from "../../../minds/catalog/controller.ts";
-import { partOf, skillsFor, treeObeys, MINDS, defaultMind } from "../../catalog.ts";
+import { allParts, partOf, skillsFor, treeObeys, MINDS, defaultMind } from "../../catalog.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
 import { notesOf, type NoteLevel } from "../ui/mind-notes.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -486,7 +486,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     column.style.setProperty("--side-colour", ARENA_SIDES[side].colour);
     const status = document.createElement("small"), target = document.createElement("small"), mind = document.createElement("details"), summary = document.createElement("summary");
     target.hidden = true;
-    const condition = fighterHud(ARENA_SIDES[side].label);
+    const condition = fighterHud(ARENA_SIDES[side].label, (skill) => allParts()[skill]?.icon ?? null);
     mind.className = "hud-mind"; summary.textContent = "Mind"; mind.append(summary);
     bar.setAttribute("aria-label", `${ARENA_SIDES[side].label} fighter health`);
     // A choice orders an attack on the person's side and resumes the bout.

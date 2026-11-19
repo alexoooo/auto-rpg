@@ -131,8 +131,23 @@
 :where(#screen-root[data-screen="arena"]) .damage-details ul { position: absolute; z-index: 12; top: 100%; left: 0; margin: 4px 0 0; padding: 10px; list-style: none; width: 220px; max-height: 220px; overflow: auto; background: var(--panel); border: 1px solid var(--edge); border-radius: 4px; }
 :where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .damage-details ul { left: auto; right: 0; }
 :where(#screen-root[data-screen="arena"]) .fighter-feed { list-style: none; margin: 0; padding: 2px 0; min-width: 0; overflow-wrap: anywhere; }
-:where(#screen-root[data-screen="arena"]) .fighter-feed li { margin-bottom: 7px; padding: 3px 6px; border-left: 2px solid var(--side-colour); border-radius: 2px; background: #0a0e16b8; color: var(--ink); font-size: 11px; line-height: 1.4; }
+:where(#screen-root[data-screen="arena"]) .fighter-feed li { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; padding: 3px 6px; border-left: 2px solid var(--side-colour); border-radius: 2px; background: #0a0e16b8; color: var(--ink); font-size: 11px; line-height: 1.4; }
+:where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .fighter-feed li { flex-direction: row-reverse; }
 :where(#screen-root[data-screen="arena"]) .fighter-feed li[data-kind="behaviour"] { color: var(--dim); border-left-color: #59616b; }
+/* An action's chip: its skill's picture and its limb's side. Its line's state marks it: dashed while it prepares, lit while it
+   strikes, dim while it recovers; then green for a contact, blue for a block, struck through for a miss. */
+:where(#screen-root[data-screen="arena"]) .feed-chip { position: relative; flex: none; display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--side-colour); border-radius: 4px;
+  background: #0a0e16; color: var(--ink); font-weight: 600; text-transform: uppercase; }
+:where(#screen-root[data-screen="arena"]) .feed-chip svg { width: 18px; height: 18px; fill: currentColor; fill-rule: evenodd; }
+:where(#screen-root[data-screen="arena"]) .feed-limb { position: absolute; right: 1px; bottom: 0; font: 700 8px/1 var(--font); color: var(--side-colour); text-shadow: 0 0 2px #000, 0 0 2px #000; }
+:where(#screen-root[data-screen="arena"]) li[data-state="prepare"] .feed-chip { border-style: dashed; color: var(--dim); }
+:where(#screen-root[data-screen="arena"]) li[data-state="commit"] .feed-chip { background: color-mix(in srgb, var(--side-colour) 40%, #0a0e16); color: #fff; }
+:where(#screen-root[data-screen="arena"]) li[data-state="release"] .feed-chip, :where(#screen-root[data-screen="arena"]) li[data-state="over"] .feed-chip { border-color: #59616b; color: var(--dim); }
+:where(#screen-root[data-screen="arena"]) li[data-state="contact"] .feed-chip { border-color: var(--cut); color: var(--cut); }
+:where(#screen-root[data-screen="arena"]) li[data-state="blocked"] .feed-chip { border-color: var(--flat); color: var(--flat); }
+:where(#screen-root[data-screen="arena"]) li[data-state="missed"] .feed-chip { border-color: #59616b; color: var(--dim); }
+:where(#screen-root[data-screen="arena"]) li[data-state="missed"] .feed-chip::after { content: ""; position: absolute; inset: 0;
+  background: linear-gradient(to top right, transparent calc(50% - 1px), var(--bad) calc(50% - 1px), var(--bad) calc(50% + 1px), transparent calc(50% + 1px)); }
 :where(#screen-root[data-screen="arena"]) .feed-unavailable { align-self: start; grid-column: 2; grid-row: 1; padding-top: 4px; font-size: 10px; }
 :where(#screen-root[data-screen="arena"]) .feed-unavailable[hidden] { display: none; }
 
@@ -154,19 +169,37 @@
 :where(#screen-root[data-screen="arena"]) #arena-view button[aria-pressed="true"] { color: var(--hot); border-color: var(--hot); }
 :where(#screen-root[data-screen="arena"]) #arena-view button:hover { background: rgba(255, 255, 255, .06); }
 :where(#screen-root[data-screen="arena"]) #arena-view [hidden] { display: none; }
+/* A narrow window keeps the fight in view: each side is its name, its bar, its diagram at the window's edge with its
+   actions' chips beside it, and one line of what its mind does; its lists open as a sheet along the bottom, over the sound panel. */
 @media (max-width: 700px) {
-  :where(#screen-root[data-screen="arena"]) #hud { padding: 16px 12px; gap: 12px; }
-  :where(#screen-root[data-screen="arena"]) #hud .hud-col { min-width: 0; flex: 1; }
+  :where(#screen-root[data-screen="arena"]) #hud { padding: 8px; gap: 6px; }
+  :where(#screen-root[data-screen="arena"]) #hud .hud-col { min-width: 0; flex: 1; gap: 4px; }
   :where(#screen-root[data-screen="arena"]) #hud .hud-col:nth-child(2) { flex: 0 1 auto; text-align: center; }
-  :where(#screen-root[data-screen="arena"]) #hud .hud-col:last-child { align-items: flex-end; text-align: right; }
-  :where(#screen-root[data-screen="arena"]) #hud progress { width: 120px; max-width: 100%; }
-  :where(#screen-root[data-screen="arena"]) .fighter-readout { display: flex; flex-direction: column; gap: 5px; min-height: 0; }
+  /* A side's parts each take a row, but its lists, which stand side by side. */
+  :where(#screen-root[data-screen="arena"]) #hud .hud-col[data-side] { flex-flow: row wrap; align-items: flex-start; align-content: flex-start; }
+  :where(#screen-root[data-screen="arena"]) #hud .hud-col[data-side="right"] { justify-content: flex-end; text-align: right; }
+  :where(#screen-root[data-screen="arena"]) #hud .hud-col[data-side] > * { flex: 0 0 100%; }
+  :where(#screen-root[data-screen="arena"]) #hud .hud-col[data-side] > details { flex: 0 0 auto; }
+  :where(#screen-root[data-screen="arena"]) #hud progress { width: 100%; }
+  :where(#screen-root[data-screen="arena"]) .arena-control .field-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  :where(#screen-root[data-screen="arena"]) .fighter-readout { display: flex; align-items: flex-start; gap: 4px; min-height: 0; }
+  :where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .fighter-readout { flex-direction: row-reverse; }
+  :where(#screen-root[data-screen="arena"]) .fighter-damage { flex: none; width: 56px; }
   :where(#screen-root[data-screen="arena"]) .damage-diagram { width: 48px; height: 98px; }
-  :where(#screen-root[data-screen="arena"]) .damage-caption { min-height: 26px; }
+  :where(#screen-root[data-screen="arena"]) .damage-caption { min-height: 0; font-size: 9px; }
   :where(#screen-root[data-screen="arena"]) .damage-details summary { font-size: 9px; }
-  :where(#screen-root[data-screen="arena"]) .fighter-feed { width: 100%; }
-  :where(#screen-root[data-screen="arena"]) .fighter-feed li { font-size: 10px; margin-bottom: 4px; padding: 2px 4px; }
-  :where(#screen-root[data-screen="arena"]) .fighter-feed li:nth-child(n+4) { display: none; }
+  :where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .damage-details { display: flex; flex-direction: column; align-items: flex-end; }
+  :where(#screen-root[data-screen="arena"]) .fighter-feed { display: flex; flex-direction: column; gap: 4px; max-height: 98px; overflow: hidden; padding: 0; }
+  :where(#screen-root[data-screen="arena"]) .fighter-feed li, :where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .fighter-feed li { margin: 0; padding: 0; border: 0; background: none; }
+  :where(#screen-root[data-screen="arena"]) .fighter-feed li[data-kind="behaviour"], :where(#screen-root[data-screen="arena"]) .feed-words { display: none; }
+  :where(#screen-root[data-screen="arena"]) .feed-chip { width: 30px; height: 30px; }
+  :where(#screen-root[data-screen="arena"]) .feed-chip svg { width: 22px; height: 22px; }
+  :where(#screen-root[data-screen="arena"]) .feed-limb { font-size: 9px; }
+  :where(#screen-root[data-screen="arena"]) .hud-col > small { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; max-width: 100%; font-size: 10px; line-height: 1.3; }
+  :where(#screen-root[data-screen="arena"]) .hud-choices, :where(#screen-root[data-screen="arena"]) .hud-mind { width: auto; padding: 5px 10px; font-size: 11px; }
+  :where(#screen-root[data-screen="arena"]) .hud-choices[open], :where(#screen-root[data-screen="arena"]) .hud-mind[open] { position: fixed; z-index: 13; left: 8px; right: 8px; bottom: 58px; max-height: 45dvh; border-top: 2px solid var(--side-colour); background: #0a0e16f0; }
+  /* One sheet at a time: while one is open, the other lists' buttons are away. Its own summary, in the sheet, closes it. */
+  :where(#screen-root[data-screen="arena"]) #hud:has(:is(.hud-choices, .hud-mind)[open]) :is(.hud-choices, .hud-mind):not([open]) { visibility: hidden; }
 }
 
 /* ---------- panels and actions, shared by setup, pause and help ---------- */

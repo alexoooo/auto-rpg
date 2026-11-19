@@ -66,7 +66,7 @@ export interface HeldStrikeMaking<S> {
 }
 
 /**
- * **A held strike**: its kind, label and stage; the item it is struck with and what it meets the
+ * **A held strike**: its kind, label, picture (`Part.icon`) and stage; the item it is struck with and what it meets the
  * target with (`Mechanism`); its one variation and the data its records are (`data`, by model),
  * the bodies with a record (`bodies`); its family's settings and executor and what the family needs
  * of a body beside a hand holding the item (`fits`); and how its steer reads and pushes, null where
@@ -75,6 +75,7 @@ export interface HeldStrikeMaking<S> {
 export interface HeldStrike<K extends string, S> {
   readonly kind: K;
   readonly label: string;
+  readonly icon: string;
   readonly item: Held;
   readonly mechanism: Mechanism;
   readonly variation: string;
@@ -104,7 +105,7 @@ export function heldStrikePart<K extends string, S>(strike: HeldStrike<K, S>): E
     },
   } satisfies ExecutorVariations<HeldStrikeConfig<K, S>>;
   return {
-    role: "executor", requires: [SUPPORT_REFERENCE], label, defaults: { kind } as HeldStrikeConfig<K, S>,
+    role: "executor", requires: [SUPPORT_REFERENCE], label, icon: strike.icon, defaults: { kind } as HeldStrikeConfig<K, S>,
     keys: { kind: true, variation: true, tuning: true }, tuning: settings.keys,
     fields: [], slots: [],
     ...varied({ skill: kind, label: named, variations, of: executorOf, fits: [(spec) => handConfigurationRefusal(spec, (spec.held ?? []).map((held) => held.segment), "grip"),
