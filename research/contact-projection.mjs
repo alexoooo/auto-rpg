@@ -5,7 +5,7 @@ import { Vector3 } from "../src/core/math/vector.ts";
 import fixture from "../assets/research/contact-projection.json" with { type: "json" };
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 import { sourced } from "../src/core/quantity.ts";
-import { createEquipment } from "../src/core/bodies/equipment.ts";
+import { createEquipment } from "./contact/equipment.ts";
 import { coupledDynamics } from "./contact/coupled-dynamics.ts";
 import { predictPointContacts } from "./contact/contact-step.ts";
 import { CONTACT_FRICTION } from "../src/core/constants.ts";

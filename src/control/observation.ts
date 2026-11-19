@@ -6,7 +6,6 @@ import type { BodyLevel, MuscleReading } from "../core/bodies/muscle/driver.ts";
 import type { Senses } from "../core/bodies/senses.ts";
 import type { SolidSense } from "../core/bodies/object-senses.ts";
 import type { ObjectSense } from "../core/bodies/object-senses.ts";
-import type { EquipmentObservation } from "../core/bodies/equipment.ts";
 import type { Vec3 } from "../core/quantity.ts";
 import { deepFreeze } from "../core/state.ts";
 import type { Clock } from "../core/world/clock.ts";
@@ -28,8 +27,6 @@ export interface BodyObservation {
   readonly time: number;
   readonly level: BodyLevel;
   readonly model: string;
-  /** Only the equipment explicitly granted to this observer. */
-  readonly equipment?: readonly EquipmentObservation[];
   readonly centre: Vec3;
   readonly head: Vec3 | null;
   readonly height: number;
@@ -105,7 +102,6 @@ const tuple = (v: { readonly x: number; readonly y: number; readonly z: number }
  * uprightness), and each ground contact's patch (`contactPatches`).
  */
 interface ObserveOptions {
-  readonly equipment?: () => readonly EquipmentObservation[];
   readonly down?: () => boolean;
   readonly contactPatches?: boolean;
   /** The trusted body's level; a mind runs only at full level. */
@@ -114,7 +110,7 @@ interface ObserveOptions {
 
 /** Snapshot on demand, including current joint motion even while the muscles are idle. */
 export function observeBody(built: ReadBody, muscles: MuscleReading, clock: Clock, senses: () => Senses,
-  { equipment, down, contactPatches = false, level = () => "full" }: ObserveOptions = {}): () => BodyObservation {
+  { down, contactPatches = false, level = () => "full" }: ObserveOptions = {}): () => BodyObservation {
   const read = physicalReading(built, down), p = new Vector3(), v = new Vector3();
   const spins = new Map([...built.segments.values()].map((part) => [part, new Vector3()]));
   const trackers = [...built.joints.values()].map((joint) => ({ joint, tracker: jointTracker(joint) }));
@@ -147,7 +143,6 @@ export function observeBody(built: ReadBody, muscles: MuscleReading, clock: Cloc
     });
     return deepFreeze({ time: clock.time, level: level(), model: built.spec.model,
       configurations: structuredClone(built.configurations.state),
-      ...(equipment ? { equipment: equipment() } : {}),
       centre: tuple(physical.centre), head: built.spec.marks?.high && built.segments.has(built.spec.marks.high) ? tuple(physical.head) : null,
       height: physical.height, down: physical.down, segments, joints, contacts,
       senses: { time: external.time, side: external.side, out: external.out,

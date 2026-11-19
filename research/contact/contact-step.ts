@@ -2,7 +2,7 @@ import { Vector3 } from "../../src/core/math/vector.ts";
 import type { SegmentBody } from "../../src/core/physics/engine.ts";
 import type { Vec3 } from "../../src/core/quantity.ts";
 import type { coupledDynamics } from "./coupled-dynamics.ts";
-import { constrainedMass, type MotionConstraint } from "../../src/core/bodies/build/constrained-mass.ts";
+import { constrainedMass, type MotionConstraint } from "./constrained-mass.ts";
 import { cross, dot } from "../../src/core/bodies/spec/vec.ts";
 
 interface AngularStop {

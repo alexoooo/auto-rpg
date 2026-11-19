@@ -71,7 +71,7 @@ import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { appendFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
-import { PERSON_PACE, personStep } from "../../../src/core/bodies/human/gait.ts";
+import { PERSON_PACE, personStep } from "./person-gait.ts";
 import { WENT } from "../../../src/evaluation/locomotion/acceptance.ts";
 import { SIDES } from "../../../src/core/bodies/bilateral.ts";
 

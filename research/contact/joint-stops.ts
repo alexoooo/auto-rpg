@@ -1,4 +1,4 @@
-import type { MotionConstraint } from "../../src/core/bodies/build/constrained-mass.ts";
+import type { MotionConstraint } from "./constrained-mass.ts";
 import { jointCoordinateMotion } from "./joint-coordinate.ts";
 import { jointAngles } from "../../src/core/bodies/build/joint-state.ts";
 import type { Vec3 } from "../../src/core/quantity.ts";

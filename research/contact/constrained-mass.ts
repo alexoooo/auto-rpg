@@ -1,6 +1,6 @@
-import { Quaternion, Vector3 } from "../../math/vector.ts";
-import type { Vec3 } from "../../quantity.ts";
-import type { ReadSegmentBody } from "../read-body.ts";
+import { Quaternion, Vector3 } from "../../src/core/math/vector.ts";
+import type { Vec3 } from "../../src/core/quantity.ts";
+import type { ReadSegmentBody } from "../../src/core/bodies/read-body.ts";
 
 /** A scalar velocity constraint, summed over bodies: linear . v(point) + angular . spin = 0. */
 export type MotionConstraint = readonly {
@@ -120,7 +120,7 @@ export function constrainedMass(bodies: readonly ReadSegmentBody[], constraints:
     along(body: ReadSegmentBody, at: Vec3, normal: Vec3): number {
       const length = Math.sqrt(dot(normal, normal));
       if (!(length > 0) || !Number.isFinite(length)) throw new Error("contact normal needs a finite nonzero direction");
-      const linear = normal.map((v) => v / length) as unknown as Vec3;
+      const linear: Vec3 = [normal[0] / length, normal[1] / length, normal[2] / length];
       const row = projected([{ body, point: at, linear, angular: ZERO }]);
       const inverseMass = dot(row, row);
       return inverseMass <= Number.EPSILON * Number.EPSILON ? Infinity : 1 / inverseMass;
@@ -129,17 +129,17 @@ export function constrainedMass(bodies: readonly ReadSegmentBody[], constraints:
 }
 
 /**
- * Three common-point velocity rows, and optionally three equal-spin rows. The mean of the two
- * world anchors is the ideal joint's force reference. Solver stretch must not turn a common
- * rigid rotation into relative velocity and add spurious constraints to a closed loop.
+ * A rigid attachment's rows: three common-point velocity rows and three equal-spin rows. The mean
+ * of the two world anchors is the ideal joint's force reference. Solver stretch must not turn a
+ * common rigid rotation into relative velocity and add spurious constraints to a closed loop.
  */
-export function attachmentRows(parent: ReadSegmentBody, child: ReadSegmentBody, a: Vec3, b: Vec3, rigid: boolean): MotionConstraint[] {
+export function attachmentRows(parent: ReadSegmentBody, child: ReadSegmentBody, a: Vec3, b: Vec3): MotionConstraint[] {
   const opposite = (v: Vec3): Vec3 => [-v[0], -v[1], -v[2]];
   const point: Vec3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
   const rows: MotionConstraint[] = XYZ.map((linear) => [
     { body: parent, point, linear, angular: ZERO }, { body: child, point, linear: opposite(linear), angular: ZERO },
   ]);
-  if (rigid) for (const angular of XYZ) rows.push([
+  for (const angular of XYZ) rows.push([
     { body: parent, point: a, linear: ZERO, angular }, { body: child, point: b, linear: ZERO, angular: opposite(angular) },
   ]);
   return rows;

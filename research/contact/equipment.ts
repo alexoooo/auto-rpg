@@ -1,13 +1,10 @@
-import { Quaternion, Vector3 } from "../math/vector.ts";
-import type { ColliderShape, Pose, SegmentBody } from "../physics/engine.ts";
-import type { ItemShape, ItemSpec } from "./spec/body.ts";
-import type { Vec3 } from "../quantity.ts";
-import { deepFreeze } from "../state.ts";
-import { attachmentRows } from "./build/constrained-mass.ts";
-import type { StepHost } from "./step-host.ts";
-
-/** A detached reading of an independently simulated item's pose and grips. */
-export type EquipmentObservation = ReturnType<ReturnType<typeof createEquipment>["observe"]>;
+import { Quaternion, Vector3 } from "../../src/core/math/vector.ts";
+import type { ColliderShape, Pose, SegmentBody } from "../../src/core/physics/engine.ts";
+import type { ItemShape, ItemSpec } from "../../src/core/bodies/spec/body.ts";
+import type { Vec3 } from "../../src/core/quantity.ts";
+import { deepFreeze } from "../../src/core/state.ts";
+import { attachmentRows } from "./constrained-mass.ts";
+import type { StepHost } from "../../src/core/bodies/step-host.ts";
 
 interface Frame {
   readonly position: Vec3;
@@ -158,7 +155,7 @@ export function createEquipment(world: StepHost, definition: EquipmentDefinition
           if (!frames) return [];
           position.set(...frames.anchorParent).applyRotationQuaternionToRef(g.body.pose.rotation, position).addInPlace(g.body.pose.position);
           other.set(...frames.anchorChild).applyRotationQuaternionToRef(pose.rotation, other).addInPlace(pose.position);
-          return attachmentRows(g.body, body, tuple(position), tuple(other), true);
+          return attachmentRows(g.body, body, tuple(position), tuple(other));
         });
       },
       dispose,

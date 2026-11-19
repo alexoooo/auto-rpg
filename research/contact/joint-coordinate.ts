@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "../../src/core/math/vector.ts";
 import type { ReadJoint } from "../../src/core/bodies/read-body.ts";
-import type { MotionConstraint } from "../../src/core/bodies/build/constrained-mass.ts";
+import type { MotionConstraint } from "./constrained-mass.ts";
 import { jointAngles, relativeRotationToRef } from "../../src/core/bodies/build/joint-state.ts";
 import type { Vec3 } from "../../src/core/quantity.ts";
 import { cross } from "../../src/core/bodies/spec/vec.ts";
