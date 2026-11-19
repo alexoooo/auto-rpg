@@ -68,7 +68,7 @@ contracts (`OutcomeModel`, `src/skills/framework/outcomes.ts`; `OthersModel`,
 | the outcome model | by hand; the nearest trials; a written form (the game's); a coarse table, removed | a forest; the world itself played forward |
 | the others' model | the rate; the measured pressure (the game's); the foe's steps persisting and as measured, removed | the Mind's own choosing in the foe's place |
 | the line's end | the tail (the game's); a half-life, by distance and by the next exchange two ways, removed | a line played out by a cheap policy |
-| the chooser | tree (the game's), valued, ranked; a warm start (`TreeConfig.keeps`) | the four kinds below that keep their work; a trained policy |
+| the chooser | tree (the game's), valued, ranked; a warm start, removed | the four kinds below that keep their work; a trained policy |
 
 The tree chooser decides by 100 runs (`RUNS`, `src/minds/option/chooser.ts`) of a tree made anew,
 its budget handed in as runs alone (`Budget`, `src/minds/option/parts.ts`). A strike is read one
