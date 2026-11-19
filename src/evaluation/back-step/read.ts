@@ -105,10 +105,14 @@ const SETTLE = .5;
 type Punch = { readonly effector: string; readonly fired: number; damage: number; left: boolean; back: boolean };
 
 /**
- * The reader of a trial in which the subject, the bout's left side, meets the right side's straight
- * punches for `seconds` s, or `after` s past the first punch's fire where it is given.
+ * **What a trial's reader reads**: the punches for `seconds` s, or `after` s past the first punch's
+ * fire where it is given; each sway (`sways`, `BackStepReading.sways`), and whether those are
+ * taken by the subject's own Mind (`chosen`, its back step's Option) or ordered by its Commander.
  */
-export function readBackStep({ world, duel }: { readonly world: World; readonly duel: Duel }, { seconds, after, sways: recording, chosen }: { readonly seconds: number; readonly after?: number; readonly sways?: boolean; readonly chosen?: boolean }): Reader<BackStepReading> {
+export type BackStepReads = { readonly seconds: number; readonly after?: number; readonly sways: boolean; readonly chosen: boolean };
+
+/** The reader of a trial in which the subject, the bout's left side, meets the right side's straight punches, reading what `reads` says (`BackStepReads`). */
+export function readBackStep({ world, duel }: { readonly world: World; readonly duel: Duel }, { seconds, after, sways: recording, chosen }: BackStepReads): Reader<BackStepReading> {
   const subject = duel.duelists.left, attacker = duel.duelists.right, foe = attacker.minded.skills;
   if (!foe) throw new Error("the attacker runs no skills");
   const punches: Punch[] = [], seen = new Set<number>(), state = { down: false, heard: 0 };

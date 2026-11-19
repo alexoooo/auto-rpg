@@ -1,6 +1,6 @@
 import { recordingKey } from "../../core/world/recording.ts";
 import { GOING, type MoveConfig } from "../../skills/locomotion/move/index.ts";
-import { STOCK_GAITS } from "../../skills/locomotion/move/gaits.ts";
+import { STOCK_GAITS, type Gait } from "../../skills/locomotion/move/gaits.ts";
 import { BACK_STEP_GAIT } from "../../skills/locomotion/back-step/index.ts";
 import { BACK_STEP_OPTION, WALK_OPTION } from "./kinds.ts";
 import type { Carriage } from "../../skills/locomotion/shared/locomotion.ts";
@@ -29,15 +29,29 @@ export interface OptionMindConfig {
 /** `config` on the legs `legs` (role `locomotion`) in place of those its body fits: an experiment's (`OptionMindConfig.tuning`). */
 export const withLegs = (config: OptionMindConfig, legs: ConfigFor<"locomotion">): OptionMindConfig => ({ ...config, tuning: { ...config.tuning, parts: { ...config.tuning?.parts, legs } } });
 
+/** Whether `mind` is an Option Mind's config (`OptionMindConfig`), by its kind. */
+const isOptionMind = (mind: MindConfig): mind is OptionMindConfig => mind.kind === "option";
+
+/** **`mind` as an Option Mind's config**: one that is none refused as `doing` it. */
+export function optionMind(mind: MindConfig, doing: string): OptionMindConfig {
+  if (!isOptionMind(mind)) throw new Error(`a ${mind.kind} mind is not ${doing}`);
+  return mind;
+}
+
 /**
  * **`mind`'s Option Mind config, and its legs, Move's** (`GOING` where its config names none): a
  * mind that is no Option Mind, or walks by legs other than Move, refused as `doing` it.
  */
 function onMove(mind: MindConfig, doing: string): { readonly config: OptionMindConfig; readonly move: MoveConfig } {
-  if (mind.kind !== "option") throw new Error(`a ${mind.kind} mind is not ${doing}`);
-  const config = mind as OptionMindConfig, legs = config.tuning?.parts?.legs ?? GOING;
+  const config = optionMind(mind, doing), legs = config.tuning?.parts?.legs ?? GOING;
   if (legs.kind !== "move") throw new Error(`legs of kind ${legs.kind} are not ${doing}`);
   return { config, move: legs };
+}
+
+/** **`mind` with `gait` among its legs' gaits** (Move's, the stock gaits where it names none, `onMove`), in place of any of its name. */
+export function withGait(mind: OptionMindConfig, gait: Gait): OptionMindConfig {
+  const { config, move } = onMove(mind, `given the gait ${gait.name}`);
+  return withLegs(config, { ...move, gaits: [...(move.gaits ?? STOCK_GAITS).filter((one) => one.name !== gait.name), gait] });
 }
 
 /**
@@ -56,11 +70,10 @@ export function inCarriage(mind: MindConfig, carriage: Carriage): MindConfig {
  * `onMove`). Neither is the game's yet. A mind that has the Option already is refused.
  */
 export function withBackStep(mind: MindConfig): MindConfig {
-  const { config, move } = onMove(mind, "given the back step"), options = config.options ?? [];
+  const config = optionMind(mind, "given the back step"), options = config.options ?? [];
   if (options.some((option) => option.kind === BACK_STEP_OPTION.defaults.kind)) throw new Error("the mind has its back step already");
   const walk = options.findIndex((option) => option.kind === WALK_OPTION.defaults.kind) + 1;
-  return withLegs({ ...config, options: [...options.slice(0, walk), BACK_STEP_OPTION.defaults, ...options.slice(walk)] },
-    { ...move, gaits: [...(move.gaits ?? STOCK_GAITS).filter((gait) => gait.name !== BACK_STEP_GAIT.name), BACK_STEP_GAIT] });
+  return withGait({ ...config, options: [...options.slice(0, walk), BACK_STEP_OPTION.defaults, ...options.slice(walk)] }, BACK_STEP_GAIT);
 }
 
 /** **The Options of `mind` that keep the body where it stands**: those whose kind among `parts` says so (`OptionPart.stands`). */
