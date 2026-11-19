@@ -16,7 +16,7 @@ declare module "../../../core/data/store.ts" {
  * that body. It has no steer.
  */
 export const CLUB_BLOW_PART = heldStrikePart({
-  kind: "club-blow", label: "Club blow", stage: "experimental", item: "club", mechanism: "blunt", variation: "swing", data: "club-blow/swing", bodies: meta.bodies,
+  kind: "club-blow", label: "Club blow", item: "club", mechanism: "blunt", variation: "swing", data: "club-blow/swing", bodies: meta.bodies,
   settings: SWING_SETTINGS, fits: [], layout: null, executor: swingStrike,
 });
 

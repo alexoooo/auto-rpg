@@ -75,7 +75,6 @@ export interface HeldStrikeMaking<S> {
 export interface HeldStrike<K extends string, S> {
   readonly kind: K;
   readonly label: string;
-  readonly stage: ExecutorPart<HeldStrikeConfig<K, S>>["stage"];
   readonly item: Held;
   readonly mechanism: Mechanism;
   readonly variation: string;
@@ -105,7 +104,7 @@ export function heldStrikePart<K extends string, S>(strike: HeldStrike<K, S>): E
     },
   } satisfies ExecutorVariations<HeldStrikeConfig<K, S>>;
   return {
-    role: "executor", requires: [SUPPORT_REFERENCE], label, stage: strike.stage, defaults: { kind } as HeldStrikeConfig<K, S>,
+    role: "executor", requires: [SUPPORT_REFERENCE], label, defaults: { kind } as HeldStrikeConfig<K, S>,
     keys: { kind: true, variation: true, tuning: true }, tuning: settings.keys,
     fields: [], slots: [],
     ...varied({ skill: kind, label: named, variations, of: executorOf, fits: [(spec) => handConfigurationRefusal(spec, (spec.held ?? []).map((held) => held.segment), "grip"),

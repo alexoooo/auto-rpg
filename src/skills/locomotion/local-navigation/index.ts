@@ -17,7 +17,7 @@ const VARIATIONS = {
 
 /** **Local clearance** (`routeWalker`): a place reached straight where the sweep there is clear of the solids sensed, and not otherwise. */
 export const LOCAL_NAVIGATION = deepFreeze<NavigatorPart<LocalNavigationConfig>>({
-  role: "navigation", label: "Local clearance", stage: "experimental", fields: [], slots: [], defaults: { kind: "local-navigation" }, keys: { kind: true, variation: true },
+  role: "navigation", label: "Local clearance", fields: [], slots: [], defaults: { kind: "local-navigation" }, keys: { kind: true, variation: true },
   ...varied({ skill: "local-navigation", label: "local clearance", variations: VARIATIONS, of: (spec, config) => [spec, config], fits: [] }), faults: () => [], skillGroup: "Travel",
 });
 

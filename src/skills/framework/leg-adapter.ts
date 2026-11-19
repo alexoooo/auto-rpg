@@ -12,7 +12,7 @@ export interface LegAdapterPart<C extends PartConfig = PartConfig> extends Part<
 
 /** Apply the catalog's leg capabilities in registration order. */
 export function adaptLegs(parts: PartLookup, body: Body, legs: Locomotion): Locomotion {
-  for (const config of parts.game("leg-adapter")) {
+  for (const config of parts.candidates("leg-adapter")) {
     const part = parts.of("leg-adapter", config);
     if (part.fits(body.built.spec, config, parts) === null) legs = part.make(body, legs, config);
   }

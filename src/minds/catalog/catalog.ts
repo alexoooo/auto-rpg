@@ -205,14 +205,13 @@ function lookupOf(kinds: () => Readonly<Record<string, Part>>): PartLookup {
       .map(([, part]) => part.defaults)));
     return found;
   };
-  const game = (role: Role): readonly PartConfig[] => candidates(role).filter(config => partOf(lookup, config).stage === "game");
   const held = (role: Role, spec: BodySpec): readonly PartConfig[] => candidates(role).flatMap(config => {
     const part = partOf(lookup, config);
     return part.variations === undefined ? [] : heldVariations(spec, config.kind).map(variation => ({ ...config, variation }));
   });
   const selected = (role: Role, spec: BodySpec): readonly PartConfig[] => held(role, spec).filter(config => partOf(lookup, config).fits(spec, config, lookup) === null);
   const fitting = (role: Role, spec: BodySpec): PartConfig | string => {
-    const enabled = [...game(role).filter(config => partOf(lookup, config).variations === undefined), ...held(role, spec)];
+    const enabled = [...candidates(role).filter(config => partOf(lookup, config).variations === undefined), ...held(role, spec)];
     const refusals = enabled.map((config) => ({ config, refused: partOf(lookup, config).fits(spec, config, lookup) }));
     const fit = refusals.filter(({ refused }) => refused === null);
     if (fit.length === 1) return fit[0]!.config;
@@ -233,7 +232,6 @@ function lookupOf(kinds: () => Readonly<Record<string, Part>>): PartLookup {
     fitting: fitting as PartLookup["fitting"],
     candidates: candidates as PartLookup["candidates"],
     selected: selected as PartLookup["selected"],
-    game: game as PartLookup["game"],
   });
   return lookup;
 }
@@ -283,7 +281,6 @@ function treeLookup(parts: PartLookup, config: PartConfig): PartLookup {
     fitting: parts.fitting,
     candidates: ((role: Role & keyof RoleConfigs) => parts.candidates(role).filter(config => named.has(config.kind))) as PartLookup["candidates"],
     selected: ((role: Role & keyof RoleConfigs, spec: BodySpec) => parts.selected(role, spec).filter(config => named.has(config.kind))) as PartLookup["selected"],
-    game: ((role: Role & keyof RoleConfigs) => parts.game(role).filter(config => named.has(config.kind))) as PartLookup["game"],
   });
 }
 

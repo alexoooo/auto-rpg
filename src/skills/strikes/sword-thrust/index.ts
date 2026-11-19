@@ -39,7 +39,7 @@ declare module "../../../core/data/store.ts" {
  * target, steered by its network where it has one.
  */
 export const SWORD_THRUST_PART = heldStrikePart({
-  kind: "sword-thrust", label: "Sword thrust", stage: "game", item: "sword", mechanism: "point", variation: "drive", data: "sword-thrust/drive", bodies: meta.bodies,
+  kind: "sword-thrust", label: "Sword thrust", item: "sword", mechanism: "point", variation: "drive", data: "sword-thrust/drive", bodies: meta.bodies,
   settings: SWORD_THRUST_SETTINGS, fits: [fitsWhen(straightDriveFits, "needs both arms on the upper trunk and a thoracic joint")], layout: SWORD_THRUST_LAYOUT,
   executor: ({ body, guard, actions, settings, resolve, faces, policy }) =>
     straightDriveExecutor(body, guard, actions, settings, resolve, { label: "sword thrust", layout: SWORD_THRUST_LAYOUT, throws: DRIVE_THROW, faces, ...(policy ? { policy } : {}) }),

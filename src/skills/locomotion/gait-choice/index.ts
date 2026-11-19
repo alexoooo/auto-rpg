@@ -26,7 +26,7 @@ function idleLegs(body: Body): Locomotion {
 
 /** The mind can use selected native gaits even when no automatic Move policy is enabled. */
 export const GAIT_CHOICE: LocomotionPart<GaitChoiceConfig> = {
-  role: "locomotion", label: "Selected gaits", stage: "game", defaults: { kind: "gait-choice" }, keys: { kind: true }, fields: [], slots: [],
+  role: "locomotion", label: "Selected gaits", defaults: { kind: "gait-choice" }, keys: { kind: true }, fields: [], slots: [],
   fits: (spec, _config, parts) => parts.selected("locomotion", spec).length ? "an enabled locomotion policy already supplies these gaits" : null,
   faults: () => [],
   supplies: (_config, parts) => (["gait", "paw-gait"] as const).flatMap(role => parts.candidates(role).map(config => ({ role, config }))),

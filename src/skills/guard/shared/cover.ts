@@ -62,7 +62,7 @@ export function coveringPart<K extends string>({ kind, label, named, wards }: { 
   const warding = wards ? [soleRefusal, fitsWhen(wardsWithFace, "holds no item with a face to ward with")] : [];
   return {
     covers: (spec) => handsOf(spec),
-    role: "guard", label, stage: "game", fields: [], slots: [], defaults: { kind } as CoveringConfig<K>, keys: { kind: true, variation: true, tuning: true },
+    role: "guard", label, fields: [], slots: [], defaults: { kind } as CoveringConfig<K>, keys: { kind: true, variation: true, tuning: true },
     tuning: ["covering", "hold"], faults: coveringFaults,
     supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined).map(({ segment }) => segment),
     skillGroup: "Guard", ...guardVariations({ skill: kind, label: named, variations, fits: [coveringFit, coversWithHands, ...warding] }),

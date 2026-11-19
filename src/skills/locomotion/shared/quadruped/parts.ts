@@ -99,7 +99,7 @@ export function pawGaitPart<K extends string, S extends Readonly<Record<string, 
     || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning) && valid({ ...settings, ...config.tuning }) ? [] : [refusal];
   const variations = { [kind]: (body: PawGaitBody, config: PawGaitConfig<K, S>) => make(body, { ...settings, ...config.tuning }) };
   return deepFreeze<PawGaitPart<PawGaitConfig<K, S>>>({
-    role: "paw-gait", label, stage: "game", travels: true, gait, fields: [], slots: [], defaults: { kind }, keys: { kind: true, variation: true, tuning: true },
+    role: "paw-gait", label, travels: true, gait, fields: [], slots: [], defaults: { kind }, keys: { kind: true, variation: true, tuning: true },
     tuning: Object.keys(settings), ...varied({ skill: kind, label: label.toLowerCase(), variations, of: (body, config) => [body.built.spec, config],
       fits: [fitsPaws, (_spec, config) => faults(config)[0] ?? null] }),
     faults, skillGroup: "Travel",

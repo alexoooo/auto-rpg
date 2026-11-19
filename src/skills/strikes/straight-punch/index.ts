@@ -68,7 +68,7 @@ const VARIATIONS: Variations<RecordedVariation<ExecutorVariations<Config>[string
 
 /** A straight punch owns its body fit; its settings are its body's record of its variation, its variation its character's. */
 export const PUNCH_PART: ExecutorPart<Config> = {
-  role: "executor", requires: [SUPPORT_REFERENCE], label: "Straight punch", stage: "game", defaults: { kind: "straight-punch" },
+  role: "executor", requires: [SUPPORT_REFERENCE], label: "Straight punch", defaults: { kind: "straight-punch" },
   keys: { kind: true, variation: true, tuning: true }, tuning: STRAIGHT_DRIVE_KEYS,
   fields: [], slots: [],
   ...varied({ skill: "straight-punch", label: "straight punch", variations: makersOf(VARIATIONS), of: executorOf, fits: [strikesWithOneOf("hand.left", "hand.right"),

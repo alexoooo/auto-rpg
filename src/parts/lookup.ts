@@ -38,14 +38,12 @@ export interface PartLookup {
   find<R extends Role>(role: R, value: unknown): RoleParts[R] | null;
   /**
    * **A single service fitted to a body**: enabled skill variations and game infrastructure that
-   * fit `spec`, without preference between skill stages. None or several returns a refusal;
+   * fit `spec`. None or several returns a refusal;
    * repertoires with several choices use `selected` instead.
    */
   fitting<R extends Role & keyof RoleConfigs>(role: R, spec: BodySpec): ConfigFor<R> | string;
   /** Every toolkit part of `role`, so a mind can declare its possible dependencies. */
   candidates<R extends Role & keyof RoleConfigs>(role: R): readonly ConfigFor<R>[];
-  /** Every held variation of `role` that fits the body, without stage or registration-order preferences. */
+  /** Every held variation of `role` that fits the body, without registration-order preferences. */
   selected<R extends Role & keyof RoleConfigs>(role: R, spec: BodySpec): readonly ConfigFor<R>[];
-  /** **Every game part of `role`** (the toolkit's), as its config. */
-  game<R extends Role & keyof RoleConfigs>(role: R): readonly ConfigFor<R>[];
 }

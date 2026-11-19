@@ -14,8 +14,6 @@ import type { PartLookup, RoleParts } from "./lookup.ts";
  */
 export type Role = keyof RoleParts & string;
 
-/** Whether a part belongs to the game or experimental research. */
-type Stage = "game" | "experimental";
 
 /** **A part's config**: plain data, its kind naming the part. */
 export interface PartConfig { readonly kind: string }
@@ -61,7 +59,6 @@ export interface Part<C extends PartConfig = PartConfig> extends Edited<C> {
   readonly role: Role;
   /** What a person calls it. */
   readonly label: string;
-  readonly stage: Stage;
 
   // Its config.
   /** The config a slot set to this kind takes. */

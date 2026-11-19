@@ -36,7 +36,7 @@ export function optionMind(assembly: OptionAssembly) {
   const optionsOf = (config: OptionMindConfig, parts: PartLookup): readonly (readonly [OptionPart, PartConfig])[] =>
     resolveConfig(config, assembly).options.flatMap((option) => { const part = parts.find("option", option); return part ? [[part, option] as const] : []; });
   return controller<OptionMindConfig>({
-    role: "mind", label: "Option Mind", stage: "game", fields: [], slots, defaults,
+    role: "mind", label: "Option Mind", fields: [], slots, defaults,
     keys: { kind: true, chooser: true, options: true, predictions: true, rate: true, tuning: true }, tuning: ["parts"],
     // The parts an experiment passes in under its skills, each at its place in the config.
     children: config => isSettings(config.tuning?.parts) ? Object.entries(config.tuning.parts).flatMap(([place, value]) => Object.hasOwn(FILLED, place)
@@ -50,7 +50,7 @@ export function optionMind(assembly: OptionAssembly) {
       ...parts.candidates("support").map(one => ({ role: "support" as const, config: one })),
       ...strikeDefaults(parts).map(one => ({ role: "option" as const, config: one })),
       ...Object.values(FILLED).flatMap((role) => parts.candidates(role).map((one) => ({ role, config: one }))),
-      ...parts.game("leg-adapter").map((one) => ({ role: "leg-adapter" as const, config: one })),
+      ...parts.candidates("leg-adapter").map((one) => ({ role: "leg-adapter" as const, config: one })),
     ],
     faults: (config, parts) => optionMindFaults(resolveConfig(config, assembly), parts),
     fits: (spec, config, parts) => {

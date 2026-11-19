@@ -21,7 +21,7 @@ import { describeMind } from "../../src/minds/catalog/catalog.ts";
 /**
  * Removing a gait, low support or recovery prevented startup, while club blow was absent from the
  * default repertoire. Check admission, the constructed gait list on humanoids and bodies on paws,
- * native gaits without an automatic policy, and the selected experimental blow; the complete
+ * native gaits without an automatic policy, and the selected club blow; the complete
  * default repertoire hides these failures.
  */
 test("deselecting an optional skill leaves the remaining combat repertoire usable", async () => {
@@ -58,7 +58,7 @@ test("deselecting an optional skill leaves the remaining combat repertoire usabl
   }
   const club = withLoadout(base, { left: "buckler", right: "club" });
   const made = describeMind(GAME, club, config);
-  assert.ok(made.executors.some(one => one.kind === "club-blow"), "the selected experimental blow is an available executor");
+  assert.ok(made.executors.some(one => one.kind === "club-blow"), "the selected club blow is an available executor");
   assert.equal(made.components.find(one => one.role === "option" && one.config.kind === "strike-club-blow").path, null,
     "a generated choice has no fabricated path into the configured option list");
   assert.deepEqual(parts.selected("guard", club).map(one => one.kind), ["cover-guard", "shield-guard", "lowered"], "one applicable guard does not exclude another");
@@ -124,7 +124,7 @@ test("selected navigation choices keep separate routes and restore the active pl
 
 /**
  * Disabling cover left Fight without a fitted guard because the enabled lowered arms were
- * experimental. Check startup admission and construction's posture on each humanoid, retaining
+ * not counted. Check startup admission and construction's posture on each humanoid, retaining
  * every enabled guard and supplying no disabled replacement; ordinary fights retain cover and
  * cannot expose this selection failure.
  */

@@ -23,7 +23,7 @@ interface WholeBodyMotorConfig { readonly kind: "whole-body"; readonly balance: 
 
 /** **The whole-body solve** as a motor control: the game's, and what a body whose mind names none is given. */
 export const wholeBodyMotorPart = (balanceDefault: ConfigFor<"balance">): MotorPart<WholeBodyMotorConfig> => deepFreeze<MotorPart<WholeBodyMotorConfig>>({
-  role: "motor", label: "Whole-body solve", stage: "game", fields: [], slots: [slotOne("balance", "Balance", "balance")],
+  role: "motor", label: "Whole-body solve", fields: [], slots: [slotOne("balance", "Balance", "balance")],
   defaults: { kind: "whole-body", balance: balanceDefault }, keys: { kind: true, balance: true },
   // It fits a body its balance stands.
   fits: (spec, config, parts) => parts.of("balance", config.balance).fits(spec, config.balance, parts), faults: () => [],

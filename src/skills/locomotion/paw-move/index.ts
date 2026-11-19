@@ -40,7 +40,7 @@ const VARIATIONS = {
 
 /** **The paw legs** (`pawLegs`) as a kind of locomotion: a body on three paws or more (`fitsPaws`), its gaits the parts its config names (`PawGaitPart`). */
 export const PAW_MOVE = deepFreeze<LocomotionPart<PawMoveConfig>>({
-  role: "locomotion", requires: [SUPPORT_REFERENCE], label: "Paw gaits", stage: "game", fields: [], defaults: { kind: "paw-move" }, keys: { kind: true, variation: true, trot: true, crawl: true },
+  role: "locomotion", requires: [SUPPORT_REFERENCE], label: "Paw gaits", fields: [], defaults: { kind: "paw-move" }, keys: { kind: true, variation: true, trot: true, crawl: true },
   slots: PAW_SLOTS, supplies: (config) => whenEmpty(PAW_SLOTS, config, STOCK),
   ...varied({ skill: "paw-move", label: "paw gaits", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [fitsPaws,
     (spec, config, parts) => GAIT_NAMES.some(name => {

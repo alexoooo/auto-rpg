@@ -206,7 +206,7 @@ const VARIATIONS = { "back-step": backStep };
 
 /** **The back step** (`backStep`): a gait part, ordered by name where a body's Move has it among its gaits (`MoveConfig.gaits`), on a body whose character holds it. */
 export const BACK_STEP_PART = deepFreeze<GaitPart<BackStepConfig>>({
-  role: "gait", requires: [SUPPORT_REFERENCE], label: "Back step", stage: "experimental", fields: [], slots: [], defaults: { kind: "back-step" }, travels: false,
+  role: "gait", requires: [SUPPORT_REFERENCE], label: "Back step", fields: [], slots: [], defaults: { kind: "back-step" }, travels: false,
   keys: { kind: true, variation: true, carriage: true, out: true, back: true, stepIn: true, follow: true, turn: true },
   ...varied({ skill: "back-step", label: "back step", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [soleRefusal] }),
   faults: (config) => [

@@ -126,7 +126,7 @@ function lowering(body: Body, legs: Locomotion): Locomotion {
 
 /** The staged lowering routes offered beside a body's ordinary legs. */
 export const STAGED_LOWERING = Object.freeze<LegAdapterPart<{ readonly kind: "staged-lowering" }>>({
-  role: "leg-adapter", label: "Staged lowering", stage: "game", fields: [], slots: [],
+  role: "leg-adapter", label: "Staged lowering", fields: [], slots: [],
   defaults: { kind: "staged-lowering" }, keys: { kind: true }, fits: anyBody, faults: () => [],
   make: (body, legs) => lowering(body, legs),
 });

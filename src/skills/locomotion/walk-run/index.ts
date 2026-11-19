@@ -93,7 +93,7 @@ const VARIATIONS = {
  * `RUN_STOPPING` (`walkRun`).
  */
 export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
-  role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk and run", stage: "game", travels: true, fields: [], slots: [], defaults: { kind: "walk-run" },
+  role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk and run", travels: true, fields: [], slots: [], defaults: { kind: "walk-run" },
   keys: { kind: true, variation: true, tuning: true },
   tuning: ["walk", "run", "braking", "stride", "learned", "envelope", "steered"],
   ...varied({ skill: "walk-run", label: "walk and run", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [walkRunRefusal] }),

@@ -21,7 +21,7 @@ type StageTimings = Readonly<Record<string, StageTiming>>;
  * a body's bearing stages come to rest short of their aims, how long at rest and within how many
  * times their tolerances hands them on (`Recipe.progress`);
  * and the side a body's roll from its back goes over where it is not the recipe's, and its poses where
- * they are not the game's (`rollOver`).
+ * its record names them in place of the roll's own (`rollOver`).
  */
 /** The side a body's roll from its back goes over (`StepUpSettings.over`), where the settings name none. */
 export const rollSide = (settings: { readonly over?: Side }): Side => settings.over ?? "right";

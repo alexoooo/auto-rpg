@@ -63,7 +63,7 @@ const preference = (key: "head" | "upperTrunk" | "middleTrunk", label: string): 
   },
 });
 export const SURFACE_AIM = deepFreeze<AimPart<SurfaceConfig>>({
-  role: "aim", label: "Surface opening", stage: "game", unit: "opening", slots: [], defaults: { kind: "surface", tuning: {} }, keys: { kind: true, tuning: true },
+  role: "aim", label: "Surface opening", unit: "opening", slots: [], defaults: { kind: "surface", tuning: {} }, keys: { kind: true, tuning: true },
   tuning: ["head", "upperTrunk", "middleTrunk", "blocked", "reachPenalty", "repeated", "overhand", "headLateral", "hookCost", "uppercut", "uppercutReserve", "square"],
   fields: [preference("head", "Head"), preference("upperTrunk", "Upper trunk"), preference("middleTrunk", "Middle trunk")], fits: surfaceAimRefusal,
   faults: (config: SurfaceConfig) => validOpeningTuning(config.tuning === undefined ? {} : config.tuning) ? [] : ["unsupported surface aim"],

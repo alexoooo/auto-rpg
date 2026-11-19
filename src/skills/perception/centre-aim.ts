@@ -8,7 +8,7 @@ import { anyBody } from "../../parts/parts.ts";
 interface CentreConfig { readonly kind: "centre"; readonly lead: number }
 const validLead = (lead: number) => Number.isFinite(lead) && lead >= 0;
 export const CENTRE_AIM = deepFreeze<AimPart<CentreConfig>>({
-  role: "aim", label: "Centre", stage: "game", unit: null, slots: [], defaults: { kind: "centre", lead: 0 }, keys: { kind: true, lead: true },
+  role: "aim", label: "Centre", unit: null, slots: [], defaults: { kind: "centre", lead: 0 }, keys: { kind: true, lead: true },
   fields: [number<CentreConfig, "lead">("lead", "Prediction", 0, 1, .005, "s")], fits: anyBody,
   faults: (config: CentreConfig) => validLead(config.lead) ? [] : ["invalid prediction"],
   make(_spec, config: CentreConfig) {

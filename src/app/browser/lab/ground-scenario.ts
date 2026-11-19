@@ -122,7 +122,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         // A mind that names no ways up gets up only as it says.
         following(() => `${address.model} ${canRise()}`, (key) => menu("Gets up by", key.endsWith("true") ? [
           ...GROUND_RISES.map((rise) => ({ value: `rise:${rise}`, name: RISES[rise] })),
-          ...fittingTechniques().map(([value, spec]) => ({ value: `alone:${value}`, name: `${spec.label} alone (experimental)` }))]
+          ...fittingTechniques().map(([value, spec]) => ({ value: `alone:${value}`, name: `${spec.label} alone` }))]
           : [{ value: "rise:mind", name: RISES.mind }],
         () => !canRise() ? "rise:mind" : address.ground.drive === "mind" ? `rise:${address.ground.rise}` : `alone:${address.ground.drive}`,
         value => value.startsWith("rise:") ? change({ drive: "mind", rise: value.slice(5) as GroundRise }) : change({ drive: value.slice(6) as TechniqueName }))),

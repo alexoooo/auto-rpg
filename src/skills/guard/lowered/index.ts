@@ -23,7 +23,7 @@ const LOWERED_SKILL: GuardSkill = Object.freeze({ effectors: Object.freeze([]), 
 const VARIATIONS = { lowered: { posture: () => LOWERED, make: () => LOWERED_SKILL } };
 
 export const LOWERED_GUARD: GuardPart<LoweredGuardConfig> = {
-  role: "guard", label: "Arms lowered", stage: "experimental", fields: [], slots: [], defaults: { kind: "lowered" }, keys: { kind: true, variation: true },
+  role: "guard", label: "Arms lowered", fields: [], slots: [], defaults: { kind: "lowered" }, keys: { kind: true, variation: true },
   faults: () => [], skillGroup: "Guard", ...guardVariations({ skill: "lowered", label: "lowered arms", variations: VARIATIONS, fits: [
     fitsWhen((spec: BodySpec) => Object.keys(LOWERED).every((channel) => spec.joints.some((joint) => joint.dofs.some((dof) => `${joint.name} ${dof.positive}` === channel))),
       "has no two arms to lower")] }),

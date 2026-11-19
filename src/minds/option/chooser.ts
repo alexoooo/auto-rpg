@@ -634,7 +634,7 @@ function pricing(config: SearchConfig, parts: PartLookup): { readonly obedience:
  * targets keeps the one it runs at `KEEP` s.
  */
 export const VALUED_CHOOSER = deepFreeze<OptionChooserPart<ValuedConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By worth", stage: "game", fields: [obedienceField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  role: "chooser", model: PROFILE_MODEL, label: "By worth", fields: [obedienceField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config.depth), ...searchFaults(config)],
   make: ({ config, options, seed, parts, phase }) => {
@@ -669,7 +669,7 @@ interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs
  * targets keeps the one it runs at `KEEP` s.
  */
 export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By tree", stage: "game", fields: [obedienceField<TreeConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "tree" }, keys: { kind: true, runs: true, exploration: true, keeps: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
@@ -695,7 +695,7 @@ interface RankedConfig { readonly kind: "ranked" }
  * which option a fight should choose is the valued and tree choosers' question. Not offered.
  */
 export const RANKED_CHOOSER = deepFreeze<OptionChooserPart<RankedConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By rank", stage: "game", offered: false, fields: [], slots: [],
+  role: "chooser", model: PROFILE_MODEL, label: "By rank", offered: false, fields: [], slots: [],
   defaults: { kind: "ranked" }, keys: { kind: true }, fits: anyBody, faults: () => [],
   make: ({ options, seed, phase }) =>
     chooser({ options, appraise: (option, i) => ({ name: option.name, kind: option.kind, worth: options.length - i, terms: null, moves: null, letGo: 0 }),

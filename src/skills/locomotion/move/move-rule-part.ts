@@ -30,7 +30,7 @@ export const withGait = <C>(fields: readonly PartField<C>[]): readonly PartField
 
 /** A Move rule's part: its own fields and the gait's choice, and its own faults (its Move says a gait it has not), for every body. */
 export const moveRulePart = <C extends RuleConfig>(rule: Omit<MoveRulePart<C>, "role" | "stage" | "slots" | "fits">): MoveRulePart<C> => ({
-  ...rule, role: "move-rule", stage: "game", slots: [], fits: anyBody, fields: [...rule.fields, choice<C, "gait">("gait", "Gait", GAIT_CHOICES)],
+  ...rule, role: "move-rule", slots: [], fits: anyBody, fields: [...rule.fields, choice<C, "gait">("gait", "Gait", GAIT_CHOICES)],
 });
 
 declare module "../../../parts/lookup.ts" {

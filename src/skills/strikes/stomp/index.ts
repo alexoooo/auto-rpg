@@ -79,7 +79,7 @@ const VARIATIONS = {
  * `lift` 0.7 m, `over` 1), they carry 9.7 to 26.6 J.
  */
 export const STOMP_PART: ExecutorPart<Config> = {
-  role: "executor", requires: [SUPPORT_REFERENCE], label: "Stomp", stage: "experimental", defaults: { kind: "stomp" },
+  role: "executor", requires: [SUPPORT_REFERENCE], label: "Stomp", defaults: { kind: "stomp" },
   keys: { kind: true, variation: true, tuning: true }, fields: [], slots: [], tuning: Object.keys(STOMP_PATH),
   ...varied({ skill: "stomp", label: "stomp", variations: VARIATIONS, of: executorOf, fits: [stompRefusal, recordFault("stomp", deepFreeze(meta.bodies), wholeStomp),
     (spec, config) => validStompTuning(tunedSettings(dataOf("stomp/stomp"), spec, config)) ? null : "invalid stomp executor settings"] }),

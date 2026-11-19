@@ -10,7 +10,7 @@ import { createUnseenCases, type UnseenCondition, type UnseenReading } from "./c
 import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 export const createUnseenIndex = perContext((context: GameContext) => {
-  const { partOf, controllers: CONTROLLERS, minds: MINDS } = context.catalog;
+  const { controllers: CONTROLLERS, minds: MINDS } = context.catalog;
   const { UNSEEN_CASES } = createUnseenCases(context);
 
   const UNSEEN: Evaluation<UnseenCondition, UnseenReading> = {
@@ -22,9 +22,9 @@ export const createUnseenIndex = perContext((context: GameContext) => {
     defaultProtocol: "standard",
     schedule: "all",
     analysis: {},
-    /** The minds named, or every game mind a person may pick (`Part.stage`, `MindPreset.offered`) that fits an unrated loadout on some character. */
+    /** The minds named, or every mind a person may pick (`MindPreset.offered`) that fits an unrated loadout on some character. */
     subjects(choice) {
-      const subjects = (choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => offered(MINDS[id]!) && partOf(MINDS[id]!.config).stage === "game")).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value, one)
+      const subjects = (choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => offered(MINDS[id]!))).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value, one)
         : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config, { models: MINDS[one].models, character: MINDS[one].character })
         : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one].label, CONTROLLERS[one].defaults)
         : (() => { throw new Error(`${one} is no mind`); })());

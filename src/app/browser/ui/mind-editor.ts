@@ -37,7 +37,7 @@ interface EditorOptions {
 }
 
 /** What a person calls `part`, its stage said where it is research. */
-const named = (part: Part): string => part.stage === "experimental" ? `${part.label} (experimental)` : part.label;
+const named = (part: Part): string => part.label;
 
 /**
  * **A mind's editor** for a body of `spec`: each part's settings, its research `tuning` read-only,

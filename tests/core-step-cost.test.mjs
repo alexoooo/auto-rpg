@@ -4,7 +4,7 @@
  * into a dear loop shows up as. Read by V8's sampling heap profiler, in KiB a body a step, each
  * reading in a process of its own (`stepAllocation`): two skeletons standing, the Warrior lying
  * under its ground reader, the Skeleton rising from a stand-up target fall under its stand's
- * verification, and each game mind fighting itself (`GAME_MINDS`). Node, the core world, Rapier,
+ * verification, and each mind fighting itself (`FOUGHT`). Node, the core world, Rapier,
  * 120 Hz. Every reading is started as the file loads, so the file takes its longest reading and
  * not their sum.
  */
@@ -12,7 +12,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { availableParallelism } from "node:os";
 import { stepAllocation } from "./harness/garbage.mjs";
-import { partOf, MINDS } from "../src/app/catalog.ts";
+import { MINDS } from "../src/app/catalog.ts";
 import { controlsFor } from "../src/app/node/setup.ts";
 import { BODY_MODELS } from "../src/core/bodies/models.ts";
 
@@ -28,10 +28,10 @@ const CEILING = { standing: 124, mind: 696, down: 82, fall: 238 };
 const HELDS = Object.freeze(["sword", "empty", "club"]);
 
 /**
- * **Every game mind** (`MINDS` whose part is the game's), each with the first body it fits and the
+ * **Every mind** (`MINDS`), each with the first body it fits and the
  * first of `HELDS` it fights with there: the bouts each mind's steady state is read in.
  */
-const GAME_MINDS = Object.keys(MINDS).filter((id) => partOf(MINDS[id].config).stage === "game").flatMap((id) => {
+const FOUGHT = Object.keys(MINDS).flatMap((id) => {
   for (const model of BODY_MODELS) for (const held of HELDS) if (controlsFor(model, { left: "empty", right: held }).includes(id)) return [{ id, model, held }];
   return [];
 });
@@ -39,14 +39,14 @@ const GAME_MINDS = Object.keys(MINDS).filter((id) => partOf(MINDS[id].config).st
 /** A reading under way: a failure is its test's to report when it awaits it, not an unhandled one before. */
 const started = (reading) => { reading.catch(() => {}); return reading; };
 
-/** Each fixture's reading, KiB a body a step; `minds` is `GAME_MINDS`' in their order, a lane short of the machine's at once. */
+/** Each fixture's reading, KiB a body a step; `minds` is `FOUGHT`' in their order, a lane short of the machine's at once. */
 const READING = {
   standing: started(stepAllocation("standing")), array: started(stepAllocation("standing-array")),
   down: started(stepAllocation("down")), fall: started(stepAllocation("fall")),
   minds: started((async () => {
     const lanes = Math.max(1, availableParallelism() - 1), readings = [];
-    for (let k = 0; k < GAME_MINDS.length; k += lanes)
-      readings.push(...await Promise.all(GAME_MINDS.slice(k, k + lanes).map(({ id, model, held }) => stepAllocation("mind", id, model, held))));
+    for (let k = 0; k < FOUGHT.length; k += lanes)
+      readings.push(...await Promise.all(FOUGHT.slice(k, k + lanes).map(({ id, model, held }) => stepAllocation("mind", id, model, held))));
     return readings;
   })()),
 };
@@ -66,9 +66,9 @@ test("a_standing_body_s_step_allocates_no_more_than_its_ceiling", async () => {
  * kit and the gaits each step (798 KiB on `9acd8a3e`).
  */
 test("every_game_mind_s_step_allocates_no_more_than_the_ceiling", async () => {
-  assert.ok(GAME_MINDS.length > 0, "the fixture found a game mind with a body to fight in");
+  assert.ok(FOUGHT.length > 0, "the fixture found a mind with a body to fight in");
   const readings = await READING.minds;
-  const over = GAME_MINDS.map((mind, k) => ({ ...mind, kib: readings[k] })).filter(({ kib }) => !(kib <= CEILING.mind));
+  const over = FOUGHT.map((mind, k) => ({ ...mind, kib: readings[k] })).filter(({ kib }) => !(kib <= CEILING.mind));
   assert.deepEqual(over.map(({ id, model, held, kib }) => `${id} on ${model} holding ${held}: ${kib.toFixed(0)} KiB a body a step`), [],
     `over the ceiling of ${CEILING.mind}`);
 });

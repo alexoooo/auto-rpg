@@ -23,7 +23,7 @@ function entrant(id: string, label: string, config: MindConfig, model: BodyModel
 
 export const createTournamentEntrants = perContext((context: GameContext) => {
   const { modelRefusal } = context;
-  const { partOf, minds: MINDS } = context.catalog;
+  const { minds: MINDS } = context.catalog;
 
   /** Whether `config` can play `model` with `character`'s attributes carrying `loadout` in a fight (`modelRefusal`). */
   const fits = (model: BodyModel, config: MindConfig, loadout: Loadout, character: AttributeOverrides): boolean =>
@@ -36,11 +36,11 @@ export const createTournamentEntrants = perContext((context: GameContext) => {
   /**
    * The entrants `choice` names, in order: a mind's id gives its entrants, an entrant's id
    * (`mind/character/left,right`) that one, a mind given whole its entrants. None names the field:
-   * every game mind a person may pick (`Part.stage`, `MindPreset.offered`); any other enters when it is named.
+   * every mind a person may pick (`MindPreset.offered`); any other enters when it is named.
    */
   function entrantSubjects(choice: SubjectChoice): Subject[] {
     const mind = (id: string) => MINDS[id] ?? (() => { throw new Error(`no mind ${id}: ${Object.keys(MINDS).join(", ")}`); })();
-    const named = choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => offered(MINDS[id]!) && partOf(MINDS[id]!.config).stage === "game");
+    const named = choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => offered(MINDS[id]!));
     return named.flatMap((one) => {
       if (typeof one !== "string") {
         const subject = mindSubject(one.id, one.label, one.value, one);

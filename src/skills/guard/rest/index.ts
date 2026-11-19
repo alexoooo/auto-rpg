@@ -15,7 +15,7 @@ const AT_REST: GuardSkill = Object.freeze({ effectors: Object.freeze([]), postur
 const VARIATIONS = { rest: { posture: () => NO_POSTURE, make: () => AT_REST } };
 
 export const REST_GUARD: GuardPart<RestGuardConfig> = {
-  role: "guard", label: "At rest", stage: "game", fields: [], slots: [], defaults: { kind: "rest" }, keys: { kind: true, variation: true },
+  role: "guard", label: "At rest", fields: [], slots: [], defaults: { kind: "rest" }, keys: { kind: true, variation: true },
   faults: () => [], skillGroup: "Guard", ...guardVariations({ skill: "rest", label: "rest", variations: VARIATIONS, fits: [] }),
 };
 

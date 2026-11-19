@@ -11,4 +11,4 @@ export const LYING: readonly Position[] = Object.freeze(["back", "left", "right"
 export const toStanding = (from: readonly Position[]) => deepFreeze(from.map((one) => ({ from: one, to: "standing" as const })));
 
 /** What the rightings share: begun on either side, as each reads how the body lies itself, from where the body lies as it moves, to standing. */
-export const RIGHTING = { bindings: (spec: BodySpec) => bilateralBindings(spec, SIDES), role: "technique", stage: "game", moving: true, starts: SIDES, fields: [], slots: [] } as const;
+export const RIGHTING = { bindings: (spec: BodySpec) => bilateralBindings(spec, SIDES), role: "technique", moving: true, starts: SIDES, fields: [], slots: [] } as const;

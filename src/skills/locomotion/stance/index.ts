@@ -32,7 +32,7 @@ const tuned = (config: StanceBalanceConfig): boolean => Object.keys(config.tunin
  * measured, so it reads no envelope, as the envelope's own measurement reads none.
  */
 export const STANCE_BALANCE = deepFreeze<BalancePart<StanceBalanceConfig>>({
-  role: "balance", label: "Stance", stage: "game", fields: [], slots: [], defaults: { kind: "stance" }, keys: { kind: true, variation: true, tuning: true },
+  role: "balance", label: "Stance", fields: [], slots: [], defaults: { kind: "stance" }, keys: { kind: true, variation: true, tuning: true },
   tuning: ["seconds", "track", "soleMargin", "kneeBend", "ankleSpare", "supportInset", "recovery", "gait"],
   reference: { fits: soleRefusal, read: standingHeight },
   fits: fitsAll(soleRefusal, variationFault("stance", "stance", VARIATIONS)),

@@ -382,7 +382,7 @@ test("Option skills assemble with physical feet alone and an effector named assi
     const stand = await coreStand(spec), actor = stockBody(stand.built, stand.world, { servoSeconds: .1 });
     let skills;
     try {
-      skills = makeSkills(actor.commanded, stand.world.clock, partLookup, { legs: partLookup.fitting("locomotion", spec), guards: partLookup.selected("guard", spec), navigations: [partLookup.game("navigation")[0]],
+      skills = makeSkills(actor.commanded, stand.world.clock, partLookup, { legs: partLookup.fitting("locomotion", spec), guards: partLookup.selected("guard", spec), navigations: [partLookup.candidates("navigation")[0]],
         actions: [], executors: [], supports: [] });
       actor.drive((view, dt) => skills.command(view, standIntent(0), dt));
       stand.step(120);
@@ -436,7 +436,7 @@ test("default skill assembly roots the one configured memoryful aim", async () =
       return partLookup.of(role, config);
     },
   };
-  const navigation = partLookup.game("navigation")[0];
+  const navigation = partLookup.candidates("navigation")[0];
   let skills;
   try {
     skills = makeSkills(body.commanded, stand.world.clock, custom, { legs: partLookup.fitting("locomotion", stock), guards: partLookup.selected("guard", stock), navigations: [navigation],

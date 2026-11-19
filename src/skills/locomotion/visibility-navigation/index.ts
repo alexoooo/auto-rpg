@@ -14,7 +14,7 @@ const VARIATIONS = {
 
 /** **Visibility routes** (`routeWalker`): a place reached by the shortest route round the solids sensed, corner to corner. */
 export const VISIBILITY_NAVIGATION = deepFreeze<NavigatorPart<VisibilityNavigationConfig>>({
-  role: "navigation", label: "Visibility routes", stage: "game", fields: [], slots: [], defaults: { kind: "visibility-navigation" }, keys: { kind: true, variation: true },
+  role: "navigation", label: "Visibility routes", fields: [], slots: [], defaults: { kind: "visibility-navigation" }, keys: { kind: true, variation: true },
   ...varied({ skill: "visibility-navigation", label: "visibility routes", variations: VARIATIONS, of: (spec, config) => [spec, config], fits: [] }), faults: () => [], skillGroup: "Travel",
 });
 

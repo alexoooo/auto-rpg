@@ -18,7 +18,7 @@ export function techniqueEditor(chosen: readonly PartConfig[], offered: readonly
     const enabled = document.createElement("input"); enabled.type = "checkbox"; enabled.checked = index >= 0;
     enabled.disabled = readOnly || reason !== null;
     enabled.addEventListener("change", () => { enabled.blur(); write(enabled.checked ? [...chosen, technique.defaults] : chosen.filter((item) => item.kind !== kind)); });
-    label.append(enabled, `${technique.label}${technique.stage === "experimental" ? " (experimental)" : ""}`); line.append(label);
+    label.append(enabled, technique.label); line.append(label);
     for (const [text, delta] of [["Up", -1], ["Down", 1]] as const) {
       const button = buttonInput(text, () => { const techniques = [...chosen];
         [techniques[index], techniques[index + delta]] = [techniques[index + delta]!, techniques[index]!]; write(techniques);

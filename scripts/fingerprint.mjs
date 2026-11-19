@@ -9,10 +9,9 @@ import { rulebook } from "../src/combat/rulebook.ts";
  * change and compare after, on the same machine. It is not a test: a change that means to change
  * how a fight plays changes its lines, and says so.
  *
- *   node scripts/fingerprint.mjs [--workers 12] [--character] [--experimental] [--only <regex>] [--json <file>] [--compare <file> [--variation <skill/variation>]...]
+ *   node scripts/fingerprint.mjs [--workers 12] [--character] [--only <regex>] [--json <file>] [--compare <file> [--variation <skill/variation>]...]
  *
- * The minds it plays are the game's (`Part.stage`); `--experimental` plays every mind a person may
- * pick, research ones too. `--only` runs the cases whose names match. `--json` writes each case's record as well, and
+ * It plays every mind. `--only` runs the cases whose names match. `--json` writes each case's record as well, and
  * `--compare` reads such a file and names every case whose record differs: it fails on a pose,
  * and names a state or physics difference without failing, since a change may reshape what a
  * bout keeps and still play it to the bit. A fight's record names the variations its bodies run
@@ -50,7 +49,7 @@ import { loadoutKey } from "../src/core/bodies/items/held.ts";
 import { standIntent } from "../src/skills/framework/intent.ts";
 import { driveBy } from "../src/minds/decider.ts";
 import { standingSkills } from "../src/app/standing-skills.ts";
-import { partOf, MINDS, GAME } from "../src/app/catalog.ts";
+import { MINDS, GAME } from "../src/app/catalog.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/bodies/models.ts";
 import { createMind } from "../src/minds/seat/create-mind.ts";
 import { generateCryptDungeon } from "../src/game/dungeon/crypt-dungeon.ts";
@@ -379,14 +378,12 @@ const controlled = (left, right, controls, loadouts) => {
 };
 const rightHand = (right) => ({ left: "empty", right });
 const both = (held) => ({ left: rightHand(held), right: rightHand(held) });
-/** Whether the run plays the mind `id`: a game mind, or any where `--experimental` asks (`Part.stage`); a worker is handed the run's arguments. */
-const played = (id) => process.argv.includes("--experimental") || partOf(MINDS[id].config).stage === "game";
 /** The Rogue's mind against the Warrior's `control` holding `held`: the same where the Rogue is offered it, else its own (`defaultControl`). */
 const rogueControl = (control, held) => controlsFor("woman", rightHand(held)).includes(control) ? control : defaultControl("woman", rightHand(held));
 /** What a fighter's right hand holds in the cases below, the left empty. */
 const HELDS = Object.freeze(["sword", "club", "empty"]);
 /** The minds the Warrior is offered (`controlsFor`) that the run plays, with each loadout it is offered with: each a case below. */
-const warriorMinds = () => [...new Set(HELDS.flatMap((held) => controlsFor("man", rightHand(held))))].filter(played)
+const warriorMinds = () => [...new Set(HELDS.flatMap((held) => controlsFor("man", rightHand(held))))]
   .map((control) => [control, HELDS.filter((held) => controlsFor("man", rightHand(held)).includes(control))]);
 /**
  * A case for each mind a person may pick for a fight (`MINDS`, an entrant's among them) that the
@@ -394,7 +391,7 @@ const warriorMinds = () => [...new Set(HELDS.flatMap((held) => controlsFor("man"
  * both sides, on the first body it fits, holding the first of `HELDS` that body holds and the mind
  * takes. So every such mind a change moves is named by a case; one no fight takes (`controlsFor`) has none.
  */
-const elsewhere = () => Object.entries(MINDS).filter(([id]) => played(id) && warriorMinds().every(([control]) => control !== id)).flatMap(([id, { config }]) => {
+const elsewhere = () => Object.entries(MINDS).filter(([id]) => warriorMinds().every(([control]) => control !== id)).flatMap(([id, { config }]) => {
   const model = BODY_MODELS.find((m) => HELDS.some((held) => controlsFor(m, rightHand(held)).includes(id)));
   if (!model) return [];
   const loadouts = both(HELDS.find((held) => controlsFor(model, rightHand(held)).includes(id)));
@@ -440,7 +437,7 @@ const CASES = [
 
 if (isMainThread) {
   const { values } = parseArgs({ options: {
-    workers: { type: "string" }, character: { type: "boolean" }, experimental: { type: "boolean" }, only: { type: "string" }, json: { type: "string" }, compare: { type: "string" },
+    workers: { type: "string" }, character: { type: "boolean" }, only: { type: "string" }, json: { type: "string" }, compare: { type: "string" },
     variation: { type: "string", multiple: true },
   } });
   const only = values.only === undefined ? null : new RegExp(values.only);

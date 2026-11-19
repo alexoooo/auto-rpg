@@ -22,7 +22,7 @@ const VARIATIONS = {
  * head, which carries it, at a point its aim gives; its teeth pierce (`meets` "point").
  */
 export const BITE_PART: ExecutorPart<Config> = {
-  role: "executor", requires: [SUPPORT_REFERENCE], label: "Bite", stage: "game", defaults: { kind: "bite" }, keys: { kind: true, variation: true, tuning: true }, fields: [], slots: [],
+  role: "executor", requires: [SUPPORT_REFERENCE], label: "Bite", defaults: { kind: "bite" }, keys: { kind: true, variation: true, tuning: true }, fields: [], slots: [],
   tuning: [...BITE_SETTINGS], ...varied({ skill: "bite", label: "bite", variations: VARIATIONS, of: executorOf, fits: [fitsBite] }),
   fitReads: ["bite/bite"], reads: () => ["bite/bite"],
   faults: (config) => config.tuning === undefined || validBite(config.tuning) ? [] : ["invalid bite tuning"],

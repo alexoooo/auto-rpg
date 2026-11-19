@@ -22,7 +22,7 @@ interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly 
 
 /** **Measured**: supplied ground profiles where given, otherwise the drills' (`dataOf`); each model its own where fresh, else its prior. */
 export const MEASURED_PREDICTIONS = deepFreeze<PredictionsPart<MeasuredConfig>>({
-  role: "predictions", model: PROFILE_MODEL, label: "Measured", stage: "game", fields: [], slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true, pressure: true, outcomes: true }, tuning: ["edges"],
+  role: "predictions", model: PROFILE_MODEL, label: "Measured", fields: [], slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true, pressure: true, outcomes: true }, tuning: ["edges"],
   fits: anyBody, faults: config => [...config.edges === undefined || validProfiles(config.edges) ? [] : ["edges: invalid profiles"],
     ...config.pressure === undefined || config.pressure === "rate" || config.pressure === "measured" ? [] : ["pressure: rate or measured"],
     ...config.outcomes === undefined || Object.hasOwn(OUTCOMES, config.outcomes) ? [] : ["outcomes: nearest, coarse or written"]],
@@ -48,7 +48,7 @@ function measuredPressures() {
 
 /** **The prior alone**: no profile, each model its prior, set by hand. */
 export const PRIOR_PREDICTIONS = deepFreeze<PredictionsPart<{ readonly kind: "prior" }>>({
-  role: "predictions", model: PROFILE_MODEL, label: "The prior alone", stage: "game", fields: [], slots: [], defaults: { kind: "prior" }, keys: { kind: true },
+  role: "predictions", model: PROFILE_MODEL, label: "The prior alone", fields: [], slots: [], defaults: { kind: "prior" }, keys: { kind: true },
   fits: anyBody, faults: () => [], make: () => profileModel({ strikes: [], outcomes: nearestTrials({ strikes: [], edges: [] }), others: RATE_OTHERS }),
 });
 

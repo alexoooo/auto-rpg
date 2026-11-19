@@ -76,7 +76,7 @@ const VARIATIONS = {
  * gaits are config (`MoveConfig.gaits`): a new gait is an entry, its legs any gait part's config (`GaitPart`).
  */
 export const MOVE_PART = deepFreeze<LocomotionPart<MoveConfig>>({
-  role: "locomotion", label: "Move", stage: "game", defaults: GOING, keys: { kind: true, variation: true, gaits: true, rules: true, otherwise: true },
+  role: "locomotion", label: "Move", defaults: GOING, keys: { kind: true, variation: true, gaits: true, rules: true, otherwise: true },
   fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
   slots: [slotList("rules", "When", "move-rule")],
   // A gait of its own list the body does not fit is passed over, as a stock one is: it walks by those that fit (`fits`).

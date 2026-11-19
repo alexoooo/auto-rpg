@@ -9,7 +9,7 @@ const unarmed = Object.freeze({ ...defaults,
 
 export const SWAP = Object.freeze({
   name: "swap",
-  minds: Object.freeze([{ ...OPTION_MIND, label: "Calibration fixture", stage: "experimental", defaults,
+  minds: Object.freeze([{ ...OPTION_MIND, label: "Calibration fixture", defaults,
     // This calibration admits held attacks only when its configuration names them; an ablation can widen that declared scope.
     strikes: (spec, config, parts) => (config.options ?? []).flatMap(option => parts.of("option", option).strikes?.(spec, option, parts) ?? []),
   }]),

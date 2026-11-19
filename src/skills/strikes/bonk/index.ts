@@ -20,7 +20,7 @@ declare module "../../../core/data/store.ts" {
  * (`assets/skills/strikes/bonk/swing.layout.json`).
  */
 export const BONK_PART = heldStrikePart({
-  kind: "bonk", label: "Bonk", stage: "game", item: "club", mechanism: "blunt", variation: "swing", data: "bonk/swing", bodies: meta.bodies,
+  kind: "bonk", label: "Bonk", item: "club", mechanism: "blunt", variation: "swing", data: "bonk/swing", bodies: meta.bodies,
   settings: SWING_SETTINGS, fits: [], layout: deepFreeze(checkedLayout(layoutFile as SteerLayout)), executor: swingStrike,
 });
 

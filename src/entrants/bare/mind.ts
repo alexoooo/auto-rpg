@@ -108,7 +108,7 @@ function inputsOf(own: OwnBody, orders: BodyHost["orders"]): (into: number[], se
 }
 
 export const BARE_MIND: Controller = controller<BareConfig>({
-  role: "mind", label: "Bare", stage: "experimental", fields: [], slots: [], defaults: BARE,
+  role: "mind", label: "Bare", fields: [], slots: [], defaults: BARE,
   keys: { kind: true, network: true, interval: true },
   fits: (spec, config) => fits(spec, config),
   strikes: (spec) => (spec.effectors ?? []).map((effector) => effector.segment),
