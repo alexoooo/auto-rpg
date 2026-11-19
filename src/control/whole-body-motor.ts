@@ -4,15 +4,17 @@ import { deepFreeze } from "../core/state.ts";
 import { motorControl } from "./motor.ts";
 import type { MotorMaker, MotorPart } from "./motor-part.ts";
 import { MOTOR_PATHS, MOTOR_STANCE } from "./motor-part.ts";
-import type { BalanceMaker } from "./balance-part.ts";
+import type { BalancePart } from "./balance-part.ts";
+import type { PartConfig } from "../parts/parts.ts";
 
-/** The whole-body solve and the calibration supplied by its configured balance. */
-export function wholeBodyMotor({ balance, envelope, reference }: { readonly balance: BalanceMaker; readonly envelope: MotorMaker["envelope"]; readonly reference?: MotorMaker["reference"] }): MotorMaker {
+/** The whole-body solve under the balance `part` at `config`, and the reference and calibration that balance supplies. */
+export function wholeBodyMotor<C extends PartConfig>(part: BalancePart<C>, config: C): MotorMaker {
+  const balance = part.make(config);
   return {
     requirements: Object.freeze([MOTOR_STANCE, MOTOR_PATHS]),
-    reference,
+    reference: part.reference,
     make: (built, _muscles, seconds, posture, stanceTuning, assist) => motorControl(built, seconds, posture ?? {}, stanceTuning, assist ?? null, balance),
-    envelope,
+    envelope: (spec, experiment) => part.envelope(spec, config, experiment),
   };
 }
 
@@ -25,10 +27,7 @@ export const wholeBodyMotorPart = (balanceDefault: ConfigFor<"balance">): MotorP
   defaults: { kind: "whole-body", balance: balanceDefault }, keys: { kind: true, balance: true },
   // It fits a body its balance stands.
   fits: (spec, config, parts) => parts.of("balance", config.balance).fits(spec, config.balance, parts), faults: () => [],
-  make: (config, parts) => {
-    const balance = parts.of("balance", config.balance);
-    return wholeBodyMotor({ balance: balance.make(config.balance), reference: balance.reference, envelope: (spec, experiment) => balance.envelope(spec, config.balance, experiment) });
-  },
+  make: (config, parts) => wholeBodyMotor(parts.of("balance", config.balance), config.balance),
 });
 
 declare module "./motor-part.ts" {
