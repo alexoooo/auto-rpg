@@ -19,6 +19,8 @@ import { quadrupedPhysique } from "./quadruped/physique.ts";
 /** Models available to game builders, independent of a family's anatomical constructor. */
 export type BodyModel = HumanoidModel | "reptile" | "rat";
 export const BODY_MODELS: readonly BodyModel[] = Object.freeze([...HUMANOID_MODELS, "reptile", "rat"]);
+/** Whether `model` is a body model (`BODY_MODELS`): a body's spec may be a model's, or a Lab dummy's. */
+export const isBodyModel = (model: string): model is BodyModel => (BODY_MODELS as readonly string[]).includes(model);
 export { HUMANOID_MODELS, type HumanoidModel };
 
 /**

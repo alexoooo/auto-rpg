@@ -30,7 +30,7 @@ export interface OptionMindConfig {
 export const withLegs = (config: OptionMindConfig, legs: ConfigFor<"locomotion">): OptionMindConfig => ({ ...config, tuning: { ...config.tuning, parts: { ...config.tuning?.parts, legs } } });
 
 /** Whether `mind` is an Option Mind's config (`OptionMindConfig`), by its kind. */
-const isOptionMind = (mind: MindConfig): mind is OptionMindConfig => mind.kind === "option";
+export const isOptionMind = (mind: MindConfig): mind is OptionMindConfig => mind.kind === "option";
 
 /** **`mind` as an Option Mind's config**: one that is none refused as `doing` it. */
 export function optionMind(mind: MindConfig, doing: string): OptionMindConfig {

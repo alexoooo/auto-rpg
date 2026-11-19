@@ -15,6 +15,8 @@ import { vec3 } from "../spec/vec.ts";
  */
 export type HumanModel = "man" | "woman";
 export const HUMAN_MODELS: readonly HumanModel[] = Object.freeze(["man", "woman"]);
+/** Whether `model` is a human's (`HUMAN_MODELS`). */
+export const isHumanModel = (model: string): model is HumanModel => (HUMAN_MODELS as readonly string[]).includes(model);
 
 interface RigBone { readonly head: readonly number[]; readonly tail: readonly number[] }
 interface Rig { readonly bones: Readonly<Record<string, RigBone>> }
