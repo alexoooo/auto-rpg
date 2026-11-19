@@ -2,7 +2,7 @@ import { Vector3 } from "../../core/math/vector.ts";
 import type { BuiltSegment } from "../../core/bodies/build/build-body.ts";
 import type { BuiltBout } from "../bout.ts";
 import type { Reader } from "../evaluation.ts";
-import { readStrike, type StrikeReading } from "../strike/read.ts";
+import { DRILLED, readStrike, type StrikeReading } from "../strike/read.ts";
 import type { StandCondition, StandRung } from "./cases.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
 
@@ -45,8 +45,8 @@ export function readStand(built: Pick<BuiltBout, "world" | "duel" | "catalog">, 
   const velocity = new Vector3(), part = new Vector3();
   /** Whether a foot bears on something fixed, the floor: the solver pushed on it last step. */
   const bears = (segment: BuiltSegment | undefined) => segment !== undefined && body.physics.contactsOf(segment.body, (other) => other === null).some((contact) => contact.impulse > 0);
-  const strike = rung.state === "striking" ? readStrike(built, { mark: rung.mark ?? "middle", hand: condition.hand ?? "right" },
-    { seconds: rung.seconds, settle: .5, recover: 0, settled: rung.after ?? 0, patience: 8 }) : null;
+  const strike = rung.state === "striking" ? readStrike(built, { asked: { mark: rung.mark ?? "middle", hand: condition.hand ?? "right" },
+    ending: { seconds: rung.seconds, settle: .5, recover: 0, settled: rung.after ?? 0, patience: 8 }, thrown: DRILLED }) : null;
   /** The centre of mass's velocity across the ground over the last `window` s, a ring of x and z. */
   const size = Math.max(1, Math.round(rung.window * world.hz)), ring = new Float64Array(2 * size);
   let filled = 0, next = 0, sumX = 0, sumZ = 0;

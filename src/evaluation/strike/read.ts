@@ -410,41 +410,54 @@ interface Ending {
 /** A laid target lies once its middle trunk's centre is under this share of its height as built (`Ending.laid`): a body folded sitting holds it above. */
 const LIES = 1 / 3;
 
-/** A strike a fight threw has no drill: lost, as a drill that says nothing is (`FreeStrike`). */
+/** A strike a fight threw has no drill: lost, as a drill that says nothing is (`Thrown`). */
 const FREE = drillTask("lost");
 
 /** Where the striker's drill is (`drillTask`), as its Commander says of its member; lost where it says nothing yet. */
 export const drillOf = (duel: BuiltBout["duel"]): ReturnType<typeof drillTask> => drillTask(duel.commanded("left")?.task ?? "lost");
 
 /**
- * A strike read as a fight threw it (`readStrike`'s `free`): the side that threw it, and its
- * action's id (`ActionStatus.id`), begun the step before the reader is made; no Commander asks it.
+ * **How a trial's strike is thrown**: by the bout's left side as its drill Commander asks
+ * (`DRILLED`), or as a fight threw it (`fought`): the side that threw it and its action's id
+ * (`ActionStatus.id`), begun the step before the reader is made; no Commander asks it.
  */
-export type FreeStrike = { readonly striker: Side; readonly action: number };
+export type Thrown = { readonly by: "drill" } | { readonly by: "fight"; readonly striker: Side; readonly action: number };
+
+/** A strike the bout's left side throws as its drill Commander asks (`Thrown`). */
+export const DRILLED: Thrown = Object.freeze({ by: "drill" });
 
 /**
- * The reader of a trial in which the striker, the bout's left side, asks one action with `limb` at
- * the right side's `mark`, ending as `ending` says, a hand's judged by its body's bar (`barOf`),
- * its side led by the drill Commander (`Duel.commanded`, `drillTask`). The striker's actions while
- * its drill is fighting (`DrillPhase`) are the fight's, not the drill's. Given `free`, the strike that side's fight threw at the other side,
- * read the same way from the step it is made, its `ending` seconds counted from there: a bout's
- * strikes read as a drill's trials are.
+ * **What a strike's reader reads**: the limb asked and the mark it is asked at (`asked`), how its
+ * trial ends (`Ending`), and how it is thrown (`Thrown`).
  */
-export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "duel" | "catalog">, limbAsked: { readonly mark: Mark } & Limb,
-  ending: Ending, free?: FreeStrike): Reader<StrikeReading> {
-  const strikerSide: Side = free?.striker ?? "left", struck = duel.duelists[strikerSide === "left" ? "right" : "left"];
-  const left = duel.duelists[strikerSide], skills = left.minded.skills, since = free ? world.time : 0;
+export interface StrikeAsked {
+  readonly asked: { readonly mark: Mark } & Limb;
+  readonly ending: Ending;
+  readonly thrown: Thrown;
+}
+
+/**
+ * The reader of a trial in which a striker asks one action with a limb at the other side's mark
+ * (`StrikeAsked`), ending as its `ending` says, a hand's judged by its body's bar (`barOf`). A
+ * drill's striker is the bout's left side, led by the drill Commander (`Duel.commanded`,
+ * `drillTask`), and its actions while its drill is fighting (`DrillPhase`) are the fight's, not
+ * the drill's. A strike a fight threw is read the same way from the step the reader is made, its
+ * `ending` seconds counted from there: a bout's strikes read as a drill's trials are.
+ */
+export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "duel" | "catalog">, { asked: limbAsked, ending, thrown }: StrikeAsked): Reader<StrikeReading> {
+  const strikerSide: Side = thrown.by === "fight" ? thrown.striker : "left", struck = duel.duelists[strikerSide === "left" ? "right" : "left"];
+  const striker = duel.duelists[strikerSide], skills = striker.minded.skills, since = thrown.by === "fight" ? world.time : 0;
   if (!skills) throw new Error("the striker runs no skills");
   const { mark } = limbAsked, hand = handOf(limbAsked), effector = effectorOf(limbAsked);
   const target = struck.built.spec, marked = new Set(regionSegments(target, { kind: "mark", mark }));
   /** The target's arms, hand to upper arm: what a guard meets a blow with. */
   const arms = new Set(SIDES.flatMap((side) => [0, 1, 2].map((steps) => limbAbove(target, `hand.${side}`, steps))).filter((name) => name !== undefined));
-  const limb = left.built.segments.get(effector);
+  const limb = striker.built.segments.get(effector);
   if (!limb) throw new Error(`the striker has no ${effector}`);
-  const motion = ending.motion ? swingMotion(left.built, effector) : null;
+  const motion = ending.motion ? swingMotion(striker.built, effector) : null;
   /** The skill its drill Commander asks. */
-  const drilled = free ? undefined : (duel.recipe.commanders?.left as { readonly skill?: string } | undefined)?.skill;
-  const spec = left.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3(), bar = barOf(spec);
+  const drilled = thrown.by === "fight" ? undefined : (duel.recipe.commanders?.left as { readonly skill?: string } | undefined)?.skill;
+  const spec = striker.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3(), bar = barOf(spec);
   /** The striking limb: its effector and the two segments above it, as a target's arm is read (`arms`). */
   const striking = new Set([0, 1, 2].map((steps) => limbAbove(spec, effector, steps)).filter((name) => name !== undefined));
   /** Whether the asked hand holds an item, its blow judged by the held item's bar (`Bar.held`) and its strike point the item's. */
@@ -453,12 +466,12 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   let meets: Mechanism = "blunt";
   /** The strike point: a hand's fist, or the face of what it holds its action meets with (`faceOf`), its item's aim where it has none such; a foot's own. */
   let aim = points.get(hand === null ? effectorAim(spec, effector) : aimOf(spec, hand))!.value;
-  const chest = left.built.segments.get("upperTrunk");
+  const chest = striker.built.segments.get("upperTrunk");
   if (!chest) throw new Error("the striker has no chest to read its limb against");
   /** A hand's arm, what a punch's form is read by: its shoulder, its elbow and the elbow's straight end; null for a foot. */
   const arm = hand === null ? null : (() => {
-    const shoulderJoint = spec.joints.find((joint) => joint.child === limbAbove(spec, effector, 2)), upperArm = shoulderJoint && left.built.segments.get(shoulderJoint.child);
-    const elbowJoint = spec.joints.find((joint) => joint.child === limbAbove(spec, effector, 1)), elbow = elbowJoint && left.built.joints.get(elbowJoint.name);
+    const shoulderJoint = spec.joints.find((joint) => joint.child === limbAbove(spec, effector, 2)), upperArm = shoulderJoint && striker.built.segments.get(shoulderJoint.child);
+    const elbowJoint = spec.joints.find((joint) => joint.child === limbAbove(spec, effector, 1)), elbow = elbowJoint && striker.built.joints.get(elbowJoint.name);
     if (!shoulderJoint || !upperArm || !elbowJoint || !elbow) throw new Error(`the striker's ${effector} has no shoulder or elbow to read a punch's form by`);
     return { shoulderJoint, upperArm, elbow, straight: elbowJoint.dofs[0]!.min.value };
   })();
@@ -469,7 +482,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
    * crown's, the swell's place and the shaft's direction; and the limb's first touch on the target.
    */
   let bonked = false;
-  const headOf = left.built.segments.get("head"), crown = spec.segments.find((one) => one.name === "head")?.distal.value;
+  const headOf = striker.built.segments.get("head"), crown = spec.segments.find((one) => one.name === "head")?.distal.value;
   const swells = armed ? swellShapes(limb.rigid) : new Set<number>(), shaftEnds = [points.get("swellFrom")?.value, points.get("swellTo")?.value] as const;
   const club: number[] = [], CLUB = 9, grip = new Vector3(), top = new Vector3(), shaftFrom = new Vector3(), shaftTo = new Vector3();
   const foeSegments = new Map([...struck.built.segments].map(([name, one]) => [one.body.id, name]));
@@ -497,11 +510,11 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   const built = trunk ? trunk.centre.y : 0;
   let lay: boolean | null = null;
   /** The striker's view, where its body is hosted: where its fists were as its last step read them. */
-  const view = "view" in left.body ? (left.body as HostedBody).view : null;
+  const view = "view" in striker.body ? (striker.body as HostedBody).view : null;
   let asked: StrikeReading["asked"] = null;
   /** The target's phase and where it was, as the striker sensed them where its trial began, and where the drill had the body. */
   let foeBegan: Sensed | null = null, atHand: Sensed | null = null;
-  const head = centreReading(left.built, "head"), theirHead = centreReading(struck.built, target.marks.high);
+  const head = centreReading(striker.built, "head"), theirHead = centreReading(struck.built, target.marks.high);
   /** The range head to head across the ground to the target, as this step left the two, m. */
   const range = (): number => {
     head.update(); theirHead.update();
@@ -519,7 +532,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
     return (ready?.kind === "ready" || ready?.kind === "position") && ready.window
       ? placeInWindow(ready.window, view.stance.centre.x, view.stance.centre.z, skills.report.legs.heading) : null;
   };
-  const velocity = new Vector3(), segments = [...left.built.segments.values()], mass = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0);
+  const velocity = new Vector3(), segments = [...striker.built.segments.values()], mass = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0);
   /** The striker's centre of mass's velocity over the ground, as this step left it, m/s. */
   const moving = (): { readonly x: number; readonly z: number } => {
     let x = 0, z = 0;
@@ -533,13 +546,13 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
    */
   const sensed = (): Sensed => {
     head.update();
-    const at = left.body.observe().centre;
-    const foe = sensedFoe({ spec: left.built.spec, senses: left.senses(), head: head.centre, view, at: { x: at[0], y: at[1], z: at[2] }, going: moving() }, struck.id);
+    const at = striker.body.observe().centre;
+    const foe = sensedFoe({ spec: striker.built.spec, senses: striker.senses(), head: head.centre, view, at: { x: at[0], y: at[1], z: at[2] }, going: moving() }, struck.id);
     return { phase: foe.phase, at: foe.at, window: foe.at ? placed() : null };
   };
   /** Which feet bear on the ground, and the centre of mass's speed over it, as this step left them. */
   const footing = (): NonNullable<StrikeReading["asked"]> => {
-    const { x, z } = moving(), contacts = left.body.observe().contacts;
+    const { x, z } = moving(), contacts = striker.body.observe().contacts;
     const bearing = SIDES.filter((side) => contacts.some((contact) => contact.segment === `foot.${side}` && contact.fixed !== null && contact.impulse > 0));
     return { bearing, speed: Math.sqrt(x * x + z * z) };
   };
@@ -594,18 +607,18 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   };
   return {
     afterStep() {
-      const drill = free ? FREE : drillOf(duel);
+      const drill = thrown.by === "fight" ? FREE : drillOf(duel);
       if (drill.phase === "fighting") {
         fought = true;
         for (const one of skills.report.actions) before.add(one.id);
         return;
       }
-      if (handed === null) { handed = fought || free ? world.time : 0; atHand = sensed(); }
+      if (handed === null) { handed = fought || thrown.by === "fight" ? world.time : 0; atHand = sensed(); }
       if (trunk && lay === null && world.time >= handed + ending.settled) { trunk.update(); lay = trunk.centre.y < LIES * built; }
       // The drill's action: the first with the asked limb at a body that the fight did not ask, or
       // the fight's own that the drill carries on from its moment (`adopts`), under way as it takes the body.
       const action = id !== null ? skills.report.actions.find((one) => one.id === id)
-        : free ? skills.report.actions.find((one) => one.id === free.action)
+        : thrown.by === "fight" ? skills.report.actions.find((one) => one.id === thrown.action)
         : skills.report.actions.find((one) => !before.has(one.id) && one.effector === effector && one.target.kind === "body")
           ?? (drill.phase === "under way" ? [...skills.report.actions].reverse().find((one) => one.effector === effector && one.target.kind === "body") : undefined);
       if (action && id === null) {
@@ -667,7 +680,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
           }
         }
       }
-      down ||= left.body.down;
+      down ||= striker.body.down;
     },
     get ended() {
       const watched = letAt ?? watching;
@@ -680,13 +693,13 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       const from = handed ?? 0;
       let taken = 0, opening = 0;
       for (const blow of duel.blows) for (const side of blow.sides)
-        if (blow.time >= from && side.fighter === left.id && blow.sides.some((other) => other.fighter === struck.id)) {
+        if (blow.time >= from && side.fighter === striker.id && blow.sides.some((other) => other.fighter === struck.id)) {
           taken += side.damage;
           if (letAt !== null && blow.time >= letAt && blow.time <= (again ?? world.time)) opening += side.damage;
         }
       const touches = duel.blows.flatMap((blow) => {
         if (blow.kind !== "impact" || blow.time < from) return [];
-        const k = blow.sides.findIndex((side) => side.fighter === left.id), by = blow.sides[k], on = blow.sides[1 - k];
+        const k = blow.sides.findIndex((side) => side.fighter === striker.id), by = blow.sides[k], on = blow.sides[1 - k];
         if (!by || !on || on.fighter !== struck.id || on.item !== null) return [];
         const sign = k === 0 ? 1 : -1, normal = [blow.normal[0] * sign, blow.normal[1] * sign, blow.normal[2] * sign] as const;
         return [{ contact: { time: blow.time, by: by.segment, on: on.segment, closing: blow.closing, energy: blow.energy, damage: on.damage, kg: by.kg, struck: on.kg,

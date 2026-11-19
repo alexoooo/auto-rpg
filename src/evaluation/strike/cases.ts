@@ -38,7 +38,7 @@ import { modelHolding, modelSpec } from "../../core/bodies/models.ts";
 import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { seatBody, sideCharacters, type BoutTiming, type Cases, type Json, type Seat, type Subject } from "../evaluation.ts";
-import { drillOf, effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
+import { DRILLED, drillOf, effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
 import type { Rail } from "../../game/arena/rail.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
@@ -531,7 +531,7 @@ export const createStrikeCases = perContext((context: GameContext) => {
           ...(protocol.laid ? { shove: { side: "right", segment: protocol.laid.segment, degrees: 90, at: 0,
             impulse: protocol.laid.speed * modelSpec(target ?? "man").mass.value } } : {}) } };
       },
-      read: (built, condition) => readStrike(built, condition, protocol),
+      read: (built, condition) => readStrike(built, { asked: condition, ending: protocol, thrown: DRILLED }),
     };
   }
 
@@ -554,7 +554,7 @@ export const createStrikeCases = perContext((context: GameContext) => {
             ...opposed(striker(value as unknown as StrikeSubject, effectorOf(condition as FightCondition), mark, { after: 0, pace: protocol.pace, walking: true, moment }), opponentOf(foe)!),
             ...(gap === undefined ? {} : { gap }) } };
       },
-      read: (built, condition) => readStrike(built, condition, protocol),
+      read: (built, condition) => readStrike(built, { asked: condition, ending: protocol, thrown: DRILLED }),
       // The fight before the moment is the subject's own bout, whatever the drill then asks.
       opening: (built) => drillOf(built.duel).phase === "fighting",
     };
