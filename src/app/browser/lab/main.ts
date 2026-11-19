@@ -10,10 +10,12 @@ import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTextur
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
+import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../../../core/physics/engines.ts";
 import { buildBody, type BuiltBody } from "../../../core/bodies/build/build-body.ts";
+import { rootSegment } from "../../../core/bodies/read-body.ts";
 import { poseAngles } from "../../../control/kinematics.ts";
 import { guardPosture } from "../../../skills/guard/shared/guard.ts";
 import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
@@ -174,7 +176,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     readonly built: BuiltBody; readonly view: BodyShapes; readonly held: BodyShapes; readonly skin: SkinSlot; appearance: Appearance | null; readonly run: ScenarioRun;
     /** The body as drawn, following the simulated one (`followBody`): everything on the page hangs on it. */
     readonly puppet: Puppet; readonly follows: Hook;
-    /** The pelvis's rotation as built, facing +z: the chase camera reads the body's facing from it. */
+    /** The puppet's pelvis, its root segment (`rootSegment`), and its rotation as built, facing +z: the chase camera reads the body's facing from them. */
+    readonly pelvis: TransformNode;
     readonly rest: Quaternion;
     /** Its steadiness, per cent of its weight, if its assist has one, and its haste, per cent over a person's, if it is hasted: every figure read under them is read beside them. */
     readonly helped: number | null;
@@ -302,7 +305,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const actor = scope.own(madeActor);
     thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.mind?.skills ?? null, report: actor.mind?.report ?? null }), labStaging(to.scenario)));
     // The pelvis's turn as built, before the puppet follows the body anywhere.
-    const puppet = scope.own(puppetBody(built.spec, scene)), rest = puppet.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
+    const puppet = scope.own(puppetBody(built.spec, scene)), pelvis = puppet.segments.get(rootSegment(built).spec.name)!.node;
+    const rest = pelvis.rotationQuaternion!.clone();
     const follows = scope.own(followBody(puppet, built, world));
     const view = scope.own(drawBody(puppet, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint))), heldView = scope.own(drawHeld(puppet, scene));
     const sounds = createSoundLog(world.dt, AIR_SECONDS), logging = scope.own(logSounds(world, actor.body, sounds));
@@ -312,7 +316,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const run = scope.own(started);
     scope.forget(actor);
     const loaded: Loaded = {
-      built, view, held: heldView, skin: scope.own(skinSlot(puppet, showView)), appearance: null, run, rest, puppet, follows, helped: actor.body.assist.on ? steadiness : null,
+      built, view, held: heldView, skin: scope.own(skinSlot(puppet, showView)), appearance: null, run, pelvis, rest, puppet, follows, helped: actor.body.assist.on ? steadiness : null,
       hasted: built.spec.attributes.haste.value === HUMAN_HASTE.value ? null : built.spec.attributes.haste.value, log, has: scope.own(watchHas(world, actor.body, log)),
       doing: scope.own(watchSkills(world, actor.body, actor.mind.skills, log)),
       sounds, logging, heardTo: -Infinity, dispose: scope.dispose,
@@ -404,7 +408,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     readout();
     scene.render();
     if (current) {
-      const pelvis = current.puppet.segments.get("lowerTrunk")!.node;
+      const { pelvis } = current;
       rig.follow(pelvis.position, pelvis.rotationQuaternion!, current.rest, engine.getDeltaTime() / 1000, engine.getAspectRatio(camera));
     }
     audio.setView(camera.position, camera.target.subtract(camera.position));
