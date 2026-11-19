@@ -94,9 +94,9 @@ const VALUED_DEPTHS: readonly number[] = Object.freeze([1, 2]);
  */
 const HORIZON = 20;
 
-/** A depth other than those a chooser looks (`depths`), as a fault. */
-const depthFaults = (depths: readonly number[]) => (config: { readonly depth: number }): readonly string[] =>
-  depths.includes(config.depth) ? [] : [`depth: ${depths.join(" or ")}`];
+/** A depth other than those the valued chooser looks (`VALUED_DEPTHS`), as a fault. */
+const depthFaults = (depth: number): readonly string[] =>
+  VALUED_DEPTHS.includes(depth) ? [] : [`depth: ${VALUED_DEPTHS.join(" or ")}`];
 
 /** An Option and target (0 where it has none), with its slot in each situation's model row, and what its model is asked there (`Option.model`): the same each time, so made once. */
 export interface Pair { readonly option: Option; readonly target: number; readonly slot: number; readonly ask: Readonly<{ target: number; until?: number }> }
@@ -591,7 +591,7 @@ function pricing(config: SearchConfig, parts: PartLookup): { readonly obedience:
 export const VALUED_CHOOSER = deepFreeze<OptionChooserPart<ValuedConfig>>({
   role: "chooser", model: PROFILE_MODEL, label: "By worth", stage: "game", fields: [obedienceField<ValuedConfig>(), lineEndField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, end: true, obedience: true, margin: true, objective: true }, fits: anyBody,
-  faults: (config: ValuedConfig) => [...depthFaults(VALUED_DEPTHS)(config), ...searchFaults(config)],
+  faults: (config: ValuedConfig) => [...depthFaults(config.depth), ...searchFaults(config)],
   make: ({ config, options, seed, parts, phase }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON;
     const searched = { options, objective, obedience, horizon, end: config.end, depth: config.depth };

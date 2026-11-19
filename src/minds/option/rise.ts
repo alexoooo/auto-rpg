@@ -9,7 +9,6 @@ import { anyBody, slotSkill, type KeysOf, type PartConfig } from "../../parts/pa
 import { WHOLE, type Status } from "../choice.ts";
 import { brace } from "./rest.ts";
 import { asking, blocked, READY, type Option, type Situation, type Step } from "./option.ts";
-import { around } from "./strike.ts";
 import { onFeet, REGAIN_TRY } from "./rise-memory.ts";
 import { recorded, type Prior, type Tried } from "./record.ts";
 import { STILL, UNMOVED, type Outcome, type Terms } from "./value.ts";
@@ -119,7 +118,7 @@ function attempt(given: ProfileOptionContext, part: TechniquePart, skill: PartCo
   const fromOf = (g: GroundReading): Position => part.moving && edges.some((edge) => edge.from === g.raw) ? g.raw : g.position;
   const beginningOf = (now: Situation, g: GroundReading): string | null => {
     for (const start of [g.side, ...part.starts])
-      if (start && part.starts.includes(start) && now.sight.actions.readiness(now.sight.view, name, sides(start), HERE, around(now.sight)).kind !== "blocked") return start;
+      if (start && part.starts.includes(start) && now.sight.actions.readiness(now.sight.view, name, sides(start), HERE, now.sight.actions.around).kind !== "blocked") return start;
     return null;
   };
   const note = (done: boolean): void => { if (memory.from !== null) record.note(name, memory.from, done); memory.from = null; };
@@ -285,7 +284,7 @@ export const BRACE_TUMBLING_OPTION = groundKind("brace-tumbling", "Brace while t
       if (!way.edges.some((edge) => edge.from === g.position || edge.from === g.raw)) continue;
       begins = true;
       for (const binding of way.bindings(given.spec, config))
-        if (now.sight.actions.readiness(now.sight.view, config.kind, binding.segment, HERE, around(now.sight)).kind !== "blocked") return false;
+        if (now.sight.actions.readiness(now.sight.view, config.kind, binding.segment, HERE, now.sight.actions.around).kind !== "blocked") return false;
     }
     return begins;
   };

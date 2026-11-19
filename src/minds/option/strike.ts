@@ -1,5 +1,5 @@
 import { sameRegion, type Spot } from "../../skills/framework/menu.ts";
-import type { ActionAround, Readiness, Resource, TargetRef, Window } from "../../skills/framework/action.ts";
+import type { Readiness, Resource, TargetRef, Window } from "../../skills/framework/action.ts";
 import { regionSegments } from "../../skills/framework/action-aim.ts";
 import { heldBeside, placeInWindow, SIDES, windowHolds, windowSpot, type Side } from "../../skills/intent/action-window.ts";
 import { orderAllows, orderedTarget } from "../orders.ts";
@@ -9,7 +9,6 @@ import { type Expected, type ProfileReading } from "../../skills/framework/profi
 import { type Asked as StartAsked, type Postures, type Measured } from "../../skills/framework/profile/profile.ts";
 import type { ActOutcomes } from "../../skills/framework/outcomes.ts";
 import type { ProfileOptionContext } from "./profile-contract.ts";
-import type { Sight } from "../decider.ts";
 import { asking, exitOutcomes, blocked, READY, standing, type Asked, type Option, type Site, type Situation } from "./option.ts";
 import { startOf, threatened } from "./percepts.ts";
 import { clinched, record, type Terms } from "./value.ts";
@@ -20,9 +19,6 @@ import { hypot } from "../../core/math/real.ts";
 
 /** How long a strike may wait to be admitted before it is given up, s. */
 const PATIENCE = 2;
-
-/** What an action's executor reads of the skills beside it, as the last step left them. */
-export const around = (sight: Sight): ActionAround => sight.actions.around;
 
 /**
  * What a strike's profile is looked up by: the body throwing it, the question a profile read by it
@@ -136,7 +132,7 @@ export function strike({ action, walk, throws, measure, name }: Striking): Strik
     return focus && action.regions ? orderedTarget(now.orders ?? null, focus, action.regions) : null;
   };
   const readiness = (now: Situation, limb: string, target: TargetRef): Readiness =>
-    now.sight.actions.readiness(now.sight.view, action.name, limb, target, around(now.sight));
+    now.sight.actions.readiness(now.sight.view, action.name, limb, target, now.sight.actions.around);
   type Limb = { readonly limb: string; readonly readiness: Readiness };
   /** The first limb ready at `target`, and the first with a window to walk to (`position`) where none is: what a walk into it goes to (`window`). */
   const scan = (now: Situation, target: TargetRef): { ready: Limb | null; placed: Limb | null } => {
