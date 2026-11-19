@@ -2,7 +2,7 @@ import { scenarioOf, usesReferenceLook, type DungeonScenario, type DungeonSetup 
 import { playerControls } from "../ui/player-controls.ts";
 import { isRefused, type Refused } from "../../../core/refusal.ts";
 import type { SkeletonArt } from "../../../core/bodies/human/skeleton-art.ts";
-import { sceneProfile, visualGroup } from "../render/scene-profile.ts";
+import { canvasScaling, sceneProfile, visualGroup } from "../render/scene-profile.ts";
 import { solidGeometry } from "../render/solid-geometry.ts";
 import { viewControls } from "../ui/view-controls.ts";
 import { cameraControls } from "../ui/camera-controls.ts";
@@ -179,7 +179,7 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
   /** The page before its first run: the engines, the sound, the look's probe and the frame meter. */
   function createPage(skeletonArt: Promise<SkeletonArt>): DungeonPage {
     const engine = new Engine(canvas, true, { stencil: true, antialias: true });
-    engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
+    engine.setHardwareScalingLevel(canvasScaling());
     const hover = new EnemyHover(), audio = new GameAudio({ dungeon: true, mount: need("dungeon-sound") });
     const meter = frameMeter(engine, context.signal);
     const panel = need("dungeon-view");
@@ -286,7 +286,7 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
     return {
       // A random crypt is followed at the scale of a room, rather than fitted whole.
       zoom: page.cryptPlan ? 5.2 : reference ? REFERENCE_ZOOM : 10,
-      scaling: reference ? page.selectedQuality === "reduced" ? 1.4 : 1 : 1 / Math.min(devicePixelRatio, 1.5),
+      scaling: reference ? page.selectedQuality === "reduced" ? 1.4 : 1 : canvasScaling(),
     };
   }
 

@@ -4,6 +4,9 @@ import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { ViewMode } from "../../../game/appearance/view.ts";
 
+/** A canvas's hardware scaling: the device's pixels, at most one and a half to a CSS pixel, so a dense screen does not draw at its full cost. */
+export const canvasScaling = (): number => 1 / Math.min(devicePixelRatio, 1.5);
+
 interface Presentation { setEnabled(enabled: boolean): void }
 const profiles = new WeakMap<Scene, { view: ViewMode }>();
 export const isTactical = (scene: Scene): boolean => profiles.get(scene)?.view === "tactical";

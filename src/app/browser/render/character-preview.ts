@@ -1,4 +1,5 @@
 import { warmScene } from "./ready.ts";
+import { canvasScaling } from "./scene-profile.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
@@ -36,7 +37,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement,
   }> {
   signal.throwIfAborted();
   const engine = new Engine(canvas, true, { alpha: true, preserveDrawingBuffer: true });
-  engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
+  engine.setHardwareScalingLevel(canvasScaling());
   const scene = new Scene(engine);
   scene.clearColor = new Color4(0, 0, 0, 0);
   scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 128);
