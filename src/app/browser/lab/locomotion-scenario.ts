@@ -15,7 +15,8 @@ import { createPlayer } from "../../../game/lab/player.ts";
 import { startLocomotion, type LocomotionFrame } from "../../../game/lab/locomotion-mode.ts";
 import { COMMANDS_AREA, commandsOf } from "../../../game/lab/commands.ts";
 import { TRACK_IDS, TRACKS, trackOf, type Track } from "../../../game/lab/track.ts";
-import { gustText, type WindSettings } from "../../../game/lab/wind.ts";
+import type { WindSettings } from "../../../game/lab/wind.ts";
+import { windControls } from "./wind-controls.ts";
 import { groundDisc } from "./ground-disc.ts";
 import { following, legend, menu, readings, slider, type Control, type Entry } from "../ui/controls.ts";
 import { atan2, cos, hypot, sin } from "../../../core/math/real.ts";
@@ -151,10 +152,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
         slider("Pace", PACES.least, MAX, PACES.step, () => top ?? MAX, (pace) => { top = pace > PACES.most ? undefined : pace; shell.restart(); },
           (pace) => pace > PACES.most ? "Max" : `${pace.toFixed(1)} m/s`),
       ],
-      controls: [
-        slider("Gusts", 0, 2, 0.1, () => wind.rate, (rate) => setWind({ ...wind, rate }), (rate) => `${rate.toFixed(1)} /s`),
-        slider("Gust force", 0, 200, 5, () => wind.strength, (strength) => setWind({ ...wind, strength }), (strength) => gustText(strength, weight)),
-      ],
+      controls: windControls(() => wind, setWind, () => weight),
       readout: [shown, legend([MARKS.track, MARKS.centre, MARKS.aim, MARKS.wind])],
     },
     mind: (mind) => legs === "mind" || mind.kind !== "option" ? mind : withLegs(mind as OptionMindConfig, alone(legs)),
