@@ -14,8 +14,7 @@ import { placedHeightFits } from "../../reach/arm-reach.ts";
 import type { StrikingFace } from "./held-face.ts";
 import type { HeldStrikeMaking, StrikeSettings } from "./held-strike.ts";
 import { faceSteering } from "./face-steering.ts";
-import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
-import { bodyAhead } from "../../locomotion/shared/navigation/held-clearance.ts";
+import { bodiesClear, clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { sensedActionTarget } from "../../framework/action-aim.ts";
 import { timedPushes, validPush, type TimedPush } from "./timed-push.ts";
 import { otherSide, type Side, SIDES } from "../../../core/bodies/bilateral.ts";
@@ -133,7 +132,7 @@ const AIM_SPEED = 4;
 export function swingExecutor(body: Body, guard: Pose, actions: readonly string[], settings: Swing, resolve: TargetResolver,
   faces: Partial<Record<Side, StrikingFace>>, { layout, policy }: { readonly layout?: SteerLayout;
     readonly policy?: (inputs: readonly number[]) => readonly number[] } = {}): Executor {
-  const spec = body.built.spec, ahead = bodyAhead(spec), steering = layout ? faceSteering(body, faces, layout) : null;
+  const spec = body.built.spec, clear = bodiesClear(spec), steering = layout ? faceSteering(body, faces, layout) : null;
   const sides = { left: [segmentResource("hand.left"), TRUNK_RESOURCE, LEG_RESOURCE], right: [segmentResource("hand.right"), TRUNK_RESOURCE, LEG_RESOURCE] } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
@@ -183,7 +182,7 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       if (!placedHeightFits(spec, hand, at[1] - view.head.y, face.point)) return { kind: "blocked", reason: "target is outside the arm's height band" };
       return strikeWindow(view, at, around.heading, { standOff: settings.reach, band: settings.band, aside: settings.aside, across: 0, pace: settings.pace,
-        poised: settings.poised === true, clear: clearAhead(view, at, around.heading, sensedActionTarget(view, target), ahead), ...(target.kind === "body" ? { on: target.body } : {}) });
+        poised: settings.poised === true, clear: clearAhead(view, at, around.heading, sensedActionTarget(view, target), clear), ...(target.kind === "body" ? { on: target.body } : {}) });
     },
     resume() { state.live = null; halt(); },
     interrupt(_view, id) { if (state.live?.request.id === id) { state.live = null; halt(); } },

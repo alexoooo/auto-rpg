@@ -3,7 +3,9 @@ import { withinActionWindow } from "../../intent/action-window.ts";
 import { hypot, sin, cos } from "../../../core/math/real.ts";
 import type { Readiness } from "../../framework/action.ts";
 import type { BodySense } from "../../../core/bodies/senses.ts";
-import { sensedNearest } from "../../locomotion/shared/navigation/sensed-bounds.ts";
+import { bodyClearance, ownShapesOf, sensedNearest, type OwnSegment } from "../../locomotion/shared/navigation/sensed-bounds.ts";
+import { bodyAhead } from "../../locomotion/shared/navigation/held-clearance.ts";
+import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 
 /** How far nearer than its stand-off a foe may come before a strike backs out from it, m. */
 export const CROWDED = 0.05;
@@ -40,17 +42,46 @@ interface StrikeStand {
 }
 
 /**
- * **How far ahead of the stance centre, facing `heading`, the mark `at` must be for the striker's
- * body to stand clear of `foe`'s**, m: how far the striker stands out ahead of its centre
- * (`ahead`, `bodyAhead`) less how far ahead of the mark the foe's body comes nearest
- * (`sensedNearest`), each body's own colliders as they stand, what they hold and the foe's
- * segments `without` names left out; 0 where the mark is on no body.
+ * **What of two bodies a strike keeps clear** (`clearAhead`): how far the striker stands out ahead
+ * of its centre along a ground direction, and the foe's segments that count.
  */
-export function clearAhead(view: BodyView, at: readonly [number, number, number], heading: number, foe: BodySense | null,
-  ahead: (view: BodyView, ax: number, az: number) => number, without?: ReadonlySet<string>): number {
+export interface Clearance {
+  ahead(view: BodyView, ax: number, az: number): number;
+  counts(foe: BodySpec): readonly OwnSegment[];
+}
+
+/** Every segment of either body kept clear: the striker's limbs as they stand (`bodyAhead`), and all of the foe's. */
+export const bodiesClear = (spec: BodySpec): Clearance => ({ ahead: bodyAhead(spec), counts: ownShapesOf });
+
+/** The foe's segments but its guards (`marks.guards`), found once a spec. */
+const GUARDLESS = new WeakMap<BodySpec, readonly OwnSegment[]>();
+
+/**
+ * The two trunks kept clear and the hands left to meet: the striker's trunk alone
+ * (`bodyClearance`), and the foe's segments but its guards.
+ */
+export function trunksClear(spec: BodySpec): Clearance {
+  const trunk = bodyClearance(spec);
+  return { ahead: () => trunk, counts: (foe) => {
+    let segments = GUARDLESS.get(foe);
+    if (!segments) {
+      const guards = new Set(foe.marks.guards ?? []);
+      GUARDLESS.set(foe, segments = Object.freeze(ownShapesOf(foe).filter((segment) => !guards.has(segment.name))));
+    }
+    return segments;
+  } };
+}
+
+/**
+ * **How far ahead of the stance centre, facing `heading`, the mark `at` must be for the striker's
+ * body to stand clear of `foe`'s**, m, as `clear` counts them (`Clearance`): how far the striker
+ * stands out ahead of its centre less how far ahead of the mark the foe's body comes nearest
+ * (`sensedNearest`); 0 where the mark is on no body.
+ */
+export function clearAhead(view: BodyView, at: readonly [number, number, number], heading: number, foe: BodySense | null, clear: Clearance): number {
   if (!foe) return 0;
   const ax = sin(heading), az = cos(heading);
-  return ahead(view, ax, az) - sensedNearest(foe, at[0], at[2], ax, az, without);
+  return clear.ahead(view, ax, az) - sensedNearest(foe, clear.counts(foe.spec), at[0], at[2], ax, az);
 }
 
 /**

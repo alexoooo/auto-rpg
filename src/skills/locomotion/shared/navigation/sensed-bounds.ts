@@ -110,16 +110,15 @@ function boundsOf(shape: ReturnType<typeof worldShapes>[number]): SolidSense {
 
 /**
  * **How far ahead of (`x`, `z`) along the ground direction (`ax`, `az`) `foe`'s body comes nearest**,
- * m, as sensed: the least reach along it of any segment's own collider, a hand's as posed, what it
- * holds left out, and the segments `without` names. Negative where the body stands out behind the
- * point toward the direction's start.
+ * m, as sensed: the least reach along it of the own colliders of `segments`, some of its spec's
+ * (`ownShapesOf`), a hand's as posed, what it holds left out. Negative where the body stands out
+ * behind the point toward the direction's start.
  */
-export function sensedNearest(foe: BodySense, x: number, z: number, ax: number, az: number, without?: ReadonlySet<string>): number {
-  const segments = ownShapesOf(foe.spec);
+export function sensedNearest(foe: BodySense, segments: readonly OwnSegment[], x: number, z: number, ax: number, az: number): number {
   let nearest = Infinity;
   for (let k = 0; k < segments.length; k++) {
     const segment = segments[k]!, sensed = foe.segments.get(segment.name);
-    if (!sensed || without?.has(segment.name)) continue;
+    if (!sensed) continue;
     const q = sensed.rotation, p = sensed.position;
     for (let m = 0; m < segment.shapes.length; m++) {
       const shape = m === 0 ? segment.poses?.[sensed.configuration ?? ""] ?? segment.shapes[0]! : segment.shapes[m]!, points = shape.points;
@@ -137,10 +136,13 @@ export function sensedNearest(foe: BodySense, x: number, z: number, ax: number, 
 
 type LocalShape = { readonly points: readonly Vec3[]; readonly radius: number };
 
-/** Each segment's own colliders (`localsOf`), what it holds left out, its first a hand's by its pose: found once a spec. */
-const OWN = new WeakMap<BodySpec, readonly { readonly name: string; readonly shapes: readonly LocalShape[]; readonly poses: Readonly<Record<string, LocalShape>> | undefined }[]>();
+/** A segment's own colliders (`localsOf`), what it holds left out, its first a hand's by its pose. */
+export interface OwnSegment { readonly name: string; readonly shapes: readonly LocalShape[]; readonly poses: Readonly<Record<string, LocalShape>> | undefined }
 
-function ownShapesOf(spec: BodySpec) {
+const OWN = new WeakMap<BodySpec, readonly OwnSegment[]>();
+
+/** **Each of `spec`'s segments with its own colliders** (`OwnSegment`), found once a spec. */
+export function ownShapesOf(spec: BodySpec): readonly OwnSegment[] {
   let own = OWN.get(spec);
   if (!own) {
     const locals = localsOf(spec), poses = POSES.get(spec);

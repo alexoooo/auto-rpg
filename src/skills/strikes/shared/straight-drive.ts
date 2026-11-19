@@ -14,9 +14,7 @@ import type { Vec3 } from "../../../core/quantity.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, Resource, TargetResolver } from "../../framework/action.ts";
 import type { LegsGoal } from "../../framework/skill.ts";
 import type { ContactTarget } from "../../../core/bodies/contact-identity.ts";
-import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
-import { bodyAhead } from "../../locomotion/shared/navigation/held-clearance.ts";
-import { bodyClearance } from "../../locomotion/shared/navigation/sensed-bounds.ts";
+import { bodiesClear, clearAhead, quietToStrike, strikeWindow, trunksClear } from "./strike-window.ts";
 import type { BodySense } from "../../../core/bodies/senses.ts";
 import { sensedActionTarget } from "../../framework/action-aim.ts";
 import { stepShare, timedPushes, validPush, type TimedPush } from "./timed-push.ts";
@@ -68,9 +66,9 @@ const turnSense = (hand: Side): 1 | -1 => hand === "right" ? -1 : 1;
  * the steer out (`StraightDriveOptions.layout`); the steer is its trainer's to set, and none
  * at the drive's start. With `deeper`, its window sends a walk under way `deeper` m
  * past its spot toward the target while its blow is live (`Window.through`), so the body travels
- * into the blow. With `inside`, its window keeps the two trunks clear and lets the hands meet:
- * its own limbs' ends and the foe's guards (`BodySpec.marks.guards`) are not counted, so it may be
- * thrown from inside the guards.
+ * into the blow. With `inside`, its window keeps the two trunks clear and lets the hands meet
+ * (`trunksClear`), so it may be thrown from inside the guards; else every segment of either body
+ * (`bodiesClear`).
  */
 export interface StraightDrive {
   readonly pace: number;
@@ -595,15 +593,7 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
   const technique = straightTechnique(body, guard, settings, options, { trained: policy !== undefined }), motion = technique.state;
   const throws = options.throws({ body, guard, technique, settings, policy });
   technique.read(body.view);
-  // With `inside`, the trunk alone stands out ahead, and the foe's guards are not counted.
-  const trunk = bodyClearance(body.built.spec), ahead = settings.inside ? () => trunk : bodyAhead(body.built.spec);
-  const guards = new Map<BodySpec, ReadonlySet<string>>();
-  const without = (foe: BodySense | null): ReadonlySet<string> | undefined => {
-    if (!settings.inside || !foe) return undefined;
-    let set = guards.get(foe.spec);
-    if (!set) guards.set(foe.spec, set = new Set(foe.spec.marks.guards ?? []));
-    return set;
-  };
+  const clear = (settings.inside ? trunksClear : bodiesClear)(body.built.spec);
   const alignerOf = (hand: Side) => faces?.[hand] ? faceAligner(body.built.spec, hand, faces[hand]!) : null;
   const aligners = { left: alignerOf("left"), right: alignerOf("right") }, aimed = new Vector3(), toward = new Float64Array(3);
   const sides = { left: throws.holds("left"), right: throws.holds("right") } as const;
@@ -632,7 +622,7 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
       const at = resolve(view, target, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       const foe = sensedActionTarget(view, target);
-      return driveReadiness(view, technique, settings, sideOf(effector), at, around.heading, clearAhead(view, at, around.heading, foe, ahead, without(foe)),
+      return driveReadiness(view, technique, settings, sideOf(effector), at, around.heading, clearAhead(view, at, around.heading, foe, clear),
         target.kind === "body" ? target.body : undefined);
     },
     resume() { state.live = null; technique.end(); },
