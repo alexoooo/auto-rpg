@@ -20,9 +20,7 @@ try { env = await residualEnvironment(settings); }
 catch (error) {
   writeFileSync(o.out, JSON.stringify({ protocol: 'residual development screen, unreached fixture', settings,
     fixtureReached: false, reason: error.message, setup: error.cause?.setup ?? [],
-    sources: Object.fromEntries(['./residual-environment.mjs', ...(settings.bodyVariant ? ['./passive-toe-body.mjs'] : []),
-      ...(settings.toeConditioning ? ['./toe-conditioning.mjs'] : [])].map(path =>
-      [path, createHash('sha256').update(readFileSync(new URL(path, import.meta.url))).digest('hex')])) }) + '\n');
+    sources: { './residual-environment.mjs': createHash('sha256').update(readFileSync(new URL('./residual-environment.mjs', import.meta.url))).digest('hex') } }) + '\n');
   throw new Error(error.message);
 }
 const trials = [];
@@ -62,10 +60,6 @@ try {
     reader: createHash('sha256').update(readFileSync(new URL(import.meta.url))).digest('hex'),
     environment: createHash('sha256').update(readFileSync(new URL('./residual-environment.mjs', import.meta.url))).digest('hex'),
     learnerAdapter: createHash('sha256').update(readFileSync(new URL('../../learner-adapter.mjs', import.meta.url))).digest('hex') };
-  if (settings.bodyVariant === 'passive-toes') code.bodyVariant = createHash('sha256')
-    .update(readFileSync(new URL('./passive-toe-body.mjs', import.meta.url))).digest('hex');
-  if (settings.toeConditioning) code.toeConditioning = createHash('sha256')
-    .update(readFileSync(new URL('./toe-conditioning.mjs', import.meta.url))).digest('hex');
   if (settings.residual === 'steering' || settings.frozenSteeringPolicy)
     code.steeringAdapter = createHash('sha256').update(readFileSync(new URL('./learned-run-steering.mjs', import.meta.url))).digest('hex');
   writeFileSync(o.out, JSON.stringify({ protocol: 'residual development screen, physical COM at 120 Hz', settings,

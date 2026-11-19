@@ -263,7 +263,7 @@ function bearer(own, view) {
 }
 
 /** One trial of `u` from `move`'s start at `seed`: its score, the hand-over and verified times from the start, s. */
-export async function witnessTrial({ move, model = "man", held = "empty", seed, u, hold = 1, cap = 8, trace = false, regain = {} }) {
+async function witnessTrial({ move, model = "man", held = "empty", seed, u, hold = 1, cap = 8, trace = false, regain = {} }) {
   const spec = bodySpec(model, held), placed = placement(move, spec, seed);
   if ("refused" in placed) return { score: 0, refused: placed.refused };
   const plan = phases(move, spec, u), handover = plan.reduce((s, p) => s + p.duration, 0);

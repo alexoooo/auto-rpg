@@ -1,8 +1,8 @@
-/** Experimental explicit toe segments; their passive coordinates remain outside muscle authority. */
-import {segmentFrame} from '../../../src/core/bodies/spec/body.ts';
-import {derive,sourced,si} from '../../../src/core/quantity.ts';
-import {add,sub,scale,dot} from '../../../src/core/bodies/spec/vec.ts';
-import {deepFreeze} from '../../../src/core/state.ts';
+/** A body with toes of their own, hinged on passive springs outside muscle authority: support the travel reader must see on separate segments. */
+import {segmentFrame} from '../../src/core/bodies/spec/body.ts';
+import {derive,sourced,si} from '../../src/core/quantity.ts';
+import {add,sub,scale,dot} from '../../src/core/bodies/spec/vec.ts';
+import {deepFreeze} from '../../src/core/state.ts';
 
 const stiffness=sourced(25,'N m/rad','falisse-2022-toes','passive MTP stiffness');
 const damping=sourced(2,'N m s/rad','falisse-2022-toes','passive MTP damping');

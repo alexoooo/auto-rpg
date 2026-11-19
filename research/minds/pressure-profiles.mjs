@@ -3,10 +3,9 @@
  * `assets/minds/pressure-profiles.json`): what a foe's fighting took from a body in bouts, by how
  * far apart the two stood centre to centre, what the foe was doing, and the seconds after.
  *
- *   node research/minds/pressure-profiles.mjs <bouts>... [--write | --out <file>]
+ *   node research/minds/pressure-profiles.mjs <bouts>... [--write]
  *
- * `--write` puts the tables in the game's asset; `--out` in a file of the asset's form, a table a
- * mind may be given in its place (`strike-bouts.mjs --pressure-profiles <file>`).
+ * `--write` puts the tables in the game's asset; a table not yet kept is tried so in a worktree.
  *
  * Each of `<bouts>` is a bout record `strike-bouts.mjs --save` wrote, or a directory of them. Each
  * decision of a side (its record's `decisions`) is a moment: the two `range` m apart centre to
@@ -36,9 +35,8 @@ const BIN = .02;
 /** How long a fall unsettles a fight, s: a moment this soon after either side's is none. */
 const UNSETTLED = 3;
 
-const write = process.argv.includes("--write"), outAt = process.argv.indexOf("--out"), out = outAt < 0 ? null : process.argv[outAt + 1];
-const paths = process.argv.slice(2).filter((arg, k, all) => arg !== "--write" && arg !== "--out" && all[k - 1] !== "--out");
-if (!paths.length) throw new Error("usage: pressure-profiles.mjs <bout record or directory>... [--write | --out <file>]");
+const write = process.argv.includes("--write"), paths = process.argv.slice(2).filter((arg) => arg !== "--write");
+if (!paths.length) throw new Error("usage: pressure-profiles.mjs <bout record or directory>... [--write]");
 const files = paths.flatMap((path) => statSync(path).isDirectory() ? readdirSync(path).filter((name) => name.endsWith(".json")).sort().map((name) => `${path}/${name}`) : [path]);
 const round = (x) => Number(x.toFixed(6));
 const tables = new Map();
@@ -80,7 +78,7 @@ for (const profile of profiles) {
   console.log(`${profile.measured.stature} m, ${profile.measured.mass} kg on ${profile.target.stature} m, ${profile.target.mass} kg: ${Object.entries(by).map(([phase, b]) => `${phase} ${b.n}`).join(", ")} moments in ${profile.bins.length} bins`);
 }
 console.log(`${moments} moments from ${bouts} bouts in ${files.length} files`);
-for (const path of [...out ? [out] : [], ...write ? [OUT] : []]) {
-  writeFileSync(path, `${JSON.stringify({ source: { script: SCRIPT, commit, bouts: paths }, profiles }, null, 1)}\n`);
-  console.log(`wrote ${path}`);
+if (write) {
+  writeFileSync(OUT, `${JSON.stringify({ source: { script: SCRIPT, commit, bouts: paths }, profiles }, null, 1)}\n`);
+  console.log(`wrote ${OUT}`);
 }

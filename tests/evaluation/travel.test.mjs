@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { coreStand } from "../harness/core-stand.mjs";
 import { modelSpec } from "../../src/core/bodies/models.ts";
-import { passiveToeBody } from "../../research/skills/locomotion/passive-toe-body.mjs";
+import { passiveToeBody } from "../harness/passive-toe-body.mjs";
 import { guardPosture } from "../../src/skills/guard/shared/guard.ts";
 import { readTravel } from "../../src/evaluation/travel/read.ts";
 import { TRAVEL, travelScript } from "../../src/evaluation/travel/protocol.ts";

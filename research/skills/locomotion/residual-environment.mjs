@@ -49,8 +49,6 @@ import { learnedRunFeatures, steeringFrom, STEERING_LAYOUT } from './learned-run
 import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
 import { act, ask, learnerOf, restart, start } from '../../../src/core/math/learning/learner.ts';
 import { decide } from '../../learner-adapter.mjs';
-import { passiveToeBody } from './passive-toe-body.mjs';
-import { conditionToeStand } from './toe-conditioning.mjs';
 
 const ROLES = Object.freeze(['stance', 'swing']);
 const JOINTS = Object.freeze(['hip flexion', 'hip abduction', 'hip internal rotation', 'knee flexion', 'ankle dorsiflexion', 'ankle inversion']);
@@ -88,8 +86,6 @@ export async function residualEnvironment(configuration = {}) {
   const layout = residualLayout(o.residual);
   if (o.cacheWarmStarts !== undefined && typeof o.cacheWarmStarts !== 'boolean')
     throw Error('warm-start caching is boolean');
-  if (o.cacheWarmStarts && o.toeConditioning)
-    throw Error('warm-start snapshots require native engine joints and contact settings');
   if (o.cacheWarmStarts && o.speeds && !o.warm && !o.warmStarts && o.fromRestShare < 1)
     throw Error('cached moving starts need a finite set of warm-up speeds');
   const warmCache = new Map();
@@ -139,9 +135,7 @@ export async function residualEnvironment(configuration = {}) {
   const referencePolicy = o.referencePolicy ? recoveryNetwork(JSON.parse(readFileSync(o.referencePolicy, 'utf8'))) : null;
   if (referencePolicy && (!(o.residual === 'steering' || frozenSteering) || !(o.referenceScale >= 0) || !Number.isFinite(o.referenceScale)))
     throw Error('a frozen reference policy accompanies steering with a finite nonnegative referenceScale');
-  if (o.bodyVariant !== undefined && o.bodyVariant !== 'passive-toes') throw Error('unknown residual body variant');
-  const original = modelSpec(o.model);
-  const spec = o.bodyVariant === 'passive-toes' ? passiveToeBody(original) : original;
+  const spec = modelSpec(o.model);
   const guard = guardPosture(spec), leg = legOf(spec);
   const ends = Object.fromEntries(['left', 'right'].map(side => [side, footOn(spec, side)]));
   const names = Object.fromEntries(['left', 'right'].map(side => [side, JOINTS.map(name => {
@@ -189,9 +183,6 @@ export async function residualEnvironment(configuration = {}) {
             }) };
         })];
       })), footSensors: Object.fromEntries(['left', 'right'].map(side => [side, s.ends[ends[side]].touching])),
-      passiveContacts: Object.fromEntries(spec.joints.filter(joint => joint.dofs.every(dof => dof.passive)).map(joint =>
-        [joint.child, body.built.physics.contactsOf(body.built.segments.get(joint.child).body).filter(contact => contact.other === null)
-          .map(contact => ({ impulse: contact.impulse, normal: [...contact.normal], point: [...contact.point] }))])),
       footMotion: Object.fromEntries(['left', 'right'].map(side => {
         const foot = body.built.segments.get(ends[side]);
         motionAtToRef(foot, foot.pose.position, contactVelocity, contactSpin);
@@ -241,7 +232,6 @@ export async function residualEnvironment(configuration = {}) {
     const startAt = fromRest ? 0 : given?.start ?? warmStart?.start ?? o.starts[Math.floor(random() * o.starts.length)];
     if (!Number.isFinite(startAt) || startAt < 0) throw Error('a residual episode needs a finite running start time');
     stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard, engine: o.engine });
-    if (o.toeConditioning) await conditionToeStand(stand, o.toeConditioning);
     host = stockBody(stand.built, stand.world, { servoSeconds: .1, measuring: true,
       assist: steadinessCeiling(0, steadinessPercent(rulebook('arena'))) });
     body = host.commanded; root = rootSegment(body.built);
@@ -390,8 +380,6 @@ export async function residualEnvironment(configuration = {}) {
     dispose() { dispose(); warmCache.clear(); },
     halt() { control.asked = null; control.stopOrder = true; },
     harness: Object.freeze({ model: o.model, engine: o.engine, hz: stand.world.hz, delay: stand.world.delay,
-      ...(o.bodyVariant ? { bodyVariant: o.bodyVariant } : {}),
-      ...(o.toeConditioning ? { toeConditioning: Object.freeze({ ...o.toeConditioning }) } : {}),
       settle: o.settle,
       actuation: stand.world.actuation, steadiness: 0, loadout: 'empty', posture: 'guard', fallRule: o.fallRule, actionAt: o.actionAt,
       fallPenalty: o.fallPenalty,

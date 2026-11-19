@@ -6,11 +6,10 @@
  *
  * node research/skills/strikes/strike-bouts.mjs --models man --gaps 3 --held empty --seconds 8 --workers 1
  *
- * `--holds left=straight-punch/moving` has that side's body hold the variation in place of its
- * character's own of the skill (`characterSkills`), one flag a side; each action is then read
- * apart by side: begun, committed, committed with a foot off the ground (the lead foot, the one
- * opposite the striking hand, among them), touched (a wound dealt at all), landed (at least
- * `LANDED`), and the damage its touching blows took (the wounds its effector dealt, a blow's sum).
+ * Each action is read apart by side: begun, committed, committed with a foot off the ground (the
+ * lead foot, the one opposite the striking hand, among them), touched (a wound dealt at all),
+ * landed (at least `LANDED`), and the damage its touching blows took (the wounds its effector
+ * dealt, a blow's sum).
  *
  * `--set <path>=<JSON>` has both sides fight their model's own mind (`defaultMind`) with what is at
  * `path` replaced by the JSON, or by the JSON file it names (`replacedAt`, as `evaluate --ablate`);
@@ -27,16 +26,8 @@
  * under the key its profile is found by and the digests it came from (`strikeKey`): what
  * `bout-profiles.mjs` builds profiles from (`strikes`).
  *
- * `--carriage left={"lead":"left","width":0.25,"stagger":0.4,"lower":0.1}` has that side's mind (its
- * model's own, with what `--set` gives it) walk its stance-walk gaits in that carriage all bout
- * (`Carriage`), one flag a side; its profiles stay those measured from the square stand.
- *
- * `--pressure-profiles <table.json>` has a mind that reads a foe's pressure as bouts measured it
- * read it by a table `research/minds/pressure-profiles.mjs --out` wrote, in place of
- * `assets/minds/pressure-profiles.json`.
- *
  * A bout is saved and found under its bodies, gap, what they held, its seconds and a digest of
- * everything else it is played with: the variations held, the drill, both minds and the table.
+ * both minds.
  *
  * A saved bout keeps as well each stretch either body was down (`grounded`, s, from the step one went
  * down to the step both stood): what `bout-readings.mjs` splits a silence by; and what each body's
@@ -47,7 +38,7 @@
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { BOUT_SCHEMA, savedBouts } from "./bout-save.mjs";
@@ -63,44 +54,29 @@ if (isMainThread) {
   const { values } = parseArgs({ options: {
     models: { type: "string" }, gaps: { type: "string", default: "3,4,5" }, held: { type: "string", default: "club" },
     seconds: { type: "string", default: "120" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
-    holds: { type: "string", multiple: true, default: [] }, drill: { type: "string" }, pace: { type: "string" },
-    set: { type: "string", multiple: true, default: [] }, carriage: { type: "string", multiple: true, default: [] },
-    "pressure-profiles": { type: "string" },
+    set: { type: "string", multiple: true, default: [] },
   } });
-  const pressureTable = values["pressure-profiles"] === undefined ? null : JSON.parse(await readFile(values["pressure-profiles"], "utf8")).profiles;
   /** A `--set`: the side it is for (null, both), the path and the value, the JSON given or the JSON file it names. */
   const sets = values.set.map((text) => {
     const at = text.indexOf("="), side = /^(left|right):/.exec(text)?.[1] ?? null, given = text.slice(at + 1);
     if (at <= 0) throw new Error(`--set is [left:|right:]<path>=<JSON or a JSON file>: ${text}`);
     return { side, path: text.slice(side === null ? 0 : side.length + 1, at), value: JSON.parse(existsSync(given) ? readFileSync(given, "utf8") : given) };
   });
-  // With `--drill stand|guard`, the left side is drilled at the right's trunk's middle with its punch (the Strike drill's Option Mind and Commander,
-  // walking into the window at `--pace` m/s, or ordering it where it stands with none), the right a drill opponent (`drill-stand`, `drill-guard`),
-  // the two set the gap apart, centre to centre, facing.
-  const drill = values.drill === undefined ? null : { opponent: `drill-${values.drill}`, ...(values.pace === undefined ? {} : { pace: Number(values.pace) }) };
-  const holds = Object.fromEntries(values.holds.map(one => one.split("=")));
-  const carriages = Object.fromEntries(values.carriage.map(one => { const at = one.indexOf("="); return [one.slice(0, at), JSON.parse(one.slice(at + 1))]; }));
-  if (Object.keys(carriages).some(side => side !== "left" && side !== "right")) throw new Error("--carriage is <left|right>=<JSON>");
-  if (Object.keys(holds).some(side => side !== "left" && side !== "right")) throw new Error("--holds is <left|right>=<skill/variation>");
-  const minded = sets.length > 0 || Object.keys(carriages).length > 0;
-  if (minded && drill) throw new Error("--set and --carriage set the sides' minds; a drill sets its own");
-  const [{ HUMANOID_MODELS }, { LANDED }, { CONTEXT }, { replacedAt, partLookup }, { inCarriage }, { recordingKey }, { sha256Text }] = await Promise.all([import("../../../src/core/bodies/models.ts"),
-    import("../../../src/evaluation/strike/read.ts"), import("../../../src/app/node/context.ts"), import("../../../src/app/catalog.ts"), import("../../../src/minds/option/config.ts"),
+  const [{ HUMANOID_MODELS }, { LANDED }, { CONTEXT }, { replacedAt }, { recordingKey }, { sha256Text }] = await Promise.all([import("../../../src/core/bodies/models.ts"),
+    import("../../../src/evaluation/strike/read.ts"), import("../../../src/app/node/context.ts"), import("../../../src/app/catalog.ts"),
     import("../../../src/core/world/recording.ts"), import("../../../src/evaluation/sha256.ts")]);
-  /** Both sides' minds, `left`'s and `right`'s: each its model's own with what `--set` and `--carriage` give it, in that order; null where none gives anything. */
-  const mindsOf = (left, right) => !minded ? null : Object.fromEntries(["left", "right"].map((side) => {
-    const set = sets.filter((one) => one.side === null || one.side === side).reduce((mind, { path, value }) => replacedAt(mind, path, value), CONTEXT.defaultMind(side === "left" ? left : right));
-    return [side, carriages[side] ? inCarriage(partLookup, set, carriages[side]) : set];
-  }));
+  /** Both sides' minds, `left`'s and `right`'s: each its model's own with what `--set` gives it, in that order; null where it gives nothing. */
+  const mindsOf = (left, right) => sets.length === 0 ? null : Object.fromEntries(["left", "right"].map((side) =>
+    [side, sets.filter((one) => one.side === null || one.side === side).reduce((mind, { path, value }) => replacedAt(mind, path, value), CONTEXT.defaultMind(side === "left" ? left : right))]));
   const models = values.models?.split(",") ?? HUMANOID_MODELS, gaps = values.gaps.split(",").map(Number), seconds = Number(values.seconds);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), helds = values.held.split(",");
   if (!models.length || models.some(model => !HUMANOID_MODELS.includes(model)) || gaps.some(gap => !Number.isFinite(gap) || gap <= 0)
     || !Number.isFinite(seconds) || seconds <= 0 || !Number.isSafeInteger(lanes) || lanes < 1 || helds.some(held => !["club", "empty"].includes(held)))
     throw new Error("invalid models, gaps, seconds, workers or held selection");
   const jobs = [];
-  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, minds: mindsOf(left, right), pressureTable });
-  /** A bout's key: its bodies, gap, what they hold and its seconds, and a digest of what else it is played with. */
-  const key = (job) => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${sha256Text(recordingKey({ holds: job.holds, drill: job.drill, minds: job.minds, pressureTable: job.pressureTable })).slice(0, 16)}`;
+  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, minds: mindsOf(left, right) });
+  /** A bout's key: its bodies, gap, what they hold and its seconds, and a digest of its minds. */
+  const key = (job) => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${sha256Text(recordingKey({ minds: job.minds })).slice(0, 16)}`;
   const loaded = new Map(values.load ? savedBouts(values.load) : []);
   for (const job of jobs) job.result = loaded.get(key(job));
   const played = jobs.filter(job => !job.result), started = Date.now();
@@ -139,7 +115,7 @@ if (isMainThread) {
         const all = theirs.filter(attempt => attempt.action === name), committed = all.filter(attempt => attempt.committed);
         const touched = committed.filter(attempt => attempt.wounds.length > 0), damage = touched.map(attempt => sum(attempt.wounds.map(wound => wound.damage)));
         const landed = damage.filter(hp => hp >= LANDED);
-        console.log(`  ${side} (${holds[side] ?? "own"}) ${name}: begun ${all.length}, committed ${committed.length}, with a foot off the ground ${committed.filter(attempt => attempt.airborne).length} (the lead ${committed.filter(attempt => attempt.leadUp).length}), `
+        console.log(`  ${side} ${name}: begun ${all.length}, committed ${committed.length}, with a foot off the ground ${committed.filter(attempt => attempt.airborne).length} (the lead ${committed.filter(attempt => attempt.leadUp).length}), `
           + `touched ${touched.length}, landed ${landed.length} (${(landed.length / minutes).toFixed(1)} a minute, each at least ${LANDED} hp), damage a touching blow median ${medianOf(damage)?.toFixed(3) ?? "none"}, `
           + `total ${sum(damage).toFixed(2)}; down within ${DOWN} s ${committed.filter(attempt => attempt.down).length}`);
       }
@@ -151,23 +127,13 @@ if (isMainThread) {
   const { SIDES } = await import("../../../src/game/arena/duel.ts");
   const [{ readFought }, { strikeTrial }, { senseDelayOf }, { strikeKey, strikesOf }] = await Promise.all([import("../../../src/evaluation/strike/fought.ts"),
     import("../../../src/evaluation/strike/trial.ts"), import("../../../src/game/arena/duel.ts"), import("./strike-keys.mjs")]);
-  const { characterSkills } = await import("../../../src/core/bodies/models.ts");
   const { footOn } = await import("../../../src/control/support.ts");
   const { CONTEXT } = await import("../../../src/app/node/context.ts");
-  const { createDrillOpponents } = await import("../../../src/evaluation/drill-opponents.ts");
-  const { loadData } = await import("../../../src/core/data/store.ts");
-  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, minds, pressureTable }) => {
+  parentPort.on("message", async ({ left, right, gap, held, seconds, minds }) => {
     let dispose;
     try {
-      // A table from a file is the pressure data this worker loads, before any mind asks for the asset's; a worker plays one table.
-      if (pressureTable) await loadData(["pressure-profiles"], { "pressure-profiles": async () => pressureTable });
-      const skills = Object.fromEntries(Object.entries(holds).map(([side, variation]) => [side, characterSkills(side === "left" ? left : right, [variation])]));
-      const drilled = drill ? { recoverySeconds: null, entry: [], ends: [],
-        start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, 0], heading: -Math.PI / 2 } },
-        minds: { left: CONTEXT.catalog.minds["option-drill"].config, right: createDrillOpponents(CONTEXT).opponentOf(drill.opponent).mind },
-        commanders: { left: { kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, ...(drill.pace === undefined ? { walking: true } : { pace: drill.pace }) } } } : {};
       const recipe = { left, right, gap, capSeconds: seconds, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } },
-        ...(Object.keys(skills).length ? { skills } : {}), ...drilled, ...(minds ? { minds } : {}) };
+        ...(minds ? { minds } : {}) };
       const bout = await buildBout(recipe, { engine: BOUT_ENGINE }); dispose = bout.dispose;
       const { world, duel } = bout, track = Object.fromEntries(SIDES.map(side => [side, {
         side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, attempts: [], sequence: 0,
