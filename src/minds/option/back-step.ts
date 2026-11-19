@@ -42,7 +42,7 @@ function phased(striking: number | undefined, outcomes: (phase: FoePhase | null)
  * says them (`Predictions.steps`), still, in its carriage; and down in the share of its trials that fell.
  */
 export function backStepping({ spec, outcomes, walk, hz, rate = hz, delay }: Pick<ProfileOptionContext, "spec" | "outcomes" | "walk" | "hz" | "rate" | "delay">): readonly Option[] {
-  const act = outcomes.act("steps", measuredOn(spec, BACK_STEP_GAIT.name, null, hz, null, rate, delay)), read = act?.read ?? [];
+  const act = outcomes.act("steps", measuredOn(spec, { skill: BACK_STEP_GAIT.name, limb: null }, { hz, reaction: null, rate, delay })), read = act?.read ?? [];
   const carriage = gaitStance(SWAYS_FROM, spec.model);
   if (!read.length || !carriage) return [];
   const state = { since: null as number | null };

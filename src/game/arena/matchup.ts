@@ -188,7 +188,7 @@ export function createMatchup(context: GameContext) {
    */
   function controlsFor(model: BodyModel, loadout: Loadout = EMPTY_LOADOUT, attributes?: AttributeOverrides): readonly Control[] {
     return Object.keys(MINDS).filter((control) => presetFitsModel(MINDS[control]!, model)
-      && modelRefusal(model, MINDS[control]!.config, loadout, FIGHT_ENTRY, controlCharacter(control, attributes)) === null);
+      && modelRefusal({ model, loadout, attributes: controlCharacter(control, attributes) }, MINDS[control]!.config, FIGHT_ENTRY) === null);
   }
 
   /** The choice a side starts on: its model's own mind (`defaultMind`) where it is offered, else the first offered. */

@@ -40,11 +40,22 @@ export function strikeSkill(spec: BodySpec, executors: readonly ExecutorEntry[],
 /** **The skill a ground technique's profile is found by** (`Measured.skill`): `technique`'s kind and the variation of it a body of `spec` runs, as its character holds it (`skill/variation`). */
 export const techniqueSkill = (spec: BodySpec, technique: PartConfig): string => `${technique.kind}/${chosenVariation(spec, technique.kind, technique) ?? ""}`;
 
-/**
- * The question (`Measured`) a profile of `skill` (`strikeSkill`, `techniqueSkill`) thrown with `limb` (null with none) answers for
- * a body of `spec` at `hz`, its senses `reaction` s late (null for none), its mind's driver at `rate` Hz, its command `delay` steps late.
- */
-export function measuredOn(spec: BodySpec, skill: string, limb: string | null, hz: number, reaction: number | null, rate: number, delay: number): Measured {
+/** **What a profile is asked of**: its skill (`strikeSkill`, `techniqueSkill`), and the limb it is thrown with, null with none. */
+export interface Asked {
+  readonly skill: string;
+  readonly limb: string | null;
+}
+
+/** **What a body is measured at**: its world's rate, Hz; its senses' reaction time, s (null for none); its mind's driver's rate, Hz; its command's delay, steps. */
+export interface MeasuredAt {
+  readonly hz: number;
+  readonly reaction: number | null;
+  readonly rate: number;
+  readonly delay: number;
+}
+
+/** The question (`Measured`) a profile asked of `asked` (`Asked`) answers for a body of `spec` measured at `at` (`MeasuredAt`). */
+export function measuredOn(spec: BodySpec, { skill, limb }: Asked, { hz, reaction, rate, delay }: MeasuredAt): Measured {
   return { body: spec.model, stature: spec.stature.value, skill, ...(limb === null ? {} : { limb }), hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) };
 }
 
@@ -127,20 +138,19 @@ const limbHolds = remembered((profile: Profile) => remembered((spec: Pick<BodySp
 
 /**
  * **The profiles among `profiles` measured on a body of `spec`**, of any skill its limbs throw
- * as they hold (`limbHoldsAsMeasured`), at `hz` with senses `reaction` s late, a mind's driver
- * at `rate` Hz and its command `delay` steps late (`fresh`): what a foe of that body is measured
+ * as they hold (`limbHoldsAsMeasured`), at `at` (`MeasuredAt`, `fresh`): what a foe of that body is measured
  * able to deal. Which skills a foe's character holds is not sensed (`sensedSpec`), so every one
  * measured on its body stands for them. Those it reads (`read`): the fresh, else those measured at
  * another setting, stale; and why those are stale, or why none is read (`stale`, null where they
  * are fresh).
  */
-export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null, rate: number, delay: number): { readonly read: readonly Profile[]; readonly stale: string | null } {
+export function profilesOn(profiles: readonly Profile[], spec: BodySpec, at: MeasuredAt): { readonly read: readonly Profile[]; readonly stale: string | null } {
   const body = spec.model, fresh: Profile[] = [], stale: Profile[] = [];
   let staleWhy: string | null = null;
   for (const profile of profiles) {
     const was = profile.measured;
     if (was.body !== body || !limbHoldsAsMeasured(profile, spec)) continue;
-    const stalled = staleness(profile, measuredOn(spec, was.skill, was.limb ?? null, hz, reaction, rate, delay));
+    const stalled = staleness(profile, measuredOn(spec, { skill: was.skill, limb: was.limb ?? null }, at));
     if (stalled === null) fresh.push(profile);
     else { stale.push(profile); staleWhy ??= stalled; }
   }

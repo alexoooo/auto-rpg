@@ -1,9 +1,7 @@
 import { isRefused } from "../core/refusal.ts";
-import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
-import type { Loadout } from "../core/bodies/items/held.ts";
 import type { MindConfig } from "../minds/catalog/config.ts";
 import { modelHoldingChecked, type BodyModel } from "../core/bodies/models.ts";
-import type { SkillChoices } from "../core/bodies/spec/body.ts";
+import type { BodyAsked } from "../game/arena/context.ts";
 import { catalogOf, type Catalog, type EntryRule } from "../minds/catalog/catalog.ts";
 import { toolkitLists } from "./toolkit.ts";
 import { ENTRANTS } from "./entrants.ts";
@@ -28,12 +26,12 @@ const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
 export const defaultMind = (model: BodyModel): MindConfig => MINDS[DEFAULT_MINDS[model]]!.config;
 
 /**
- * **Why `mind` cannot play `model`'s body carrying `loadout`** in a scenario of entry rules
+ * **Why `mind` cannot play the body `body` asks** (`BodyAsked`) in a scenario of entry rules
  * `entry`, a sentence, or null where it can: a body that holds nothing carries no loadout; else
  * the mind must fit the body as it holds it and meet the rules (`stageRefusal`). A mind that works
  * only with one loadout says so in a part's `fits`, and is offered with no other.
  */
-export function modelRefusal(model: BodyModel, mind: MindConfig, loadout: Loadout, entry: readonly EntryRule[], attributes?: AttributeOverrides, skills?: SkillChoices): string | null {
+export function modelRefusal({ model, loadout, attributes, skills }: BodyAsked, mind: MindConfig, entry: readonly EntryRule[]): string | null {
   const spec = modelHoldingChecked(model, loadout, attributes, skills);
   return isRefused(spec) ? spec.refused : GAME.stageRefusal(spec, mind, entry);
 }

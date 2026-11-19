@@ -131,6 +131,18 @@ function madeFrom(made: Made, leaves: Leaves, seconds: number): boolean {
 }
 
 /**
+ * **What a search is over**, made once a chooser: its Options, the objective it prices them by,
+ * the obedience it prices orders at, how far it looks, s, and how its lines end (`LineEnd`).
+ */
+interface Searched {
+  readonly options: readonly Option[];
+  readonly objective: Objective;
+  readonly obedience: Obedience;
+  readonly horizon: number;
+  readonly end: LineEnd | undefined;
+}
+
+/**
  * **The states a search at `root` reads** (`Situation`), over `options` priced by `objective` at
  * `obedience` over the `horizon`, s, made once a decision. A model is asked at most once a state for
  * each Option and target, and only where something reads it (`modelAt`, `pairsAt`: at `root` an Option
@@ -144,7 +156,7 @@ function madeFrom(made: Made, leaves: Leaves, seconds: number): boolean {
  * side of the life a line trades counts as the objective weighs it by when it comes
  * (`Objective.weigh`: `dealtWeight`, `takenWeight`), as itself where it weighs none.
  */
-function space(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, horizon: number, end: LineEnd | undefined) {
+function space(root: Situation, { options, objective, obedience, horizon, end }: Searched) {
   const place = placing();
   /** What life dealt, and taken, traded evenly over `span` s from `from` s on counts for, a share (`Objective.weigh`); 1 where the objective weighs none. */
   const dealtWeight = (from: number, span: number): number => objective.weigh ? objective.weigh("dealt", from, span, horizon) : 1;
@@ -309,8 +321,8 @@ function pricedLines(prices: readonly (Line & { readonly pair: Pair })[]): Lines
 }
 
 /** **The valued chooser's search at `root`**: each Option's line from there at each of its targets, `depth` Options deep (`space`'s `line`). */
-function search(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, depth: number, horizon: number, end: LineEnd | undefined): Lines {
-  const at = space(root, options, objective, obedience, horizon, end), lines = new Map<Option, (Line | null)[]>();
+function search(root: Situation, searched: Searched & { readonly depth: number }): Lines {
+  const at = space(root, searched), { depth } = searched, lines = new Map<Option, (Line | null)[]>();
   return (option, target) => {
     let byTarget = lines.get(option);
     if (!byTarget) lines.set(option, byTarget = []);
@@ -401,14 +413,14 @@ const NO_ENDS = Object.freeze([]) as unknown as (TreeNode | null)[];
  * line found, never less than its leaf. Every Option on offer at `root` is run at least once. Its
  * root's Options start from what `start` gives them, as evidence of as many runs as it says.
  */
-function treeSearch(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, horizon: number, runs: number,
-  exploration: number, stream: { next(): number }, end: LineEnd | undefined, start: RootStart): Lines {
+function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly stream: { next(): number }; readonly start: RootStart }): Lines {
+  const { runs, exploration, stream, start } = searched;
   const predictions = root.predictions;
   let pressure: Pressure | undefined;
   root = Object.create(root, { predictions: { value: Object.create(predictions, {
     pressure: { get: () => pressure ??= cachedPressure(predictions.pressure) },
   }) } }) as Situation;
-  const at = space(root, options, objective, obedience, horizon, end);
+  const at = space(root, searched);
   const nodeAt = (state: Situation, dealt: number, taken: number, orders: number, seconds: number): TreeNode => {
     const floor = at.leaf(state, "whole", dealt, taken, orders, seconds);
     return { at: state, dealt, taken, orders, seconds, floor, runs: 0, worth: floor, edges: null };
@@ -583,7 +595,8 @@ export const VALUED_CHOOSER = deepFreeze<OptionChooserPart<ValuedConfig>>({
   faults: (config: ValuedConfig) => [...depthFaults(VALUED_DEPTHS)(config), ...searchFaults(config)],
   make: (config: ValuedConfig, options: readonly Option[], seed: number, parts: PartLookup, phase = 0) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON;
-    return chooser(options, searching((now) => search(now, options, objective, obedience, config.depth, horizon, config.end)), { ...DECIDING, phase, keep: KEEP },
+    const searched = { options, objective, obedience, horizon, end: config.end, depth: config.depth };
+    return chooser(options, searching((now) => search(now, searched)), { ...DECIDING, phase, keep: KEEP },
       { margin: config.margin ?? 0, seed }, objective, FOE_HOLDING);
   },
 });
@@ -624,7 +637,8 @@ export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
   make: (config: TreeConfig, options: readonly Option[], seed: number, parts: PartLookup, phase = 0) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
-    return chooser(options, searching((now) => treeSearch(now, options, objective, obedience, horizon, runs, exploration, stream, config.end, warm?.start ?? COLD)),
+    const searched = { options, objective, obedience, horizon, end: config.end, runs, exploration, stream, start: warm?.start ?? COLD };
+    return chooser(options, searching((now) => treeSearch(now, searched)),
       { ...DECIDING, phase, keep: KEEP }, { margin: config.margin ?? 0, seed }, objective, FOE_HOLDING, { tree: stream.state, ...(warm ? { warm: warm.state } : {}) });
   },
 });

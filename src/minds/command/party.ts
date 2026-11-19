@@ -104,7 +104,7 @@ function partyCommander(host: TeamHost, config: PartyConfig): Commander {
       const mind = memory(member.id), its = mind.order;
       if (!member.fighting || (its.kind !== "move" && its.kind !== "force") || its.together !== sent) continue;
       going++;
-      if (member.gaits?.length) pace = Math.min(pace, Math.max(...member.gaits.map((gait) => travelSpeed(gait, [1, 0], Infinity, [], 0, 0))));
+      if (member.gaits?.length) pace = Math.min(pace, Math.max(...member.gaits.map((gait) => travelSpeed(gait, { way: [1, 0], left: Infinity, corners: [], gone: 0, on: 0, ceiling: Infinity }))));
     }
     return going > 1 && Number.isFinite(pace) ? pace : undefined;
   };

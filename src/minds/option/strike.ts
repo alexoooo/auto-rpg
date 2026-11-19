@@ -7,7 +7,8 @@ import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
 import { measuredOn, staleness, strikeSkill } from "../../skills/framework/profile/lookup.ts";
 import { type Expected, type ProfileReading } from "../../skills/framework/profile/reading.ts";
 import { type Postures, type Stances, type Measured } from "../../skills/framework/profile/profile.ts";
-import type { ActOutcomes, OutcomeModel } from "../../skills/framework/outcomes.ts";
+import type { ActOutcomes } from "../../skills/framework/outcomes.ts";
+import type { ProfileOptionContext } from "./profile-contract.ts";
 import type { Sight } from "../decider.ts";
 import { asking, exitOutcomes, blocked, READY, standing, type Asked, type Option, type Site, type Situation } from "./option.ts";
 import { startOf, threatened } from "./percepts.ts";
@@ -35,9 +36,13 @@ interface StrikeMeasure {
   readonly act: ActOutcomes | null;
 }
 
-/** The measure (`StrikeMeasure`) of `action`, carried out by one of `executors`, thrown with its one limb by a body of `spec` at `hz` whose mind decides at `rate` Hz and whose command is `delay` steps late, asked of `outcomes`. */
-export const strikeMeasure = (spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig, hz: number, outcomes: OutcomeModel, rate: number, delay: number): StrikeMeasure => {
-  const measured = measuredOn(spec, strikeSkill(spec, executors, action), action.effectors[0] ?? null, hz, null, rate, delay);
+/**
+ * The measure (`StrikeMeasure`) of `action`, carried out by one of `executors`, thrown with its one
+ * limb by a body of `spec` at `hz` whose mind decides at `rate` Hz (its world's unless given) and
+ * whose command is `delay` steps late, asked of `outcomes`.
+ */
+export const strikeMeasure = ({ spec, outcomes, hz, rate = hz, delay }: Pick<ProfileOptionContext, "spec" | "outcomes" | "hz" | "rate" | "delay">, executors: readonly ExecutorEntry[], action: ActionConfig): StrikeMeasure => {
+  const measured = measuredOn(spec, { skill: strikeSkill(spec, executors, action), limb: action.effectors[0] ?? null }, { hz, reaction: null, rate, delay });
   return { spec, measured, act: outcomes.act("strikes", measured) };
 };
 

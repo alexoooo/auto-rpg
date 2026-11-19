@@ -48,8 +48,8 @@ export const createUnseenCases = perContext((context: GameContext) => {
         if (!isMind(value)) return ["no mind"];
         if (subject && !presetFitsModel(subject, model)) return [`named calibration does not allow ${model}`];
         if (!modelHolds(model) && (loadout.left !== "empty" || loadout.right !== "empty")) return [`${model} holds nothing`];
-        const refused = modelRefusal(model, mindOf(value), loadout, FIGHT_ENTRY, subject?.character, characterSkills(model, subject?.variations)),
-          opposed = modelRefusal(model, MINDS[OPPONENT.mind].config, OPPONENT.loadout, FIGHT_ENTRY, MINDS[OPPONENT.mind].character);
+        const refused = modelRefusal({ model, loadout, attributes: subject?.character, skills: characterSkills(model, subject?.variations) }, mindOf(value), FIGHT_ENTRY),
+          opposed = modelRefusal({ model, loadout: OPPONENT.loadout, attributes: MINDS[OPPONENT.mind].character }, MINDS[OPPONENT.mind].config, FIGHT_ENTRY);
         if (refused !== null) return [`the mind cannot play ${model} carrying ${loadoutKey(loadout)}: ${refused}`];
         if (opposed !== null) return [`the opponent cannot play ${model}: ${opposed}`];
         return [];

@@ -27,7 +27,7 @@ export const createTournamentEntrants = perContext((context: GameContext) => {
 
   /** Whether `config` can play `model` with `character`'s attributes carrying `loadout` in a fight (`modelRefusal`). */
   const fits = (model: BodyModel, config: MindConfig, loadout: Loadout, character: AttributeOverrides): boolean =>
-    modelRefusal(model, config, loadout, FIGHT_ENTRY, character) === null;
+    modelRefusal({ model, loadout, attributes: character }, config, FIGHT_ENTRY) === null;
 
   /** Mind `id`'s entrants: one for each character and representative loadout it fits. */
   const entrantsOf = (id: string, label: string, config: MindConfig, models: readonly BodyModel[] = BODY_MODELS, character: AttributeOverrides = {}): Subject[] =>

@@ -42,8 +42,9 @@ export function faceSteering(body: Body, faces: Partial<Record<Side, StrikingFac
       pointAtToRef(limb.trunkChain, limb.angles, limb.shoulder, shoulder);
       intoFrameToRef(view.root, sensed, target);
       view.effectors[`hand.${hand}`]!.points[limb.point]!.applyRotationQuaternionToRef(view.root.rotation, struck).addInPlace(view.root.position);
-      steerFeatures(body, view, hand, channels[hand], since, apart.set(target.x - shoulder.x, target.y - shoulder.y, target.z - shoulder.z), sensed, aimed,
-        touching, limb.arm, out, struck);
+      // A swing's steer is given no foe's facing or guard: its features read zeros for them.
+      steerFeatures({ body, view, hand, channels: channels[hand], since, fromShoulder: apart.set(target.x - shoulder.x, target.y - shoulder.y, target.z - shoulder.z), target: sensed, aimed,
+        touching, arm: limb.arm, strike: struck, facing: null, guard: null }, out);
     },
   };
 }

@@ -74,17 +74,33 @@ function slowFrom(gait: GaitLimits, distance: number, on: number, end = 0): numb
 }
 
 /**
- * **The speed rule**: how fast the body goes, m/s, the least of
- *
- * - the gait's top speed the way it is going, `way` (forward and to the right in its heading's frame,
- *   any length), relative to where it faces (`heldPace` on its envelope; none stated, no bound);
- * - the speed it stops from in `left` m, going on at `on`, the speed it has the way it goes, for its
- *   lag (`Locomotion.lag`), then slowing at its stopping deceleration (`Locomotion.stopping`);
- * - for each corner ahead, the speed it slows from to that corner's (`cornerSpeed`) by the corner, the
- *   same way: of `corners`, each one past `gone` m along the way, that much nearer;
- * - `ceiling`, the goal's own, if it gives one.
+ * **A body going along its way, as the speed rule reads it** (`travelSpeed`): the way it goes,
+ * `way`, forward and to the right in its heading's frame (any length); how far it has `left` to
+ * go, m; its way's `corners` (`cornersOf`), it `gone` m along them; the speed it has the way it
+ * goes, `on`, m/s; and the goal's own `ceiling`, m/s (Infinity where it gives none). Called in a
+ * step, its caller fills one it made once.
  */
-export function travelSpeed(gait: GaitLimits, way: readonly [forward: number, right: number], left: number, corners: readonly Corner[], gone: number, on: number, ceiling = Infinity): number {
+export interface Going {
+  way: readonly [forward: number, right: number];
+  left: number;
+  corners: readonly Corner[];
+  gone: number;
+  on: number;
+  ceiling: number;
+}
+
+/**
+ * **The speed rule**: how fast the body going (`Going`) goes, m/s, the least of
+ *
+ * - the gait's top speed the way it is going, relative to where it faces (`heldPace` on its
+ *   envelope; none stated, no bound);
+ * - the speed it stops from in the m it has left, going on at the speed it has the way it goes for
+ *   its lag (`Locomotion.lag`), then slowing at its stopping deceleration (`Locomotion.stopping`);
+ * - for each corner ahead, the speed it slows from to that corner's (`cornerSpeed`) by the corner, the
+ *   same way: each one past the m it has gone along the way, that much nearer;
+ * - its ceiling, the goal's own.
+ */
+export function travelSpeed(gait: GaitLimits, { way, left, corners, gone, on, ceiling }: Readonly<Going>): number {
   const envelope = gait.envelope;
   let speed = Math.min(ceiling, envelope ? heldPace(envelope, way[0], way[1]) : Infinity, slowFrom(gait, left, on));
   for (let k = 0; k < corners.length; k++) {
@@ -125,17 +141,19 @@ export function legSeconds(gait: GaitLimits, from: GroundPoint, way: readonly Gr
   let total = 0, at = from;
   for (const point of way) { total += hypot(point.x - at.x, point.z - at.z); at = point; }
   let gone = 0, speed = on;
+  const going: Going = { way: [1, 0], left: total, corners, gone: 0, on, ceiling };
   at = from;
   for (const point of way) {
     const x = point.x - at.x, z = point.z - at.z, length = hypot(x, z), pieces = Math.max(1, Math.ceil(length / PIECE)), step = length / pieces;
-    const facing = length > 0 ? frame(x / length, z / length) : [1, 0] as const;
+    going.way = length > 0 ? frame(x / length, z / length) : [1, 0] as const;
     let time = 0;
     for (let i = 0; i < pieces; i++) {
       const middle = gone + (i + .5) * step;
       // A piece is crossed at the mean of the speed it is entered at and the speed asked at its middle:
       // near the end the speed asked comes to 0, and the body brakes across the piece from what it had.
       const entered = speed;
-      speed = travelSpeed(gait, facing, total - middle, corners, middle, speed, ceiling);
+      going.left = total - middle; going.gone = middle; going.on = speed;
+      speed = travelSpeed(gait, going);
       time += entered + speed > 0 ? 2 * step / (entered + speed) : Infinity;
     }
     seconds.push(length > 0 ? time : 0);

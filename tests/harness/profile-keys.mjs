@@ -23,7 +23,7 @@ export function profileKeys() {
     if (loadoutFaults(loadout).length || !modelHolds(model) && (loadout.left !== "empty" || loadout.right !== "empty")) continue;
     bodies.push({ model, spec: withLoadout(resolveCharacter({ model, skills }).spec, loadout) });
   }
-  const on = (spec, skill, limb) => profileKey(measuredOn(spec, skill, limb, 0, null, 0, 0));
+  const on = (spec, skill, limb) => profileKey(measuredOn(spec, { skill, limb }, { hz: 0, reaction: null, rate: 0, delay: 0 }));
   const keys = { strike: new Set(), edge: new Set(), step: new Set() };
   const techniques = Object.entries(allParts()).filter(([, part]) => part.role === "technique").map(([kind]) => ({ kind }));
   for (const preset of Object.values(MINDS)) {

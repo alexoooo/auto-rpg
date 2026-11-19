@@ -109,7 +109,7 @@ export function teamFaults(context: GameContext, recipe: TeamRecipe): readonly s
   return SIDES.flatMap((side) => {
     const { count, model, loadout, mind } = recipe[side];
     if (!Number.isInteger(count) || count < 1 || count > TEAM_MOST) return [`the ${side} side fields 1 to ${TEAM_MOST} bodies, not ${count}`];
-    const refused = modelRefusal(model, mind ?? defaultMind(model), loadout, FIGHT_ENTRY);
+    const refused = modelRefusal({ model, loadout }, mind ?? defaultMind(model), FIGHT_ENTRY);
     return refused === null ? [] : [`the ${side} mind cannot play ${model} carrying ${loadout.left},${loadout.right}: ${refused}`];
   });
 }

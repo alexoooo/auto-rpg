@@ -472,8 +472,9 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
       const { chain, angles, trunk } = limb;
       for (let j = 0; j < trunk; j++) chain[j]!.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(chain[j]!, k)] ?? 0; });
       pointAtToRef(limb.trunkChain, angles, limb.shoulder, apart);
-      steerFeatures(body, view, hand, steeredChannels[hand], since, apart.set(target.x - apart.x, target.y - apart.y, target.z - apart.z), state.target, state.aimed,
-        (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, limb.arm, learner.inputs, limb.behind ? struck(view, hand, limb) : null, seen.facing, seen.guard);
+      steerFeatures({ body, view, hand, channels: steeredChannels[hand], since, fromShoulder: apart.set(target.x - apart.x, target.y - apart.y, target.z - apart.z),
+        target: state.target, aimed: state.aimed, touching: (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, arm: limb.arm,
+        strike: limb.behind ? struck(view, hand, limb) : null, facing: seen.facing, guard: seen.guard }, learner.inputs);
     }
     steerPushes(pushes, steeredChannels[hand], outputs);
   };

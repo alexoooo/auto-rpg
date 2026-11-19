@@ -94,7 +94,7 @@ test("a foe is modelled alike whatever skills its character holds", () => {
     assert.ok(on.length > 0, `the stored profiles hold a ${model}'s strikes`);
     const skills = [...new Set(on.map(({ measured }) => measured.skill))];
     if (skills.some((skill) => !spec.skills.includes(skill))) both++;
-    const { hz, reaction, rate, delay } = on[0].measured, read = (one) => profilesOn(profiles, one, hz, reaction, rate ?? hz, delay ?? 0);
+    const { hz, reaction, rate, delay } = on[0].measured, read = (one) => profilesOn(profiles, one, { hz, reaction, rate: rate ?? hz, delay: delay ?? 0 });
     const own = read(spec);
     assert.ok(own.read.length > 0 && own.stale === null, `a ${model} is modelled by measured strikes: ${own.stale}`);
     for (const one of [{ ...spec, skills: [skills.at(-1)] }, sensedSpec(spec)]) assert.deepEqual(read(one), own);

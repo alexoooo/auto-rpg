@@ -9,7 +9,7 @@ export function entrantRecipes() {
     const candidates = [...Object.values(entrant.presets).map((preset) => preset.config), ...(entrant.minds ?? []).map((mind) => mind.defaults)];
     for (const config of candidates) {
       for (const loadout of LOADOUTS) {
-        const model = BODY_MODELS.find((body) => modelRefusal(body, config, loadout, []) === null);
+        const model = BODY_MODELS.find((body) => modelRefusal({ model: body, loadout }, config, []) === null);
         if (model) return { name: `entrant ${entrant.name}`, recipe: { left: model, right: model, entry: [], loadouts: { left: loadout, right: loadout }, minds: { left: config, right: config } } };
       }
     }

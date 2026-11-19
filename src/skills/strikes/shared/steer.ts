@@ -146,18 +146,37 @@ const framed = (view: BodyView, x: number, y: number, z: number, out: Vector3): 
 };
 
 /**
- * **What a steered punch reads**, into `out`, as `channels` lay its inputs out: the readings
- * (`READINGS`), the hand's side mirrored away (across negated for the left hand), and each named
- * channel's angle or speed, rad or rad/s, in its sense. `fromShoulder` is the target less the
- * shoulder, body frame; `channels` are `hand`'s (`steerChannels`). `strike`, world, is where the
- * blow's striking point is, the fist's where null: a held blow's is its face's (`StrikingFace`);
- * the velocity read is the fist's either way. `facing`, world, is the way the target's body faces,
- * a unit vector, null where none is seen; `guard`, world, its two forearms' centres, one after the
- * other, null where none is seen.
+ * **What a steered blow is read from** (`steerFeatures`): the body as `view` has it, the hand
+ * throwing and its channels (`steerChannels`); the blow's age, s; the target less the shoulder,
+ * body frame (`fromShoulder`); the target, world, and its velocity, m/s (`aimed`); whether the
+ * hand touches; the arm's length, m. `strike`, world, is where the blow's striking point is, the
+ * fist's where null: a held blow's is its face's (`StrikingFace`); the velocity read is the fist's
+ * either way. `facing`, world, is the way the target's body faces, a unit vector, and `guard`,
+ * world, its two forearms' centres, one after the other: each null where none is seen or the
+ * skill reads none, read as zeros.
  */
-export function steerFeatures(body: Body, view: BodyView, hand: Side, channels: SteerChannels, since: number, fromShoulder: Vector3, target: readonly number[],
-  aimed: readonly number[], touching: boolean, arm: number, out: number[], strike: Vector3 | null = null, facing: readonly number[] | null = null,
-  guard: readonly number[] | null = null): number[] {
+export interface SteerRead {
+  readonly body: Body;
+  readonly view: BodyView;
+  readonly hand: Side;
+  readonly channels: SteerChannels;
+  readonly since: number;
+  readonly fromShoulder: Vector3;
+  readonly target: readonly number[];
+  readonly aimed: readonly number[];
+  readonly touching: boolean;
+  readonly arm: number;
+  readonly strike: Vector3 | null;
+  readonly facing: readonly number[] | null;
+  readonly guard: readonly number[] | null;
+}
+
+/**
+ * **What a steered punch reads** (`SteerRead`), into `out`, as its channels lay its inputs out: the
+ * readings (`READINGS`), the hand's side mirrored away (across negated for the left hand), and
+ * each named channel's angle or speed, rad or rad/s, in its sense.
+ */
+export function steerFeatures({ body, view, hand, channels, since, fromShoulder, target, aimed, touching, arm, strike, facing, guard }: SteerRead, out: number[]): number[] {
   const side = hand === "right" ? 1 : -1, fist = view.pointMotion[fistOn(body.built.spec, hand)!]!.knuckles!, muscles = body.muscles, at = strike ?? fist.position;
   let k = 0;
   read[k++] = since;

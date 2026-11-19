@@ -10,7 +10,7 @@ import { copyMovement, sameMovement, stands, type MovementRequest, type GroundPo
 import type { NavigationReport, NavigationSight, NavigationStatus, NavigationStep, Navigator } from "../../../framework/navigation.ts";
 import type { SolidSense } from "../../../../core/bodies/object-senses.ts";
 import { createRouter } from "./route-search.ts";
-import { cornersOf, passedWithin, ROUTE_MARGIN, travelSpeed, WAYPOINT, type Corner } from "../travel.ts";
+import { cornersOf, passedWithin, ROUTE_MARGIN, travelSpeed, WAYPOINT, type Corner, type Going } from "../travel.ts";
 
 /**
  * Route clearance includes gait sway; progress windows are navigation preferences, not anatomy. A
@@ -29,6 +29,9 @@ const apart = (a: GroundPoint, b: GroundPoint): number => hypot(a.x - b.x, a.z -
 const atHeight = (at: GroundPoint, height: number): Vec3 => [at.x, height, at.z];
 /** No corner ahead. */
 const NO_CORNERS: readonly Corner[] = Object.freeze([]);
+
+/** What a step's speed rule is asked (`travelSpeed`), filled each time: made once, it carries nothing between calls. */
+const GOING: Going = { way: [1, 0], left: Infinity, corners: NO_CORNERS, gone: 0, on: 0, ceiling: Infinity };
 
 /** Whether two sensed solids are the same: the same name, kind and numbers. */
 function sameSolid(a: SolidSense, b: SolidSense): boolean {
@@ -149,7 +152,8 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     /** The speed going the ground way (`x`, `z`) with `left` m to stop in and `corners` ahead, from the speed the body has that way. */
     const going = (x: number, z: number, left: number, corners: readonly Corner[]): number => {
       const h = report.legs.heading, way = hypot(x, z), velocity = view.stance.velocity, on = way > 0 ? (velocity.x * x + velocity.z * z) / way : 0;
-      const speed = travelSpeed(gait, [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)], left, corners, 0, on, ceiling);
+      GOING.way = [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)]; GOING.left = left; GOING.corners = corners; GOING.on = on; GOING.ceiling = ceiling;
+      const speed = travelSpeed(gait, GOING);
       return Number.isFinite(speed) ? speed : 0;
     };
     if (request.kind === "direct") {

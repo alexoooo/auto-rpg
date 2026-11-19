@@ -7,7 +7,7 @@ import { shieldHands } from "./cover-hand.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
 import { along, asking, blocked, LEGS, READY, standing, type Ask, type Option, type Site, type Situation } from "./option.ts";
 import { NOTHING, WHOLE, type Status } from "../choice.ts";
-import { edgeOf, graceAt, inReach, startOf, threatened } from "./percepts.ts";
+import { edgeOf, inReach, startOf, threatened } from "./percepts.ts";
 import { AS_IS, clinched, STILL, UNMOVED, upOrDown, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
@@ -25,7 +25,7 @@ export function holding(at: Situation, ask: Ask | undefined, coming = at.predict
   const seconds = ask?.until ?? 0;
   if (at.down) return { duration: seconds, dealt: 0, orders: 0, taken: coming + at.predictions.downRate(at.posture) * seconds, outcomes: UNMOVED };
   const still = startOf({ focus: at.focus, where: at.where, velocity: STILL });
-  return { duration: seconds, dealt: 0, orders: 0, taken: coming + threatened(at, seconds, at.range, graceAt(at), still), outcomes: upOrDown(AS_IS, clinched(at, seconds)) };
+  return { duration: seconds, dealt: 0, orders: 0, taken: coming + threatened(at, seconds, still), outcomes: upOrDown(AS_IS, clinched(at, seconds)) };
 }
 
 /**

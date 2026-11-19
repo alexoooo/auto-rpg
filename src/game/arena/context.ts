@@ -7,6 +7,14 @@ import type { Catalog, EntryRule } from "../../minds/catalog/catalog.ts";
 import type { TechniquePart } from "../../skills/recovery/shared/technique.ts";
 import type { BodySpec, SkillChoices } from "../../core/bodies/spec/body.ts";
 
+/** **A body as a mind is asked to play it**: its model, what it carries, and its character's attributes and skills where they are not its model's own. */
+export interface BodyAsked {
+  readonly model: BodyModel;
+  readonly loadout: Loadout;
+  readonly attributes?: AttributeOverrides;
+  readonly skills?: SkillChoices;
+}
+
 /** The immutable application choices supplied to gameplay and evaluation. */
 export interface GameContext {
   readonly catalog: Catalog;
@@ -14,7 +22,7 @@ export interface GameContext {
   readonly build: string;
   readonly techniques: Readonly<Record<string, TechniquePart>>;
   defaultMind(model: BodyModel): MindConfig;
-  modelRefusal(model: BodyModel, mind: MindConfig, loadout: Loadout, entry: readonly EntryRule[], attributes?: AttributeOverrides, skills?: SkillChoices): string | null;
+  modelRefusal(body: BodyAsked, mind: MindConfig, entry: readonly EntryRule[]): string | null;
 }
 
 /** `make` made once a context: whoever asks with the same context is handed the same thing. */

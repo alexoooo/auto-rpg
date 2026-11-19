@@ -82,7 +82,8 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
             const along = enter + (i + .5) / pieces * within, tx = fx - (x + along * ux), tz = fz - (z + along * uz);
             const spent = Math.min(grace, dt);
             grace -= spent;
-            taken += dealtAt(pressure, at, hypot(tx, tz) - offset, dt - spent, startVelocity({ x: tx, z: tz }, moving), duration - seconds + enter / pace + i * dt + spent);
+            taken += dealtAt(pressure, at, { apart: hypot(tx, tz) - offset, velocity: startVelocity({ x: tx, z: tz }, moving), seconds: dt - spent,
+              from: duration - seconds + enter / pace + i * dt + spent });
           }
         }
         grace = Math.min(pressure.latency, grace + (length - leave) / pace);

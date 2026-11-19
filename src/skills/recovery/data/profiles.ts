@@ -19,7 +19,7 @@ export const groundStart = (from: string): Postures => ({ own: from, target: "no
  */
 export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number, delay: number, outcomes: OutcomeModel): {
   readonly expected: ((from: string) => Expected | null) | null; readonly priced: string } {
-  const act = outcomes.act("edges", measuredOn(spec, techniqueSkill(spec, technique), null, hz, null, hz, delay));
+  const act = outcomes.act("edges", measuredOn(spec, { skill: techniqueSkill(spec, technique), limb: null }, { hz, reaction: null, rate: hz, delay }));
   if (!act) return { expected: null, priced: "no drill measured it" };
   if (!act.read.length) return { expected: null, priced: act.stale ?? "no drill measured it" };
   return { expected: (from) => act.reading(null, spec, groundStart(from))?.expect({ range: 0, phase: "clear" }, null) ?? null, priced: act.stale === null ? "measured" : `measured, stale, ${act.stale}` };

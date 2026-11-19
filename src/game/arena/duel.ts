@@ -354,7 +354,7 @@ export class Duel {
     for (const side of SIDES) {
       const model = recipe[side], loadout = loadoutIn(recipe, side), config = recipe.minds?.[side] ?? defaultMind(model);
       modelHolding(model, loadout, characters[side].config.attributes);
-      const refused = modelRefusal(model, config, loadout, entryRules(recipe), characters[side].config.attributes);
+      const refused = modelRefusal({ model, loadout, attributes: characters[side].config.attributes, skills: characters[side].config.skills }, config, entryRules(recipe));
       if (refused !== null) throw new Error(`the ${side} mind cannot play ${model} carrying ${loadout.left},${loadout.right}: ${refused}`);
     }
     this.world = world;

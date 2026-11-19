@@ -71,7 +71,7 @@ export async function edgeTrial(job, given) {
     }
     const r = built.reading(), stood = r.stood && r.verified !== null, g = built.combatant.body.view.ground, t = built.world.time;
     for (const trial of [...open, ...waiting]) close(trial, t, g, stood, null);
-    return { job, reading: r, trials: trials.map((trial) => ({ ...trial, measured: measuredOn(spec, techniqueSkill(spec, trial.skill), null, hz, null, hz, delay),
+    return { job, reading: r, trials: trials.map((trial) => ({ ...trial, measured: measuredOn(spec, { skill: techniqueSkill(spec, trial.skill), limb: null }, { hz, reaction: null, rate: hz, delay }),
       origin: { spec: specDigest(spec), skill: techniqueDigest(partLookup, spec, trial.skill) }, postures: groundStart(trial.from), held: heldNumbers(spec) ?? null })) };
   } finally { built.dispose(); }
 }

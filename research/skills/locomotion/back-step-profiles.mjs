@@ -65,7 +65,7 @@ for (const path of paths) {
     if (row.fault || !row.reading?.sways || row.world.kind !== "bout") continue;
     const spec = specOf(recipe), struck = specOf(recipe, "right");
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
-    const measured = measuredOn(spec, SKILL, null, hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify(measured);
+    const measured = measuredOn(spec, { skill: SKILL, limb: null }, { hz, reaction, rate: hz / everyOf(mind.rate, hz), delay }), key = JSON.stringify(measured);
     const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${SKILL} at ${struck.model}`, digests: { spec: specDigest(spec) },
       commits: new Set(), dates: new Set(), changed: false, trials: [] };
     profiles.set(key, profile);

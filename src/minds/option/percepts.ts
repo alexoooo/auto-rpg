@@ -220,7 +220,7 @@ function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySp
  * no measured strike throws is priced by hand while the others are measured.
  */
 function foeModel(seen: Seen, foe: BodySpec, postures: Postures = STANDING): Model {
-  const reaction = reactionOf(seen), on = profilesOn(seen.measured, foe, seen.hz, reaction, seen.rate, seen.delay);
+  const reaction = reactionOf(seen), on = profilesOn(seen.measured, foe, { hz: seen.hz, reaction, rate: seen.rate, delay: seen.delay });
   const strikes: readonly ModelledStrike[] = on.read.length ? strikesOf(on.read)
     : seen.strikes.filter((strike) => profileAgainst(strike.profiles, seen.spec) !== null);
   const thrown = new Set(strikes.flatMap((strike) => strike.limbs)), limbs = defaultStrikeLimbs(foe).filter((limb) => !thrown.has(limb));
@@ -573,15 +573,22 @@ export function edgeOf(now: Pick<Situation, "range" | "apart">, pressure: Pressu
   return now.range + range - now.apart;
 }
 
+/** **A span under the focus's pressure**: the two `apart` m head to head, moving at `velocity` (`startOf`), for `seconds` s from `from` s after now. */
+export interface Span {
+  readonly apart: number;
+  readonly velocity: readonly [number, number];
+  readonly seconds: number;
+  readonly from: number;
+}
+
 /**
- * **The life `seconds` s cost the struck body under `pressure`** with the two `apart` m head to
- * head, moving at `velocity` (the start's at `now` unless given, `startOf`), `from` s after `now`:
- * at the range centre to centre that leaves, what bouts measured there (`Pressure.measured`) from
- * `from` to `from + seconds` s after a moment, the focus doing as now where `now` is the body's
- * own and as any where it is a state an Option leaves (`Situation.grace`), later than what it does
- * now; else, or where they measured none near, its strikes' rate (`pressureAt`).
+ * **The life a span (`Span`) costs the struck body under `pressure`**, at `now`: at the range
+ * centre to centre its `apart` leaves, what bouts measured there (`Pressure.measured`) from `from`
+ * to `from + seconds` s after a moment, the focus doing as now where `now` is the body's own and as
+ * any where it is a state an Option leaves (`Situation.grace`), later than what it does now; else,
+ * or where they measured none near, its strikes' rate (`pressureAt`).
  */
-export function dealtAt(pressure: Pressure, now: Situation, apart: number, seconds: number, velocity = startOf(now), from = 0): number {
+export function dealtAt(pressure: Pressure, now: Situation, { apart, velocity, seconds, from }: Span): number {
   const range = now.apart + apart - now.range, measured = pressure.measured;
   const curve = measured ? pressureCurve(measured.table, now.grace === undefined ? measured.doing : null, range) : null;
   return curve ? curve(from + seconds) - curve(from) : pressureAt(pressure, range, velocity, seconds);
@@ -629,11 +636,11 @@ export const graceAt = (now: Situation): number => now.grace ?? now.reached.grac
 
 /**
  * **The own life `seconds` s cost under the focus's pressure** (`Pressure`, `dealtAt`), standing
- * `apart` m from it head to head, the two moving at `velocity` (`startOf`; the start's at `now`
- * unless given): none of the first `grace` s (`graceAt`), before a blow not yet begun reaches it.
+ * where it stands at `now`, the two moving at `velocity` (`startOf`; the start's at `now` unless
+ * given): none of the first s of its grace (`graceAt`), before a blow not yet begun reaches it.
  */
-export const threatened = (now: Situation, seconds: number, apart = now.range, grace = graceAt(now), velocity = startOf(now)): number =>
-  dealtAt(now.predictions.pressure, now, apart, Math.max(0, seconds - grace), velocity);
+export const threatened = (now: Situation, seconds: number, velocity = startOf(now)): number =>
+  dealtAt(now.predictions.pressure, now, { apart: now.range, velocity, seconds: Math.max(0, seconds - graceAt(now)), from: 0 });
 
 /**
  * **The own life `blow` is expected to take**: the most its striker's measured strikes thrown with
