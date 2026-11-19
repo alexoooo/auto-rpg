@@ -291,16 +291,16 @@ function railOf(moving: Moving, settled: number, direction: Direction, speed: nu
  * in turn from one stream, the same for every body, each drawn to the millimetre and the
  * hundredth; its limbs, its hands then its feet, by turns, and its marks and targets by turns of them.
  */
-function sampledConditions(protocol: typeof SAMPLED & { readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly stances?: true }): StillCondition[] {
+function sampledConditions(protocol: typeof SAMPLED & { readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly pairings?: readonly (Staggered | undefined)[] }): StillCondition[] {
   const conditions: StillCondition[] = [], within = ([low, high]: readonly number[], at: number) => low! + at * (high! - low!);
-  const limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
+  const limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))], pairings = protocol.pairings ?? [undefined];
   for (const model of protocol.models) {
     const stream = randomStream(protocol.seed);
     for (let k = 0; k < protocol.trials; k++) {
       const way = APPROACHES[k % APPROACHES.length]!, limb = limbs[k % limbs.length]!, turn = Math.floor(k / limbs.length), mark = protocol.marks[turn % protocol.marks.length]!;
       const target = protocol.targets?.[turn % protocol.targets.length];
-      // Each limb, mark and target takes each pairing in turn, where the rung draws stances.
-      const staggered = protocol.stances ? PAIRINGS[Math.floor(turn / (protocol.marks.length * (protocol.targets?.length ?? 1))) % PAIRINGS.length] : undefined;
+      // Each limb, mark and target takes each pairing in turn, where the rung draws stances; both square where it draws none.
+      const staggered = pairings[Math.floor(turn / (protocol.marks.length * (protocol.targets?.length ?? 1))) % pairings.length];
       const gap = within(way === 0 ? protocol.closer : protocol.gaps, stream.next()), across = within(protocol.across, stream.next());
       const speed = within(protocol.speeds, stream.next()), seconds = within(protocol.times, stream.next());
       conditions.push({ model, mark, ...limb, ...(target === undefined ? {} : { target }), across: Math.round(across * 1000) / 1000, gap: Math.round(gap * 1000) / 1000,
@@ -349,6 +349,18 @@ const FIGHTS_DRAWN = deepFreeze({ ...FIGHTS_TWIN, seed: 3, trials: FIGHTS_TWIN.t
  * it would replace.
  */
 const FIGHTS_JUDGE = deepFreeze({ ...FIGHTS_TWIN, seed: 4, trials: FIGHTS_TWIN.trials * 10 });
+
+/**
+ * **A fight rung's grid** (`FIGHT`, `FIGHTS`): on each body against each foe, from each of its gaps (the
+ * open stage's own where it names none), at each mark with each limb, its hands then its feet, at
+ * each moment.
+ */
+function fightGrid(protocol: typeof FIGHT & { readonly feet?: readonly Hand[]; readonly gaps?: readonly number[] }): FightCondition[] {
+  const conditions: FightCondition[] = [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
+  for (const model of protocol.models) for (const foe of protocol.foes) for (const gap of protocol.gaps ?? [undefined]) for (const mark of protocol.marks) for (const limb of limbs)
+    for (const moment of protocol.moments) conditions.push({ model, foe, mark, ...limb, moment, ...(gap === undefined ? {} : { gap }) });
+  return conditions;
+}
 
 /**
  * **A drawn fights rung's trials** (`FIGHTS_TWIN`): on each body against each foe, `trials` fights,
@@ -412,9 +424,10 @@ const SPARRING_JUDGE = deepFreeze({ ...SPARRING, seed: 4, trials: SPARRING.trial
  * **Sparring in stances**, `sparring-stances`: sparring's starts on a stream of their own, a
  * Warrior at a Warrior, each body square or staggered (`STAGGERED`) by turns, four pairings
  * (`PAIRINGS`) of as many starts each as `sparring-drawn` and `sparring-judge` give a Warrior at
- * one: what a profile reads how the two stand by (`Start.stance`).
+ * one foe of theirs: what a profile reads how the two stand by (`Start.stance`).
  */
-const SPARRING_STANCES = deepFreeze({ ...SPARRING, models: ["man"] as BodyModel[], targets: ["man"] as BodyModel[], seed: 5, trials: SPARRING.trials * 20 / 3 * PAIRINGS.length, stances: true as const });
+const SPARRING_STANCES = deepFreeze({ ...SPARRING, models: ["man"] as BodyModel[], targets: ["man"] as BodyModel[], seed: 5,
+  trials: (SPARRING_DRAWN.trials + SPARRING_JUDGE.trials) / SPARRING.targets.length * PAIRINGS.length, pairings: PAIRINGS });
 
 /**
  * **Sparring at a foe laid down**, the `sparring-laid` rung: the stomping rung's sampled starts
@@ -535,10 +548,8 @@ export const createStrikeCases = perContext((context: GameContext) => {
     };
   }
 
-  function fightCases(protocol: typeof FIGHT & { readonly feet?: readonly Hand[]; readonly gaps?: readonly number[] }, drawn?: readonly FightCondition[]): Cases<StrikeCondition, StrikeReading> {
-    const conditions: FightCondition[] = drawn ? [...drawn] : [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
-    if (!drawn) for (const model of protocol.models) for (const foe of protocol.foes) for (const gap of protocol.gaps ?? [undefined]) for (const mark of protocol.marks) for (const limb of limbs)
-      for (const moment of protocol.moments) conditions.push({ model, foe, mark, ...limb, moment, ...(gap === undefined ? {} : { gap }) });
+  /** **A fight rung's cases** (`FIGHT`), of its `conditions`: its grid (`fightGrid`) or its drawn fights (`drawnFights`). */
+  function fightCases(protocol: typeof FIGHT, conditions: readonly FightCondition[]): Cases<StrikeCondition, StrikeReading> {
     return {
       arity: 1,
       play: protocol as unknown as Json,
@@ -576,12 +587,12 @@ export const createStrikeCases = perContext((context: GameContext) => {
     "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
     "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),
-    stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT), fights: fightCases(FIGHTS),
+    stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT, fightGrid(FIGHT)), fights: fightCases(FIGHTS, fightGrid(FIGHTS)),
     "fights-twin": fightCases(FIGHTS_TWIN, drawnFights(FIGHTS_TWIN)), "fights-drawn": fightCases(FIGHTS_DRAWN, drawnFights(FIGHTS_DRAWN)),
     "fights-judge": fightCases(FIGHTS_JUDGE, drawnFights(FIGHTS_JUDGE)),
     letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), ...twinned("stomping", STOMPING),
     "stomping-sampled": stillCases(STOMPING_SAMPLED, sampledConditions(STOMPING_SAMPLED)),
-    ...twinned("still-bodies", atEveryFoe(onOtherBodies(STILL))), ...twinned("walk-bodies", atEveryFoe(onOtherBodies(WALK))), "fight-bodies": fightCases(onOtherBodies(FIGHT)),
+    ...twinned("still-bodies", atEveryFoe(onOtherBodies(STILL))), ...twinned("walk-bodies", atEveryFoe(onOtherBodies(WALK))), "fight-bodies": fightCases(onOtherBodies(FIGHT), fightGrid(onOtherBodies(FIGHT))),
     ...twinned("stomping-bodies", onOtherBodies(STOMPING)) });
 
   return { faultsOf, strikesBy, STRIKE_CASES };
