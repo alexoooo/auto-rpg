@@ -77,7 +77,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   for (let i = 0; i < legsSlots.length; i++) legsHeld[legsSlots[i]!] = 1;
   const on = attachment(body.built);
   const instances = actionInstances(executors, actions, resources, { attached: (effector) => on(body.built.segments.get(effector)!) }), guarding = guard.posture;
-  // The guard's posture is a constant: its channels are read once, not every step. So are the slots of the guard's hands and of each effector's chain.
+  // The channels a guard may write are fixed, so their slots are found once, as are the slots of the guard's hands and of each effector's chain. Its posture is one
+  // object, which choosing another guard rewrites in place (`guardRepertoire`): held once, read each step.
   const guardChannels = guard.channels ?? Object.keys(guarding), guardSlots = guardChannels.map((channel) => resources.channel.get(channel) ?? -1);
   const guardEffectors = guard.effectors.map((hand) => resources.effector.get(hand) ?? -1), guardPoses = guard.effectors.map((hand) => resources.pose.get(hand) ?? -1);
   const modelEffectors = models.map((model) => resources.effector.get(model.segment) ?? -1);

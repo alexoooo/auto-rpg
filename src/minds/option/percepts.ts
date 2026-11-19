@@ -686,6 +686,19 @@ function downRateAtOf(seen: Seen): (posture: Position) => number {
 }
 
 /**
+ * **How the body and `other` stand toward each other, each in its carriage** (`stancesOf`,
+ * `carriageOf`): what the Mind reads a profile at. Read so, a body walking in its own carriage is
+ * asked at the stance it stands at, and a stride's swing of the feet asks nothing new.
+ */
+function carriedStances(spec: BodySpec, view: Sight["view"], other: BodySense): Stances {
+  const { own, target } = stancesOf(spec, view, other);
+  return { ...(own ? { own: carriageOf(spec.model, own) } : {}), ...(target ? { target: carriageOf(other.spec.model, target) } : {}) };
+}
+
+/** How two bodies stand with no focus: neither read. */
+const NO_STANCES: Stances = Object.freeze({});
+
+/**
  * **Every percept Option Mind reads**, by name: what it reads of the senses
  * and its own body with fixed geometry and kinematics, the same whatever a drill or the rules give.
  * Whether the body is down, how it lies (`Position`, what bears it, as the ground reading's label
@@ -710,19 +723,6 @@ function downRateAtOf(seen: Seen): (posture: Position) => number {
  * blow it strikes with, s (Infinity with none). Its cues: going down or getting up, another posture,
  * orders asking for something else (`ordersAsked`), another focus, a threat or a blow coming.
  */
-/**
- * **How the body and `other` stand toward each other, each in its carriage** (`stancesOf`,
- * `carriageOf`): what the Mind reads a profile at. Read so, a body walking in its own carriage is
- * asked at the stance it stands at, and a stride's swing of the feet asks nothing new.
- */
-function carriedStances(spec: BodySpec, view: Sight["view"], other: BodySense): Stances {
-  const { own, target } = stancesOf(spec, view, other);
-  return { ...(own ? { own: carriageOf(spec.model, own) } : {}), ...(target ? { target: carriageOf(other.spec.model, target) } : {}) };
-}
-
-/** How two bodies stand with no focus: neither read. */
-const NO_STANCES: Stances = Object.freeze({});
-
 const PERCEPTS = Object.freeze({
   down: { read: (seen) => seen.sight.view.down, cue: (down) => down } as Percept<boolean>,
   posture: { read: ({ sight }) => sight.view.ground?.position ?? (sight.view.down ? "between" : "standing"), cue: (posture) => posture } as Percept<Position>,

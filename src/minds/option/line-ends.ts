@@ -197,7 +197,7 @@ const EXCHANGE: LineEndKind<LineEnd<"exchange">> = {
   },
 };
 
-/** **By the next exchange, once** (`LineEndSettings.next`), at the scale that scored best against the tail on `warrior`. */
+/** **By the next exchange, once** (`LineEndSettings.next`); how each scale plays is in `docs/approaches.md` (minds). */
 const NEXT: LineEndKind<LineEnd<"next">> = {
   label: "By the next exchange, once", preset: { kind: "next", once: 3 },
   faults: (end) => share(end.once) ? [] : ["once a finite share, not negative"],
