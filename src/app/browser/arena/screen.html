@@ -1,7 +1,8 @@
 <canvas id="stage" tabindex="0" aria-label="Arena game"></canvas>
 <!-- Each side's name and bar, and the bout's clock; filled by src/app/browser/arena/main.ts. -->
 <div id="hud">
-  <label class="field arena-control">
+  <label class="field arena-control" title="Who you control">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10a5 5 0 0 1 5 5v2.5a3.5 3.5 0 0 1-6.4 2L14.5 15h-5l-1.1 1.5A3.5 3.5 0 0 1 2 14.5V12a5 5 0 0 1 5-5ZM7 9.5h1.5V11H10v1.5H8.5V14H7v-1.5H5.5V11H7ZM15.5 10a1 1 0 1 0 0 2a1 1 0 0 0 0-2ZM18 12a1 1 0 1 0 0 2a1 1 0 0 0 0-2Z"/></svg>
     <span class="field-name">Control</span>
     <select id="you">
       <option value="">Spectator</option>
@@ -10,10 +11,10 @@
     </select>
   </label>
 </div>
-<details id="arena-view" hidden aria-label="View controls">
-  <summary>View</summary>
-  <div id="arena-view-controls"></div>
-</details>
+<div id="arena-view" hidden>
+  <button id="arena-view-button" type="button" title="View and camera">View</button>
+  <div id="arena-view-controls" role="group" aria-label="View controls"></div>
+</div>
 <!-- Setup covers the arena because no bout exists yet. Pause does not: its compact sibling
      below leaves the frozen arena visible. -->
 <!-- One grid over the arena: a title across the top, a contender panel at each edge, an

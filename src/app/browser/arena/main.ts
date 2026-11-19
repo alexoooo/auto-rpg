@@ -57,6 +57,7 @@ import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
 import { choice, following, type Control } from "../ui/controls.ts";
 import { viewControls } from "../ui/view-controls.ts";
+import { floatingPanel } from "../ui/floating-panel.ts";
 import { cameraControls } from "../ui/camera-controls.ts";
 import { cameraSubject } from "../render/orbit-camera.ts";
 import { playerControls } from "../ui/player-controls.ts";
@@ -433,9 +434,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     for (const puppet of puppets) puppet.dispose();
     drawn = []; puppets = []; bodies.clear(); shownBodies = []; subjects = null;
   };
-  const viewPanel = need<HTMLDetailsElement>("arena-view");
-  viewPanel.open = false;
-  viewPanel.querySelector("summary")!.addEventListener("click", event => (event.currentTarget as HTMLElement).blur());
+  // The view's button and its panel, which floats under it.
+  const viewPanel = need("arena-view"), viewButton = need<HTMLButtonElement>("arena-view-button");
+  floatingPanel(viewButton, need("arena-view-controls"), context.signal);
+  viewButton.addEventListener("click", () => viewButton.blur());
   for (const type of ["pointerdown", "pointermove", "wheel"]) viewPanel.addEventListener(type, event => event.stopPropagation());
   const viewFields: Control[] = [];
   const chooseView = (patch: Partial<ArenaView>) => {
@@ -503,8 +505,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const meter = frameMeter(engine, context.signal);
   clockColumn.className = "hud-col hud-clock";
   pauseButton.id = "arena-pause"; pauseButton.type = "button"; pauseButton.className = "action quiet";
-  pauseButton.textContent = "Pause"; pauseButton.title = "Pause (Space / Esc)"; pauseButton.hidden = true;
-  pauseButton.setAttribute("aria-controls", "pause-menu");
+  pauseButton.textContent = "Pause"; pauseButton.title = "Pause or resume (Space / Esc)"; pauseButton.hidden = true;
+  pauseButton.setAttribute("aria-controls", "pause-menu"); pauseButton.setAttribute("aria-pressed", "false");
   // Pause on choice, while the person leads a side; paused so, what to do and how to go on.
   const choiceBox = Object.assign(document.createElement("input"), { type: "checkbox", checked: pauseOnChoice });
   const choiceLabel = document.createElement("label"), choosingLine = document.createElement("div");
@@ -515,7 +517,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   for (const control of [controlField, choiceLabel, goOn]) for (const type of ["pointerdown", "pointermove"]) control.addEventListener(type, event => event.stopPropagation());
   choiceBox.addEventListener("change", () => { choiceBox.blur(); pauseOnChoice = choiceBox.checked; bout?.link.input({ kind: "hold", hold: pauseOnChoice }); });
   goOn.addEventListener("click", () => { goOn.blur(); setPaused(false); });
-  clockColumn.append(clock, controlField, pauseButton, choiceLabel, choosingLine, viewPanel, meter.element); hud.insertBefore(clockColumn, rows[1].label.parentElement);
+  // The bout's tools stand in one row under its clock: who the person leads, pause, the view and the frame meter.
+  const tools = document.createElement("div");
+  tools.className = "hud-tools"; tools.append(controlField, pauseButton, viewPanel, meter.element);
+  // The pause menu floats under them, by the button that opens it.
+  clockColumn.append(clock, tools, choiceLabel, choosingLine, need("pause-menu")); hud.insertBefore(clockColumn, rows[1].label.parentElement);
   // A reel's trial: which, its conditions and the outcome it was read as, auto-play and the next trial.
   const reelLine = document.createElement("div"), trialText = document.createElement("span");
   const autoBox = Object.assign(document.createElement("input"), { type: "checkbox", checked: auto });
@@ -533,7 +539,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     choosing = paused && why === "choice";
     show("pause-menu", paused && !choosing);
     choosingLine.hidden = !choosing;
-    pauseButton.hidden = paused || !bout || decided;
+    // The button stays where it is while the bout is paused, marked so, and resumes it.
+    pauseButton.hidden = !bout || decided; pauseButton.setAttribute("aria-pressed", String(paused));
     audio.setActive(!paused && bout !== null && !decided);
     sync();
   };
@@ -666,9 +673,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     you = youPicker.value === "left" || youPicker.value === "right" ? youPicker.value : null;
     void begin(fromPickers());
   });
-  for (const [button, value] of [[pauseButton, true], [need("resume"), false]] as const) {
+  for (const button of [pauseButton, need("resume")]) {
     for (const type of ["pointerdown", "pointermove"]) button.addEventListener(type, event => event.stopPropagation());
-    button.addEventListener("click", () => { button.blur(); setPaused(value); });
+    button.addEventListener("click", () => { button.blur(); setPaused(button === pauseButton && !paused); });
   }
   /** Plays the reel's trial `k`. */
   const playTrial = (k: number) => { at = k; const one = trials![k]!; void begin({ left: one.world.recipe.left, right: one.world.recipe.right }, one); };
