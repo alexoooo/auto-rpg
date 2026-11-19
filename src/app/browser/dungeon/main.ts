@@ -46,7 +46,7 @@ import { orbitCamera, cameraSubject, type CameraSubject } from "../render/orbit-
 import { VIEW_CAMERA } from "../render/camera-math.ts";
 import { pickingCoordinates } from "../render/picking.ts";
 import { DRESSING, dressingPlacements, torchPlacements } from "../../../game/dungeon/dressing.ts";
-import { lightDungeon, CRYPT_LIGHT, REFERENCE_LIGHT, type DungeonLighting } from "./lighting.ts";
+import { lightDungeon, CRYPT_LIGHT, GENERATED_LIGHT, REFERENCE_LIGHT, type DungeonLighting } from "./lighting.ts";
 import { lookProbe } from "./look-probe.ts";
 import { frameMeter } from "../ui/frame-meter.ts";
 import { dungeonStone, stoneQuery } from "./stone.ts";
@@ -364,7 +364,8 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
     const solids = run.level.solids.length;
     const torches = cryptPlan?.torches ?? (reference ? [...REFERENCE_TORCHES] : torchPlacements(run.map, seed));
     page.soundTorches = torches;
-    const lighting = page.lighting = lightDungeon(scene, camera, run.map, torches, azimuth, cryptPlan ? CRYPT_LIGHT : reference ? REFERENCE_LIGHT : undefined);
+    const lighting = page.lighting = lightDungeon(scene, camera,
+      { map: run.map, torches, azimuth, profile: cryptPlan ? CRYPT_LIGHT : reference ? REFERENCE_LIGHT : GENERATED_LIGHT });
     run.level.sconces(torches);
     if (!reference && stone.dressing) run.level.dress(dressingPlacements(run.map, seed, DRESSING, toward));
     if (reference) {

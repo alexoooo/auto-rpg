@@ -11,7 +11,7 @@ import type { Engine } from "@babylonjs/core/Engines/engine.js";
 
 import { dressForgeRoom, paintArenaBanners, type ForgeFire } from "./forge-room.ts";
 import { loadForgeStyle, paveForge } from "./forge-style.ts";
-import { postPipeline } from "../render/post.ts";
+import { GRADE, postPipeline } from "../render/post.ts";
 import { buildArenaWorld, type ArenaAudit, type RoomMaterials, type RoomOcclusionTarget } from "./room.ts";
 import { sceneModel } from "../render/asset-cache.ts";
 import { loadArtAssets } from "../render/art-assets.ts";
@@ -116,7 +116,7 @@ export async function buildArena(engine: Engine, level: ArenaLevel = "open", sig
   paveForge(scene, forge.materials.pavement, forge.materials.brazierBronze, forge.materials.lava);
   paintArenaBanners(scene, forge);
   const fire = dressForgeRoom(scene, forge);
-  postPipeline(scene, camera);
+  postPipeline(scene, camera, GRADE);
 
   return {
     scene, camera, materials, shadows, fire, audit: world.audit,

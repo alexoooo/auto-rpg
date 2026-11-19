@@ -6,19 +6,21 @@ import "@babylonjs/core/PostProcesses/RenderPipeline/postProcessRenderPipelineMa
 import "@babylonjs/core/Rendering/depthRendererSceneComponent.js";
 
 /**
- * The grade's strengths, set by eye: the image's contrast and
- * exposure, the vignette's weight, and the brightness a pixel blooms from with the bloom's weight.
+ * A grade's strengths, set by eye: the image's contrast and exposure, the vignette's weight, and
+ * the brightness a pixel blooms from with the bloom's weight.
  */
-const GRADE = Object.freeze({ contrast: 1.12, exposure: 1.15, vignetteWeight: 1.35, bloomThreshold: 1.1, bloomWeight: .16 });
-/** Warm torch cores bloom against cool stone without darkening the room's edges heavily. */
-const CRYPT_GRADE = Object.freeze({ contrast: 1.18, exposure: 1.28, vignetteWeight: 0.85, bloomThreshold: 0.95, bloomWeight: .22 });
+export interface Grade { readonly contrast: number; readonly exposure: number; readonly vignetteWeight: number; readonly bloomThreshold: number; readonly bloomWeight: number }
+
+/** The game's grade. */
+export const GRADE: Grade = Object.freeze({ contrast: 1.12, exposure: 1.15, vignetteWeight: 1.35, bloomThreshold: 1.1, bloomWeight: .16 });
+/** The crypt's: warm torch cores bloom against cool stone without darkening the room's edges heavily. */
+export const CRYPT_GRADE: Grade = Object.freeze({ contrast: 1.18, exposure: 1.28, vignetteWeight: 0.85, bloomThreshold: 0.95, bloomWeight: .22 });
 
 /**
- * Anti-aliasing, ACES tone mapping, vignette and bloom, with a grade selected at construction.
+ * Anti-aliasing, ACES tone mapping, vignette and bloom, in `grade`.
  * A leaf, so that the crypt takes it without loading the arena's room.
  */
-export function postPipeline(scene: Scene, camera: Camera, options: { grade?: "default" | "crypt" } = {}): DefaultRenderingPipeline {
-  const grade = options.grade === "crypt" ? CRYPT_GRADE : GRADE;
+export function postPipeline(scene: Scene, camera: Camera, grade: Grade): DefaultRenderingPipeline {
   const post = new DefaultRenderingPipeline("post", true, scene, [camera]);
   // Sample geometry edges before post-processing; canvas MSAA does not cover these render targets.
   post.samples = Math.min(4, scene.getEngine().getCaps().maxMSAASamples);

@@ -13,27 +13,21 @@ import "@babylonjs/core/Rendering/geometryBufferRendererSceneComponent.js";
 import "@babylonjs/core/Rendering/prePassRendererSceneComponent.js";
 import "@babylonjs/core/Lights/Clustered/clusteredLightingSceneComponent.js";
 import { isTactical } from "../render/scene-profile.ts";
-import { postPipeline } from "../render/post.ts";
+import { CRYPT_GRADE, GRADE, postPipeline, type Grade } from "../render/post.ts";
 import { publicAssetUrl } from "../asset-url.ts";
-import { CAMERA_AZIMUTH } from "../../../game/dungeon/bearing.ts";
 import { flames as makeFlames } from "../render/fire.ts";
 import { cutAway } from "../../../game/dungeon/fog.ts";
 import { orthographicLightProxy } from "./light-proxy.ts";
 import { cellKey, type DungeonMap, type Point } from "../../../game/dungeon/map.ts";
 import type { TorchPlacement } from "../../../game/dungeon/dressing.ts";
 
-/**
- * Generated-dungeon defaults, set by eye. The reference chamber opts into
- * its own profile (`REFERENCE_LIGHT`).
- */
+/** A dungeon's look whatever its light (`DungeonLightProfile`), set by eye. */
 const DUNGEON_LOOK = Object.freeze({
-  /** A cold, dim fill from above that leaves the torches to do the work. */
-  ambient: Object.freeze({ intensity: 0.18, diffuse: "#7d8fb3", ground: "#1a1614" }),
-  /** The arena's HDRI, kept low underground: enough to give bronze and wet stone a reflection. */
-  environmentIntensity: 0.22,
+  /** The ground's colour under the ambient fill. */
+  ambient: Object.freeze({ ground: "#1a1614" }),
   /** Carried at `height`, `behind` metres from the hero toward the camera, so the faces the camera sees are lit.
    * A PBR point light falls off by inverse square, so it stands close and bright. */
-  lantern: Object.freeze({ color: "#ffcf8f", intensity: 9, height: 2.6, behind: 0.8 }),
+  lantern: Object.freeze({ height: 2.6, behind: 0.8 }),
   /** A torch, and how far its flicker swings the intensity either way. */
   torch: Object.freeze({ color: "#ff8a3d", intensity: 6, flicker: 0.6 }),
   /** The flame volume's centre stands above its anchor so the iron basket shows beneath the fire. */
@@ -44,35 +38,44 @@ const DUNGEON_LOOK = Object.freeze({
   /** Torch lights kept on when the clustered container is not supported: the ones nearest the hero. Materials
    * carry four lights, and the ambient and the lantern take two of them. */
   fallbackLights: 2,
-  /** The contribution at which a light's range is drawn, a sixth of the ambient. */
+  /** The contribution at which a light's range is drawn, a sixth of a generated level's ambient. */
   cutoff: 0.03,
 });
 
 /** A PBR point light never reaches zero, and `range` does not shape it: the clustered container culls by it.
  * Drawn where the inverse-square contribution has fallen to `cutoff`: 14.8 m for a torch at the top of its
- * flicker, 17.3 m for the lantern. The container's tile fit is exact under this camera only because
+ * flicker, 17.3 m for a generated level's lantern. The container's tile fit is exact under this camera only because
  * `orthographicLightProxy` makes it so. */
 const lightRange = (intensity: number): number => Math.sqrt(intensity / DUNGEON_LOOK.cutoff);
 
 export interface LookSwitches { torches: boolean; ssao: boolean; post: boolean }
 
+/** **A dungeon's light**: its ambient fill, the arena's HDRI's strength, its lantern and its grade. */
 interface DungeonLightProfile {
   ambientIntensity: number;
   ambientColor: string;
   environmentIntensity: number;
   lanternIntensity: number;
   lanternColor: string;
-  grade?: "default" | "crypt";
+  grade: Grade;
 }
+/**
+ * A generated level's, set by eye: a cold, dim fill from above that leaves the torches to do the
+ * work, the HDRI kept low underground, enough to give bronze and wet stone a reflection, and a warm lantern.
+ */
+export const GENERATED_LIGHT: Readonly<DungeonLightProfile> = Object.freeze({
+  ambientIntensity: 0.18, ambientColor: "#7d8fb3", environmentIntensity: 0.22,
+  lanternIntensity: 9, lanternColor: "#ffcf8f", grade: GRADE,
+});
 /** The reference chamber's cooler fill and dimmer lantern, set by eye. */
 export const REFERENCE_LIGHT: Readonly<DungeonLightProfile> = Object.freeze({
   ambientIntensity: .30, ambientColor: "#9aaecf", environmentIntensity: .58,
-  lanternIntensity: 5, lanternColor: "#dce5f5",
+  lanternIntensity: 5, lanternColor: "#dce5f5", grade: GRADE,
 });
 /** The modular crypt's torches provide the warm key; cool fill retains the hero's outline. */
 export const CRYPT_LIGHT: Readonly<DungeonLightProfile> = Object.freeze({
   ambientIntensity: .55, ambientColor: "#819dc9", environmentIntensity: .85,
-  lanternIntensity: 3.5, lanternColor: "#c8d9f5", grade: "crypt",
+  lanternIntensity: 3.5, lanternColor: "#c8d9f5", grade: CRYPT_GRADE,
 });
 
 export interface DungeonLighting {
@@ -94,8 +97,10 @@ export interface DungeonLighting {
   dispose(): void;
 }
 
-export function lightDungeon(scene: Scene, camera: FreeCamera, map: DungeonMap, torches: readonly TorchPlacement[],
-  azimuth = CAMERA_AZIMUTH, profile?: Readonly<DungeonLightProfile>): DungeonLighting {
+/** **A level lit** in `profile`, seen from a camera at `azimuth`. */
+export function lightDungeon(scene: Scene, camera: FreeCamera, { map, torches, azimuth, profile }: {
+  readonly map: DungeonMap; readonly torches: readonly TorchPlacement[]; readonly azimuth: number; readonly profile: Readonly<DungeonLightProfile>;
+}): DungeonLighting {
   let presentationEnabled = true;
   const look: LookSwitches = { torches: true, ssao: true, post: true };
   scene.clearColor = new Color4(...DUNGEON_LOOK.clearColor, 1);
@@ -103,14 +108,14 @@ export function lightDungeon(scene: Scene, camera: FreeCamera, map: DungeonMap, 
   // relation to the view: Babylon's `RotationY` takes `cameraToward(PI / 4)` to `cameraToward(azimuth)`.
   const sky = Vector3.TransformNormal(new Vector3(0.3, 1, -0.4), Matrix.RotationY(azimuth - Math.PI / 4));
   const ambient = new HemisphericLight("dungeon ambient", sky, scene);
-  ambient.intensity = profile?.ambientIntensity ?? DUNGEON_LOOK.ambient.intensity;
-  ambient.diffuse = Color3.FromHexString(profile?.ambientColor ?? DUNGEON_LOOK.ambient.diffuse);
+  ambient.intensity = profile.ambientIntensity;
+  ambient.diffuse = Color3.FromHexString(profile.ambientColor);
   ambient.groundColor = Color3.FromHexString(DUNGEON_LOOK.ambient.ground);
   scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
-  scene.environmentIntensity = profile?.environmentIntensity ?? DUNGEON_LOOK.environmentIntensity;
+  scene.environmentIntensity = profile.environmentIntensity;
   const lantern = new PointLight("wanderer lantern", Vector3.Zero(), scene);
-  lantern.diffuse = Color3.FromHexString(profile?.lanternColor ?? DUNGEON_LOOK.lantern.color);
-  lantern.intensity = profile?.lanternIntensity ?? DUNGEON_LOOK.lantern.intensity;
+  lantern.diffuse = Color3.FromHexString(profile.lanternColor);
+  lantern.intensity = profile.lanternIntensity;
   lantern.range = lightRange(lantern.intensity);
 
   const flameLook = makeFlames(scene);
@@ -149,7 +154,7 @@ export function lightDungeon(scene: Scene, camera: FreeCamera, map: DungeonMap, 
       ao.radius = DUNGEON_LOOK.ssao.radius; ao.totalStrength = DUNGEON_LOOK.ssao.totalStrength;
       ao.samples = DUNGEON_LOOK.ssao.samples; ao.expensiveBlur = false; setMaxZ();
     }
-    if (presentationEnabled && look.post) post = postPipeline(scene, camera, { grade: profile?.grade });
+    if (presentationEnabled && look.post) post = postPipeline(scene, camera, profile.grade);
   };
   buildPost();
 
