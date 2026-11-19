@@ -19,7 +19,7 @@ import { otherSide, type Side } from "../../core/bodies/bilateral.ts";
 const HOLDING: FootState[] = [];
 
 /** The foot of `feet` that is the end `name` (`FootState.name`). */
-const named = (feet: readonly FootState[], name: BearingEnd): FootState => feet.find((foot) => foot.name === name)!;
+export const named = (feet: readonly FootState[], name: BearingEnd): FootState => feet.find((foot) => foot.name === name)!;
 
 /**
  * A walk's step under way, for its re-aim: its foot, the pivot the body falls about, the swing's
@@ -109,7 +109,7 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
     return [lx, lz];
   };
   if (under) {
-    const foot = feet.find((f) => f.name === under.foot)!, bearer = feet.find((f) => f !== foot)!, p = under.pivot;
+    const foot = named(feet, under.foot), bearer = feet.find((f) => f !== foot)!, p = under.pivot;
     const [tx, tz] = landing(bearer, foot, p.x, p.z, Math.max(under.remaining, 0), 1);
     return { foot: foot.name, to: [tx, tz], seconds: tuning.seconds, lift: tuning.lift, shift: false, early: true };
   }

@@ -12,7 +12,7 @@ import type { StanceEnvelope } from "./stance/stance-envelope.ts";
  * control that reads the body's support and carries out a stance goal (`StanceControl`), as
  * `stanceControl` is.
  */
-export type BalanceMaker = (built: ReadBody, tuning?: StanceTuning, assist?: AssistReading | null) => StanceControl;
+export type BalanceMaker = (built: ReadBody, tuning: StanceTuning | undefined, assist: AssistReading | null) => StanceControl;
 
 /**
  * **A kind of balance**: a part of role `balance` that owns its config's type, keys, defaults,

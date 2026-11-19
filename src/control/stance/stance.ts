@@ -1,5 +1,4 @@
-import type { StancePhase } from "./goal.ts";
-import type { StanceGoal, StanceReading, SwingGoal } from "./goal.ts";
+import type { StanceGoal, StancePhase, StanceReading, SwingGoal } from "./goal.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import { anglesOf, rotationOfToRef } from "../../core/bodies/build/joint-state.ts";
 import { channelName, type MuscleReading } from "../../core/bodies/muscle/driver.ts";
@@ -8,12 +7,12 @@ import type { Limb } from "../bearing.ts";
 import type { WholeBodyAsk } from "../solve.ts";
 import { rotationAtToRef } from "../kinematics.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
-import { aimRecovery, catchStep, ownStep, paceToward } from "./gait.ts";
+import { aimRecovery, catchStep, named, ownStep, paceToward } from "./gait.ts";
 import { gravityOf, makeStance, type Stance } from "./state.ts";
 import { type FootState, type SoleEnd, bearingEdge, bearingEnd, bearingOf, bearingSole, clearAcross, clearAlong, endPast, groundContact, heldBy, landingHeading, landingHeight, legLength, lowestCorner, pivotWithin, readSupport, rolledRows, soleFlatTurn, soleHeight, soleMiddleToRef, withinSupport } from "../support.ts";
 import { angularMomentumToRef, massCentreToRef, motionAtToRef, pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
 import { sin, cos, atan2, exp, sinh, cosh, hypot } from "../../core/math/real.ts";
-import type { BearingEnd } from "../../core/bodies/spec/body.ts";
+import type { BearingEnd, DofSpec } from "../../core/bodies/spec/body.ts";
 import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../../core/math/turn.ts";
 import { approachToRef, turnToRef } from "../approach.ts";
 import { swingBowToRef, swingPathToRef, swingProgressToRef } from "../swing-path.ts";
@@ -73,11 +72,11 @@ const LATE_DESCENT = 0.3, LATE_MOST = 1;
  */
 export interface StanceControl {
   /**
-   * Read the body: its centre of mass and velocity, and the soles of `feet` (the last command's
-   * stance feet, or all of them). A body reads this before its driver decides, so the driver's view is
+   * Read the body: its centre of mass and velocity, and the soles of the last command's stance
+   * feet, or all of them. A body reads this before its driver decides, so the driver's view is
    * this step's; `command` uses it.
    */
-  read(feet?: readonly BearingEnd[]): void;
+  read(): void;
   /**
    * Set `goal`'s aims from the last reading: the centre of mass's, the pelvis's turn's and each
    * stance leg's foot's accelerations. The stance legs' channels are marked in `owned`, for the
@@ -132,7 +131,7 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], s
     // The swing leg's reaction (`swingShiftToRef`): the pivot the plan falls about is the centre of
     // pressure shifted by it, now and, folded over the time left, as the foot lands; the centre of
     // pressure is kept within what the ankle holds. Before the foot has lifted, its path is from where it is.
-    const foot = s.feet.find((f) => f.name === swing!.foot)!, hip = foot.chain[0]!, from = step.lifted ? step.from : foot.middle;
+    const foot = named(s.feet, swing!.foot), hip = foot.chain[0]!, from = step.lifted ? step.from : foot.middle;
     pointOfToRef(hip.parent, hip.spec.centre.value, hipAt);
     swingBowToRef(from, swing!.to, bearer!.middle, bearer!.ends.front.middle, bearer!.ends.heel.middle, clearAlong(bearer!, foot, gait.clearance), clearAcross(foot, gait.clearance), sideOf(foot, goal.heading), bow);
     swingShiftToRef(foot.leg, foot.ankle, foot.back, goal.heading, hipAt, reading.centre, swing!, bow, from, step.lifted ? step.time : 0,
@@ -218,8 +217,8 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
     }
     if (spare !== null) {
       // The shank's turn is the foot's with the ankle's own undone (rel = D_shank^-1 D_foot).
-      const dorsiflexion = ankle!.dofs[0]!.spec, end: SoleEnd = foot.memory.rolled ?? (endPast(foot, r.x, r.z) === "heel" ? "heel" : "front");
-      rotationAtToRef(ankle!, [end === "front" ? dorsiflexion.max.value - spare : dorsiflexion.min.value + spare, 0], shank);
+      const end: SoleEnd = foot.memory.rolled ?? (endPast(foot, r.x, r.z) === "heel" ? "heel" : "front");
+      rotationAtToRef(ankle!, [stopLessSpare(ankle!.dofs[0]!.spec, end, spare), 0], shank);
       turnOfToRef(foot.segment, footTurn).multiplyToRef(Quaternion.InverseToRef(shank, shank), shank);
       const k = knee!.spec.centre.value, o = ankle!.spec.centre.value;
       kneeAt.set(k[0] - o[0], k[1] - o[1], k[2] - o[2]).applyRotationQuaternionToRef(shank, kneeAt).addInPlace(ankleAt);
@@ -261,7 +260,7 @@ function rollFeet(s: Stance, stance: readonly FootState[], swing: SwingGoal | nu
     else if (foot.memory.rolled && past !== foot.memory.rolled && (reading.phase === "shift" && !swing?.transfer || (foot.memory.rolled === "front" ? foot.heel <= foot.flat : -foot.heel <= -foot.flat))) foot.memory.rolled = null;
   }
   if (reading.phase === "shift" && swing?.transfer) {
-    const trailing = feet.find((f) => f.name === swing.foot)!, front = trailing.ends.front.middle;
+    const trailing = named(feet, swing.foot), front = trailing.ends.front.middle;
     if (stance.includes(trailing)) trailing.memory.rolled = u.x * (front.x - trailing.middle.x) + u.z * (front.z - trailing.middle.z) > 0 ? "front" : "heel";
   }
 }
@@ -308,10 +307,7 @@ function landingTurnToRef(foot: FootState, heading: number, lean: readonly [numb
   if (lean) {
     const ankle = foot.chain[2]!, [pitch, roll] = ankle.dofs;
     // What the range refuses of the angle a flat sole wants, in the constraint's measure.
-    const refused = (dof: BuiltDof, wants: number): number => {
-      const low = dof.spec.min.value + spare, high = dof.spec.max.value - spare;
-      return dof.sign * (wants - (low > high ? (low + high) / 2 : wants < low ? low : wants > high ? high : wants));
-    };
+    const refused = (dof: BuiltDof, wants: number): number => dof.sign * (wants - withinRange(dof.spec, spare, wants));
     const a = refused(pitch!, -lean[0] - pitch!.spec.bind.value), b = roll ? refused(roll, -lean[1] - roll.spec.bind.value) : 0;
     if (a !== 0 || b !== 0) out.multiplyInPlace(rotationOfToRef(ankle.axes, -a, -b, 0, work));
   }
@@ -348,8 +344,7 @@ function ankleTurnToRef(foot: FootState, turn: Quaternion, spare: number, relati
   anglesOf(relative, ankle.axes, abc);
   let held = false;
   for (let k = 0; k < ankle.dofs.length; k++) {
-    const dof = ankle.dofs[k]!, low = dof.spec.min.value + spare, high = dof.spec.max.value - spare, own = dof.sign * abc[k]!;
-    const within = low > high ? (low + high) / 2 : own < low ? low : own > high ? high : own;
+    const dof = ankle.dofs[k]!, own = dof.sign * abc[k]!, within = withinRange(dof.spec, spare, own);
     if (within !== own) { abc[k] = dof.sign * within; held = true; }
   }
   // A locked axis at a half turn has no rotation to recompose (`rotationOfToRef`): the target stands.
@@ -381,7 +376,7 @@ function soleDrop(foot: FootState, turn: Quaternion, work: Vector3): number {
 function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): void {
   const { feet } = s, { step, tasks, reading, gait } = s.state, { seconds, spare } = s.tuning;
   const { sole, level, path, along, accel, turn, wholeAxis, progress, v, bow } = s.scratch;
-  const foot = feet.find((f) => f.name === swing.foot)!, bearer = feet.find((f) => f.name !== swing.foot)!;
+  const foot = named(feet, swing.foot), bearer = feet.find((f) => f.name !== swing.foot)!;
   soleMiddleToRef(foot, sole);
   const down = soleOnGround(s, foot), met = step.lifted && step.time + dt >= LANDS_FROM * swing.seconds && down;
   if (!step.lifted) {
@@ -616,9 +611,8 @@ function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleReading)
       const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / gait.preswing.seconds;
       ahead[k] = m * m * (gait.preswing.knee - (muscles.angle(i) - foot.straight)) - 2 * m * muscles.rate(i);
     } else {
-      const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / seconds.height, dorsiflexion = foot.chain[2]!.dofs[0]!.spec;
-      const stop = foot.memory.rolled === "front" ? dorsiflexion.max.value - spare : dorsiflexion.min.value + spare;
-      ahead[k] = m * m * (stop - muscles.angle(i)) - 2 * m * muscles.rate(i);
+      const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / seconds.height;
+      ahead[k] = m * m * (stopLessSpare(foot.chain[2]!.dofs[0]!.spec, foot.memory.rolled, spare) - muscles.angle(i)) - 2 * m * muscles.rate(i);
     }
   } else if (task.bearing && !s.state.pose && foot.memory.rolled === null && bearingEnd(foot) !== null) {
     // Standing on an end it was not rolled onto, a leg placed on its toes or a foot landed on an
@@ -670,7 +664,18 @@ function askNothing(s: Stance): void {
   for (const task of state.tasks) task.on = false;
 }
 
-export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist: AssistReading | null = null): StanceControl {
+/** `value` within `spec`'s range less `spare` at each end; the range's middle where that leaves none. */
+function withinRange(spec: DofSpec, spare: number, value: number): number {
+  const low = spec.min.value + spare, high = spec.max.value - spare;
+  return low > high ? (low + high) / 2 : value < low ? low : value > high ? high : value;
+}
+
+/** The stop of a foot's dorsiflexion (`spec`) toward the end `end` it rolls onto, less `spare`: the front's the dorsiflexion stop, the heel's the plantar flexion stop. */
+function stopLessSpare(spec: DofSpec, end: SoleEnd, spare: number): number {
+  return end === "front" ? spec.max.value - spare : spec.min.value + spare;
+}
+
+export function stanceControl(built: ReadBody, tuning: StanceTuning, assist: AssistReading | null): StanceControl {
   const s = makeStance(built, tuning, assist);
   return {
     reset() {
@@ -706,7 +711,7 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
       s.ask.lever = leverOf(s, muscles.dynamics.root.centre[1]);
       return s.ask;
     },
-    read(which) {
+    read() {
       const { feet, pelvis } = s, { segments, mass } = s.parts(), { reading } = s.state, { p, v, turn, target, whole } = s.scratch;
       massCentreToRef(segments, mass, reading.centre, p, reading.velocity);
       angularMomentumToRef(segments, reading.centre, reading.velocity, reading.momentum, p, v, turn, target);
@@ -717,7 +722,7 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
       // The reference pose faces +z: its forward, turned as the pelvis has turned since.
       p.set(0, 0, 1).applyRotationQuaternionToRef(turnOfToRef(pelvis, whole), p);
       reading.facing = atan2(p.x, p.z);
-      const on = which ?? s.state.last;
+      const on = s.state.last;
       readSupport(feet, on ? feet.filter((foot) => on.includes(foot.name)) : feet, reading.support);
       for (const foot of feet) if ((reading.ends[foot.name]!.touching = soleOnGround(s, foot))) foot.memory.ground = soleGroundHeight(s, foot);
     },
