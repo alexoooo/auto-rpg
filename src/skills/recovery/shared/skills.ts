@@ -79,11 +79,13 @@ function stuckWatch(run: TechniqueRun) {
  * its end, holding its last command until it is let go; a mode runs until it is let go. Running, it
  * is prepared while its run has yielded since it began (`TechniqueRun.yields`), committed once it
  * does not, and released once ended, a run reaching its end done committing to it first. A way up
- * (`wayUp`) stuck against an object (`STUCK`) is let go, ended `obstructed`. Its memory is the
+ * its `watch` finds stuck against an object (`STUCK`) is let go, ended `obstructed`. Its memory is the
  * action it runs, the run's, the watch's and the shared body's.
  */
-function groundSkill(name: string, run: TechniqueRun, ground: GroundBody, clock: Clock, starts: ReadonlyMap<string, string>, wayUp: boolean): ExecutorBinding {
-  const watch = wayUp ? stuckWatch(run) : null;
+function groundSkill({ name, run, ground, clock, starts, watch }: {
+  readonly name: string; readonly run: TechniqueRun; readonly ground: GroundBody; readonly clock: Clock;
+  readonly starts: ReadonlyMap<string, string>; readonly watch: ReturnType<typeof stuckWatch> | null;
+}): ExecutorBinding {
   const state = { live: null as { id: number; phase: Phase; end: TechniqueEnd | null } | null, run: run.state, body: ground.state, ...(watch ? { watch: watch.state } : {}) };
   const refused: Readiness = Object.freeze({ kind: "blocked", reason: `${name} does not admit the body as it lies` });
   const stepLive = (view: BodyView, dt: number): TechniqueEnd | null => { const g = view.ground; return g ? run.step(g, view.senses, ground.control, dt) : null; };
@@ -142,7 +144,7 @@ export function groundSkills(body: Body, clock: Clock, fitted: MotorAndGuard, te
     if (declared.some(one => !part.starts.includes(one.start) || !body.built.segments.has(one.segment)) || new Set(declared.map(one => one.segment)).size !== declared.length) throw new Error(`invalid action bindings for ${config.kind}`);
     return declared;
   });
-  const executors = fitting.map((config, i) => groundSkill(config.kind, runs[i]!, ground, clock, new Map(bindings[i]!.map(one => [one.segment, one.start])),
-    isWayUp(fitted.parts.of("technique", config))));
+  const executors = fitting.map((config, i) => groundSkill({ name: config.kind, run: runs[i]!, ground, clock, starts: new Map(bindings[i]!.map(one => [one.segment, one.start])),
+    watch: isWayUp(fitted.parts.of("technique", config)) ? stuckWatch(runs[i]!) : null }));
   return { executors, actions: executors.map((executor, i) => ({ name: executor.name, executor: executor.name, effectors: Object.freeze(bindings[i]!.map(one => one.segment)) })) };
 }

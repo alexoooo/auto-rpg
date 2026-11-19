@@ -370,12 +370,13 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     // servo's until then; the place is the middle of where the body is held over those that
     // bear, by their shares, and with none down, where the centre of mass is.
     const c = view.stance.centre, v = view.stance.velocity;
-    made.read(ground, stage.overProp, toes, c);
+    made.read({ ground, overProp: stage.overProp, toes, centre: c });
+    const bearing = { goal: goals, rate: n, ground, transfer: !keeps };
     place.setAll(0);
     let borne = 0, down = true;
     made.over.forEach((over, l) => {
       if (!on[l]) return;
-      if (!made.bear(l, goals, n, ground, share[l]!, !keeps)) { down = false; return; }
+      if (!made.bear(l, share[l]!, bearing)) { down = false; return; }
       place.addInPlaceFromFloats(share[l]! * over.x, 0, share[l]! * over.z);
       borne += share[l]!;
     });
@@ -400,7 +401,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       if (accumulated > standing) state.transfer.scaleInPlace(standing / accumulated);
     }
     for (let l = 0; l < made.limbs.length; l++) {
-      if (!on[l] && !(leaves[l] && !state.lifted && made.bear(l, goals, n, ground, LEFT, !keeps))) made.rest(l);
+      if (!on[l] && !(leaves[l] && !state.lifted && made.bear(l, LEFT, bearing))) made.rest(l);
     }
     // The centre of mass: toward the place, at the stage's height over the ground if it has one, critically damped.
     target.set(place.x, (stage.height === null ? c.y : ground + stage.height * standing), place.z);

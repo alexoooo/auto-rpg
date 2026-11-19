@@ -42,7 +42,7 @@ export async function transferTrial({ hand = 'left', hands = LEANING[CORE_ENGINE
     for (let i = 0; i < 16 * world.hz; i++) {
       const transferring = riser.phase === 'rise' && riser.stage === at + 1;
       if (transferring) {
-        made.read(upright.lowest(), false); c.setAll(0);
+        made.read({ ground: upright.lowest(), overProp: false }); c.setAll(0);
         for (const segment of segments) c.addInPlace(centreOfToRef(segment, p).scaleInPlace(segment.rigid.mass / mass));
         const supports = made.limbs.filter((_, k) => stage.on.some(on => on.limb === built.spec.ends[k].name))
           .map(limb => ({ corners: patchCorners(limb.work.patch) }));
@@ -59,7 +59,7 @@ export async function transferTrial({ hand = 'left', hands = LEANING[CORE_ENGINE
         if (!was && riser.lifted) released = { seconds: riser.time, projection,
           bearing: riser.bear.tasks.map(t => t.on && t.bearing) };
         if (released) {
-          made.read(upright.lowest(), false);
+          made.read({ ground: upright.lowest(), overProp: false });
           clearance = made.limbs[built.spec.ends.findIndex(l => l.name === `hand.${hand}`)].work.at.y - upright.lowest();
         }
       }

@@ -236,11 +236,11 @@ function bearer(own, view) {
         work.goal[i] = Math.max(spec.min.value, Math.min(spec.max.value, (phase.posture[c.name] ?? 0) - spec.bind.value));
       }
       const ground = low.lowest(), n = 1 / phase.response;
-      made.read(ground, true); work.place.setAll(0);
+      made.read({ ground, overProp: true }); work.place.setAll(0);
       let total = 0;
       for (let l = 0; l < made.limbs.length; l++) {
         const weight = phase[kinds[l]] ?? 0;
-        if (weight > 0 && made.bear(l, work.goal, n, ground, weight, true)) { work.place.addInPlaceFromFloats(made.over[l].x * weight, 0, made.over[l].z * weight); total += weight; }
+        if (weight > 0 && made.bear(l, weight, { goal: work.goal, rate: n, ground, transfer: true })) { work.place.addInPlaceFromFloats(made.over[l].x * weight, 0, made.over[l].z * weight); total += weight; }
         else made.rest(l);
       }
       if (total > 0) work.place.scaleInPlace(1 / total); else work.place.set(g.centre.x, 0, g.centre.z);
