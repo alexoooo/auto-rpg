@@ -51,7 +51,7 @@ export interface OptionPart<C extends PartConfig = PartConfig, G = unknown, O = 
   /** Whether it carries out a person's `Orders`: its mind obeys where an Option of it does (`Controller.obeys`). */
   readonly obeys?: boolean;
   /** Whether its Options keep the body where it stands, striking and covering nothing: a rest, or a way of the ground (`standingOptions`). */
-  readonly stands?: boolean;
+  readonly stands: boolean;
   /**
    * What a person is shown for each phase it reports (`Decider.engagement`'s `phase`), by the
    * phase's name: a label, or null for a phase a feed leaves unsaid because what it does shows

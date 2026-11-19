@@ -32,7 +32,7 @@ export const createDrillOpponents = perContext((context: GameContext) => {
   const OPTION = MINDS["option-drill"]!.config as OptionMindConfig;
 
   /** The drill's stationary and travelling choices from the registered fighter's configuration. */
-  const STANDING_OPTIONS = standingOptions(OPTION, context.catalog.allParts());
+  const STANDING_OPTIONS = standingOptions(OPTION, context.catalog.partLookup);
 
   const WALKS = (OPTION.options ?? []).filter((option) => option.kind === "walk");
 

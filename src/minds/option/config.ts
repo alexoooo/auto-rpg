@@ -2,10 +2,7 @@ import { recordingKey } from "../../core/world/recording.ts";
 import { GOING, type MoveConfig } from "../../skills/locomotion/move/index.ts";
 import { BACK_STEP_GAIT, gaitsIn, STOCK_GAITS, type STAGGERED } from "../../skills/locomotion/move/gaits.ts";
 import type { MindConfig } from "../catalog/config.ts";
-import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
-import type { Part } from "../../parts/parts.ts";
-import type { OptionPart } from "./parts.ts";
-import { FILLED, type Filled } from "../../skills/assembly/filled.ts";
+import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";import { FILLED, type Filled } from "../../skills/assembly/filled.ts";
 
 /**
  * **An Option Mind's config**: the selected chooser, decision provider, options and decision rate.
@@ -59,8 +56,8 @@ export function withBackStep(mind: MindConfig): MindConfig {
 }
 
 /** **The Options of `mind` that keep the body where it stands**: those whose kind among `parts` says so (`OptionPart.stands`). */
-export function standingOptions(mind: OptionMindConfig, parts: Readonly<Record<string, Part>>): readonly ConfigFor<"option">[] {
-  return (mind.options ?? []).filter((option) => (parts[option.kind] as OptionPart | undefined)?.stands === true);
+export function standingOptions(mind: OptionMindConfig, parts: PartLookup): readonly ConfigFor<"option">[] {
+  return (mind.options ?? []).filter((option) => parts.of("option", option).stands);
 }
 
 /** The Options, chooser and predictions supplied where a config names none. */
