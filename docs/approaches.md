@@ -243,13 +243,9 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   faster; the game's since (`bc643f6d7`, `ba17ae71c`). The same answers kept by a start rounded to
   a cell (`coarseTable`) ran 12% faster and lost, 0.451 (`5a85cb5f1`). *Shown.*
 - **Initiative, a blow now worth more than one later, fights as the game's Mind and does not
-  unlock the back step**: a setting of the few terms beside Aggression (`SETTINGS`,
-  `src/minds/option/objective.ts`), a rate a second from 0 to 0.3, none unless set. Life dealt
-  counts less by that rate the later in a line it comes and more sooner, scaled to count as
-  itself over the horizon on the mean (`initiativeWeight`); life taken counts as itself. It lives
-  in the objective, as Aggression does, since it is what a body values; the chooser asks the
-  objective what life counts for by when it comes (`Objective.weigh`) and knows nothing of what
-  the weight means (`ffc71efcc`). Unscaled, life dealt fading at 0.2 a second made every trade
+  unlock the back step**: life dealt counting less by a rate a second the later in a line it
+  comes and more sooner, scaled to count as itself over the horizon on the mean; life taken as
+  itself (`ffc71efcc`). Unscaled, life dealt fading at 0.2 a second made every trade
   worth less than waiting: two Warriors waited out every bout. At 0.1 against the game's Mind,
   the Warrior empty-handed: the match 0.531 (0.451 to 0.615) on `warrior` and 0.451 (0.396 to
   0.510) held out on `warrior-drawn`; on the scorecard's 72 bouts, standing silent 4.3% against
@@ -258,7 +254,7 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   0.517 (0.434 to 0.597) won, and standing silent 16.2% against 8.1% (`c6c3d95fb`). At 0.03, 0.2
   and 0.3 neither: the mirror with the back step on both sides against without, 72 gaps, 12.0,
   12.8 and 11.8 points more silent (the least, 9.0 to 14.5) where unset is 14.5 (11.2 to 17.7).
-  It stays in the Arena's Mind picker, unset, for a person to set and watch. *Shown.*
+  Removed, no Mind taking it. *Shown.*
 - **A Mind that can sway back chases its foe**: two Warriors with the back step stand silent 20.2%
   of a bout against 7.2% without it (216 gaps, paired 13.0 points, 11.1 to 14.9, at `9b0fcc618`),
   nearly all of it 1 to 2 m apart, walking in on a foe that sways back from it. About 3.7 of those
@@ -275,13 +271,11 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   0.635 (0.580 to 0.691) held out at the same runs, but silent 16.2% of a bout against 9.4%: an
   Option worth more at the last root stays chosen. Unset (`c1cdbe73d`). *Shown.*
 - **A line's end written as three numbers plays as the tail and the hold at 40% of their time**:
-  each side trading life at a rate falling straight with how far apart the two stand
-  (`SearchConfig.end`), its shape from bout rows and one scale by bouts won: 0.503 at half the
+  each side trading life at a rate falling straight with how far apart the two stand, its shape from bout rows and one scale by bouts won: 0.503 at half the
   rows' rate, 0.417 at it, 0.434 at a quarter; 20.1 ms a deciding step against 49.6; with the back
   step in both minds 13% standing silent against 5% without, the most any kind moved that. It
-  reads no walk to a site. A half-life on life traded later, both sides alike, won nothing held out (0.483), and is gone:
-  the objective weighs life by when it comes (`Objective.weigh`, the few terms' Initiative). Unset
-  (`d87df83c2`, `eb2876fb1`). With the blow held once, 8.1% against 6.3% on 216 gaps, paired 1.8
+  reads no walk to a site. A half-life on life traded later, both sides alike, won nothing held
+  out (0.483) (`d87df83c2`, `eb2876fb1`). With the blow held once, 8.1% against 6.3% on 216 gaps, paired 1.8
   points (0.2 to 3.4), and 3.6 at 1,000 runs: crediting by distance alone, it pays any cheap way
   to stand near, and a deeper search finds more of them (`cdbe93aba`). Credited instead from when
   a strike can begin, it pays standing far off with a walk to a window ahead, and both stand off:
@@ -290,22 +284,20 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   *Shown.*
 - **A line's end read from the next exchange plays even, and pays the back step, but quiets the
   mirror**: each side trading at the rate of the best try begun from where the line ends, by its
-  own model, a walk to a site counted with the best try where it arrives (`LineEnd` of kind `exchange`, at that
-  rate as priced): 0.497 (0.441 to 0.552) against the game's Mind on `warrior-drawn`; the Warrior
+  own model, a walk to a site counted with the best try where it arrives, at that rate as priced: 0.497 (0.441 to 0.552) against the game's Mind on `warrior-drawn`; the Warrior
   with the back step against one without won 0.550 (0.501 to 0.597) over 432 bouts, 0.44 HP a
   minute less lost (-0.07 to 0.94); but the mirror standing silent 8.6% without it (6.4% with the
-  game's tail) and 18.7% with it, paired 10.1 points (8.1 to 12.0). Offered in the picker beside the
-  tail and by distance; not the game's. *Shown.*
+  game's tail) and 18.7% with it, paired 10.1 points (8.1 to 12.0). *Shown.*
 - **The next exchange counted once pays the back step most and quiets the mirror most**: its life
-  dealt and taken, a walk counted with it, nothing after, open Options none (`LineEnd` of kind `next`), at the
-  scale best against the tail on `warrior` (0.451 at 1, 0.507 at 3, 0.451 at 6): held out on
+  dealt and taken, a walk counted with it, nothing after, open Options none, at the scale best against the tail on `warrior` (0.451 at 1, 0.507 at 3, 0.451 at 6): held out on
   `warrior-drawn` 0.490 (0.431 to 0.542). The Warrior with the back step against one without
   0.63 HP a minute less lost (0.20 to 1.07), won 0.558 (0.514 to 0.604) over 432 bouts; the
   mirror standing silent 9.8% without it and 21.6% with it, paired 11.8 points (9.9 to 13.7).
   Where the back step pays (the exchange's rate, once: won 0.550 and 0.558), the mirror with it in
   both is 10 to 12 points quieter than without; where it pays nothing (by distance, 0.521), 1.8.
   Both exchange ends leave the mirror without it quieter than the tail (8.6% and 9.8% against
-  6.4%). In the picker; not the game's. *Shown.*
+  6.4%). These three line's ends, none the game's, are removed; the tail is the search's one leaf.
+  *Shown.*
 - **A bar read on bouts won needs its spread**: the back step's Warrior against one without won
   79 to 65 on the game's Mind, 0.549 with 0.472 to 0.632 over bouts, and 0.521 (0.472 to 0.567)
   over 432 under the written line's end: neither a win (`fc29f4f3d`). *Shown.*

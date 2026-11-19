@@ -15,7 +15,7 @@
  * `--set <path>=<JSON>` has both sides fight their model's own mind (`defaultMind`) with what is at
  * `path` replaced by the JSON, or by the JSON file it names (`replacedAt`, as `evaluate --ablate`);
  * `--set left:<path>=<JSON>`, that side's alone; one flag a setting, each in turn. The few terms at
- * aggression 2 and initiative 0.1, `chooser.objective={"kind":"few-terms","aggression":2,"initiative":0.1}`;
+ * aggression 3, `chooser.objective={"kind":"few-terms","aggression":3}`;
  * a foe's pressure as bouts measured it, `predictions={"kind":"measured","pressure":"measured"}`,
  * and then its steps fading over 2 s, `predictions.foeSteps=2`, or as bouts measured them,
  * `predictions.foeSteps=<table.json>` (`research/minds/foe-steps.mjs`).

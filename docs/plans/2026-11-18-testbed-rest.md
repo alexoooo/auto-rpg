@@ -60,14 +60,14 @@ Built of the testbed, in [the approaches](../approaches.md#minds): the scorecard
 (`src/evaluation/scorecard/`) and the match chosen on `warrior` and held out on `warrior-drawn`
 (`src/evaluation/match/cases.ts`), both the Warrior empty-handed against itself alone; the
 contracts (`OutcomeModel`, `src/skills/framework/outcomes.ts`; `OthersModel`,
-`src/minds/option/percepts.ts`; `LineEnd`, `src/minds/option/chooser.ts`; a chooser, `Selection`,
+`src/minds/option/percepts.ts`; the search's leaf, `src/minds/option/chooser.ts`; a chooser, `Selection`,
 `src/minds/choice.ts`). Their kinds:
 
 | Contract | Built | Named and not built |
 | --- | --- | --- |
 | the outcome model | by hand; the nearest trials; a coarse table; a written form (the game's) | a forest; the world itself played forward |
 | the others' model | the rate; the measured pressure (the game's); the foe's steps persisting and as measured | the Mind's own choosing in the foe's place |
-| the line's end | the tail (the game's); a half-life (since removed); by distance; by the next exchange, two ways | a line played out by a cheap policy |
+| the line's end | the tail (the game's); a half-life, by distance and by the next exchange two ways, removed | a line played out by a cheap policy |
 | the chooser | tree (the game's), valued, ranked; a warm start (`TreeConfig.keeps`) | the four kinds below that keep their work; a trained policy |
 
 The tree chooser decides by 100 runs (`RUNS`, `src/minds/option/chooser.ts`) of a tree made anew,
