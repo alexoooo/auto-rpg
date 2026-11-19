@@ -258,10 +258,10 @@ import { filledRefusal } from "../../src/skills/assembly/filled.ts";
  */
 test("explicit filled parts obey the same body applicability as automatic selection", () => {
   // A rat that holds the guards: what refuses them is its body.
-  const rat = { ...modelSpec("rat"), skills: [...modelSpec("rat").skills, "cover-guard/cover-guard", "shield-guard/shield-guard"] };
+  const rat = { ...modelSpec("rat"), skills: [...modelSpec("rat").skills, "cover-guard/cover-guard"] };
   assert.match(filledRefusal(partLookup, modelSpec("rat"), { guard: { kind: "cover-guard" } }), /guard: the character has no guard and cover/);
-  for (const kind of ["cover-guard", "shield-guard"]) {
-    const config = { ...MINDS.option.config, tuning: { parts: { guard: { kind } } } };
+  {
+    const config = { ...MINDS.option.config, tuning: { parts: { guard: { kind: "cover-guard" } } } };
     assert.deepEqual(GAME.treeFaults(config), []);
     assert.match(filledRefusal(partLookup, rat, config.tuning.parts), /guard: .*hand/);
     assert.match(GAME.stageRefusal(rat, config, []), /guard: .*hand/);

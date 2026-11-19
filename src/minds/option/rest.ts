@@ -3,7 +3,7 @@ import type { Resource, TargetRef } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
-import { shieldHands } from "./cover-hand.ts";
+import { facedHands } from "../../core/bodies/items/held.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
 import { along, asking, blocked, READY, standing, type Ask, type Option, type Site, type Situation } from "./option.ts";
 import { LEGS } from "../../skills/framework/action.ts";
@@ -101,11 +101,11 @@ function guard(shields: readonly string[]): Option {
 
 /**
  * **The guard of a body of `spec`** (`guard`), whatever its guard: those of `covering` (the hands
- * its guard covers with, `GuardPart.covers`) holding a covering face its shields (`shieldHands`);
+ * its guard covers with, `GuardPart.covers`) holding a covering face its shields (`facedHands`);
  * a body without them holds its guard's posture, shielding nothing.
  */
 export const guardOf = (spec: BodySpec, covering: readonly string[]): Option =>
-  guard(shieldHands(spec).filter((hand) => covering.includes(hand)));
+  guard(facedHands(spec).filter((hand) => covering.includes(hand)));
 
 /** What a guard's Options claim: the guard (`GUARD_RESOURCE`). */
 export const GUARDING: readonly Resource[] = Object.freeze([GUARD_RESOURCE]);

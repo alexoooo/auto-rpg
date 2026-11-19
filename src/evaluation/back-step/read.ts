@@ -71,9 +71,9 @@ export type BackStepReading = {
  * subject's own action under way then, by its name and phase, where one was (`own`); how
  * long it was ordered, s; the life the subject lost meanwhile, HP; where it left the two (`exit`:
  * their range head to head as it was ordered no more, m, as a strike's trial records it, centre
- * to centre, `apart`, and the attacker's phase as the subject sensed it then, `phase`); and
- * how far each moved along the line between them meanwhile (`moved`); how the subject faced the
- * attacker (`facing`); and whether it went down then or within `SETTLE` s of its end.
+ * to centre, `apart`, and the attacker's phase as the subject sensed it then, `phase`); how the
+ * subject faced the attacker (`facing`); and whether it went down then or within `SETTLE` s of
+ * its end.
  */
 export type Sway = {
   readonly at: number;
@@ -83,8 +83,6 @@ export type Sway = {
   readonly seconds: number;
   readonly lost: number;
   readonly exit: { readonly range: number; readonly apart: number; readonly phase?: string };
-  /** How far each moved along the line between them meanwhile, m: the subject toward the attacker, the attacker away from it. */
-  readonly moved?: { readonly own: number; readonly foe: number };
   /**
    * How far the subject faced off the attacker, rad, the way its legs face against the line to the
    * attacker's centre, positive with the attacker to its left: as it was ordered (`start`), as it
@@ -177,13 +175,6 @@ function followSways(duel: Duel, { chosen }: { readonly chosen: boolean }): { re
     return from && to ? { start: wrap(from.line - from.heading), end: wrap(to.line - to.heading), turned: wrap(to.heading - from.heading), swung: wrap(to.line - from.line),
       stepped: wrap(atan2(from.foe[0] - to.own[0], from.foe[1] - to.own[1]) - from.line) } : null;
   };
-  /** How far each moved from `from` to now along the line between them then (`Sway.moved`). */
-  const movedFrom = (from: Places | null): Sway["moved"] | null => {
-    const to = places();
-    if (!from || !to) return null;
-    const dx = from.foe[0] - from.own[0], dz = from.foe[1] - from.own[1], length = hypot(dx, dz) || 1, ux = dx / length, uz = dz / length;
-    return { own: (to.own[0] - from.own[0]) * ux + (to.own[1] - from.own[1]) * uz, foe: (to.foe[0] - from.foe[0]) * ux + (to.foe[1] - from.foe[1]) * uz };
-  };
   /** The attacker as the subject senses it now: its phase, and where it is (`Sway`); null where unseen. */
   const sensed = (): { readonly phase: string; readonly foeAt: Sway["foeAt"] } | null => {
     if (!view) return null;
@@ -198,8 +189,8 @@ function followSways(duel: Duel, { chosen }: { readonly chosen: boolean }): { re
   };
   /** The sway `sway` as it ends at `now`: what it came to, settling until `SETTLE` s on. */
   const ended = (sway: Going, now: number): Settling => {
-    const exit = { range: range(), apart: apartOf(duel) }, phase = sensed()?.phase, moved = movedFrom(sway.from);
-    return { sway: { at: sway.at, phase: sway.phase, foeAt: sway.foeAt, ...sway.own ? { own: sway.own } : {}, seconds: now - sway.at, lost: sway.lost, exit: { ...exit, ...phase ? { phase } : {} }, ...moved ? { moved } : {} },
+    const exit = { range: range(), apart: apartOf(duel) }, phase = sensed()?.phase;
+    return { sway: { at: sway.at, phase: sway.phase, foeAt: sway.foeAt, ...sway.own ? { own: sway.own } : {}, seconds: now - sway.at, lost: sway.lost, exit: { ...exit, ...phase ? { phase } : {} } },
       facing: facingFrom(sway.from), until: now + SETTLE, down: sway.down || subject.body.down };
   };
   return {

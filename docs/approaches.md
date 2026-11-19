@@ -83,6 +83,19 @@ it was deleted without a reading (`a107a3ee`), not ruled out.
 - **The Rogue cannot press her chest up**: elbow extension 23 to 27 N m against the Warrior's 57;
   ten stage changes stood no more (`bff75d1b`). Her rise needs stronger arms or a route that does
   not push up on them. *Shown.*
+- **A one-step contact predictor agreed with the engine on a slab and did not make a hold**: built
+  as a diagnostic of stand-up's contact mismatch (a held point at a flat hand's middle leaves free
+  what the ground prevents), it predicted the next step's contact and joint-stop impulses through
+  the body's coupled mass, applying nothing (`7c1a2cf9e`, `fb88770c7`, `afabc97c7`, `82912bc53`).
+  On its fixtures, Node core stand, `rapier-coordinate-coulomb`, the next step's velocity came
+  within 0.007 m/s and 0.042 rad/s of the engine's at 120 Hz, landing included; at 1920 Hz a
+  landing missed by 0.17 m/s and 0.40 rad/s. An inverse control built on it, on the Warrior's
+  all-fours witness at 120 Hz, rejected no step yet drifted 90 mm in a second, its first step off
+  by 0.14 m/s and 2.0 rad/s, and with it every weighting tried collapsed within 10 s; independent
+  velocity feedback held all fours (2026-10-05 analysis, recovery support). The game never ran
+  it: it moved to research (`316db64d2`, its equipment and constrained mass after it,
+  `fc5d1e492`) and was deleted by the owner's word. A solve's
+  convergence is not the engine's agreement. *Shown.*
 
 ## Weapon strikes
 
@@ -127,17 +140,44 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   does (20 of 40 against 23 of 41); one walking in takes it double; one that only walks or keeps
   away keeps its life by not being in the fight (in punching range 4 to 11 % of the time). A
   body given 0.5 m/s away at once takes 16 % of the Mind's punches where one standing takes
-  38 % (`fd8ec9d56`). The step that does it, the back step ([its plan](plans/2026-11-16-back-step.md)),
-  is in the game's Mind; its standing: against the Mind's punches in its drill, ordered, the sway takes
-  8.4 % while it sways and the order's step in and follow 20 to 27 %, 16.9 % in all against
-  standing's 16 to 17 %, down in 4 of 48 fights (`0ccba3bbd`); chosen by the Mind, the Warrior
-  with it wins 0.601 (0.545 to 0.656) against one without, and two with it stand 9.9 points more
-  silent than two without (7.6 to 12.2; `a909c1a70`). *Shown.*
+  38 % (`fd8ec9d56`). The step that does it, the back step (`back-step`), is in the game's Mind,
+  its bars the owner's, read on gaps no setting was chosen on:
+  - **In its drill, ordered** (`npm run evaluate -- back-step option-drill --protocol mind-held`,
+    beside `mind-held-standing`, the same 48 fights standing in the carriage): of the Mind's
+    punches it takes 16.8 % (14.6 to 19.6) against standing's 18.0 % (16.7 to 19.5), where the
+    bar asked half; 4.05 HP lost a fight against 6.02; down in 2 of 48; back in reach after 64 %
+    of the punches it left against standing's 67 % (of 33). The sway itself takes 9.8 % while it
+    goes back and 15.5 % as it comes in; the drill's order then steps it in and follows for
+    1.6 s more, 20 to 21 %, and 71 of the 127 taken land there. Against the drilled attacker 0 of
+    42 against 23 of 40 (`drilled-held`). Not met against the Mind, accepted as read by the owner.
+  - **Chosen by the Mind** (`npm run match -- option --previous option --ablate
+    options.steps-back=null --protocol warrior-drawn`): the Warrior with it wins 0.601 (0.545 to
+    0.656) of 288 bouts against one without, 1.33 HP a minute less lost (0.75 to 1.89).
+  - **The mirror** (`npm run evaluate -- scorecard --previous option --ablate
+    options.steps-back=null --protocol warrior-drawn`): two with it stand silent 15.8 % of a bout
+    against 5.8 % without, paired 10.0 points (8.2 to 11.7) over 216 gaps, every bout a knockout,
+    where the bar asked at most 8. The owner accepted it as read at 9.9, the same bouts counted
+    over time on the 144 held out (time pooled, the mean of each bout's share here).
+  - **Watched** by the owner, 2026-11-19: "i watched it in the browser, honestly it looks pretty
+    good. i compared empty handed warrior without staggered/step-back (which is what we started
+    with) vs with both -- and the two skills fight significantly better."
+  *Shown.*
 - **More blocks are not more wins**: a hand at cover is a hand not countering (`8b3c65b8`,
   `1500f2da`). A guard is judged on life kept and taken. *Repeated.*
 - **A threat reader is measured against the blow's truth before a guard is tuned on it**: the
   golem's stroke reader read "idle" on 82 % of asks after weeks of parry tuning (`ef839a1e`).
   *Repeated.*
+- **Two guards told apart by a held face were one skill**: the cover guard and the shield guard
+  differed only in warding with a face where a hand held one. From `5baf9e257` (2026-11-14) a
+  buckler holder carried both; their Options were one Option under two names, so the game's Mind
+  priced them alike (the Covers tied in 19 of 19 rankings in four Arena bouts) and took the first
+  registered, the cover guard, on every step, as the drill's ranked chooser did, and the buckler's
+  face warded nothing. The man's cover lost 0.845 HP a trial at buckler,club and 1.293 at
+  buckler,sword, against 0.117 and 0.271 before. Refusing the cover guard a held face
+  (`90dc6d6bc`) gave 0.376 and 0.464, within noise of 2026-11-13 on every buckler cell, and the
+  man's bonk at buckler,club back from 0.019 to 0.112 HP a second. Now one guard covers with what
+  each hand holds and wards with a face where an item declares one, the same on every loadout.
+  *Shown.*
 
 ## Minds
 
@@ -202,6 +242,15 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   0.2 m); its own body's change alone lost against the foe that comes (21 wins to 27), and the
   two sparrings pooled stood the mirror off as before (28 %) (`470e9b2f6`).
   What the foe does meanwhile is the foe's Mind's, not the Option's. *Shown.*
+- **A sway priced by the foe's phase it ends with pays, and the mirror waits for it**: a placed
+  state took the foe's phase from the decision, so a sway begun at a striking foe was priced to
+  its line's end as if the foe struck on. Each sway's trial now records the share of them ending
+  at a foe striking, and the Option's outcomes leave the phase they end with (`Leaves.phase`; of
+  157 sways begun at a striking foe, 145 ended with it clear). The Warrior with the back step
+  went from 0.549 (0.472 to 0.632) to 0.618 (0.542 to 0.694) against one without, and the mirror
+  with it in both from 7.6 (5.2 to 9.9) to 9.8 points more silent than without; 142 of 144 bouts
+  moved (`4130ed516`). Priced truly, the Mind sways where it pays, which wins bouts and is waited
+  out in the mirror: the same change met one bar and left the other. *Shown.*
 - **A line's end is worth what neither a tail nor a measured leaf gives**: in the tree chooser,
   a punch reads as leaving the bodies where they stood, so a line's tail runs it about fifteen
   times (too good), and the body is valued holding in reach after a try that leaves (too bad); the

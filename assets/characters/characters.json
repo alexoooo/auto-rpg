@@ -9,7 +9,6 @@
         "club-blow/swing",
         "stomp/stomp",
         "cover-guard/cover-guard",
-        "shield-guard/shield-guard",
         "lowered/lowered",
         "move/move",
         "stance-walk/stance-walk",
@@ -38,7 +37,6 @@
         "straight-punch/drive",
         "stomp/stomp",
         "cover-guard/cover-guard",
-        "shield-guard/shield-guard",
         "lowered/lowered",
         "move/move",
         "stance-walk/stance-walk",
@@ -64,7 +62,6 @@
       "skills": [
         "straight-punch/drive",
         "cover-guard/cover-guard",
-        "shield-guard/shield-guard",
         "lowered/lowered",
         "move/move",
         "stance-walk/stance-walk",

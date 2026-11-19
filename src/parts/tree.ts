@@ -218,12 +218,21 @@ export function withoutTuning<C extends PartConfig>(parts: PartLookup, config: C
  * **The tree `config` roots with what is at `path` replaced by `value`** (null removes a list's
  * entry), a copy: `path` is dot-separated, each step a slot of the part it is in (`Part.slots`) or a
  * key it states (`Part.keys`), in a list an index or an entry's name or kind, and in plain data a
- * key it has. A thrown error names the step that matches nothing, with what does.
+ * key it has. A slot the config leaves empty is walked into as what its part supplies there
+ * (`Part.supplies`), the default a person is shown. A thrown error names the step that matches
+ * nothing, with what does.
  */
 export function replacedAt<C extends PartConfig>(parts: PartLookup, config: C, path: string, value: unknown): C {
   const steps = path.split(".");
   /** What a step in a config of `part` may be: its slots and stated keys, beside its kind. */
   const keysOf = (part: Part): string[] => [...new Set([...part.slots.map((slot) => slot.key), ...Object.keys(part.keys ?? {})])].filter((key) => key !== "kind");
+  /** What `at`, a config of `part`, holds at `key`: what it says, or where it holds nothing what its part runs there (`emptyRuns`). */
+  const heldAt = (part: Part | null, at: PartConfig & Record<string, unknown>, key: string): unknown => {
+    const slot = part?.slots.find((one) => one.key === key);
+    if (at[key] != null || !slot) return at[key];
+    const runs = emptyRuns(parts, part!, at, slot);
+    return slot.many ? runs : runs[0];
+  };
   const walk = (at: unknown, k: number, holder: string): unknown => {
     const step = steps[k]!, last = k === steps.length - 1;
     if (Array.isArray(at)) {
@@ -237,7 +246,7 @@ export function replacedAt<C extends PartConfig>(parts: PartLookup, config: C, p
     if (typeof at !== "object" || at === null) throw new Error(`${holder} holds nothing to read ${step} in`);
     const part = parts.any(at), open = part ? keysOf(part) : Object.keys(at);
     if (!open.includes(step)) throw new Error(`${holder} has no slot or setting ${step}: ${open.join(", ")}`);
-    return { ...at, [step]: last ? value : walk((at as Record<string, unknown>)[step], k + 1, `${holder}.${step}`) };
+    return { ...at, [step]: last ? value : walk(heldAt(part ?? null, at as PartConfig & Record<string, unknown>, step), k + 1, `${holder}.${step}`) };
   };
   return walk(config, 0, config.kind) as C;
 }

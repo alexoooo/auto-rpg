@@ -5,5 +5,8 @@ declare module "../../../../core/data/store.ts" { interface DataOf { "step-profi
 import data from "../../../../../assets/skills/locomotion/step-profiles.json" with { type: "json" };
 import { deepFreeze } from "../../../../core/state.ts";
 
-/** The steps' profiles (`dataOf("step-profiles")`), from the back step's evaluation's sparring (`research/skills/locomotion/back-step-profiles.mjs`): a module of its own, imported only when loaded (`loadData`). */
+/**
+ * The steps' profiles (`dataOf("step-profiles")`), from the back step's evaluation's sparring (`research/skills/locomotion/back-step-profiles.mjs`): a module of its own, imported only when loaded (`loadData`).
+ * Their trials' `exit.own`, which nothing reads and the script no longer writes, goes when they are next measured.
+ */
 export const STEP_PROFILES: unknown = deepFreeze(data.profiles);

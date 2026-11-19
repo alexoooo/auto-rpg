@@ -61,6 +61,11 @@ its kind or running those tools.
 - **`git worktree remove` on a worktree with a `node_modules` junction empties the main
   checkout's.** Delete the folder with `npm run clean` (or Node's `rmSync`), then
   `git worktree prune`.
+- **A worktree at a commit before `c8dce4e31` reads three `.blend` files as modified**
+  (`chamber.blend`, `forge.blend`, `skeleton-source.blend`: plain blobs there, LFS-tracked by the
+  attributes Git applies), so its build is "uncommitted" and `evaluate --write` (and `table
+  --fresh`, which writes) refuses to keep what it played. `git status --porcelain` shows them;
+  `git update-index --assume-unchanged` on the three makes it clean.
 - **Python's `open(path, 'w')` writes cp1252**: Vite's build then refuses the file while `tsc` and
   `npm test` pass. Pass `encoding='utf-8'`.
 - **Git Bash dies in its own startup at times**, leaving `bash.exe.stackdump` in the repository
