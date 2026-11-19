@@ -79,6 +79,9 @@ function evidenceOf(readings) {
   return evidence;
 }
 
+/** A reading played and not kept (its run failed, or its build could not keep it): read as none, so no older result stands in for what was played. */
+const unkept = (one) => ({ ...one, result: null, trials: [], complete: false, fault: "played and not kept: its run above says why" });
+
 /**
  * Whether `trials` answer every case `named`, as the judge reads whole (`valueOf`): a faulted trial
  * answers none, so `--play` asks for its reading again, and evaluate plays the trial again on
@@ -198,7 +201,7 @@ export function main() {
   const readings = cells.flatMap((cell) => cell.readings);
   let evidence = evidenceOf(readings), replaced = null;
   if (values.play || values.fresh) {
-    const failed = [], asked = new Set(cells.flatMap((cell) => cell.readings).map(evidenceKey));
+    const failed = new Map(), asked = new Set(cells.flatMap((cell) => cell.readings).map(evidenceKey));
     // What `--fresh` plays again is kept as it was read, to be compared with what replaces it.
     if (values.fresh) {
       const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
@@ -212,16 +215,16 @@ export function main() {
       console.log(`playing ${key}`);
       try {
         execFileSync(process.execPath, [join(ROOT, "scripts/evaluate.mjs"), reading.drill, reading.subject, "--protocol", reading.protocol, "--fresh", "--write", ...(values.workers ? ["--workers", values.workers] : [])], { cwd: ROOT, stdio: "inherit" });
-      } catch (error) { failed.push(`${key}: ${error instanceof Error ? error.message : String(error)}`); }
+      } catch (error) { failed.set(key, error instanceof Error ? error.message : String(error)); }
       // What this reading kept is read again at once, so its cells' baselines are kept before the next reading plays.
       stores.delete(reading.drill);
-      evidence.set(key, evidenceOf([reading]).get(key));
+      evidence.set(key, failed.has(key) ? unkept(evidence.get(key)) : evidenceOf([reading]).get(key));
       if (values.baseline) keepBaselines(cells, evidence, (one) => evidenceKey(one) === key);
     }
-    for (const one of failed) console.log(`failed ${one}`);
-    if (failed.length > 0) process.exitCode = 1;
+    for (const [key, why] of failed) console.log(`failed ${key}: ${why}`);
+    if (failed.size > 0) process.exitCode = 1;
     stores.clear();
-    evidence = evidenceOf(readings);
+    evidence = new Map([...evidenceOf(readings)].map(([key, one]) => [key, failed.has(key) ? unkept(one) : one]));
   }
   if (values.baseline) keepBaselines(cells, evidence);
   const judged = cells.map((cell) => ({ cell, ...valueCell(cell, evidence, FALL_PRICE, values.by, replaced) }));
