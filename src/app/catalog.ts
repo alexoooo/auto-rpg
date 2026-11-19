@@ -15,7 +15,7 @@ export const GAME: Catalog = catalogOf(() => {
 export const { controllers: CONTROLLERS, minds: MINDS, loadData, controllerOf, allParts, isKind, skillsFor, partOf, partLookup, treeLookup, treeFaults,
   treeObeys, treeData, kindsFor, replacedAt } = GAME;
 
-export { FIGHT_ENTRY, partIn, type EntryRule, type Offered } from "../minds/catalog/catalog.ts";
+export { FIGHT_ENTRY, type EntryRule, type Offered } from "../minds/catalog/catalog.ts";
 
 /** **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): its Option Mind. */
 const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
