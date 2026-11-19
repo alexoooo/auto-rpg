@@ -10,7 +10,7 @@ import type { Commander, MemberReport, SensedBody, TeamDecision, TeamView } from
  * (its carriage), and out of it again `SET_OFF` beyond; within `range` m and no nearer than `near`
  * it is ordered the gait `back-step` for `seconds` s, then stands `rest` s before it may be again;
  * while ordered it, with its foe beyond `follow` m, it is ordered a walk toward it (none where 0).
- * Where `fight` is not 0 the member is its own mind's but while it sways, and the sway is ordered
+ * Where it `fight`s the member is its own mind's but while it sways, and the sway is ordered
  * firm (`Orders.firm`), carried out before anything its mind would choose.
  */
 export interface SwayConfig extends CommanderConfig {
@@ -21,7 +21,7 @@ export interface SwayConfig extends CommanderConfig {
   readonly rest: number;
   readonly set: number;
   readonly follow: number;
-  readonly fight: number;
+  readonly fight: boolean;
 }
 
 /** How far beyond its `set` range a member is ordered out of its carriage, m. */
@@ -57,10 +57,10 @@ function swayCommander(config: SwayConfig): Commander {
         if (sway.phase === "waiting" && apart <= config.range && apart >= config.near) { sway.phase = "going"; sway.since = view.time; }
         else if (sway.phase === "going" && view.time >= sway.since + config.seconds) { sway.phase = "resting"; sway.since = view.time; }
         else if (sway.phase === "resting" && view.time >= sway.since + config.rest) sway.phase = "waiting";
-        if (config.fight > 0 && sway.phase !== "going") { orders.set(member.id, { face: null }); continue; }
+        if (config.fight && sway.phase !== "going") { orders.set(member.id, { face: null }); continue; }
         const gait = sway.phase === "going" ? "back-step" : sway.set ? "set" : null;
         const toward = foe ? direction(member.at, foe.at) : null, following = toward && sway.phase === "going" && config.follow > 0 && apart > config.follow;
-        orders.set(member.id, { move: following ? { kind: "direct", direction: toward } : null, face: toward, ...(gait ? { gait } : {}), ...(config.fight > 0 ? { firm: true } : {}) });
+        orders.set(member.id, { move: following ? { kind: "direct", direction: toward } : null, face: toward, ...(gait ? { gait } : {}), ...(config.fight ? { firm: true } : {}) });
       }
       return { orders, looked: true };
     },
@@ -71,17 +71,18 @@ function swayCommander(config: SwayConfig): Commander {
 }
 
 /** The sway Commander's settings as the back step's drill reads best: in the carriage within 3 m, the sway at 1.05 m held as its gait is (`BACK_STEP_SECONDS`), 0.3 s between. */
-const SWAY_DEFAULTS = deepFreeze<SwayConfig>({ kind: "sway", range: 1.05, near: 0, seconds: BACK_STEP_SECONDS.held, rest: .3, set: 3, follow: 0, fight: 0 });
+const SWAY_DEFAULTS = deepFreeze<SwayConfig>({ kind: "sway", range: 1.05, near: 0, seconds: BACK_STEP_SECONDS.held, rest: .3, set: 3, follow: 0, fight: false });
 
-/** The keys of a sway config, each a number but its kind. */
-const SWAY_KEYS = ["range", "near", "seconds", "rest", "set", "follow", "fight"] as const;
+/** The keys of a sway config that are numbers. */
+const SWAY_KEYS = ["range", "near", "seconds", "rest", "set", "follow"] as const;
 
 /** **Sway** (`swayCommander`): what the back step's evaluation leads its subject by. It leads no side of a Crypt run. */
 export const SWAY = deepFreeze<CommanderEntry>({
   label: "Sway", sides: [], defaults: SWAY_DEFAULTS,
   faults: (config) => [
-    ...Object.keys(config).filter((key) => key !== "kind" && !(SWAY_KEYS as readonly string[]).includes(key)).map((key) => `${key}: not a setting of sway`),
+    ...Object.keys(config).filter((key) => key !== "kind" && key !== "fight" && !(SWAY_KEYS as readonly string[]).includes(key)).map((key) => `${key}: not a setting of sway`),
     ...SWAY_KEYS.filter((key) => !(typeof config[key] === "number" && Number.isFinite(config[key]) && (config[key] as number) >= 0 && (config[key] as number) <= 6)).map((key) => `${key}: a number from 0 to 6`),
+    ...("fight" in config && typeof config.fight !== "boolean" ? ["fight: true or false"] : []),
   ],
   create: (_host, config) => swayCommander({ ...SWAY_DEFAULTS, ...config } as SwayConfig),
 });
