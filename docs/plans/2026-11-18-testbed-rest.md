@@ -9,7 +9,7 @@ is needed is the owner's to say.** Not begun, and none is begun until the owner 
 sits, none of it pending or next (the owner, 2026-11-18, through the reviewing session: "re the
 testbed-rest, i'm not sure yet exactly what parts of that we need. that plan can just sit there
 for now, it doesn't have to be pending"). The
-order of this plan, the numbers plan and [the back step](2026-11-16-back-step.md) is the owner's
+order of this plan and the numbers plan is the owner's
 to give.
 
 ## The goal, in the owner's words
@@ -151,7 +151,7 @@ bout makes again and the bout plays the same without.
     back step found (the body's facing, whether a strike is on offer), several weights fitted by
     bouts won and held out. Built of a written line's end: `ByDistance` (three numbers, one scale
     fitted), `ByExchange` and `ByNext` (one number each, `src/minds/option/chooser.ts`); none
-    reads the state past distance and the next exchange. What [the back step](2026-11-16-back-step.md)'s
+    reads the state past distance and the next exchange. What [the back step](../approaches.md#guarding)'s
     order asks of a sway's pricing. The owner (through the reviewing session, 2026-11-18): "my
     suspition is that the pricing problems can be fixed with a proper Stockfish-style authored
     features + weights design. it's on if we don't have one universal best value function, we can

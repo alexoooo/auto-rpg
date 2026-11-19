@@ -81,6 +81,18 @@ strikes, guarding and minds are there.
   `8f55482d5`). A cause is read from saved bouts in minutes before a run is spent on it. *Shown.*
 - **The bar is the owner's words.** A reviewer's caution is kept beside it, never read as it
   (`eb65bd3a6`). *Shown.*
+- **A bar's two halves are one command's protocols**, the skill and its baseline on the same
+  trials, set-up and reader. The back step's bar 1 was written met for two days against a
+  standing defender read by a research script on another set-up (33.6 %, its defender the other
+  side under the script's own mind); the evaluation's own standing defender read 20.4 % there, so
+  the bar had never been met. Its baseline is now the evaluation's protocol beside the skill's
+  (`mind-held-standing`), and a Mind without a skill is the game's named by a setting's path
+  (`--ablate options.steps-back=null`), not a list written out by hand. *Shown.*
+- **A drill's own orders may make its figure.** In the back step's drill the sway took 9.8 % of
+  the punches thrown while it went back, against standing's 19.7 %; the drill's Commander then
+  held the order 1.6 s more, stepping it in and following, and 71 of the 127 punches taken
+  landed there. A figure from a drill is read by where the skill stood when each blow came.
+  *Shown.*
 - **Readings and training count only on the game's engine, rate and command delay.** Stand-up was
   tuned on parent-axis `rapier` for a month while the game ran `rapier-coordinate`; on the game's
   engine 153 of 160 became 67 of 80 (`66a46676`, `4acb557d`). *Shown.*
