@@ -167,15 +167,17 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
 - **A threat reader is measured against the blow's truth before a guard is tuned on it**: the
   golem's stroke reader read "idle" on 82 % of asks after weeks of parry tuning (`ef839a1e`).
   *Repeated.*
-- **Two guards that both fit tie in price and fall to registration order**: from `5baf9e257`
-  (2026-11-14) a buckler holder carried the cover guard beside the shield guard. Their Options are
-  one Option under two names: the game's Mind priced them alike (the Covers tied in 19 of 19
-  rankings in four Arena bouts) and took the first registered, the cover guard, on every step, as
-  the drill's ranked chooser did; the buckler's face warded nothing. The man's cover lost 0.845 HP
-  a trial at buckler,club and 1.293 at buckler,sword, against 0.117 and 0.271 before. The cover
-  guard now fits only hands holding no face (`90dc6d6bc`): 0.376 and 0.464, within noise of
-  2026-11-13 on every buckler cell, and the man's bonk at buckler,club back from 0.019 to 0.112 HP
-  a second. A guard says the bodies it suits. *Shown.*
+- **Two guards told apart by a held face were one skill**: the cover guard and the shield guard
+  differed only in warding with a face where a hand held one. From `5baf9e257` (2026-11-14) a
+  buckler holder carried both; their Options were one Option under two names, so the game's Mind
+  priced them alike (the Covers tied in 19 of 19 rankings in four Arena bouts) and took the first
+  registered, the cover guard, on every step, as the drill's ranked chooser did, and the buckler's
+  face warded nothing. The man's cover lost 0.845 HP a trial at buckler,club and 1.293 at
+  buckler,sword, against 0.117 and 0.271 before. Refusing the cover guard a held face
+  (`90dc6d6bc`) gave 0.376 and 0.464, within noise of 2026-11-13 on every buckler cell, and the
+  man's bonk at buckler,club back from 0.019 to 0.112 HP a second. Now one guard covers with what
+  each hand holds and wards with a face where an item declares one, the same on every loadout.
+  *Shown.*
 
 ## Minds
 

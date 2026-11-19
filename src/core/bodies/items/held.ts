@@ -54,6 +54,9 @@ export function heldItem(held: Held): ItemSpec | null {
   }
 }
 
+/** The segments of `spec` holding an item with a covering face (`ItemSpec.coverNormal`), which a guard wards with. */
+export const facedHands = (spec: BodySpec): readonly string[] => (spec.held ?? []).filter(({ item }) => item.coverNormal !== undefined).map(({ segment }) => segment);
+
 /** What `hand` of `spec` holds, by `HELD`'s name; null for an item none of them names. */
 export function heldIn(spec: BodySpec, hand: Side): Held | null {
   const item = heldBy(spec, pairedSegment("hand", hand))[0]?.item;
