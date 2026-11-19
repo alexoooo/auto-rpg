@@ -448,7 +448,9 @@ What a skill reads afresh from the senses every step is no memory and stays out 
 When a checkpoint is chosen, copy its `model-<n>.zip`, `normalize-<n>.pkl`, `policy-<n>.json`,
 `layout.json` and the run's config to `research/runs/<task>/<name>/`, and add a line for it to
 `research/runs/<task>/README.md`. The rest of `.tmp/<task>/<run>/` is deleted with the task. A
-dropped run keeps nothing; its reading goes in the commit message.
+dropped run keeps nothing; its reading goes in the commit message. A copy of source in a run's
+folder is no record a later run reads: it imports the live `src` and nothing type-checks it, so a
+change to `src` does not edit it to keep it running.
 
 ## Traps
 

@@ -396,7 +396,9 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
           { name: "wall", kind: "box", centre: [x, (WALL_HEIGHT + foot) / 2, z], size: [1, WALL_HEIGHT - foot, 1] });
       }
     }
-    // The floor and walls are drawn a cell at a time above, each shown as its cell is revealed and cut away; the obstacles and doors are the level's own.
+    // The floor and walls are drawn a cell at a time above, each shown as its cell is revealed and cut away: the level's
+    // own are one slab and walls in runs of up to four cells (`dungeonSolids`), which can be neither revealed a cell at a
+    // time nor cut above a foot. The obstacles and doors are the level's own.
     physical.push(...run.level.solids.filter(s => s.part === "obstacle" || s.part === "door"));
     geometryVersion = "";
     geometryMaskVersion = ""; geometryMask = new Uint8Array(run.map.size * run.map.size);
