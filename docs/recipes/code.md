@@ -83,6 +83,11 @@ of a test.
   carry is that type (a generic over the config, a type guard).
 - **An experiment is tried in a worktree** and lands as the general thing or is dropped: nothing
   stays selectable because it was once tried.
+- **A list beside a registry is the registry**: what the registered parts offer (a Mind's Options,
+  Move's gaits) is read from them, never written again by hand, so a part registered is a part in
+  use; a test guards only what structure cannot.
+- **A script or flag made for one reading goes when the reading is done**, its finding kept in the
+  document that holds its kind; a case a command already takes gets no script of its own.
 - **A stored file has one shape.** When the shape changes, the file is rewritten or made again in
   the same commit; no reader allows for the old one.
 - **A new need is not a new trailing parameter.** A function written, reshaped or added to takes

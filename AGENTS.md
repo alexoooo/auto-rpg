@@ -30,7 +30,9 @@ node scripts/fingerprint.mjs          # what the game computes: --json <file> be
 ## Checks and landing
 
 - **Checks by change**: code, `npm run check` and `npm test`; browser code, assets, dependencies
-  or build config, also `npm run build`; something to see, a brief look in a browser; a change to
+  or build config, also `npm run build`; something to see, a brief look in a browser, and a change
+  to what a config resolves to, a headless one at the Arena with the mind editor open (the pages
+  build Minds from the same configs, so code checks alone do not show they open); a change to
   what a Mind or a skill does, or a refactor claiming none, the fingerprint, each case it moves
   named; prose only, `node --test tests/documents.test.mjs` (the links) and `git diff --check`,
   nothing more.
