@@ -113,7 +113,7 @@ test("selected navigation choices keep separate routes and restore the active pl
   for (const [i, config] of configs.entries()) {
     navigation.select(skillName(config));
     assert.equal(navigation.report.request, null, "a newly chosen planner has its own route memory");
-    navigation.step(sight, request(i), gait, 1, 1 / 120);
+    navigation.step({ sight, request: request(i), gait, ceiling: 1, dt: 1 / 120, available: true });
     assert.deepEqual(navigation.report.request, request(i));
     if (i === 0) { saved = saveState(navigation.state); expected = structuredClone(navigation.report); }
     sight.view.time += 1 / 120;

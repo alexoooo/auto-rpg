@@ -68,6 +68,16 @@ export interface Clearance {
 }
 
 /**
+ * **What a navigator is asked a step** (`Navigator.step`): what it sees (`sight`), the movement
+ * asked (`request`, none: stand), the `gait` it walks by under the speed `ceiling`, m/s, over
+ * `dt` s, and whether the legs are `available` to walk.
+ */
+export interface NavigationAsk {
+  readonly sight: NavigationSight; readonly request: MovementRequest | null; readonly gait: GaitLimits;
+  readonly ceiling: number; readonly dt: number; readonly available: boolean;
+}
+
+/**
  * **A navigator**: what turns a movement request into a walk. It owns the geometry and its memory
  * of progress; whoever asks keeps facing and its priorities. Its `state` is plain data
  * (`src/core/state.ts`); its `report` reads it.
@@ -78,10 +88,10 @@ export interface Navigator extends Clearance {
   readonly state: object;
   readonly report: NavigationReport;
   /**
-   * The walk toward `request` this step at the speed rule's speed (`travelSpeed`) for `gait`
-   * under `ceiling`, and the way it goes, or none where it is not `available`.
+   * The walk toward the `request` this step at the speed rule's speed (`travelSpeed`) for the
+   * `gait` under the `ceiling`, and the way it goes, or none where the legs are not `available`.
    */
-  step(sight: NavigationSight, request: MovementRequest | null, gait: GaitLimits, ceiling: number, dt: number, available?: boolean): NavigationStep;
+  step(ask: NavigationAsk): NavigationStep;
   /** `move`, in the heading's frame, kept clear of the solids sensed: a walk asked with no request. */
   steer(view: NavigationSight["view"], heading: number, move: readonly [number, number] | null): readonly [number, number] | null;
   /** Forget the route and progress: its body was taken over, put down or handed back. */

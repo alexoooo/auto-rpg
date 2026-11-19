@@ -255,10 +255,10 @@ test("a changed destination retains a planned route while locomotion is unavaila
     sight = { view: { time: 0, stance: { centre: { x: 0, y: 1, z: 0 }, velocity: { x: 0, y: 0, z: 0 } },
       senses: { side: "party", others: [], solids } }, report: { legs: { heading: 0 } } },
     request = x => ({ kind: "place", points: [{ x, z: 6 }], near: .1 });
-  navigation.step(sight, request(0), NAVIGATING, 1, 1 / 120);
+  navigation.step({ sight, request: request(0), gait: NAVIGATING, ceiling: 1, dt: 1 / 120, available: true });
   assert.ok(navigation.report.route.length > 1, "fixture must route around the wall");
   sight.view.time += 1 / 120;
-  assert.deepEqual(navigation.step(sight, request(1), NAVIGATING, 1, 1 / 120, false), { move: null, face: null });
+  assert.deepEqual(navigation.step({ sight, request: request(1), gait: NAVIGATING, ceiling: 1, dt: 1 / 120, available: false }), { move: null, face: null });
   assert.equal(navigation.report.status, "unavailable");
   const route = navigation.report.route;
   assert.ok(route.length > 1, "unavailability must not erase the new geometric plan");
@@ -284,7 +284,7 @@ test("a combat approach stays routed until the target is unobstructed", () => {
     senses: { side: "enemy", solids, others: [{ id: target.id, side: "party", spec: modelSpec("man"),
       centre: new Vector3(target.at.x, 1, target.at.z), velocity: new Vector3(), out: false, down: false, segments: new Map() }] } },
     report: { legs: { heading: 0 } } };
-  navigation.step(sight, move, NAVIGATING, 1, 1 / 120);
+  navigation.step({ sight, request: move, gait: NAVIGATING, ceiling: 1, dt: 1 / 120, available: true });
   assert.equal(navigation.report.status, "moving");
   const route = navigation.report.route;
   assert.ok(route.length > 1, "the approach must go around the sarcophagus");
@@ -304,10 +304,10 @@ test("a moved destination retries an unreachable route within the tracking dista
   const sight = { view: { time: 0, stance: { centre: new Vector3(0, 1, 0), velocity: new Vector3() },
     senses: { side: "party", others: [], solids } }, report: { legs: { heading: 0 } } };
   const request = z => ({ kind: "place", points: [{ x: 0, z }], near: .04 });
-  navigation.step(sight, request(1.8), NAVIGATING, 1, 1 / 120);
+  navigation.step({ sight, request: request(1.8), gait: NAVIGATING, ceiling: 1, dt: 1 / 120, available: true });
   assert.equal(navigation.report.status, "unreachable", "the first spot must not fit in front of the wall");
   sight.view.time += 1 / 120;
-  const step = navigation.step(sight, request(1.55), NAVIGATING, 1, 1 / 120);
+  const step = navigation.step({ sight, request: request(1.55), gait: NAVIGATING, ceiling: 1, dt: 1 / 120, available: true });
   assert.equal(navigation.report.status, "moving");
   assert.deepEqual(navigation.report.route, [{ x: 0, z: 1.55 }]);
   assert.ok(step.move, "the changed reachable destination must receive a walk");

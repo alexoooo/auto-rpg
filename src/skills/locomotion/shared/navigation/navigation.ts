@@ -1,4 +1,3 @@
-import type { GaitLimits } from "../../../framework/locomotion-part.ts";
 import { atan2, cos, hypot, sin } from "../../../../core/math/real.ts";
 import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../../core/quantity.ts";
@@ -7,7 +6,7 @@ import { heldClearance } from "./held-clearance.ts";
 import { clearanceExit, clearMove, clearStep, stockClearance, footprinter, footprints, NO_SOLIDS } from "./clear-step.ts";
 import { crowdWalk, fallenSolids, type FallenMemory } from "./crowd.ts";
 import { copyMovement, sameMovement, stands, type MovementRequest, type GroundPoint } from "../../../framework/movement.ts";
-import type { NavigationReport, NavigationSight, NavigationStatus, NavigationStep, Navigator } from "../../../framework/navigation.ts";
+import type { NavigationAsk, NavigationReport, NavigationSight, NavigationStatus, NavigationStep, Navigator } from "../../../framework/navigation.ts";
 import type { SolidSense } from "../../../../core/bodies/object-senses.ts";
 import { createRouter } from "./route-search.ts";
 import { cornersOf, passedWithin, ROUTE_MARGIN, travelSpeed, WAYPOINT, type Corner, type Going } from "../travel.ts";
@@ -112,7 +111,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     return state.published;
   };
   /** Geometry and progress remain current while actuation is unavailable. */
-  const plan = (sight: NavigationSight, request: MovementRequest | null, gait: GaitLimits, ceiling: number, dt: number, available: boolean): NavigationStep => {
+  const plan = ({ sight, request, gait, ceiling, dt, available }: NavigationAsk): NavigationStep => {
     const { view, report } = sight, centre = view.stance.centre, here = { x: centre.x, z: centre.z };
     const sensed = view.senses.solids ?? NO_SOLIDS;
     let solids = printsOf(sensed, centre.y, view.stance.support?.y);
@@ -331,9 +330,9 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
      * the speed rule's speed (`travelSpeed`) for `gait` under `ceiling`, the way the walk goes
      * relative to the heading; and the way it goes, which a body that faces its travel turns to. A gait that states no limit, under no ceiling, gives no speed: the body does not go.
      */
-    step(sight, request, gait, ceiling, dt, available = true) {
-      const result = plan(sight, request, gait, ceiling, dt, available);
-      if (!available) { update("unavailable", state.report.remaining, state.report.goal); return { move: null, face: null }; }
+    step(ask) {
+      const result = plan(ask);
+      if (!ask.available) { update("unavailable", state.report.remaining, state.report.goal); return { move: null, face: null }; }
       return result;
     },
   };

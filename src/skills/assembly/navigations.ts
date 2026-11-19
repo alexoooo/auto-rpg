@@ -14,7 +14,7 @@ export function navigationRepertoire(parts: PartLookup, spec: BodySpec, configs:
   return {
     state, get report() { return current()?.report ?? unavailable; },
     select,
-    step: (sight, request, gait, ceiling, dt, available) => current()?.step(sight, request, gait, ceiling, dt, available) ?? { move: null, face: null },
+    step: (ask) => current()?.step(ask) ?? { move: null, face: null },
     steer: (view, heading, move) => current()?.steer(view, heading, move) ?? null,
     keepClear: (view, heading, move) => current()?.keepClear(view, heading, move) ?? null,
     exit: view => current()?.exit(view) ?? null,

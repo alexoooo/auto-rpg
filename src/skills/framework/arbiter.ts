@@ -189,7 +189,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     command(view: BodyView, requested: Intent, dt: number): BodyCommand {
       for (let i = 0; i < SERVICES.length; i++) chosen[SERVICES[i]!]?.select?.(requested.skills?.[SERVICES[i]!], view);
       if (!navigation && requested.movement) throw new Error("a movement request to a skill set with no navigation");
-      const intent = navigated(navigation, { view, report }, legs, body.envelope, requested, dt, state.walkable && (!support || support.walks()));
+      const intent = navigated(navigation, { sight: { view, report }, legs, envelope: body.envelope, requested, dt, available: state.walkable && (!support || support.walks()) });
       const near = context(intent);
       if (intent.interrupt?.length) instances.stop(view, intent.interrupt, "its mind took what it held");
       instances.step(view, intent.actions, near, dt);
@@ -388,13 +388,15 @@ function legsGoal(asked: LegsGoal, intent: Pick<Intent, "move" | "face" | "lower
  * movement kept clear of the solids sensed. Nothing walks where the legs are not `available`, and
  * with no navigation the walk goes as asked.
  */
-function navigated(navigation: Navigator | null, sight: NavigationSight, legs: Pick<Locomotion, "heading" | "envelope" | "stopping" | "lag">, envelope: StanceEnvelope | null,
-  requested: Intent, dt: number, available: boolean): Intent {
+function navigated(navigation: Navigator | null, { sight, legs, envelope, requested, dt, available }: {
+  readonly sight: NavigationSight; readonly legs: Pick<Locomotion, "heading" | "envelope" | "stopping" | "lag">; readonly envelope: StanceEnvelope | null;
+  readonly requested: Intent; readonly dt: number; readonly available: boolean;
+}): Intent {
   const { view } = sight, h = legs.heading, velocity = requested.move;
   const request = requested.movement ?? (velocity ? directMovement(velocity[0] * sin(h) + velocity[1] * cos(h), velocity[0] * cos(h) - velocity[1] * sin(h)) : null);
   const ceiling = Math.min(requested.pace ?? (velocity && !requested.movement ? hypot(velocity[0], velocity[1]) : Infinity),
     requested.walk && envelope ? envelope.ways.forward.value : Infinity);
-  const result = navigation?.step(sight, request, legs, ceiling, dt, available) ?? null;
+  const result = navigation?.step({ sight, request, gait: legs, ceiling, dt, available }) ?? null;
   if (requested.movement && result) return { ...requested, move: result.move,
     face: facesTravel(requested.travelFacing, result.destination) ? result.face ?? requested.face : requested.face,
     ...(result.destination === undefined ? {} : { destination: result.destination }), ...(result.rest === undefined ? {} : { rest: result.rest }) };
