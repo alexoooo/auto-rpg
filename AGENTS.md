@@ -7,7 +7,7 @@ A new capability enters by the config path those already there take. Work not ye
 worktree (`.tmp/worktrees/<name>/`), never on main behind a helper, a preset or a flag.
 
 [README](README.md) says what the game is, the documents below the rest. Work toward the owner's
-goal runs unattended. A second session that reviews it reads read-only and sends a note only with
+goal runs unattended, overnight included. A second session that reviews it reads read-only and sends a note only with
 its evidence, never asking the work to wait for the owner or adding to the owner's bar; the worker
 answers a note with a reading and keeps going.
 
@@ -56,5 +56,6 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 | `docs/reference/` | only what code needs and a comment cannot hold |
 | `docs/art/`, asset and vendor READMEs | where each asset comes from and how to rebuild it |
 
-A document says what is true of the code now, once; a wrong one is corrected or deleted. A change's
-story goes in its commit message, a finding in the document holding its kind, never in a memory.
+A document says what is true of the code now, once; a wrong one is corrected or deleted. The
+story of a change goes in its commit message; a finding goes in the document above that holds its
+kind, never in an agent's own memory.
