@@ -160,17 +160,15 @@ function articulatedMass(built: BuiltBody): ContactMass {
   let lower: number[][] = [];
   const v = new Vector3(), q = new Quaternion(), carry = new Quaternion(), bodyAxes: [number, number, number][] = [];
 
-  /** The rows of J at `point` on segment `i`, written in `J`'s first rows: its velocity in the speeds, and (with `spin`) its segment's spin. */
-  const jacobian = (i: number, point: Vec3, spin: boolean, J: number[][] = Array.from({ length: spin ? 6 : 3 }, () => new Array<number>(n).fill(0))): number[][] => {
-    const rows = (spin ? 6 : 3);
-    for (let k = 0; k < rows; k++) J[k]!.fill(0);
+  /** The rows of J at `point` on segment `i`, its velocity in the speeds, written in `J`'s first three rows. */
+  const velocityRows = (i: number, point: Vec3, J: number[][]): number[][] => {
+    for (let k = 0; k < 3; k++) J[k]!.fill(0);
     const r = [point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]];
     // The root's velocity, and its spin across the point: w x r = -r x w.
     for (let k = 0; k < 3; k++) J[k]![k] = 1;
     J[0]![4] = r[2]!; J[0]![5] = -r[1]!;
     J[1]![3] = -r[2]!; J[1]![5] = r[0]!;
     J[2]![3] = r[1]!; J[2]![4] = -r[0]!;
-    if (spin) for (let k = 0; k < 3; k++) J[3 + k]![3 + k] = 1;
     for (const j of lineage[i]!) {
       const p = pivots[j]!, d = [point[0] - p[0], point[1] - p[1], point[2] - p[2]];
       axes[j]!.forEach((a, k) => {
@@ -178,7 +176,18 @@ function articulatedMass(built: BuiltBody): ContactMass {
         J[0]![col] = a[1] * d[2]! - a[2] * d[1]!;
         J[1]![col] = a[2] * d[0]! - a[0] * d[2]!;
         J[2]![col] = a[0] * d[1]! - a[1] * d[0]!;
-        if (spin) { J[3]![col] = a[0]; J[4]![col] = a[1]; J[5]![col] = a[2]; }
+      });
+    }
+    return J;
+  };
+  /** Segment `i`'s spin in the speeds, written in `J`'s rows 3 to 5. */
+  const spinRows = (i: number, J: number[][]): number[][] => {
+    for (let k = 3; k < 6; k++) J[k]!.fill(0);
+    for (let k = 0; k < 3; k++) J[3 + k]![3 + k] = 1;
+    for (const j of lineage[i]!) {
+      axes[j]!.forEach((a, k) => {
+        const col = firstColumn[j]! + k;
+        J[3]![col] = a[0]; J[4]![col] = a[1]; J[5]![col] = a[2];
       });
     }
     return J;
@@ -196,7 +205,7 @@ function articulatedMass(built: BuiltBody): ContactMass {
     return i;
   };
   const mobility = (segment: BuiltSegment, point: Vec3): number[][] => {
-    const J = jacobian(segmentIndex(segment), point, false);
+    const J = velocityRows(segmentIndex(segment), point, Array.from({ length: 3 }, () => new Array<number>(n).fill(0)));
     const columns = J.map((row) => solve(row));
     return J.map((row) => columns.map((column) => row.reduce((sum, x, k) => sum + x * column[k]!, 0)));
   };
@@ -242,7 +251,7 @@ function articulatedMass(built: BuiltBody): ContactMass {
       // M = sum of m Jv' Jv + Jw' I Jw over the segments, at their centres.
       for (const row of M) row.fill(0);
       segments.forEach((segment, i) => {
-        const J = jacobian(i, centres[i]!, true, rows6), m = segment.rigid.mass, I = inertias[i]!;
+        const J = spinRows(i, velocityRows(i, centres[i]!, rows6)), m = segment.rigid.mass, I = inertias[i]!;
         for (let a = 0; a < 3; a++) for (let col = 0; col < n; col++) Iw[a]![col] = I[a]![0]! * J[3]![col]! + I[a]![1]! * J[4]![col]! + I[a]![2]! * J[5]![col]!;
         for (let a = 0; a < n; a++) {
           for (let b = a; b < n; b++) {
@@ -283,7 +292,8 @@ function articulatedMass(built: BuiltBody): ContactMass {
       const columns = held.map(({ column }) => inverseColumn(column));
       const K = held.map((_, i) => held.map(({ column }) => columns[i]![column]!));
       const c = held.map(({ column }) => Ag[column]!);
-      return yieldPath(a, c, K, held.map(({ low }) => low), held.map(({ high }) => high), most ?? Infinity, held.length > lower.length ? (lower = square(held.length)) : lower);
+      return yieldPath({ a, c, K, low: held.map(({ low }) => low), high: held.map(({ high }) => high), most: most ?? Infinity,
+        L: held.length > lower.length ? (lower = square(held.length)) : lower });
     },
   };
 
@@ -300,7 +310,7 @@ function articulatedMass(built: BuiltBody): ContactMass {
 
   /** The push along `direction` at `point` on `segment` as a row of the body's speeds: n' J, with n of unit length. */
   function pushRow(segment: BuiltSegment, point: Vec3, direction: Vec3): number[] {
-    const J = jacobian(segmentIndex(segment), point, false, rows6);
+    const J = velocityRows(segmentIndex(segment), point, rows6);
     const size = hypot(direction[0], direction[1], direction[2]);
     return J[0]!.map((_, col) => (direction[0] * J[0]![col]! + direction[1] * J[1]![col]! + direction[2] * J[2]![col]!) / size);
   }
@@ -317,8 +327,10 @@ function articulatedMass(built: BuiltBody): ContactMass {
  * the change has reached `most`, the most a blow reads of it (`blowChange`), or every freedom is
  * done changing: its later legs reach impulses no blow carries.
  */
-function yieldPath(a: number, c: readonly number[], K: readonly (readonly number[])[], low: readonly number[], high: readonly number[],
-  most: number, L: number[][]): Yield {
+function yieldPath({ a, c, K, low, high, most, L }: {
+  readonly a: number; readonly c: readonly number[]; readonly K: readonly (readonly number[])[]; readonly low: readonly number[];
+  readonly high: readonly number[]; readonly most: number; readonly L: number[][];
+}): Yield {
   const h = c.length, given = new Array<number>(h).fill(0), turning = new Array<number>(h).fill(0);
   // 0 holds; +1 gives at its high bound, -1 at its low.
   const at = new Array<number>(h).fill(0);

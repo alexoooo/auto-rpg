@@ -108,14 +108,14 @@ const lengthAtScale = (figure: HumanFigure) => (length: Quantity<number>): Quant
 
 function plans(figure: HumanFigure): Plan[] {
   const { VERT, CERV, XYPH, OMPH, MIDH } = figure.trunk;
-  const plan = (name: string, row: DeLevaSegment, proximal: Quantity<Vec3>, distal: Quantity<Vec3>, shape: Shape,
-    origin = proximal, end = distal, right?: Quantity<Vec3>, points?: Plan["points"], hand?: HandFigure): Plan =>
-    ({ name, row, proximal, distal, origin, end, shape, right, points, ...(hand && { hand }) });
+  // A row runs from the segment's proximal end to its distal one unless it says otherwise.
+  const plan = (stated: Omit<Plan, "origin" | "end"> & Partial<Pick<Plan, "origin" | "end">>): Plan =>
+    ({ origin: stated.proximal, end: stated.distal, ...stated });
   const out: Plan[] = [
-    plan("head", "head", CERV, VERT, { kind: "capsule", density: "head" }, VERT, CERV),
-    plan("upperTrunk", "upperTrunk", CERV, XYPH, { kind: "hull", points: figure.hulls.upper }),
-    plan("middleTrunk", "middleTrunk", XYPH, OMPH, { kind: "hull", points: figure.hulls.middle }),
-    plan("lowerTrunk", "lowerTrunk", OMPH, MIDH, { kind: "hull", points: figure.hulls.lower }),
+    plan({ name: "head", row: "head", proximal: CERV, distal: VERT, shape: { kind: "capsule", density: "head" }, origin: VERT, end: CERV }),
+    plan({ name: "upperTrunk", row: "upperTrunk", proximal: CERV, distal: XYPH, shape: { kind: "hull", points: figure.hulls.upper } }),
+    plan({ name: "middleTrunk", row: "middleTrunk", proximal: XYPH, distal: OMPH, shape: { kind: "hull", points: figure.hulls.middle } }),
+    plan({ name: "lowerTrunk", row: "lowerTrunk", proximal: OMPH, distal: MIDH, shape: { kind: "hull", points: figure.hulls.lower } }),
   ];
   for (const side of SIDES) {
     const { SJC, EJC, WJC, DAC3, MET3, HJC, KJC, AJC, HEEL, TTIP, handRight, little } = figure.limbs[side], hand = figure.hands?.[side];
@@ -125,27 +125,43 @@ function plans(figure: HumanFigure): Plan[] {
       ? derive("m", "the boot's toe less the toes, at the figure's authored size", [boot.z.max, toes.length, figure.scale], (front, length, s) => front - length / s)
       : derive("m", "the boot's toe less the toes", [boot.z.max, toes.length], (front, length) => front - length) } };
     out.push(
-      plan(segmentName("upperArm", side), "upperArm", SJC, EJC, { kind: "capsule", density: "upperArm" }),
-      plan(segmentName("forearm", side), "forearm", EJC, WJC, { kind: "capsule", density: "forearm" }),
-      plan(segmentName("hand", side), "hand", WJC, DAC3, { kind: "capsule", density: "hand" }, WJC, DAC3, handRight,
-        hand ? { knuckles: MET3, ...(little && { little }), strike: hand.fist.strike, palm: hand.palm.centre }
-          : little ? { knuckles: MET3, little } : { knuckles: MET3 }, hand),
-      plan(segmentName("thigh", side), "thigh", HJC, KJC, { kind: "capsule", density: "thigh" }),
-      plan(segmentName("shank", side), "shank", KJC, AJC, { kind: "capsule", density: "shank" }),
-      plan(segmentName("foot", side), "foot", HEEL, TTIP, { kind: "box in the body frame", extents: foot }),
+      plan({ name: segmentName("upperArm", side), row: "upperArm", proximal: SJC, distal: EJC, shape: { kind: "capsule", density: "upperArm" } }),
+      plan({ name: segmentName("forearm", side), row: "forearm", proximal: EJC, distal: WJC, shape: { kind: "capsule", density: "forearm" } }),
+      plan({ name: segmentName("hand", side), row: "hand", proximal: WJC, distal: DAC3, shape: { kind: "capsule", density: "hand" }, right: handRight,
+        points: hand ? { knuckles: MET3, ...(little && { little }), strike: hand.fist.strike, palm: hand.palm.centre }
+          : little ? { knuckles: MET3, little } : { knuckles: MET3 }, ...(hand && { hand }) }),
+      plan({ name: segmentName("thigh", side), row: "thigh", proximal: HJC, distal: KJC, shape: { kind: "capsule", density: "thigh" } }),
+      plan({ name: segmentName("shank", side), row: "shank", proximal: KJC, distal: AJC, shape: { kind: "capsule", density: "shank" } }),
+      plan({ name: segmentName("foot", side), row: "foot", proximal: HEEL, distal: TTIP, shape: { kind: "box in the body frame", extents: foot } }),
     );
   }
   return out;
 }
 
-function shapeOf(figure: HumanFigure, plan: Plan, proximal: Quantity<Vec3>, distal: Quantity<Vec3>, mass: Quantity<number>,
-  widest: Quantity<number> | undefined, solid: FittedSegment | undefined): ShapeSpec | Refused {
+/** A fitted segment on its line (`HumanFigure.fitted`): its solid, its ends and its own right. */
+interface Fit {
+  readonly solid: FittedSegment;
+  readonly proximal: Quantity<Vec3>;
+  readonly distal: Quantity<Vec3>;
+  readonly right: Quantity<Vec3> | undefined;
+}
+
+/** What a segment's shape is made from beside its plan: its ends at x1, its mass, the widest its figure leaves it, and its fit where it has one. */
+interface Measure {
+  readonly proximal: Quantity<Vec3>;
+  readonly distal: Quantity<Vec3>;
+  readonly mass: Quantity<number>;
+  readonly widest: Quantity<number> | undefined;
+  readonly fit: Fit | undefined;
+}
+
+function shapeOf(figure: HumanFigure, plan: Plan, { proximal, distal, mass, widest, fit }: Measure): ShapeSpec | Refused {
   const shape = plan.shape;
   switch (shape.kind) {
     case "capsule": {
-      const invalid = solid ? null : capsuleError(mass.value / si(SEGMENT_DENSITY[shape.density]).value, distance(proximal.value, distal.value));
+      const invalid = fit ? null : capsuleError(mass.value / si(SEGMENT_DENSITY[shape.density]).value, distance(proximal.value, distal.value));
       if (invalid) return { refused: invalid };
-      const radius = solid ? fittedRadius(figure, solid, proximal, distal, plan.right) : widest
+      const radius = fit ? fittedRadius(figure, fit) : widest
         ? derive("m", "the capsule as long as the segment that holds its mass at its density, no wider than its figure leaves it room",
           [mass, si(SEGMENT_DENSITY[shape.density]), proximal, distal, widest],
           (m, density, p, d, w) => Math.min(capsuleRadius(m / density, distance(p, d)), w),
@@ -175,7 +191,7 @@ function shapeOf(figure: HumanFigure, plan: Plan, proximal: Quantity<Vec3>, dist
           (p, d, x0, x1, y0, y1, z0, z1) => {
             const frame = segmentFrame(p, d);
             const widths: Vec3 = [x1 - x0, y1 - y0, z1 - z0];
-            const along = (axis: Vec3) => dot(axis.map(Math.abs) as unknown as Vec3, widths);
+            const along = (axis: Vec3) => dot([Math.abs(axis[0]), Math.abs(axis[1]), Math.abs(axis[2])], widths);
             return [along(frame.x), along(frame.y), along(frame.z)];
           }),
       };
@@ -192,10 +208,9 @@ function shapeOf(figure: HumanFigure, plan: Plan, proximal: Quantity<Vec3>, dist
  * unit volume along each axis (`a . S a`), at the figure's scale squared and, across the segment,
  * its breadth squared, each axis's moment the sum of the two square to it.
  */
-function fittedInertia(figure: HumanFigure, solid: FittedSegment, mass: Quantity<number>, proximal: Quantity<Vec3>, distal: Quantity<Vec3>,
-  right: Quantity<Vec3> | undefined): Quantity<Vec3> {
+function fittedInertia(figure: HumanFigure, fit: Fit, mass: Quantity<number>): Quantity<Vec3> {
   return derive("kg m2", "the mass times the solid's spread along the segment frame's axes, at the scale squared and broadened across by the breadth squared,"
-    + " each axis's moment the sum of the other two's spreads", [mass, spreadAlong(figure, solid, proximal, distal, right)],
+    + " each axis's moment the sum of the other two's spreads", [mass, spreadAlong(figure, fit)],
   (m, [x, y, z]) => [m * (y + z), m * (x + z), m * (x + y)]);
 }
 
@@ -203,18 +218,16 @@ function fittedInertia(figure: HumanFigure, solid: FittedSegment, mass: Quantity
  * A fitted segment's capsule radius: the uniform cylinder's whose spread across its axis is the
  * solid's, the square root of twice the spread along the segment frame's x and z.
  */
-function fittedRadius(figure: HumanFigure, solid: FittedSegment, proximal: Quantity<Vec3>, distal: Quantity<Vec3>,
-  right: Quantity<Vec3> | undefined): Quantity<number> {
+function fittedRadius(figure: HumanFigure, fit: Fit): Quantity<number> {
   return derive("m", "the uniform cylinder's radius whose spread across it is the solid's: the square root of twice the spread along x and z",
-    [spreadAlong(figure, solid, proximal, distal, right)], ([x, , z]) => Math.sqrt(2 * (x + z)));
+    [spreadAlong(figure, fit)], ([x, , z]) => Math.sqrt(2 * (x + z)));
 }
 
 /**
  * A fitted segment's spread along its frame's x, y and z (`a . S a`), at the figure's scale squared
  * and, across the segment (x and z), its breadth squared.
  */
-function spreadAlong(figure: HumanFigure, solid: FittedSegment, proximal: Quantity<Vec3>, distal: Quantity<Vec3>,
-  right: Quantity<Vec3> | undefined): Quantity<Vec3> {
+function spreadAlong(figure: HumanFigure, { solid, proximal, distal, right }: Fit): Quantity<Vec3> {
   const { scale: size, breadth } = figure;
   const inputs = [proximal, distal, solid.spread.diagonal, solid.spread.off, ...(right ? [right] : []), ...(size ? [size] : []), ...(breadth ? [breadth] : [])];
   return derive("m2", "the solid's spread along the segment frame's axes, at the scale squared and broadened across by the breadth squared", inputs, (...values) => {
@@ -229,9 +242,9 @@ function spreadAlong(figure: HumanFigure, solid: FittedSegment, proximal: Quanti
 }
 
 /** A fitted segment's collider: its hull at the figure's scale, broadened by its breadth about the segment's line. */
-function fittedHull(figure: HumanFigure, hull: readonly Quantity<Vec3>[], proximal: Quantity<Vec3>, distal: Quantity<Vec3>): ShapeSpec {
+function fittedHull(figure: HumanFigure, hull: readonly Quantity<Vec3>[], line: readonly [Quantity<Vec3>, Quantity<Vec3>]): ShapeSpec {
   const corners = hull.map(atScale(figure));
-  return { kind: "hull", points: figure.breadth ? broadHull(corners, [proximal, distal], figure.breadth).corners : corners };
+  return { kind: "hull", points: figure.breadth ? broadHull(corners, line, figure.breadth).corners : corners };
 }
 
 /** The figure's segments at x1, head first, then the trunk, then each side's limbs. */
@@ -253,12 +266,12 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] | Refused {
     const row: DeLevaRow = table[plan.row];
     const proximal = atFit(plan.proximal), distal = atFit(plan.distal);
     const origin = atFit(plan.origin), end = atFit(plan.end);
-    const solid = fitted?.[i];
+    const solid = fitted?.[i], fit = solid && { solid, proximal, distal, right: plan.right };
     const mass = derive("kg", "de Leva's share of the body's mass, the printed shares normalised to sum to one",
       [body, shares[i]!, ...shares], (m, share, ...every) => massShare(m, share, every));
     const centreOfMass = solid ? atFit(solid.centroid)
       : derive("m", "de Leva's centre of mass, along the row from its origin", [origin, end, si(row.centreOfMass)], (o, e, fraction) => lerp(o, e, fraction));
-    const inertia = solid ? fittedInertia(figure, solid, mass, proximal, distal, plan.right) : (() => {
+    const inertia = fit ? fittedInertia(figure, fit, mass) : (() => {
       const longitudinalRadius = figure.breadth
         ? derive("1", "de Leva's longitudinal radius of gyration times the figure's breadth", [si(row.radiusLongitudinal), figure.breadth], (r, b) => r * b)
         : si(row.radiusLongitudinal);
@@ -269,8 +282,8 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] | Refused {
           return [m * square(transverse * l), m * square(longitudinal * l), m * square(sagittal * l)];
         });
     })();
-    const shape = solid?.hull && plan.row !== "hand" && plan.shape.kind === "capsule" ? fittedHull(figure, solid.hull, proximal, distal)
-      : shapeOf(figure, plan, proximal, distal, mass, widestOf(plan), solid);
+    const shape = solid?.hull && plan.row !== "hand" && plan.shape.kind === "capsule" ? fittedHull(figure, solid.hull, [proximal, distal])
+      : shapeOf(figure, plan, { proximal, distal, mass, widest: widestOf(plan), fit });
     if (isRefused(shape)) return shape;
     const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape,
       surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]), ...(plan.row === "foot" ? { friction: FOOT_FRICTION } : {}) },

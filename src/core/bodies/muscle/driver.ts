@@ -353,7 +353,8 @@ export function driveMuscles(built: BuiltBody, world: StepHost, control?: Muscle
       const side = toward > 0 ? c.positive : c.negative;
       if (side.tendon !== null) {
         const stretch = (toward > 0 ? state.stretch.positive : state.stretch.negative)[i]!, force = activation * peakOf(c, side);
-        const v = fibreSpeed(force, side.curve, side.tendon, stretch, toward * speed, dt, Number.isFinite(target) ? toward * target : Infinity);
+        const v = fibreSpeed({ force, curve: side.curve, stiffness: side.tendon, stretch, joint: toward * speed, dt,
+          most: Number.isFinite(target) ? toward * target : Infinity });
         const capacity = force > 0 ? force * forceVelocityFactor(v, side.curve) : 0;
         const positive = toward > 0 ? capacity : 0, negative = toward > 0 ? 0 : capacity;
         state.bounds.positive[i] = positive; state.bounds.negative[i] = negative;
@@ -399,7 +400,10 @@ export function driveMuscles(built: BuiltBody, world: StepHost, control?: Muscle
  * tendon goes slack and the unloaded speed: 40 halvings, a numeric setting. With no force the
  * tendon goes slack.
  */
-function fibreSpeed(force: number, curve: ForceVelocityCurve, stiffness: number, stretch: number, joint: number, dt: number, most: number): number {
+function fibreSpeed({ force, curve, stiffness, stretch, joint, dt, most }: {
+  readonly force: number; readonly curve: ForceVelocityCurve; readonly stiffness: number; readonly stretch: number;
+  readonly joint: number; readonly dt: number; readonly most: number;
+}): number {
   const slack = joint - stretch / dt;
   if (!(force > 0)) return slack;
   let lo = Math.min(slack, -curve.unloadedSpeed), hi = curve.unloadedSpeed;
