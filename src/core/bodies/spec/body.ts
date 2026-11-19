@@ -413,9 +413,13 @@ export interface ConfigurationSpec {
   readonly aim?: Readonly<Record<ConfigurationName, string>>;
 }
 
+/** **What `segment` of `spec` holds** (`BodySpec.held`), in its order. */
+export const heldBy = (spec: BodySpec, segment: string): readonly HeldSpec[] =>
+  (spec.held ?? []).filter((held) => held.segment === segment);
+
 /** Equipment retains its compound envelope in its declared holding configuration. */
 export function configurationShapeAt(body: BodySpec, segment: SegmentSpec, configuration: ConfigurationName): ShapeSpec {
-  return configuration === segment.configurations?.holding?.configuration && body.held?.some(item => item.segment === segment.name)
+  return configuration === segment.configurations?.holding?.configuration && heldBy(body, segment.name).length > 0
     ? segment.shape : segment.configurations?.shapes[configuration] ?? segment.shape;
 }
 

@@ -1,5 +1,5 @@
 import type { SegmentConfiguration } from "../read-body.ts";
-import { frameOf, configurationShapeAt, type BodySpec, type ConfigurationName, type SegmentSpec } from "../spec/body.ts";
+import { frameOf, configurationShapeAt, heldBy, type BodySpec, type ConfigurationName, type SegmentSpec } from "../spec/body.ts";
 import { rigidOf, type Rigid } from "./rigid.ts";
 import { colliderOf } from "./collider.ts";
 import { toesOf, type ToesState } from "./toes.ts";
@@ -16,7 +16,7 @@ export function segmentShapes(body: BodySpec, spec: SegmentSpec) {
   if (faults.length) throw new Error(`${spec.name}: ${faults.join("; ")}`);
   const frame = frameOf(spec);
   const rigid = rigidOf(body, spec);
-  const initial = spec.configurations && (body.held?.some(held => held.segment === spec.name)
+  const initial = spec.configurations && (heldBy(body, spec.name).length > 0
     ? spec.configurations.holding?.configuration ?? spec.configurations.initial : spec.configurations.initial);
   const posed = (name: ConfigurationName): SegmentConfiguration => {
     const shape = configurationShapeAt(body, spec, name);

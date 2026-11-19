@@ -4,7 +4,7 @@ import { dataOf } from "../../../../core/data/store.ts";
 import type { SkillRecords } from "../../../framework/records.ts";
 import { deepFreeze } from "../../../../core/state.ts";
 import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
-import { heldBy, loadoutKey } from "../../../../core/bodies/items/held.ts";
+import { heldIn, loadoutKey } from "../../../../core/bodies/items/held.ts";
 import type { stagedRise } from "./staged.ts";
 import { RISE, rollOver, type BearStage, type PoseStage, type Posture, type Recipe, type RollPoses, type Stage } from "./stages.ts";
 import type { Side } from "../../../../core/bodies/bilateral.ts";
@@ -92,7 +92,7 @@ const byBody = new WeakMap<BodySpec, StepUpTuning>();
 function composed(spec: BodySpec, record: StepUpTuning | undefined, sitBack: SitBackTuning | undefined): StepUpTuning {
   if (!record) throw new Error(`the step-up has no record for ${spec.model}`);
   const { loadouts, ...own } = record;
-  const left = heldBy(spec, "left"), right = heldBy(spec, "right");
+  const left = heldIn(spec, "left"), right = heldIn(spec, "right");
   const loaded = left === null || right === null ? undefined : loadouts?.[loadoutKey({ left, right })];
   return deepFreeze({ ...own, ...loaded, stages: { ...own.stages, ...sitBack?.stages, ...loaded?.stages } });
 }

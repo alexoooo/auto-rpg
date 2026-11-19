@@ -1,4 +1,4 @@
-import { heldBy, type Held } from "../../../core/bodies/items/held.ts";
+import { heldIn, type Held } from "../../../core/bodies/items/held.ts";
 import type { Mechanism } from "../../../combat/rulebook.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../core/quantity.ts";
@@ -36,7 +36,7 @@ export function faceOf(spec: BodySpec, hand: Side, mechanism: Mechanism): Striki
 /** The face `effector` of `spec` strikes with by `mechanism` where its hand holds `item` (`faceOf`): null where it is no hand, or holds something else or nothing. */
 export function heldFace(spec: BodySpec, effector: string, item: Held, mechanism: Mechanism): StrikingFace | null {
   const hand: Side | null = effector === "hand.left" ? "left" : effector === "hand.right" ? "right" : null;
-  return hand && heldBy(spec, hand) === item ? faceOf(spec, hand, mechanism) : null;
+  return hand && heldIn(spec, hand) === item ? faceOf(spec, hand, mechanism) : null;
 }
 
 /** **The faces each hand of `spec` strikes with by `mechanism`** (`heldFace`), those holding `item`. */

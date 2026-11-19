@@ -1,7 +1,6 @@
 import type { BuiltBody, BuiltSegment } from "../../core/bodies/build/build-body.ts";
-import { heldBy } from "../../core/bodies/build/rigid.ts";
 import { woundedIn, type LandedBlow } from "../../combat/blows.ts";
-import type { Substance } from "../../core/bodies/spec/body.ts";
+import { heldBy, type Substance } from "../../core/bodies/spec/body.ts";
 import { hypot, square } from "../../core/math/real.ts";
 
 /** The voices a touch has: on bone, on flesh, and on hard equipment. */

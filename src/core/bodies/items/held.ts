@@ -1,11 +1,11 @@
 import type { Refused } from "../../refusal.ts";
 import { deepFreeze } from "../../state.ts";
 import { armed, canHold } from "../human/grip.ts";
-import type { BodySpec, ItemSpec } from "../spec/body.ts";
+import { heldBy, type BodySpec, type ItemSpec } from "../spec/body.ts";
 import { woodenClub } from "./club.ts";
 import { buckler } from "./buckler.ts";
 import { shortSword } from "./sword.ts";
-import { type Side, SIDES } from "../bilateral.ts";
+import { pairedSegment, type Side, SIDES } from "../bilateral.ts";
 
 /** Every one-handed item the shared loadout catalog offers, and an empty hand. */
 export const HELD = ["empty", "club", "buckler", "sword"] as const;
@@ -55,8 +55,8 @@ export function heldItem(held: Held): ItemSpec | null {
 }
 
 /** What `hand` of `spec` holds, by `HELD`'s name; null for an item none of them names. */
-export function heldBy(spec: BodySpec, hand: Side): Held | null {
-  const item = spec.held?.find((h) => h.segment === `hand.${hand}`)?.item;
+export function heldIn(spec: BodySpec, hand: Side): Held | null {
+  const item = heldBy(spec, pairedSegment("hand", hand))[0]?.item;
   return item ? HELD.find((held) => heldItem(held)?.name === item.name) ?? null : "empty";
 }
 
