@@ -7,7 +7,7 @@ import { uprightness } from "../../../../control/ground.ts";
 import { lieOf, type Lie } from "../../../../control/ground-reading.ts";
 import { servoAsk, servoSolve } from "../../../../control/servo.ts";
 import { DOWN, footStatesOf, readSupport, withinSupport, type FootState } from "../../../../control/support.ts";
-import type { MuscleReading } from "../../../../core/bodies/muscle/driver.ts";
+import { channelSpeed, type MuscleReading } from "../../../../core/bodies/muscle/driver.ts";
 import type { BodyControl } from "../../../../core/bodies/body-control.ts";
 import { bellyOf, type BodySpec } from "../../../../core/bodies/spec/body.ts";
 import { turnOfToRef } from "../../../../core/bodies/read-motion.ts";
@@ -347,12 +347,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     // Each freedom's rate asked of its joint as the joint turns it.
     const rates = work.rates;
     rates.set(control.muscles.velocity);
-    for (let i = 0; i < count; i++) {
-      const channel = muscles.channels[i]!, first = i - channel.index;
-      let speed = 0;
-      for (let k = 0; k < channel.joint.dofs.length; k++) speed += muscles.turning(i, k) * rates[first + k]!;
-      control.muscles.velocity[i] = speed;
-    }
+    for (let i = 0; i < count; i++) control.muscles.velocity[i] = channelSpeed(muscles, i, rates, i - muscles.channels[i]!.index);
   };
   /** Whether the readings `until` names hold for pose `stage`, its balls read this step. */
   const endsAt = (stage: PoseStage, until: Until): boolean => {

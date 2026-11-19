@@ -1,6 +1,6 @@
 import type { MotorAndGuard } from "../../framework/motor-and-guard.ts";
 import type { Body, BodyView } from "../../../control/body.ts";
-import type { MuscleReading, MuscleCommand } from "../../../core/bodies/muscle/driver.ts";
+import { channelSpeed, type MuscleReading, type MuscleCommand } from "../../../core/bodies/muscle/driver.ts";
 import type { BodyControl } from "../../../core/bodies/body-control.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Clock } from "../../../core/world/clock.ts";
@@ -93,10 +93,7 @@ export function poseDrive(muscles: MuscleReading) {
       rates[i] = Math.max(-top, Math.min(top, (goal - muscles.angle(i)) / within));
     }
     for (let i = 0; i < rates.length; i++) {
-      const channel = muscles.channels[i]!, first = i - channel.index;
-      let speed = 0;
-      for (let k = 0; k < channel.joint.dofs.length; k++) speed += muscles.turning(i, k) * rates[first + k]!;
-      command.velocity[i] = speed; command.activation[i] = activation;
+      command.velocity[i] = channelSpeed(muscles, i, rates, i - muscles.channels[i]!.index); command.activation[i] = activation;
     }
   };
 }

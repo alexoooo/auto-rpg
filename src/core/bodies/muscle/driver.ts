@@ -166,6 +166,17 @@ export interface MuscleDriver {
 /** The muscle actuator's readings, without commands, lifecycle or saved memory. */
 export type MuscleReading = Omit<MuscleDriver, "activation" | "velocity" | "state" | "level" | "setLevel" | "dispose">;
 
+/**
+ * The speed of channel `i` for its joint's freedoms turning at `rates[first + k]`, rad/s each
+ * (`MuscleDriver.turning`): `first` is where the joint's first freedom is in `rates`. Joint rates,
+ * an error closed or a path's derivative, become what a motor is asked.
+ */
+export function channelSpeed(muscles: Pick<MuscleReading, "channels" | "turning">, i: number, rates: ArrayLike<number>, first: number): number {
+  let speed = 0;
+  for (let k = 0; k < muscles.channels[i]!.joint.dofs.length; k++) speed += muscles.turning(i, k) * rates[first + k]!;
+  return speed;
+}
+
 /** The activation and requested velocity for each muscle channel. */
 export interface MuscleCommand {
   readonly activation: Float64Array;

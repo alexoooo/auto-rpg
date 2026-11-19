@@ -11,6 +11,7 @@ import { chainTo } from "../../../../control/kinematics.ts";
 import { SOLE_MARGIN } from "../../../../control/stance/stance-tuning.ts";
 import { DOWN, type FootState, bearingSole, footStatesOf, readSupport, rolledEdge, rolledRows } from "../../../../control/support.ts";
 import { motionAtToRef, pointOfToRef } from "../../../../core/bodies/read-motion.ts";
+import { channelSpeed } from "../../../../core/bodies/muscle/driver.ts";
 import { hypot } from "../../../../core/math/real.ts";
 import type { Vec3 } from "../../../../core/quantity.ts";
 import { configurationShapeAt, type ConfigurationName, type ShapeSpec } from "../../../../core/bodies/spec/body.ts";
@@ -197,10 +198,8 @@ function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb, policy?: 
       }
       // The posture closes joint angles; the bearing task and dynamics use motor-axis speeds.
       for (let k = 0; k < channels.length; k++) {
-        const i = channels[k]!, channel = muscles.channels[i]!, first = k - channel.index;
-        let acceleration = 0;
-        for (let j = 0; j < channel.joint.dofs.length; j++) acceleration += muscles.turning(i, j) * jointAcceleration[first + j]!;
-        toward[k] = acceleration;
+        const i = channels[k]!;
+        toward[k] = channelSpeed(muscles, i, jointAcceleration, k - muscles.channels[i]!.index);
         ahead[k] = takes[k] ? NaN : toward[k]!;
       }
     },

@@ -10,6 +10,7 @@ import { spinBetweenToRef, turnAboutToRef } from "../../../../core/math/turn.ts"
 import { armSwing } from "./arm-swing.ts";
 import { footOn } from "../../../../control/support.ts";
 import { type Side, otherSide, SIDES } from "../../../../core/bodies/bilateral.ts";
+import { channelSpeed } from "../../../../core/bodies/muscle/driver.ts";
 
 /**
  * **A run that tracks a person's run cycle's settings** (`runCycle`). Angles are rad; times s;
@@ -416,9 +417,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       for (const i of legChannels) {
         const at = scratch.pushes[i]!;
         if (at < 0) continue;
-        const channel = muscles.channels[i]!, first = i - channel.index;
-        let speed = 0;
-        for (let k = 0; k < channel.joint.dofs.length; k++) speed += muscles.turning(i, k) * scratch.rates[first + k]!;
+        const speed = channelSpeed(muscles, i, scratch.rates, i - muscles.channels[i]!.index);
         pushes[at]!.speed = speed;
         pushes[at]!.sense = speed >= 0 ? 1 : -1;
       }
