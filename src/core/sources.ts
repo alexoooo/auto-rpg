@@ -12,10 +12,6 @@ type Source =
   | { readonly kind: "tuned"; readonly for: string };
 
 const SOURCES = Object.freeze({
-  "synthetic-contact-fixtures": {
-    kind: "tuned",
-    for: "Synthetic slab and hinge geometry, mass, stiffness and muscle values for controlled contact and stop diagnostics.",
-  },
   "owner-arena-items": {
     kind: "tuned",
     for: "The Arena's first equipment: mass, geometry and contact cones authored for play.",
@@ -41,10 +37,6 @@ const SOURCES = Object.freeze({
   "reptile-anatomy": {
     kind: "asset", file: "assets/reptile/body.json",
     what: "The 8 kg sprawling reptile fitted to the grass lizard scan (scripts/reptile/fit.mjs): trunk, head, jaw, legs and tail where the posed art's are, its tail shortened to .28 of the scan's so its footprint fits a Crypt room three times, and light (weights .15 and .08, peaks 1.5 and .6 N m) so the trot is not dragged to a stop. Mass weights, joint limits, muscle ceilings, teeth and paw footprint are the authored quadruped's estimates (assets/quadruped/authored-body.json), the leg joints' unloaded speed (20 rad/s) set for travel at 1.0 m/s or more, the neck's torque scaled by the head and jaw's weighted lever about it.",
-  },
-  "contact-projection-fixture": {
-    kind: "asset", file: "assets/research/contact-projection.json",
-    what: "Synthetic sphere and welded offset load for the friction-projection comparison; fixture inputs, not anatomical measurements.",
   },
   "de-leva-1996": {
     kind: "literature",

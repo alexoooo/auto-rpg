@@ -83,6 +83,19 @@ it was deleted without a reading (`a107a3ee`), not ruled out.
 - **The Rogue cannot press her chest up**: elbow extension 23 to 27 N m against the Warrior's 57;
   ten stage changes stood no more (`bff75d1b`). Her rise needs stronger arms or a route that does
   not push up on them. *Shown.*
+- **A one-step contact predictor agreed with the engine on a slab and did not make a hold**: built
+  as a diagnostic of stand-up's contact mismatch (a held point at a flat hand's middle leaves free
+  what the ground prevents), it predicted the next step's contact and joint-stop impulses through
+  the body's coupled mass, applying nothing (`7c1a2cf9e`, `fb88770c7`, `afabc97c7`, `82912bc53`).
+  On its fixtures, Node core stand, `rapier-coordinate-coulomb`, the next step's velocity came
+  within 0.007 m/s and 0.042 rad/s of the engine's at 120 Hz, landing included; at 1920 Hz a
+  landing missed by 0.17 m/s and 0.40 rad/s. An inverse control built on it, on the Warrior's
+  all-fours witness at 120 Hz, rejected no step yet drifted 90 mm in a second, its first step off
+  by 0.14 m/s and 2.0 rad/s, and with it every weighting tried collapsed within 10 s; independent
+  velocity feedback held all fours (2026-10-05 analysis, recovery support). The game never ran
+  it: it moved to research (`316db64d2`, its equipment and constrained mass after it,
+  `fc5d1e492`) and was deleted by the owner's word. A solve's
+  convergence is not the engine's agreement. *Shown.*
 
 ## Weapon strikes
 
