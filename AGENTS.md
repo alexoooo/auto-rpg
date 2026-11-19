@@ -21,7 +21,8 @@ npm test                  # the gate
 npm run build             # type-check, then the bundle
 npm run pull:merge        # fetch, merge, validate once, commit; -- --continue after resolving conflicts
 npm run match -- <a> <b>  # two minds, each on each side, one digest
-npm run evaluate -- <id>  # an evaluation's cases where no row has them; --fresh plays its subjects' again; --write keeps its results; `table`, the grid (docs/reference/the-table.md)
+npm run evaluate -- <id>  # an evaluation's cases where no row has them; --fresh plays its subjects' again; --write keeps its results
+npm run evaluate -- table # the grid from saved results; plays nothing (its flags: docs/reference/the-table.md)
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 node scripts/fingerprint.mjs          # what the game computes, before and after a refactor
 ```
