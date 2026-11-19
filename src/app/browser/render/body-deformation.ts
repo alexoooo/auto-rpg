@@ -1,13 +1,15 @@
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { DrawnBody } from "./drawn-body.ts";
-import { modelSpec, type BodyModel } from "../../../core/bodies/models.ts";
+import { isBodyModel, modelSpec } from "../../../core/bodies/models.ts";
 import { frameOf } from "../../../core/bodies/spec/body.ts";
 import { localShapeBounds } from "../../../core/bodies/spec/shape-bounds.ts";
 import { distance } from "../../../core/bodies/spec/vec.ts";
 
 /** Authored body-frame coordinates into a configured segment's local frame, including its surface deformation. */
 export function skinReference(built: DrawnBody, name: string): Matrix {
-  const source = modelSpec(built.spec.model as BodyModel).segments.find(s => s.name === name)!;
+  const { model } = built.spec;
+  if (!isBodyModel(model)) throw new Error(`a skin is referenced to a model's body, not ${model}'s`);
+  const source = modelSpec(model).segments.find(s => s.name === name)!;
   const target = built.segments.get(name)!.spec, frame = frameOf(source);
   const reference = Matrix.Compose(Vector3.One(), Quaternion.RotationQuaternionFromAxis(
     Vector3.FromArray(frame.x), Vector3.FromArray(frame.y), Vector3.FromArray(frame.z)), Vector3.FromArray(frame.origin));

@@ -2,6 +2,7 @@ import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { HOLD_AT_OPTION } from "../../../minds/option/kinds.ts";
+import { isOptionMind } from "../../../minds/option/config.ts";
 import { hypot } from "../../../core/math/real.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, ScenarioRun } from "./lab-scenario.ts";
@@ -34,11 +35,10 @@ interface Place { readonly x: number; readonly z: number; readonly within: numbe
  * chooser's objective slot), at the reach its holding at a place holds there (`hold-at-place`).
  */
 function placeOf(mind: MindConfig): Place | null {
-  const tree = mind as { readonly chooser?: { readonly objective?: { readonly kind?: string; readonly x?: number; readonly z?: number } };
-    readonly options?: readonly { readonly kind?: string; readonly within?: number }[] | null };
-  const objective = tree.chooser?.objective;
-  if (objective?.kind !== "reach-place" || typeof objective.x !== "number" || typeof objective.z !== "number") return null;
-  const held = tree.options?.find((option) => option.kind === "hold-at-place");
+  if (!isOptionMind(mind)) return null;
+  const objective = "objective" in mind.chooser ? mind.chooser.objective : null;
+  if (objective?.kind !== "reach-place") return null;
+  const held = mind.options?.find((option) => option.kind === "hold-at-place");
   return { x: objective.x, z: objective.z, within: held?.within ?? HOLD_AT_OPTION.defaults.within };
 }
 

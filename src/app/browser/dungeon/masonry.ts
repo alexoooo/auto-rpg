@@ -156,7 +156,7 @@ function blockQuads(block: Block, metresPerRepeat: number, seed: number): Quad[]
   const u0 = hash01(seed, 11, Math.round(from * 64), Math.round(y0 * 64), Math.round(plane * 2)), v0 = hash01(seed, 13, Math.round(from * 64), Math.round(y0 * 64));
   const p = (a: number, y: number, depth: number): Corner => facePoint(face, plane, a, y, depth);
   const uv = (a: number, y: number): [number, number] => [a / metresPerRepeat + u0, y / metresPerRepeat + v0];
-  const out: Corner = FACE[face].normal as unknown as Corner;
+  const out: Corner = FACE[face].normal;
   const quad = (points: [number, number, number][], hint: Corner): Quad => {
     const corners = points.map(([a, y, d]) => p(a, y, d));
     return { cell, corners, normal: facing(corners, hint), uvs: points.map(([a, y]) => uv(a, y)) };
@@ -190,7 +190,7 @@ function backingQuads(cell: Point, face: SideFace, metresPerRepeat: number, has:
   const [s0, s1] = along === "z" ? [a0, a1] : [centre - 0.5 - short(low), centre + 0.5 + short(high)];
   const sill: [number, number][] = [[s0, 0], [s0, d], [s1, d], [s1, 0]];
   return [
-    { cell, corners: points.map(([a, y]) => facePoint(face, plane, a, y, d)), normal: FACE[face].normal as unknown as Corner,
+    { cell, corners: points.map(([a, y]) => facePoint(face, plane, a, y, d)), normal: FACE[face].normal,
       uvs: points.map(([a, y]) => [a / metresPerRepeat, y / metresPerRepeat]), shade: MASONRY.mortar },
     { cell, corners: sill.map(([a, depth]) => facePoint(face, plane, a, 0, depth)), normal: [0, 1, 0], shade: MASONRY.mortar },
   ];

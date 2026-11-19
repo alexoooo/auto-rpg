@@ -1,4 +1,5 @@
 import "@babylonjs/core/Culling/ray.js";
+import { unhookConsole } from "../console-hook.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -142,7 +143,7 @@ export async function bootCrowd(context: ScreenContext): Promise<void> {
     scene.render();
   };
   Object.assign(window, { __crowd: { world: link, scene, engine, step } });
-  context.own(() => { if ((window as unknown as { __crowd?: { engine: Engine } }).__crowd?.engine === engine) Reflect.deleteProperty(window, "__crowd"); });
+  context.own(() => unhookConsole("__crowd", engine));
   pose(link.between(performance.now()));
   await warmScene(scene, context.signal);
   note.textContent = "";

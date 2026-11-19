@@ -14,7 +14,7 @@ import womanRig from "../../../../assets/humanoid/woman.json" with { type: "json
 import { characterAssetUrl } from "./art-assets.ts";
 import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";
 import { FIT_SCALE } from "../../../core/bodies/human/model.ts";
-import type { HumanModel } from "../../../core/bodies/human/rig.ts";
+import { isHumanModel, type HumanModel } from "../../../core/bodies/human/rig.ts";
 import { visiblePart } from "../../../game/appearance/characters.ts";
 import { CLUB_GRIP } from "./club-grip.ts";
 import { fistTurns } from "./fist.ts";
@@ -104,7 +104,9 @@ function trunkSegment(built: DrawnBody, point: Vector3): DrawnSegment {
  * is closed on its haft.
  */
 export function dressBody(built: DrawnBody, { container, scene, clothing, closure }: { readonly container: AssetContainer; readonly scene: Scene } & SkinOptions): SkinView {
-  const model = built.spec.model as HumanModel, rig = RIGS[model], prefix = `${model}.skin.`;
+  const { model } = built.spec;
+  if (!isHumanModel(model)) throw new Error(`a human's skin dresses a human, not ${model}`);
+  const rig = RIGS[model], prefix = `${model}.skin.`;
   // Materials stay the container's, which the scene owns and other bodies share: a body part never
   // disposes them.
   const instance = container.instantiateModelsToScene((name) => prefix + name, false, { doNotInstantiate: true });

@@ -1,4 +1,5 @@
 import type { SkeletonArt } from "../../../core/bodies/human/skeleton-art.ts";
+import { unhookConsole } from "../console-hook.ts";
 import { sceneProfile, visualGroup } from "../render/scene-profile.ts";
 import { solidGeometry } from "../render/solid-geometry.ts";
 import { warmScene } from "../render/ready.ts";
@@ -873,7 +874,5 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   // opens the bout directly, unless a mind it names could not be read.
   if (trials) playTrial(at);
   else if (context.autostart && new URLSearchParams(location.search).has(MATCHUP_PARAM) && unread.length === 0) await begin(matchup);
-  context.own(() => {
-    if ((window as unknown as { __arena?: { engine: Engine } }).__arena?.engine === engine) Reflect.deleteProperty(window, "__arena");
-  });
+  context.own(() => unhookConsole("__arena", engine));
 }

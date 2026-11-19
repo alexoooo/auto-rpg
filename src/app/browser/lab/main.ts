@@ -1,4 +1,5 @@
 import type { Hook } from "../../../core/bodies/step-host.ts";
+import { unhookConsole } from "../console-hook.ts";
 import { sceneProfile } from "../render/scene-profile.ts";
 import { warmScene } from "../render/ready.ts";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera.js";
@@ -417,10 +418,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   window.addEventListener("resize", () => engine.resize(), { signal: context.signal });
   // For the console: a hidden tab does not render, so a check steps the world by hand
   // (`__lab.drive()`, `__lab.world().step(n)`, then `scene.render()`).
-  (window as unknown as { __lab: unknown }).__lab = {
+  Object.assign(window, { __lab: {
     scene, engine, readout, drive: () => current?.run.drive(held), current: () => current, world: () => world, held,
-  };
-  context.own(() => {
-    if ((window as unknown as { __lab?: { engine: Engine } }).__lab?.engine === engine) Reflect.deleteProperty(window, "__lab");
-  });
+  } });
+  context.own(() => unhookConsole("__lab", engine));
 }

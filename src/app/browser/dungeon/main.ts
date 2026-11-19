@@ -1,4 +1,5 @@
 import { isSeedText, randomSeed, scenarioOf, usesReferenceLook, type DungeonScenario, type DungeonSetup } from "./setup.ts";
+import { unhookConsole } from "../console-hook.ts";
 import { playerControls } from "../ui/player-controls.ts";
 import { isRefused, type Refused } from "../../../core/refusal.ts";
 import type { SkeletonArt } from "../../../core/bodies/human/skeleton-art.ts";
@@ -786,7 +787,7 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
 
   /** Ends the page: its sound, its listeners, its loop, the run on show and the engine. */
   function disposePage(page: DungeonPage): void {
-    if ((window as unknown as { __dungeon?: { engine: Engine } }).__dungeon?.engine === page.engine) Reflect.deleteProperty(window, "__dungeon");
+    unhookConsole("__dungeon", page.engine);
     page.audio.dispose();
     page.abort.abort();
     page.engine.stopRenderLoop();
