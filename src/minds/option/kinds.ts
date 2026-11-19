@@ -18,7 +18,7 @@ import { gaitsOf, goesBy, walkBy } from "./places.ts";
 import { PROFILE_MODEL, type ProfileOptionContext } from "./profile-contract.ts";
 import type { NamedSkills } from "./skills.ts";
 import { chosenVariation, selectsVariation, type Varied } from "../../skills/framework/variations.ts";
-import { GUARDING, guardOf, hold, holdAt } from "./rest.ts";
+import { guardOf, hold, holdAt } from "./rest.ts";
 import { strike, strikeMeasure } from "./strike.ts";
 import { choosingSkill } from "./selection.ts";
 
@@ -325,13 +325,9 @@ export const BACK_STEP_OPTION = kind("steps-back", "Back step", given => backSte
 export const HOLD_OPTION = deepFreeze({ ...kind("hold-position", "Hold the position", (given) => [hold(given.walk)]), stands: true });
 
 /** Each enabled guard as its own rest option, explicitly selected by the mind. */
-export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at guard", given => (given.guards ?? given.parts.selected("guard", given.spec)).flatMap(config => {
-  const part = given.parts.of("guard", config);
-  const options = [...guardOf(given.spec, part.covers?.(given.spec, config) ?? [])];
-  // A guard without hands is still an enabled posture the mind can choose.
-  if (!options.length) options.push({ ...hold(given.walk), name: "guard", kind: "guard", claims: GUARDING });
-  return options.map(option => choosingSkill(option, config, "guard"));
-})), phases: { guard: "Guarding" }, stands: true });
+export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at guard", given => (given.guards ?? given.parts.selected("guard", given.spec)).map(config =>
+  choosingSkill(guardOf(given.spec, given.parts.of("guard", config).covers?.(given.spec, config) ?? []), config, "guard"))),
+  phases: { guard: "Guarding" }, stands: true });
 
 /**
  * The options `configs` name, each kind's as `of` finds it, made from `given`, in their order; then

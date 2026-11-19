@@ -1,7 +1,6 @@
 import { GUARD_RESOURCE } from "../../skills/framework/action.ts";
 import type { Resource, TargetRef } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { pairedSegment, sidesWith } from "../../core/bodies/bilateral.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
 import { shieldHands } from "./cover-hand.ts";
@@ -100,14 +99,12 @@ function guard(shields: readonly string[]): Option {
 }
 
 /**
- * **The guard of `spec`'s hands** (`guard`): over its hands (`sidesWith`), those of `covering` (the
- * hands its guard covers with, `GuardPart.covers`) holding a covering face its shields
- * (`shieldHands`); none for a body without.
+ * **The guard of a body of `spec`** (`guard`), whatever its guard: those of `covering` (the hands
+ * its guard covers with, `GuardPart.covers`) holding a covering face its shields (`shieldHands`);
+ * a body without them holds its guard's posture, shielding nothing.
  */
-export const guardOf = (spec: BodySpec, covering: readonly string[]): readonly Option[] => {
-  const hands = sidesWith(spec, "hand").map((side) => pairedSegment("hand", side));
-  return hands.length ? [guard(shieldHands(spec).filter((hand) => hands.includes(hand) && covering.includes(hand)))] : [];
-};
+export const guardOf = (spec: BodySpec, covering: readonly string[]): Option =>
+  guard(shieldHands(spec).filter((hand) => covering.includes(hand)));
 
 /** What a guard's Options claim: the guard (`GUARD_RESOURCE`). */
 export const GUARDING: readonly Resource[] = Object.freeze([GUARD_RESOURCE]);
