@@ -2,12 +2,11 @@
  * **A written form of a profile**: what an act brings from a start as a few fitted numbers, not its
  * trials. Each of a trial's outcomes, for the trials a body in one phase ran (`RunReading`, the
  * nearest trials' selection), is a quadratic in the range and straight in the start's velocity
- * (closing and across) and in each other number the nearest trials read a start by that its trials
- * began at more than one of: the place in its window, its bodies' levels (`bodyNumbers`) and how
- * they stood (`STANCES`, where every trial records it). A start is read as the nearest trials read
- * it, each number within the span its trials began at (`readWithin`); a stance number it does not
- * record, at its trials' mean. Its weights are the least squares over those trials, fitted when the
- * phase is first read. A share (landed, down) is held within 0 and 1 and an amount at none or more.
+ * (closing and across) and in each of its bodies' levels (`bodyNumbers`) its trials began at more
+ * than one of. A start's range and velocity are read as asked, along the fitted line past the span
+ * its trials began at, which reads a start closing or parting faster than any trial nearer than
+ * holding it at the span's edge; each level within its trials' span (`readWithin`). Its weights
+ * are the least squares over those trials, fitted when the phase is first read. A share (landed, down) is held within 0 and 1 and an amount at none or more.
  * A phase whose trials do not determine a form is read by its nearest trials (`nearestRun`).
  */
 import { nearestRun, profileReader, type Cycle, type Expected, type ReadsProfile, type RunReading } from "./profile/reading.ts";
@@ -36,28 +35,17 @@ function fitted(xs: readonly Float64Array[], ys: readonly number[]): Float64Arra
 /** The value of `weights` at `x`. */
 const at = (weights: Float64Array, x: Float64Array): number => { let sum = 0; for (let i = 0; i < weights.length; i++) sum += weights[i]! * x[i]!; return sum; };
 
-/** A number a form may weigh past `START_TERMS`: each run trial's, in the sample's order (`values`), and a start's as read (`asked`, `readWithin`). */
+/** A number a form may weigh past `START_TERMS`: a body's level, the sample's coordinate `at`, and each run trial's, in the sample's order (`values`). */
 interface Term {
+  readonly at: number;
   readonly values: Float64Array;
-  asked(start: Float64Array): number;
 }
 
 /** **`run`'s trials' coordinate `d`** (`Sample.coords`), in the sample's order. */
 const column = (run: Sample, d: number): Float64Array => Float64Array.from(run.trials, (_, i) => run.coords[i * run.dims + d]!);
 
-/** **The numbers past `START_TERMS` a form of `run` may weigh**, in order: its bodies' levels, the place in the window ahead and aside, and each stance number every trial records. */
-function termsOf(run: Sample): readonly Term[] {
-  const terms: Term[] = [], n = run.trials.length, of = (d: number): Term => ({ values: column(run, d), asked: (read) => read[d]! });
-  for (let d = COORDINATE.levels; d < run.stanced; d++) terms.push(of(d));
-  terms.push(of(COORDINATE.ahead), of(COORDINATE.aside));
-  for (let d = run.stanced; d < run.dims; d++) {
-    const values = column(run, d);
-    if (!values.every((v) => v === v)) continue;
-    const mean = values.reduce((sum, v) => sum + v, 0) / n;
-    terms.push({ values, asked: (read) => { const v = read[d]!; return v === v ? v : mean; } });
-  }
-  return terms;
-}
+/** **The numbers past `START_TERMS` a form of `run` may weigh**: its bodies' levels, in order. */
+const termsOf = (run: Sample): readonly Term[] => Array.from({ length: run.stanced - COORDINATE.levels }, (_, k) => ({ at: COORDINATE.levels + k, values: column(run, COORDINATE.levels + k) }));
 
 /** A phase's form: the terms it weighs past `START_TERMS`; each outcome's weights, each exit's by its name; and the share of each way its trials ended. */
 interface Form {
@@ -113,8 +101,8 @@ function formRun(run: Sample, own: number): RunReading {
   /** `at` as the form weighs it, into `x`. */
   const termsAt = (asked: Asked, levels: Float64Array): Float64Array => {
     readWithin(run, asked, levels, start);
-    x[0] = 1; x[1] = asked.range; x[2] = asked.range * asked.range; x[3] = start[COORDINATE.closing]!; x[4] = start[COORDINATE.across]!;
-    for (let k = 0; k < form.terms.length; k++) x[START_TERMS + k] = form.terms[k]!.asked(start);
+    x[0] = 1; x[1] = asked.range; x[2] = asked.range * asked.range; x[3] = asked.velocity?.[0] ?? 0; x[4] = asked.velocity?.[1] ?? 0;
+    for (let k = 0; k < form.terms.length; k++) x[START_TERMS + k] = start[form.terms[k]!.at]!;
     return x;
   };
   return {
