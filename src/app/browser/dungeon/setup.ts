@@ -8,8 +8,14 @@ import type { CommanderEntry } from "../../../minds/command/kind.ts";
 import { need as find } from "../dom.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import type { ScreenContext } from "../ui/screen.ts";
+import { isSeed } from "../../../core/math/random.ts";
 
 export type DungeonScenario = "generated" | "reference" | "random-crypt";
+
+/** A seed drawn at random. */
+export const randomSeed = (): number => crypto.getRandomValues(new Uint32Array(1))[0];
+/** Whether `text`, as a person types a seed or a link carries it, is one: ten digits at most, naming a seed (`isSeed`). */
+export const isSeedText = (text: string): boolean => /^\d{1,10}$/.test(text) && isSeed(Number(text));
 
 /** The scenario `text` names, as the scene's menu and the address write it. */
 export function scenarioOf(text: string): DungeonScenario {
@@ -36,10 +42,9 @@ function dungeonSetup(context: ScreenContext) {
   const heroChoices = need("hero-choices"), seedInput = need<HTMLInputElement>("seed");
   const companionCount = need<HTMLFieldSetElement>("companions");
   const choice = (group: HTMLElement): string => group.querySelector<HTMLInputElement>("input:checked")!.value;
-  const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
   const setupQuery = new URLSearchParams(location.search);
   const linkedSeed = setupQuery.get("seed");
-  seedInput.value = linkedSeed !== null && /^\d{1,10}$/.test(linkedSeed) && Number(linkedSeed) <= 4294967295 ? linkedSeed : String(randomSeed());
+  seedInput.value = linkedSeed !== null && isSeedText(linkedSeed) ? linkedSeed : String(randomSeed());
   /** The heroes a person can lead, in the order companions are drawn from: each is a body, and each carries what its model holds (`ModelInfo.held`). */
   const HEROES: readonly { readonly model: BodyModel; readonly label: string }[] = [{ model: "man", label: modelLabel("man") }, { model: "woman", label: modelLabel("woman") }];
   /** The companions for a hero: the next heroes on the list after the hero's own, in turn. */

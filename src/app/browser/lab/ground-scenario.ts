@@ -1,5 +1,6 @@
 import { describeMind } from "../../../minds/catalog/catalog.ts";
 import { isRefused, type Refused } from "../../../core/refusal.ts";
+import { isSeed } from "../../../core/math/random.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { solidGeometry } from "../render/solid-geometry.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
@@ -108,7 +109,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
           () => address.ground.level, level => change({ level })),
         choice("Start", (["shoved", "dropped", "placed", "round"] as const).map(value => ({ value, name: value === "round" ? `round of ${ROUND_FALLS}` : value })),
           () => address.ground.start, start => change({ start })),
-        quantity("Seed", 1, value => Number.isSafeInteger(value) && value >= 0 && value <= 4294967295, () => address.seed,
+        quantity("Seed", 1, isSeed, () => address.seed,
           seed => shell.load({ ...address, seed })),
         when(() => address.ground.start === "placed", following(() => address.model, () => menu("Posture",
           postures().map(value => ({ value, name: value })), () => address.ground.posture, posture => change({ posture })))),

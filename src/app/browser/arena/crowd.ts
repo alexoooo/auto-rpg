@@ -23,6 +23,7 @@ import { teamSpec } from "../../../game/arena/team-bout.ts";
 import { crowdFight } from "../game.ts";
 import type { ArenaSeat as Side } from "../../../game/arena/seat.ts";
 import { damageFlashes } from "../render/damage-flashes.ts";
+import { isSeed } from "../../../core/math/random.ts";
 
 /** How long the bodies go on moving once the verdict is given, s. */
 const AFTERMATH_SECONDS = 3;
@@ -38,7 +39,7 @@ const AFTERMATH_SECONDS = 3;
 export async function bootCrowd(context: ScreenContext): Promise<void> {
   const need = <T extends HTMLElement>(id: string): T => find<T>(id, context.root);
   const seed = Number(new URLSearchParams(context.address.search).get("seed") ?? 0);
-  const recipe = crowdFight(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff ? seed : 0);
+  const recipe = crowdFight(isSeed(seed) ? seed : 0);
   const canvas = need<HTMLCanvasElement>("stage"), note = need("crowd-note"), hud = need("crowd-hud");
   need<HTMLButtonElement>("crowd-menu").addEventListener("click", () => context.navigate(MENU_HREF));
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });

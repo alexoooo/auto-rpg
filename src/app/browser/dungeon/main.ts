@@ -1,4 +1,4 @@
-import { scenarioOf, usesReferenceLook, type DungeonScenario, type DungeonSetup } from "./setup.ts";
+import { isSeedText, randomSeed, scenarioOf, usesReferenceLook, type DungeonScenario, type DungeonSetup } from "./setup.ts";
 import { playerControls } from "../ui/player-controls.ts";
 import { isRefused, type Refused } from "../../../core/refusal.ts";
 import type { SkeletonArt } from "../../../core/bodies/human/skeleton-art.ts";
@@ -93,7 +93,6 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
     profile?.setView(view.view);
     for (const { skin, shapes } of bodies) { skin.setEnabled(view.view === "world"); for (const mesh of shapes.meshes) mesh.setEnabled(view.view === "tactical"); }
   };
-  const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
   let pitch = CAMERA_PITCH, azimuth = CAMERA_AZIMUTH;
   let toward = cameraToward(azimuth);
   const viewFields: Control[] = [];
@@ -477,7 +476,7 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
     start.disabled = false;
     start.textContent = "Start";
     const startRun = () => {
-      if (!/^\d{1,10}$/.test(seedInput.value) || Number(seedInput.value) > 0xffffffff) {
+      if (!isSeedText(seedInput.value)) {
         need<HTMLDetailsElement>("setup-options").open = true;
         seedInput.setCustomValidity("Enter a seed from 0 to 4294967295.");
         seedInput.reportValidity();
