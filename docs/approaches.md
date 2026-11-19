@@ -241,7 +241,8 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   least squares (`formReading`). Held out it erred as the ten nearest or less on every Warrior
   profile; against the nearest trials 0.559 (0.503 to 0.615) on `warrior-drawn`, a bout 26%
   faster; the game's since (`bc643f6d7`, `ba17ae71c`). The same answers kept by a start rounded to
-  a cell (`coarseTable`) ran 12% faster and lost, 0.451 (`5a85cb5f1`). *Shown.*
+  a cell, a coarse table, ran 12% faster and lost, 0.451 (`5a85cb5f1`): removed, no Mind taking
+  it. *Shown.*
 - **Initiative, a blow now worth more than one later, fights as the game's Mind and does not
   unlock the back step**: life dealt counting less by a rate a second the later in a line it
   comes and more sooner, scaled to count as itself over the horizon on the mean; life taken as

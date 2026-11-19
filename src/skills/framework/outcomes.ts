@@ -2,9 +2,8 @@
  * **The outcome model**: from here, doing this, what an act brings: what it deals and takes, how
  * long it runs, where it leaves the body and whether it falls (`ProfileReading`). An Option asks
  * it and reads no table of its own; which kind answers is its mind's (its predictions part). The
- * kinds are its trials nearest the start (`nearestTrials`), a form fitted to its trials
- * (`writtenForms`), and another model's answers kept by a start rounded to a cell (`coarseTable`,
- * `coarse.ts`). One that has no act answers none, and the Option prices it by hand.
+ * kinds are its trials nearest the start (`nearestTrials`) and a form fitted to its trials
+ * (`writtenForms`). One that has no act answers none, and the Option prices it by hand.
  */
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { formReading } from "./form.ts";
