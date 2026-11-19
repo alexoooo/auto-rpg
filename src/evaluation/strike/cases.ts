@@ -43,7 +43,7 @@ import type { Rail } from "../../game/arena/rail.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
-import { STAGGERED } from "../../skills/locomotion/move/gaits.ts";
+import { STAGGERED } from "../../skills/locomotion/shared/locomotion.ts";
 import { inCarriage } from "../../minds/option/config.ts";
 import { between } from "../twin.ts";
 

@@ -16,7 +16,9 @@ import { between } from "../twin.ts";
 import { standingOptions, withBackStep, withLegs, type OptionMindConfig } from "../../minds/option/config.ts";
 import { ORDERS_OPTION } from "../../minds/option/kinds.ts";
 import { GOING, type MoveConfig } from "../../skills/locomotion/move/index.ts";
-import { BACK_STEP_GAIT, BACK_STEP_SECONDS, STAGGERED, STOCK_GAITS, type Gait } from "../../skills/locomotion/move/gaits.ts";
+import { STOCK_GAITS, type Gait } from "../../skills/locomotion/move/gaits.ts";
+import { BACK_STEP_GAIT, BACK_STEP_SECONDS } from "../../skills/locomotion/back-step/index.ts";
+import { STAGGERED } from "../../skills/locomotion/shared/locomotion.ts";
 import type { ConfigFor } from "../../parts/lookup.ts";
 import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 

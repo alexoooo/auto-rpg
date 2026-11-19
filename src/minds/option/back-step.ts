@@ -2,7 +2,8 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { measuredOn, type Expected } from "../../skills/framework/profile.ts";
 import type { OutcomeModel } from "../../skills/framework/outcomes.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
-import { BACK_STEP_GAIT, BACK_STEP_SECONDS, swayStance } from "../../skills/locomotion/move/gaits.ts";
+import { gaitStance } from "../../skills/locomotion/move/gaits.ts";
+import { BACK_STEP_GAIT, BACK_STEP_SECONDS, SWAYS_FROM } from "../../skills/locomotion/back-step/index.ts";
 import type { Status } from "../choice.ts";
 import { blocked, exitOutcomes, LEGS, READY, standing, type Option, type Situation } from "./option.ts";
 import { startOf } from "./percepts.ts";
@@ -28,7 +29,7 @@ import type { Walker } from "./walk.ts";
  * what `outcomes` answers of it (measured as a body of `spec` at `hz` whose mind decides at `rate`
  * Hz and whose command is `delay` steps late, against the focus's body) reads the focus at the
  * range it stands at (`ProfileReading.reach`), the body
- * standing in the back step's carriage (`swayStance`, as the Mind reads its stance), its legs ready;
+ * standing in the back step's carriage (`gaitStance` of `SWAYS_FROM`, as the Mind reads its stance), its legs ready;
  * none for a body with no such profile, or whose legs do not go by the gait (`goes`). Once begun it
  * is held through its sway out and back (`committed`, `swayed`): an order let go mid-sway leaves the
  * stance to catch a body over its rear foot; then, to `held`, it yields to what the Mind would
@@ -43,7 +44,7 @@ import type { Walker } from "./walk.ts";
  */
 export function backStepping(spec: BodySpec, outcomes: OutcomeModel, walk: Walker, hz: number, rate: number, delay: number, goes: boolean): readonly Option[] {
   const act = outcomes.act("steps", measuredOn(spec, BACK_STEP_GAIT.name, null, hz, null, rate, delay)), read = act?.read ?? [];
-  const carriage = swayStance(spec.model);
+  const carriage = gaitStance(SWAYS_FROM, spec.model);
   if (!goes || !read.length || !carriage) return [];
   const state = { since: null as number | null };
   /** What its profile against the focus expects from `at`; null where none reads it there. */

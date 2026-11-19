@@ -1,5 +1,5 @@
 import { deepFreeze } from "../../core/state.ts";
-import { BACK_STEP_SECONDS } from "../../skills/locomotion/move/gaits.ts";
+import { BACK_STEP_SECONDS } from "../../skills/locomotion/back-step/index.ts";
 import type { CommanderEntry, CommanderConfig } from "./kind.ts";
 import { direction, distance } from "./goals.ts";
 import type { Orders } from "../orders.ts";

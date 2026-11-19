@@ -1,8 +1,12 @@
 import { recordingKey } from "../../core/world/recording.ts";
 import { GOING, type MoveConfig } from "../../skills/locomotion/move/index.ts";
-import { BACK_STEP_GAIT, gaitsIn, STOCK_GAITS, type STAGGERED } from "../../skills/locomotion/move/gaits.ts";
+import { STOCK_GAITS } from "../../skills/locomotion/move/gaits.ts";
+import { BACK_STEP_GAIT } from "../../skills/locomotion/back-step/index.ts";
+import { BACK_STEP_OPTION, WALK_OPTION } from "./kinds.ts";
+import type { Carriage } from "../../skills/locomotion/shared/locomotion.ts";
 import type { MindConfig } from "../catalog/config.ts";
-import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";import { FILLED, type Filled } from "../../skills/assembly/filled.ts";
+import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
+import { FILLED, type Filled } from "../../skills/assembly/filled.ts";
 
 /**
  * **An Option Mind's config**: the selected chooser, decision provider, options and decision rate.
@@ -26,33 +30,37 @@ export interface OptionMindConfig {
 export const withLegs = (config: OptionMindConfig, legs: ConfigFor<"locomotion">): OptionMindConfig => ({ ...config, tuning: { ...config.tuning, parts: { ...config.tuning?.parts, legs } } });
 
 /**
- * **`mind` with every stance walk of its legs held in `carriage`** (`gaitsIn`): its legs Move's
- * (`GOING` where its config names none) with its gaits (the stock ones, `STOCK_GAITS`, where it
- * names none) so held. A mind that is no Option Mind, or walks by legs other than Move, is refused.
+ * **`mind`'s Option Mind config, and its legs, Move's** (`GOING` where its config names none): a
+ * mind that is no Option Mind, or walks by legs other than Move, refused as `doing` it.
  */
-export function inCarriage(mind: MindConfig, carriage: typeof STAGGERED): MindConfig {
-  if (mind.kind !== "option") throw new Error(`a ${mind.kind} mind's legs are not held in a carriage`);
-  const config = mind as OptionMindConfig, legs = (config.tuning?.parts?.legs ?? GOING) as ConfigFor<"locomotion"> & { readonly kind: string };
-  if (legs.kind !== "move") throw new Error(`legs of kind ${legs.kind} are not held in a carriage`);
-  const move = legs as unknown as MoveConfig;
-  return withLegs(config, { ...move, gaits: gaitsIn(move.gaits ?? STOCK_GAITS, carriage) } as ConfigFor<"locomotion">);
+function onMove(mind: MindConfig, doing: string): { readonly config: OptionMindConfig; readonly move: MoveConfig } {
+  if (mind.kind !== "option") throw new Error(`a ${mind.kind} mind is not ${doing}`);
+  const config = mind as OptionMindConfig, legs = config.tuning?.parts?.legs ?? GOING;
+  if (legs.kind !== "move") throw new Error(`legs of kind ${legs.kind} are not ${doing}`);
+  return { config, move: legs };
 }
 
 /**
- * **`mind` with the back step**: its Option (`steps-back`, `BACK_STEP_OPTION`) after its walk, and
- * its gait (`BACK_STEP_GAIT`) among its legs' (Move's, `GOING` where its config names none, the
- * stock gaits where it names none). Neither is the game's yet. A mind that is no Option Mind, walks
- * by legs other than Move, or has the Option already, is refused.
+ * **`mind` with every stance walk of its legs held in `carriage`** (`Carriage`): its legs Move's
+ * with its gaits (the stock ones, `STOCK_GAITS`, where it names none) so held, the others as they
+ * are (`onMove`).
+ */
+export function inCarriage(mind: MindConfig, carriage: Carriage): MindConfig {
+  const { config, move } = onMove(mind, "held in a carriage");
+  return withLegs(config, { ...move, gaits: (move.gaits ?? STOCK_GAITS).map((gait) => gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait) });
+}
+
+/**
+ * **`mind` with the back step**: its Option (`BACK_STEP_OPTION`) after its walk (`WALK_OPTION`; its place decides its chooser's ties), and
+ * its gait (`BACK_STEP_GAIT`) among its legs' (Move's, the stock gaits where it names none,
+ * `onMove`). Neither is the game's yet. A mind that has the Option already is refused.
  */
 export function withBackStep(mind: MindConfig): MindConfig {
-  if (mind.kind !== "option") throw new Error(`a ${mind.kind} mind takes no back step`);
-  const config = mind as OptionMindConfig, legs = (config.tuning?.parts?.legs ?? GOING) as ConfigFor<"locomotion"> & { readonly kind: string };
-  if (legs.kind !== "move") throw new Error(`legs of kind ${legs.kind} go by no back step`);
-  const options = config.options ?? [];
-  if (options.some((option) => option.kind === "steps-back")) throw new Error("the mind has its back step already");
-  const move = legs as unknown as MoveConfig, walk = options.findIndex((option) => option.kind === "walk") + 1;
-  return withLegs({ ...config, options: [...options.slice(0, walk), { kind: "steps-back" } as ConfigFor<"option">, ...options.slice(walk)] },
-    { ...move, gaits: [...(move.gaits ?? STOCK_GAITS).filter((gait) => gait.name !== BACK_STEP_GAIT.name), BACK_STEP_GAIT] } as ConfigFor<"locomotion">);
+  const { config, move } = onMove(mind, "given the back step"), options = config.options ?? [];
+  if (options.some((option) => option.kind === BACK_STEP_OPTION.defaults.kind)) throw new Error("the mind has its back step already");
+  const walk = options.findIndex((option) => option.kind === WALK_OPTION.defaults.kind) + 1;
+  return withLegs({ ...config, options: [...options.slice(0, walk), BACK_STEP_OPTION.defaults, ...options.slice(walk)] },
+    { ...move, gaits: [...(move.gaits ?? STOCK_GAITS).filter((gait) => gait.name !== BACK_STEP_GAIT.name), BACK_STEP_GAIT] });
 }
 
 /** **The Options of `mind` that keep the body where it stands**: those whose kind among `parts` says so (`OptionPart.stands`). */

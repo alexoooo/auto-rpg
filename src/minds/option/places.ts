@@ -24,8 +24,8 @@ interface GaitOf {
 /** **The gaits `legs` go by to a place** (`LocomotionPart.gaits`): none for legs that go by no gait by name, nor a gait that carries the body nowhere (`GaitPart.travels`). */
 export const gaitsOf = (parts: PartLookup, legs: PartConfig, spec: BodySpec): readonly GaitOf[] =>
   (parts.of("locomotion", legs).gaits?.(legs, spec, parts) ?? []).filter(gait => {
-    const part = parts.any(gait.legs);
-    return part !== null && (part as { readonly travels?: false }).travels !== false && part.fits(spec, gait.legs, parts) === null;
+    const part = parts.find("gait", gait.legs) ?? parts.find("paw-gait", gait.legs);
+    return part !== null && part.travels && part.fits(spec, gait.legs, parts) === null;
   });
 
 /** **Whether `legs` go by the gait `name`** (`LocomotionPart.gaits`), one that fits a body of `spec`, whether or not it carries the body anywhere. */

@@ -53,6 +53,8 @@ export interface Gait extends Skill<PawView> {
  */
 export interface PawGaitPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "paw-gait";
+  /** Whether it carries the body to a place (`GaitPart.travels`). */
+  readonly travels: boolean;
   make(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], config: C): Gait;
 }
 
