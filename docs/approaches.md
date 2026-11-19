@@ -127,8 +127,12 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   does (20 of 40 against 23 of 41); one walking in takes it double; one that only walks or keeps
   away keeps its life by not being in the fight (in punching range 4 to 11 % of the time). A
   body given 0.5 m/s away at once takes 16 % of the Mind's punches where one standing takes
-  38 % (`fd8ec9d56`). The step that does it is [a plan](plans/2026-11-16-back-step.md), parked:
-  it wins against a Warrior without it (`179fa76b9`) and stands a mirror off. *Shown.*
+  38 % (`fd8ec9d56`). The step that does it is [a plan](plans/2026-11-16-back-step.md), its
+  standing on the current skills: against the Mind's punches in its drill, ordered, the sway takes
+  8.4 % while it sways and the order's step in and follow 20 to 27 %, 16.9 % in all against
+  standing's 16 to 17 %, down in 4 of 48 fights (`0ccba3bbd`); chosen by the Mind, the Warrior
+  with it wins 0.601 (0.545 to 0.656) against one without, and two with it stand 9.9 points more
+  silent than two without (7.6 to 12.2; `a909c1a70`). *Shown.*
 - **More blocks are not more wins**: a hand at cover is a hand not countering (`8b3c65b8`,
   `1500f2da`). A guard is judged on life kept and taken. *Repeated.*
 - **A threat reader is measured against the blow's truth before a guard is tuned on it**: the
@@ -257,7 +261,11 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   It stays in the Arena's Mind picker, unset, for a person to set and watch. *Shown.*
 - **A Mind that can sway back chases its foe**: two Warriors with the back step stand silent 20.2%
   of a bout against 7.2% without it (216 gaps, paired 13.0 points, 11.1 to 14.9, at `9b0fcc618`),
-  nearly all of it 1 to 2 m apart, walking in on a foe that sways back from it. None of these moved
+  nearly all of it 1 to 2 m apart, walking in on a foe that sways back from it. About 3.7 of those
+  points were a written form reading a start within its trials' span: a start closing or parting
+  faster than any trial priced as if no faster, and weighed by where it stood in the window and
+  how the bodies stood (`e1d6b1d7d`); read as asked, 16.6% against 7.3%, 9.3 points (7.6 to
+  11.0; `76f63b6ec`), the scorecard's Mind as before. None of these moved
   it past its spread on 72 of the gaps: Initiative from 0.03 to 0.3 (above); the measured pressure
   read at a foe down or rising (13.7 points) or past the range it measured (15.0), both priced
   nothing before; and the falls, more with it (0.68 a bout against 0.35), carry about 1.8 of the
