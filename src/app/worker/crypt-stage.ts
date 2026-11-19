@@ -3,7 +3,7 @@ import type { AttributeOverrides } from "../../core/bodies/character-attributes.
 import { isRefused, type Refused } from "../../core/refusal.ts";
 import type { Command } from "../../minds/command/commands.ts";
 import type { CommanderConfig } from "../../minds/command/kind.ts";
-import { loadEngine, type EngineName } from "../../core/physics/engines.ts";
+import { loadEngine } from "../../core/physics/engines.ts";
 import type { GroundPoint } from "../../skills/framework/movement.ts";
 import type { Loadout } from "../../core/bodies/items/held.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
@@ -16,8 +16,8 @@ import type { GameContext } from "../../game/arena/context.ts";
 import { debrisCues, type SoundCue, type SoundPoint } from "../../game/audio/cues.ts";
 import { hearRun } from "../../game/dungeon/hearing.ts";
 import { cellKey, type DungeonMap } from "../../game/dungeon/map.ts";
-import { DungeonRun, prepareDungeonCharacters, runMap, runParticipants, type Participant, type RunStatus } from "../../game/dungeon/run.ts";
-import type { Inspected } from "./inspection.ts";
+import { DungeonRun, prepareDungeonCharacters, runParticipants, type Participant, type RunStatus } from "../../game/dungeon/run.ts";
+import { inspectedOf, type Inspected } from "./inspection.ts";
 import { frameLayout, packFrame, type FramedBody } from "./frame.ts";
 import type { Stage, StageRuntime } from "./stage.ts";
 import { damageCues } from "./damage-cues.ts";
@@ -29,19 +29,19 @@ import { damageCues } from "./damage-cues.ts";
  */
 export interface CryptStart {
   readonly seed: number;
-  readonly layout?: DungeonMap;
-  readonly hero?: BodyModel;
-  readonly companions?: readonly BodyModel[];
+  /** The level, as the page drew it (`runMap`). */
+  readonly layout: DungeonMap;
+  readonly hero: BodyModel;
+  readonly companions: readonly BodyModel[];
   /** Each participant's mind by id; its model's (`defaultMind`) where none is given. */
   readonly minds: Readonly<Record<string, MindConfig>>;
   /** Each participant's attributes over its model's, by id; none where none is given. */
   readonly attributes: Readonly<Record<string, AttributeOverrides>>;
   /** Each participant's loadout by id; its model's (`modelLoadout`) where none is given. */
-  readonly loadouts?: Readonly<Record<string, Loadout>>;
-  readonly party?: CommanderConfig;
-  readonly enemies?: CommanderConfig;
+  readonly loadouts: Readonly<Record<string, Loadout>>;
+  readonly party: CommanderConfig;
+  readonly enemies: CommanderConfig;
   readonly lead: PlayerLead;
-  readonly engine?: EngineName;
 }
 
 /** What a Crypt page tells its run as it plays, each applied before the next step. */
@@ -102,7 +102,7 @@ export interface CryptNews {
   readonly air: readonly { readonly id: string; readonly speed: number; readonly at: SoundPoint }[];
   /**
    * The mind the page inspects, where it inspects one that is built, as the HUD refreshes it: every
-   * `INSPECTED_STEPS` steps and at once after a look; absent between.
+   * `INSPECTED_HZ` times a second and at once after a look; absent between.
    */
   readonly inspected?: { readonly id: string; readonly inspected: Inspected } | null;
 }
@@ -116,14 +116,12 @@ export type CryptCard = Participant;
  * person's lead applied; `cues` is given what a blow takes
  * off where the party sees.
  */
-async function buildCryptRun(context: GameContext, start: CryptStart, { cues = [], minds: makeMinds }: StageRuntime & { readonly cues?: SoundCue[] } = {}) {
+async function buildCryptRun(context: GameContext, start: CryptStart, { cues, minds: makeMinds }: StageRuntime & { readonly cues: SoundCue[] }) {
   const { defaultMind } = context, { treeData, loadData } = context.catalog;
-  const layout = start.layout ? structuredClone(start.layout) : runMap(start);
-  if (isRefused(layout)) return layout;
-  const fielded = { seed: start.seed, layout,
-    ...start.hero ? { hero: start.hero } : {}, ...start.companions ? { companions: start.companions } : {},
+  const layout = structuredClone(start.layout);
+  const fielded = { seed: start.seed, layout, hero: start.hero, companions: start.companions,
     attributes: (participant: Participant) => start.attributes[participant.id] ?? {},
-    loadout: (participant: Participant) => start.loadouts?.[participant.id] ?? null };
+    loadout: (participant: Participant) => start.loadouts[participant.id] ?? null };
   const mind = (participant: Participant) => start.minds[participant.id] ?? null;
   const prepared = prepareDungeonCharacters(layout, fielded);
   if (isRefused(prepared)) return prepared;
@@ -133,8 +131,8 @@ async function buildCryptRun(context: GameContext, start: CryptStart, { cues = [
   try {
   const minds = scope.own(await makeMinds?.());
   const seen = (point: Vec3) => run.visible.has(cellKey(run.map, { x: point[0], z: point[2] }));
-  const run: DungeonRun = scope.own(new DungeonRun({ ...fielded, prepared, engine: await loadEngine(start.engine), mind,
-    ...start.party ? { party: start.party } : {}, ...start.enemies ? { enemies: start.enemies } : {}, ...minds ? { minds } : {},
+  const run: DungeonRun = scope.own(new DungeonRun({ ...fielded, prepared, engine: await loadEngine(), mind,
+    party: start.party, enemies: start.enemies, ...minds ? { minds } : {},
     onBlow: (blow) => { if (seen(blow.point)) cues.push(...debrisCues(blow)); } }, context));
   const apply = cryptInput(run);
   apply({ kind: "lead", lead: start.lead });
@@ -159,8 +157,8 @@ function cryptInput(run: DungeonRun): (input: CryptInput) => void {
   };
 }
 
-/** How often the news carries the inspected mind, steps: ten times a second at 120 Hz, as the HUD refreshes. */
-const INSPECTED_STEPS = 12;
+/** How often the news carries the inspected mind, a second: as the HUD refreshes. */
+const INSPECTED_HZ = 10;
 
 /** Where a frame puts a body's segment before it is built: at the origin, unturned. */
 const UNBUILT = Object.freeze({ pose: Object.freeze({ position: Object.freeze({ x: 0, y: 0, z: 0 }),
@@ -206,13 +204,10 @@ export async function cryptStage(context: GameContext, start: CryptStart, runtim
     };
   });
   let looked: string | null = null, lookedNow = false, explored = 0, visible: ReadonlySet<number> | null = null;
+  const inspectedEvery = Math.round(run.world.hz / INSPECTED_HZ);
   const inspected = (): CryptNews["inspected"] => {
     const fighter = run.actors.find((actor) => actor.id === looked)?.fighter;
-    if (!fighter || looked === null) return null;
-    const mind = fighter.minded, report = mind.report ?? null;
-    return { id: looked, inspected: { body: { has: fighter.body.has, level: fighter.body.level },
-      skills: mind.skills ? { report: { holders: mind.skills.report.holders, defaultOwners: mind.skills.report.defaultOwners, actions: mind.skills.report.actions } } : null,
-      report: report ? { engagement: report.engagement, actions: report.actions, ended: report.ended } : null } };
+    return fighter && looked !== null ? { id: looked, inspected: inspectedOf(fighter) } : null;
   };
   const news = (): CryptNews => {
     const cells = run.explored.size === explored ? [] : [...run.explored].slice(explored);
@@ -233,7 +228,7 @@ export async function cryptStage(context: GameContext, start: CryptStart, runtim
       }),
       doors: run.map.doors.filter((door) => door.open).map((door) => door.id), explored: cells, visible: seen,
       cues: cues.splice(0), air,
-      ...told || run.world.steps % INSPECTED_STEPS === 0 ? { inspected: inspected() } : {},
+      ...told || run.world.steps % inspectedEvery === 0 ? { inspected: inspected() } : {},
     };
   };
   complete = true;

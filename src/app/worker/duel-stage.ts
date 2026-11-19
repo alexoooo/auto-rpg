@@ -21,7 +21,7 @@ import { debrisCues, type SoundCue } from "../../game/audio/cues.ts";
 import { createBout } from "../../evaluation/bout.ts";
 import type { BoutTiming } from "../../evaluation/evaluation.ts";
 import { choiceWatch } from "../../game/arena/choice-watch.ts";
-import type { Inspected } from "./inspection.ts";
+import { inspectedOf, type Inspected } from "./inspection.ts";
 import { frameLayout, packFrame, type FramedBody } from "./frame.ts";
 import type { Stage } from "./stage.ts";
 import { bySeat, type ArenaSeat as Side } from "../../game/arena/seat.ts";
@@ -204,9 +204,7 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
       feet: { x: centre.x, z: centre.z }, route: report?.navigation?.route.map(point => ({ x: point.x, z: point.z })) ?? null,
       target: duel.state.given[side]?.foe ?? null,
       ...look.menu ? { menu: report?.menu ?? null } : {},
-      ...look.mind ? { inspected: { body: { has: fighter.body.has, level: fighter.body.level },
-        skills: mind.skills ? { report: { holders: mind.skills.report.holders, defaultOwners: mind.skills.report.defaultOwners, actions: mind.skills.report.actions } } : null,
-        report: report ? { engagement: report.engagement, actions: report.actions, ended: report.ended } : null } } : {} };
+      ...look.mind ? { inspected: inspectedOf(fighter) } : {} };
   };
   complete = true;
   return {

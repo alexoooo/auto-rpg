@@ -1,7 +1,6 @@
 import type { OrdersEntry } from "../../game/arena/duel.ts";
-import type { TeamRecipe } from "../../game/arena/team-bout.ts";
 import type { RosterBody } from "./frame.ts";
-import type { StageNews } from "./stage.ts";
+import type { StageNews, TeamStart } from "./stage.ts";
 import type { DuelInput, DuelStart } from "./duel-stage.ts";
 import type { CryptInput, CryptStart, CryptTapeEntry } from "./crypt-stage.ts";
 
@@ -17,8 +16,8 @@ export type TapeEntry = OrdersEntry | CryptTapeEntry;
  * (`frame.ts`), each frame's array transferred, with what the stage has to tell beside it.
  */
 export type ToWorker =
-  /** Build a team bout's stage (`teamStage`), played until `aftermath` s past its verdict. */
-  | { readonly kind: "team"; readonly recipe: TeamRecipe; readonly aftermath: number }
+  /** Build a team bout's stage (`teamStage`). */
+  | { readonly kind: "team"; readonly start: TeamStart }
   /** Build a duel's stage as the Arena plays it (`duelStage`). */
   | { readonly kind: "duel"; readonly start: DuelStart }
   /** Build a Crypt run's stage (`cryptStage`). */

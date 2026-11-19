@@ -59,11 +59,18 @@ export interface StageRuntime {
 /** A body of a team bout as the page makes its spec: its side, whose `TeamSide` names it (`teamSpec`). */
 export interface TeamCard { readonly side: Side }
 
+/** **A team bout as a page starts it** (`teamStage`): its recipe, played until `aftermath` s past its verdict, on `engine`. */
+export interface TeamStart {
+  readonly recipe: TeamRecipe;
+  readonly aftermath: number;
+  readonly engine?: EngineName;
+}
+
 /**
- * **A team bout's stage**: `recipe`'s bout built by `buildTeamBout` on `engine`, its minds' data
- * loaded first, played until `aftermath` s past its verdict, using the runtime's minds adapter.
+ * **A team bout's stage**: `start`'s bout built by `buildTeamBout`, its minds' data loaded first,
+ * played until its aftermath past its verdict, using the runtime's minds adapter.
  */
-export async function teamStage(context: GameContext, recipe: TeamRecipe, aftermath: number, { engine, minds: makeMinds }: StageRuntime & { readonly engine?: EngineName } = {}): Promise<Stage<TeamCard>> {
+export async function teamStage(context: GameContext, { recipe, aftermath, engine }: TeamStart, { minds: makeMinds }: StageRuntime): Promise<Stage<TeamCard>> {
   const { defaultMind } = context, { treeData, loadData } = context.catalog;
   const { buildTeamBout } = createBout(context);
   await loadData(SIDES.flatMap((side) => treeData(recipe[side].mind ?? defaultMind(recipe[side].model))));

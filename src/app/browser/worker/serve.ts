@@ -89,7 +89,7 @@ export function serve(port: Port, close: () => void): void {
   port.addEventListener("message", ({ data }) => {
     switch (data.kind) {
       case "team":
-        build(teamStage(CONTEXT, data.recipe, data.aftermath, { minds: pageMinds }));
+        build(teamStage(CONTEXT, data.start, { minds: pageMinds }));
         return;
       case "duel":
         build(duelStage(CONTEXT, data.start));

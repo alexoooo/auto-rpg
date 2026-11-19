@@ -44,7 +44,7 @@ export async function bootCrowd(context: ScreenContext): Promise<void> {
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   context.own(() => { engine.stopRenderLoop(); engine.dispose(); });
   // The worker builds the world while the page builds the scene.
-  const opening = openWorld<TeamCard>({ kind: "team", recipe, aftermath: AFTERMATH_SECONDS }, context.signal);
+  const opening = openWorld<TeamCard>({ kind: "team", start: { recipe, aftermath: AFTERMATH_SECONDS } }, context.signal);
   context.own(() => void opening.then((link) => link.dispose(), () => { /* A world that failed to open has no worker left. */ }));
   const arena = await buildArena(engine, "open", context.signal);
   const { scene, camera, shadows } = arena;

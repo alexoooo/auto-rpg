@@ -188,8 +188,8 @@ test("a failed stage build releases the minds it creates before awaiting the eng
   const { CONTEXT } = await import("../src/app/node/context.ts");
   const side = { model: "man", count: 1, loadout: { left: "empty", right: "empty" } };
   let made = 0, disposed = 0;
-  await assert.rejects(teamStage(CONTEXT, { left: side, right: side }, 0, {
-    engine: "missing-engine", minds: () => { made++; return { dispose() { disposed++; } }; },
+  await assert.rejects(teamStage(CONTEXT, { recipe: { left: side, right: side }, aftermath: 0, engine: "missing-engine" }, {
+    minds: () => { made++; return { dispose() { disposed++; } }; },
   }));
   assert.equal(made, 1, "the fixture must reach the owned minds before engine refusal");
   assert.equal(disposed, made);
