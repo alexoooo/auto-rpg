@@ -58,10 +58,10 @@ of a test.
   under the step's allocation ceilings (`tests/core-step-cost.test.mjs`); a
   speed rewrite does the same operations in the same order, moves no fingerprint, and reads its
   time before and after ([step cost](../reference/step-cost.md)).
-- **An identical fingerprint is not "no bout moves"**: it plays a few fixed bouts and scenes, so a
-  change that moves only states those never reach leaves it identical (`98bbd2ae8` moved 3 of 144
-  mirror bouts by rounding). A change claiming none plays the cases of the skills it touches as
-  well, saved, and compares them bout by bout. *Shown.*
+- **The fingerprint reads a change bout by bout**: its fixed fights and scenes, the game's Mind
+  against itself at 25 ranges, and a trial of each table reading, each a case `--compare` names
+  where it moved. A few fixed bouts alone missed a change that moved only states they never
+  reach (`98bbd2ae8` moved 3 of 144 mirror bouts by rounding). *Shown.*
 - **A screen is an explicit argument**, never inferred from a state machine. Pause freezes the
   world, not the camera.
 - **Two watchers on one body**: set a flag in the callback; act on it at the next control step.

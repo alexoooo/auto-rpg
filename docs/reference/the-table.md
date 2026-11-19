@@ -39,7 +39,9 @@ game's own terms. The cells and their readings are `src/evaluation/table/cells.t
   scores on ([the skill recipe](../recipes/skill.md#an-options-code)). The table itself reads
   120 Hz only.
 - **A reading stands as it was read**, shown with its commit and date, until its cell is asked
-  for again: a change to the code asks for no replay.
+  for again: a change to the code asks for no replay. The fingerprint names the readings a change
+  moves, a trial of each (`node scripts/fingerprint.mjs`, its `table` cases), to play again with
+  `--fresh`.
 
 ## Commands
 

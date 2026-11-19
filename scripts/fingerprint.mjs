@@ -2,9 +2,9 @@ import { workerJobs } from "../research/worker-jobs.mjs";
 import { isRefused } from "../src/core/refusal.ts";
 import { rulebook } from "../src/combat/rulebook.ts";
 /**
- * A fingerprint of what the game does: fights in the arena and the crypt, the lab's run, the
- * generated levels, what a walk through one reveals, and the shader code the crypt's
- * look writes from a level and a camera's bearing. A structural change, one that moves code
+ * A fingerprint of what the game does: fights in the arena and the crypt, the game's Mind against
+ * itself at each range it fights at, the lab's run, a trial of each table reading, the generated levels, what a walk through one reveals, and the shader
+ * code the crypt's look writes from a level and a camera's bearing. A structural change, one that moves code
  * without changing what it computes, leaves every line as it was; read the output before the
  * change and compare after, on the same machine. It is not a test: a change that means to change
  * how a fight plays changes its lines, and says so.
@@ -51,6 +51,8 @@ import { driveBy } from "../src/minds/decider.ts";
 import { standingSkills } from "../src/app/standing-skills.ts";
 import { MINDS, GAME } from "../src/app/catalog.ts";
 import { optionsOf } from "../src/minds/option/config.ts";
+import { tableCells } from "../src/app/node/evaluation.ts";
+import { drillTrials, playTrial, subjectOf } from "../research/drill-trials.mjs";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/bodies/models.ts";
 import { createMind } from "../src/minds/seat/create-mind.ts";
 import { generateCryptDungeon } from "../src/game/dungeon/crypt-dungeon.ts";
@@ -403,6 +405,29 @@ const elsewhere = () => Object.entries(MINDS).filter(([id]) => warriorMinds().ev
  * A case for each part that reads mind data, so that a change to how the data is loaded or stored is
  * read by a case that plays it: the straight punch's records, Option Mind throwing it alone at the chest on both sides of a bout of Warriors, the body it has a record for.
  */
+/**
+ * **The mirror**: the Warrior against itself under the game's Mind, empty-handed, set each of 0.6
+ * to 3 m apart a tenth at a time, facing: a bout a gap, so a change to how the Mind fights is read
+ * bout by bout over the ranges it fights at, not by the few fights above alone.
+ */
+const MIRROR_CASES = range(25).map((i) => (6 + i) / 10).map((gap) => ({ name: `mirror man, empty, ${gap} m`,
+  run: () => arena({ left: "man", right: "man", gap, loadouts: both("empty") }) }));
+/**
+ * A case for each reading of the table (`tableCells`), so that a change that moves what a cell
+ * reads is named by a case, the cell to play again (`npm run evaluate -- table --fresh`): the
+ * reading's first trial on the cell's body and loadout (`drillTrials`), played by its subject on
+ * the table's own engine (`playTrial`), its digest what the judge read of it and kept.
+ */
+const TABLE_CASES = tableCells().flatMap((cell) => cell.readings.map((reading) => ({
+  name: `table ${cell.body} ${cell.skill} ${loadoutKey(cell.loadout)}, ${reading.drill}/${reading.protocol}`,
+  run: async () => {
+    const [trial] = drillTrials({ ...cell, readings: [reading] }, "cell");
+    if (!trial) return "no trial";
+    const played = await playTrial(trial, subjectOf(trial).value);
+    const read = digestOf(createHash("sha256").update(JSON.stringify({ reading: played.reading, kept: played.kept, outcome: played.outcome })));
+    return { line: `trial ${trial.name}, value ${played.value}, read ${read}`, record: { pose: read, value: played.value } };
+  },
+})));
 const DATA_CASES = [
   { name: "data: straight-punch", run: () => {
     const option = MINDS.option.config, mind = { ...option,
@@ -420,7 +445,9 @@ const CASES = [
   controlled("reptile", "reptile", "option,option", both("empty")),
   controlled("reptile", "man", "option,option", { left: rightHand("empty"), right: rightHand("sword") }),
   ...elsewhere(),
+  ...MIRROR_CASES,
   ...DATA_CASES,
+  ...TABLE_CASES,
   { name: "bare: seeded nonzero network", run: () => arena(seededBareRecipe()) },
   ...entrantRecipes().map(({ name, recipe }) => ({ name, run: () => arena(recipe) })),
   ...[...HUMANOID_MODELS, "reptile"].map((model) => ({ name: `stand ${model}`, run: () => stand(model) })),

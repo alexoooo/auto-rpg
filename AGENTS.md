@@ -24,15 +24,16 @@ npm run match -- <a> <b>  # two minds, each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases where no row has them; --fresh plays its subjects' again; --write keeps its results
 npm run evaluate -- table # the grid from saved results; plays nothing (its flags: docs/reference/the-table.md)
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
-node scripts/fingerprint.mjs          # what the game computes, before and after a refactor
+node scripts/fingerprint.mjs          # what the game computes: --json <file> before a change, --compare <file> after names every fight, mirror bout and table reading it moved
 ```
 
 ## Checks and landing
 
 - **Checks by change**: code, `npm run check` and `npm test`; browser code, assets, dependencies
-  or build config, also `npm run build`; something to see, a brief look in a browser; a refactor
-  claiming no behaviour change, the fingerprint; prose only, `node --test tests/documents.test.mjs`
-  (the links) and `git diff --check`, nothing more.
+  or build config, also `npm run build`; something to see, a brief look in a browser; a change to
+  what a Mind or a skill does, or a refactor claiming none, the fingerprint, each case it moves
+  named; prose only, `node --test tests/documents.test.mjs` (the links) and `git diff --check`,
+  nothing more.
 - **Landing**: commit each landable change on main, naming the checks run and any failure left.
   No push and no branch unless the owner asks: a push to main publishes the README's Play link.
 - **Pull and merge** with `npm run pull:merge`; resolve conflicts by meaning, stage only those
