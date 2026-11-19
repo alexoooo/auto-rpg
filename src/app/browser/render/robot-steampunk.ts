@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { local, type RobotDesign } from "./robot-geometry.ts";
+import { handLandmarks, type RobotDesign } from "./robot-geometry.ts";
 
 /** Copper pressure vessels, brass fittings and iron mechanisms. */
 export const steampunkRobot: RobotDesign = {
@@ -66,8 +66,8 @@ export const steampunkRobot: RobotDesign = {
       for (const side of [-1, 1]) for (let i = 0; i < 3; i++) orb("edge", Vector3.One().scale(size.x * .07),
         c.add(new Vector3(side * size.x * .32, d * (-.29 + i * .19), -h * .15)));
     } else if (name.startsWith("hand.")) {
-      const k = local(segment, segment.spec.points!.knuckles.value), little = local(segment, segment.spec.points!.little.value);
-      const w = Math.abs(little.x - k.x) * 2.5, r = size.z / 2;
+      const { knuckles: k, across } = handLandmarks(segment);
+      const w = across * 2.5, r = size.z / 2;
       orb("plate", new Vector3(w, k.y * .88, r * 1.6), new Vector3(k.x, k.y * .47, k.z));
       bearing(new Vector3(0, .005, 0), r * .78, r * 1.8, "y");
       const side = name.endsWith("right") ? 1 : -1;

@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { local, type RobotDesign } from "./robot-geometry.ts";
+import { handLandmarks, type RobotDesign } from "./robot-geometry.ts";
 
 /** Swept ceramic armour over a graphite chassis. */
 export const futuristicRobot: RobotDesign = {
@@ -52,8 +52,8 @@ export const futuristicRobot: RobotDesign = {
       pipe("light", [c.add(new Vector3(-size.x * .28, d * .35, h * .17)),
         c.add(new Vector3(0, d * .48, h * .17)), c.add(new Vector3(size.x * .28, d * .35, h * .17))], size.x * .017);
     } else if (name.startsWith("hand.")) {
-      const k = local(segment, segment.spec.points!.knuckles.value), little = local(segment, segment.spec.points!.little.value);
-      const w = Math.abs(little.x - k.x) * 2.5, r = size.z / 2;
+      const { knuckles: k, across } = handLandmarks(segment);
+      const w = across * 2.5, r = size.z / 2;
       profile("plate", [[k.y * .10, w * .56, r], [k.y * .55, w, r * 1.6], [k.y * .86, w * .84, r]], new Vector3(k.x, 0, k.z));
       bearing(new Vector3(0, .005, 0), r * .65, r * 1.75, "y", "frame");
       const side = name.endsWith("right") ? 1 : -1;

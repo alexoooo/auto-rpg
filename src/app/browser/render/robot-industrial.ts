@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { housing, local, type RobotDesign } from "./robot-geometry.ts";
+import { housing, handLandmarks, type RobotDesign } from "./robot-geometry.ts";
 
 /** Industrial's box housings and finishes. */
 export const industrialRobot: RobotDesign = {
@@ -45,8 +45,8 @@ export const industrialRobot: RobotDesign = {
       for (let i = 0; i < 3; i++) plate("edge", size.x * .80, size.y * .045, size.z * .04,
         c.add(new Vector3(0, size.y * (.13 + .10 * i), -size.z * .47)));
     } else if (name.startsWith("hand.")) {
-      const hand = name.endsWith("right") ? "right" : "left", k = local(segment, segment.spec.points!.knuckles.value);
-      const little = local(segment, segment.spec.points!.little.value), halfWidth = Math.abs(little.x - k.x) * 1.20;
+      const hand = name.endsWith("right") ? "right" : "left", { knuckles: k, across } = handLandmarks(segment);
+      const halfWidth = across * 1.20;
       const radius = segment.spec.shape.kind === "capsule" ? segment.spec.shape.radius.value : size.z / 2;
       plate("plate", halfWidth * 2.2, k.y * .78, radius * 1.5, new Vector3(k.x, k.y * .51, k.z));
       bearing(new Vector3(0, .005, 0), radius * .75, radius * 1.9, "y");

@@ -54,6 +54,14 @@ export function housing(w: number, h: number, d: number, bevel: number, taper = 
 /** `point`, body frame, in `segment`'s own coordinates (`localPoint`), as the part's meshes are placed. */
 export const local = (segment: DrawnSegment, point: Vec3): Vector3 => Vector3.FromArray(localPoint(segment.frame, point));
 
+/** A hand segment's knuckles in its own coordinates (`local`), and how far its little finger lies from them across the hand, m. */
+export function handLandmarks(segment: DrawnSegment): { readonly knuckles: Vector3; readonly across: number } {
+  const points = segment.spec.points;
+  if (!points?.knuckles || !points.little) throw new Error(`${segment.spec.name} has no knuckle and little-finger landmarks`);
+  const knuckles = local(segment, points.knuckles.value), little = local(segment, points.little.value);
+  return { knuckles, across: Math.abs(little.x - knuckles.x) };
+}
+
 /** Bounds of the physical shape in its segment frame, including capsule end caps. */
 function envelope(segment: DrawnSegment): { centre: Vector3; size: Vector3 } {
   const shape = segment.spec.shape;

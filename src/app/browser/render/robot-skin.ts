@@ -23,7 +23,7 @@ import type { DrawnBody } from "./drawn-body.ts";
 import type { SkinOptions, SkinView } from "./skin-view.ts";
 import type { Appearance } from "../../../game/appearance/appearance.ts";
 
-import { createRobotPart, housing, local, type Finish, type RobotDesign } from "./robot-geometry.ts";
+import { createRobotPart, housing, handLandmarks, local, type Finish, type RobotDesign } from "./robot-geometry.ts";
 import { industrialRobot } from "./robot-industrial.ts";
 import { steampunkRobot } from "./robot-steampunk.ts";
 import { futuristicRobot } from "./robot-futuristic.ts";
@@ -52,8 +52,8 @@ export function dressRobot(built: DrawnBody, scene: Scene, appearance: Robot, op
     design.build(part);
     if (name.startsWith("hand.")) {
       const { size } = part;
-      const hand = name.endsWith("right") ? "right" : "left", k = local(segment, segment.spec.points!.knuckles.value);
-      const little = local(segment, segment.spec.points!.little.value), halfWidth = Math.abs(little.x - k.x) * 1.20;
+      const hand = name.endsWith("right") ? "right" : "left", { knuckles: k, across } = handLandmarks(segment);
+      const halfWidth = across * 1.20;
       const radius = segment.spec.shape.kind === "capsule" ? segment.spec.shape.radius.value : size.z / 2;
       const held = heldAt(built.spec, name), holding = held !== undefined;
       const grip = held ? local(segment, held.origin.value) : null;
