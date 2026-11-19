@@ -27,6 +27,16 @@ strikes, guarding and minds are there.
   figure, a plateau called early. A note is weighed, never a reason to stop, and never a reading of
   the bar. The owner's part: the bar in the owner's words, revising it, and the look in the game.
 
+### A step and a strike
+
+- **A step and a strike are each a skill of their own**, in the owner's standing words: "i just
+  don't want to have to repeatedly re-train footwork as part of every skill"; and, 2026-11-19,
+  "btw in general i want to avoid a combinatorial explosion of strikes, such as "step back plus
+  punch, step forward plus punhc, step back plus sword, step forward plus wrod" would be better as
+  "step back, step forward, punch, sword"". A step is a locomotion skill and a strike is a strike,
+  each made and measured once and met by the Mind and the Move, never a strike made again for each
+  step it could be thrown from.
+
 ### A skill's value
 
 - **A skill's value** is what the skill gains in
