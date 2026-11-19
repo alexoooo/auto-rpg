@@ -1,7 +1,7 @@
 import type { BodyView } from "../../../../control/body.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import type { GroundReading, Position } from "../../../../control/ground-reading.ts";
-import { phaseClock, poseDrive, postureError, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "../../shared/technique.ts";
+import { phaseClock, poseDrive, postureError, REACHED_SECONDS, trunkOf, type TechniqueEnd, type TechniqueRun } from "../../shared/technique.ts";
 import { rollOver } from "../../shared/staged/stages.ts";
 import type { Side } from "../../../../core/bodies/bilateral.ts";
 
@@ -11,7 +11,7 @@ export function rollToFront(own: OwnBody, _view: BodyView): TechniqueRun<Side> {
   const sides = { right: rollOver("right"), left: rollOver("left") };
   const channels = { right: sides.right.map(pose => Object.keys(pose.posture).map(name => own.muscles.channel(name)).filter(i => i !== undefined)),
     left: sides.left.map(pose => Object.keys(pose.posture).map(name => own.muscles.channel(name)).filter(i => i !== undefined)) };
-  const trunk = own.spec.segments.flatMap((segment, i) => segment.name.endsWith("Trunk") ? [i] : []);
+  const trunk = trunkOf(own.spec);
   const state = { side: "right" as Side, stage: 0, elapsed: 0, ended: null as TechniqueEnd | null, reached: 0, clock: clock.state, yieldPending: true };
   const reached = (g: GroundReading, to: Position) => to === "front" && g.position === "front" && g.lie === "front"
     && g.height < .5 && trunk.reduce((sum, i) => sum + g.load[i]!, 0) >= .5;

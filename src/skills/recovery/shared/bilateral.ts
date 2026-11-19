@@ -31,7 +31,8 @@ export function bilateralBindings(spec: BodySpec, sides: readonly Side[]): reado
   return Object.freeze(sides.map(side => Object.freeze({segment: effectors[side], start: side})));
 }
 
-const opposite = (name: string) => name.replace(/\.(left|right)\b/g, (_, side: string) => side === "left" ? ".right" : ".left");
+/** A channel's, a segment's or a joint's name on the body's other side: its `.left` and `.right` swapped. */
+export const opposite = (name: string): string => name.replace(/\.(left|right)\b/g, (_, side: string) => side === "left" ? ".right" : ".left");
 
 /** Anatomical side names swap; the body's one-sided trunk channels change sign. */
 export function mirrorPosture(posture: Readonly<Record<string, number>>): Readonly<Record<string, number>> {

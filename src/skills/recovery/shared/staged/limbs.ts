@@ -16,7 +16,7 @@ import { hypot } from "../../../../core/math/real.ts";
 import type { Vec3 } from "../../../../core/quantity.ts";
 import { configurationShapeAt, type ConfigurationName, type ShapeSpec } from "../../../../core/bodies/spec/body.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
-import { limbChannels, type Recipe } from "./stages.ts";
+import { limbChannels, unknownLimb, type Recipe } from "./stages.ts";
 import { takesOf, type BearingPolicy } from "./bearing-policy.ts";
 import type { EndLimb, FootLimb, ProppedLimb } from "../../../../core/bodies/spec/body.ts";
 import type { ReadBody, ReadContact, ReadSegment } from "../../../../core/bodies/read-body.ts";
@@ -144,10 +144,6 @@ export function riseLimbs(own: OwnBody, options: Pick<Recipe, "heldSupport" | "t
 
 function unknownEnd(end: never): never {
   throw new Error(`an end of no known shape: ${JSON.stringify((end as { kind?: unknown }).kind)}`);
-}
-
-function unknownLimb(limb: never): never {
-  throw new Error(`a limb of no known kind: ${JSON.stringify(limb)}`);
 }
 
 const taskOf = (freedoms: number): LimbTask => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(freedoms) });

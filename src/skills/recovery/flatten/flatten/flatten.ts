@@ -3,7 +3,7 @@ import { deepFreeze } from "../../../../core/state.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import type { GroundReading, Position } from "../../../../control/ground-reading.ts";
 import { armClearance } from "./clearance.ts";
-import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "../../shared/technique.ts";
+import { phaseClock, poseDrive, REACHED_SECONDS, trunkOf, type TechniqueEnd, type TechniqueRun } from "../../shared/technique.ts";
 
 /** Wide arms arrest rolling while the legs and trunk relax toward a loaded lie. */
 const FLAT = deepFreeze({ "shoulder.left abduction": 1.3, "shoulder.right abduction": 1.3,
@@ -16,7 +16,7 @@ const LAYING = deepFreeze({ within: .35, top: 2, activation: .35 });
 /** Repositioning proves anatomical arm clearance independently of filtered self-contacts. */
 export function flatten(own: OwnBody, _view: BodyView): TechniqueRun {
   const drive = poseDrive(own.muscles), clear = armClearance(own.built), clock = phaseClock();
-  const trunk = own.spec.segments.flatMap((s, i) => s.name.endsWith("Trunk") ? [i] : []);
+  const trunk = trunkOf(own.spec);
   const state = { ended: null as TechniqueEnd | null, clock: clock.state };
   const reached = (g: GroundReading, to: Position) => (to === "front" || to === "back") && g.lie === to
     && trunk.some(i => g.load[i]! >= .03) && g.velocity.lengthSquared() < .25 && g.spin < 1 && clear();

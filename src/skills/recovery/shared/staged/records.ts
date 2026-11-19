@@ -23,6 +23,9 @@ type StageTimings = Readonly<Record<string, StageTiming>>;
  * and the side a body's roll from its back goes over where it is not the recipe's, and its poses where
  * they are not the game's (`rollOver`).
  */
+/** The side a body's roll from its back goes over (`StepUpSettings.over`), where the settings name none. */
+export const rollSide = (settings: { readonly over?: Side }): Side => settings.over ?? "right";
+
 interface StepUpSettings {
   readonly settle: { readonly speed: number; readonly seconds: number };
   readonly climb: number;
@@ -146,7 +149,7 @@ function tunedRecipe(tuning: StepUpTuning, base: Recipe): Recipe {
   };
   return deepFreeze({ ...base, ...(tuning.heldSupport ? { heldSupport: tuning.heldSupport } : {}), progress: { settleSpeed: tuning.settle.speed, settleSeconds: tuning.settle.seconds,
     ...(tuning.rest ? { restSeconds: tuning.rest.seconds, restWiden: tuning.rest.widen } : {}) },
-    roll: { back: (tuning.over || tuning.roll ? rollOver(tuning.over ?? "right", tuning.roll) : base.roll.back).map(timed("roll ")),
+    roll: { back: (tuning.over || tuning.roll ? rollOver(rollSide(tuning), tuning.roll) : base.roll.back).map(timed("roll ")),
       left: sideRoll("left"), right: sideRoll("right") },
     rise: base.rise.map(timed("")) });
 }

@@ -59,6 +59,12 @@ export interface TechniquePart<C extends PartConfig = PartConfig> extends Part<C
 /** Whether `part` is a way up: it takes the body between positions (its `edges`), where a mode of the ground holds it (none). */
 export const isWayUp = (part: Pick<TechniquePart, "edges">): boolean => part.edges.length > 0;
 
+/** Whether the segment `name` is of the trunk: a humanoid's trunk segments are named so (`upperTrunk`, `lowerTrunk`). */
+export const isTrunk = (name: string): boolean => name.endsWith("Trunk");
+
+/** The indices of `spec`'s trunk segments (`isTrunk`), in its order. */
+export const trunkOf = (spec: BodySpec): number[] => spec.segments.flatMap((segment, i) => isTrunk(segment.name) ? [i] : []);
+
 /** A reached physical predicate must remain true this long; search settings cannot change it. */
 export const REACHED_SECONDS = .1;
 

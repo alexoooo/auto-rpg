@@ -3,6 +3,7 @@ import { servo } from "../../../../control/servo.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import { turnOfToRef } from "../../../../core/bodies/read-motion.ts";
 import type { TechniqueEnd, TechniqueRun } from "../../shared/technique.ts";
+import { opposite } from "../../shared/bilateral.ts";
 
 /**
  * One pose of a righting recipe: each freedom's angle by its channel's name, the rest at their
@@ -53,7 +54,7 @@ export function wholeRecipe(recipe: Partial<RightingRecipe>): boolean {
 export function rightingByRecipe(own: OwnBody, recipe: RightingRecipe): TechniqueRun {
   const channels = own.muscles.channels, names = channels.map((c) => c.name), root = own.muscles.dynamics.root.segment;
   const mirror = channels.map((c, i) => {
-    const other = names.indexOf(names[i]!.replace(/\.left\b/, ".@").replace(/\.right\b/, ".left").replace(".@", ".right"));
+    const other = names.indexOf(opposite(names[i]!));
     const a = c.joint.spec.dofs[c.index]!.axis.value;
     return { other: other < 0 ? i : other, sense: a[0] * a[0] - a[1] * a[1] - a[2] * a[2] };
   });

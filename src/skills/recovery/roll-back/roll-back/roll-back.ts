@@ -2,7 +2,7 @@ import type { BodyView } from "../../../../control/body.ts";
 import { deepFreeze } from "../../../../core/state.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import type { GroundReading, Position } from "../../../../control/ground-reading.ts";
-import { phaseClock, poseDrive, postureError, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "../../shared/technique.ts";
+import { phaseClock, poseDrive, postureError, REACHED_SECONDS, trunkOf, type TechniqueEnd, type TechniqueRun } from "../../shared/technique.ts";
 import { mirrorPosture } from "../../shared/bilateral.ts";
 import type { Side } from "../../../../core/bodies/bilateral.ts";
 
@@ -19,7 +19,7 @@ const POSES = deepFreeze<readonly Readonly<Record<string, number>>[]>([
 /** A front-to-back roll with contact and orientation events; no phase duration proves a turn. */
 export function rollBack(own: OwnBody, _view: BodyView): TechniqueRun<Side> {
   const drive = poseDrive(own.muscles), clock = phaseClock();
-  const trunk = own.spec.segments.flatMap((s, i) => s.name.endsWith("Trunk") ? [i] : []);
+  const trunk = trunkOf(own.spec);
   const sides = { right: POSES.map(mirrorPosture), left: POSES };
   const channels = { right: Object.keys(sides.right[0]!).map(name => own.muscles.channel(name)).filter(i => i !== undefined),
     left: Object.keys(sides.left[0]!).map(name => own.muscles.channel(name)).filter(i => i !== undefined) };

@@ -12,7 +12,7 @@ import { stagedRise } from "./staged.ts";
 import { SIT_BACK, derivedRecipe, stageFaults, type Recipe } from "./stages.ts";
 import { standReady, type GroundReading, type Position } from "../../../../control/ground-reading.ts";
 import { recordFault } from "../../../framework/records.ts";
-import { LIMIT, LOW, SIT_BACK_BODIES, STEP_UP_BODIES, stepUpRecipe, stepUpTuning, validStepUp, type StepUpRise, type StepUpTuning } from "./records.ts";
+import { LIMIT, LOW, rollSide, SIT_BACK_BODIES, STEP_UP_BODIES, stepUpRecipe, stepUpTuning, validStepUp, type StepUpRise, type StepUpTuning } from "./records.ts";
 import { stanceRegain } from "./regain.ts";
 import { REACHED_SECONDS, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "../technique.ts";
 import { techniquePart } from "../bilateral.ts";
@@ -97,7 +97,7 @@ function routePart(own: OwnBody, view: BodyView, fitted: MotorAndGuard, kind: St
 function routeRecipes(kind: StagedKind, tuning: StepUpTuning): readonly Recipe[] {
   const part: Part = PARTS[kind], whole = stepUpRecipe(tuning, part.recipe);
   if (part.first === null) {
-    const across = otherSide(tuning.over ?? "right");
+    const across = otherSide(rollSide(tuning));
     return [derivedRecipe(whole, "roll", () => ({ ...whole, rise: [] })),
       derivedRecipe(tuning, `roll over ${across}`, () => ({ ...stepUpRecipe({ ...tuning, over: across }), rise: [] }))];
   }

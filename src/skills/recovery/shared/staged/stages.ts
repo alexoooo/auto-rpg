@@ -584,11 +584,13 @@ export function limbChannels(limb: BearingEndSpec, spec: BodySpec): { readonly c
   }
 }
 
-function unknownLimb(limb: never): never {
+/** A switch over limbs that met none of their kinds. */
+export function unknownLimb(limb: never): never {
   throw new Error(`a limb of no known kind: ${JSON.stringify(limb)}`);
 }
 
-function unknownStage(stage: never): never {
+/** A switch over stages that met none of their kinds. */
+export function unknownStage(stage: never): never {
   throw new Error(`a stage of no known kind: ${JSON.stringify(stage)}`);
 }
 

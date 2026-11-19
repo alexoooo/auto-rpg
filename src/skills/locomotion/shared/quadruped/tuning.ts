@@ -10,6 +10,8 @@
  * - `inset`, `supportInset`, `shiftError`: desired support-centre inset and actual containment
  *   tolerance.
  * - `yawStep`, `turnError`: bounded heading advance, per four paws.
+ * - `liftConfirm`, `placementLimit`: a step counts only for a paw that rose this far off the
+ *   ground; a paw not landed in this long returns to its anchor.
  */
 export const REPTILE_CRAWL = Object.freeze({
   height: .85, stride: .035, lift: .025, liftConfirm: .001, swing: 1.2, shift: .45, settle: .3, plant: .2, plantSpeed: .05, placementLimit: 3,

@@ -5,7 +5,7 @@ import { cos, sin } from "../../../../core/math/real.ts";
 import { ALL_MET, FIELD_BIT, fieldsOf, type LegsAsked, type LegsUnmet } from "../../../framework/skill.ts";
 import { heldBody, heldCommand, heldPushes } from "../held-body.ts";
 import { stagedRise } from "./staged.ts";
-import { LOWERINGS, stageFaults, type Lowering } from "./stages.ts";
+import { LOWERINGS, stageFaults } from "./stages.ts";
 import type { LegAdapterPart } from "../../../framework/leg-adapter.ts";
 import { anyBody } from "../../../../parts/parts.ts";
 
@@ -23,7 +23,7 @@ const sameEnds = (asked: readonly string[], ends: readonly string[]): boolean =>
 
 /**
  * **Legs that bear on more than the feet**: `legs`, and, asked to bear on the ends a lowering of
- * `lowerings` ends on (`Lowering`), that lowering: `legs` set the feet at its footing, and once the
+ * `LOWERINGS` ends on (`Lowering`), that lowering: `legs` set the feet at its footing, and once the
  * body stands still there (`SETTLE`), its
  * stages are played on the body held whole (`heldBody`, `stagedRise`), every muscle pushed as they
  * drive it, the arbiter keeping the pushes no action holds, its last stage held; the body is held
@@ -33,12 +33,12 @@ const sameEnds = (asked: readonly string[], ends: readonly string[]): boolean =>
  * not say when their feet are placed (`Locomotion.placed`) do at once. Their memory is the lowering
  * under way and its command, beside `legs`' own (`legs`).
  */
-function lowering(body: Body, legs: Locomotion, lowerings: readonly Lowering[] = LOWERINGS): Locomotion {
+function lowering(body: Body, legs: Locomotion): Locomotion {
   if (body.view.standing === null) return legs;
   const n = body.muscles.channels.length, spec = body.built.spec;
   const command = heldCommand(n);
   const held = heldBody(body, command), { own, control } = held;
-  const playable = lowerings.filter((one) => stageFaults(one.recipe, spec).length === 0);
+  const playable = LOWERINGS.filter((one) => stageFaults(one.recipe, spec).length === 0);
   const players = playable.map((one) => stagedRise(own, body.view, one.recipe));
   const state = {
     /** What the legs do: their own, set the feet for a lowering, lower the body, or report a lowering failed. */

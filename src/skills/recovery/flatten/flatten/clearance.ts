@@ -2,10 +2,11 @@ import { Vector3 } from "../../../../core/math/vector.ts";
 import type { ShapeSpec } from "../../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../../core/quantity.ts";
 import type { ReadBody, ReadSegment } from "../../../../core/bodies/read-body.ts";
+import { isTrunk } from "../../shared/technique.ts";
 
 /** Conservative anatomical projections: a hand or forearm must clear every trunk footprint. */
 export function armClearance(built: ReadBody): () => boolean {
-  const parts = [...built.segments.values()].filter(p => p.spec.name.endsWith("Trunk") || /^(hand|forearm)\./.test(p.spec.name));
+  const parts = [...built.segments.values()].filter(p => isTrunk(p.spec.name) || /^(hand|forearm)\./.test(p.spec.name));
   const bounds = parts.map(part => {
     const vertices: { point: Vector3; radius: number }[] = [];
     const add = (point: Vec3, radius: number) => {
@@ -33,7 +34,7 @@ export function armClearance(built: ReadBody): () => boolean {
     for (const contact of part.spec.contacts ?? []) shape(contact.shape);
     return { part, vertices, low: new Vector3(), high: new Vector3() };
   });
-  const trunk = bounds.filter(b => b.part.spec.name.endsWith("Trunk")), arms = bounds.filter(b => !b.part.spec.name.endsWith("Trunk"));
+  const trunk = bounds.filter(b => isTrunk(b.part.spec.name)), arms = bounds.filter(b => !isTrunk(b.part.spec.name));
   const point = new Vector3();
   const update = (b: { part: ReadSegment; vertices: { point: Vector3; radius: number }[]; low: Vector3; high: Vector3 }) => {
     b.low.setAll(Infinity); b.high.setAll(-Infinity);

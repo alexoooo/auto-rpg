@@ -15,7 +15,7 @@ import { spinBetweenToRef, turnAboutToRef } from "../../../../core/math/turn.ts"
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import type { Senses } from "../../../../core/bodies/senses.ts";
 import { riseLimbs } from "./limbs.ts";
-import { RISE, stageFaults, stagesOf, type BearStage, type PoseStage, type Recipe, type Stage, type Until } from "./stages.ts";
+import { RISE, stageFaults, stagesOf, unknownStage, type BearStage, type PoseStage, type Recipe, type Stage, type Until } from "./stages.ts";
 import type { ReadSegment } from "../../../../core/bodies/read-body.ts";
 import { rollCoast } from "./roll-coast.ts";
 import { POSE_DRIVING } from "../technique.ts";
@@ -154,10 +154,6 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   begin(): void;
   end(): void;
   step(senses: Senses, control: BodyControl, dt: number): void;
-  /** How many stages `phase` plays, as the body lies now. */
-  stages(phase: "roll" | "rise"): number;
-  /** Join the rise at its first bearing stage, its supports bearing and the trunk clear; false, nothing begun, where they are not. */
-  beginSupported(): boolean;
   /** Join the rise at its first stage now, the body as it is. */
   beginRising(): void;
   /** Play the roll of the lie the body is in now, the body as it is, then lie slack and read again; on its front, the rise. */
@@ -169,7 +165,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const settleSpeed = recipe.progress?.settleSpeed ?? SLOW, settleSeconds = recipe.progress?.settleSeconds ?? STILL_SECONDS;
   const restSeconds = recipe.progress?.restSeconds ?? null, restWiden = recipe.progress?.restWiden ?? 1;
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
-  const upright = uprightness(own.built), made = riseLimbs(own, recipe), ends = own.spec.ends ?? [];
+  const upright = uprightness(own.built), made = riseLimbs(own, recipe);
   const feet = footStatesOf(own.built), footSegments: ReadonlySet<ReadSegment> = new Set(feet.map((foot) => foot.segment)), soles = new Vector3();
   const lying = { turn: new Quaternion(), way: new Vector3() }, belly = bellyOf(own.spec);
   const coasts = rollCoast();
@@ -438,16 +434,6 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     return borneAndSlow && turnLeft < tolerance * tolerance && apart < close * close || state.rested + dt / 2 >= restSeconds;
   };
 
-  /** Whether the rise's first stage, a bearing one, has every limb it bears on pressed on the ground and the trunk clear. */
-  function supported(): boolean {
-    const first = recipe.rise[0];
-    if (first?.kind !== "bear") throw new Error("a supported rise begins with a bearing stage");
-    return upright.clearance(notTrunk) > DOWN && first.on.every(on => {
-      const name = ends.find(limb => limb.name === on.limb)!.segment;
-      return own.built.physics.contactsOf(own.built.segments.get(name)!.body, other => other === null)
-        .some(contact => contact.impulse > 0 && -contact.normal[1] >= .9);
-    });
-  }
   /** The rise from its first stage, as one attempt. */
   function rising(): void {
     state.tries = 1; state.furthest = -1; state.raised = false;
@@ -456,18 +442,12 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
 
   return {
     state,
-    stages: (phase) => playing(phase).length,
     // Lying slack, rolling or rising; or, its rise over, down and off its feet.
     wants: () => state.phase !== "idle" || fallen(),
     begin() {
       settle();
       state.tries = 0;
       state.furthest = -1;
-    },
-    beginSupported() {
-      if (!supported()) return false;
-      rising();
-      return true;
     },
     beginRising: rising,
     beginRolling() {
@@ -547,8 +527,4 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
 
 function unknownPhase(phase: never): never {
   throw new Error(`no phase ${JSON.stringify(phase)}`);
-}
-
-function unknownStage(stage: never): never {
-  throw new Error(`a stage of no known kind: ${JSON.stringify(stage)}`);
 }
