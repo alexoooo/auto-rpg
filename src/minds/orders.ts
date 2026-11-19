@@ -1,5 +1,5 @@
 import type { GaitName } from "../skills/framework/skill.ts";
-import type { Region, TargetRef } from "../skills/framework/action.ts";
+import { isRegionMark, type Region, type TargetRef } from "../skills/framework/action.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 import { regionSegments } from "../skills/framework/action-aim.ts";
 import { isMovement, type MovementRequest, type GroundPoint } from "../skills/framework/movement.ts";
@@ -65,13 +65,11 @@ export function orderedTarget(orders: Orders | null, foe: { readonly id: string;
   return region ? { kind: "body", body: foe.id, region } : null;
 }
 
-const MARKS: readonly string[] = ["high", "middle", "legs", "any"];
-
 /** Whether `value` is a region: a mark of the body, or one of its segments by name. */
 export function isRegion(value: unknown): value is Region {
   if (typeof value !== "object" || value === null) return false;
   const { kind, mark, segment } = value as Record<string, unknown>, keys = Object.keys(value);
-  return kind === "mark" ? typeof mark === "string" && MARKS.includes(mark) && keys.length === 2
+  return kind === "mark" ? isRegionMark(mark) && keys.length === 2
     : kind === "segment" && typeof segment === "string" && segment.length > 0 && keys.length === 2;
 }
 

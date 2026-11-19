@@ -1,6 +1,6 @@
 import type { GaitName } from "../../skills/framework/skill.ts";
 import type { ActionConfig, ExecutorConfigs, ExecutorEntry } from "../../skills/config.ts";
-import type { Region } from "../../skills/framework/action.ts";
+import { isRegionMark, type Region } from "../../skills/framework/action.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import { optionApplies, type OptionPart } from "./parts.ts";
 import { choice, json, optionalChoice } from "../../parts/fields.ts";
@@ -180,7 +180,7 @@ function aimingFaults(config: StrikeConfig, parts: PartLookup): readonly string[
     if (!region || typeof region !== "object") { faults.push("regions: valid target regions"); continue; }
     switch (region.kind) {
       case "segment": if (typeof region.segment !== "string" || !region.segment) faults.push("regions: a target segment named"); break;
-      case "mark": if (!["high", "middle", "legs", "any"].includes(region.mark)) faults.push("regions: a target mark"); break;
+      case "mark": if (!isRegionMark(region.mark)) faults.push("regions: a target mark"); break;
       default: faults.push("regions: valid target regions");
     }
   }

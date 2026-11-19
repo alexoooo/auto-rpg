@@ -6,8 +6,14 @@ import type { ConfigurationName } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/quantity.ts";
 import type { Around, LegsGoal, Skill } from "./skill.ts";
 
+/** The marks of a sensed body a region may name. */
+export const REGION_MARKS = Object.freeze(["high", "middle", "legs", "any"] as const);
+export type RegionMark = typeof REGION_MARKS[number];
+/** Whether `value` is a region's mark (`REGION_MARKS`). */
+export const isRegionMark = (value: unknown): value is RegionMark => (REGION_MARKS as readonly unknown[]).includes(value);
+
 /** A sensed body's region, or a particular segment of that body. */
-export type Region = { readonly kind: "mark"; readonly mark: "high" | "middle" | "legs" | "any" }
+export type Region = { readonly kind: "mark"; readonly mark: RegionMark }
   | { readonly kind: "segment"; readonly segment: string };
 
 /** Identity stays attached to an aim through preparation, execution and contact attribution. */
