@@ -6,6 +6,7 @@
 import type { BodySpec, ItemSpec } from "../../../core/bodies/spec/body.ts";
 import { hypot } from "../../../core/math/real.ts";
 import { ARRIVED } from "../movement.ts";
+import { remembered } from "../../../core/remembered.ts";
 import type { BodyHeld, Held, ItemNumbers, StruckNumbers } from "./profile.ts";
 
 /** The 4-place rounding a trial's numbers are written at. */
@@ -25,16 +26,9 @@ export function trialExit(exit: { readonly range: number; readonly apart?: numbe
   return Math.abs(moved) <= ARRIVED ? { ...range, stays: 1 } : { ...range, stays: 0, moved: fourPlaces(moved) };
 }
 
-/** Each spec's struck numbers (`struckNumbers`), found once: a spec is frozen data. */
-const STRUCK_NUMBERS = new WeakMap<BodySpec, StruckNumbers>();
-
-/** **A body of `spec` as a trial records it struck** (`StruckNumbers`), at the 4 places a trial is written at. */
-export function struckNumbers(spec: BodySpec): StruckNumbers {
-  let numbers = STRUCK_NUMBERS.get(spec);
-  if (!numbers) STRUCK_NUMBERS.set(spec, numbers = Object.freeze({ stature: fourPlaces(spec.stature.value), mass: fourPlaces(spec.mass.value),
-    steadiness: spec.attributes.steadiness.value, haste: spec.attributes.haste.value }));
-  return numbers;
-}
+/** **A body of `spec` as a trial records it struck** (`StruckNumbers`), at the 4 places a trial is written at; found once a spec. */
+export const struckNumbers = remembered((spec: BodySpec): StruckNumbers => Object.freeze({ stature: fourPlaces(spec.stature.value), mass: fourPlaces(spec.mass.value),
+  steadiness: spec.attributes.steadiness.value, haste: spec.attributes.haste.value }));
 
 /** The farthest any point of `shape` lies from its frame's origin, m. */
 function shapeReach(shape: ItemSpec["shapes"][number]): number {
@@ -47,28 +41,15 @@ function shapeReach(shape: ItemSpec["shapes"][number]): number {
   }
 }
 
-/** Each item's numbers (`ItemNumbers`), found once: an item spec is frozen data. */
-const ITEM_NUMBERS = new WeakMap<ItemSpec, ItemNumbers>();
+/** **`item`'s numbers** (`ItemNumbers`), at the 4 places a trial is written at; found once an item. */
+const itemNumbers = remembered((item: ItemSpec): ItemNumbers => Object.freeze({ mass: fourPlaces(item.mass.value),
+  reach: fourPlaces(Math.max(0, ...item.shapes.map(shapeReach), ...(item.contacts ?? []).map((contact) => shapeReach(contact.shape)))) }));
 
-/** **`item`'s numbers** (`ItemNumbers`), at the 4 places a trial is written at. */
-function itemNumbers(item: ItemSpec): ItemNumbers {
-  let numbers = ITEM_NUMBERS.get(item);
-  if (!numbers) ITEM_NUMBERS.set(item, numbers = Object.freeze({ mass: fourPlaces(item.mass.value), reach: fourPlaces(Math.max(0, ...item.shapes.map(shapeReach), ...(item.contacts ?? []).map((contact) => shapeReach(contact.shape)))) }));
-  return numbers;
-}
-
-/** Each spec's held numbers (`heldNumbers`), found once: a spec is frozen data. */
-const HELD_NUMBERS = new WeakMap<Pick<BodySpec, "held">, BodyHeld | null>();
-
-/** **What a body of `spec` holds, as numbers** (`BodyHeld`); undefined where it holds nothing. */
-export function heldNumbers(spec: Pick<BodySpec, "held">): BodyHeld | undefined {
-  let numbers = HELD_NUMBERS.get(spec);
-  if (numbers === undefined) {
-    const held = spec.held ?? [];
-    HELD_NUMBERS.set(spec, numbers = held.length ? Object.freeze(Object.fromEntries(held.map(({ segment, item }) => [segment, itemNumbers(item)]))) : null);
-  }
-  return numbers ?? undefined;
-}
+/** **What a body of `spec` holds, as numbers** (`BodyHeld`); undefined where it holds nothing. Found once a spec. */
+export const heldNumbers = remembered((spec: Pick<BodySpec, "held">): BodyHeld | undefined => {
+  const held = spec.held ?? [];
+  return held.length ? Object.freeze(Object.fromEntries(held.map(({ segment, item }) => [segment, itemNumbers(item)]))) : undefined;
+});
 
 /** Whether two bodies hold alike (`BodyHeld`): the same segments, each item's numbers the same; holding nothing is undefined. */
 export function holdsAlike(a: BodyHeld | undefined, b: BodyHeld | undefined): boolean {

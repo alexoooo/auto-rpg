@@ -5,6 +5,7 @@
  */
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { hypot } from "../../../core/math/real.ts";
+import { remembered } from "../../../core/remembered.ts";
 import type { ItemNumbers, Profile, Start, StruckNumbers } from "./profile.ts";
 import { HELD_SPANS, STRUCK_SPANS } from "./nearest.ts";
 import { heldNumbers, struckNumbers } from "./numbers.ts";
@@ -16,17 +17,10 @@ const HELD_KEYS = ["mass", "reach"] as const, NONE_HELD = [0, 0] as const;
 /** The least and most of each held number `trials` record of one body, by segment; a trial holding nothing there at none. */
 type HeldExtent = ReadonlyMap<string, Readonly<Record<keyof ItemNumbers, readonly [number, number]>>>;
 
-/** Each trial list's held extent of each body (`heldExtent`), found once: a profile's trials are frozen data. */
-const HELD_EXTENTS = new WeakMap<readonly { readonly start: Start }[], { own?: HeldExtent; target?: HeldExtent }>();
-
-/** **What `trials` held of the body `of`** (`HeldExtent`): of each segment any of them records holding, the least and the most of its mass and its reach. */
-function heldExtent(trials: readonly { readonly start: Start }[], of: "own" | "target"): HeldExtent {
-  let byBody = HELD_EXTENTS.get(trials);
-  if (!byBody) HELD_EXTENTS.set(trials, byBody = {});
-  const known = byBody[of];
-  if (known) return known;
+/** **What `trials` held of the body `of`** (`HeldExtent`): of each segment any of them records holding, the least and the most of its mass and its reach. Found once a trial list and a body. */
+const heldExtent = remembered((trials: readonly { readonly start: Start }[]) => remembered((of: "own" | "target"): HeldExtent => {
   const segments = new Set(trials.flatMap((trial) => Object.keys(trial.start.held?.[of] ?? {})));
-  const extent = new Map([...segments].sort().map((segment) => {
+  return new Map([...segments].sort().map((segment) => {
     const span = (key: keyof ItemNumbers): readonly [number, number] => {
       let least = Infinity, most = -Infinity;
       for (const trial of trials) { const v = trial.start.held?.[of]?.[segment]?.[key] ?? 0; least = Math.min(least, v); most = Math.max(most, v); }
@@ -34,8 +28,7 @@ function heldExtent(trials: readonly { readonly start: Start }[], of: "own" | "t
     };
     return [segment, { mass: span("mass"), reach: span("reach") }] as const;
   }));
-  return byBody[of] = extent;
-}
+}));
 
 /**
  * **Where a body of `spec` holds past what `trials` held**, as the body whose skill it is (`own`)
@@ -48,7 +41,7 @@ function heldExtent(trials: readonly { readonly start: Start }[], of: "own" | "t
  */
 export function heldPast(trials: readonly { readonly start: Start }[], of: "own" | "target", spec: Pick<BodySpec, "held">, segments?: readonly string[]): string | null {
   if (!trials.length) return null;
-  const extent = heldExtent(trials, of), mine = heldNumbers(spec);
+  const extent = heldExtent(trials)(of), mine = heldNumbers(spec);
   for (const segment of segments ?? [...new Set([...extent.keys(), ...Object.keys(mine ?? {})])].sort()) for (const key of HELD_KEYS) {
     const now = mine?.[segment]?.[key] ?? 0, [least, most] = extent.get(segment)?.[key] ?? NONE_HELD;
     if (now < least - HELD_SPANS[key] / 2 || now > most + HELD_SPANS[key] / 2)
@@ -76,42 +69,29 @@ export function acrossBodies(profile: Profile, striker: BodySpec, reading: Profi
   };
 }
 
-/** Each profile's struck bodies (`Start.struck`), in the order its trials first struck each: found once a profile. */
-const STRUCK_BODIES = new WeakMap<Profile, readonly StruckNumbers[]>();
+/** **The bodies `profile`'s trials struck** (`Start.struck`), told apart by stature and mass, in the order its trials first struck each; found once a profile. */
+const struckBodies = remembered((profile: Profile): readonly StruckNumbers[] => {
+  const seen = new Map<string, StruckNumbers>();
+  for (const trial of profile.trials) { const at = trial.start.struck; if (at && !seen.has(`${at.stature} ${at.mass}`)) seen.set(`${at.stature} ${at.mass}`, at); }
+  return [...seen.values()];
+});
 
-/** The bodies `profile`'s trials struck (`STRUCK_BODIES`), told apart by stature and mass. */
-function struckBodies(profile: Profile): readonly StruckNumbers[] {
-  let bodies = STRUCK_BODIES.get(profile);
-  if (!bodies) {
-    const seen = new Map<string, StruckNumbers>();
-    for (const trial of profile.trials) { const at = trial.start.struck; if (at && !seen.has(`${at.stature} ${at.mass}`)) seen.set(`${at.stature} ${at.mass}`, at); }
-    STRUCK_BODIES.set(profile, bodies = [...seen.values()]);
-  }
-  return bodies;
-}
-
-/** Each profile's trials struck at one body's numbers (`struckAt`), by that body's stature and mass. */
-const STRUCK_VIEWS = new WeakMap<Profile, Map<string, Profile>>();
+/** **`profile`'s trials struck at `body`'s stature and mass**, made once a profile and a body it struck (`struckBodies`), so a reading of them is made once. */
+const struckView = remembered((profile: Profile) => remembered((body: StruckNumbers): Profile =>
+  Object.freeze({ ...profile, trials: profile.trials.filter((trial) => trial.start.struck?.stature === body.stature && trial.start.struck.mass === body.mass) })));
 
 /**
  * **`profile` read against a body of `struck`**: its trials struck at the body it measured
  * nearest `struck`'s stature and mass (`STRUCK_SPANS`; of bodies as near, the first it struck),
  * which is `struck`'s own where it was measured; the profile itself where its trials struck one
- * body or record none. Made once a profile and a body's numbers, so a reading of it is made once.
+ * body or record none.
  */
 function struckAt(profile: Profile, struck: BodySpec): Profile {
   const bodies = struckBodies(profile);
   if (bodies.length < 2) return profile;
-  const now = struckNumbers(struck), key = `${now.stature} ${now.mass}`;
-  let views = STRUCK_VIEWS.get(profile);
-  if (!views) STRUCK_VIEWS.set(profile, views = new Map());
-  let view = views.get(key);
-  if (!view) {
-    const apart = (at: StruckNumbers): number => hypot((at.stature - now.stature) / STRUCK_SPANS.stature, (at.mass - now.mass) / STRUCK_SPANS.mass);
-    const nearest = bodies.reduce((best, at) => apart(at) < apart(best) ? at : best);
-    views.set(key, view = Object.freeze({ ...profile, trials: profile.trials.filter((trial) => trial.start.struck?.stature === nearest.stature && trial.start.struck.mass === nearest.mass) }));
-  }
-  return view;
+  const now = struckNumbers(struck);
+  const apart = (at: StruckNumbers): number => hypot((at.stature - now.stature) / STRUCK_SPANS.stature, (at.mass - now.mass) / STRUCK_SPANS.mass);
+  return struckView(profile)(bodies.reduce((best, at) => apart(at) < apart(best) ? at : best));
 }
 
 /**

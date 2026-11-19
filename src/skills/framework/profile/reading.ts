@@ -7,6 +7,7 @@ import { STANDING, startedAt, type Asked, type Postures, type Profile, type Tria
 import { bodyNumbers, eachNearest, numbersAt, sampleOf, type Sample } from "./nearest.ts";
 import { acrossBodies, heldPast } from "./across.ts";
 import { struckNumbers } from "./numbers.ts";
+import { remembered } from "../../../core/remembered.ts";
 
 /** A reading of a profile whose trials record no body numbers (`bodyNumbers`): asked at none. */
 const NO_NUMBERS = new Float64Array(0);
@@ -68,20 +69,9 @@ export type ReadsProfile = (profile: Profile, striker: BodySpec, postures?: Post
  * striker's spec and the postures read at, own then target, as a profile and a spec are immutable.
  */
 export function profileReader(runs: RunReader): ReadsProfile {
-  const readings = new WeakMap<Profile, WeakMap<BodySpec, Map<string, Map<string, ProfileReading>>>>();
-  return (profile, striker, postures = STANDING) => {
-    let bySpec = readings.get(profile);
-    if (!bySpec) readings.set(profile, bySpec = new WeakMap());
-    let byOwn = bySpec.get(striker);
-    if (!byOwn) bySpec.set(striker, byOwn = new Map());
-    let byTarget = byOwn.get(postures.own);
-    if (!byTarget) byOwn.set(postures.own, byTarget = new Map());
-    const known = byTarget.get(postures.target);
-    if (known) return known;
-    const reading = acrossBodies(profile, striker, profileReading(profile, striker, postures, runs));
-    byTarget.set(postures.target, reading);
-    return reading;
-  };
+  const readings = remembered((profile: Profile) => remembered((striker: BodySpec) => remembered((own: string) => remembered((target: string) =>
+    acrossBodies(profile, striker, profileReading(profile, striker, { own, target }, runs))))));
+  return (profile, striker, postures = STANDING) => readings(profile)(striker)(postures.own)(postures.target);
 }
 
 /** **`profile` read for a skill of a body of `striker`** (`ProfileReading`) at `postures`, by its trials nearest a start (`nearestRun`). */
@@ -92,10 +82,6 @@ interface Phase {
   readonly run: Sample;
   readonly letGo: ReadonlyMap<number, Sample>;
   readonly reach: number;
-  /** The most hit points a second, and the fewest seconds of a start that deals any, of any start of its trials (`ProfileReading.peak`, `fastest`); found when first asked. */
-  extremes?: { readonly peak: number; readonly fastest: number };
-  /** Its run trials as its reading reads them (`RunReader`); made when first asked. */
-  runs?: RunReading;
 }
 
 /** The hit points a start deals and its cycle, s: the seconds it runs, and those with the seconds until its limb is back (`Trial.recovers`). */
@@ -158,53 +144,37 @@ function profileReading(profile: Profile, striker: BodySpec, postures: Postures,
   const own = striker.wounds.hp.value;
   const trials = profile.trials.filter((trial) => startedAt(trial.start, postures));
   const numbers = bodyNumbers(trials);
-  const askedAt = new WeakMap<BodySpec, Float64Array>();
-  let askedAlone: Float64Array | null = null;
-  /** The body numbers a reading against `struck` is asked at (`bodyNumbers`): the striker's and `struck`'s, as their specs have them. */
-  const asked = (struck: BodySpec | null): Float64Array => {
-    if (!numbers.length) return NO_NUMBERS;
-    const known = struck ? askedAt.get(struck) : askedAlone;
-    if (known) return known;
-    const made = Float64Array.from(numbers, (number) => number.asked(striker, struck));
-    if (struck) askedAt.set(struck, made); else askedAlone = made;
-    return made;
-  };
-  /** What `scaled` found, a struck spec (`scaledAt`) or none struck (`scaledAlone`); undefined until asked. */
-  const scaledAt = new WeakMap<BodySpec, string | null>();
-  let scaledAlone: string | null | undefined;
+  /** The body numbers a reading against `struck` is asked at (`bodyNumbers`): the striker's and `struck`'s, as their specs have them; found once a struck body. */
+  const asked = remembered((struck: BodySpec | null): Float64Array => numbers.length ? Float64Array.from(numbers, (number) => number.asked(striker, struck)) : NO_NUMBERS);
   const phaseOf = (phase: string): string => trials.some((trial) => trial.start.phase === phase) ? phase : "clear";
-  const phases = new Map<string, Phase>();
   /** The trials a body in `phase` reads (`phaseOf`); found once a phase. */
-  const read = (phase: string): Phase => {
-    const known = phases.get(phase);
-    if (known) return known;
+  const read = remembered((phase: string): Phase => {
     const at = phaseOf(phase), of = trials.filter((trial) => trial.start.phase === at), run = of.filter((trial) => !trial.letGo);
     const byProgress = new Map<number, Trial[]>();
     for (const trial of of) if (trial.letGo) byProgress.set(trial.letGo.progress, [...byProgress.get(trial.letGo.progress) ?? [], trial]);
     let reach = -Infinity;
     for (const trial of run) reach = Math.max(reach, trial.start.range);
-    const made: Phase = { run: sampleOf(run, numbers), letGo: new Map([...byProgress].map(([progress, those]) => [progress, sampleOf(those, numbers)])), reach };
-    phases.set(phase, made);
-    return made;
-  };
-  const extremes = (phase: string): NonNullable<Phase["extremes"]> => {
-    const of = read(phase);
-    if (of.extremes) return of.extremes;
+    return { run: sampleOf(run, numbers), letGo: new Map([...byProgress].map(([progress, those]) => [progress, sampleOf(those, numbers)])), reach };
+  });
+  /** A phase's run trials as its reading reads them (`RunReader`); made once a phase's. */
+  const runsOf = remembered((of: Phase): RunReading => runs(of.run, own));
+  /** The most hit points a second, and the fewest seconds of a start that deals any, of any start of a phase's trials (`ProfileReading.peak`, `fastest`); found once a phase's. */
+  const extremes = remembered((of: Phase): { readonly peak: number; readonly fastest: number } => {
     let peak = 0, fastest = Infinity;
     for (const trial of of.run.trials) {
       const at = cycleAt(of.run, trial.start, numbers.length ? numbersAt(trial.start, numbers) : NO_NUMBERS);
       if (!at || at.dealt <= 0 || at.cycle <= 0) continue;
       peak = Math.max(peak, at.dealt / at.cycle); fastest = Math.min(fastest, at.seconds);
     }
-    return of.extremes = { peak, fastest };
-  };
-  const reading: ProfileReading = {
+    return { peak, fastest };
+  });
+  return {
     profile,
     reach: (phase) => read(phase).reach,
     expect(at, struck) {
       const of = read(at.phase);
       if (at.range > of.reach) return null;
-      const levels = asked(struck), run = (of.runs ??= runs(of.run, own)).expect(at, levels, struck);
+      const levels = asked(struck), run = runsOf(of).expect(at, levels, struck);
       if (!run || at.progress === undefined) return run;
       const letGo = letGoAt(of, at, levels, at.progress);
       return letGo ? { ...run, letGo: { seconds: letGo.seconds, taken: letGo.taken / own } } : run;
@@ -212,25 +182,20 @@ function profileReading(profile: Profile, striker: BodySpec, postures: Postures,
     rate(at, struck) {
       const of = read(at.phase);
       if (at.range > of.reach) return null;
-      const cycle = (of.runs ??= runs(of.run, own)).cycle(at, asked(struck));
+      const cycle = runsOf(of).cycle(at, asked(struck));
       return cycle ? cycle.cycle > 0 ? (struck ? cycle.dealt / struck.wounds.hp.value : 0) / cycle.cycle : 0 : null;
     },
-    peak: (phase, struck) => extremes(phase).peak / struck.wounds.hp.value,
-    fastest: (phase) => extremes(phase).fastest,
-    scaled(struck) {
-      const known = struck ? scaledAt.get(struck) : scaledAlone;
-      if (known !== undefined) return known;
+    peak: (phase, struck) => extremes(read(phase)).peak / struck.wounds.hp.value,
+    fastest: (phase) => extremes(read(phase)).fastest,
+    scaled: remembered((struck: BodySpec | null): string | null => {
       // A profile of a skill at a foe is one whose trials record the body they struck.
       const was = struck ? trials.find((trial) => trial.start.struck)?.start.struck : undefined, now = struck && struckNumbers(struck);
       const why = [...was && now && (was.stature !== now.stature || was.mass !== now.mass)
         ? [`measured against a body of ${was.stature} m and ${was.mass} kg, read against one of ${now.stature} m and ${now.mass} kg`] : [],
         ...[heldPast(trials, "own", striker), struck && was ? heldPast(trials, "target", struck) : null].filter((one) => one !== null)];
-      const made = why.length ? why.join("; ") : null;
-      if (struck) scaledAt.set(struck, made); else scaledAlone = made;
-      return made;
-    },
+      return why.length ? why.join("; ") : null;
+    }),
   };
-  return reading;
 }
 
 /** **What letting go at `progress` cost** from `at`: of the trials of `of` let go at the progress nearest it, the mean of those nearest `at`; null where none was let go. */

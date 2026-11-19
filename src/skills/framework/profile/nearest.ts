@@ -6,6 +6,7 @@
 import type { Asked, ItemNumbers, Stances, StanceNumbers, Start, Trial } from "./profile.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { heldNumbers, struckNumbers } from "./numbers.ts";
+import { remembered } from "../../../core/remembered.ts";
 
 /**
  * **The spans a struck body's stature and mass are compared over**: a tenth of a metre and ten
@@ -125,8 +126,6 @@ export interface Sample {
   /** Query scratch: a trial's distance from the start asked, where `asked` holds that query's mark. */
   readonly distances: Float64Array;
   readonly asked: Float64Array;
-  /** Its trials' trees (`forestOf`), made when first searched. */
-  forest: readonly Tree[] | null;
 }
 
 /** **`at`'s coordinates** as a sample of its shape keeps them (`COORDINATE`), its bodies at the body numbers `asked` (`bodyNumbers`' order), into `out` from `from`; a stance number it does not record NaN. */
@@ -148,7 +147,7 @@ export function sampleOf(trials: readonly Trial[], numbers: readonly BodyNumber[
   sorted.forEach((trial, i) => coordinatesInto(shape, trial.start, asked[i]!, coords, i * dims));
   for (let i = 0; i < coords.length; i++) { const d = i % dims, v = coords[i]!; if (v === v) { low[d] = Math.min(low[d]!, v); high[d] = Math.max(high[d]!, v); } }
   low[COORDINATE.range] = -Infinity; high[COORDINATE.range] = Infinity;
-  return { trials: sorted, kept, dims, stanced, coords, spans, low, high, distances: new Float64Array(n), asked: new Float64Array(n), forest: null };
+  return { trials: sorted, kept, dims, stanced, coords, spans, low, high, distances: new Float64Array(n), asked: new Float64Array(n) };
 }
 
 /**
@@ -210,10 +209,9 @@ const LEAF = 12;
 
 /**
  * **`sample`'s trees** (`Tree`), one for the trials that record each set of stance numbers, so each
- * is searched by every number its trials have; made once.
+ * is searched by every number its trials have; made once a sample, when first searched.
  */
-function forestOf(sample: Sample): readonly Tree[] {
-  if (sample.forest) return sample.forest;
+const forestOf = remembered((sample: Sample): readonly Tree[] => {
   const { dims, stanced, coords } = sample, groups = new Map<number, number[]>();
   for (let i = 0; i < sample.trials.length; i++) {
     let recorded = 0;
@@ -222,9 +220,9 @@ function forestOf(sample: Sample): readonly Tree[] {
     if (!group) groups.set(recorded, group = []);
     group.push(i);
   }
-  return sample.forest = [...groups].map(([recorded, trials]) => treeOf(sample, Int32Array.from(trials),
+  return [...groups].map(([recorded, trials]) => treeOf(sample, Int32Array.from(trials),
     Int32Array.from({ length: dims }, (_, d) => d).filter((d) => d < stanced || recorded & 1 << d - stanced)));
-}
+});
 
 /** **A tree of `sample`'s `trials`**, holding the coordinates `reads` (`Tree`). */
 function treeOf(sample: Sample, trials: Int32Array, reads: Int32Array): Tree {

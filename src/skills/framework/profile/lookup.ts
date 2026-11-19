@@ -10,6 +10,7 @@ import type { PartConfig } from "../../../parts/parts.ts";
 import { chosenVariation } from "../variations.ts";
 import type { Measured, Profile } from "./profile.ts";
 import { heldPast } from "./across.ts";
+import { remembered } from "../../../core/remembered.ts";
 
 /** **The steps a body's command waited** where `measured` was measured: its `delay`, else none. */
 const delayOf = (measured: Measured): number => measured.delay ?? 0;
@@ -118,18 +119,11 @@ export function profilesFor(profiles: readonly Profile[], now: Measured): Found 
  * limb holds within what theirs held (`heldPast`), so a strike its trials threw with a weapon is not
  * read of an empty hand, nor a punch of a hand that grips one. A profile of no limb fits every body.
  */
-export function limbHoldsAsMeasured(profile: Profile, spec: Pick<BodySpec, "held">): boolean {
-  const limb = profile.measured.limb;
-  if (limb === undefined) return true;
-  let bySpec = LIMB_HOLDS.get(profile);
-  if (!bySpec) LIMB_HOLDS.set(profile, bySpec = new WeakMap());
-  let holds = bySpec.get(spec);
-  if (holds === undefined) bySpec.set(spec, holds = heldPast(profile.trials, "own", spec, [limb]) === null);
-  return holds;
-}
+export const limbHoldsAsMeasured = (profile: Profile, spec: Pick<BodySpec, "held">): boolean => limbHolds(profile)(spec);
 
-/** Whether a spec's limb holds as each profile's trials' did (`limbHoldsAsMeasured`), found once the two: both are frozen data. */
-const LIMB_HOLDS = new WeakMap<Profile, WeakMap<Pick<BodySpec, "held">, boolean>>();
+/** `limbHoldsAsMeasured`, found once a profile and a spec. */
+const limbHolds = remembered((profile: Profile) => remembered((spec: Pick<BodySpec, "held">): boolean =>
+  profile.measured.limb === undefined || heldPast(profile.trials, "own", spec, [profile.measured.limb]) === null));
 
 /**
  * **The profiles among `profiles` measured on a body of `spec`**, of any skill its limbs throw
