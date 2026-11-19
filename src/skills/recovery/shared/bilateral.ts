@@ -59,11 +59,11 @@ export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "
     fits: held.fits, faults: () => [], variations: held.variations,
     make(...args: Parameters<TechniquePart["make"]>): TechniqueRun {
       const run = held.make(...args);
-      return { state: run.state, get phase() { return run.phase; }, get yields() { return run.yields; },
+      return { state: run.state, get phase() { return run.phase; }, get stage() { return run.stage; }, get yields() { return run.yields; },
         admits: (reading, start) => supported(start) && run.admits(reading, start),
         reached: (reading, to) => run.reached(reading, to),
         begin(start) { if (!supported(start)) throw new Error(`invalid start ${start} for ${kind}`); run.begin(start); },
-        step: (reading, senses, control, dt) => run.step(reading, senses, control, dt), end: () => run.end(),
+        step: (reading, senses, control, dt) => run.step(reading, senses, control, dt), end: (why) => run.end(why),
         ...(run.forget ? { forget: () => run.forget!() } : {}),
       };
     } };
