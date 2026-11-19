@@ -1,11 +1,11 @@
-import type { Gait } from "../../shared/quadruped/parts.ts";
+import type { Gait, PawGaitBody } from "../../shared/quadruped/parts.ts";
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
-import type { ReadBody, ReadSegment } from "../../../../core/bodies/read-body.ts";
+import type { ReadBody } from "../../../../core/bodies/read-body.ts";
 import { withinSupport } from "../../../../control/support.ts";
 import { atan2, cos, sin } from "../../../../core/math/real.ts";
 import type { Vec3 } from "../../../../core/quantity.ts";
 import { REPTILE_CRAWL } from "../../shared/quadruped/tuning.ts";
-import type { PawReading, PawView } from "../../../../control/quadruped/paws.ts";
+import type { PawView } from "../../../../control/quadruped/paws.ts";
 
 /**
  * Where a body standing on its `paws` at the reference pose carries its centre of mass, body
@@ -23,11 +23,12 @@ function overPaws(built: ReadBody, paws: readonly string[]): readonly [number, n
 }
 
 /**
- * One paw moves after the centre enters the other three paws' support triangle: a gait of the body
- * `built`, its trunk `root`, on its paws `names` as `paws` reads them.
+ * One paw moves after the centre enters the other three paws' support triangle: a gait of `body`
+ * by the settings `T`.
  */
-export function crawl(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_CRAWL): Gait {
+export function crawl(body: PawGaitBody, T: typeof REPTILE_CRAWL): Gait {
   if (!validCrawl(T)) throw new Error("invalid crawl settings");
+  const { built, root, paws, names } = body;
   const nominal = names.map(name => built.segments.get(name)!.spec.points!.sole!.value);
   const mass = built.spec.mass.value, reference = built.spec.segments.reduce((c, p) => {
     const m = p.mass.value / mass, at = p.centreOfMass.value;

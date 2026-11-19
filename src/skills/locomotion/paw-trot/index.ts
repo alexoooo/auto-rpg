@@ -1,10 +1,8 @@
 import { varied, type Varied } from "../../framework/variations.ts";
-import type { ReadBody, ReadSegment } from "../../../core/bodies/read-body.ts";
 import { REPTILE_TROT } from "../shared/quadruped/tuning.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { fitsPaws } from "../../../control/quadruped/fit.ts";
-import { type PawGaitPart } from "../shared/quadruped/parts.ts";
-import type { PawReading } from "../../../control/quadruped/paws.ts";
+import { type PawGaitBody, type PawGaitPart } from "../shared/quadruped/parts.ts";
 import { trot, validTrot } from "./paw-trot/trot.ts";
 
 /** **The trot**'s config: research settings over `REPTILE_TROT`, none in the game. */
@@ -12,15 +10,15 @@ interface TrotConfig extends Varied { readonly kind: "paw-trot"; readonly tuning
 
 /** The trot's variations: the trot. */
 const VARIATIONS = {
-  "paw-trot"(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], config: TrotConfig) {
-    return trot(built, root, paws, names, { ...REPTILE_TROT, ...config.tuning });
+  "paw-trot"(body: PawGaitBody, config: TrotConfig) {
+    return trot(body, { ...REPTILE_TROT, ...config.tuning });
   },
 };
 
 /** **The trot** as a gait: the quadruped's travel. */
 export const TROT_PART = deepFreeze<PawGaitPart<TrotConfig>>({
   role: "paw-gait", label: "Trot", stage: "game", travels: true, gait: "trot", fields: [], slots: [], defaults: { kind: "paw-trot" }, keys: { kind: true, variation: true, tuning: true },
-  tuning: Object.keys(REPTILE_TROT), ...varied({ skill: "paw-trot", label: "trot", variations: VARIATIONS, of: (built, _root, _paws, _names, config) => [built.spec, config],
+  tuning: Object.keys(REPTILE_TROT), ...varied({ skill: "paw-trot", label: "trot", variations: VARIATIONS, of: (body, config) => [body.built.spec, config],
     fits: [fitsPaws, (_spec, config) => validTrot({ ...REPTILE_TROT, ...config.tuning }) ? null : "invalid trot settings"] }),
   faults: (config: TrotConfig) => config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning)
     && validTrot({ ...REPTILE_TROT, ...config.tuning }) ? [] : ["invalid trot settings"],

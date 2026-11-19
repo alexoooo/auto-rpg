@@ -8,8 +8,7 @@ import { whenEmpty } from "../../../parts/tree.ts";
 import type { Legs, LocomotionPart } from "../../framework/locomotion-part.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { fitsPaws } from "../../../control/quadruped/fit.ts";
-import { type Gait } from "../shared/quadruped/parts.ts";
-import { pawEndpoints, pawReader } from "../../../control/quadruped/paws.ts";
+import { pawGaitBody, type Gait } from "../shared/quadruped/parts.ts";
 import { GAIT_NAMES, pawLegs, type PawGaitName } from "../shared/quadruped/paw-legs.ts";
 
 /** **The paw legs**' config: the gait it travels by and the one it crawls by (`PawGaitPart`), the stock ones where it names none. */
@@ -27,13 +26,11 @@ const PAW_SLOTS = Object.freeze([slotOne("trot", "Trot", "paw-gait", true), slot
 /** The paw legs' variations: the paw legs. */
 const VARIATIONS = {
   "paw-move"(body: Body, config: PawMoveConfig, legs: Legs): Locomotion {
-    const built = body.built, root = body.muscles.dynamics.root.segment, reading = pawReader(built).state, names = pawEndpoints(built).map((paw) => paw.segment);
-    const reads = { centre: reading.centre, velocity: reading.velocity, feet: reading.endpoints };
-    const gaits: Partial<Record<PawGaitName, Gait>> = {};
+    const over = pawGaitBody(body), gaits: Partial<Record<PawGaitName, Gait>> = {};
     for (const name of GAIT_NAMES) {
       const given = config[name] ?? STOCK[name];
       const part = legs.parts.of("paw-gait", given);
-      if (part.fits(built.spec, given, legs.parts) === null) gaits[name] = part.make(built, root, reads, names, given);
+      if (part.fits(body.built.spec, given, legs.parts) === null) gaits[name] = part.make(over, given);
     }
     return pawLegs(body, gaits);
   },

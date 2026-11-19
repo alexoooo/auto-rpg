@@ -5,7 +5,8 @@ import type { Skill } from "../../../framework/skill.ts";
 
 import type { TravelOrders } from "./travel.ts";
 import type { PawGaitName } from "./paw-legs.ts";
-import type { PawReading, PawView } from "../../../../control/quadruped/paws.ts";
+import { pawEndpoints, pawReading, type PawReading, type PawView } from "../../../../control/quadruped/paws.ts";
+import type { Body } from "../../../../control/body.ts";
 
 /** What a quadruped reads of a gait beside its command: how its paws lift, swing and plant. */
 interface GaitSettings {
@@ -50,16 +51,29 @@ export interface Gait extends Skill<PawView> {
 }
 
 /**
- * **A kind of paw gait**: a part of role `paw-gait`, made over the body `built`, its trunk `root`
- * and the paws it stands on (`names`, in the order it lifts them) as `paws` reads them.
+ * **What a paw gait goes over**: the body `built`, its trunk `root` and the paws it stands on
+ * (`names`, in the order it lifts them) as `paws` reads them.
  */
+export interface PawGaitBody {
+  readonly built: ReadBody;
+  readonly root: ReadSegment;
+  readonly paws: PawReading;
+  readonly names: readonly string[];
+}
+
+/** What a paw gait of `body` goes over (`PawGaitBody`): its trunk, and its paws as its paw reader reads them (`pawReading`). */
+export function pawGaitBody(body: Body): PawGaitBody {
+  return { built: body.built, root: body.muscles.dynamics.root.segment, paws: pawReading(body.built), names: pawEndpoints(body.built).map((paw) => paw.segment) };
+}
+
+/** **A kind of paw gait**: a part of role `paw-gait`, made over what it goes over (`PawGaitBody`). */
 export interface PawGaitPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "paw-gait";
   /** Whether it carries the body to a place (`GaitPart.travels`). */
   readonly travels: boolean;
   /** Which of the paw legs' gaits it is (`pawLegs`): the trot to travel or the crawl close in. */
   readonly gait: PawGaitName;
-  make(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], config: C): Gait;
+  make(body: PawGaitBody, config: C): Gait;
 }
 
 // The paw gaits' role, added to the roles the part lookup knows (`RoleParts`).

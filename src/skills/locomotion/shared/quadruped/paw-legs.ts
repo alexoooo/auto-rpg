@@ -14,7 +14,7 @@ import { deepFreeze } from "../../../../core/state.ts";
 import { soleGoal } from "../../../../control/quadruped/motion.ts";
 import { standAt, type TravelOrders } from "./travel.ts";
 import { type Gait, type GaitReach } from "./parts.ts";
-import { pawEndpoints, pawReader, pawView } from "../../../../control/quadruped/paws.ts";
+import { pawEndpoints, pawView } from "../../../../control/quadruped/paws.ts";
 import { PAW_LEGS } from "./tuning.ts";
 import { pawsOf } from "../../../../core/bodies/spec/body.ts";
 
@@ -57,7 +57,7 @@ function envelopeOf(name: PawGaitName, reach: GaitReach): StanceEnvelope {
  * its footing. Its memory is its gaits', the gait it goes by, its footing and each paw's path.
  */
 export function pawLegs(body: Body, gaits: Readonly<Partial<Record<PawGaitName, Gait>>>): Locomotion {
-  const { built, view } = body, paws = pawEndpoints(built), reading = pawReader(built).state, seen = pawView(built, view);
+  const { built, view } = body, paws = pawEndpoints(built), seen = pawView(built, view), feet = seen.feet;
   const root = body.muscles.dynamics.root.segment, names = GAIT_NAMES.filter(name => gaits[name] !== undefined), creep = gaits.crawl;
   if (!names.length) throw new Error("paw legs need an enabled gait");
   const envelopes = Object.fromEntries(names.map(name => [name, envelopeOf(name, gaits[name]!.reach)]));
@@ -104,7 +104,7 @@ export function pawLegs(body: Body, gaits: Readonly<Partial<Record<PawGaitName, 
     const centre: [number, number, number] = [command.centre[0], command.centre[1], command.centre[2]];
     if (goal.centre) {
       let bearing = 0;
-      support.forEach((sole, i) => { if (reading.endpoints[i]!.contact) { sole.corners[0]!.copyFrom(reading.endpoints[i]!.at); loaded[bearing++] = sole; } });
+      support.forEach((sole, i) => { if (feet[i]!.contact) { sole.corners[0]!.copyFrom(feet[i]!.at); loaded[bearing++] = sole; } });
       loaded.length = bearing;
       if (bearing >= support.length - 1) {
         const placed = withinSupport(loaded, goal.centre[0], goal.centre[1], PAW_LEGS.leanInset);
@@ -118,13 +118,13 @@ export function pawLegs(body: Body, gaits: Readonly<Partial<Record<PawGaitName, 
     descending.set(0, -T.plantSpeed, 0).applyRotationQuaternionToRef(inverse, descending);
     const ends = command.endpoints.map((end, i) => {
       const paw = paws[i]!, swing = state.swing;
-      if (end.bearing && reading.endpoints[i]!.contact) { swing.key[i] = -1; return { target: end.target, bearing: end.bearing, rotation: end.rotation, swing: null }; }
+      if (end.bearing && feet[i]!.contact) { swing.key[i] = -1; return { target: end.target, bearing: end.bearing, rotation: end.rotation, swing: null }; }
       const response = active.grounded;
       if (response !== null) {
         // Kept on the ground: the path begins where the paw left the floor and moves through
         // the root frame against the root's motion at the target.
         motionAtToRef(root, target.set(...end.target), carried, spin);
-        const key = active.state.sequence * 2 + (end.bearing ? 1 : 0), foot = reading.endpoints[i]!.at;
+        const key = active.state.sequence * 2 + (end.bearing ? 1 : 0), foot = feet[i]!.at;
         if (swing.key[i] !== key) { swing.key[i] = key; swing.start[i]!.splice(0, 3, foot.x, foot.y, foot.z); }
         intoFrameToRef(frame, swing.start[i]!, origin);
         drift.copyFrom(carried).scaleInPlace(-1).applyRotationQuaternionToRef(inverse, drift);

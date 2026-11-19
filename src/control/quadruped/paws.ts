@@ -38,8 +38,13 @@ export interface PawView extends PawReading {
   readonly down: boolean;
 }
 
+/** What bears `built` on its paws (`PawReading`) as its paw reader (`pawReader`) reads it each step. */
+export function pawReading(built: ReadBody): PawReading {
+  const reading = pawReader(built).state;
+  return { centre: reading.centre, velocity: reading.velocity, feet: reading.endpoints };
+}
+
 /** The paw view (`PawView`) of a body seen through `view`, its paws read by `pawReader`. */
 export function pawView(built: ReadBody, view: Pick<BodyView, "stance" | "down">): PawView {
-  const reading = pawReader(built).state;
-  return { centre: reading.centre, velocity: reading.velocity, feet: reading.endpoints, get yaw() { return view.stance.facing; }, get down() { return view.down; } };
+  return { ...pawReading(built), get yaw() { return view.stance.facing; }, get down() { return view.down; } };
 }

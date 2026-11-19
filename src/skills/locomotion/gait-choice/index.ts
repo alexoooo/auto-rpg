@@ -4,8 +4,8 @@ import type { PartLookup } from "../../../parts/lookup.ts";
 import type { Locomotion, LocomotionPart } from "../../framework/locomotion-part.ts";
 import { ALL_MET, LEGS_FIELDS, fieldsOf, maskOf, setIn } from "../../framework/skill.ts";
 import { skillName } from "../../framework/variations.ts";
-import { pawEndpoints, pawReader } from "../../../control/quadruped/paws.ts";
 import { pawLegs } from "../shared/quadruped/paw-legs.ts";
+import { pawGaitBody } from "../shared/quadruped/parts.ts";
 import { move, type MoveGait } from "../shared/move.ts";
 
 interface GaitChoiceConfig { readonly kind: "gait-choice" }
@@ -34,10 +34,7 @@ export const GAIT_CHOICE: LocomotionPart<GaitChoiceConfig> = {
   make(body, _config, legs) {
     const gaits: MoveGait[] = gaitsOf(body.built.spec, legs.parts).map(gait => {
       if (gait.role === "gait") return { name: gait.name, legs: legs.parts.of("gait", gait.legs).make(body, gait.legs) };
-      const root = body.muscles.dynamics.root.segment, reading = pawReader(body.built).state;
-      const part = legs.parts.of("paw-gait", gait.legs), config = gait.legs;
-      const native = part.make(body.built, root, { centre: reading.centre, velocity: reading.velocity, feet: reading.endpoints },
-        pawEndpoints(body.built).map(paw => paw.segment), config);
+      const part = legs.parts.of("paw-gait", gait.legs), native = part.make(pawGaitBody(body), gait.legs);
       return { name: gait.name, legs: pawLegs(body, { [part.gait]: native }) };
     });
     return gaits.length ? move(gaits, [], 0) : idleLegs(body);

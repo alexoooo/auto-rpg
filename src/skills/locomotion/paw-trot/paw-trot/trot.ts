@@ -1,19 +1,21 @@
 import { Quaternion } from "../../../../core/math/vector.ts";
-import type { ReadBody, ReadSegment } from "../../../../core/bodies/read-body.ts";
+import type { ReadBody } from "../../../../core/bodies/read-body.ts";
 import { atan2, cos, sin } from "../../../../core/math/real.ts";
 import type { Vec3 } from "../../../../core/quantity.ts";
 import { REPTILE_TROT } from "../../shared/quadruped/tuning.ts";
-import type { Gait } from "../../shared/quadruped/parts.ts";
-import type { PawReading, PawView } from "../../../../control/quadruped/paws.ts";
+import type { Gait, PawGaitBody } from "../../shared/quadruped/parts.ts";
+import type { PawView } from "../../../../control/quadruped/paws.ts";
 import { chainTo, reachWork, solveReach } from "../../../../control/kinematics.ts";
 
 /**
  * Diagonal support pairs carry continuous travel; every counted paw clears and reloads the ground.
  * Each pair stands under the centre of mass (`stanceOf`) and lands led by the travel it will bear
  * through; the trunk goes no faster than its bearing paws' reach lets it, and turns as it travels.
+ * A gait of `body` by the settings `T`.
  */
-export function trot(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_TROT): Gait {
+export function trot(body: PawGaitBody, T: typeof REPTILE_TROT): Gait {
   if (!validTrot(T)) throw new Error("invalid trot settings");
+  const { built, root, paws, names } = body;
   const nominal = names.map(name => built.segments.get(name)!.spec.points!.sole!.value);
   const mass = built.spec.mass.value, reference = built.spec.segments.reduce((c, p) => {
     const m = p.mass.value / mass, at = p.centreOfMass.value;
