@@ -23,8 +23,8 @@ import { riseMemory } from "./rise-memory.ts";
 interface Reading {
   readonly spec: BodySpec;
   readonly hz: number;
-  /** The rate its mind decides at, Hz (`OptionMindConfig.rate`); the world's unless given. */
-  readonly rate?: number;
+  /** The rate its mind decides at, Hz (`OptionMindConfig.rate`, the world's where it names none). */
+  readonly rate: number;
   /** The steps its body's command waits (`Body.delay`), at which a profile is read. */
   readonly delay: number;
   readonly rules: Rulebook;
@@ -67,7 +67,7 @@ type SeenAt = { -readonly [K in "sight" | "orders" | "focus"]: Seen[K] } & { ste
  * read as each step is, and of each foe's reach (`reachMemory`), counted as a decision reads it.
  */
 export function situationReader(reading: Reading) {
-  const { spec, hz, delay, rules, strikes, measured, ordersOf } = reading, rate = reading.rate ?? hz, others = reading.others;
+  const { spec, hz, rate, delay, rules, strikes, measured, ordersOf } = reading, others = reading.others;
   const risen = riseMemory(reading.record ?? optionRecord(), reading.parts, reading.techniques), reach = reachMemory();
   const threats = threatReader(), state = { focus: null as string | null, risen: risen.state, reach: reach.state }, perceiving = perceiver(reading.parts);
   /** What every `Seen` it makes holds of the reader: one prototype, its step's lazy inputs read through `SeenAt.step`. */

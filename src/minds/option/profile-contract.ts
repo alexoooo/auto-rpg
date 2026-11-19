@@ -20,8 +20,8 @@ export const PROFILE_MODEL = "profiles/1";
 export interface ProfileOptionContext {
   readonly spec: BodySpec;
   readonly hz: number;
-  /** The rate its mind decides at, Hz (`OptionMindConfig.rate`); the world's unless given. */
-  readonly rate?: number;
+  /** The rate its mind decides at, Hz (`OptionMindConfig.rate`, the world's where it names none). */
+  readonly rate: number;
   /** The steps its body's command waits (`Body.delay`). */
   readonly delay: number;
   readonly parts: PartLookup;
