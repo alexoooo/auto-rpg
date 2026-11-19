@@ -82,7 +82,8 @@ function stepOver(step: FootStep, view: BodyView, dt: number): boolean {
  * that far in (`STEP`) and the centre is brought in as far past where it began. Then it follows
  * (`follow`), or is the walk. It ends with the centre where it began, since a walk taken up stands
  * its carriage's feet about the centre (`footingOf`) and, taken up with the body back, steps them
- * there. From a square stand there is no foot behind to sway over.
+ * there. From a square stand there is no foot behind to sway over. A goal that sets the footing
+ * itself is another skill's (a stomp's), and goes to the walk as asked.
  */
 function backStep(body: Body, config: BackStepConfig): Locomotion {
   const walk = stanceWalk(body, { carriage: config.carriage });
@@ -139,6 +140,8 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
   };
   /** The back step's legs goal. */
   const legsGoal = (view: BodyView, goal: LegsAsked, dt: number, context: Context) => {
+    // A skill that sets the footing itself (the bearing feet, a root pose or a step) holds the legs: its goal goes to the walk as asked.
+    if (goal.feet !== undefined || goal.pose !== undefined || goal.swing !== undefined) return walk.goal(view, goal, dt, context);
     const over = state.aim !== null && state.seconds >= out + back;
     // The sway over, the walk takes up the heading it turned to.
     if (state.facing !== null && over) { const facing = state.facing; state.facing = null; walk.resume(view, facing); }
