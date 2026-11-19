@@ -18,7 +18,7 @@
 import type { SwingGoal } from "./stance/goal.ts";
 import type { Vector3 } from "../core/math/vector.ts";
 import { acos, asin, atan2, cos, cosh, exp, hypot, sin, sinh } from "../core/math/real.ts";
-import { swingPathToRef, swingPeak, swingProgressToRef, type SwingBow } from "./swing-path.ts";
+import { swingPathToRef, SWING_PEAK, swingProgressToRef, type SwingBow } from "./swing-path.ts";
 import type { ReadJoint } from "../core/bodies/read-body.ts";
 
 /** A leg as a pendulum about its hip: the segments from the hip joint to the ankle's child, on the straight leg. */
@@ -108,18 +108,18 @@ function reachAt(leg: SwingLeg, range: number, bends: boolean, hip: number, long
 
 /**
  * The least time, s, a swing of `way` m needs of `leg`: the hip's torque for the path's peak
- * acceleration (`swingPeak`, the leg straight about the hip) within `effort` of its peak. For a
+ * acceleration (`SWING_PEAK`, the leg straight about the hip) within `effort` of its peak. For a
  * walk's steady step, where the foot's way is twice the step and the step is the pace over the
  * swing and the `transfer` before it, the time that is its own: T^2 = k (T + transfer).
  */
 export function swingSeconds(leg: SwingLeg, pace: number, transfer: number, effort: number): number {
-  const k = swingPeak(undefined) * 2 * pace * leg.aboutHip / (leg.length * effort * leg.torque);
+  const k = SWING_PEAK * 2 * pace * leg.aboutHip / (leg.length * effort * leg.torque);
   return (k + Math.sqrt(k * k + 4 * k * transfer)) / 2;
 }
 
-/** The least time, s, a single swing of `way` m needs of `leg`, as `swingSeconds` reckons it: T^2 = swingPeak way aboutHip / (length effort torque). */
+/** The least time, s, a single swing of `way` m needs of `leg`, as `swingSeconds` reckons it: T^2 = SWING_PEAK way aboutHip / (length effort torque). */
 export function swingWaySeconds(leg: SwingLeg, way: number, effort: number): number {
-  return Math.sqrt(swingPeak(undefined) * way * leg.aboutHip / (leg.length * effort * leg.torque));
+  return Math.sqrt(SWING_PEAK * way * leg.aboutHip / (leg.length * effort * leg.torque));
 }
 
 /**
@@ -242,7 +242,7 @@ export function swingShiftToRef(leg: SwingLeg, ankle: number, back: number, head
   // The leg's hip, knee and ankle s after now, into pose at o.
   const poseAt = (s: number, o: number): void => {
     const tau = Math.min(1, (time + s) / T);
-    swingProgressToRef(tau, swing.ramp, progress);
+    swingProgressToRef(tau, progress);
     swingPathToRef(from, swing.to, swing.lift, bow, tau, T, progress.x, progress.y / T, progress.z / (T * T), point, rate, accel, progress);
     const ch = cosh(w * s), sh = sinh(w * s);
     const Hx = hip.x + place.x + (plan.x - place.x) * ch + velocity.x / w * sh - plan.x, Hy = hip.y;

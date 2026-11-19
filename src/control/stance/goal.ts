@@ -78,11 +78,6 @@ export interface SwingGoal {
   readonly transfer?: number;
   readonly handover?: readonly [number, number];
   /**
-   * The constant the swing's foot takes up its errors from its path at, s, critically damped; none,
-   * the stance's (`StanceTuning.seconds.swing`). A shorter one lands a fast step nearer its place.
-   */
-  readonly settle?: number;
-  /**
    * How the leg leans from the vertical as the foot lands, rad, ahead and out along the landing's
    * facing (`landingLean`): the foot lands as flat as its ankle's range lets it from there
    * (`landingTurnToRef`). None, flat.
@@ -97,38 +92,6 @@ export interface SwingGoal {
    * `LATE_MOST` of its time again.
    */
   readonly early?: boolean;
-  /**
-   * The swing's way across the ground as a ramped acceleration, the share of each half of the
-   * swing's time its acceleration takes to rise or fall (0 to 1/4, `swingProgressToRef`); its peak
-   * is below minimum jerk's where it is under 0.15. None, minimum jerk.
-   */
-  readonly ramp?: number;
-  /**
-   * The push-off: the plantarflexion, rad, the trailing foot's ankle, rolled onto its toes, is
-   * driven toward through a walk's double support, with its knee's pre-swing
-   * (`GaitTuning.preswing`) and at its time, so the leg launches the body and itself into the
-   * step. None, the ankle is left to the task.
-   */
-  readonly push?: number;
-  /**
-   * The push-off as a torque: the ankle of the foot that lifts next plantarflexes at least at
-   * `share` of what it can give that way (`MuscleReading.strength`), from `lead` s before the step
-   * before it lands, through the double support (`transfer`), to its lift; the rest of the body is
-   * solved as if it did not. None, the ankle is the solve's.
-   */
-  readonly launch?: { readonly share: number; readonly lead: number };
-  /**
-   * Whether the swing's path starts at the sole's velocity as the foot lifts, coming to rest at
-   * its landing as the path does (a quintic's term for a start's velocity), rather than at rest:
-   * the swing goes on with what the push-off gave the leg. None, from rest.
-   */
-  readonly momentum?: boolean;
-  /**
-   * The lever, m, a missed moment of the ground's wrench is weighed against a missed force at
-   * through the swing (`shareGroundWrench`): a shorter one has the bearing sole give the centre of
-   * mass its plan before the pelvis its turn. None, the stance's (`leverOf`).
-   */
-  readonly lever?: number;
 }
 
 export interface StanceReading {

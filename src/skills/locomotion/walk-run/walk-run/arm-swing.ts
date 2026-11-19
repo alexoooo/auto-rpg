@@ -34,7 +34,7 @@ export function armSwing(spec: BodySpec, gain: number, centred = false): (view: 
   const progress = new Vector3(), feet = { left: footOn(spec, "left"), right: footOn(spec, "right") };
   return (view, heading, { step, swung, off }) => {
     const s = view.stance, fx = sin(heading), fz = cos(heading);
-    const eased = (t: number): number => swingProgressToRef(t, step?.ramp, progress).x;
+    const eased = (t: number): number => swingProgressToRef(t, progress).x;
     const lead = (side: Side): number => {
       const sole = s.ends[feet[side]]!.middle;
       let x = sole.x, z = sole.z;

@@ -278,7 +278,6 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose, st
         asked = driven;
       }
       solveBody(whole ??= makeWholeBody(freedoms, 2, points.length), driver, command, work, asked, assist);
-      stance.launch(command.muscles);
     }
     else servoSolve(driver, command.muscles, work, undefined, standing?.pose ? stance.owned : undefined);
     // A firm freedom is a velocity motor toward the speed asked, at its muscles' full strength.
