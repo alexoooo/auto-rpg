@@ -16,10 +16,9 @@ import type { Situation } from "./option.ts";
 import type { StanceNumbers } from "../../skills/framework/profile/profile.ts";
 import type { Position } from "../../control/ground-reading.ts";
 import { segmentOf } from "../../core/bodies/spec/body.ts";
-import type { Deciding } from "../choice.ts";
 
-/** How an Option Mind's chooser decides (`Deciding`): it rethinks every 0.2 s. A foe's mind is taken for one like it (`Pressure.latency`). */
-export const DECIDING: Deciding = Object.freeze({ rethink: .2 });
+/** How often an Option Mind's chooser rethinks (`Deciding.rethink`), s. A foe's mind is taken for one like it (`Pressure.latency`). */
+export const RETHINK = .2;
 
 /**
  * **Where an Option leaves the body**: what of the situation it changes, each a percept by its name

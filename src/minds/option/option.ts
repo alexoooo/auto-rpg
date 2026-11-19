@@ -69,7 +69,7 @@ export interface Option extends Choice<Situation> {
    * there. It reads the state's percepts, so it answers at a predicted state as it would there; at
    * the state now its entry has the last word (`Choice.entry`).
    */
-  model(at: Situation, ask?: Ask): Terms | null;
+  model(at: Situation, ask: Ask): Terms | null;
   /** It runs as long as it is held, never over of itself (hold, guard, brace, the cover): priced over the seconds it is asked (`Ask.until`), and nothing after it. */
   readonly open?: true;
   /**

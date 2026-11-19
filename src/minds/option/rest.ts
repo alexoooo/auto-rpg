@@ -22,8 +22,8 @@ import { atan2, hypot } from "../../core/math/real.ts";
  * the body was going at is not carried through a hold; and in a clinch its falls (`clinched`),
  * lying where a fall leaves it (`upOrDown`).
  */
-export function holding(at: Situation, ask: Ask | undefined, coming = at.predictions.danger): Terms {
-  const seconds = ask?.until ?? 0;
+export function holding(at: Situation, ask: Ask, coming = at.predictions.danger): Terms {
+  const seconds = ask.until ?? 0;
   if (at.down) return { duration: seconds, dealt: 0, orders: 0, taken: coming + at.predictions.downRate(at.posture) * seconds, outcomes: UNMOVED };
   const still = startOf({ focus: at.focus, where: at.where, velocity: STILL });
   return { duration: seconds, dealt: 0, orders: 0, taken: coming + threatened(at, seconds, still), outcomes: upOrDown(AS_IS, clinched(at, seconds)) };

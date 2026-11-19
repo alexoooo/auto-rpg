@@ -162,7 +162,7 @@ export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker,
     begin() {},
     end() {},
     model(at, ask) {
-      const spot = standing(at) ? away(at, ask?.target ?? 0) : null;
+      const spot = standing(at) ? away(at, ask.target ?? 0) : null;
       return spot ? walkTerms(at, spot, gait, walk, stance) : null;
     },
     step: (now) => {

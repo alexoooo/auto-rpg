@@ -29,7 +29,7 @@ import type { Situation } from "./option.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import { alongHorizons, pairingApart, pressureCurve, pressureTable, validPairing, type MeasuredPairing, type PressureTable } from "./pressure.ts";
-import { blowLife, DECIDING, limbReach, record, type Ground } from "./value.ts";
+import { blowLife, limbReach, record, RETHINK, type Ground } from "./value.ts";
 
 /**
  * What every percept and prediction reads from, a step's: the body's sight and spec, the world's
@@ -269,7 +269,7 @@ const ownPhase = ({ sight }: Seen): string => sight.report.actions.length > 0 ? 
  * within that limb's reach (`limbReach`), `RATE` blows a second, landing as this body's own do
  * (`record`), each that limb's blow (`blowLife`); a body lying, or struck lying, deals none by
  * hand. Its latency (`latency`), s: how long a blow not yet begun takes to reach the struck body
- * once it is within reach, the striker's mind taken for one like this (its rethink, `DECIDING`, and
+ * once it is within reach, the striker's mind taken for one like this (its rethink, `RETHINK`, and
  * its command's delay, `Seen.delay`) and its fastest blow's run (`ProfileReading.fastest`). The
  * focus's on this body (`pressure`), and this body's on the focus (`pressing`); none with no focus.
  */
@@ -309,7 +309,7 @@ function pressureBy(seen: Seen, model: Model, phase: string, striker: BodySpec, 
     readings.push(prior(striker, struck, placing === "over" ? 0 : limbReach(striker, limb), lands * blowLife(seen.rules, striker, limb, struck), 1 / RATE));
   let peak = 0, fastest = Infinity;
   for (const reading of readings) { peak = Math.max(peak, reading.peak(phase, struck)); fastest = Math.min(fastest, reading.fastest(phase)); }
-  return { model: readings, phase, struck, peak, latency: DECIDING.rethink + seen.delay / seen.hz + fastest, priced: model.priced };
+  return { model: readings, phase, struck, peak, latency: RETHINK + seen.delay / seen.hz + fastest, priced: model.priced };
 }
 
 /** Where a prior puts the limbs of a body striking one whose posture is `posture` (`Placing`): within their reach of a body standing; none of one lying. */

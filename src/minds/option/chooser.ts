@@ -13,7 +13,7 @@ import { cachedPressure, threatened, type Pressure } from "./percepts.ts";
 import { exp, log } from "../../core/math/real.ts";
 import { leafOf, lineEndFaults, lineEndField, type LineEnd } from "./line-ends.ts";
 import { randomStream } from "../../core/math/random.ts";
-import { DECIDING, OBEDIENCE, STEADY, type Leaves, type Obedience, type ObedienceLevel, type Terms } from "./value.ts";
+import { OBEDIENCE, RETHINK, STEADY, type Leaves, type Obedience, type ObedienceLevel, type Terms } from "./value.ts";
 
 
 /**
@@ -63,13 +63,16 @@ function watching(): Cue<Situation> & { readonly state: { watched: string[] } } 
 /**
  * **The one policy** (`selectSet`) over `options`, priced by `appraise`, its event the cues its last
  * decision read (`watching`), drawn by `chance` where it gives a margin, each other foe's price held as
- * `holding` says where it is given; its memory the selection's, what it watches, the memory of the `objective`
+ * `holding` says where it is not null; its memory the selection's, what it watches, the memory of the `objective`
  * it prices by, where that keeps one (`Objective.state`), and the chooser's `own`.
  */
-const chooser = (options: readonly Option[], appraise: Appraise<Situation, OfferTerms, Option>, deciding: Deciding, chance?: Chance, objective: Objective | null = null,
-  holding: Holding<Situation> | null = null, own: Readonly<Record<string, object>> = {}): Chooser => {
+const chooser = ({ options, appraise, deciding, chance, objective, holding, own }: {
+  readonly options: readonly Option[]; readonly appraise: Appraise<Situation, OfferTerms, Option>; readonly deciding: Deciding; readonly chance: Chance;
+  readonly objective: Objective | null; readonly holding: Holding<Situation> | null; readonly own: Readonly<Record<string, object>>;
+}): Chooser => {
   const cue = watching();
-  return selectSet<Situation, OfferTerms, Option>(options, appraise, deciding, cue, chance, { cue: cue.state, ...(objective?.state ? { objective: objective.state } : {}), ...own }, holding);
+  return selectSet<Situation, OfferTerms, Option>({ choices: options, appraise, deciding, cue, chance,
+    memory: { cue: cue.state, ...(objective?.state ? { objective: objective.state } : {}), ...own }, holding });
 };
 
 /** **A kind of Option Mind's chooser** (`ChooserPart`): over its options (`Option`), the chooser it makes a `Chooser`. */
@@ -80,7 +83,7 @@ export type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C
  * a part of the role makes a chooser over the options it is given (`ChooserPart`), which Option Mind's are.
  */
 export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number, phase: number): Chooser =>
-  parts.of("chooser", config).make(config, options, seed, parts, phase) as Chooser;
+  parts.of("chooser", config).make({ config, options, seed, parts, phase }) as Chooser;
 
 /** How many options deep the valued chooser searches: the one it takes, or that and the best from where it leaves the body (`searching`). */
 const VALUED_DEPTHS: readonly number[] = Object.freeze([1, 2]);
@@ -303,7 +306,7 @@ interface Step { readonly terms: Terms; readonly dealt: number; readonly taken: 
 /** A step as it is written (`stepInto`). */
 type Work = { -readonly [K in keyof Step]: Step[K] };
 /** No model yet: what a step is made with before it is written. */
-const UNWRITTEN = Object.freeze({ duration: 0, dealt: 0, taken: 0, orders: 0, outcomes: Object.freeze([]) }) as unknown as Terms;
+const UNWRITTEN: Terms = Object.freeze({ duration: 0, dealt: 0, taken: 0, orders: 0, outcomes: Object.freeze([]) });
 const blankStep = (): Work => ({ terms: UNWRITTEN, dealt: 0, taken: 0, orders: 0, after: 0, cut: false });
 
 /** What a search prices at a decision: each Option at each target its line from the state decided at (`Line`), null where it is not on offer. */
@@ -398,9 +401,6 @@ function warmStart(options: readonly Option[], keeps: number): { readonly start:
   } };
 }
 
-/** A cut edge's ways of ending: none is ever drawn. */
-const NO_ENDS = Object.freeze([]) as unknown as (TreeNode | null)[];
-
 /**
  * **The tree chooser's search at `root`**: `runs` runs of a Monte Carlo tree search over the
  * states its Options' models lead to (`space`), `stream` drawing the ways they end. A run goes down
@@ -433,7 +433,7 @@ function treeSearch(root: Situation, searched: Searched & { readonly runs: numbe
     for (let i = 0; i < pairs.length; i++) {
       const pair = pairs[i]!, step = at.stepOf(pair, node.at, node.dealt, node.taken, node.orders, node.seconds);
       const was = node === top ? started.kept(pair) : undefined;
-      edges[i] = { pair, runs: 0, worth: was?.worth ?? 0, ends: step.cut ? NO_ENDS : [], step, ...(was && was.weight > 0 ? { kept: was } : {}) };
+      edges[i] = { pair, runs: 0, worth: was?.worth ?? 0, ends: [], step, ...(was && was.weight > 0 ? { kept: was } : {}) };
     }
     if (node === top) for (const edge of edges) node.runs += edge.kept?.weight ?? 0;
     return node.edges = edges;
@@ -593,18 +593,15 @@ export const VALUED_CHOOSER = deepFreeze<OptionChooserPart<ValuedConfig>>({
   role: "chooser", model: PROFILE_MODEL, label: "By worth", stage: "game", fields: [obedienceField<ValuedConfig>(), lineEndField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, end: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(VALUED_DEPTHS)(config), ...searchFaults(config)],
-  make: (config: ValuedConfig, options: readonly Option[], seed: number, parts: PartLookup, phase = 0) => {
+  make: ({ config, options, seed, parts, phase }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON;
     const searched = { options, objective, obedience, horizon, end: config.end, depth: config.depth };
-    return chooser(options, searching((now) => search(now, searched)), { ...DECIDING, phase, keep: KEEP },
-      { margin: config.margin ?? 0, seed }, objective, FOE_HOLDING);
+    return chooser({ options, appraise: searching((now) => search(now, searched)), deciding: { rethink: RETHINK, phase, keep: KEEP },
+      chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: {} });
   },
 });
 
-/**
- * How many runs the tree chooser makes a decision unless its config says (`TreeConfig.runs`): set
- * for what it finds; at 20 or fewer it stands the body from fewer falls.
- */
+/** How many runs the tree chooser makes a decision unless its config says (`TreeConfig.runs`). */
 const RUNS = 100;
 
 /**
@@ -634,12 +631,12 @@ export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
     ...config.exploration === undefined || Number.isFinite(config.exploration) && config.exploration >= 0 ? [] : ["exploration: a finite number, not negative"],
     ...config.keeps === undefined || Number.isFinite(config.keeps) && config.keeps > 0 ? [] : ["keeps: a finite time, more than none"]],
-  make: (config: TreeConfig, options: readonly Option[], seed: number, parts: PartLookup, phase = 0) => {
+  make: ({ config, options, seed, parts, phase }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
     const searched = { options, objective, obedience, horizon, end: config.end, runs, exploration, stream, start: warm?.start ?? COLD };
-    return chooser(options, searching((now) => treeSearch(now, searched)),
-      { ...DECIDING, phase, keep: KEEP }, { margin: config.margin ?? 0, seed }, objective, FOE_HOLDING, { tree: stream.state, ...(warm ? { warm: warm.state } : {}) });
+    return chooser({ options, appraise: searching((now) => treeSearch(now, searched)), deciding: { rethink: RETHINK, phase, keep: KEEP },
+      chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },
 });
 
@@ -656,8 +653,9 @@ interface RankedConfig { readonly kind: "ranked" }
 export const RANKED_CHOOSER = deepFreeze<OptionChooserPart<RankedConfig>>({
   role: "chooser", model: PROFILE_MODEL, label: "By rank", stage: "game", offered: false, fields: [], slots: [],
   defaults: { kind: "ranked" }, keys: { kind: true }, fits: anyBody, faults: () => [],
-  make: (_config: RankedConfig, options: readonly Option[], _seed: number, _parts: PartLookup, phase = 0) =>
-    chooser(options, (option, i) => ({ name: option.name, kind: option.kind, worth: options.length - i, terms: null, moves: null, letGo: 0 }), { ...DECIDING, phase }),
+  make: ({ options, seed, phase }) =>
+    chooser({ options, appraise: (option, i) => ({ name: option.name, kind: option.kind, worth: options.length - i, terms: null, moves: null, letGo: 0 }),
+      deciding: { rethink: RETHINK, phase, keep: 0 }, chance: { margin: 0, seed }, objective: null, holding: null, own: {} }),
 });
 
 declare module "./parts.ts" {

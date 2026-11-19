@@ -16,9 +16,9 @@ export interface ChooserPart<C extends PartConfig = PartConfig, O = unknown, M =
   readonly keys: KeysOf<C>;
   /**
    * The chooser over `options`, its chances drawn from `seed`, the parts its slots name found by
-   * `parts`, deciding on its body's `phase` (`BodyHost.phase`), 0 unless given.
+   * `parts`, deciding on its body's `phase` (`BodyHost.phase`).
    */
-  make(config: C, options: readonly O[], seed: number, parts: PartLookup, phase?: number): M;
+  make(making: { readonly config: C; readonly options: readonly O[]; readonly seed: number; readonly parts: PartLookup; readonly phase: number }): M;
 }
 
 /** Static capabilities used when deciding whether a configured Option builds any behavior. */

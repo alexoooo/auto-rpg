@@ -71,18 +71,18 @@ export interface Priced<T> {
 
 /**
  * When a selection decides afresh: at once on an event (its cue's change), and else on its body's
- * `phase` of each `rethink` s (`BodyHost.phase`, 0 unless given): the first such time at least
+ * `phase` of each `rethink` s (`BodyHost.phase`): the first such time at least
  * half a period on, so a body decides at least every one and a half periods and bodies of one
  * fight decide on different steps. A running choice with targets keeps the one it runs at for
- * `keep` s (0 unless given): it, and each choice that claims what it claims, is priced at that
+ * `keep` s: it, and each choice that claims what it claims, is priced at that
  * target alone (by name) where it has it on offer, so two targets near alike are not taken by
  * turns, nor one target and another by two choices with both.
  */
-export interface Deciding { readonly rethink: number; readonly phase?: number; readonly keep?: number }
+export interface Deciding { readonly rethink: number; readonly phase: number; readonly keep: number }
 
 /** **When `deciding` next decides with no event**, deciding at `now` s: the first time on its phase at least half a period on (`Deciding`). */
 function nextDecision(deciding: Deciding, now: number): number {
-  const phase = deciding.phase ?? 0, periods = now / deciding.rethink - phase;
+  const phase = deciding.phase, periods = now / deciding.rethink - phase;
   return deciding.rethink * (Math.floor(periods + 1 / 2) + 1 + phase);
 }
 
@@ -117,8 +117,11 @@ export interface Cue<S> {
   decided?(now: S): void;
 }
 
-/** No chance: the best is taken, nothing drawn. */
-const NO_CHANCE: Chance = Object.freeze({ margin: 0, seed: 0 });
+/** What a selection is made of (`selectSet`). */
+export interface Selecting<S extends { readonly time: number }, T, C extends Choice<S>> {
+  readonly choices: readonly C[]; readonly appraise: Appraise<S, T, C>; readonly deciding: Deciding; readonly cue: Cue<S>;
+  readonly chance: Chance; readonly memory: Readonly<Record<string, object>>; readonly holding: Holding<S> | null;
+}
 
 /** How a selection prices the choice at `i` of its choices, now, at the target at `target` of its targets (0 for one with none); null where it is not on offer there. */
 export type Appraise<S, T, C extends Choice<S>> = (choice: C, i: number, now: S, target: number) => Priced<T> | null;
@@ -176,7 +179,7 @@ export const onOffer = <S>(choice: Choice<S>, now: S): boolean => choice.entry(n
  * `now` where none is worth more; then, of the choices on offer there (`onOffer`), each running one
  * raised by what letting it go costs (`Priced.letGo`) at the target it runs at, it takes the best (drawn by `chance` where
  * it gives a margin), then the best of the rest whose claims are still free, the first of equals,
- * until none is left. Another situation's best is held as `holding` says where it is given. A
+ * until none is left. Another situation's best is held as `holding` says, where it is not null. A
  * rest choice takes a resource nothing else is worth more on: it is chosen
  * with whichever of its claims are still free, the others all of theirs or not at all. Its memory
  * is which choices run (their places in `choices`, the first chosen first), when it decided, when
@@ -184,8 +187,7 @@ export const onOffer = <S>(choice: Choice<S>, now: S): boolean => choice.entry(n
  * it chose from, its stream's word where it draws, each other situation's best held, and
  * `memory`'s entries, kept beside them.
  */
-export function selectSet<S extends { readonly time: number }, T, C extends Choice<S> = Choice<S>>(choices: readonly C[], appraise: Appraise<S, T, C>,
-  deciding: Deciding, cue: Cue<S>, chance: Chance = NO_CHANCE, memory: Readonly<Record<string, object>> = {}, holding: Holding<S> | null = null): Selection<S, T, C> {
+export function selectSet<S extends { readonly time: number }, T, C extends Choice<S> = Choice<S>>({ choices, appraise, deciding, cue, chance, memory, holding }: Selecting<S, T, C>): Selection<S, T, C> {
   if (!(chance.margin >= 0) || !Number.isFinite(chance.margin)) throw new Error(`a selection's margin is finite and not negative, not ${chance.margin}`);
   const stream = chance.margin > 0 ? randomStream(chance.seed) : null;
   const state = { running: [] as number[], decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Priced<T>[],
@@ -201,7 +203,7 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
   const keptTarget = (choice: C, time: number): number => {
     for (const r of state.running) {
       const running = choices[r]!, k = state.aims[r]!;
-      if (k < 0 || time - state.since[r]! >= (deciding.keep ?? 0) || !overlaps(running.claims, choice.claims)) continue;
+      if (k < 0 || time - state.since[r]! >= deciding.keep || !overlaps(running.claims, choice.claims)) continue;
       const at = choice.targets!.indexOf(running.targets![k]!);
       if (at >= 0) return at;
     }
