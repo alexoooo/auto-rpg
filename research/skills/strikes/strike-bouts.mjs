@@ -33,10 +33,6 @@
  * model's own, with what `--set` gives it) walk its stance-walk gaits in that carriage all bout
  * (`Carriage`), one flag a side; its profiles stay those measured from the square stand.
  *
- * `--back-step left` has that side's mind (its model's own, with what `--set` gives it) fight
- * with the back step, its Option and its gait, which the game's minds do not take yet
- * (`withBackStep`), one flag a side.
- *
  * `--pressure-profiles <table.json>` has a mind that reads a foe's pressure as bouts measured it
  * read it by a table `research/minds/pressure-profiles.mjs --out` wrote, in place of
  * `assets/minds/pressure-profiles.json`.
@@ -71,7 +67,7 @@ if (isMainThread) {
     seconds: { type: "string", default: "120" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
     holds: { type: "string", multiple: true, default: [] }, drill: { type: "string" }, pace: { type: "string" },
     set: { type: "string", multiple: true, default: [] }, carriage: { type: "string", multiple: true, default: [] },
-    "back-step": { type: "string", multiple: true, default: [] }, "pressure-profiles": { type: "string" },
+    "pressure-profiles": { type: "string" },
   } });
   const pressureTable = values["pressure-profiles"] === undefined ? null : JSON.parse(await readFile(values["pressure-profiles"], "utf8")).profiles;
   /** A `--set`: the side it is for (null, both), the path and the value, the JSON given or the JSON file it names. */
@@ -88,18 +84,15 @@ if (isMainThread) {
   const carriages = Object.fromEntries(values.carriage.map(one => { const at = one.indexOf("="); return [one.slice(0, at), JSON.parse(one.slice(at + 1))]; }));
   if (Object.keys(carriages).some(side => side !== "left" && side !== "right")) throw new Error("--carriage is <left|right>=<JSON>");
   if (Object.keys(holds).some(side => side !== "left" && side !== "right")) throw new Error("--holds is <left|right>=<skill/variation>");
-  const added = Object.fromEntries(values["back-step"].map(side => [side, true]));
-  if (Object.keys(added).some(side => side !== "left" && side !== "right")) throw new Error("--back-step is left or right");
-  const minded = sets.length > 0 || Object.keys(carriages).length > 0 || Object.keys(added).length > 0;
-  if (minded && drill) throw new Error("--set, --carriage and --back-step set the sides' minds; a drill sets its own");
-  const [{ HUMANOID_MODELS }, { LANDED }, { CONTEXT }, { replacedAt }, { inCarriage, withBackStep }, { recordingKey }, { sha256Text }] = await Promise.all([import("../../../src/core/bodies/models.ts"),
+  const minded = sets.length > 0 || Object.keys(carriages).length > 0;
+  if (minded && drill) throw new Error("--set and --carriage set the sides' minds; a drill sets its own");
+  const [{ HUMANOID_MODELS }, { LANDED }, { CONTEXT }, { replacedAt }, { inCarriage }, { recordingKey }, { sha256Text }] = await Promise.all([import("../../../src/core/bodies/models.ts"),
     import("../../../src/evaluation/strike/read.ts"), import("../../../src/app/node/context.ts"), import("../../../src/app/catalog.ts"), import("../../../src/minds/option/config.ts"),
     import("../../../src/core/world/recording.ts"), import("../../../src/evaluation/sha256.ts")]);
-  /** Both sides' minds, `left`'s and `right`'s: each its model's own with what `--set`, `--back-step` and `--carriage` give it, in that order; null where none gives anything. */
+  /** Both sides' minds, `left`'s and `right`'s: each its model's own with what `--set` and `--carriage` give it, in that order; null where none gives anything. */
   const mindsOf = (left, right) => !minded ? null : Object.fromEntries(["left", "right"].map((side) => {
     const set = sets.filter((one) => one.side === null || one.side === side).reduce((mind, { path, value }) => replacedAt(mind, path, value), CONTEXT.defaultMind(side === "left" ? left : right));
-    const stepped = added[side] ? withBackStep(set) : set;
-    return [side, carriages[side] ? inCarriage(stepped, carriages[side]) : stepped];
+    return [side, carriages[side] ? inCarriage(set, carriages[side]) : set];
   }));
   const models = values.models?.split(",") ?? HUMANOID_MODELS, gaps = values.gaps.split(",").map(Number), seconds = Number(values.seconds);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), helds = values.held.split(",");

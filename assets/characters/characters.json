@@ -15,6 +15,7 @@
         "stance-walk/stance-walk",
         "stance-walk/staggered",
         "walk-run/walk-run",
+        "back-step/back-step",
         "stance/stance",
         "support-fold/support-fold",
         "flatten/flatten",

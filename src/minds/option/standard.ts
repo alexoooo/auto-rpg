@@ -1,6 +1,6 @@
 import { deepFreeze } from "../../core/state.ts";
 import type { ConfigFor } from "../../parts/lookup.ts";
-import { COVER_OPTION, GUARD_OPTION, HOLD_OPTION, ORDERS_OPTION } from "./kinds.ts";
+import { BACK_STEP_OPTION, COVER_OPTION, GUARD_OPTION, HOLD_OPTION, ORDERS_OPTION } from "./kinds.ts";
 import { BRACE_OPTION, BRACE_TUMBLING_OPTION, FLATTEN_OPTION, LAND_OPTION, REGAIN_OPTION } from "./rise.ts";
 
 /**
@@ -17,9 +17,9 @@ export const RISE_OPTIONS: readonly ConfigFor<"option">[] = deepFreeze([
 
 /**
  * **Every Option but a blow**: following orders first, a walk by every gait the body's legs go by,
- * getting up (`RISE_OPTIONS`), then cover, hold, guard and brace. What an Option Mind's config that
- * names no options takes in the game, and what a fighter adds its blows to. The back step
- * (`BACK_STEP_OPTION`, `kinds.ts`) is not among them; a mind takes it by `withBackStep`.
+ * the back step after it (`BACK_STEP_OPTION`; its place decides its chooser's ties), getting up
+ * (`RISE_OPTIONS`), then cover, hold, guard and brace. What an Option Mind's config that names no
+ * options takes in the game, and what a fighter adds its blows to.
  */
-export const BASE_OPTIONS: readonly ConfigFor<"option">[] = deepFreeze([ORDERS_OPTION.defaults, { kind: "walk" as const }, ...RISE_OPTIONS,
+export const BASE_OPTIONS: readonly ConfigFor<"option">[] = deepFreeze([ORDERS_OPTION.defaults, { kind: "walk" as const }, BACK_STEP_OPTION.defaults, ...RISE_OPTIONS,
   ...[COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION].map((part) => part.defaults)]);

@@ -14,11 +14,11 @@ import { deepFreeze } from "../../core/state.ts";
 import { mindOf, seatBody, sideCharacters, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readBackStep, type BackStepReading, type BackStepReads } from "./read.ts";
 import { between } from "../twin.ts";
-import { optionMind, standingOptions, withBackStep, withGait, withLegs } from "../../minds/option/config.ts";
+import { optionMind, standingOptions, withLegs, type OptionMindConfig } from "../../minds/option/config.ts";
 import { BACK_STEP_OPTION, ORDERS_OPTION } from "../../minds/option/kinds.ts";
 import { GOING } from "../../skills/locomotion/move/index.ts";
 import { STOCK_GAITS, type Gait } from "../../skills/locomotion/move/gaits.ts";
-import { BACK_STEP_GAIT, BACK_STEP_SECONDS } from "../../skills/locomotion/back-step/index.ts";
+import { BACK_STEP_SECONDS } from "../../skills/locomotion/back-step/index.ts";
 import { STAGGERED } from "../../skills/locomotion/shared/locomotion.ts";
 import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 
@@ -46,7 +46,7 @@ const FIGHTING = deepFreeze({ ...SPARRING, rest: 1, set: 0, fight: true });
 /** The drill's attacker: walked in at 1 m/s and ordered to punch the trunk's middle the first step it can. */
 const DRILLING = deepFreeze({ kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, pace: 1, walking: true });
 
-/** The subject's carriage as a gait (`set`), beside the stock gaits and the back step's. */
+/** The subject's carriage as a gait (`set`), beside the stock gaits. */
 const SET_GAIT: Gait = deepFreeze({ name: "set", label: "Set", legs: { kind: "stance-walk", variation: "stance-walk", carriage: CARRIAGE } });
 
 /**
@@ -85,30 +85,33 @@ export const createBackStepCases = perContext((context: GameContext) => {
 
   /**
    * The subject's mind as the drill's defender: its Option Mind's standing choices and its orders,
-   * throwing nothing, walking only as ordered; Move's stock gaits beside its carriage (`set`) and
-   * the back step (`back-step`).
+   * throwing nothing, walking only as ordered; Move's stock gaits, the back step's among them,
+   * beside its carriage (`set`).
    */
   function defenderOf(subject: MindConfig): MindConfig {
     const mind = optionMind(subject, "the back step's defender");
-    return withLegs({ ...mind, options: [ORDERS_OPTION.defaults, ...standingOptions(mind, context.catalog.partLookup)] }, { ...GOING, gaits: [...STOCK_GAITS, SET_GAIT, BACK_STEP_GAIT] });
+    return withLegs({ ...mind, options: [ORDERS_OPTION.defaults, ...standingOptions(mind, context.catalog.partLookup)] }, { ...GOING, gaits: [...STOCK_GAITS, SET_GAIT] });
   }
 
-  /** The subject's mind fighting as in the game, choosing no back step of its own, its legs going by the back step's gait (`BACK_STEP_GAIT`) beside its own: what `SPAR_FIGHT` orders the sway. */
-  function fighterOf(subject: MindConfig): MindConfig {
+  /** The subject's mind fighting as in the game, its Options less the back step, so it chooses none of its own: what `SPAR_FIGHT` orders the sway. */
+  function fighterOf(subject: MindConfig): OptionMindConfig {
     const mind = optionMind(subject, "the back step's fighter");
-    return withGait({ ...mind, options: (mind.options ?? []).filter((option) => option.kind !== BACK_STEP_OPTION.defaults.kind) }, BACK_STEP_GAIT);
+    return { ...mind, options: (mind.options ?? []).filter((option) => option.kind !== BACK_STEP_OPTION.defaults.kind) };
   }
+
+  /** The subject's own mind, choosing its back steps itself. */
+  const OWN = (subject: MindConfig): MindConfig => subject;
 
   /** The subject's sides: led by the sway Commander at its own range, sparring at the condition's, fighting at the condition's, or choosing its back steps itself. */
   const DEFENDER: Side = { mind: defenderOf, commander: () => SWAYING };
   const SPARRER: Side = { mind: defenderOf, commander: (sway) => sway === null ? null : { ...SPARRING, range: sway } };
   const FIGHTER: Side = { mind: fighterOf, commander: (sway) => sway === null ? null : { ...FIGHTING, range: sway } };
-  const CHOOSER: Side = { mind: withBackStep, commander: NONE };
+  const CHOOSER: Side = { mind: OWN, commander: NONE };
 
-  /** The attackers: the drill's, walked in and ordered; the Warrior's own Mind; and the subject's with the back step, its mirror. */
+  /** The attackers: the drill's, walked in and ordered; the Warrior's own Mind; and the subject's own, its mirror. */
   const DRILL: Side = { mind: () => MINDS["option-drill"]!.config, commander: () => DRILLING };
   const WARRIOR: Side = { mind: () => context.defaultMind("man"), commander: NONE };
-  const MIRROR: Side = { mind: withBackStep, commander: NONE };
+  const MIRROR: Side = { mind: OWN, commander: NONE };
 
   const DRILLED: Rung = { attacker: "drill", foe: DRILL, subject: DEFENDER, gaps: range(2, 3, .05), sways: [null], seconds: 12, reads: { after: 3, sways: false, chosen: false } };
   const MIND: Rung = { attacker: "mind", foe: WARRIOR, subject: DEFENDER, gaps: range(2.6, 4.9, .1), sways: [null], seconds: 20, reads: { sways: false, chosen: false } };
@@ -136,14 +139,14 @@ export const createBackStepCases = perContext((context: GameContext) => {
   const SPAR_FIGHT: Rung = { ...SPAR, subject: FIGHTER };
 
   /**
-   * **The back step as the Mind chooses it**: the subject's own Mind with the back step
-   * (`withBackStep`), ordered nothing, from 2.6 to 4.95 m apart a centimetre at a time; each sway it takes a trial. Its
+   * **The back step as the Mind chooses it**: the subject's own Mind, the back step among its
+   * Options, ordered nothing, from 2.6 to 4.95 m apart a centimetre at a time; each sway it takes a trial. Its
    * sways begin where its Mind would begin them, so they read what a fight's do, which the drawn
    * starts of `spar` and `spar-fight` may not.
    */
   const SPAR_CHOSEN: Rung = { ...MIND, subject: CHOOSER, gaps: range(2.6, 4.95, .01), reads: { sways: true, chosen: true } };
 
-  /** **The back step as the Mind chooses it in the mirror**: as `spar-chosen`, the attacker the subject's Mind with the back step, so its sways begin where a foe that sways too has the bodies. */
+  /** **The back step as the Mind chooses it in the mirror**: as `spar-chosen`, the attacker the subject's own Mind, so its sways begin where a foe that sways too has the bodies. */
   const SPAR_MIRROR: Rung = { ...SPAR_CHOSEN, foe: MIRROR };
 
   /** Gaps no reading of the back step was chosen on, for the bar's last word: two Mind sets of 24 and a drilled one of 21. A checkpoint is never ranked on them. */

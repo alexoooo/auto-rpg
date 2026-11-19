@@ -127,8 +127,8 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   does (20 of 40 against 23 of 41); one walking in takes it double; one that only walks or keeps
   away keeps its life by not being in the fight (in punching range 4 to 11 % of the time). A
   body given 0.5 m/s away at once takes 16 % of the Mind's punches where one standing takes
-  38 % (`fd8ec9d56`). The step that does it is [a plan](plans/2026-11-16-back-step.md), its
-  standing on the current skills: against the Mind's punches in its drill, ordered, the sway takes
+  38 % (`fd8ec9d56`). The step that does it, the back step ([its plan](plans/2026-11-16-back-step.md)),
+  is in the game's Mind; its standing: against the Mind's punches in its drill, ordered, the sway takes
   8.4 % while it sways and the order's step in and follow 20 to 27 %, 16.9 % in all against
   standing's 16 to 17 %, down in 4 of 48 fights (`0ccba3bbd`); chosen by the Mind, the Warrior
   with it wins 0.601 (0.545 to 0.656) against one without, and two with it stand 9.9 points more

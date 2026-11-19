@@ -1,8 +1,6 @@
 import { recordingKey } from "../../core/world/recording.ts";
 import { GOING, type MoveConfig } from "../../skills/locomotion/move/index.ts";
-import { STOCK_GAITS, type Gait } from "../../skills/locomotion/move/gaits.ts";
-import { BACK_STEP_GAIT } from "../../skills/locomotion/back-step/index.ts";
-import { BACK_STEP_OPTION, WALK_OPTION } from "./kinds.ts";
+import { STOCK_GAITS } from "../../skills/locomotion/move/gaits.ts";
 import type { Carriage } from "../../skills/locomotion/shared/locomotion.ts";
 import type { MindConfig } from "../catalog/config.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
@@ -48,12 +46,6 @@ function onMove(mind: MindConfig, doing: string): { readonly config: OptionMindC
   return { config, move: legs };
 }
 
-/** **`mind` with `gait` among its legs' gaits** (Move's, the stock gaits where it names none, `onMove`), in place of any of its name. */
-export function withGait(mind: OptionMindConfig, gait: Gait): OptionMindConfig {
-  const { config, move } = onMove(mind, `given the gait ${gait.name}`);
-  return withLegs(config, { ...move, gaits: [...(move.gaits ?? STOCK_GAITS).filter((one) => one.name !== gait.name), gait] });
-}
-
 /**
  * **`mind` with every stance walk of its legs held in `carriage`** (`Carriage`): its legs Move's
  * with its gaits (the stock ones, `STOCK_GAITS`, where it names none) so held, the others as they
@@ -62,18 +54,6 @@ export function withGait(mind: OptionMindConfig, gait: Gait): OptionMindConfig {
 export function inCarriage(mind: MindConfig, carriage: Carriage): MindConfig {
   const { config, move } = onMove(mind, "held in a carriage");
   return withLegs(config, { ...move, gaits: (move.gaits ?? STOCK_GAITS).map((gait) => gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait) });
-}
-
-/**
- * **`mind` with the back step**: its Option (`BACK_STEP_OPTION`) after its walk (`WALK_OPTION`; its place decides its chooser's ties), and
- * its gait (`BACK_STEP_GAIT`) among its legs' (Move's, the stock gaits where it names none,
- * `onMove`). Neither is the game's yet. A mind that has the Option already is refused.
- */
-export function withBackStep(mind: MindConfig): MindConfig {
-  const config = optionMind(mind, "given the back step"), options = config.options ?? [];
-  if (options.some((option) => option.kind === BACK_STEP_OPTION.defaults.kind)) throw new Error("the mind has its back step already");
-  const walk = options.findIndex((option) => option.kind === WALK_OPTION.defaults.kind) + 1;
-  return withGait({ ...config, options: [...options.slice(0, walk), BACK_STEP_OPTION.defaults, ...options.slice(walk)] }, BACK_STEP_GAIT);
 }
 
 /** **The Options of `mind` that keep the body where it stands**: those whose kind among `parts` says so (`OptionPart.stands`). */

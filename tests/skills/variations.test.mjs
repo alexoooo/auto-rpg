@@ -102,8 +102,8 @@ test("selected navigation choices keep separate routes and restore the active pl
   const spec = resolveCharacter({ model: "man" }).spec, configs = parts.selected("navigation", spec), navigation = navigationRepertoire(parts, spec, configs);
   const given = { spec, parts, legs: parts.fitting("locomotion", spec), sites: { all: [], names: [] }, walk: {} };
   const options = WALK_OPTION.make(WALK_OPTION.defaults, given);
-  // The gaits its legs go by that the man's character holds: Move lists every stock gait, a body walks by those it holds.
-  const enabled = parts.of("locomotion", given.legs).gaits(given.legs, spec, parts).filter(gait => parts.any(gait.legs).fits(spec, gait.legs, parts) === null);
+  // The gaits its legs walk by that the man's character holds: Move lists every stock gait, a body walks by those it holds that carry it somewhere.
+  const enabled = parts.of("locomotion", given.legs).gaits(given.legs, spec, parts).filter(gait => parts.any(gait.legs).travels && parts.any(gait.legs).fits(spec, gait.legs, parts) === null);
   assert.ok(enabled.length > 1, "the fixture holds more than one gait");
   assert.equal(options.length, configs.length * enabled.length, "each enabled planner is paired with each enabled gait");
   const sight = { view: { time: 0, stance: { centre: { x: 0, y: 1, z: 0 }, velocity: { x: 0, y: 0, z: 0 } },

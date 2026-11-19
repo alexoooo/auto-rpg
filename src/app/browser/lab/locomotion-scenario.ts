@@ -9,6 +9,7 @@ import { massOf } from "../../../core/bodies/read-motion.ts";
 import { GOING, type MoveConfig } from "../../../skills/locomotion/move/index.ts";
 import { withLegs, type OptionMindConfig } from "../../../minds/option/config.ts";
 import { STOCK_GAITS } from "../../../skills/locomotion/move/gaits.ts";
+import { partLookup } from "../../catalog.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { createPlayer } from "../../../game/lab/player.ts";
@@ -68,12 +69,12 @@ const COURSES: Readonly<Record<CourseId, { readonly name: string; readonly size?
 
 /**
  * What the body gets about by: the mind's own legs, its gaits chosen by its options' value, or
- * legs that have one gait alone (`OptionMindConfig.tuning`).
+ * legs that have one gait alone (`OptionMindConfig.tuning`), of those a walk goes by (`GaitPart.travels`).
  */
 type Legs = GaitName | "mind";
 const LEGS: readonly Entry<Legs>[] = [
   { value: "mind", name: "As its mind says", title: "The locomotion of the mind under Character, its gait chosen by value" },
-  ...STOCK_GAITS.map((gait) => ({ value: gait.name, name: gait.label, title: `Legs that go by ${gait.label.toLowerCase()} alone` })),
+  ...STOCK_GAITS.filter((gait) => partLookup.of("gait", gait.legs).travels).map((gait) => ({ value: gait.name, name: gait.label, title: `Legs that go by ${gait.label.toLowerCase()} alone` })),
 ];
 
 /** Move by the stock gait `name` alone. */

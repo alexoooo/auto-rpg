@@ -6,6 +6,7 @@ import { deepFreeze } from "../../../core/state.ts";
 import { cos, sin } from "../../../core/math/real.ts";
 import { wrap } from "../../../core/math/turn.ts";
 import type { GaitPart, Locomotion } from "../../framework/locomotion-part.ts";
+import { varied, type Varied } from "../../framework/variations.ts";
 import type { LegsAsked } from "../../framework/skill.ts";
 import { STAGGERED, validCarriage, type Carriage } from "../shared/locomotion.ts";
 import type { Gait } from "../move/gaits.ts";
@@ -25,7 +26,7 @@ const STEP = deepFreeze({ seconds: .3, lift: .05, most: 1, coming: .05, asked: .
  * body's other gaits hold, so that taking it up places no foot; the square stance where none. Its
  * sway's times, s (`SWAY`).
  */
-interface BackStepConfig {
+interface BackStepConfig extends Varied {
   readonly kind: "back-step";
   readonly carriage?: Carriage;
   readonly out?: number;
@@ -185,8 +186,7 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
  * **The back step** as a gait (`Gait`): the body swayed back in the staggered carriage
  * (`STAGGERED`) and in again, as the back step's evaluation reads best (out 0.7 s, back 0.5 s, the
  * lead foot stepping 0.1 m in, its follow 0.15 m). A gait no walk goes by (`GaitPart.travels`),
- * which its Option orders (`backStepping`); no stock gait, so a mind that takes the Option takes it
- * too (`withBackStep`).
+ * which its Option orders (`backStepping`); one of the stock gaits (`STOCK_GAITS`).
  */
 export const BACK_STEP_GAIT: Gait = deepFreeze({ name: "back-step", label: "Back step",
   legs: { kind: "back-step", carriage: STAGGERED, out: SWAY.out, back: SWAY.back, stepIn: .1, follow: .15, turn: 2 } satisfies BackStepConfig });
@@ -201,11 +201,14 @@ export const SWAYS_FROM = deepFreeze({ kind: "stance-walk", variation: "staggere
  */
 export const BACK_STEP_SECONDS = deepFreeze({ swayed: SWAY.out + SWAY.back, held: 1.65 });
 
-/** **The back step** (`backStep`): a gait part, ordered by name where a body's Move has it among its gaits (`MoveConfig.gaits`). */
+/** The back step's one variation, itself. */
+const VARIATIONS = { "back-step": backStep };
+
+/** **The back step** (`backStep`): a gait part, ordered by name where a body's Move has it among its gaits (`MoveConfig.gaits`), on a body whose character holds it. */
 export const BACK_STEP_PART = deepFreeze<GaitPart<BackStepConfig>>({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Back step", stage: "experimental", fields: [], slots: [], defaults: { kind: "back-step" }, travels: false,
-  keys: { kind: true, carriage: true, out: true, back: true, stepIn: true, follow: true, turn: true },
-  fits: soleRefusal,
+  keys: { kind: true, variation: true, carriage: true, out: true, back: true, stepIn: true, follow: true, turn: true },
+  ...varied({ skill: "back-step", label: "back step", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [soleRefusal] }),
   faults: (config) => [
     ...(config.carriage === undefined || validCarriage(config.carriage) ? [] : ["a carriage needs a positive width or none, and a finite stagger and lowering"]),
     ...(config.follow === undefined || Number.isFinite(config.follow) && config.follow > 0 && config.follow <= .4 ? [] : ["back step: follow from 0 to 0.4 m"]),
@@ -213,7 +216,6 @@ export const BACK_STEP_PART = deepFreeze<GaitPart<BackStepConfig>>({
     ...(config.stepIn === undefined || Number.isFinite(config.stepIn) && config.stepIn >= 0 && config.stepIn <= .5 ? [] : ["back step: stepIn from 0 to 0.5 m"]),
     ...(["out", "back"] as const).flatMap((key) => config[key] === undefined || Number.isFinite(config[key]) && config[key]! > 0 && config[key]! <= 3 ? [] : [`back step: ${key} from 0 to 3 s`]),
   ],
-  make: backStep,
   skillGroup: "Travel",
 });
 
