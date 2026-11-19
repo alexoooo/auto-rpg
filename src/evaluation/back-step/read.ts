@@ -7,6 +7,8 @@ import type { Duel } from "../../game/arena/duel.ts";
 import type { World } from "../../core/world/world.ts";
 import type { Reader } from "../evaluation.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
+import { dataOf } from "../../core/data/store.ts";
+import { measuredReach } from "../../minds/option/percepts.ts";
 import { wrap } from "../../core/math/turn.ts";
 import { centreReading } from "../../control/observation.ts";
 import type { Stances } from "../../skills/framework/profile.ts";
@@ -14,8 +16,25 @@ import type { HostedBody } from "../../minds/seat/hosted-body.ts";
 import { LANDED, sensedFoe } from "../strike/read.ts";
 import { stepBlows } from "../contest.ts";
 
-/** The range, m centre to centre, beyond which a punch is out of reach: where the Warrior mirror's punches fire (0.79 to 0.97). */
-export const REACH = .95;
+/** What `inReach` keeps of a bout: the attacker's reach of the subject by its phase, and the subject's head. */
+const REACHES = new WeakMap<Duel, { readonly by: Map<string, number>; readonly head: ReturnType<typeof centreReading> }>();
+
+/**
+ * **Whether the bout's left side, the subject, stands within its attacker's reach**: as near as
+ * its attacker's strikes reach it in the phase it senses the attacker in (`measuredReach`, as a
+ * Mind reads a foe's reach), centre to centre; a subject with no view reads it clear.
+ */
+export function inReach(duel: Duel): boolean {
+  const subject = duel.duelists.left, attacker = duel.duelists.right;
+  let kept = REACHES.get(duel);
+  if (!kept) REACHES.set(duel, kept = { by: new Map(), head: centreReading(subject.built, "head") });
+  const view = "view" in subject.body ? (subject.body as HostedBody).view : null;
+  if (view) kept.head.update();
+  const phase = view ? sensedFoe({ spec: subject.built.spec, senses: subject.senses(), head: kept.head.centre, view, at: view.stance.centre, going: view.stance.velocity }, attacker.id).phase : "clear";
+  let reach = kept.by.get(phase);
+  if (reach === undefined) kept.by.set(phase, reach = measuredReach(dataOf("strike-profiles"), attacker.built.spec, subject.built.spec, phase));
+  return apartOf(duel) <= reach;
+}
 
 /** How long after a punch's fire the subject is read for being in reach again, s. */
 const RETURN = 1.5;
@@ -36,7 +55,7 @@ export type BackStepReading = {
   readonly taken: number;
   /** The life those punches took, HP. */
   readonly lost: number;
-  /** The punches after which the subject was out of reach (`REACH`) within `RETURN` s of the fire, and of them those after which it was in reach again in that time. */
+  /** The punches after which the subject was out of reach (`inReach`) within `RETURN` s of the fire, and of them those after which it was in reach again in that time. */
   readonly left: number;
   readonly back: number;
   readonly down: boolean;
@@ -158,10 +177,10 @@ export function readBackStep({ world, duel }: { readonly world: World; readonly 
         seen.add(action.id);
         punches.push({ effector: action.effector, fired: now, damage: 0, left: false, back: false });
       }
-      const gap = apartOf(duel);
+      const within = inReach(duel);
       for (const punch of punches) {
         if (now > punch.fired + RETURN) continue;
-        if (gap > REACH) punch.left = true;
+        if (!within) punch.left = true;
         else if (punch.left) punch.back = true;
       }
       // Each blow on the subject is the last punch's that fired with that hand.

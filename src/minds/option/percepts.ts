@@ -13,7 +13,7 @@ import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs
 import { deepFreeze } from "../../core/state.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
 import { ordersAsked, type Orders } from "../orders.ts";
-import { measuredAt, profileAgainst, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Postures, type Profile, type ProfileReading, type StanceNumbers, type Stances } from "../../skills/framework/profile.ts";
+import { limbHoldsAsMeasured, measuredAt, profileAgainst, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Postures, type Profile, type ProfileReading, type StanceNumbers, type Stances } from "../../skills/framework/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../../skills/perception/threat.ts";
@@ -223,6 +223,21 @@ function foeModel(seen: Seen, foe: BodySpec, postures: Postures = STANDING): Mod
   const model = modelOf(seen, [...strikes, ...limbs.map((limb) => ({ name: limb, limbs: [limb], profiles: [] }))], foe, seen.spec, postures);
   const source = on.read.length ? (on.stale === null ? "measured" : `measured, stale, ${on.stale}`) : strikes.length ? `as its own strikes, ${on.stale}` : `by hand, ${on.stale}`;
   return { ...model, priced: limbs.length && strikes.length ? `${source}; by hand: ${limbs.join(", ")}` : source };
+}
+
+/**
+ * **How far a foe of `foe` reaches a body of `struck` with the foe in `phase`**, m centre to centre:
+ * the farthest any strike measured on its body reads (`ProfileReading.reach`), each read by its
+ * profile against that body (`strikesOf`, `profileAgainst`), as a Mind reads a foe's reach
+ * (`foeModel`, `edgeOf`); -Infinity where none reads in that phase.
+ */
+export function measuredReach(profiles: readonly Profile[], foe: BodySpec, struck: BodySpec, phase: string): number {
+  let reach = -Infinity;
+  for (const strike of strikesOf(profiles.filter((profile) => profile.measured.body === foe.model && limbHoldsAsMeasured(profile, foe)))) {
+    const profile = profileAgainst(strike.profiles, struck);
+    if (profile) reach = Math.max(reach, readProfile(profile, foe, STANDING).reach(phase));
+  }
+  return reach;
 }
 
 /** **The strikes `profiles` measure**, each skill's profiles with one limb one strike (`ModelledStrike`), named by its skill and its limb and thrown with that limb. */
