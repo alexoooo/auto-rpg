@@ -3,7 +3,7 @@ import layoutFile from "../../../../assets/skills/strikes/sword-thrust/drive.lay
 import { fitsWhen } from "../../../parts/parts.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { heldStrikePart, type HeldStrikeConfig, type HeldStrikeRecord, type StrikeSettings } from "../shared/held-strike.ts";
-import { STRAIGHT_DRIVE_KEYS, straightDriveExecutor, straightDriveFits, timedChannelFault, validStraightDrive, validStraightDrivePart,
+import { DRIVE_THROW, STRAIGHT_DRIVE_KEYS, straightDriveExecutor, straightDriveFits, timedChannelFault, validStraightDrive, validStraightDrivePart,
   type StraightDrive } from "../shared/straight-drive.ts";
 import { checkedLayout, type SteerLayout } from "../shared/steer.ts";
 
@@ -42,7 +42,7 @@ export const SWORD_THRUST_PART = heldStrikePart({
   kind: "sword-thrust", label: "Sword thrust", stage: "game", item: "sword", mechanism: "point", variation: "drive", data: "sword-thrust/drive", bodies: meta.bodies,
   settings: SWORD_THRUST_SETTINGS, fits: [fitsWhen(straightDriveFits, "needs both arms on the upper trunk and a thoracic joint")], layout: SWORD_THRUST_LAYOUT,
   executor: ({ body, guard, actions, settings, resolve, faces, policy }) =>
-    straightDriveExecutor(body, guard, actions, settings, resolve, { label: "sword thrust", layout: SWORD_THRUST_LAYOUT, faces, ...(policy ? { policy } : {}) }),
+    straightDriveExecutor(body, guard, actions, settings, resolve, { label: "sword thrust", layout: SWORD_THRUST_LAYOUT, throws: DRIVE_THROW, faces, ...(policy ? { policy } : {}) }),
 });
 
 declare module "../../config.ts" {

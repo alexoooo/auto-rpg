@@ -1,6 +1,73 @@
+import type { Body, BodyView } from "../../../../control/body.ts";
 import type { MusclePush } from "../../../../control/motor.ts";
 import type { Pose } from "../../../../core/bodies/spec/pose.ts";
-import type { Goal, Stroke, StrokeAt } from "../../shared/straight-drive.ts";
+import type { Side } from "../../../../core/bodies/bilateral.ts";
+import { chainTo } from "../../../../control/kinematics.ts";
+import { channelName } from "../../../../core/bodies/muscle/driver.ts";
+import { segmentResource, TRUNK_RESOURCE } from "../../../framework/action.ts";
+import type { Goal, StrokeReach, ThrowMaker } from "../../shared/straight-drive.ts";
+
+/** What `moving`'s stroke is given each step (`drive`). */
+interface StrokeAt {
+  readonly view: BodyView;
+  readonly since: number;
+  readonly touched: number | null;
+  readonly guard: Pose;
+  /** What the stroke keeps from step to step of one commit: empty at its start. */
+  readonly kept: Record<string, number>;
+  /** The arm's pose with its striking point `out(apart, along)` m from the shoulder on the line to the target (`StraightTechnique`'s `reach`). */
+  reach(out: (apart: number, along: number) => number, turned: boolean): StrokeReach;
+}
+
+/** The channels of the limbs `body` bears on, `hand`'s own arm apart: each end's chain from the joint it begins at. */
+const borneOf = (body: Body, hand: Side): ReadonlySet<string> => new Set((body.built.spec.ends ?? []).filter((end) => end.segment !== `hand.${hand}`).flatMap((end) => {
+  const chain = chainTo(body.built, body.built.segments.get(end.segment)!), from = "from" in end ? chain.findIndex((joint) => joint.spec.name === end.from) : 0;
+  return chain.slice(Math.max(0, from)).flatMap((joint) => joint.dofs.map((_dof, k) => channelName(joint, k)));
+}));
+
+/**
+ * **`moving`'s throw** (`Throw`): its stroke (`drive`), steered as the drive is after it where
+ * its settings are `steered`, on legs it leaves to whatever walks them. It holds its hand and the
+ * trunk and no legs, gives the legs no goal (no stand, halt or height, no turn of the hips and no
+ * shift of the weight), and begins its stroke `settle` s after it starts, whatever the stance
+ * does under it; of the guard it returns to and of its pushes it asks its own arm's and the
+ * trunk's channels, and none of a limb the body bears on (`BodySpec.ends`, `borneOf`). It is
+ * touched by the body it is thrown at, not by a guard it drives through.
+ */
+export const MOVING_THROW: ThrowMaker = ({ body, guard, technique, settings, policy }) => {
+  const sides = { left: [segmentResource("hand.left"), TRUNK_RESOURCE], right: [segmentResource("hand.right"), TRUNK_RESOURCE] };
+  const borne = { left: borneOf(body, "left"), right: borneOf(body, "right") };
+  let kept: Record<string, number> = {};
+  return {
+    holds: (hand) => sides[hand],
+    quiet: () => true,
+    begin() { kept = {}; },
+    touches: (met) => !(met?.kind === "body" && met.guard),
+    drive(view, hand, since, touched, pushes) {
+      const posture = drive({ view, since, touched, guard, kept, reach: (out, turned) => technique.reach(view, hand, out, turned) }, pushes);
+      if (settings.steered) technique.steer(view, hand, since, pushes, policy);
+      return posture;
+    },
+    done: (since, touched) => touched !== null ? touched >= HOLD : since >= LONGEST,
+    leaves: (hand) => borne[hand],
+    legs: () => null,
+  };
+};
+
+/** How far past the target the fist is steered toward, m. */
+const THROUGH = 0.2;
+/** The fist's speed along the line it is steered toward, m/s, and how far ahead of it, s, its pose is solved. */
+const SPEED = 10, AHEAD = 0.02;
+/** The fastest an arm's freedom is driven, rad/s; the trunk's. */
+const ARM_SPEED = 40, TRUNK_SPEED = 20;
+/** The chest's and the waist's turn asked, rad: past either's range, so each is driven to its stop. */
+const TURN = 1;
+/** How much nearer than the straight arm the target must be at the fire to throw the arm at once, m; else how long the trunk goes first, s. */
+const NEARER = 0.03, TRUNK_FIRST = 0.14;
+/** Within this of its goal a trunk freedom is held there, rad. */
+const NEAR = 0.02;
+/** How long the stroke holds from its first touch, s; and the longest it runs touching nothing. */
+const HOLD = 0.08, LONGEST = 0.35;
 
 /**
  * **`moving`'s stroke**: a punch that meets its target fast and held. Read on a target that stands,
@@ -29,23 +96,6 @@ import type { Goal, Stroke, StrokeAt } from "../../shared/straight-drive.ts";
  * lands 0.6 to 0.9 hp from 0.67 to 0.70 m; trunk first, 0.5 to 1.5 hp from 0.75 to 0.87 m, the fist
  * at 5 to 7 m/s, the elbow bent 30 to 60 degrees; between and beside them blows of 0.3 to 0.5 hp.
  */
-export const MOVING_STROKE: Stroke = { drive, done: (since, touched) => touched !== null ? touched >= HOLD : since >= LONGEST };
-
-/** How far past the target the fist is steered toward, m. */
-const THROUGH = 0.2;
-/** The fist's speed along the line it is steered toward, m/s, and how far ahead of it, s, its pose is solved. */
-const SPEED = 10, AHEAD = 0.02;
-/** The fastest an arm's freedom is driven, rad/s; the trunk's. */
-const ARM_SPEED = 40, TRUNK_SPEED = 20;
-/** The chest's and the waist's turn asked, rad: past either's range, so each is driven to its stop. */
-const TURN = 1;
-/** How much nearer than the straight arm the target must be at the fire to throw the arm at once, m; else how long the trunk goes first, s. */
-const NEARER = 0.03, TRUNK_FIRST = 0.14;
-/** Within this of its goal a trunk freedom is held there, rad. */
-const NEAR = 0.02;
-/** How long the stroke holds from its first touch, s; and the longest it runs touching nothing. */
-const HOLD = 0.08, LONGEST = 0.35;
-
 function drive(at: StrokeAt, pushes: MusclePush[]): Pose {
   const { view, touched, kept } = at, posture: Record<string, number> = { ...at.guard };
   const reached = at.reach((apart, along) => Math.min(apart + THROUGH, Math.max(0, along) + SPEED * AHEAD), false), pose = reached.pose;

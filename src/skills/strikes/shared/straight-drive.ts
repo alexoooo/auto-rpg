@@ -4,14 +4,16 @@ import { supportHeight } from "../../../control/support-reference.ts";
 import { Vector3 } from "../../../core/math/vector.ts";
 import type { Body, BodyView } from "../../../control/body.ts";
 import { bodyEffectors, copyFreedoms, type Freedom } from "../../../control/effectors.ts";
-import { chainTo, intoFrameToRef, pointAtToRef, reachWork, solveReach } from "../../../control/kinematics.ts";
+import { intoFrameToRef, pointAtToRef, reachWork, solveReach } from "../../../control/kinematics.ts";
 import type { MusclePush } from "../../../control/motor.ts";
 import type { Pose } from "../../../core/bodies/spec/pose.ts";
 import { atan2, cos, hypot, sin } from "../../../core/math/real.ts";
 import { channelName } from "../../../core/bodies/muscle/driver.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../core/quantity.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetResolver } from "../../framework/action.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, Resource, TargetResolver } from "../../framework/action.ts";
+import type { LegsGoal } from "../../framework/skill.ts";
+import type { ContactTarget } from "../../../core/bodies/contact-identity.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { bodyAhead } from "../../locomotion/shared/navigation/held-clearance.ts";
 import { bodyClearance } from "../../locomotion/shared/navigation/sensed-bounds.ts";
@@ -215,55 +217,41 @@ export interface StraightDriveOptions {
   readonly faces?: Partial<Record<Side, StrikingFace>>;
   /** Its steer from what it reads, where a network steers it. */
   readonly policy?: (features: readonly number[]) => number[];
-  /**
-   * Whether it leaves the legs to whatever walks them: it needs and holds its hand and the trunk
-   * and no legs, gives the legs no goal (no stand, halt or height, no turn of the hips and no
-   * shift of the weight, whatever its steer asks of the stance), and begins its drive `settle` s
-   * after it starts, whatever the stance does under it; of the guard it returns to and of its
-   * schedule's pushes (`StraightDrive.timed`) it asks its own arm's and the trunk's channels,
-   * and none of a limb the body bears on (`BodySpec.ends`): a schedule's drive of the hips, the
-   * knees and the ankles is not thrown. Absent, it has the legs and stands on them.
-   */
-  readonly leavesLegs?: true;
-  /**
-   * A stroke of the skill's own (`Stroke`), thrown in place of the drive's from its commit to its
-   * release: none of the drive's pushes, schedule, brake or steer then runs. Its window, its
-   * preparation and its return are the drive's.
-   */
-  readonly stroke?: Stroke;
+  /** How it throws its commit, and what it does with the legs (`Throw`): the drive's own (`DRIVE_THROW`) or its skill's. */
+  readonly throws: ThrowMaker;
 }
 
 /**
- * **A stroke of a skill's own**, thrown by a straight drive's executor in place of its drive
- * (`StraightDriveOptions.stroke`). Each control step of its commit it is given the body as it is,
- * the striking hand, how long it has run and how long since its fist first touched (null before),
- * and the contact pose (`StrokeAt.contact`); it adds its pushes and gives its posture. It is done
- * (`Stroke.done`) when it says, and the drive returns the arm to the guard.
+ * **How a straight drive's executor throws** (`StraightDriveOptions.throws`), made for one
+ * executor: what it holds as a hand strikes, whether the body is quiet enough to begin its commit,
+ * what a touch is its touch, its posture and pushes each step of its commit, when that is over, the
+ * channels it leaves alone, and the legs goal it gives. Its window, its preparation and its return
+ * are the drive's (`straightDriveExecutor`).
  */
-export interface Stroke {
-  drive(at: StrokeAt, pushes: MusclePush[]): Pose;
+export interface Throw {
+  /** What it holds as `hand` strikes: the hand, the trunk, and the legs where it stands on them. */
+  holds(hand: Side): readonly Resource[];
+  /** Whether `view`'s body is quiet enough to begin its commit, once its `settle` s have passed. */
+  quiet(view: BodyView): boolean;
+  /** Its commit begun: what it keeps through one commit set anew. */
+  begin(): void;
+  /** Whether a touch of the striking hand on `met` is its touch: what its commit's `touched` counts from. */
+  touches(met: ContactTarget | undefined): boolean;
+  /** Its posture as `hand` throws, `since` s into its commit and touched `touched` s ago (null before), its pushes added to `pushes`. */
+  drive(view: BodyView, hand: Side, since: number, touched: number | null, pushes: MusclePush[]): Pose;
+  /** Whether its commit is over, `since` s in and touched `touched` s ago (null before). */
   done(since: number, touched: number | null): boolean;
+  /** The channels it asks nothing of as `hand` strikes, of its posture and its pushes. */
+  leaves(hand: Side): ReadonlySet<string>;
+  /** Its legs goal as `hand` strikes in `phase`, its body `lower` m below its support's height, the legs heading `heading`; null where it leaves the legs to whatever walks them. */
+  legs(view: BodyView, hand: Side, phase: "prepare" | "commit" | "release", lower: number, heading: number): LegsGoal | null;
 }
 
-/** What a stroke is given each step (`Stroke.drive`). */
-export interface StrokeAt {
-  readonly view: BodyView;
-  readonly hand: Side;
-  readonly since: number;
-  readonly touched: number | null;
-  readonly guard: Pose;
-  /** What the stroke keeps from step to step of one commit: empty at its start. */
-  readonly kept: Record<string, number>;
-  /**
-   * The arm's pose that puts its striking point `out(apart, along)` m from the shoulder on the line
-   * to the target (`apart` m from it, the striking point now `along` m along it), the elbow drawn
-   * straight and the wrist onto the line, with the trunk as it stands or at its contact goals with
-   * `turned` (`StrokeReach`).
-   */
-  reach(out: (apart: number, along: number) => number, turned: boolean): StrokeReach;
-}
+/** **A throw made for one executor** (`Throw`), of its body, its guard, its technique (`StraightTechnique`), its settings and its steer. */
+export type ThrowMaker = (made: { readonly body: Body; readonly guard: Pose; readonly technique: StraightTechnique; readonly settings: StraightDrive;
+  readonly policy: ((features: readonly number[]) => number[]) | undefined }) => Throw;
 
-/** What a stroke's reach finds (`StrokeAt.reach`). */
+/** What a reach finds (`StraightTechnique`'s `reach`): what a throw of a skill's own solves its arm by. */
 export interface StrokeReach {
   /** The shoulder to the target, m; how far along that line the striking point stands, m; the arm straight, shoulder to striking point, m. */
   readonly apart: number;
@@ -464,7 +452,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
   /**
    * The learned steer of a drive `since` s old added to `pushes` (`steerPushes`): every decision
    * interval it reads the drive (`steerFeatures`), the target where the last solve left it in the
-   * body frame. A stroke of its own (`StraightDriveOptions.stroke`) is steered alike, after it.
+   * body frame. A throw of a skill's own (`Throw`) may be steered alike, after it.
    */
   const steer = (view: BodyView, hand: Side, since: number, pushes: MusclePush[], policy?: (features: readonly number[]) => number[]): void => {
     const limb = limbs[hand], learner = state.learner, outputs = act(learner, policy);
@@ -508,7 +496,12 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
       state.target[i] = at[i]!;
     }
   };
-  /** The arm's pose with its striking point `out` m along the line, the trunk as it stands or `turned` (`StrokeAt.reach`). */
+  /**
+   * The arm's pose that puts its striking point `out(apart, along)` m from the shoulder on the line
+   * to the target (`apart` m from it, the striking point now `along` m along it), the elbow drawn
+   * straight and the wrist onto the line, with the trunk as it stands or at its contact goals with
+   * `turned` (`StrokeReach`).
+   */
   const reach = (view: BodyView, hand: Side, out: (apart: number, along: number) => number, turned: boolean): StrokeReach => {
     const limb = limbs[hand];
     solve(view, limb, turned, out, null);
@@ -519,6 +512,43 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
     heightFits: (hand: Side, up: number) => Math.abs(up - state.shoulders[hand][1]) <= settings.reach * limbs[hand].arm
       && (settings.above === undefined || up - state.shoulders[hand][1] <= settings.above) };
 }
+
+/** **A straight drive's technique** (`straightTechnique`): what a throw (`Throw`) drives, reaches and steers by. */
+export type StraightTechnique = ReturnType<typeof straightTechnique>;
+
+/** Nothing left alone. */
+const NONE: ReadonlySet<string> = new Set();
+
+/**
+ * **The drive's own throw** (`Throw`): it holds its hand, the trunk and the legs and stands on
+ * them; begins once the stance is quiet (`quietToStrike`); drives its technique's drive (`drive`:
+ * its schedule, its brake and its steer) until `follow` s after its first touch or `longest` s; and
+ * asks the legs to stand at its height, halted where its settings or its steer say, the hips
+ * turned and the weight shifted as its steer asks (`stanceAsks`, `keepsWalk`).
+ */
+export const DRIVE_THROW: ThrowMaker = ({ technique, settings, policy }) => {
+  const motion = technique.state, sides = { left: [segmentResource("hand.left"), TRUNK_RESOURCE, LEG_RESOURCE], right: [segmentResource("hand.right"), TRUNK_RESOURCE, LEG_RESOURCE] };
+  return {
+    holds: (hand) => sides[hand],
+    quiet: quietToStrike,
+    begin() {},
+    touches: () => true,
+    drive: (view, hand, since, _touched, pushes) => technique.drive(view, hand, since, pushes, policy),
+    done: (since, touched) => touched !== null && touched >= settings.follow || since >= settings.longest,
+    leaves: () => NONE,
+    legs(view, hand, phase, lower, heading) {
+      const sense = technique.sense[hand], shift: [number, number] = [0, 0];
+      const turn = phase === "commit" ? stanceAsks(technique.steeredChannels[hand], motion.learner.outputs, motion.face, sense, shift) : 0;
+      // The hips turned from the legs' heading, and the weight moved from the middle of the soles the stance stands on.
+      const steer = phase === "commit" ? sense * settings.hips + turn : 0, support = view.stance.support;
+      // A walk under way kept where the steer keeps it (`keepsWalk`), else stood, and halted where the steer or `halts` says.
+      const keeps = phase === "commit" ? keepsWalk(technique.steeredChannels[hand], motion.learner.outputs) : null;
+      return { ...(keeps ? {} : { walk: null }), face: motion.face, ...((keeps === null ? settings.halts : !keeps) ? { halt: true } : {}), height: supportHeight(view) - lower,
+        ...(steer ? { heading: heading + steer } : {}),
+        ...(shift[0] === 0 && shift[1] === 0 ? {} : { centre: [support.x + shift[0], support.z + shift[1]] as const }) };
+    },
+  };
+};
 
 /** A stopped approach must establish its local stroke within this many seconds. */
 const PREPARE_LIMIT = 6;
@@ -541,22 +571,19 @@ function driveReadiness(view: BodyView, technique: ReturnType<typeof straightTec
  * **A straight drive's executor**, the straight punch's and the sword thrust's: an instance owns
  * settling, its committed drive and its bounded guard return. Its skill gives it what it is
  * called, its steer's layout and the network that steers it, the faces its hands strike with,
- * and whether it has the legs or leaves them to a walk
- * (`StraightDriveOptions`). With a held face, from its chamber
+ * and how it throws (`StraightDriveOptions`, `Throw`). With a held face, from its chamber
  * through its drive, the wrist turns the face onto the line from it to the target, facing first
  * (`faceAligner`), and the schedule's and the solve's pushes leave the wrist to it.
  */
 export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly string[], settings: StraightDrive,
   resolve: TargetResolver, options: StraightDriveOptions): Executor {
-  const { label, faces, policy, leavesLegs = false, stroke } = options;
+  const { label, faces, policy } = options;
   if (!validStraightDrive(settings)) throw new Error(`invalid ${label} settings`);
   const technique = straightTechnique(body, guard, settings, options, { trained: policy !== undefined }), motion = technique.state;
+  const throws = options.throws({ body, guard, technique, settings, policy });
   technique.read(body.view);
   // With `inside`, the trunk alone stands out ahead, and the foe's guards are not counted.
   const trunk = bodyClearance(body.built.spec), ahead = settings.inside ? () => trunk : bodyAhead(body.built.spec);
-  // What a stroke keeps through one commit, by the live action it is thrown in (`StrokeAt.kept`).
-  const strokeKept = new WeakMap<object, Record<string, number>>();
-  const keptOf = (live: object) => { let kept = strokeKept.get(live); if (!kept) strokeKept.set(live, kept = {}); return kept; };
   const guards = new Map<BodySpec, ReadonlySet<string>>();
   const without = (foe: BodySense | null): ReadonlySet<string> | undefined => {
     if (!settings.inside || !foe) return undefined;
@@ -566,8 +593,7 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
   };
   const alignerOf = (hand: Side) => faces?.[hand] ? faceAligner(body.built.spec, hand, faces[hand]!) : null;
   const aligners = { left: alignerOf("left"), right: alignerOf("right") }, aimed = new Vector3(), toward = new Float64Array(3);
-  const held = (hand: Side) => leavesLegs ? [segmentResource(`hand.${hand}`), TRUNK_RESOURCE] : [segmentResource(`hand.${hand}`), TRUNK_RESOURCE, LEG_RESOURCE];
-  const sides = { left: held("left"), right: held("right") } as const;
+  const sides = { left: throws.holds("left"), right: throws.holds("right") } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
     if (effector === "hand.right") return "right";
@@ -579,14 +605,8 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
   const release = (ending: ActionEnding) => {
     const live = state.live!; live.phase = "release"; live.stage = "return"; live.time = 0; live.ending = ending; technique.enter("return");
   };
-  /** The channels of the limbs the body bears on, the striking hand's own arm apart: each end's chain from the joint it begins at. */
-  const borneOf = (hand: Side): ReadonlySet<string> => new Set((body.built.spec.ends ?? []).filter((end) => end.segment !== `hand.${hand}`).flatMap((end) => {
-    const chain = chainTo(body.built, body.built.segments.get(end.segment)!), from = "from" in end ? chain.findIndex((joint) => joint.spec.name === end.from) : 0;
-    return chain.slice(Math.max(0, from)).flatMap((joint) => joint.dofs.map((_dof, k) => channelName(joint, k)));
-  }));
-  const borne = leavesLegs ? { left: borneOf("left"), right: borneOf("right") } : null;
   const sparse = (posture: Pose, hand: Side): Pose => Object.fromEntries(Object.entries(posture)
-    .filter(([channel]) => !channel.includes(`.${otherSide(hand)} `) && !borne?.[hand].has(channel)));
+    .filter(([channel]) => !channel.includes(`.${otherSide(hand)} `) && !throws.leaves(hand).has(channel)));
   return {
     state,
     needs(_action, effector) { return sides[sideOf(effector)]; },
@@ -632,23 +652,20 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
       live.time += dt;
       if (live.phase === "prepare") {
         live.stage = "settle";
-        const quiet = leavesLegs || quietToStrike(view);
+        const quiet = throws.quiet(view);
         live.quiet = quiet ? live.quiet + dt : 0;
         if (live.time >= PREPARE_LIMIT) release({ kind: "stalled", reason: "settling deadline" });
         else if (quiet && live.quiet >= settings.settle) {
-          live.phase = "commit"; live.stage = "swing"; live.time = 0; technique.enter("swing");
+          live.phase = "commit"; live.stage = "swing"; live.time = 0; technique.enter("swing"); throws.begin();
           motion.began = view.time; motion.touched = null; motion.face = atan2(motion.target[0] - view.head.x, motion.target[2] - view.head.z);
           motion.touching = (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0;
         }
       } else if (live.phase === "commit") {
-        // A stroke of its own is touched by the body it is thrown at, not by a guard it drives through.
-        const feedback = view.effectors[live.request.effector]?.feedback, met = feedback?.contact?.target;
-        const touching = (feedback?.impulse ?? 0) > 0 && !(stroke && met?.kind === "body" && met.guard);
+        const feedback = view.effectors[live.request.effector]?.feedback;
+        const touching = (feedback?.impulse ?? 0) > 0 && throws.touches(feedback?.contact?.target);
         if (touching && !motion.touching && motion.touched === null) motion.touched = view.time;
         motion.touching = touching;
-        const over = stroke ? stroke.done(live.time, motion.touched === null ? null : view.time - motion.touched)
-          : motion.touched !== null && view.time - motion.touched >= settings.follow || live.time >= settings.longest;
-        if (over) release({ kind: "completed" });
+        if (throws.done(live.time, motion.touched === null ? null : view.time - motion.touched)) release({ kind: "completed" });
       } else if (live.time >= settings.recover) {
         const ending = live.ending; state.live = null; technique.end(); return [{ id: live.request.id, ending }];
       }
@@ -660,12 +677,8 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
       if (!live || live.request.id !== id) throw new Error(`${label} has no instance ${id}`);
       const pushes: MusclePush[] = [];
       const touched = motion.touched === null ? null : view.time - motion.touched;
-      let posture = live.phase === "commit" ? stroke
-        ? stroke.drive({ view, hand: live.hand, since: live.time, touched, guard, kept: keptOf(live), reach: (out, turned) => technique.reach(view, live.hand, out, turned) }, pushes)
-        : technique.drive(view, live.hand, live.time, pushes, policy)
+      let posture = live.phase === "commit" ? throws.drive(view, live.hand, live.time, touched, pushes)
         : live.phase === "prepare" ? technique.chamber(view, live.hand) ?? guard : guard;
-      // A stroke of its own steered as the drive is, after it: its learned steer adds to the speeds it drives toward.
-      if (stroke && live.phase === "commit" && settings.steered) technique.steer(view, live.hand, live.time, pushes, policy);
       const aligner = aligners[live.hand], at = faces?.[live.hand] && view.effectors[`hand.${live.hand}`]?.points[faces[live.hand]!.point];
       if (aligner && at && live.phase !== "release") {
         // The face's way to the target, from where it stands, body frame.
@@ -677,20 +690,11 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
       }
       const hand = faces?.[live.hand] ? handConfiguration(body.built.spec, `hand.${live.hand}`, "grip")
         : closesToStrike(body.built.spec, live.hand) ? handConfiguration(body.built.spec, `hand.${live.hand}`, "fist") : null;
-      if (borne) for (let k = pushes.length - 1; k >= 0; k--) if (borne[live.hand].has(pushes[k]!.channel)) pushes.splice(k, 1);
+      const leaves = throws.leaves(live.hand);
+      for (let k = pushes.length - 1; k >= 0; k--) if (leaves.has(pushes[k]!.channel)) pushes.splice(k, 1);
       const arm = { posture: sparse(posture, live.hand), pushes, ...(hand ? { configurations: { [`hand.${live.hand}`]: hand } } : {}) };
-      // The legs left to whatever walks them: the arm and the trunk, and no goal of the legs.
-      if (leavesLegs) return arm;
-      const sense = technique.sense[live.hand], shift: [number, number] = [0, 0];
-      const turn = live.phase === "commit" ? stanceAsks(technique.steeredChannels[live.hand], motion.learner.outputs, motion.face, sense, shift) : 0;
-      // The hips turned from the legs' heading, and the weight moved from the middle of the soles the stance stands on.
-      const steer = live.phase === "commit" ? sense * settings.hips + turn : 0, support = view.stance.support;
-      // A walk under way kept where the steer keeps it (`keepsWalk`), else stood, and halted where the steer or `halts` says.
-      const keeps = live.phase === "commit" ? keepsWalk(technique.steeredChannels[live.hand], motion.learner.outputs) : null;
-      return { ...arm,
-        legs: { ...(keeps ? {} : { walk: null }), face: motion.face, ...((keeps === null ? settings.halts : !keeps) ? { halt: true } : {}), height: supportHeight(view) - live.lower,
-          ...(steer ? { heading: around.heading + steer } : {}),
-          ...(shift[0] === 0 && shift[1] === 0 ? {} : { centre: [support.x + shift[0], support.z + shift[1]] as const }) } };
+      const legs = throws.legs(view, live.hand, live.phase, live.lower, around.heading);
+      return legs ? { ...arm, legs } : arm;
     },
   };
 }
