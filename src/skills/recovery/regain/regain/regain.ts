@@ -11,6 +11,7 @@ import { locomotion, STANCE_LOWER, stanceOf } from "../../../locomotion/shared/l
 import { deepFreeze } from "../../../../core/state.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import { quietOnFeet } from "../../../../control/ground-reading.ts";
+import { scalarPathToRef } from "../../../../control/point-path.ts";
 import type { BodyControl } from "../../../../core/bodies/body-control.ts";
 
 /**
@@ -58,8 +59,10 @@ export function regaining(own: OwnBody, view: BodyView, fitted: MotorAndGuard) {
     motor.setPosture(climbPose);
     const at = c.time;
     c.time += dt;
-    return { feet: both, heading: h, centre: [quintic(c.centre[0]!, c.velocity[0]!, c.to[0]!, T, at), quintic(c.centre[1]!, c.velocity[1]!, c.to[1]!, T, at)],
-      height: quintic(c.height, c.rise, top, T, at), pose: { pitch: quintic(c.pitch, 0, 0, T, at), seconds: CLIMB.response } };
+    // A quintic from where each is, at its speed, to its end at rest (`scalarPathToRef`): its place now.
+    const along = (from: number, rate: number, to: number): number => { scalarPathToRef(from, rate, to, at, T, PLACE); return PLACE[0]; };
+    return { feet: both, heading: h, centre: [along(c.centre[0]!, c.velocity[0]!, c.to[0]!), along(c.centre[1]!, c.velocity[1]!, c.to[1]!)],
+      height: along(c.height, c.rise, top), pose: { pitch: along(c.pitch, 0, 0), seconds: CLIMB.response } };
   };
   return {
     state,
@@ -83,8 +86,5 @@ export function regaining(own: OwnBody, view: BodyView, fitted: MotorAndGuard) {
   };
 }
 
-/** A quintic from `x0` at speed `v0`, no acceleration, to `x1` at rest over `T` s: its place at `t`. */
-function quintic(x0: number, v0: number, x1: number, T: number, t: number): number {
-  const D = x1 - x0 - v0 * T, u = t / T;
-  return x0 + v0 * t + u * u * u * ((10 * D + 4 * v0 * T) + u * ((-15 * D - 7 * v0 * T) + u * (6 * D + 3 * v0 * T)));
-}
+/** A climb path's place, rate and acceleration, as `scalarPathToRef` writes them: scratch. */
+const PLACE: [number, number, number] = [0, 0, 0];
