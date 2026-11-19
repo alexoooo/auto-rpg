@@ -1,22 +1,11 @@
 import { valueEditor } from "./value-editors.ts";
-import { buttonInput, selectInput } from "./inputs.ts";
+import { selectInput } from "./inputs.ts";
 import type { PartField } from "../../../parts/fields.ts";
 
 /** A labelled editor input; editors share its layout and keyboard behaviour. */
 export function editorRow(label: string, input: HTMLElement): HTMLElement {
   const row = document.createElement("label"), name = document.createElement("span");
   row.className = "field"; name.textContent = label; row.append(name, input); return row;
-}
-
-/** A picker with presentation labels and per-option refusal, blurred after a choice. */
-export function editorPicker(options: readonly { readonly value: string; readonly text: string; readonly disabled?: boolean }[], value: string,
-  change: (value: string) => void, readOnly: boolean): HTMLSelectElement {
-  return selectInput(options, value, change, { disabled: readOnly });
-}
-
-/** A button that gives keyboard control back to the page. */
-export function editorButton(text: string, title: string, run: () => void, readOnly: boolean): HTMLButtonElement {
-  return buttonInput(text, run, { title, ariaLabel: title, disabled: readOnly });
 }
 
 /** A text or numeric input used by list editors without a declared part field. */
@@ -31,7 +20,7 @@ export function partFieldInput<C>(field: PartField<C>, config: C, write: (config
   const changed = (value: string) => write(field.write(config, value) ?? config);
   switch (field.kind) {
     case "json": return valueEditor(field.editor, field.read(config), changed, readOnly);
-    case "choice": return editorPicker(field.options.map(([value, text]) => ({ value, text })), field.read(config), changed, readOnly);
+    case "choice": return selectInput(field.options.map(([value, text]) => ({ value, text })), field.read(config), changed, { disabled: readOnly });
     case "text": return editorInput(field.read(config), changed, { disabled: readOnly, numeric: false });
     case "number": {
       const input = editorInput(field.read(config), changed, { disabled: readOnly, numeric: true });

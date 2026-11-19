@@ -1,6 +1,7 @@
 import { describeMind } from "../../../minds/catalog/catalog.ts";
 import { optionApplies } from "../../../minds/option/parts.ts";
-import { editorRow as row, editorPicker as picker, editorButton as button, partFieldInput as fieldInput } from "./editor-inputs.ts";
+import { editorRow as row, partFieldInput as fieldInput } from "./editor-inputs.ts";
+import { buttonInput, selectInput } from "./inputs.ts";
 import { techniqueEditor } from "./mind-ground.ts";
 import { GAME, isKind, kindsFor, partOf, partLookup, treeFaults, type EntryRule } from "../../catalog.ts";
 import type { MindConfig } from "../../../minds/catalog/config.ts";
@@ -10,7 +11,6 @@ import { emptyRuns, slotValue } from "../../../parts/tree.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { mindFaults } from "../setup.ts";
 import { recordingKey } from "../../../core/world/recording.ts";
-import { buttonInput } from "./inputs.ts";
 
 /** **A mind's editor**: its tree of parts, drawn and changed in place. */
 interface MindEditor {
@@ -133,7 +133,7 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
       const childPath = [...path, slot.key], content = chosen ? drawPart(chosen, set, childPath) : null;
       if (fixed && !content?.hasChildNodes()) return null;
       const line = document.createElement("div"); line.className = "mind-choice-line";
-      const input = fixed ? document.createElement("span") : picker(options, selected, (kind) => set(kind ? defaultsOf(kind) : null), readOnly);
+      const input = fixed ? document.createElement("span") : selectInput(options, selected, (kind) => set(kind ? defaultsOf(kind) : null), { disabled: readOnly });
       if (fixed) input.textContent = options[0]!.text;
       const field = row(slot.label, input);
       if (chosen && content) {
@@ -153,14 +153,16 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
       item.className = "mind-item"; line.className = "mind-item-line";
       const replace = (next: PartConfig) => set(list.map((other, j) => j === i ? next : other));
       const childPath = [...path, slot.key, i], detail = settings(child, drawPart(child, replace, childPath), childPath, isKind(child.kind) ? partOf(child).label : slot.label);
-      line.append(detail.toggle, picker(choices(slot, child, list), child.kind, (kind) => replace(defaultsOf(kind)), readOnly),
-        button("↑", `Move ${slot.label.toLowerCase()} ${position + 1} up`, () => set(list.map((other, j) => j === previous ? child : j === i ? list[previous!]! : other)), readOnly || previous === undefined),
-        button("✕", `Remove ${slot.label.toLowerCase()} ${position + 1}`, () => set(list.filter((_, j) => j !== i)), readOnly));
+      line.append(detail.toggle, selectInput(choices(slot, child, list), child.kind, (kind) => replace(defaultsOf(kind)), { disabled: readOnly }),
+        buttonInput("↑", () => set(list.map((other, j) => j === previous ? child : j === i ? list[previous!]! : other)),
+          { title: `Move ${slot.label.toLowerCase()} ${position + 1} up`, ariaLabel: `Move ${slot.label.toLowerCase()} ${position + 1} up`, disabled: readOnly || previous === undefined }),
+        buttonInput("✕", () => set(list.filter((_, j) => j !== i)),
+          { title: `Remove ${slot.label.toLowerCase()} ${position + 1}`, ariaLabel: `Remove ${slot.label.toLowerCase()} ${position + 1}`, disabled: readOnly }));
       item.append(line, detail.panel);
       holder.append(item);
     });
     if (!readOnly) {
-      const add = picker([{ value: "", text: "Add…" }, ...choices(slot, null, list)], "", (kind) => { if (kind) set([...list, defaultsOf(kind)]); }, readOnly);
+      const add = selectInput([{ value: "", text: "Add…" }, ...choices(slot, null, list)], "", (kind) => { if (kind) set([...list, defaultsOf(kind)]); }, { disabled: readOnly });
       add.setAttribute("aria-label", `Add to ${slot.label.toLowerCase()}`);
       holder.append(add);
     }
