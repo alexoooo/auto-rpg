@@ -6,7 +6,7 @@ import { techniqueEditor } from "./mind-ground.ts";
 import { GAME, isKind, kindsFor, partOf, partLookup, treeFaults, type EntryRule } from "../../catalog.ts";
 import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { partOffered } from "../../../parts/fields.ts";
-import type { Part, PartConfig, Slot } from "../../../parts/parts.ts";
+import type { PartConfig, Slot } from "../../../parts/parts.ts";
 import { emptyRuns, slotValue } from "../../../parts/tree.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { mindFaults } from "../setup.ts";
@@ -35,9 +35,6 @@ interface EditorOptions {
   /** What is said after the faults: what the screen does with a mind that has one. */
   readonly onFault?: string;
 }
-
-/** What a person calls `part`, its stage said where it is research. */
-const named = (part: Part): string => part.label;
 
 /**
  * **A mind's editor** for a body of `spec`: each part's settings, its research `tuning` read-only,
@@ -73,7 +70,7 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
       .filter(({ kind, part }) => partOffered(part) || child?.kind === kind)
       .filter(({ kind, part, reason }) => slot.role !== "option" || kind === child?.kind || reason === null && usable(slot, part.defaults, siblings))
       .filter(({ kind }) => !defaultFallback(fallback) || kind !== fallback!.kind || child?.kind === kind && !same(child, fallback))
-      .map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${named(part)}: ${reason}` : named(part), disabled: reason !== null })),
+      .map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${part.label}: ${reason}` : part.label, disabled: reason !== null })),
   ];
   const defaultsOf = (kind: string): PartConfig => partOf({ kind }).defaults;
 
