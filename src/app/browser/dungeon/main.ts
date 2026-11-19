@@ -395,7 +395,8 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
           { name: "wall", kind: "box", centre: [x, (WALL_HEIGHT + foot) / 2, z], size: [1, WALL_HEIGHT - foot, 1] });
       }
     }
-    physical.push(...run.level.solids.filter(s => s.name !== "dungeon slab" && !s.name.startsWith("wall.")).map(s => ({ ...s, kind: "box" as const })));
+    // The floor and walls are drawn a cell at a time above, each shown as its cell is revealed and cut away; the obstacles and doors are the level's own.
+    physical.push(...run.level.solids.filter(s => s.part === "obstacle" || s.part === "door"));
     geometryVersion = "";
     geometryMaskVersion = ""; geometryMask = new Uint8Array(run.map.size * run.map.size);
     profile = sceneProfile(scene); profile.register("world", visualGroup(scene.meshes.filter(mesh => !run.actors.some(a => a.meshes.includes(mesh)) && !run.level.markers.some(marker => marker === mesh))));

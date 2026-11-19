@@ -7,9 +7,11 @@ import type { Door, DungeonMap, Point } from "./map.ts";
 /** A body inside this distance opens a door, m; interaction staging stays inside the same radius. */
 export const DOOR_OPEN_DISTANCE = 2.5;
 
-/** A fixed box the level puts in the physics world: its name, and its centre and full size, world, m. */
+/** A fixed box the level puts in the physics world: its name, which part of the level it is, and its centre and full size, world, m. */
 interface DungeonSolid {
   readonly name: string;
+  readonly kind: "box";
+  readonly part: "slab" | "obstacle" | "wall" | "door";
   readonly centre: readonly [number, number, number];
   readonly size: readonly [number, number, number];
 }
@@ -21,23 +23,22 @@ interface DungeonSolid {
  */
 export function dungeonSolids(map: DungeonMap, physics?: PhysicsWorld, opened: (door: Door) => void = () => {}) {
   const colliders: FixedCollider[] = [], solids: DungeonSolid[] = [];
-  const box = (name: string, x: number, y: number, z: number, width: number, height: number, depth: number): FixedCollider | null => {
-    solids.push({ name, centre: [x, y, z], size: [width, height, depth] });
+  const box = ({ name, part, centre, size }: Omit<DungeonSolid, "kind">): FixedCollider | null => {
+    solids.push({ name, kind: "box", part, centre, size });
     if (!physics) return null;
-    const collider = physics.addFixedBox([x, y, z], [width, height, depth]);
+    const collider = physics.addFixedBox(centre, size);
     colliders.push(collider); return collider;
   };
-  box("dungeon slab", (map.size - 1) / 2, -0.5, (map.size - 1) / 2, map.size, 1, map.size);
-  for (const o of map.obstacles ?? []) box(o.id, o.x, o.height / 2, o.z, o.width, o.height, o.depth);
+  box({ name: "dungeon slab", part: "slab", centre: [(map.size - 1) / 2, -0.5, (map.size - 1) / 2], size: [map.size, 1, map.size] });
+  for (const o of map.obstacles ?? []) box({ name: o.id, part: "obstacle", centre: [o.x, o.height / 2, o.z], size: [o.width, o.height, o.depth] });
   // `wallSurface` draws the walls' outer skin; these are what a body meets.
   for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size;) {
     if (!boundary(map, x, z)) { x++; continue; }
     const start = x; while (x < map.size && x - start < 4 && boundary(map, x, z)) x++;
-    box(`wall.${z}.${start}`, (start + x - 1) / 2, WALL_HEIGHT / 2, z, x - start, WALL_HEIGHT, 1);
+    box({ name: `wall.${z}.${start}`, part: "wall", centre: [(start + x - 1) / 2, WALL_HEIGHT / 2, z], size: [x - start, WALL_HEIGHT, 1] });
   }
-  const doors = map.doors.map(d => d.open ? null : box(`door.${d.id}`, d.point.x, 1.25, d.point.z, d.axis === "x" ? 0.35 : 3, 2.5, d.axis === "z" ? 0.35 : 3));
-  const senseSolids = () => solidSenses(solids.filter(solid => !solid.name.startsWith("door.") || !map.doors.find(door => solid.name === `door.${door.id}`)?.open)
-    .map(solid => ({ ...solid, kind: "box" as const })));
+  const doors = map.doors.map(d => d.open ? null : box({ name: `door.${d.id}`, part: "door", centre: [d.point.x, 1.25, d.point.z], size: [d.axis === "x" ? 0.35 : 3, 2.5, d.axis === "z" ? 0.35 : 3] }));
+  const senseSolids = () => solidSenses(solids.filter(solid => solid.part !== "door" || !map.doors.find(door => solid.name === `door.${door.id}`)?.open));
   let sensed = senseSolids();
   /** Opens each of `opening` still closed: its collider gone. */
   const open = (opening: readonly Door[]) => {
