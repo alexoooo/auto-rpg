@@ -62,7 +62,8 @@ test("deselecting an optional skill leaves the remaining combat repertoire usabl
   assert.ok(made.executors.some(one => one.kind === "club-blow"), "the selected club blow is an available executor");
   assert.equal(made.components.find(one => one.role === "option" && one.config.kind === "strike-club-blow").path, null,
     "a generated choice has no fabricated path into the configured option list");
-  assert.deepEqual(parts.selected("guard", club).map(one => one.kind), ["cover-guard", "shield-guard", "lowered"], "one applicable guard does not exclude another");
+  assert.deepEqual(parts.selected("guard", club).map(one => one.kind), ["shield-guard", "lowered"],
+    "a guard applies to the loadout it is for, the cover guard to hands holding no face; guards that both apply do not exclude one another");
 });
 
 /**

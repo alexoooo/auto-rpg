@@ -55,11 +55,13 @@ function coveringSkill(built: ReadBody, config: CoveringConfig<string>, { wards 
  * **A covering guard as a part**: the arms' posture (`guardPosture`) and its hands' cover of what
  * the mind names (`coveringSkill`), its one variation named as its kind; `named` in its refusals.
  * One that `wards` also holds an item's declared face out at the threat, no faster than the body's
- * balance allows (`wardSpeed`): it needs soles to balance on and an item with a face.
+ * balance allows (`wardSpeed`): it needs soles to balance on and an item with a face. One that does
+ * not is for a body holding no face: a hand holding a face covers with the face.
  */
 export function coveringPart<K extends string>({ kind, label, named, wards }: { readonly kind: K; readonly label: string; readonly named: string; readonly wards: boolean }): GuardPart<CoveringConfig<K>> {
   const variations = { [kind]: { posture: (spec: BodySpec) => guardPosture(spec), make: (built: ReadBody, config: CoveringConfig<K>) => coveringSkill(built, config, { wards }) } };
-  const warding = wards ? [soleRefusal, fitsWhen(wardsWithFace, "holds no item with a face to ward with")] : [];
+  const warding = wards ? [soleRefusal, fitsWhen(wardsWithFace, "holds no item with a face to ward with")]
+    : [fitsWhen((spec: BodySpec) => !wardsWithFace(spec), "holds an item with a face, which a hand covers with")];
   return {
     covers: (spec) => handsOf(spec),
     role: "guard", label, fields: [], slots: [], defaults: { kind } as CoveringConfig<K>, keys: { kind: true, variation: true, tuning: true },
