@@ -52,12 +52,6 @@ export interface OptionPart<C extends PartConfig = PartConfig, G = unknown, O = 
   readonly obeys?: boolean;
   /** Whether its Options keep the body where it stands, striking and covering nothing: a rest, or a way of the ground (`standingOptions`). */
   readonly stands: boolean;
-  /**
-   * What a person is shown for each phase it reports (`Decider.engagement`'s `phase`), by the
-   * phase's name: a label, or null for a phase a feed leaves unsaid because what it does shows
-   * itself (an attack, as its action). A phase no Option names is shown as its own name.
-   */
-  readonly phases?: Readonly<Record<string, string | null>>;
   readonly keys: KeysOf<C>;
   /** The options a config of it makes, from what the mind gives (`given`), in their rank order. */
   make(config: C, given: G): readonly O[];

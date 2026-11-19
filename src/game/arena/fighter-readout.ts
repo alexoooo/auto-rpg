@@ -119,12 +119,11 @@ const actionLabel = (action: Pick<ActionStatus, "action" | "effector">) => `${ti
 /**
  * A bounded presentation history reads reports after every step and never writes to them. Named
  * tactical decisions are quieter than executor stages or per-step control writes, each shown by
- * the label its part gives it (`labels`, `phaseLabels`), and not at all where that is null.
+ * its name.
  */
 function actionFeed() {
   const state = { entries: [] as FeedEntry[], sequence: 0, serial: 0, pending: null as string | null,
     since: 0, settled: null as string | null, time: -Infinity };
-  let labels: Readonly<Record<string, string | null>> = {};
   const reset = () => {
     state.entries.length = 0; state.sequence = 0; state.serial = 0;
     state.pending = null; state.settled = null; state.since = 0; state.time = -Infinity;
@@ -136,8 +135,6 @@ function actionFeed() {
     }
   };
   return { reset,
-    /** Show phases by `next` (`phaseLabels` of the mind being read). */
-    label(next: Readonly<Record<string, string | null>>): void { labels = next; },
     sample(report: Pick<MindReport, "actions" | "ended" | "engagement"> | undefined, body: Pick<PhysicalBody, "has" | "level">, time: number): void {
       if (time < state.time) reset();
       state.time = time; prune(time);
@@ -165,13 +162,12 @@ function actionFeed() {
         else if (time - record.ended < 6) state.entries.unshift({ key, kind: "action", label: actionLabel(record),
           detail: result(record), time: record.ended, active: false });
       }
-      const phase = commandsBody(body) ? report.engagement?.phase ?? null : body.level === "full" && body.has !== "nobody" ? body.has : null;
-      const behaviour = phase === null || labels[phase] === null ? null : phase;
+      const behaviour = commandsBody(body) ? report.engagement?.phase ?? null : body.level === "full" && body.has !== "nobody" ? body.has : null;
       if (behaviour !== state.pending) { state.pending = behaviour; state.since = time; }
       if (behaviour === null) { state.settled = null; return; }
       if (behaviour !== state.settled && time - state.since >= .3) {
         state.settled = behaviour;
-        state.entries.unshift({ key: `behaviour:${++state.serial}`, kind: "behaviour", label: labels[behaviour] ?? title(behaviour.replaceAll("-", " ")),
+        state.entries.unshift({ key: `behaviour:${++state.serial}`, kind: "behaviour", label: title(behaviour.replaceAll("-", " ")),
           detail: "", active: false, time });
       }
     },
@@ -199,9 +195,8 @@ export interface FighterReading {
 }
 
 /** `fighter`'s damage, by its pool and the blows of `blows`, and its recent actions, sampled after each step (`sample`) and read as its HUD shows them (`read`). */
-export function fighterReading(fighter: Combatant, blows: () => readonly LandedBlow[], labels: Readonly<Record<string, string | null>>) {
+export function fighterReading(fighter: Combatant, blows: () => readonly LandedBlow[]) {
   const damage = damageReadout(fighter, blows), history = actionFeed();
-  history.label(labels);
   return {
     /** Sample at `time`, the bout's s; the actions too unless `actions` is false. */
     sample(time: number, actions = true): void {

@@ -121,8 +121,6 @@ export interface Catalog {
   treeFaults(config: PartConfig, at?: string): readonly string[];
   /** Whether the mind `config` roots carries out a person's orders (`Controller.obeys`). */
   treeObeys(config: PartConfig): boolean;
-  /** What a person is shown for each phase the mind `config` roots reports (`Controller.phases`). */
-  phaseLabels(config: PartConfig): Readonly<Record<string, string | null>>;
   /** **The mind data `config`'s parts read** (`Part.reads`), every key once: what a screen loads (`loadData`) before it builds the mind. */
   treeData(config: PartConfig): readonly DataKey[];
   /** **Whether a body of `spec` can stage what `config` roots** on its screen: its tree's faults (`treeValidation`), fit (`fitRefusal`), then the scenario's entry rules (`EntryRule`); the first reason, or null. */
@@ -383,7 +381,6 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     treeLookup: (config: PartConfig): PartLookup => treeLookup(parts, config),
     treeFaults: (config: PartConfig, at = ""): readonly string[] => treeFaults(parts, config, at),
     treeObeys: (config: PartConfig): boolean => parts.find("mind", config)?.obeys?.(config, parts) ?? false,
-    phaseLabels: (config: PartConfig): Readonly<Record<string, string | null>> => parts.find("mind", config)?.phases?.(config, parts) ?? {},
     treeData: (config: PartConfig): readonly DataKey[] => treeData(parts, config),
     stageRefusal: (spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null =>
       treeValidation(parts, config, "").faults[0] ?? fitRefusal(parts, spec, config) ?? entryRefusal(parts, spec, config, rules),

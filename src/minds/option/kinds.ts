@@ -326,7 +326,7 @@ export const HOLD_OPTION = deepFreeze({ ...kind("hold-position", "Hold the posit
 /** Each enabled guard as its own rest option, explicitly selected by the mind. */
 export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at guard", given => given.guards.map(config =>
   choosingSkill(guardOf(given.spec, given.parts.of("guard", config).covers?.(given.spec, config) ?? []), config, "guard"))),
-  phases: { guard: "Guarding" }, stands: true });
+  stands: true });
 
 /**
  * The options `configs` name, each kind's as `of` finds it, made from `given`, in their order; then

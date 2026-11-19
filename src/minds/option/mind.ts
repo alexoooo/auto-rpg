@@ -70,7 +70,6 @@ export function optionMind(assembly: OptionAssembly) {
     // What a fight asks of a mind, each answered by its Options, and by its guard for what it holds.
     strikes: (spec, config, parts) => resolvedFor(config, spec, parts).options.flatMap(option => parts.of("option", option).strikes?.(spec, option, parts) ?? []),
     obeys: (config, parts) => optionsOf(config, parts).some(([part]) => part.obeys === true),
-    phases: (config, parts) => Object.assign({}, ...optionsOf(config, parts).map(([part]) => part.phases ?? {})),
     supportedEquipment: (spec, config, parts) => {
       return guardConfigs(parts, spec, config.tuning?.parts?.guard).flatMap(guard => parts.of("guard", guard).supportedEquipment?.(spec, guard) ?? []);
     },

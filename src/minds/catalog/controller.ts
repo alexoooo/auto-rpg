@@ -62,8 +62,6 @@ export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
   supportedEquipment?(spec: BodySpec, config: C, parts: PartLookup): readonly string[];
   /** Whether it carries out a person's `Orders`: one that does not plays as its own while a person leads its side (`treeObeys`). */
   obeys?(config: C, parts: PartLookup): boolean;
-  /** What a person is shown for each phase it reports, by the phase's name (`OptionPart.phases`, `phaseLabels`). */
-  phases?(config: C, parts: PartLookup): Readonly<Record<string, string | null>>;
 }
 
 /** No posture: a body built in its spec's reference pose. */

@@ -141,7 +141,6 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
   const scope = constructionScope();
   let complete = false;
   try {
-  const { phaseLabels } = context.catalog;
   const cues: SoundCue[] = [];
   const main = scope.own(await played(context, start, { onBlow: (blow) => { cues.push(...debrisCues(blow)); } }));
   scope.own(main.playback);
@@ -155,7 +154,7 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
   const leadSide = (side: Side | null): TeamOfOne | null => side ? teamOfOne(duel, side, { kind: "party", picks: false }, context.commanders) : null;
   let led = leadSide(start.person);
   scope.own({ dispose: () => led?.dispose() });
-  const readings = Object.fromEntries(SIDES.map((side) => [side, fighterReading(duel.duelists[side], () => duel.blows, phaseLabels(duel.duelists[side].mind))])) as Record<Side, ReturnType<typeof fighterReading>>;
+  const readings = Object.fromEntries(SIDES.map((side) => [side, fighterReading(duel.duelists[side], () => duel.blows)])) as Record<Side, ReturnType<typeof fighterReading>>;
   const time = () => duel.state.start + (duel.verdict?.time ?? duel.clock);
   let feedStopped = false;
   scope.own(world.afterStep(() => {
