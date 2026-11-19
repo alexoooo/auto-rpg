@@ -251,8 +251,17 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   0.510) held out on `warrior-drawn`; on the scorecard's 72 bouts, standing silent 4.3% against
   5.4% (paired -1.1 points, -3.4 to 1.3) and 0.40 falls a bout against 0.19 (paired 0.21, -0.03
   to 0.49), every bout a knockout. With the back step on both sides it met neither of its bars:
-  0.517 (0.434 to 0.597) won, and standing silent 16.2% against 8.1% (`c6c3d95fb`). It stays in
-  the Arena's Mind picker, unset, for a person to set and watch. *Shown.*
+  0.517 (0.434 to 0.597) won, and standing silent 16.2% against 8.1% (`c6c3d95fb`). At 0.03, 0.2
+  and 0.3 neither: the mirror with the back step on both sides against without, 72 gaps, 12.0,
+  12.8 and 11.8 points more silent (the least, 9.0 to 14.5) where unset is 14.5 (11.2 to 17.7).
+  It stays in the Arena's Mind picker, unset, for a person to set and watch. *Shown.*
+- **A Mind that can sway back chases its foe**: two Warriors with the back step stand silent 20.2%
+  of a bout against 7.2% without it (216 gaps, paired 13.0 points, 11.1 to 14.9, at `9b0fcc618`),
+  nearly all of it 1 to 2 m apart, walking in on a foe that sways back from it. None of these moved
+  it past its spread on 72 of the gaps: Initiative from 0.03 to 0.3 (above); the measured pressure
+  read at a foe down or rising (13.7 points) or past the range it measured (15.0), both priced
+  nothing before; and the falls, more with it (0.68 a bout against 0.35), carry about 1.8 of the
+  points. *Shown.*
 - **A search that starts from its last decision's worths wins by fighting less**: each Option's
   worth at the last root kept as as many runs, fading by half each 0.5 s (`TreeConfig.keeps`), won
   0.635 (0.580 to 0.691) held out at the same runs, but silent 16.2% of a bout against 9.4%: an
