@@ -54,7 +54,7 @@ import { dungeonStone, stoneQuery } from "./stone.ts";
 import type { CryptRoomPlan } from "../../../game/dungeon/crypt-plan.ts";
 import { generateCryptDungeon } from "../../../game/dungeon/crypt-dungeon.ts";
 import { referenceChamber, REFERENCE_ZOOM, REFERENCE_TORCHES } from "../../../game/dungeon/reference.ts";
-import { dressReference, type ReferenceQuality } from "./reference-look.ts";
+import { cryptLook, dressReference, REFERENCE_LOOK, type ReferenceQuality } from "./reference-look.ts";
 import { need as find } from "../dom.ts";
 import type { ScreenContext } from "../ui/screen.ts";
 import type { Command } from "../../../minds/command/commands.ts";
@@ -370,7 +370,7 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
     if (reference) {
       await stage("Preparing the chamber");
       stillShown();
-      page.referenceLook = await dressReference(scene, run.level, page.selectedQuality, azimuth, cryptPlan);
+      page.referenceLook = await dressReference(scene, { level: run.level, quality: page.selectedQuality, azimuth, look: cryptPlan ? cryptLook(cryptPlan) : REFERENCE_LOOK });
       stillShown();
       if (page.selectedQuality === "reduced") lighting.setLook({ ssao: false });
     }

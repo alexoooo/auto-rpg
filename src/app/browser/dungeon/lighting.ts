@@ -48,6 +48,10 @@ const DUNGEON_LOOK = Object.freeze({
  * `orthographicLightProxy` makes it so. */
 const lightRange = (intensity: number): number => Math.sqrt(intensity / DUNGEON_LOOK.cutoff);
 
+/** The indices of the `count` of `lights` nearest `at` on the ground. */
+export const nearestLights = (lights: readonly { readonly position: Vector3 }[], at: Point, count: number): number[] =>
+  lights.map((light, i) => ({ i, d: Math.hypot(light.position.x - at.x, light.position.z - at.z) })).sort((a, b) => a.d - b.d).slice(0, count).map(o => o.i);
+
 export interface LookSwitches { torches: boolean; ssao: boolean; post: boolean }
 
 /** **A dungeon's light**: its ambient fill, the arena's HDRI's strength, its lantern and its grade. */
@@ -162,8 +166,7 @@ export function lightDungeon(scene: Scene, camera: FreeCamera, { map, torches, a
   const showFlames = () => { for (const { flame, floor } of flames) flame.isVisible = look.torches && explored.has(floor); };
   const nearest = (hero: Point) => {
     if (clustered) return;
-    const order = lights.map((light, i) => ({ i, d: Math.hypot(light.position.x - hero.x, light.position.z - hero.z) }))
-      .sort((a, b) => a.d - b.d).slice(0, DUNGEON_LOOK.fallbackLights).map(o => o.i);
+    const order = nearestLights(lights, hero, DUNGEON_LOOK.fallbackLights);
     lights.forEach((light, i) => { const on = look.torches && order.includes(i); if (light.isEnabled() !== on) light.setEnabled(on); });
   };
   let lastHero: Point = { x: 0, z: 0 };

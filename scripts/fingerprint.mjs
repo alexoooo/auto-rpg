@@ -57,7 +57,7 @@ import { generateCryptDungeon } from "../src/game/dungeon/crypt-dungeon.ts";
 import { CryptWeathering } from "../src/app/browser/dungeon/crypt-weathering.ts";
 import { generateLevel } from "../src/game/dungeon/level.ts";
 import { clearSegment, distance, findPath, reveal, walkable } from "../src/game/dungeon/map.ts";
-import { cutawayShader } from "../src/app/browser/dungeon/reference-look.ts";
+import { cutawayShader, REFERENCE_LOOK } from "../src/app/browser/dungeon/reference-look.ts";
 import { createDungeonRun } from "../src/app/node/game.ts";
 import { revealScenery } from "../src/app/browser/dungeon/scenery-visibility.ts";
 import { labActor } from "../src/app/node/game.ts";
@@ -250,9 +250,8 @@ function weathering(seeds) {
 /** The shader condition that cuts the near walls away at the camera's bearing, for each crypt and the reference chamber. */
 function cutaway(seeds) {
   const hash = createHash("sha256");
-  for (const plan of [undefined, ...seeds.map((seed) => admitted(generateCryptDungeon(seed)))]) {
-    hash.update(cutawayShader(plan));
-  }
+  hash.update(REFERENCE_LOOK.cutaway);
+  for (const seed of seeds) hash.update(cutawayShader(admitted(generateCryptDungeon(seed))));
   return digestOf(hash);
 }
 
