@@ -20,8 +20,6 @@ import { CATCH_UP_MS } from "../../../game/lab/player.ts";
  * touches of whatever other body a scenario puts beside it, `src/game/audio/body-sounds.ts`), and the
  * cue of the lab's one instrument that is no contact: the page's hand shoving the body
  * (`shoveSound`).
- *
- * This module has no page-only imports, so the Node stand can run it.
  */
 export interface SoundLog {
   /** `cue` sounded at `time`, s. */

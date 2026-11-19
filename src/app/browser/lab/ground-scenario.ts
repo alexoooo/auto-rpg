@@ -33,6 +33,9 @@ import { loadArtAssets } from "../render/art-assets.ts";
 import { assembleCryptKit } from "../environment/crypt-kit.ts";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 
+/** Seconds of the run the page keeps to scrub back through. */
+const HISTORY_SECONDS = 35;
+
 /** The Lab's stock stand-up route, in the order offered to the mind. */
 const STAND_UP: readonly ConfigFor<"technique">[] = deepFreeze([
   { kind: "staged-roll" }, { kind: "staged-down" }, { kind: "sit-back" }, { kind: "front-sit-back" },
@@ -131,7 +134,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         when(() => address.ground.start !== "round", action("Shove again", () => current?.shove()))],
       readout: [meter, trail, attempts, phases],
     },
-    timelineLabel: "The last 35 seconds, one physics step per notch.",
+    timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step per notch.`,
     start({ actor, puppet, address: next, changed, clock, heard, hears }) {
       address = next;
       const sound = shoveSound(actor.body.built);
@@ -160,8 +163,8 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
       const foe = session.dummy ? session.dummy.fighter.built : null, foePuppet = foe ? puppetBody(foe.spec, scene) : null;
       const foeFollows = foe && foePuppet ? followBody(foePuppet, foe, actor.world) : null;
       const dummy = foePuppet ? drawBody(foePuppet, scene, new Color3(.75, .45, .25)) : null;
-      const history = recordHistory(actor.body.built, puppet, actor.world, 35, () => session.frame());
-      const foeHistory = foe && foePuppet ? recordHistory(foe, foePuppet, actor.world, 35, () => null) : null;
+      const history = recordHistory(actor.body.built, puppet, actor.world, HISTORY_SECONDS, () => session.frame());
+      const foeHistory = foe && foePuppet ? recordHistory(foe, foePuppet, actor.world, HISTORY_SECONDS, () => null) : null;
       const recording = { live: history.live, show(frame: number) { history.show(frame); foeHistory?.show(frame); } };
       const player = createPlayer({ world: actor.world, recording }, changed, clock);
       const run = {

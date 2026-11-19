@@ -13,7 +13,7 @@ export class EnemyHover {
   private layer: HighlightLayer | null = null;
   private scene: Scene | null = null;
   private meshes = new Set<Mesh>();
-  /** Outline what was drawn for a body (`DungeonActor.meshes`), or nothing. */
+  /** Outline what was drawn for a body (`ViewActor.meshes`), or nothing. */
   show(actor: { readonly meshes: readonly AbstractMesh[] } | null): void {
     const meshes=new Set(actor?.meshes.filter((m): m is Mesh=>m.isVisible&&m.isEnabled()&&m instanceof Mesh&&m.getTotalVertices()>0)??[]);
     const scene=meshes.values().next().value?.getScene();

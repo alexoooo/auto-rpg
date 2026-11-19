@@ -259,7 +259,6 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     world?.dispose(); world = null;
   }
 
-  /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
   /** The mind a body of `spec` plays at `to`: the page's choice, as the scenario has it. */
   function mindAt(to: LabAddress, spec: BodySpec): MindConfig {
     const chosen = labMind(to.mind, spec, to.scenario).plays;
@@ -272,6 +271,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     return isRefused(spec) ? [] : treeData(mindAt(to, spec));
   }
 
+  /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
   function loadWorld(to: LabAddress): void | Refused {
     if (disposed) return;
     const spec = loadoutSpecChecked(to);

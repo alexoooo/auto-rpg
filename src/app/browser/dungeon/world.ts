@@ -88,7 +88,23 @@ const DOOR_LEAF = Object.freeze({
 });
 /** An iron sconce under each torch's flame, set into the wall face: no piece stands more than `proud` off it
  * (art carries no collision, so a fitting stays close to the wall that does). Its sizes are set by eye. */
-const SCONCE = Object.freeze({ proud: 0.08, plate: Object.freeze([0.20, 0.44, 0.02] as const), plateY: 1.82, cupY: 1.84 });
+const SCONCE = Object.freeze({
+  proud: 0.08, plate: Object.freeze([0.20, 0.44, 0.02] as const), plateY: 1.82, cupY: 1.84,
+  /** The arm from the plate to the cup: its square's side, and how far under the cup's height it meets it. */
+  arm: Object.freeze({ side: 0.03, below: 0.06 }),
+  /** The cup under the basket: its diameters, its height, and how far under the cup's height it hangs. */
+  cup: Object.freeze({ top: 0.50, bottom: 0.24, height: 0.055, below: 0.22 }),
+  /** How flat the cup and the basket are pressed to the wall: their depth over their width. */
+  flat: 0.29,
+  /** The basket's two rims, `apart` above and below the cup's height. */
+  rim: Object.freeze({ apart: 0.20, diameter: 0.50, thickness: 0.020 }),
+  /** The basket's bars, `half` either side of the middle and `spacing` apart, curving back to `depth` at the middle. */
+  bars: Object.freeze({ half: 2, spacing: 0.11, depth: 0.072, side: 0.014, height: 0.42 }),
+  /** The plate's two rivets, `apart` above and below its middle. */
+  rivets: Object.freeze({ apart: 0.16, diameter: 0.032, depth: 0.022 }),
+  /** How far back from its flame, into its niche, a sconce is mounted. */
+  recess: 0.15,
+});
 
 /** Pieces built about the origin, merged into one mesh and placed: a fitting's parts share one draw. */
 function fitting(name: string, pieces: Mesh[], x: number, z: number, turn: number): Mesh {
@@ -140,8 +156,8 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, look: DungeonSu
   for (const mesh of mergedQuads(scene, "wall.visual", walls, look.wall.metresPerRepeat)) { mesh.material = look.wall.material; surfaces.push(mesh); }
   const exit = MeshBuilder.CreateTorus("exit sigil", { diameter: 2, thickness: 0.12, tessellation: 40 }, scene);
   exit.position.set(map.exit.x, 0.06, map.exit.z); exit.isPickable = false; exit.isVisible = false;
-  // #42b998 in linear light has a luminance of 0.381; bloom extracts what exceeds its 1.1 threshold after the 1.15
-  // exposure, so x3 (0.381 x 3 x 1.15 = 1.32) glows, and anything under about x2.5 would not.
+  // #42b998 in linear light has a luminance of 0.381; bloom extracts what exceeds its threshold after the exposure
+  // (`GRADE`), so three times it glows, a fifth over, and anything under about two and a half times would not.
   const exitMaterial = flatStone(scene, "exit light", "#93edcf");
   exitMaterial.emissiveColor = Color3.FromHexString("#42b998").toLinearSpace().scale(3); exit.material = exitMaterial;
   return {
@@ -160,27 +176,27 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, look: DungeonSu
       return torches.map((torch, i) => {
         const [w, h, d] = S.plate, plate = MeshBuilder.CreateBox("plate", { width: w, height: h, depth: d }, scene);
         plate.position.set(0, S.plateY, d / 2);
-        const arm = MeshBuilder.CreateBox("arm", { width: 0.03, height: 0.03, depth: S.proud - d }, scene);
-        arm.position.set(0, S.cupY - 0.06, d + (S.proud - d) / 2);
-        const cup = MeshBuilder.CreateCylinder("cup", { diameterTop: .50, diameterBottom: .24, height: .055, tessellation: 12 }, scene);
-        cup.scaling.z=.29; cup.position.set(0, S.cupY-.22, 0);
-        const cage: Mesh[]=[];
-        for (const y of [S.cupY-.20,S.cupY+.20]) {
-          const ring=MeshBuilder.CreateTorus("basket.rim",{diameter:.50,thickness:.020,tessellation:12},scene);
-          ring.scaling.z=.29;ring.position.set(0,y,0);cage.push(ring);
+        const arm = MeshBuilder.CreateBox("arm", { width: S.arm.side, height: S.arm.side, depth: S.proud - d }, scene);
+        arm.position.set(0, S.cupY - S.arm.below, d + (S.proud - d) / 2);
+        const cup = MeshBuilder.CreateCylinder("cup", { diameterTop: S.cup.top, diameterBottom: S.cup.bottom, height: S.cup.height, tessellation: 12 }, scene);
+        cup.scaling.z = S.flat; cup.position.set(0, S.cupY - S.cup.below, 0);
+        const cage: Mesh[] = [];
+        for (const y of [S.cupY - S.rim.apart, S.cupY + S.rim.apart]) {
+          const ring = MeshBuilder.CreateTorus("basket.rim", { diameter: S.rim.diameter, thickness: S.rim.thickness, tessellation: 12 }, scene);
+          ring.scaling.z = S.flat; ring.position.set(0, y, 0); cage.push(ring);
         }
-        for (let j=-2;j<=2;j++) {
-          const bar=MeshBuilder.CreateBox("basket.bar",{width:.014,height:.42,depth:.014},scene);
-          bar.position.set(j*.11,S.cupY,.072*Math.sqrt(1-j*j/5));cage.push(bar);
+        for (let j = -S.bars.half; j <= S.bars.half; j++) {
+          const bar = MeshBuilder.CreateBox("basket.bar", { width: S.bars.side, height: S.bars.height, depth: S.bars.side }, scene);
+          bar.position.set(j * S.bars.spacing, S.cupY, S.bars.depth * Math.sqrt(1 - j * j / (S.bars.half ** 2 + 1))); cage.push(bar);
         }
-        for (const y of [S.plateY-.16,S.plateY+.16]) {
-          const rivet=MeshBuilder.CreateSphere("sconce.rivet",{diameter:.032,segments:6},scene);
-          rivet.position.set(0,y,.022);cage.push(rivet);
+        for (const y of [S.plateY - S.rivets.apart, S.plateY + S.rivets.apart]) {
+          const rivet = MeshBuilder.CreateSphere("sconce.rivet", { diameter: S.rivets.diameter, segments: 6 }, scene);
+          rivet.position.set(0, y, S.rivets.depth); cage.push(rivet);
         }
         // Built facing +z from a face at z = 0, and turned to face the floor the torch lights.
         // A recessed flame mounts the basket on its niche's back instead of across the opening.
-        const mesh = fitting(`torch.sconce.${i}`, [plate, arm, cup,...cage], torch.flame.x - torch.facing.x * .15,
-          torch.flame.z - torch.facing.z * .15, atan2(torch.facing.x, torch.facing.z));
+        const mesh = fitting(`torch.sconce.${i}`, [plate, arm, cup, ...cage], torch.flame.x - torch.facing.x * S.recess,
+          torch.flame.z - torch.facing.z * S.recess, atan2(torch.facing.x, torch.facing.z));
         mesh.unfreezeWorldMatrix();mesh.position.y=torch.flame.y-DRESSING.torchHeight;mesh.freezeWorldMatrix();
         mesh.material = iron; mesh.isVisible = false; surfaces.push(mesh);
         fittings.push({ mesh, floor: cellKey(map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z }) });
