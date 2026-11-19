@@ -47,7 +47,7 @@ export const createScorecardCases = perContext((context: GameContext) => {
       play: protocol as unknown as Json,
       conditions,
       seconds: protocol.seconds,
-      faults: (value) => mindFaults(mindOf(value), seatBody(protocol.body, EMPTY), { entry: FIGHT_ENTRY }).map((fault) => `${protocol.body}: ${fault}`),
+      faults: (value, _condition, seat) => mindFaults(mindOf(value), seatBody(protocol.body, EMPTY, seat), { entry: FIGHT_ENTRY }).map((fault) => `${protocol.body}: ${fault}`),
       world: ([value], { gap }, engine, [seat]) => ({
         kind: "bout", engine, tape: [],
         recipe: { level: "open", left: protocol.body, right: protocol.body, gap, loadouts: { left: EMPTY, right: EMPTY },
