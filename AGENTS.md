@@ -7,9 +7,9 @@ A new capability enters by the config path those already there take. Work not ye
 worktree (`.tmp/worktrees/<name>/`), never on main behind a helper, a preset or a flag.
 
 [README](README.md) says what the game is, the documents below the rest. Work toward the owner's
-goal runs unattended, overnight included. A second session that reviews it reads read-only and sends a note only with
-its evidence, never asking the work to wait for the owner or adding to the owner's bar; the worker
-answers a note with a reading and keeps going.
+goal runs unattended, overnight included. A second session that reviews it reads read-only and
+sends a note only with its evidence, never asking the work to wait for the owner or adding to the
+owner's bar; the worker answers a note with a reading and keeps going.
 
 ## Commands
 
