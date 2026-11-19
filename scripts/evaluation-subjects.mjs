@@ -4,6 +4,7 @@ import { basename } from "node:path";
 import { replacedAt, CONTROLLERS, MINDS } from "../src/app/catalog.ts";
 import { recordingKey } from "../src/core/world/recording.ts";
 import { sha256Text } from "../src/evaluation/sha256.ts";
+import { belongsTo } from "../src/evaluation/evaluation.ts";
 
 /** The subject `text` names: a JSON file or JSON as given whole, else a name for the catalogue. */
 export function subjectOf(text) {
@@ -14,9 +15,6 @@ export function subjectOf(text) {
   }
   return text;
 }
-
-/** Whether subject `id` is mind `prefix`'s: the mind itself, or one of its entrants (`prefix/...`). */
-export const belongsTo = (id, prefix) => id === prefix || id.startsWith(`${prefix}/`);
 
 /** The source choice and its changed config, named by the source's id and the replaced paths. */
 function ablated(previous, ablations) {

@@ -79,12 +79,19 @@ function variationsFault(variations: readonly string[], offered: readonly SkillO
   return null;
 }
 
+/** **Whether the subject `id` is one a choice's name `name` gives**: the name itself, or one of the several it gives (`name/...`, a tournament's entrants). */
+export const belongsTo = (id: string, name: string): boolean => id === name || id.startsWith(`${name}/`);
+
 /**
  * **`evaluation` with its subjects' variations chosen by name**: a name ending in one or more
  * `+<skill>/<variation>` (`option/straight-punch+straight-punch/moving`) is each subject the
  * name before them gives, its bodies' characters holding those variations in place of their own of
  * the same skills (`Subject.variations`), its id the name's and its label saying so. A skill
  * `offered` lists no variation of is refused, as is a variation it does not offer.
+ *
+ * The names are resolved together, as an evaluation that reads its choice whole (a match's two
+ * minds) asks. Each subject is the name's it belongs to (`belongsTo`), the longest such; names of
+ * one base before their variations share its subjects in turn, as many each.
  */
 export function variedSubjects<E extends Pick<Evaluation, "subjects">>(evaluation: E, offered: () => readonly SkillOffer[]): E {
   const subjects = evaluation.subjects;
@@ -101,10 +108,19 @@ export function variedSubjects<E extends Pick<Evaluation, "subjects">>(evaluatio
   return { ...evaluation, subjects: (choice: SubjectChoice) => {
     const named = choice.map(split);
     if (named.every(({ variations }) => variations.length === 0)) return subjects(choice);
-    // Names resolved together, as an evaluation that reads its choice whole (a match's two minds) asks; one that gives a name several subjects (the tournament's entrants), each alone.
-    const together = subjects(named.map(({ one }) => one));
-    return together.length === named.length ? together.map((subject, at) => varied(subject, named[at]!.variations))
-      : named.flatMap(({ one, variations }) => subjects([one]).map((subject) => varied(subject, variations)));
+    const resolved = subjects(named.map(({ one }) => one)), bases = named.map(({ one }) => typeof one === "string" ? one : one.id);
+    /** The base each subject belongs to, the longest; null for none. */
+    const baseOf = (subject: Subject): string | null => bases.filter((base) => belongsTo(subject.id, base)).reduce<string | null>((a, b) => a === null || b.length > a.length ? b : a, null);
+    const owned = resolved.map(baseOf), seen = new Map<string, number>();
+    return resolved.map((subject, at) => {
+      const base = owned[at];
+      if (base === null) return subject;
+      const names = named.filter((_, k) => bases[k] === base), all = owned.filter((one) => one === base).length;
+      if (all % names.length !== 0) throw new Error(`${base} gives ${all} subjects, not as many to each of its ${names.length} names`);
+      const nth = seen.get(base) ?? 0;
+      seen.set(base, nth + 1);
+      return varied(subject, names[Math.floor(nth / (all / names.length))]!.variations);
+    });
   } };
 }
 

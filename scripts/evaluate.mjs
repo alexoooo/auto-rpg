@@ -65,7 +65,8 @@ import { ratedNotes } from "../src/evaluation/tournament/notes.ts";
 import { BUILD_IDENTITY, uncommittedInputs } from "./build-identity.mjs";
 import { resultsOf, writeResults } from "./evaluation-results.mjs";
 import { drawFound, originText, rowStore } from "./evaluation-rows.mjs";
-import { belongsTo, resolveSubjects, subjectOf } from "./evaluation-subjects.mjs";
+import { resolveSubjects, subjectOf } from "./evaluation-subjects.mjs";
+import { belongsTo } from "../src/evaluation/evaluation.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
