@@ -12,6 +12,7 @@ import type { SubMesh } from "@babylonjs/core/Meshes/subMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { CUT_AWAY, FOG_SAMPLE, WALL_HEIGHT, fogMask } from "../../../game/dungeon/fog.ts";
 import { revealScenery } from "./scenery-visibility.ts";
+import { valueNoise } from "../render/glsl-noise.ts";
 import { MASONRY } from "./masonry.ts";
 import type { DungeonMap, Point } from "../../../game/dungeon/map.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "../../../game/dungeon/bearing.ts";
@@ -71,11 +72,7 @@ uniform sampler2D fogMaskSampler;
 float dungeonBayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
 float dungeonBayer4(vec2 a) { return dungeonBayer2(0.5 * a) * 0.25 + dungeonBayer2(a); }
 #ifdef DUNGEON_STONE
-float dungeonHash(vec2 c) { return fract(sin(dot(c, vec2(127.1, 311.7))) * 43758.5453); }
-float dungeonNoise(vec2 p) {
-  vec2 i = floor(p), u = fract(p); u = u * u * (3.0 - 2.0 * u);
-  return mix(mix(dungeonHash(i), dungeonHash(i + vec2(1.0, 0.0)), u.x), mix(dungeonHash(i + vec2(0.0, 1.0)), dungeonHash(i + vec2(1.0, 1.0)), u.x), u.y);
-}
+${valueNoise("dungeon", [127.1, 311.7])}
 #endif
 #endif
 `,

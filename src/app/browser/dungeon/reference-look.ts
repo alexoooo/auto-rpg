@@ -29,6 +29,7 @@ import type { TorchPlacement } from "../../../game/dungeon/dressing.ts";
 import type { Point } from "../../../game/dungeon/map.ts";
 import { cameraToward } from "../../../game/dungeon/bearing.ts";
 import { nearestLights } from "./lighting.ts";
+import { valueNoise } from "../render/glsl-noise.ts";
 
 export type ReferenceQuality = "high" | "reduced";
 
@@ -70,12 +71,7 @@ class CryptDamp extends MaterialPluginBase {
     const { centres } = this;
     return shaderType === "fragment" ? {
       CUSTOM_FRAGMENT_DEFINITIONS: `
-        float cryptWetHash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
-        float cryptWetNoise(vec2 p) {
-          vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
-          return mix(mix(cryptWetHash(i),cryptWetHash(i+vec2(1,0)),f.x),
-            mix(cryptWetHash(i+vec2(0,1)),cryptWetHash(i+vec2(1,1)),f.x),f.y);
-        }
+        ${valueNoise("cryptWet", [127.1, 311.7])}
         float cryptDamp(vec2 p) {
           float edge = (cryptWetNoise(p*.85)-.5)*.75+(cryptWetNoise(p*4.0)-.5)*.22;
           float wetDistance = 10000.0;

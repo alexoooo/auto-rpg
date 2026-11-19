@@ -2,6 +2,7 @@ import { MaterialPluginBase } from "@babylonjs/core/Materials/materialPluginBase
 import type { Material } from "@babylonjs/core/Materials/material.js";
 import { CRYPT_ROOM_LOOK } from "../../../game/dungeon/crypt-archetypes.ts";
 import type { CryptRoomPlan } from "../../../game/dungeon/crypt-plan.ts";
+import { valueNoise } from "../render/glsl-noise.ts";
 
 /** World-space stains follow the actual paving surface, including fractured/sunken pieces. */
 export class CryptWeathering extends MaterialPluginBase {
@@ -21,9 +22,7 @@ export class CryptWeathering extends MaterialPluginBase {
   override getClassName(){return "CryptWeathering";}
   override getCustomCode(shaderType: string){return shaderType==='fragment'?{
     CUSTOM_FRAGMENT_DEFINITIONS:`
-      float cryptHash(vec2 p){return fract(sin(dot(p,vec2(41.73,289.1)))*43758.5453);}
-      float cryptNoise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.0-2.0*u);
-        return mix(mix(cryptHash(i),cryptHash(i+vec2(1,0)),u.x),mix(cryptHash(i+vec2(0,1)),cryptHash(i+vec2(1,1)),u.x),u.y);}
+      ${valueNoise("crypt", [41.73, 289.1])}
       vec3 cryptWeather(vec2 p){
         vec3 soil=vec3(.4,.32,.21);float strength=.35,traffic=0.0;
         ${this.regions??''}
