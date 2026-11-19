@@ -11,6 +11,7 @@ import { startStance, type StanceFrame } from "../../../game/lab/stance-mode.ts"
 import { groundDisc } from "./ground-disc.ts";
 import { actions, choice, keyHints, legend, readings, slider, type Entry } from "../ui/controls.ts";
 import { cos, hypot, sin } from "../../../core/math/real.ts";
+import { isRefused } from "../../../core/refusal.ts";
 
 /**
  * **The Stance scenario**: the human on its own feet under the core stance, guard up, walked from
@@ -95,7 +96,7 @@ export function stanceScenario(scene: Scene): LabScenario {
       const { world } = actor, { built } = actor.body;
       const shoved = shoveSound(built);
       const stance = startStance(actor, (segment, impulse, at) => heard(shoved(segment, impulse, at))), capture = new Vector3();
-      if ("refused" in stance) return stance;
+      if (isRefused(stance)) return stance;
       const recovery = {start:null as number|null,seconds:0,active:false};
       const history = recordHistory(built, puppet, world, HISTORY_SECONDS, (): StanceMoment => {
         const s = stance.body.view.stance;

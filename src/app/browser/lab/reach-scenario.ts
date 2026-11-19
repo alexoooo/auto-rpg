@@ -1,12 +1,14 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { MindConfig } from "../../../minds/catalog/config.ts";
+import { HOLD_AT_OPTION } from "../../../minds/option/kinds.ts";
 import { hypot } from "../../../core/math/real.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, ScenarioRun } from "./lab-scenario.ts";
 import { createPlayer } from "../../../game/lab/player.ts";
 import { groundDisc } from "./ground-disc.ts";
 import { legend, readings } from "../ui/controls.ts";
+import { isRefused } from "../../../core/refusal.ts";
 
 /**
  * **The Reach scenario**: the body alone on the floor, no foe and no orders, its mind deciding for
@@ -18,9 +20,6 @@ import { legend, readings } from "../ui/controls.ts";
 
 /** Seconds of the run the page keeps to scrub back through. */
 const HISTORY_SECONDS = 30;
-
-/** How near the place counts as there where the mind's holding at it names no reach, m: its own default. */
-const THERE = .3;
 
 const MARKS = {
   place: { colour: new Color3(0.35, 0.8, 0.45), name: "the place its objective names" },
@@ -40,7 +39,7 @@ function placeOf(mind: MindConfig): Place | null {
   const objective = tree.chooser?.objective;
   if (objective?.kind !== "reach-place" || typeof objective.x !== "number" || typeof objective.z !== "number") return null;
   const held = tree.options?.find((option) => option.kind === "hold-at-place");
-  return { x: objective.x, z: objective.z, within: held?.within ?? THERE };
+  return { x: objective.x, z: objective.z, within: held?.within ?? HOLD_AT_OPTION.defaults.within };
 }
 
 /** What the history holds of each step. */
@@ -70,7 +69,7 @@ export function reachScenario(scene: Scene): LabScenario {
     start({ actor, puppet, changed, clock }) {
       const { world } = actor, body = actor.body, place = played ? placeOf(played) : null;
       const mind = actor.drive();
-      if ("refused" in mind) return mind;
+      if (isRefused(mind)) return mind;
       const placeMark = place ? groundDisc(scene, "lab.reach.place", place.within, MARKS.place.colour, 0.5, 0.006) : null;
       if (placeMark && place) { placeMark.position.x = place.x; placeMark.position.z = place.z; placeMark.renderingGroupId = 1; }
       let reached: number | null = null;

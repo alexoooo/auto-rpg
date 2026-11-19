@@ -99,7 +99,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
     placement(spec, next) {
       address = next; shown = null; fault = "";
       const start = groundPlacement(spec, next);
-      if ("refused" in start) fault = start.refused;
+      if (isRefused(start)) fault = start.refused;
       return start;
     },
     panels: {
@@ -135,7 +135,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
       address = next;
       const sound = shoveSound(actor.body.built);
       const session = startGround(actor, next, { pushed: (part, impulse, at) => heard(sound(part, impulse, at)), hears });
-      if ("refused" in session) return session;
+      if (isRefused(session)) return session;
       const physical = solidGeometry(scene, session.environment.solids);
       const unregisterPhysical = shell.profile.register("tactical", physical);
       const registrations: (() => void)[] = [];

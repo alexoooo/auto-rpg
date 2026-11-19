@@ -1,4 +1,4 @@
-import type { Refused } from "../../../core/refusal.ts";
+import { isRefused, type Refused } from "../../../core/refusal.ts";
 import "@babylonjs/core/Culling/ray.js";
 import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
@@ -48,7 +48,7 @@ export function attackScenario(scene: Scene): LabScenario {
     start({ actor, puppet, address, changed, clock, hears }) {
       const { world } = actor, { built } = actor.body;
       const attack = startAttack(actor, { seed: address.seed, count: address.targets, targetPart: address.targetPart, speed, wind, hears });
-      if ("refused" in attack) return attack;
+      if (isRefused(attack)) return attack;
       current = attack;
       weight = massOf([...built.segments.values()]) * -world.physics.gravity[1];
       const hands = manHands({ minded: { body: actor.body } });
