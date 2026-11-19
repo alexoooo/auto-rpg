@@ -21,7 +21,7 @@ test("CLI ablations inherit calibrated bodies and loadouts before scheduling pai
   for (const [id, changes] of [["swap-stub", ["rate=30"]],
     ["swap-unarmed", [`options=${JSON.stringify([...MINDS["swap-unarmed"].config.options, ...SWORD_STRIKES])}`]]]) {
     const baseline = evaluation.subjects([id]), original = JSON.stringify(MINDS[id].config);
-    const { choice, subjects } = resolveSubjects(evaluation, [], id, changes), candidate = choice[0];
+    const { choice, subjects } = resolveSubjects(evaluation, { names: [], previous: id, ablations: changes }), candidate = choice[0];
     const kits = (subjects) => subjects.map(({ value: { model, loadout } }) => ({ model, loadout }));
     assert.ok(baseline.length > 0, "the source has entrants to compare");
     assert.ok(evaluation.subjects([candidate]).some(one => !kits(baseline).some(kit =>
@@ -38,7 +38,7 @@ test("CLI ablations inherit calibrated bodies and loadouts before scheduling pai
     assert.deepEqual(new Set(slots.map(slot => slot.subject)), new Set(subjects.map(one => one.id)), "every candidate has a paired baseline");
     assert.deepEqual(new Set(slots.flatMap(slot => [...slot.mine, ...slot.theirs].map(one => one.key))),
       new Set(units.flatMap(unit => unit.map(one => one.key))), "no unpaired work reaches the schedule");
-    const withOther = resolveSubjects(evaluation, [panel], id, changes);
+    const withOther = resolveSubjects(evaluation, { names: [panel], previous: id, ablations: changes });
     assert.deepEqual(withOther.subjects, [...subjects, ...evaluation.subjects([panel])], "other requested subjects retain their scope");
     if (id === "swap-unarmed") assert.ok(evaluation.subjects([candidate]).some(one => one.value.model === "man"
       && !baseline.some(before => JSON.stringify(before.value.loadout) === JSON.stringify(one.value.loadout))),
@@ -70,7 +70,7 @@ test("mind batteries admit only a named calibration's bodies and preserve that s
     }, "admission filters cases without changing an eligible recipe or key");
     if (evaluation === EVALUATIONS.court) assert.ok(raw.units.some(unit => modelOf(unit[0]) === "woman"),
       "the equipped fixture exposes calibration leakage independently of physical fit");
-    const resolved = resolveSubjects(evaluation, [], "swap-stub", ["rate=30"]);
+    const resolved = resolveSubjects(evaluation, { names: [], previous: "swap-stub", ablations: ["rate=30"] });
     assert.deepEqual(resolved.subjects[0].models, named[0].models);
     const independent = cases(evaluation.subjects(resolved.choice));
     assert.deepEqual(cases(resolved.subjects).units, independent.units.filter(unit => modelOf(unit[0]) === "man"),
@@ -85,7 +85,7 @@ test("mind batteries admit only a named calibration's bodies and preserve that s
     { engine: BOUT_ENGINE, schedule: { kind: "all" } });
   for (const id of ["swap-skeleton"]) {
     assert.deepEqual(cases(evaluation.subjects([id])), { refused: "Skeleton calibration fits no condition of crowd standard: named calibration allows skeleton; man is unavailable" });
-    assert.deepEqual(cases(resolveSubjects(evaluation, [], id, ["rate=30"]).subjects),
+    assert.deepEqual(cases(resolveSubjects(evaluation, { names: [], previous: id, ablations: ["rate=30"] }).subjects),
       { refused: "Skeleton calibration with rate=30 fits no condition of crowd standard: named calibration allows skeleton; man is unavailable" });
     assert.ok(cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }])).units.length > 0,
       "an independent configuration still runs on physically compatible bodies");
@@ -110,11 +110,11 @@ test("a match admits complete pairs within named calibrations and preserves the 
     assert.equal(JSON.stringify(named), before, "admission preserves its subjects");
   }
   const original = cases(evaluation.subjects(["swap-stub", "option"]));
-  const changed = cases(resolveSubjects(evaluation, ["option"], "swap-stub", ["rate=30"]).subjects);
+  const changed = cases(resolveSubjects(evaluation, { names: ["option"], previous: "swap-stub", ablations: ["rate=30"] }).subjects);
   assert.deepEqual(changed.units.map(unit => unit.map(one => one.condition)), original.units.map(unit => unit.map(one => one.condition)));
   const unavailable = "named calibration allows skeleton; man is unavailable; named calibration allows skeleton; woman is unavailable";
   assert.deepEqual(cases(evaluation.subjects(["swap-skeleton", "option"])), { refused: `Skeleton calibration fits no condition of match standard: ${unavailable}` });
-  assert.deepEqual(cases(resolveSubjects(evaluation, ["option"], "swap-skeleton", ["rate=30"]).subjects), { refused: `Skeleton calibration with rate=30 fits no condition of match standard: ${unavailable}` });
+  assert.deepEqual(cases(resolveSubjects(evaluation, { names: ["option"], previous: "swap-skeleton", ablations: ["rate=30"] }).subjects), { refused: `Skeleton calibration with rate=30 fits no condition of match standard: ${unavailable}` });
 });
 
 /**

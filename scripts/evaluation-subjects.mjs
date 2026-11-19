@@ -35,8 +35,8 @@ function ablated(previous, ablations) {
   return { source, subject: { id: `${id}~${slots.join("~")}`, label: `${label} with ${ablations.join(", ")}`, value } };
 }
 
-/** The CLI's choices and their expanded subjects, before scheduling or recording. */
-export function resolveSubjects(evaluation, names, previous, ablations) {
+/** The CLI's choices (`names`, the `previous` source and its `ablations`) and their expanded subjects, before scheduling or recording. */
+export function resolveSubjects(evaluation, { names, previous, ablations }) {
   if (ablations && !previous) throw new Error("--ablate builds its subject from --previous");
   const given = names.map(subjectOf);
   if (!ablations) return { choice: given, subjects: evaluation.subjects(given) };

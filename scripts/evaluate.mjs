@@ -98,14 +98,14 @@ function droppedLines(dropped) {
 /** A 95 % estimate as text. */
 const estimateText = (estimate) => estimate === null ? "none" : `${estimate.value.toFixed(3)} (${estimate.low.toFixed(3)} to ${estimate.high.toFixed(3)})`;
 
-/** Bouts a minute the 10-hour tournament played on the desktop (11,726 in about 10 hours): what a run is priced at before it starts. */
+/** Bouts a minute a run is priced at before it starts: a whole tournament's rate on a desktop. */
 const REFERENCE_RATE = 19;
 
 /**
  * The baseline `previous` names for the subjects of `first` (the first subject asked for), each
  * subject's counterpart by its suffix: another mind as it is now, or a mind given whole.
  */
-function baselineOf(evaluation, first, previous, chosen) {
+function baselineOf(evaluation, { first, previous, chosen }) {
   const prefix = typeof first === "string" ? first.split("/")[0] : first.id, named = subjectOf(previous);
   const prior = typeof named === "string" ? named : named.id, mine = chosen.filter((one) => belongsTo(one.id, prefix));
   if (prior === prefix) throw new Error(`--previous names ${prefix} itself: give the previous version as a JSON file`);
@@ -171,11 +171,11 @@ async function main() {
   const evaluation = EVALUATIONS[id];
   if (!evaluation) throw new Error(`name an evaluation: ${Object.keys(EVALUATIONS).join(", ")}`);
   const protocols = values.protocol ? [values.protocol] : evaluation.every ? Object.keys(evaluation.protocols) : [evaluation.defaultProtocol];
-  for (const protocol of protocols) await runProtocol(evaluation, id, protocol, named, values);
+  for (const protocol of protocols) await runProtocol({ evaluation, id, protocol, named, values });
 }
 
 /** Play `protocol` of `evaluation` (named `id`) for the subjects `named` and the command's options `values`: report it, and with `--write` keep its results. */
-async function runProtocol(evaluation, id, protocol, named, values) {
+async function runProtocol({ evaluation, id, protocol, named, values }) {
   const cases = evaluation.protocols[protocol];
   if (!cases) throw new Error(`${id} has no protocol ${protocol}: ${Object.keys(evaluation.protocols).join(", ")}`);
   if (cases.engine && values.engine && values.engine !== cases.engine) throw new Error(`${id} ${protocol} is played on ${cases.engine}`);
@@ -186,16 +186,16 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   if (!(Number.isInteger(shardAt) && Number.isInteger(shards) && shardAt >= 1 && shardAt <= shards)) throw new Error("--shard is k/n, 1 <= k <= n");
 
   const { choice, subjects: chosen } = resolveSubjects(evaluation,
-    [...(values.mind ?? []), ...named, ...(values.subjects ?? [])], values.previous, values.ablate);
+    { names: [...(values.mind ?? []), ...named, ...(values.subjects ?? [])], previous: values.previous, ablations: values.ablate });
   let schedule = { kind: "all" }, panel = [];
   if (values.against) {
     const members = [...new Set(values.against.flatMap((id) => id === "default" ? evaluation.analysis.panel ?? [] : [id]))];
-    if (!Array.isArray(members) || members.length === 0) throw new Error(`${id} has no default panel`);
+    if (members.length === 0) throw new Error(`${id} has no default panel`);
     panel = evaluation.subjects(members);
     schedule = { kind: "versus", panel: panel.map((member) => member.id) };
   } else if (evaluation.schedule === "versus") throw new Error(`${id} is played against a panel: --against default, or repeat --against <id>`);
   if (values.until !== undefined && values.until !== "settled") throw new Error("--until takes settled");
-  const { baseline, counterpart } = values.previous && values.against ? baselineOf(evaluation, choice[0], values.previous, chosen)
+  const { baseline, counterpart } = values.previous && values.against ? baselineOf(evaluation, { first: choice[0], previous: values.previous, chosen })
     // A battery plays its baseline beside its subject.
     : { baseline: values.previous && cases.arity === 1 ? evaluation.subjects([subjectOf(values.previous)]) : [], counterpart: new Map() };
   const panelIds = new Set(schedule.panel ?? []), mine = [...chosen, ...baseline].filter((one) => !panelIds.has(one.id));
@@ -224,7 +224,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   if (!(budget > 0)) throw new Error("--budget is minutes, more than 0");
   const toPlay = shard.flat().filter((one) => !rows.has(one.key)).length, reused = shard.flat().length - toPlay;
   console.log(`${evaluation.title}: ${protocol}; ${harness}; ${order.length} units, ${toPlay} cases to play${again.length > 0 ? ` (${again.length} of them again, --fresh)` : ""}, ${reused} found${shards > 1 ? `; shard ${shardAt}/${shards}` : ""}`);
-  if (toPlay > 0) console.log(`about ${(toPlay / REFERENCE_RATE).toFixed(0)} min at the 10-hour tournament's rate (${REFERENCE_RATE} bouts a minute); the budget is ${budget} min${values.until ? ", or until the verdict settles" : ""}`);
+  if (toPlay > 0) console.log(`about ${(toPlay / REFERENCE_RATE).toFixed(0)} min at a tournament's rate (${REFERENCE_RATE} bouts a minute); the budget is ${budget} min${values.until ? ", or until the verdict settles" : ""}`);
   const lost = [], now = new Set();
   let played = 0, spent = false;
   const started = Date.now(), deadline = started + budget * 60_000;
