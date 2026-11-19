@@ -1,4 +1,5 @@
 import { bilateralBindings } from "./bilateral.ts";
+import { RISE_ICON } from "./technique.ts";
 import type { Position } from "../../../control/ground-reading.ts";
 import { type BodySpec } from "../../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../../core/state.ts";
@@ -11,4 +12,4 @@ export const LYING: readonly Position[] = Object.freeze(["back", "left", "right"
 export const toStanding = (from: readonly Position[]) => deepFreeze(from.map((one) => ({ from: one, to: "standing" as const })));
 
 /** What the rightings share: begun on either side, as each reads how the body lies itself, from where the body lies as it moves, to standing. */
-export const RIGHTING = { bindings: (spec: BodySpec) => bilateralBindings(spec, SIDES), role: "technique", purpose: "ascent", moving: true, starts: SIDES, fields: [], slots: [] } as const;
+export const RIGHTING = { bindings: (spec: BodySpec) => bilateralBindings(spec, SIDES), role: "technique", icon: RISE_ICON, purpose: "ascent", moving: true, starts: SIDES, fields: [], slots: [] } as const;

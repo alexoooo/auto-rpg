@@ -71,6 +71,12 @@ export const isTrunk = (name: string): boolean => name.endsWith("Trunk");
 /** The indices of `spec`'s trunk segments (`isTrunk`), in its order. */
 export const trunkOf = (spec: BodySpec): number[] => spec.segments.flatMap((segment, i) => isTrunk(segment.name) ? [i] : []);
 
+/** The picture of a technique that brings a body to its feet (`Part.icon`): an arrow up from the ground. */
+export const RISE_ICON = "M12 2.5l6 7h-4v8h-4v-8H6ZM4 19.5h16v2H4Z";
+
+/** The picture of a technique that rolls a lying body over (`Part.icon`): an arrow turning round. */
+export const ROLL_ICON = "M12 4a8 8 0 1 0 8 8h-2.5a5.5 5.5 0 1 1-5.5-5.5ZM12 1.5l5 3.75l-5 3.75Z";
+
 /** A reached physical predicate must remain true this long; search settings cannot change it. */
 export const REACHED_SECONDS = .1;
 

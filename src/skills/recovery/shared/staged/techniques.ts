@@ -14,7 +14,7 @@ import { standReady, type GroundReading, type Position } from "../../../../contr
 import { recordFault } from "../../../framework/records.ts";
 import { LIMIT, LOW, rollSide, SIT_BACK_BODIES, STEP_UP_BODIES, stepUpRecipe, stepUpTuning, validStepUp, type StepUpRise, type StepUpTuning } from "./records.ts";
 import { stanceRegain } from "./regain.ts";
-import { REACHED_SECONDS, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "../technique.ts";
+import { REACHED_SECONDS, RISE_ICON, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "../technique.ts";
 import { techniquePart } from "../bilateral.ts";
 import { type Side, otherSide } from "../../../../core/bodies/bilateral.ts";
 
@@ -255,7 +255,7 @@ const fitsPart = (kind: StagedKind) => (spec: BodySpec, config: { readonly tunin
 /** An experiment may pass a whole immutable recipe tuning in place of the body's record. */
 export interface StagedConfig<K extends StagedKind> extends Varied { readonly kind: K; readonly tuning?: StepUpTuning }
 
-export const routeTechnique = <K extends StagedKind>(kind: K, label: string): TechniquePart<StagedConfig<K>> => Object.freeze({ ...techniquePart<StagedConfig<K>>({ skillGroup: "Stand-up", label,
+export const routeTechnique = <K extends StagedKind>(kind: K, label: string): TechniquePart<StagedConfig<K>> => Object.freeze({ ...techniquePart<StagedConfig<K>>({ skillGroup: "Stand-up", label, icon: RISE_ICON,
   defaults: { kind }, keys: { kind: true, variation: true, tuning: true }, purpose: "ascent", moving: true,
   sides: Object.freeze(["left"] as const), edges: Object.freeze(PARTS[kind].from.map(from => Object.freeze({ from, to: PARTS[kind].to as Position }))),
   requires: PARTS[kind].first === null ? [] : [SUPPORT_REFERENCE, MOTOR_STANCE], reads: () => ["step-up", "sit-back"],

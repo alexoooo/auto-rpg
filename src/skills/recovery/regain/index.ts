@@ -20,6 +20,8 @@ const CLIMBING = "regain:climb";
  * ground skill carried over, its motor forgets what it had under way.
  */
 export const REGAIN_MODE = technique("regain", { skillGroup: "Balance", requires: [SUPPORT_REFERENCE, MOTOR_STANCE], mode: { braces: false, climbs: CLIMBING }, label: "Regain", sides: ONE_SIDE, edges: NO_EDGES,
+  // A beam level on its point.
+  icon: "M3 8.5h18v2.2H3ZM12 10.7l5.2 8.8H6.8Z",
   make: (own, view, _clock, fitted): TechniqueRun => {
     const regain = regaining(own, view, fitted);
     return { ...MODE, state: regain.state, get phase() { return regain.state.climb.on ? CLIMBING : "regain"; },

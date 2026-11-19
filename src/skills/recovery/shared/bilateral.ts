@@ -44,7 +44,7 @@ export function mirrorPosture(posture: Readonly<Record<string, number>>): Readon
  * What makes a technique part over configs `C` (`techniquePart`): its label, stage, edges and mode,
  * its configs' `defaults` and `keys`, the sides it starts from, and its run on a body (`make`).
  */
-type TechniqueFields<C extends { readonly kind: string } & Varied> = Pick<TechniquePart<C>, "label" | "edges" | "purpose" | "mode" | "defaults" | "keys"> & {
+type TechniqueFields<C extends { readonly kind: string } & Varied> = Pick<TechniquePart<C>, "label" | "icon" | "edges" | "purpose" | "mode" | "defaults" | "keys"> & {
   readonly skillGroup: string;
   readonly sides: readonly Side[];
   readonly make: (...args: Parameters<TechniquePart<C>["make"]>) => TechniqueRun<Side>;

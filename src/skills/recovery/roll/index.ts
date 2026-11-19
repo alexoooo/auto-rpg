@@ -1,8 +1,9 @@
 import { technique } from "../shared/bilateral.ts";
+import { ROLL_ICON } from "../shared/technique.ts";
 import { rollToFront } from "./roll/roll.ts";
 
 /** **Roll onto front** (`rollToFront`). */
-export const ROLL = technique("roll", { skillGroup: "Stand-up", label: "Roll onto front", purpose: "fallback", sides: Object.freeze(["right"] as const),
+export const ROLL = technique("roll", { skillGroup: "Stand-up", label: "Roll onto front", icon: ROLL_ICON, purpose: "fallback", sides: Object.freeze(["right"] as const),
   edges: Object.freeze((["back", "right"] as const).map(from => Object.freeze({ from, to: "front" as const }))), make: rollToFront });
 
 declare module "../shared/technique.ts" {

@@ -5,6 +5,7 @@ import { woundedIn, type Fighter, type LandedBlow } from "../../combat/blows.ts"
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ActionStatus, Ended, Phase } from "../../skills/framework/action.ts";
 import { blocked, cleanMiss, landed } from "../../skills/framework/action-instances.ts";
+import { skillOf } from "../../skills/framework/menu.ts";
 import type { MindReport } from "../../minds/report.ts";
 import { partLabel } from "../part-label.ts";
 
@@ -94,7 +95,7 @@ type FeedState = Phase | "contact" | "blocked" | "missed" | "over";
 
 /**
  * Feed entries persist through action updates; their age starts at termination. An action's entry
- * names its skill (`ActionRequest.action`, its executor's kind), the limb it uses and where it
+ * names its skill (its executor's kind, `skillOf` its mind's kit), the limb it uses and where it
  * stands (`FeedState`), for a readout that draws it; a behaviour's has none of the three.
  */
 interface FeedEntry {
@@ -149,15 +150,17 @@ function actionFeed() {
     }
   };
   return { reset,
-    sample(report: Pick<MindReport, "actions" | "ended" | "engagement"> | undefined, body: Pick<PhysicalBody, "has" | "level">, time: number): void {
+    sample(report: Pick<MindReport, "actions" | "ended" | "engagement" | "kit"> | undefined, body: Pick<PhysicalBody, "has" | "level">, time: number): void {
       if (time < state.time) reset();
       state.time = time; prune(time);
       if (!report) return;
+      // The skill an action is by, whose part has its picture: its kit's, else the action's own name.
+      const skill = (action: string): string => skillOf(report.kit ?? [], action) ?? action;
       for (const action of report.actions ?? []) {
         const key = `action:${action.id}`;
         let entry = state.entries.find(row => row.key === key);
         if (!entry) {
-          entry = { key, kind: "action", label: actionLabel(action), skill: action.action, limb: action.effector, state: action.phase, detail: "", active: true, time };
+          entry = { key, kind: "action", label: actionLabel(action), skill: skill(action.action), limb: action.effector, state: action.phase, detail: "", active: true, time };
           state.entries.unshift(entry);
         }
         entry.state = action.phase;
@@ -174,7 +177,7 @@ function actionFeed() {
         if (record.ending.kind === "refused") continue;
         const key = `action:${record.id}`, entry = state.entries.find(row => row.key === key);
         if (entry) { entry.active = false; entry.time = record.ended; entry.detail = result(record); entry.state = ending(record); }
-        else if (time - record.ended < 6) state.entries.unshift({ key, kind: "action", label: actionLabel(record), skill: record.action, limb: record.effector,
+        else if (time - record.ended < 6) state.entries.unshift({ key, kind: "action", label: actionLabel(record), skill: skill(record.action), limb: record.effector,
           state: ending(record), detail: result(record), time: record.ended, active: false });
       }
       const behaviour = commandsBody(body) ? report.engagement?.phase ?? null : body.level === "full" && body.has !== "nobody" ? body.has : null;
