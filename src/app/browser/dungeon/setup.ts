@@ -71,15 +71,16 @@ function dungeonSetup(context: ScreenContext) {
   attributeHolder.id = "party-attributes"; need("party-minds").before(attributeHolder);
   const attributePanel = runAttributes(attributeHolder, location.search);
   const loadoutPanel = runLoadouts(need("party-loadout-list"), location.search);
-  const updateAttributeParty = (keepRoster = false) => {
+  /** The party's rows made again: its companions drawn anew for the hero and their count, or the roster kept. */
+  const updateAttributeParty = (roster: "drawn" | "kept") => {
     const hero = choice(heroChoices) as BodyModel;
-    if (!keepRoster) selectedCompanions = companionModels(hero, Number(choice(companionCount)));
+    if (roster === "drawn") selectedCompanions = companionModels(hero, Number(choice(companionCount)));
     attributePanel.update(hero, selectedCompanions);
     loadoutPanel.update(hero, selectedCompanions);
   };
-  updateAttributeParty(true);
-  heroChoices.addEventListener("change", () => updateAttributeParty());
-  companionCount.addEventListener("change", () => updateAttributeParty());
+  updateAttributeParty("kept");
+  heroChoices.addEventListener("change", () => updateAttributeParty("drawn"));
+  companionCount.addEventListener("change", () => updateAttributeParty("drawn"));
   /** Each hero's mind as a party member, and each enemy model's: chosen on the start panel and carried by the address. */
   const mindPanel = runMinds(need("party-mind-list"), [...HEROES.map(h => ({ side: "party" as const, model: h.model })),
     ...ENCOUNTER_MODELS.map((model) => ({ side: "enemy" as const, model }))], location.search);

@@ -104,7 +104,7 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
       return block;
     }
     const part = partOf(config);
-    for (const field of part.fields) block.append(row(field.label, fieldInput(field, config, write, readOnly)));
+    for (const field of part.fields) block.append(row(field.label, fieldInput(field, { config, write, readOnly })));
     const tuning = (config as { tuning?: unknown }).tuning;
     if (tuning !== undefined) {
       const shown = document.createElement("pre");

@@ -94,18 +94,18 @@ export function loadSkinnedArt(look: SkinnedLook): Promise<SkinnedArt> {
  */
 export function dressSkinnedArt(built: DrawnBody, art: SkinnedArt, scene: Scene): SkinView {
   const prefix = `${built.spec.model}.skin.`, { look } = art;
-  const texture = (id: string, colour: boolean) => {
+  const texture = (id: string, holds: "colour" | "data") => {
     const map = new Texture(art.art.texture(id), scene, false, false, Texture.TRILINEAR_SAMPLINGMODE);
-    map.gammaSpace = colour;
+    map.gammaSpace = holds === "colour";
     return map;
   };
   // Double-sided: whiskers, ears and claws are open sheets.
   const surface = new PBRMaterial(`${prefix}surface`, scene);
-  surface.albedoTexture = texture(look.colour, true);
-  surface.bumpTexture = texture(look.normal, false);
+  surface.albedoTexture = texture(look.colour, "colour");
+  surface.bumpTexture = texture(look.normal, "data");
   surface.invertNormalMapX = true;
   if (look.packed) {
-    surface.metallicTexture = texture(look.packed, false);
+    surface.metallicTexture = texture(look.packed, "data");
     surface.useAmbientOcclusionFromMetallicTextureRed = true;
     surface.useRoughnessFromMetallicTextureGreen = true;
     surface.useRoughnessFromMetallicTextureAlpha = false;

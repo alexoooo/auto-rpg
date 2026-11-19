@@ -68,7 +68,7 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
   const deciding: number[] = [];
   const decide = (seat: number) => { deciding.splice(deciding.indexOf(seat), 1); host.decide(seat); };
   // What `seat` says as it stands: the fields of its report replaced since it last said them (`saidNow`), its engagement where `shown`, and its numbers where made anew.
-  const saying = (seat: number, shown: boolean): Said => {
+  const saying = (seat: number, { shown }: { readonly shown: boolean }): Said => {
     const says = host.says(seat), last = sent.get(seat)!, channel = channels.get(seat)!, report = says.report;
     let crossing: Partial<ReportNow> | null = null;
     if (report) {
@@ -101,10 +101,10 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
           if (inbound) channel.inbound = inbound;
           host.handle(seat, ask, channel);
           switch (ask.kind) {
-            case "make": said.push(saying(seat, true)); break;
+            case "make": said.push(saying(seat, { shown: true })); break;
             case "step":
               steps += 1;
-              say({ seq: batch.seq, said: [saying(seat, ask.shown === true)] });
+              say({ seq: batch.seq, said: [saying(seat, { shown: ask.shown === true })] });
               answered(steps);
               deciding.push(seat);
               break;

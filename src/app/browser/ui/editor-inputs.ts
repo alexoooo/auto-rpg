@@ -16,10 +16,10 @@ export function editorInput(value: string, changed: (value: string) => void, opt
 }
 
 /** Every part editor uses the field's labels, limits, units and write validation. */
-export function partFieldInput<C>(field: PartField<C>, config: C, write: (config: C) => void, readOnly: boolean): HTMLElement {
+export function partFieldInput<C>(field: PartField<C>, { config, write, readOnly }: { readonly config: C; write(config: C): void; readonly readOnly: boolean }): HTMLElement {
   const changed = (value: string) => write(field.write(config, value) ?? config);
   switch (field.kind) {
-    case "json": return valueEditor(field.editor, field.read(config), changed, readOnly);
+    case "json": return valueEditor(field.editor, { text: field.read(config), changed, readOnly });
     case "choice": return selectInput(field.options.map(([value, text]) => ({ value, text })), field.read(config), changed, { disabled: readOnly });
     case "text": return editorInput(field.read(config), changed, { disabled: readOnly, numeric: false });
     case "number": {

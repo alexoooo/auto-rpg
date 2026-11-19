@@ -7,7 +7,7 @@ import { isRegionMark, REGION_MARKS, type Region } from "../../../skills/framewo
  * a segment by name, changed, removed, or added at the target's high mark; `write` takes the list
  * once changed.
  */
-export function regionsEditor(regions: readonly Region[], write: (regions: readonly Region[]) => void, readOnly: boolean): HTMLElement {
+export function regionsEditor(regions: readonly Region[], { write, readOnly }: { write(regions: readonly Region[]): void; readonly readOnly: boolean }): HTMLElement {
   const root = document.createElement("div"); root.className = "mind-slot"; root.dataset.slot = "regions";
   const select = (label: string, values: readonly string[], value: string, changed: (value: string) => void) =>
     row(label, selectInput(values.map(value => ({ value, text: value })), value, changed, { disabled: readOnly }));
