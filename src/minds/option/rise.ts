@@ -164,7 +164,7 @@ function attempt(given: ProfileOptionContext, part: TechniquePart, skill: PartCo
  * the body lies now (`priced`).
  */
 function groundWay(given: ProfileOptionContext, skill: PartConfig, name: string, prior: Prior): { readonly way: (from: Position) => Way; readonly priced: (now: Situation) => string } {
-  const { expected, priced } = edgeExpected(given.spec, skill, given.hz, given.delay, given.outcomes);
+  const { expected, priced } = edgeExpected(skill, given);
   const measured = (from: Position): Way | null => expected?.(from) ?? null;
   return {
     way: (from) => recordedWay(measured(from) ?? { ...prior, ends: [] }, given.record.of(name, from), from),

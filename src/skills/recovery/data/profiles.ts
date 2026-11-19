@@ -17,7 +17,9 @@ export const groundStart = (from: string): Postures => ({ own: from, target: "no
  * sentence (`priced`): measured, or not, and why (no drill measured it, or what it answers from is
  * stale, `ActOutcomes.stale`).
  */
-export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number, delay: number, outcomes: OutcomeModel): {
+export function edgeExpected(technique: PartConfig, { spec, hz, delay, outcomes }: {
+  readonly spec: BodySpec; readonly hz: number; readonly delay: number; readonly outcomes: OutcomeModel;
+}): {
   readonly expected: ((from: string) => Expected | null) | null; readonly priced: string } {
   const act = outcomes.act("edges", measuredOn(spec, { skill: techniqueSkill(spec, technique), limb: null }, { hz, reaction: null, rate: hz, delay }));
   if (!act) return { expected: null, priced: "no drill measured it" };

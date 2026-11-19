@@ -64,7 +64,7 @@ export function walker(_spec: BodySpec) {
       let at: GroundPoint = where;
       return way.map((point) => { const length = hypot(point.x - at.x, point.z - at.z); at = point; return length > 0 ? length / most : 0; });
     }
-    return legSeconds(limits, { x: where.x, z: where.z }, way, frameOf(face), hypot(v.x, v.z), most);
+    return legSeconds(limits, { from: { x: where.x, z: where.z }, way, frame: frameOf(face), on: hypot(v.x, v.z), ceiling: most });
   };
   return {
     pace,

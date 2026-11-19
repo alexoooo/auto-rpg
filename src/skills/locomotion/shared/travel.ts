@@ -135,8 +135,10 @@ const PIECE = .25;
  * the mean of the speed it is entered at and the speed asked at its middle. Infinity for a leg the
  * gait does not go.
  */
-export function legSeconds(gait: GaitLimits, from: GroundPoint, way: readonly GroundPoint[], frame: (x: number, z: number) => readonly [number, number],
-  on: number, ceiling = Infinity): number[] {
+export function legSeconds(gait: GaitLimits, { from, way, frame, on, ceiling }: {
+  readonly from: GroundPoint; readonly way: readonly GroundPoint[]; readonly frame: (x: number, z: number) => readonly [number, number];
+  readonly on: number; readonly ceiling: number;
+}): number[] {
   const corners = cornersOf(from, way), seconds: number[] = [];
   let total = 0, at = from;
   for (const point of way) { total += hypot(point.x - at.x, point.z - at.z); at = point; }
