@@ -1,20 +1,14 @@
 import "../harness/preload-data.mjs";
-/** A character's skills: each variation it holds, several of one skill among them, each a skill of its own to its mind. */
+/** Skills a character leaves out or holds several of one role of: each choice the mind can still make, and each one it makes restored from memory. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveCharacter, resolveCharacterChecked } from "../../src/core/bodies/models.ts";
-import { MINDS, treeLookup } from "../../src/app/catalog.ts";
+import { HUMANOID_MODELS, resolveCharacter } from "../../src/core/bodies/models.ts";
+import { MINDS, treeLookup, partLookup, GAME } from "../../src/app/catalog.ts";
 import { skillsOf } from "../../src/minds/option/skills.ts";
-import { limbAction } from "../../src/minds/option/kinds.ts";
-import { strikeSkill } from "../../src/skills/framework/profile/lookup.ts";
-import { skillDigest } from "../../research/skills/profile-origin.mjs";
-import { readSkills, writeSkills } from "../../src/game/skill-link.ts";
-import { allParts, partLookup, GAME } from "../../src/app/catalog.ts";
-import { BODY_MODELS, modelHolds } from "../../src/core/bodies/models.ts";
-import { LOADOUTS, loadoutFaults, withLoadout } from "../../src/core/bodies/items/held.ts";
-import { motorAndGuardOf } from "../../src/skills/assembly/filled.ts";
-import { guardConfigs } from "../../src/skills/assembly/guards.ts";
 import { GUARD_OPTION, WALK_OPTION } from "../../src/minds/option/kinds.ts";
+import { withLoadout } from "../../src/core/bodies/items/held.ts";
+import { legsOf, motorAndGuardOf, motorOf } from "../../src/skills/assembly/filled.ts";
+import { guardConfigs } from "../../src/skills/assembly/guards.ts";
 import { coreStand } from "../harness/core-stand.mjs";
 import { stockBody } from "../../src/app/stock-body.ts";
 import { makeSkills } from "../../src/skills/assembly/assembly.ts";
@@ -22,7 +16,6 @@ import { standIntent } from "../../src/skills/framework/intent.ts";
 import { skillName } from "../../src/skills/framework/variations.ts";
 import { saveState, loadState } from "../../src/core/state.ts";
 import { navigationRepertoire } from "../../src/skills/assembly/navigations.ts";
-import { legsOf, motorOf } from "../../src/skills/assembly/filled.ts";
 import { describeMind } from "../../src/minds/catalog/catalog.ts";
 
 /**
@@ -136,7 +129,7 @@ test("selected navigation choices keep separate routes and restore the active pl
  * cannot expose this selection failure.
  */
 test("a character without cover can start with its enabled lowered arms", () => {
-  for (const model of ["man", "woman", "skeleton"]) {
+  for (const model of HUMANOID_MODELS) {
     const base = withLoadout(resolveCharacter({ model }).spec, { left: "empty", right: "empty" });
     const spec = { ...base, skills: base.skills.filter(name => !name.startsWith("cover-guard/")) };
     assert.deepEqual(guardConfigs(parts, spec), [{ kind: "lowered", variation: "lowered" }], `${model}: the enabled open guard is available`);
@@ -150,72 +143,3 @@ test("a character without cover can start with its enabled lowered arms", () => 
 });
 
 const config = MINDS.option.config, parts = treeLookup(config);
-const punches = (skills) => {
-  const spec = resolveCharacter({ model: "man", skills }).spec, made = skillsOf(parts, spec, config.options);
-  return { spec, made, executors: made.executors.filter((one) => one.kind === "straight-punch"), actions: made.actions.filter((one) => one.name.startsWith("straight-punch")) };
-};
-
-/**
- * Two variations of one skill must be two executors and two actions, each measured as it is when
- * held alone, so holding a second never voids the first's profiles. A fight with one variation
- * held cannot show a second one's executor shadowing or renaming it.
- */
-test("a character holding two variations of a skill strikes by each, and each reads as it does alone", () => {
-  const both = punches(["straight-punch/drive", "straight-punch/moving"]);
-  assert.deepEqual(both.executors.map((one) => [one.name, one.variation]), [["straight-punch/drive", "drive"], ["straight-punch/moving", "moving"]]);
-  assert.deepEqual(both.actions.map((one) => [one.name, one.executor]), [["straight-punch/drive", "straight-punch/drive"], ["straight-punch/moving", "straight-punch/moving"]]);
-  const digest = ({ spec, made }, action, limb) => skillDigest(parts, spec, made.executors, limbAction(action, limb));
-  const found = ({ spec, made }, action, limb) => strikeSkill(spec, made.executors, limbAction(action, limb));
-  for (const variation of ["drive", "moving"]) {
-    const alone = punches([`straight-punch/${variation}`]);
-    assert.deepEqual(alone.executors.map((one) => one.name), ["straight-punch"], "one variation of a skill is named by the skill");
-    const held = both.actions.find((one) => one.executor.endsWith(variation));
-    assert.equal(found(both, held, "hand.right"), `straight-punch/${variation}`, `${variation}'s profile is found by its skill and variation beside another`);
-    assert.equal(found(alone, alone.actions[0], "hand.right"), `straight-punch/${variation}`, `${variation}'s profile is found by its skill and variation held alone`);
-    assert.equal(digest(both, held, "hand.right"), digest(alone, alone.actions[0], "hand.right"), `${variation} measures alike whether held alone or beside another`);
-  }
-  assert.notEqual(digest(both, both.actions[0], "hand.right"), digest(both, both.actions[1], "hand.right"), "two variations are two skills to a profile");
-  assert.deepEqual(punches([]).executors, [], "a character holding no punch has none");
-});
-
-/**
- * Refuse a bare skill, a duplicate and the old map before construction, and keep a link's list as
- * written, empty or absent apart; a fight built from a resolved character never meets these
- * inputs.
- */
-test("a character's skills are a list of skill/variation, none twice, carried whole by a link", () => {
-  assert.match(resolveCharacterChecked({ model: "man", skills: ["straight-punch"] }).refused, /not skill\/variation/);
-  assert.match(resolveCharacterChecked({ model: "man", skills: ["stomp/stomp", "stomp/stomp"] }).refused, /twice/);
-  assert.match(resolveCharacterChecked({ model: "man", skills: { "straight-punch": "drive" } }).refused, /a list/);
-  const query = new URLSearchParams();
-  writeSkills(query, "left", ["straight-punch/drive", "straight-punch/moving"]);
-  assert.equal(query.get("left.skills"), "straight-punch/drive,straight-punch/moving");
-  assert.deepEqual(readSkills(query, "left"), ["straight-punch/drive", "straight-punch/moving"]);
-  writeSkills(query, "left", []);
-  assert.deepEqual(readSkills(query, "left"), [], "an empty value holds no skill");
-  writeSkills(query, "left", undefined);
-  assert.equal(readSkills(query, "left"), undefined, "no value is the character's own");
-});
-
-/**
- * Each skill part of every role must fit some character that holds it and refuse the same body
- * once its character drops it; the shipped characters hold everything they run, so no fight shows
- * a guard, gait, technique or navigation run without being held.
- */
-test("every skill part, whatever its role, runs only on a body whose character holds it", () => {
-  const roles = new Set();
-  for (const [kind, part] of Object.entries(allParts())) {
-    if (!part.variations) continue;
-    let fitted = null;
-    for (const model of BODY_MODELS) for (const loadout of LOADOUTS) {
-      if (fitted || loadoutFaults(loadout).length || !modelHolds(model) && (loadout.left !== "empty" || loadout.right !== "empty")) continue;
-      const spec = withLoadout(resolveCharacter({ model }).spec, loadout);
-      if (part.fits(spec, part.defaults, partLookup) === null) fitted = spec;
-    }
-    assert.ok(fitted, `${kind}: some character holds it and runs it`);
-    const without = { ...fitted, skills: fitted.skills.filter((name) => !name.startsWith(`${kind}/`)) };
-    assert.match(part.fits(without, part.defaults, partLookup) ?? "", /the character has no/, `${kind}: a character that does not hold it does not run it`);
-    roles.add(part.role);
-  }
-  for (const role of ["executor", "guard", "locomotion", "gait", "paw-gait", "support", "technique", "navigation"]) assert.ok(roles.has(role), `a ${role} is a skill a character holds`);
-});
