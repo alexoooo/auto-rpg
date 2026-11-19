@@ -154,21 +154,6 @@
       "kind": "normal",
       "licence": "src/app/browser/render/textures.json"
     },
-    "textures/wooden_planks_arm_1k.jpg": {
-      "source": "assets/art/environment/textures/wooden_planks_arm_1k.jpg",
-      "kind": "data",
-      "licence": "src/app/browser/render/textures.json"
-    },
-    "textures/wooden_planks_diff_1k.jpg": {
-      "source": "assets/art/environment/textures/wooden_planks_diff_1k.jpg",
-      "kind": "colour",
-      "licence": "src/app/browser/render/textures.json"
-    },
-    "textures/wooden_planks_nor_gl_1k.jpg": {
-      "source": "assets/art/environment/textures/wooden_planks_nor_gl_1k.jpg",
-      "kind": "normal",
-      "licence": "src/app/browser/render/textures.json"
-    },
     "crypt-kit/floor-albedo.png": {
       "source": "assets/art/environment/crypt-kit/floor-albedo.png",
       "kind": "colour",

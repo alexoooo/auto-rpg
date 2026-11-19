@@ -2,7 +2,6 @@
   "schema": 1,
   "sources": [
     { "sourceUrl": "https://polyhaven.com/a/fine_grained_wood", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
-    { "sourceUrl": "https://polyhaven.com/a/wooden_planks", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
     { "sourceUrl": "https://polyhaven.com/a/large_floor_tiles_02", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
     { "sourceUrl": "https://polyhaven.com/a/old_stone_wall", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" }
   ],
@@ -25,25 +24,6 @@
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fine_grained_wood/fine_grained_wood_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fine_grained_wood",
       "sha256": "3928796cc98b380cd254dc67e9246e60027ef349edb5f75033cc6f3b34572450", "channel": "orm", "colourSpace": "linear",
       "family": "fine-grained-wood", "consumers": ["wood"], "scale": 3, "invertY": false
-    },
-    {
-      "name": "room-timber-albedo", "file": "wooden_planks_diff_1k.jpg", "asset": "textures/wooden_planks_diff_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_planks/wooden_planks_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/wooden_planks",
-      "sha256": "1273876d6f92fb1a1d29c1bb28f548a9256154187531e84f993b56e347f1d17b", "channel": "albedo", "colourSpace": "srgb",
-      "family": "room-timber", "consumers": ["room.timber"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
-    },
-    {
-      "name": "room-timber-normal", "file": "wooden_planks_nor_gl_1k.jpg", "asset": "textures/wooden_planks_nor_gl_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_planks/wooden_planks_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/wooden_planks",
-      "sha256": "6c85ff0a410a2993cc09d25859d7d735bc05e9f15dc51393d2e58aa2ce8a0916", "channel": "normal", "colourSpace": "linear",
-      "family": "room-timber", "consumers": ["room.timber"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0,
-      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
-    },
-    {
-      "name": "room-timber-orm", "file": "wooden_planks_arm_1k.jpg", "asset": "textures/wooden_planks_arm_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_planks/wooden_planks_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/wooden_planks",
-      "sha256": "4f4201d86653299329a8f743b9b4962359cbcc2d5c306e64e6eaab4e27f05c77", "channel": "orm", "colourSpace": "linear",
-      "family": "room-timber", "consumers": ["room.timber"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
     },
     {
       "name": "large-floor-tiles-02-albedo", "file": "large_floor_tiles_02_diff_1k.jpg", "asset": "textures/large_floor_tiles_02_diff_1k.jpg",
