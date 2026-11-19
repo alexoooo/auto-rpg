@@ -34,14 +34,14 @@ export function profileModel({ strikes, outcomes, others }: { readonly strikes: 
     const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap(option => option.modelled ? [option.modelled] : []), measured: strikes, others,
       ordersOf: input.orders, record, parts, techniques });
     const chosen = chooserOf(parts, input.chooser, options, input.seed, input.phase);
-    const state = { chooser: chosen.state, model: { situation: reader.state, record: record.state }, options: options.map((option) => option.state), prospects: [] as readonly Prospect[], details: [] as EngagementDetail[] };
-    /** What the focus was doing as the mind last read it: a report, not state a bout resumes from. */
-    let foe = "clear";
+    /** Its state; and what it reports: what the focus was doing as it last read it (`foe`), its prospects and its details. */
+    const state = { chooser: chosen.state, model: { situation: reader.state, record: record.state }, options: options.map((option) => option.state), prospects: [] as readonly Prospect[],
+      details: [] as EngagementDetail[], foe: "clear" };
     const engagement = {
       get phase() { return chosen.running[0]?.name ?? "hold"; },
       get kind() { return chosen.running[0]?.kind ?? "hold"; },
       get offers() { return chosen.offers; },
-      get foe() { return foe; },
+      get foe() { return state.foe; },
       get details() { return state.details; },
     };
     return {
@@ -49,7 +49,7 @@ export function profileModel({ strikes, outcomes, others }: { readonly strikes: 
       get prospects(): readonly Prospect[] { return state.prospects; },
       decide(seen: Sight, dt: number) {
         const read = reader.read(seen);
-        foe = read.phase;
+        state.foe = read.phase;
         let priced: readonly Situation[] = NONE;
         const { set, at: now, fresh } = chosen.decide(read, () => priced = reader.others());
         if (fresh) { state.prospects = prospect(state.prospects, options, read); for (const other of priced) state.prospects = prospect(state.prospects, options, other); }

@@ -111,7 +111,9 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     // and the spot last read with the body up (`Stood`).
     sides: SIDES.map(() => ({ beside: heldBeside(), time: NaN, focus: null as string | null, spot: null as Spot | null, place: null as [number, number] | null, stood: null as Stood | null })),
     // Where in its window its blow under way was asked (`placeInWindow`), null with none.
-    place: null as [number, number] | null };
+    place: null as [number, number] | null,
+    // Whether its blow leaves the legs to a walk (`onTheWay`), null until it is first read.
+    leaves: null as boolean | null };
   const { measured, act } = measure, read = act?.read ?? [];
   /** What its outcome model answers against the body of `now`'s focus, the body standing as `postures`; null where it answers nothing. */
   const readingOf = (now: Situation, postures?: Postures): ProfileReading | null => act?.reading(now.focus?.spec ?? null, measure.spec, postures) ?? null;
@@ -220,8 +222,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     return { done: lands, dealt: throws * lands * blow, taken: 0, seconds, recovers: 0, down: 0, ends: [] };
   };
   /** Whether its blow leaves the legs to a walk: what it needs with its first limb names no legs (`SkillsActions.needs`), read once, its skill's for good. */
-  let leaves: boolean | null = null;
-  const onTheWay = (at: Situation): boolean => leaves ??= action.effectors.length > 0 && !claimsLegs(at.sight.actions.needs(action.name, action.effectors[0]!));
+  const onTheWay = (at: Situation): boolean => state.leaves ??= action.effectors.length > 0 && !claimsLegs(at.sight.actions.needs(action.name, action.effectors[0]!));
   /**
    * Its site on `side` (`Site`): where no limb is ready, the spot on that side in the window of the
    * first limb that has one (`windowSpot`), read once a step for each focus; none with a limb ready
