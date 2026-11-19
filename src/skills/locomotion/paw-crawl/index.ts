@@ -23,7 +23,7 @@ const VARIATIONS = {
 
 /** **The crawl** as a gait: the quadruped's close and careful steps. */
 export const CRAWL_PART = deepFreeze<PawGaitPart<CrawlConfig>>({
-  role: "paw-gait", label: "Crawl", stage: "game", travels: true, fields: [], slots: [], defaults: { kind: "paw-crawl" }, keys: { kind: true, variation: true, tuning: true },
+  role: "paw-gait", label: "Crawl", stage: "game", travels: true, gait: "crawl", fields: [], slots: [], defaults: { kind: "paw-crawl" }, keys: { kind: true, variation: true, tuning: true },
   tuning: Object.keys(REPTILE_CRAWL), ...varied({ skill: "paw-crawl", label: "crawl", variations: VARIATIONS, of: (built, _root, _reading, _paws, config) => [built.spec, config],
     fits: [fitsPaws, (_spec, config) => validCrawl({ ...REPTILE_CRAWL, ...config.tuning }) ? null : "invalid crawl settings"] }),
   faults: (config: CrawlConfig) => config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning)

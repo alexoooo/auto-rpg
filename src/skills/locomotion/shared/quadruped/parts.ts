@@ -4,6 +4,7 @@ import type { ReadBody, ReadSegment } from "../../../../core/bodies/read-body.ts
 import type { Skill } from "../../../framework/skill.ts";
 
 import type { TravelOrders } from "./travel.ts";
+import type { PawGaitName } from "./paw-legs.ts";
 import type { PawReading, PawView } from "../../../../control/quadruped/paws.ts";
 
 /** What a quadruped reads of a gait beside its command: how high it carries the body and how its paws lift, swing and plant. */
@@ -55,6 +56,8 @@ export interface PawGaitPart<C extends PartConfig = PartConfig> extends Part<C> 
   readonly role: "paw-gait";
   /** Whether it carries the body to a place (`GaitPart.travels`). */
   readonly travels: boolean;
+  /** Which of the paw legs' gaits it is (`pawLegs`): the trot to travel or the crawl close in. */
+  readonly gait: PawGaitName;
   make(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], config: C): Gait;
 }
 

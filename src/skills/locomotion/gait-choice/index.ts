@@ -5,7 +5,7 @@ import type { Locomotion, LocomotionPart } from "../../framework/locomotion-part
 import { ALL_MET, LEGS_FIELDS, fieldsOf, maskOf, setIn } from "../../framework/skill.ts";
 import { skillName } from "../../framework/variations.ts";
 import { pawEndpoints, pawReader } from "../../../control/quadruped/paws.ts";
-import { pawLegs, type PawGaitName } from "../shared/quadruped/paw-legs.ts";
+import { pawLegs } from "../shared/quadruped/paw-legs.ts";
 import { move, type MoveGait } from "../shared/move.ts";
 
 interface GaitChoiceConfig { readonly kind: "gait-choice" }
@@ -38,8 +38,7 @@ export const GAIT_CHOICE: LocomotionPart<GaitChoiceConfig> = {
       const part = legs.parts.of("paw-gait", gait.legs), config = gait.legs;
       const native = part.make(body.built, root, { centre: reading.centre, velocity: reading.velocity, feet: reading.endpoints },
         pawEndpoints(body.built).map(paw => paw.segment), config);
-      const name: PawGaitName = native.settings.crawlHeight === undefined ? "trot" : "crawl";
-      return { name: gait.name, legs: pawLegs(body, { [name]: native }) };
+      return { name: gait.name, legs: pawLegs(body, { [part.gait]: native }) };
     });
     return gaits.length ? move(gaits, [], 0) : idleLegs(body);
   },
