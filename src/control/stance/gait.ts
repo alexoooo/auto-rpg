@@ -21,6 +21,9 @@ const HOLDING: FootState[] = [];
 /** The foot of `feet` that is the end `name` (`FootState.name`). */
 export const named = (feet: readonly FootState[], name: BearingEnd): FootState => feet.find((foot) => foot.name === name)!;
 
+/** The foot of the two `feet` that is not the end `name`: the one that bears its step. */
+export const otherFoot = (feet: readonly FootState[], name: BearingEnd): FootState => feet.find((foot) => foot.name !== name)!;
+
 /** The least height, m, a centre is taken at over what it falls about: a numeric floor, since a centre at its feet has no pendulum. */
 export const LEAST_HEIGHT = 1e-3;
 
@@ -642,7 +645,7 @@ export function paceToward(s: Stance, walk: readonly [number, number] | null | u
 export function catchStep(s: Stance): boolean {
   const { feet, state } = s, { reading, step, gait } = state, { recovery } = s.tuning, swing = step.swing;
   if (!recovery || reading.phase !== "shift" || !swing || swing.transfer) return false;
-  const g = gravityOf(s), bearer = feet.find((f) => f.name !== swing.foot)!, off = outside(feet, reading.centre, reading.velocity, g, [bearer]);
+  const g = gravityOf(s), bearer = otherFoot(feet, swing.foot), off = outside(feet, reading.centre, reading.velocity, g, [bearer]);
   const away = off > step.off;
   step.off = off;
   const held = assistReach(s), hold = holding(s), carried = carriedVelocity(s);
