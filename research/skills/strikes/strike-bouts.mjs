@@ -16,7 +16,7 @@
  * `path` replaced by the JSON, or by the JSON file it names (`replacedAt`, as `evaluate --ablate`);
  * `--set left:<path>=<JSON>`, that side's alone; one flag a setting, each in turn. The few terms at
  * aggression 3, `chooser.objective={"kind":"few-terms","aggression":3}`;
- * a foe's pressure as bouts measured it, `predictions={"kind":"measured","pressure":"measured"}`.
+ * a foe's pressure as its strikes' rate alone, `predictions={"kind":"measured","pressure":"rate"}`.
  *
  * A saved bout keeps its winner, each side's life left (`bars`), when each went down, and each
  * side's decisions (`decisions`): at each of a mind that reports its offers (`Engagement.offers`),
