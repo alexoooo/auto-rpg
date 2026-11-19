@@ -39,8 +39,22 @@ export const pendulumRate = (g: number, height: number): number => Math.sqrt(g /
  */
 interface Underway { readonly foot: BearingEnd; readonly pivot: Vector3; readonly remaining: number; readonly shift: readonly [number, number] }
 
-/** What planning a step tells besides the step: whether the leg lands the whole of its landing (`reachableStep`). */
-interface StepPlan { within: boolean }
+/**
+ * **What a walk's step is planned from**: the `feet`; the body's `centre` of mass and its
+ * `velocity`, falling under `g`; the walk's velocity `walk`, world (x, z), m/s, facing `heading`,
+ * by the gait `tuning`; the hips `hip` over the soles as the step is planned, and `held`, the
+ * height the plan holds them at, which the foot lands leaning from (`landingLeanOf`); the knees'
+ * `bend` (null, straight); the foot that stepped `last`, null starting; and `under`, the step
+ * under way it re-aims, null for a new one.
+ */
+interface WalkAsk {
+  readonly feet: readonly FootState[]; readonly centre: Vector3; readonly velocity: Vector3; readonly g: number;
+  readonly walk: readonly [number, number]; readonly heading: number; readonly tuning: GaitTuning;
+  readonly hip: number; readonly held: number; readonly bend: number | null; readonly last: Side | null; readonly under: Underway | null;
+}
+
+/** A walk's step, and whether the leg lands the whole of its landing (`reachableStep`). */
+interface Planned { readonly step: SwingGoal; readonly within: boolean }
 
 /** The soles' middles' distance apart across `heading` (rad about up, 0 facing +z), m. */
 function across(feet: readonly FootState[], heading: number): number {
@@ -60,7 +74,8 @@ function settleStep(feet: readonly FootState[], last: Side, heading: number, wid
 }
 
 /**
- * The step that catches a body a recovery steps for (`unheld`). The capture point
+ * The step that catches the stance `s`'s body where a recovery steps for it (`unheld`), the body
+ * moving at its carried velocity (`carriedVelocity`). The capture point
  * xi = c + v / w (w = sqrt(g / height)), the body falling about the bearing sole's nearest point p,
  * runs to p + (xi - p) exp(w T) by the swing's end T (Kajita et al. 2001); the foot lands past that
  * by `tuning.reach` of its distance from the bearing sole's middle, and at least a sole's width and
@@ -81,7 +96,7 @@ function settleStep(feet: readonly FootState[], last: Side, heading: number, wid
  * then short of the capture point by the lag, grown by the swing's end: the next step lands shorter
  * still, and the body is not caught. Each landing is kept off the bearing sole (`clearOfBearer`)
  * and within the leg's reach from its hip where the body carries it as the foot lands
- * (`reachableStep`, the body facing `facing`, its hips `hip` over the soles): the leg lands as far
+ * (`reachableStep`, the body facing as its pelvis does, its hips over the soles as read less the walk's crouch): the leg lands as far
  * as it can, and the step after goes on.
  * A landing the leg cannot reach over the recovery's time is planned over its `fast` time instead:
  * a quicker step lands nearer where the capture point will be.
@@ -89,9 +104,11 @@ function settleStep(feet: readonly FootState[], last: Side, heading: number, wid
  * the step; with one, that one, and the other steps, wherever it is: the body has tipped off that
  * foot, and the leg left hanging would land as a strut that throws the body on.
  */
-function recoveryStep(feet: readonly FootState[], holding: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, tuning: RecoveryTuning, gait: GaitTuning,
-  facing: number, hip: number, under?: Underway): SwingGoal {
-  if (tuning.longest !== undefined) gait = { ...gait, longest: tuning.longest };
+function recoveryStep(s: Stance, { recovery: tuning, holding, under }: {
+  readonly recovery: RecoveryTuning; readonly holding: readonly FootState[]; readonly under: Underway | null;
+}): SwingGoal {
+  const { feet } = s, { reading, gait: walking } = s.state, centre = reading.centre, velocity = carriedVelocity(s), g = gravityOf(s), facing = reading.facing;
+  const hip = hipHeight(s) - walking.crouch, gait = tuning.longest === undefined ? walking : { ...walking, longest: tuning.longest };
   const { clearance, effort } = gait, rx = cos(facing), rz = -sin(facing);
   const w = pendulumRate(g, overSoles(feet, centre)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   // Where a step of `foot` lands from `bearer` over `seconds`: the
@@ -216,21 +233,22 @@ function carriedVelocity(s: Stance): Vector3 {
 }
 
 /**
- * How far the capture point of a body at `centre` moving at `velocity`, standing on `feet`, is
- * outside the region the ankles of `of` (all of `feet` unless asked) hold (`bearingOf`), m.
+ * How far the capture point of the stance's body moving at `velocity` is outside the region the
+ * ankles of `of`, of its feet, hold (`bearingOf`), m.
  */
-function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, of = feet): number {
-  const w = pendulumRate(g, overSoles(feet, centre)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
+function outside(s: Stance, velocity: Vector3, of: readonly FootState[]): number {
+  const centre = s.state.reading.centre, w = pendulumRate(gravityOf(s), overSoles(s.feet, centre)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   const [hx, hz] = withinSupport(heldBy(of), xi, zi, 0);
   return hypot(xi - hx, zi - hz);
 }
 
 /**
- * Whether a recovery steps for a body on `feet` held by `holding` of them (`holding`): a foot holds
- * nothing, or its capture point is more than `margin` outside what they hold (`outside`).
+ * Whether a recovery steps for the stance's body held by `holding` of its feet (`holding`): a foot
+ * holds nothing, or its capture point, at its carried velocity (`carriedVelocity`), is more than
+ * `margin` outside what they hold (`outside`).
  */
-function unheld(feet: readonly FootState[], holding: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, margin: number): boolean {
-  return holding.length < feet.length || outside(feet, centre, velocity, g, holding) > margin;
+function unheld(s: Stance, holding: readonly FootState[], margin: number): boolean {
+  return holding.length < s.feet.length || outside(s, carriedVelocity(s), holding) > margin;
 }
 
 /**
@@ -460,8 +478,7 @@ function startingSide(feet: readonly FootState[], walk: readonly [number, number
  * time left. The step is planned with the hips `hip` over the soles, the walk's crouch; the foot
  * lands leaning from `held`, the height the plan holds them at (`landingLeanOf`).
  */
-function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
-  tuning: GaitTuning, hip: number, held: number, bend: number | null, last: Side | null, under?: Underway, plan?: StepPlan): SwingGoal {
+function walkStep({ feet, centre, velocity, g, walk, heading, tuning, hip, held, bend, last, under }: WalkAsk): Planned {
   const side: Side = under ? named(feet, under.foot).side : last ? otherSide(last) : startingSide(feet, walk, heading, tuning);
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The pelvis's right across the ground at the heading the step lands facing: +x at heading 0.
@@ -491,11 +508,10 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   const [cx0, cz0] = at(tx - b.x, tz - b.z);
   // A step lands within the whole of the leg's reach: the gait's reserve is the steady walk's (`stepsWithin`), left for this step's corrections.
   const [wx, wz, within] = reachableStep({ foot, dx: tx - b.x, dz: tz - b.z, cx: cx0, cz: cz0, rx, rz, sign, tuning, hip, bend, reserve: 1, bends: true });
-  if (plan) plan.within = within;
   [tx, tz] = clearOfBearer(bearer, foot, b.x + wx, b.z + wz, tuning.clearance);
   const [lx, lz] = at(tx - b.x, tz - b.z);
-  return { foot: foot.name, to: [tx, tz], seconds: T, lift: tuning.lift, shift: !steady, capture: steady ? [ex, ez] : [tx + nx, tz + nz],
-    lean: landingLeanOf(foot, tx - b.x, tz - b.z, lx, lz, rx, rz, sign, held) };
+  return { step: { foot: foot.name, to: [tx, tz], seconds: T, lift: tuning.lift, shift: !steady, capture: steady ? [ex, ez] : [tx + nx, tz + nz],
+    lean: landingLeanOf(foot, tx - b.x, tz - b.z, lx, lz, rx, rz, sign, held) }, within };
 }
 
 /**
@@ -523,8 +539,7 @@ const PREVIEW_STEPS = 8;
  * moves with. A body on its plan moves nothing; a step planned as if it were, when it is not,
  * lands short of catching it, and the steps after cannot. `hip` and `held` are as `walkStep`'s.
  */
-function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
-  tuning: GaitTuning, hip: number, held: number, bend: number | null, last: Side | null, under?: Underway, plan?: StepPlan): SwingGoal {
+function transferStep({ feet, centre, velocity, g, walk, heading, tuning, hip, held, bend, last, under }: WalkAsk): Planned {
   const side: Side = under ? named(feet, under.foot).side : last === "left" ? "right" : "left";
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
@@ -567,11 +582,10 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   const [cx0, cz0] = centreAtLanding(b, centre, velocity, w, qx, qz, under ? 0 : Tds, px, pz, swing);
   // A step lands within the whole of the leg's reach: the gait's reserve is the steady walk's (`stepsWithin`), left for this step's corrections.
   const [wx, wz, within] = reachableStep({ foot, dx: tx - b.x, dz: tz - b.z, cx: cx0, cz: cz0, rx, rz, sign, tuning, hip, bend, reserve: 1, bends: true });
-  if (plan) plan.within = within;
   [tx, tz] = clearOfBearer(bearer, foot, b.x + wx, b.z + wz, tuning.clearance);
   const capture = reference(tx, tz), [lx, lz] = [cx0, cz0];
-  return { foot: foot.name, to: [tx, tz], seconds: Tss, lift: tuning.lift, transfer: Tds,
-    capture, handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)], lean: landingLeanOf(foot, tx - b.x, tz - b.z, lx, lz, rx, rz, sign, held) };
+  return { step: { foot: foot.name, to: [tx, tz], seconds: Tss, lift: tuning.lift, transfer: Tds,
+    capture, handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)], lean: landingLeanOf(foot, tx - b.x, tz - b.z, lx, lz, rx, rz, sign, held) }, within };
 }
 
 /**
@@ -585,13 +599,11 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
  * on from the pace planned; and where no pace has a step that holds the body, a walk's step
  * cannot, and a recovery's catches it (`ownStep`). By bisection, to `PACE_STEP`.
  */
-function reachablePace(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, pace: readonly [number, number], heading: number,
-  tuning: GaitTuning, hip: number, bend: number | null, last: Side | null): [number, number] | null {
-  const plan: StepPlan = { within: true };
+function reachablePace(ask: Omit<WalkAsk, "walk" | "held" | "under">, pace: readonly [number, number]): [number, number] | null {
+  const { velocity, tuning, hip, last } = ask;
   const reaches = (x: number, z: number): boolean => {
-    if (tuning.transfer && last) transferStep(feet, centre, velocity, g, [x, z], heading, tuning, hip, hip, bend, last, undefined, plan);
-    else walkStep(feet, centre, velocity, g, [x, z], heading, tuning, hip, hip, bend, last, undefined, plan);
-    return plan.within;
+    const planned: WalkAsk = { ...ask, walk: [x, z], held: hip, under: null };
+    return (tuning.transfer && last ? transferStep(planned) : walkStep(planned)).within;
   };
   if (reaches(pace[0], pace[1])) return [pace[0], pace[1]];
   if (!reaches(velocity.x, velocity.z)) return null;
@@ -643,14 +655,14 @@ export function paceToward(s: Stance, walk: readonly [number, number] | null | u
  * other foot next.
  */
 export function catchStep(s: Stance): boolean {
-  const { feet, state } = s, { reading, step, gait } = state, { recovery } = s.tuning, swing = step.swing;
+  const { feet, state } = s, { reading, step } = state, { recovery } = s.tuning, swing = step.swing;
   if (!recovery || reading.phase !== "shift" || !swing || swing.transfer) return false;
-  const g = gravityOf(s), bearer = otherFoot(feet, swing.foot), off = outside(feet, reading.centre, reading.velocity, g, [bearer]);
+  const bearer = otherFoot(feet, swing.foot), off = outside(s, reading.velocity, [bearer]);
   const away = off > step.off;
   step.off = off;
   const held = assistReach(s), hold = holding(s), carried = carriedVelocity(s);
-  if (!away || outside(feet, reading.centre, carried, g, hold) <= recovery.margin + held) return false;
-  reading.own = recoveryStep(feet, hold, reading.centre, carried, g, recovery, gait, reading.facing, hipHeight(s) - gait.crouch);
+  if (!away || outside(s, carried, hold) <= recovery.margin + held) return false;
+  reading.own = recoveryStep(s, { recovery, holding: hold, under: null });
   step.recovering = true;
   state.stride = state.striding ? named(feet, reading.own.foot).side : null;
   reading.recoveries += 1;
@@ -663,10 +675,10 @@ export function catchStep(s: Stance): boolean {
  * a weight shift (`catchStep`) among them, which runs to its landing before any step the goal asks.
  */
 export function aimRecovery(s: Stance): void {
-  const { feet, state } = s, { reading, step, gait } = state, { recovery } = s.tuning;
+  const { feet, state } = s, { reading, step } = state, { recovery } = s.tuning;
   if (!recovery || !reading.own || !step.recovering || reading.phase !== "swing" || !step.lifted || step.swing !== reading.own) return;
   const under: Underway = { foot: reading.own.foot, pivot: reading.place, remaining: reading.own.seconds - step.time, shift: step.shift.capture };
-  const aimed = recoveryStep(feet, feet, reading.centre, carriedVelocity(s), gravityOf(s), recovery, gait, reading.facing, hipHeight(s) - gait.crouch, under);
+  const aimed = recoveryStep(s, { recovery, holding: feet, under });
   reading.own = step.swing = { ...reading.own, to: aimed.to };
 }
 
@@ -690,19 +702,20 @@ export function ownStep(s: Stance, { heading, hip, halted }: { readonly heading:
   }
   // The height the plan holds the hips at: its own less the centre of mass's rise over them, or the goal's before it has one.
   const hipHeld = state.plan.on ? state.plan.at.y - s.rise : hip;
+  // What every walk's step here is planned from but its walk, its held height and its last and under way.
+  const asked = { feet, centre: reading.centre, velocity: reading.velocity, g: gravityOf(s), heading, tuning: gait, hip: hips, bend };
   if (!reading.own && reading.phase === "stand") {
     const walk = pace[0] !== 0 || pace[1] !== 0 ? pace : null, held = assistReach(s), hold = holding(s), carried = carriedVelocity(s);
-    if (walk || (state.stride && recovery && outside(feet, reading.centre, carried, gravityOf(s), hold) > recovery.margin + held)) {
+    if (walk || (state.stride && recovery && outside(s, carried, hold) > recovery.margin + held)) {
       // Walking, or stopping a walk still under way: its steps keep their alternation, each at the
       // pace the leg can take it (`reachablePace`), which the walk's pace goes on from.
-      const reach = reachablePace(feet, reading.centre, reading.velocity, gravityOf(s), pace, heading, gait, hips, bend, state.stride);
+      const reach = reachablePace({ ...asked, last: state.stride }, pace);
       if (reach) {
         pace[0] = reach[0];
         pace[1] = reach[1];
       }
       state.striding = [pace[0], pace[1]];
-      const caught = reach || !recovery || !unheld(feet, hold, reading.centre, carried, gravityOf(s), recovery.margin + held) ? null
-        : recoveryStep(feet, hold, reading.centre, carried, gravityOf(s), recovery, gait, reading.facing, hipHeight(s) - gait.crouch);
+      const caught = reach || !recovery || !unheld(s, hold, recovery.margin + held) ? null : recoveryStep(s, { recovery, holding: hold, under: null });
       if (caught) {
         // No pace between the walk's and the body's own has a step the legs reach: no walk's step
         // holds the body, and a recovery's catches it, which the walk goes on from.
@@ -710,9 +723,8 @@ export function ownStep(s: Stance, { heading, hip, halted }: { readonly heading:
         step.recovering = true;
         reading.recoveries += 1;
       } else {
-        reading.own = gait.transfer && state.stride
-          ? transferStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, state.stride)
-          : walkStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, state.stride);
+        const ask: WalkAsk = { ...asked, walk: state.striding, held: hipHeld, last: state.stride, under: null };
+        reading.own = (gait.transfer && state.stride ? transferStep(ask) : walkStep(ask)).step;
         step.recovering = false;
         reading.strides += 1;
       }
@@ -722,9 +734,9 @@ export function ownStep(s: Stance, { heading, hip, halted }: { readonly heading:
       state.striding = null;
       reading.own = settleStep(feet, state.stride, heading, rest, gait);
       step.recovering = false;
-    } else if (recovery && outside(feet, reading.centre, carried, gravityOf(s)) > recovery.margin + held) {
+    } else if (recovery && outside(s, carried, feet) > recovery.margin + held) {
       state.striding = null;
-      reading.own = recoveryStep(feet, hold, reading.centre, carried, gravityOf(s), recovery, gait, reading.facing, hipHeight(s) - gait.crouch);
+      reading.own = recoveryStep(s, { recovery, holding: hold, under: null });
       step.recovering = true;
       reading.recoveries += 1;
     }
@@ -736,11 +748,12 @@ export function ownStep(s: Stance, { heading, hip, halted }: { readonly heading:
     // body lags its plan, and a landing fixed at lift carries the lag into the next step.
     const under: Underway = { foot: reading.own.foot, pivot: reading.place, remaining: reading.own.seconds - step.time, shift: step.shift.capture };
     // (`state.striding` is the pace the step was planned at.)
+    const ask: WalkAsk = { ...asked, walk: state.striding, held: hipHeld, last: null, under };
     if (reading.own.transfer) {
-      const aimed = transferStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, null, under);
+      const aimed = transferStep(ask).step;
       reading.own = step.swing = { ...reading.own, to: aimed.to, capture: aimed.capture!, lean: aimed.lean };
     } else {
-      const aimed = walkStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, null, under);
+      const aimed = walkStep(ask).step;
       reading.own = step.swing = { ...reading.own, to: aimed.to, lean: aimed.lean };
     }
   }
