@@ -1,7 +1,8 @@
 /**
  * **The back step's evaluation's cases**: the subject's mind, standing and throwing nothing, in the
  * carriage the back step stands in, led by the sway Commander (`SWAY`): its carriage taken as its
- * foe nears, the back step ordered on its foe's range. Its foe throws straight punches: walked in
+ * foe nears, the back step ordered on its foe's range (on a held rung's `-standing` twin, never,
+ * the half of the bar it is compared with). Its foe throws straight punches: walked in
  * and ordered to punch (`drilled`), or fighting as the Warrior's own Mind for 20 s (`mind`). The
  * subject is a Warrior empty-handed, the bout's left side; the attacker starts the condition's gap
  * ahead. Nothing ends a trial but its reader. A trial is a bout world, so the Arena plays it.
@@ -34,6 +35,9 @@ const CARRIAGE = STAGGERED;
 
 /** The sway Commander's settings: the carriage within 3 m, the back step at 1.05 m held 2.8 s, 0.3 s between, walking in from 0.95 m. */
 const SWAYING = deepFreeze({ kind: "sway", range: 1.05, near: 0, seconds: 2.8, rest: .3, set: 3, follow: .95, fight: false });
+
+/** The sway Commander never swaying: the carriage within 3 m, the back step ordered at no range a foe comes within, so the subject stands in its carriage. */
+const STANDING = deepFreeze({ ...SWAYING, range: 0 });
 
 /**
  * The sway Commander sparring (`SPAR`): the back step held as the Mind holds it (its `back-step`
@@ -103,8 +107,9 @@ export const createBackStepCases = perContext((context: GameContext) => {
   /** The subject's own mind, choosing its back steps itself. */
   const OWN = (subject: MindConfig): MindConfig => subject;
 
-  /** The subject's sides: led by the sway Commander at its own range, sparring at the condition's, fighting at the condition's, or choosing its back steps itself. */
+  /** The subject's sides: led by the sway Commander at its own range, standing in its carriage, sparring at the condition's range, fighting at the condition's, or choosing its back steps itself. */
   const DEFENDER: Side = { mind: defenderOf, commander: () => SWAYING };
+  const STANDER: Side = { mind: defenderOf, commander: () => STANDING };
   const SPARRER: Side = { mind: defenderOf, commander: (sway) => sway === null ? null : { ...SPARRING, range: sway } };
   const FIGHTER: Side = { mind: fighterOf, commander: (sway) => sway === null ? null : { ...FIGHTING, range: sway } };
   const CHOOSER: Side = { mind: OWN, commander: NONE };
@@ -189,9 +194,13 @@ export const createBackStepCases = perContext((context: GameContext) => {
   const twinned = (name: string, rung: Rung): Record<string, Cases<BackStepCondition, BackStepReading>> =>
     ({ [name]: { ...backStepCases(name, rung), twin: `${name}-twin` }, [`${name}-twin`]: backStepCases(`${name}-twin`, { ...rung, gaps: between(rung.gaps) }) });
 
+  /** A held-out rung, `name`, beside the same trials with the subject standing in its carriage, `<name>-standing`: the bar's two halves. */
+  const held = (name: string, rung: Rung): Record<string, Cases<BackStepCondition, BackStepReading>> =>
+    ({ [name]: backStepCases(name, rung), [`${name}-standing`]: backStepCases(`${name}-standing`, { ...rung, subject: STANDER }) });
+
   /** Every protocol the back step's evaluation may be played on, by name. */
   const BACK_STEP_CASES: Readonly<Record<string, Cases<BackStepCondition, BackStepReading>>> = Object.freeze({ ...twinned("drilled", DRILLED), ...twinned("mind", MIND),
-    "mind-held": backStepCases("mind-held", MIND_HELD), "drilled-held": backStepCases("drilled-held", DRILLED_HELD), "drilled-sways": backStepCases("drilled-sways", DRILLED_SWAYS),
+    ...held("mind-held", MIND_HELD), ...held("drilled-held", DRILLED_HELD), "drilled-sways": backStepCases("drilled-sways", DRILLED_SWAYS),
     spar: backStepCases("spar", SPAR), "spar-fight": backStepCases("spar-fight", SPAR_FIGHT), "spar-chosen": backStepCases("spar-chosen", SPAR_CHOSEN), "spar-mirror": backStepCases("spar-mirror", SPAR_MIRROR) });
 
   return { BACK_STEP_CASES };
