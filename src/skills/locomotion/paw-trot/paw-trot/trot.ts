@@ -6,6 +6,7 @@ import { REPTILE_TROT } from "../../shared/quadruped/tuning.ts";
 import type { Gait, PawGaitBody } from "../../shared/quadruped/parts.ts";
 import type { PawView } from "../../../../control/quadruped/paws.ts";
 import { chainTo, reachWork, solveReach } from "../../../../control/kinematics.ts";
+import { anchorAt, anchorsOf, completeSettings, gaitPoser, gaitStart, headingError, meanOf, overMean, settledCentre } from "../../shared/quadruped/gait.ts";
 
 /**
  * Diagonal support pairs carry continuous travel; every counted paw clears and reloads the ground.
@@ -15,16 +16,10 @@ import { chainTo, reachWork, solveReach } from "../../../../control/kinematics.t
  */
 export function trot(body: PawGaitBody, T: typeof REPTILE_TROT): Gait {
   if (!validTrot(T)) throw new Error("invalid trot settings");
-  const { built, root, paws, names } = body;
-  const nominal = names.map(name => built.segments.get(name)!.spec.points!.sole!.value);
-  const mass = built.spec.mass.value, reference = built.spec.segments.reduce((c, p) => {
-    const m = p.mass.value / mass, at = p.centreOfMass.value;
-    return [c[0] + m * at[0], c[1] + m * at[1], c[2] + m * at[2]] as Vec3;
-  }, [0, 0, 0] as Vec3);
-  const q = root.pose.rotation;
+  const { built, paws, names } = body, start = gaitStart(body), { nominal, reference } = start;
   const groups = pairsOf(nominal);
   const stance = stanceOf(built, names, nominal, groups, reference, T.lift), room = T.reach * stance.room, neutral = stance.neutral;
-  const over: readonly [number, number] = [reference[0] - neutral.reduce((s, n) => s + n[0], 0) / names.length, reference[2] - neutral.reduce((s, n) => s + n[1], 0) / names.length];
+  const over = overMean(reference, neutral);
   /** The fastest the trot carries the body: a stance's sweep within the room at its cycle. */
   const fastest = 2 * room / (T.swing + T.settle);
   /**
@@ -42,27 +37,21 @@ export function trot(body: PawGaitBody, T: typeof REPTILE_TROT): Gait {
   };
   const state = {
     phase: "settle" as "settle" | "swing" | "land" | "return", time: 0, stride: T.swing as number, since: 0, paw: 0, steps: 0, placed: 0, sequence: 0, yaw: 0, standing: false,
-    centre: [paws.centre.x, reference[1], paws.centre.z] as [number, number, number],
-    anchors: paws.feet.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
-    targets: paws.feet.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
+    centre: start.centre,
+    anchors: start.anchors,
+    targets: anchorsOf(paws),
     liftedPaws: names.map(() => false),
     pace: [0, 0, 0] as [number, number, number],
-    command: {
-      centre: [paws.centre.x, reference[1], paws.centre.z] as [number, number, number],
-      velocity: [0, 0, 0] as [number, number, number], rotation: [q.x, q.y, q.z, q.w] as [number, number, number, number],
-      endpoints: paws.feet.map((e, i) => ({ target: [e.at.x, nominal[i]![1], e.at.z] as [number, number, number],
-        bearing: true, rotation: [0, 0, 0, 1] as [number, number, number, number] })),
-      posture: {} as Record<string, number>,
-    },
+    command: start.command,
   };
-  const rotation = new Quaternion(), turned = new Quaternion();
+  const pose = gaitPoser(body);
   /** A paw is down that touches the floor or rests within `touch` of it. */
   const down = (e: PawView["feet"][number]) => e.contact || e.low - e.ground < T.touch;
   const resume = (view: PawView) => {
     state.phase = "settle"; state.time = 0; state.sequence++; state.yaw = view.yaw; state.standing = false;
     state.centre[0] = view.centre.x; state.centre[2] = view.centre.z;
     state.command.velocity.fill(0); state.pace.fill(0);
-    view.feet.forEach((e, i) => { state.anchors[i]![0] = e.at.x; state.anchors[i]![1] = e.ground; state.anchors[i]![2] = e.at.z; });
+    view.feet.forEach((e, i) => anchorAt(state.anchors[i]!, e));
   };
   return {
     state, resume, settings: T, grounded: T.swingResponse,
@@ -71,23 +60,11 @@ export function trot(body: PawGaitBody, T: typeof REPTILE_TROT): Gait {
     reach: { forward: Math.min(T.speed, fastest), aside: T.sideways, turn: T.turnRate },
     travel: { speed: T.speed, stopping: T.acceleration },
     command(view, intent, dt) {
-      const face = intent.face ?? intent.move;
-      let error = 0;
-      if (face && (face.x * face.x + face.z * face.z) > 0) {
-        const angle = atan2(face.x, face.z), d = angle - state.yaw;
-        error = atan2(sin(d), cos(d));
-      }
-      const moving = !!intent.move || Math.abs(error) > T.turnError;
+      const error = headingError(intent, state.yaw), moving = !!intent.move || Math.abs(error) > T.turnError;
       state.time += dt; state.since += dt;
       const free = groups[state.paw]!;
-      view.feet.forEach((e, i) => {
-        if (e.contact && (!free.includes(i) || state.phase === "settle")) {
-          state.anchors[i]![0] = e.at.x; state.anchors[i]![1] = e.ground; state.anchors[i]![2] = e.at.z;
-        }
-      });
-      const average = [0, 0, 0];
-      for (const anchor of state.anchors) for (let k = 0; k < 3; k++) average[k] += anchor[k]! / names.length;
-      const ground = average[1]!;
+      view.feet.forEach((e, i) => { if (e.contact && (!free.includes(i) || state.phase === "settle")) anchorAt(state.anchors[i]!, e); });
+      const average = meanOf(state.anchors), ground = average[1]!;
       let vx = 0, vz = 0;
       const delayed = state.phase === "return" || state.phase === "land" && state.time >= T.landingWait
         || state.phase === "settle" && state.time >= T.landingWait && !view.feet.every(foot => foot.contact);
@@ -124,11 +101,7 @@ export function trot(body: PawGaitBody, T: typeof REPTILE_TROT): Gait {
       if (Math.abs(lead) > T.turnLead) state.yaw = view.yaw + (lead > 0 ? T.turnLead : -T.turnLead);
       const travelling = moving || Math.abs(state.pace[0]) + Math.abs(state.pace[2]) > 0;
       if (travelling) { state.centre[0] = view.centre.x; state.centre[2] = view.centre.z; }
-      else if (!state.standing) {
-        const c = cos(state.yaw), s = sin(state.yaw);
-        state.centre[0] = average[0]! + c * over[0] + s * over[1];
-        state.centre[2] = average[2]! - s * over[0] + c * over[1];
-      }
+      else if (!state.standing) settledCentre(state, average, over);
       state.standing = !travelling;
       state.command.centre[0] = state.centre[0]; state.command.centre[2] = state.centre[2];
       state.command.centre[1] = ground + reference[1] * (travelling || state.phase !== "settle" ? (intent.height ?? T.height) : 1);
@@ -144,7 +117,7 @@ export function trot(body: PawGaitBody, T: typeof REPTILE_TROT): Gait {
           // A pair whose paws all bear has landed, a paw that never cleared the floor (dragged, or
           // already at its target) where it stands: waiting on its lift would hold the step while
           // the body travels over its other pair. Only a paw that cleared the floor counts a step.
-          for (const i of free) { state.anchors[i]![0] = view.feet[i]!.at.x; state.anchors[i]![1] = view.feet[i]!.ground; state.anchors[i]![2] = view.feet[i]!.at.z; }
+          for (const i of free) anchorAt(state.anchors[i]!, view.feet[i]!);
           state.placed += free.length; state.stride = state.since;
           for (const i of free) if (state.liftedPaws[i]) state.steps++;
           state.paw = (state.paw + 1) % groups.length; state.phase = "settle"; state.time = 0;
@@ -158,19 +131,8 @@ export function trot(body: PawGaitBody, T: typeof REPTILE_TROT): Gait {
           state.phase = "settle"; state.time = 0;
         }
       }
-      rotation.set(0, sin(state.yaw / 2), 0, cos(state.yaw / 2));
-      rotation.multiplyToRef(root.rest, turned);
-      state.command.rotation.splice(0, 4, turned.x, turned.y, turned.z, turned.w);
-      state.command.endpoints.forEach((goal, i) => {
-        rotation.multiplyToRef(built.segments.get(names[i]!)!.rest, turned);
-        goal.rotation.splice(0, 4, turned.x, turned.y, turned.z, turned.w);
-        goal.target.splice(0, 3, ...state.anchors[i]!); goal.bearing = true;
-        if (groups[state.paw]!.includes(i) && (state.phase === "swing" || state.phase === "land" || state.phase === "return")) {
-          goal.target.splice(0, 3, ...state.targets[i]!);
-          goal.bearing = false;
-        }
-      });
-      return state.command;
+      const swinging = state.phase === "swing" || state.phase === "land" || state.phase === "return";
+      return pose(state, (i) => swinging && groups[state.paw]!.includes(i) ? state.targets[i]! : null);
     },
   };
 }
@@ -242,8 +204,5 @@ const REACH_SEARCH = .5, REACH_STEPS = 16;
 
 /** The trot's complete settings keep travel and every consumed time divisor positive. */
 export function validTrot(settings: typeof REPTILE_TROT): boolean {
-  return !!settings && typeof settings === "object" && !Array.isArray(settings)
-    && Object.keys(REPTILE_TROT).every(key => Object.hasOwn(settings, key))
-    && Object.entries(settings).every(([key, value]) => Object.hasOwn(REPTILE_TROT, key) && Number.isFinite(value) && value >= 0)
-    && settings.speed > 0 && settings.acceleration > 0 && settings.swing + settings.settle > 0;
+  return completeSettings(REPTILE_TROT, settings) && settings.speed > 0 && settings.acceleration > 0 && settings.swing + settings.settle > 0;
 }

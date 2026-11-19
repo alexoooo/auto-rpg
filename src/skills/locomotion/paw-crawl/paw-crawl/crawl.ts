@@ -1,26 +1,10 @@
 import type { Gait, PawGaitBody } from "../../shared/quadruped/parts.ts";
-import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
-import type { ReadBody } from "../../../../core/bodies/read-body.ts";
+import { Vector3 } from "../../../../core/math/vector.ts";
 import { withinSupport } from "../../../../control/support.ts";
-import { atan2, cos, sin } from "../../../../core/math/real.ts";
-import type { Vec3 } from "../../../../core/quantity.ts";
+import { cos, sin } from "../../../../core/math/real.ts";
 import { REPTILE_CRAWL } from "../../shared/quadruped/tuning.ts";
 import type { PawView } from "../../../../control/quadruped/paws.ts";
-
-/**
- * Where a body standing on its `paws` at the reference pose carries its centre of mass, body
- * frame, from the paws' mean: a settled stance puts the centre there, wherever the legs meet the
- * trunk.
- */
-function overPaws(built: ReadBody, paws: readonly string[]): readonly [number, number] {
-  const mass = built.spec.mass.value, centre = built.spec.segments.reduce((c, p) => {
-    const m = p.mass.value / mass, at = p.centreOfMass.value;
-    return [c[0] + m * at[0], c[1] + m * at[2]] as [number, number];
-  }, [0, 0] as [number, number]);
-  let x = 0, z = 0;
-  for (const name of paws) { const sole = built.segments.get(name)!.spec.points!.sole!.value; x += sole[0]; z += sole[2]; }
-  return [centre[0] - x / paws.length, centre[1] - z / paws.length];
-}
+import { anchorAt, completeSettings, gaitPoser, gaitStart, headingError, meanOf, overMean, settledCentre } from "../../shared/quadruped/gait.ts";
 
 /**
  * One paw moves after the centre enters the other three paws' support triangle: a gait of `body`
@@ -28,31 +12,20 @@ function overPaws(built: ReadBody, paws: readonly string[]): readonly [number, n
  */
 export function crawl(body: PawGaitBody, T: typeof REPTILE_CRAWL): Gait {
   if (!validCrawl(T)) throw new Error("invalid crawl settings");
-  const { built, root, paws, names } = body;
-  const nominal = names.map(name => built.segments.get(name)!.spec.points!.sole!.value);
-  const mass = built.spec.mass.value, reference = built.spec.segments.reduce((c, p) => {
-    const m = p.mass.value / mass, at = p.centreOfMass.value;
-    return [c[0] + m * at[0], c[1] + m * at[1], c[2] + m * at[2]] as Vec3;
-  }, [0, 0, 0] as Vec3);
-  const over = overPaws(built, names), q = root.pose.rotation;
+  const { names } = body, start = gaitStart(body), { nominal, reference } = start;
+  const over = overMean(reference, nominal.map(n => [n[0], n[2]] as const));
   const state = {
     phase: "settle" as "settle" | "shift" | "swing" | "land" | "return", time: 0, paw: 0, steps: 0, placed: 0, sequence: 0, yaw: 0, align: 0, standing: false, lifted: false,
-    centre: [paws.centre.x, reference[1], paws.centre.z] as [number, number, number],
-    anchors: paws.feet.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
+    centre: start.centre,
+    anchors: start.anchors,
     from: [0, 0, 0] as [number, number, number], to: [0, 0, 0] as [number, number, number],
-    command: {
-      centre: [paws.centre.x, reference[1], paws.centre.z] as [number, number, number],
-      velocity: [0, 0, 0] as [number, number, number], rotation: [q.x, q.y, q.z, q.w] as [number, number, number, number],
-      endpoints: paws.feet.map((e, i) => ({ target: [e.at.x, nominal[i]![1], e.at.z] as [number, number, number],
-        bearing: true, rotation: [0, 0, 0, 1] as [number, number, number, number] })),
-      posture: {} as Record<string, number>,
-    },
+    command: start.command,
   };
-  const rotation = new Quaternion(), turned = new Quaternion(), support = names.map(() => ({ corners: [new Vector3()] }));
+  const pose = gaitPoser(body), support = names.map(() => ({ corners: [new Vector3()] }));
   const resume = (view: PawView) => {
     state.phase = "settle"; state.time = 0; state.sequence++; state.yaw = view.yaw; state.standing = false; state.align = 0;
     state.centre[0] = view.centre.x; state.centre[2] = view.centre.z;
-    view.feet.forEach((e, i) => { state.anchors[i]![0] = e.at.x; state.anchors[i]![1] = e.ground; state.anchors[i]![2] = e.at.z; });
+    view.feet.forEach((e, i) => anchorAt(state.anchors[i]!, e));
   };
   // A paw's step takes its settle, its shift, its swing and its plant; each paw steps once a stride, and a heading turns a yaw step a stride. It steps any way.
   const stride = names.length * (T.settle + T.shift + T.swing + T.plant), forward = T.stride / stride;
@@ -61,30 +34,14 @@ export function crawl(body: PawGaitBody, T: typeof REPTILE_CRAWL): Gait {
     reach: { forward, aside: 1, turn: T.yawStep / stride },
     travel: { speed: forward, stopping: forward / stride },
     command(view, intent, dt) {
-      const face = intent.face ?? intent.move;
-      let error = 0;
-      if (face && (face.x * face.x + face.z * face.z) > 0) {
-        const angle = atan2(face.x, face.z), d = angle - state.yaw;
-        error = atan2(sin(d), cos(d));
-
-      }
+      const face = intent.face ?? intent.move, error = headingError(intent, state.yaw);
       const moving = !!intent.move || Math.abs(error) > T.turnError || state.align > 0 && !!face;
       state.time += dt;
-      view.feet.forEach((e, i) => {
-        if (e.contact && (i !== state.paw || state.phase === "settle" || state.phase === "shift")) {
-          state.anchors[i]![0] = e.at.x; state.anchors[i]![1] = e.ground; state.anchors[i]![2] = e.at.z;
-        }
-      });
-      const average = [0, 0, 0];
-      for (const anchor of state.anchors) for (let k = 0; k < 3; k++) average[k] += anchor[k]! / names.length;
-      const ground = average[1]!;
+      view.feet.forEach((e, i) => { if (e.contact && (i !== state.paw || state.phase === "settle" || state.phase === "shift")) anchorAt(state.anchors[i]!, e); });
+      const average = meanOf(state.anchors), ground = average[1]!;
       state.command.centre[1] = ground + reference[1] * (state.phase === "settle" ? 1 : (intent.height ?? T.height));
       if (state.phase === "settle") {
-        if (moving || !state.standing) {
-          const c = cos(state.yaw), s = sin(state.yaw);
-          state.centre[0] = average[0]! + c * over[0] + s * over[1];
-          state.centre[2] = average[2]! - s * over[0] + c * over[1];
-        }
+        if (moving || !state.standing) settledCentre(state, average, over);
         state.standing = !moving;
         state.command.centre[0] = state.centre[0]; state.command.centre[2] = state.centre[2];
         if (moving && state.time >= T.settle && view.feet.every(e => e.contact)) {
@@ -122,9 +79,7 @@ export function crawl(body: PawGaitBody, T: typeof REPTILE_CRAWL): Gait {
         } else if (state.phase === "land" && view.feet[state.paw]!.contact) {
           // A paw that bears has landed, whether it cleared the floor or never left it (dragged, or
           // already at its target): it is placed; only one that cleared the floor counts a step.
-          state.anchors[state.paw]![0] = view.feet[state.paw]!.at.x;
-          state.anchors[state.paw]![1] = view.feet[state.paw]!.ground;
-          state.anchors[state.paw]![2] = view.feet[state.paw]!.at.z;
+          anchorAt(state.anchors[state.paw]!, view.feet[state.paw]!);
           state.placed++;
           if (state.lifted) state.steps++;
           state.paw = (state.paw + 1) % names.length; state.phase = "settle"; state.time = 0;
@@ -138,27 +93,13 @@ export function crawl(body: PawGaitBody, T: typeof REPTILE_CRAWL): Gait {
           state.phase = "settle"; state.time = 0;
         }
       }
-      rotation.set(0, sin(state.yaw / 2), 0, cos(state.yaw / 2));
-      rotation.multiplyToRef(root.rest, turned);
-      state.command.rotation.splice(0, 4, turned.x, turned.y, turned.z, turned.w);
-      state.command.endpoints.forEach((goal, i) => {
-        rotation.multiplyToRef(built.segments.get(names[i]!)!.rest, turned);
-        goal.rotation.splice(0, 4, turned.x, turned.y, turned.z, turned.w);
-        goal.target.splice(0, 3, ...state.anchors[i]!); goal.bearing = true;
-        if (i === state.paw && (state.phase === "swing" || state.phase === "land" || state.phase === "return")) {
-          goal.target.splice(0, 3, ...state.to);
-          goal.bearing = false;
-        }
-      });
-      return state.command;
+      const swinging = state.phase === "swing" || state.phase === "land" || state.phase === "return";
+      return pose(state, (i) => swinging && i === state.paw ? state.to : null);
     },
   };
 }
 
 /** The crawl's complete settings keep travel and every consumed time divisor positive. */
 export function validCrawl(settings: typeof REPTILE_CRAWL): boolean {
-  return !!settings && typeof settings === "object" && !Array.isArray(settings)
-    && Object.keys(REPTILE_CRAWL).every(key => Object.hasOwn(settings, key))
-    && Object.entries(settings).every(([key, value]) => Object.hasOwn(REPTILE_CRAWL, key) && Number.isFinite(value) && value >= 0)
-    && settings.stride > 0 && settings.settle + settings.shift + settings.swing + settings.plant > 0;
+  return completeSettings(REPTILE_CRAWL, settings) && settings.stride > 0 && settings.settle + settings.shift + settings.swing + settings.plant > 0;
 }
