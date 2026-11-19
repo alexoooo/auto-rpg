@@ -220,10 +220,11 @@ function profileReading(profile: Profile, striker: BodySpec, postures: Postures,
     scaled(struck) {
       const known = struck ? scaledAt.get(struck) : scaledAlone;
       if (known !== undefined) return known;
-      const was = profile.target && struck ? trials.find((trial) => trial.start.struck)?.start.struck : undefined, now = struck && struckNumbers(struck);
+      // A profile of a skill at a foe is one whose trials record the body they struck.
+      const was = struck ? trials.find((trial) => trial.start.struck)?.start.struck : undefined, now = struck && struckNumbers(struck);
       const why = [...was && now && (was.stature !== now.stature || was.mass !== now.mass)
         ? [`measured against a body of ${was.stature} m and ${was.mass} kg, read against one of ${now.stature} m and ${now.mass} kg`] : [],
-        ...[heldPast(trials, "own", striker), struck && profile.target ? heldPast(trials, "target", struck) : null].filter((one) => one !== null)];
+        ...[heldPast(trials, "own", striker), struck && was ? heldPast(trials, "target", struck) : null].filter((one) => one !== null)];
       const made = why.length ? why.join("; ") : null;
       if (struck) scaledAt.set(struck, made); else scaledAlone = made;
       return made;

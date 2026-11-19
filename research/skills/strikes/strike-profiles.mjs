@@ -105,8 +105,7 @@ for (const path of paths) {
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const struck = specOf(recipe, "right"), { measured, digests } = strikeKey(spec, mind, executors, action, led.limb, hz, reaction, delay);
     const key = JSON.stringify(measured);
-    // A strike is measured against a foe (`Profile.target`).
-    const profile = profiles.get(key) ?? { measured, target: {}, label: `${spec.model} ${led.skill} with ${led.limb}`,
+    const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${led.skill} with ${led.limb}`,
       digests, commits: new Set(), dates: new Set(), changed: false, trials: [] };
     profiles.set(key, profile);
     profile.commits.add(row.from.commit);
@@ -124,7 +123,7 @@ const order = (a, b) => (a.start.postures?.target ?? "").localeCompare(b.start.p
 const shared = (values) => values.size === 1 ? [...values][0] ?? undefined : undefined;
 const made = [...profiles.values()].map((profile) => {
   const commit = shared(profile.commits), date = shared(profile.dates);
-  return { measured: profile.measured, target: profile.target, from: { ...profile.digests, ...(commit === undefined ? {} : { commit, changed: profile.changed }), ...(date === undefined ? {} : { date }) }, trials: [...profile.trials].sort(order) };
+  return { measured: profile.measured, from: { ...profile.digests, ...(commit === undefined ? {} : { commit, changed: profile.changed }), ...(date === undefined ? {} : { date }) }, trials: [...profile.trials].sort(order) };
 });
 for (const profile of profiles.values()) {
   const m = profile.measured, run = profile.trials.filter((t) => !t.letGo), lets = profile.trials.length - run.length;
@@ -141,7 +140,7 @@ for (const profile of profiles.values()) {
 }
 if (write) {
   // Each of the asset's profiles keeps its place; one a run made again is replaced there, and the new follow.
-  const keyOf = ({ measured, target }) => JSON.stringify([measured, target]), current = profileKeys().strike;
+  const keyOf = ({ measured }) => JSON.stringify(measured), current = profileKeys().strike;
   const named = (m) => `${m.body}, ${m.skill}${m.limb ? ` with ${m.limb}` : ""}`;
   const remade = new Map(made.map((profile) => [keyOf(profile), profile])), kept = [], asset = JSON.parse(readFileSync(OUT, "utf8"));
   // An asset measured on other rungs holds no profile to keep beside these.

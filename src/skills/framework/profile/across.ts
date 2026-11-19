@@ -123,6 +123,6 @@ function struckAt(profile: Profile, struck: BodySpec): Profile {
 export function profileAgainst(profiles: readonly Profile[], struck: BodySpec | null): Profile | null {
   if (!struck) return profiles[0] ?? null;
   const now = struckNumbers(struck);
-  const profile = profiles.find((one) => !one.target || struckBodies(one).some((at) => at.stature === now.stature && at.mass === now.mass)) ?? profiles[0];
-  return profile ? profile.target ? struckAt(profile, struck) : profile : null;
+  const profile = profiles.find((one) => struckBodies(one).some((at) => at.stature === now.stature && at.mass === now.mass)) ?? profiles[0];
+  return profile ? struckAt(profile, struck) : null;
 }

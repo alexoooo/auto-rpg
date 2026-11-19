@@ -18,7 +18,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "7091f24e8a393878",
         "skill": "a1842f8185a0dde3"
@@ -2980,7 +2979,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "7091f24e8a393878",
         "skill": "78de016a72160344"
@@ -5965,7 +5963,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "7db87884a2cc3e6e",
         "skill": "161db2fa5bef1ad0",
@@ -59935,7 +59932,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "7db87884a2cc3e6e",
         "skill": "5fc5ba152fc8b0f3",
@@ -113690,7 +113686,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "356879a6a19ee180",
         "skill": "4023aab15a5d92cf",
@@ -167620,7 +167615,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "356879a6a19ee180",
         "skill": "e25b5dd6ea49e1f4",
@@ -222044,7 +222038,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "893b518d83d1516b",
         "skill": "65129bfecea326c4"
@@ -226166,7 +226159,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "7091f24e8a393878",
         "skill": "45f196a845dc6346"
@@ -228063,7 +228055,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "7091f24e8a393878",
         "skill": "c1d36bcb3862a9b9"
@@ -229687,7 +229678,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "d52b9b792e16232b",
         "skill": "2cd7a7c23bcaf23c"
@@ -231152,7 +231142,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "d52b9b792e16232b",
         "skill": "28f08dfd60310d1f"
@@ -232701,7 +232690,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "5687e03133cd3e13",
         "skill": "e036bae07bde8b8a",
@@ -376502,7 +376490,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "5687e03133cd3e13",
         "skill": "ac36d1f14a0b712b",
@@ -520816,7 +520803,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "7db87884a2cc3e6e",
         "skill": "ece1ca0e35d144a8",
@@ -523586,7 +523572,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "7db87884a2cc3e6e",
         "skill": "98e97173c913a3e5",
@@ -526420,7 +526405,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "356879a6a19ee180",
         "skill": "ee0758f7d4ddec79",
@@ -529041,7 +529025,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "356879a6a19ee180",
         "skill": "1a300272acf1af04",

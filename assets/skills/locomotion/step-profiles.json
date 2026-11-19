@@ -16,7 +16,6 @@
         "rate": 60,
         "delay": 1
       },
-      "target": {},
       "from": {
         "spec": "5687e03133cd3e13",
         "commit": "b8d535a21413125402fea5f9ce1cc7afaf1cd27b",

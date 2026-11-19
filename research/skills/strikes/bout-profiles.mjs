@@ -27,8 +27,7 @@ for (const path of positionals) for (const [, result] of savedBouts(path)) {
     const key = JSON.stringify(measured), known = profiles.get(key);
     if (known && JSON.stringify(known.from) !== JSON.stringify(digests)) throw new Error(`${path}: ${measured.body} ${measured.skill} with ${measured.limb} played on other code than an earlier record's`);
     if (known) known.trials.push(...trials);
-    // A strike is measured against a foe (`Profile.target`).
-    else profiles.set(key, { measured, target: {}, from: digests, trials: [...trials] });
+    else profiles.set(key, { measured, from: digests, trials: [...trials] });
   }
 }
 console.log(`${bouts} bouts, ${profiles.size} profiles`);

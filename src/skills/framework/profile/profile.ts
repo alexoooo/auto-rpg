@@ -15,9 +15,9 @@
  * its window within the spans its trials began at (`readWithin`). A
  * skill with no foe, a ground edge, begins at no range, clear. A profile is found by the question
  * it answers (`Measured`): its skill and variation, the limb that throws it, its body's model, the
- * world's rates and the senses' reaction time; and whether it was measured against a foe (`Target`,
- * none for a skill with no foe). Neither the body struck nor what either body held is part of it:
- * each trial records them as numbers (`Start.struck`, `Start.held`), and a reading takes the
+ * world's rates and the senses' reaction time. Neither the body struck nor what either body held is
+ * part of it: each trial records them as numbers (`Start.struck`, none for a skill with no foe;
+ * `Start.held`), and a reading takes the
  * trials struck at the numbers nearest the struck body's (`profileAgainst`) and begun holding
  * nearest what each body holds (`bodyNumbers`), within what they held (`heldPast`). The code it
  * was measured on is no part of what finds it: a retrained network or a tuned setting leaves it
@@ -54,9 +54,6 @@ export interface Measured {
   readonly rate?: number;
   readonly delay?: number;
 }
-
-/** **A profile of a skill at a foe** (`Profile.target`): the body each trial struck is on its start, as numbers (`Start.struck`). */
-export type Target = Readonly<Record<string, never>>;
 
 /**
  * **Where a profile came from**, which finds and refuses none: the digests of its body's spec and
@@ -197,8 +194,6 @@ export const measuredAt = (profile: Profile, postures: Postures): boolean => pro
 
 export interface Profile {
   readonly measured: Measured;
-  /** Whether it was measured against a foe (`Target`); null for a skill with no foe. */
-  readonly target: Target | null;
   readonly trials: readonly Trial[];
   /** Where it came from (`Origin`); absent where its tool kept none. */
   readonly from?: Origin;
@@ -214,7 +209,6 @@ const profileStanceNumbers = (value: unknown): boolean => profileObject(value) &
 const profileStances = (value: unknown): boolean => profileObject(value) && [value.own, value.target].every((body) => body === undefined || profileStanceNumbers(body));
 const profileHeld = (value: unknown): boolean => profileObject(value) && [value.own, value.target].every((body) => body === undefined
   || profileObject(body) && Object.values(body).every((item) => profileObject(item) && profileNonnegative(item.mass) && profileNonnegative(item.reach)));
-const profileTarget = (value: unknown): boolean => profileObject(value) && Object.keys(value).length === 0;
 const profileStruck = (value: unknown): boolean => profileObject(value) && [value.stature, value.mass].every((one) => profileNumber(one) && one > 0)
   && [value.steadiness, value.haste].every(profileNumber);
 const profileOrigin = (value: unknown): boolean => profileObject(value)
@@ -243,6 +237,6 @@ const profileTrial = (value: unknown): boolean => profileObject(value) && profil
 
 /** Whether supplied profiles have finite measurements and the trial fields their readers use. */
 export const validProfiles = (value: unknown): value is readonly Profile[] => Array.isArray(value) && value.every(profile => profileObject(profile)
-  && profileMeasured(profile.measured) && (profile.target === null || profileTarget(profile.target))
+  && profileMeasured(profile.measured)
   && Array.isArray(profile.trials) && profile.trials.every(profileTrial)
   && (profile.from === undefined || profileOrigin(profile.from)));

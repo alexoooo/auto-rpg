@@ -170,7 +170,7 @@ const PRIORS = new WeakMap<BodySpec, WeakMap<BodySpec, Map<number, Map<number, M
 
 /** A prior (`prior`), made anew: of `striker`'s body, measured on nothing, its skill set by hand. */
 const priorOf = (striker: BodySpec, struck: BodySpec, range: number, life: number, seconds: number): ProfileReading =>
-  readProfile({ measured: { body: striker.model, stature: striker.stature.value, skill: "by hand", hz: 0, reaction: null }, target: null,
+  readProfile({ measured: { body: striker.model, stature: striker.stature.value, skill: "by hand", hz: 0, reaction: null },
     trials: [{ start: { range, phase: "clear" }, done: true, dealt: life * struck.wounds.hp.value, taken: 0, seconds, recovers: null, down: false }] }, striker);
 
 /**
@@ -332,7 +332,7 @@ function pooled(model: Model, striker: BodySpec, postures: Postures): Model {
   let at = POOLS;
   for (const profile of profiles) { let next = at.next.get(profile); if (!next) at.next.set(profile, next = { next: new WeakMap() }); at = next; }
   const { limb: _, ...measured } = first.measured;
-  at.pool ??= deepFreeze({ measured: { ...measured, skill: profiles.map((profile) => `${profile.measured.skill} ${profile.measured.limb ?? ""}`.trim()).join(" + ") }, target: first.target,
+  at.pool ??= deepFreeze({ measured: { ...measured, skill: profiles.map((profile) => `${profile.measured.skill} ${profile.measured.limb ?? ""}`.trim()).join(" + ") },
     trials: profiles.flatMap((profile) => profile.trials) });
   return { ...model, measured: [{ limbs: [...new Set(model.measured.flatMap((one) => one.limbs))], reading: readProfile(at.pool, striker, postures) }] };
 }

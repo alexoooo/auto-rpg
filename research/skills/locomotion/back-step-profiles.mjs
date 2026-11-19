@@ -15,11 +15,11 @@
  * where they began centre to centre (`exit.stays`), else by how much further apart (`exit.moved`;
  * a head mid-sway leans, so a change head to head is not the bodies'), and of that the subject's own
  * steps' share (`exit.own`, m further apart; `Sway.moved`); and whether it went down then or just after. A
- * trial is done where it stayed up. A profile is a skill on a body against a target: its
+ * trial is done where it stayed up. A profile is a skill on a body against a foe: its
  * measured-on read from each row's world as the strikes' is (`strike-profiles.mjs`): the left
  * body's spec as the bout builds it, the harness's rate and command delay, the recipe's sense
- * delay, the rate its mind decides at; its skill the gait's kind (`back-step`); its target the right
- * body's.
+ * delay, the rate its mind decides at; its skill the gait's kind (`back-step`); the body each trial
+ * struck, the right, on its start (`Start.struck`).
  *
  *   node --import ./tests/harness/preload-data.mjs research/skills/locomotion/back-step-profiles.mjs <run.json> ... [--write]
  *
@@ -63,10 +63,10 @@ for (const path of paths) {
   for (const row of rows) {
     const recipe = row.world?.recipe, mind = recipe?.minds?.left;
     if (row.fault || !row.reading?.sways || row.world.kind !== "bout") continue;
-    const spec = specOf(recipe), struck = specOf(recipe, "right"), target = {};
+    const spec = specOf(recipe), struck = specOf(recipe, "right");
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
-    const measured = measuredOn(spec, SKILL, null, hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
-    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${SKILL} at ${struck.model}`, digests: { spec: specDigest(spec) },
+    const measured = measuredOn(spec, SKILL, null, hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify(measured);
+    const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${SKILL} at ${struck.model}`, digests: { spec: specDigest(spec) },
       commits: new Set(), dates: new Set(), changed: false, trials: [] };
     profiles.set(key, profile);
     profile.commits.add(row.from.commit);
@@ -86,7 +86,7 @@ const order = (a, b) => (a.start.postures?.target ?? "").localeCompare(b.start.p
 const shared = (values) => values.size === 1 ? [...values][0] ?? undefined : undefined;
 const made = [...profiles.values()].filter((profile) => profile.trials.length).map((profile) => {
   const commit = shared(profile.commits), date = shared(profile.dates);
-  return { measured: profile.measured, target: profile.target, from: { ...profile.digests, ...(commit === undefined ? {} : { commit, changed: profile.changed }), ...(date === undefined ? {} : { date }) }, trials: [...profile.trials].sort(order) };
+  return { measured: profile.measured, from: { ...profile.digests, ...(commit === undefined ? {} : { commit, changed: profile.changed }), ...(date === undefined ? {} : { date }) }, trials: [...profile.trials].sort(order) };
 });
 for (const profile of profiles.values()) {
   const t = profile.trials, ranges = t.map((one) => one.start.range), taken = t.map((one) => one.taken);
@@ -96,7 +96,7 @@ for (const profile of profiles.values()) {
 }
 if (write) {
   // The same question replaces a profile.
-  const keyOf = ({ measured, target }) => JSON.stringify([measured, target]), remade = new Map(made.map((profile) => [keyOf(profile), profile]));
+  const keyOf = ({ measured }) => JSON.stringify(measured), remade = new Map(made.map((profile) => [keyOf(profile), profile]));
   const asset = JSON.parse(readFileSync(OUT, "utf8")), kept = asset.profiles.map((profile) => { const again = remade.get(keyOf(profile)); remade.delete(keyOf(profile)); return again ?? profile; });
   writeFileSync(OUT, `${JSON.stringify({ source: { script: SCRIPT, protocols: [...read] }, profiles: [...kept, ...remade.values()] }, null, 2)}\n`);
 }

@@ -80,7 +80,7 @@ export async function edgeTrial(job, given) {
 export function edgeProfiles(all) {
   const profiles = new Map();
   for (const trial of all) {
-    const key = JSON.stringify(trial.measured), profile = profiles.get(key) ?? { measured: trial.measured, target: null, from: trial.origin, label: `${trial.measured.body} ${trial.skill.kind}`, trials: [] };
+    const key = JSON.stringify(trial.measured), profile = profiles.get(key) ?? { measured: trial.measured, from: trial.origin, label: `${trial.measured.body} ${trial.skill.kind}`, trials: [] };
     profiles.set(key, profile);
     profile.trials.push({ start: { range: 0, phase: "clear", postures: trial.postures, ...(trial.held ? { held: { own: trial.held } } : {}) }, done: trial.done, dealt: 0, taken: 0, seconds: trial.seconds, recovers: null, down: trial.down,
       ...(trial.end ? { end: trial.end } : {}) });

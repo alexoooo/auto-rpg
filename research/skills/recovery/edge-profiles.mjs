@@ -80,12 +80,12 @@ if (isMainThread) {
   // The profiles say where their oldest fall came from: its build's commit, whether a build input differed from it, and its day.
   const oldest = played.reduce((first, one) => one.date < first.date ? one : first), commit = /^git:([0-9a-f]+)/.exec(oldest.build)?.[1];
   const origin = { ...(commit ? { commit, changed: oldest.build.includes("+uncommitted:") } : {}), date: oldest.date.slice(0, 10) };
-  const refreshed = sorted.map((p) => ({ measured: p.measured, target: null, from: { ...p.from, ...origin }, trials: p.trials }));
+  const refreshed = sorted.map((p) => ({ measured: p.measured, from: { ...p.from, ...origin }, trials: p.trials }));
   const out = { source: { script: "research/skills/recovery/edge-profiles.mjs", engine: DEFAULT_ENGINE, falls: "rising-target", offsets },
     profiles: [...(retained?.profiles.filter((p) => p.measured.body !== body) ?? []), ...refreshed] };
   // A trial a line: the file stays readable at a few thousand trials.
   const text = `{\n  "source": ${JSON.stringify(out.source)},\n  "profiles": [\n${out.profiles.map((p) =>
-    `    { "measured": ${JSON.stringify(p.measured)}, "target": null, "from": ${JSON.stringify(p.from ?? {})}, "trials": [\n${p.trials.map((t) => `      ${JSON.stringify(t)}`).join(",\n")}\n    ] }`).join(",\n")}\n  ]\n}\n`;
+    `    { "measured": ${JSON.stringify(p.measured)}, "from": ${JSON.stringify(p.from ?? {})}, "trials": [\n${p.trials.map((t) => `      ${JSON.stringify(t)}`).join(",\n")}\n    ] }`).join(",\n")}\n  ]\n}\n`;
   if (values.write) writeFileSync(OUT, text);
 } else {
   parentPort.on("message", async ([i, job]) => parentPort.postMessage([i, await edgeTrial(job)]));
