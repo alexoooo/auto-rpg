@@ -6,7 +6,7 @@
  *   node research/minds/pressure-profiles.mjs <bouts>... [--write | --out <file>]
  *
  * `--write` puts the tables in the game's asset; `--out` in a file of the asset's form, a table a
- * mind may be given in its place (`strike-bouts.mjs --pressure <file>`).
+ * mind may be given in its place (`strike-bouts.mjs --pressure-profiles <file>`).
  *
  * Each of `<bouts>` is a bout record `strike-bouts.mjs --save` wrote, or a directory of them. Each
  * decision of a side (its record's `decisions`) is a moment: the two `range` m apart centre to
@@ -55,13 +55,11 @@ for (const file of files) {
       tables.set(key, table);
       const falls = [...record.downs[0], ...record.downs[1]];
       /** The side's bar at `t`: its last decision's at or before it; past the bout's end, its last. */
-      const barAt = (t) => { if (t >= record.seconds) return record.bars[i]; let bar = rows[0][6]; for (const row of rows) { if (row[0] > t) break; bar = row[6]; } return bar; };
+      const barAt = (t) => { if (t >= record.seconds) return record.bars[i]; let bar = rows[0].life; for (const row of rows) { if (row.t > t) break; bar = row.life; } return bar; };
       const ended = record.bars.some((bar) => bar <= 0);
-      for (const row of rows) {
-        const [t, range, , , , , bar] = row;
+      for (const { t, apart: range, life: bar, foe: phase } of rows) {
         if (!ended && t + HORIZONS.at(-1) > record.seconds || falls.some((at) => t >= at && t - at < UNSETTLED)) continue;
         // The foe's phase as the side sensed it (`Engagement.foe`); a moment that sensed none is not read.
-        const phase = row[10];
         if (phase === null) continue;
         const at = round(Math.round(range / BIN) * BIN), binKey = `${phase} ${at}`;
         const bin = table.bins.get(binKey) ?? { phase, range: at, n: 0, lost: HORIZONS.map(() => 0) };

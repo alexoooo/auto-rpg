@@ -26,18 +26,17 @@ for (const path of positionals) for (const [header, bout] of savedBouts(path)) f
   const these = { measured: pressureBody(resolveCharacter({ model: bout.sides[1 - i].model }).spec), target: pressureBody(resolveCharacter({ model: bout.sides[i].model }).spec) };
   if (pairing && JSON.stringify(pairing) !== JSON.stringify(these)) throw new Error(`${path}: bouts of more than one pairing; a table is of one`);
   pairing = these;
-  for (const [i, row] of rows.entries()) {
-    const [t, apart] = row, own = row[11], foe = row[12];
+  for (const [i, { t, apart, at: own, foeAt: foe, kind }] of rows.entries()) {
     if (t + HORIZONS.at(-1) > bout.seconds || !(apart > 0) || apart >= FARTHEST) continue;
-    const ux = (own[0] - foe[0]) / apart, uz = (own[1] - foe[1]) / apart, kind = row[13];
+    const ux = (own[0] - foe[0]) / apart, uz = (own[1] - foe[1]) / apart;
     const range = Math.floor(apart / BAND) * BAND, key = `${kind}|${range}`;
     const cell = cells.get(key) ?? { kind, range: Number(range.toFixed(2)), n: 0, toward: HORIZONS.map(() => 0) };
     cells.set(key, cell);
     cell.n++; moments++;
     let k = i;
     HORIZONS.forEach((h, j) => {
-      while (k + 1 < rows.length && rows[k + 1][0] <= t + h) k++;
-      const later = rows[k][12];
+      while (k + 1 < rows.length && rows[k + 1].t <= t + h) k++;
+      const later = rows[k].foeAt;
       cell.toward[j] += (later[0] - foe[0]) * ux + (later[1] - foe[1]) * uz;
     });
   }

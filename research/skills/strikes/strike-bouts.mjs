@@ -12,25 +12,37 @@
  * opposite the striking hand, among them), touched (a wound dealt at all), landed (at least
  * `LANDED`), and the damage its touching blows took (the wounds its effector dealt, a blow's sum).
  *
- * `--aggression 2` has both sides fight their model's own mind (`defaultMind`) with its chooser's
- * objective the few terms at that aggression (`FewTermsConfig`), and at `--initiative <rate>`
- * where given (`FewTermsConfig.initiative`, a rate a second, which the part bounds); without it, the objective is the
- * mind's own. A saved bout keeps its winner, each side's life left (`bars`), when each went down,
- * and, at each decision of a mind that reports its offers (`Engagement.offers`), the offer it chose
- * and its terms, the life each side had then, and where on the ground each body's centre stood
- * (`decisions`, the side's then the foe's, last in a row): what `bout-readings.mjs` reads the
- * prices against. And each strike each side threw at the other's body, read as the Strike drill
- * reads a sparring trial (`readFought`) and made a profile's trial as its sparring's are
- * (`strikeTrial`), under the key its profile is found by and the digests it came from
- * (`strikeKey`): what `bout-profiles.mjs` builds profiles from (`strikes`).
+ * `--set <path>=<JSON>` has both sides fight their model's own mind (`defaultMind`) with what is at
+ * `path` replaced by the JSON, or by the JSON file it names (`replacedAt`, as `evaluate --ablate`);
+ * `--set left:<path>=<JSON>`, that side's alone; one flag a setting, each in turn. The few terms at
+ * aggression 2 and initiative 0.1, `chooser.objective={"kind":"few-terms","aggression":2,"initiative":0.1}`;
+ * a foe's pressure as bouts measured it, `predictions={"kind":"measured","pressure":"measured"}`,
+ * and then its steps fading over 2 s, `predictions.foeSteps=2`, or as bouts measured them,
+ * `predictions.foeSteps=<table.json>` (`research/minds/foe-steps.mjs`).
+ *
+ * A saved bout keeps its winner, each side's life left (`bars`), when each went down, and each
+ * side's decisions (`decisions`): at each of a mind that reports its offers (`Engagement.offers`),
+ * the offer it chose and its terms, the life each side had then, and where on the ground each
+ * body's centre stood, named as each is pushed below: what `bout-readings.mjs` reads the prices
+ * against. And each strike each side threw at the other's body, read as the Strike drill reads a
+ * sparring trial (`readFought`) and made a profile's trial as its sparring's are (`strikeTrial`),
+ * under the key its profile is found by and the digests it came from (`strikeKey`): what
+ * `bout-profiles.mjs` builds profiles from (`strikes`).
  *
  * `--carriage left={"lead":"left","width":0.25,"stagger":0.4,"lower":0.1}` has that side's mind (its
- * model's own, at `--aggression` where given) walk its stance-walk gaits in that carriage all bout
+ * model's own, with what `--set` gives it) walk its stance-walk gaits in that carriage all bout
  * (`Carriage`), one flag a side; its profiles stay those measured from the square stand.
  *
- * `--back-step left` has that side's mind (its model's own, at `--aggression` where given) fight
+ * `--back-step left` has that side's mind (its model's own, with what `--set` gives it) fight
  * with the back step, its Option and its gait, which the game's minds do not take yet
  * (`withBackStep`), one flag a side.
+ *
+ * `--pressure-profiles <table.json>` has a mind that reads a foe's pressure as bouts measured it
+ * read it by a table `research/minds/pressure-profiles.mjs --out` wrote, in place of
+ * `assets/minds/pressure-profiles.json`.
+ *
+ * A bout is saved and found under its bodies, gap, what they held, its seconds and a digest of
+ * everything else it is played with: the variations held, the drill, both minds and the table.
  *
  * A saved bout keeps as well each stretch either body was down (`grounded`, s, from the step one went
  * down to the step both stood): what `bout-readings.mjs` splits a silence by; and what each body's
@@ -38,23 +50,11 @@
  *
  * A bout whose body's control throws is a fault: named and counted, and left out of what is saved
  * and read; the others play on.
- *
- * `--pressure measured` has both sides' minds (their models' own, at `--aggression` where given)
- * read a foe's pressure by what bouts measured (`MeasuredConfig.pressure`,
- * `assets/minds/pressure-profiles.json`) in place of its strikes' rate; `--pressure <table.json>`,
- * by a table `research/minds/pressure-profiles.mjs --out` wrote, in place of the asset's.
- *
- * `--foe-steps <s>` has both sides' minds price a walk's arrival with the foe going on as it goes,
- * its velocity fading over about that long (`MeasuredConfig.foeSteps`), their predictions else the
- * game's; `--foe-steps <table.json>`, as bouts measured the foe's steps (`research/minds/foe-steps.mjs`),
- * in a walk's arrival and where the back step leaves the two.
- *
- * `--chooser <json>` merges those fields into both sides' minds' chooser (`{"keeps":0.5}`, a line's
- * `end`), their minds else the game's.
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { readFile, writeFile } from "node:fs/promises";
+import { existsSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { BOUT_SCHEMA, savedBouts } from "./bout-save.mjs";
 import { workerJobs } from "../../worker-jobs.mjs";
@@ -69,18 +69,17 @@ if (isMainThread) {
   const { values } = parseArgs({ options: {
     models: { type: "string" }, gaps: { type: "string", default: "3,4,5" }, held: { type: "string", default: "club" },
     seconds: { type: "string", default: "120" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
-    holds: { type: "string", multiple: true, default: [] },
-    drill: { type: "string" }, pace: { type: "string" }, aggression: { type: "string" }, initiative: { type: "string" }, carriage: { type: "string", multiple: true, default: [] },
-    "back-step": { type: "string", multiple: true, default: [] }, pressure: { type: "string" }, "foe-steps": { type: "string" }, chooser: { type: "string" },
+    holds: { type: "string", multiple: true, default: [] }, drill: { type: "string" }, pace: { type: "string" },
+    set: { type: "string", multiple: true, default: [] }, carriage: { type: "string", multiple: true, default: [] },
+    "back-step": { type: "string", multiple: true, default: [] }, "pressure-profiles": { type: "string" },
   } });
-  if (values.pressure !== undefined && values.pressure !== "rate" && values.pressure !== "measured" && !values.pressure.endsWith(".json")) throw new Error("--pressure is rate, measured or a table research/minds/pressure-profiles.mjs --out wrote");
-  const stepsAsked = values["foe-steps"], pressureTable = values.pressure?.endsWith(".json") ? JSON.parse(await readFile(values.pressure, "utf8")).profiles : null, pressure = pressureTable ? "measured" : values.pressure ?? null, chooser = values.chooser === undefined ? null : JSON.parse(values.chooser);
-  const foeSteps = stepsAsked === undefined ? null : stepsAsked.endsWith(".json") ? (({ source: _, ...table }) => table)(JSON.parse(await readFile(stepsAsked, "utf8"))) : Number(stepsAsked);
-  if (typeof foeSteps === "number" && !(foeSteps > 0)) throw new Error("--foe-steps is seconds over 0, or a table research/minds/foe-steps.mjs wrote");
-  const aggression = values.aggression === undefined ? null : Number(values.aggression);
-  if (aggression !== null && !(aggression >= 1 && aggression <= 5)) throw new Error("--aggression is a number from 1 to 5");
-  const initiative = values.initiative === undefined ? null : Number(values.initiative);
-  if (initiative !== null && (aggression === null || !Number.isFinite(initiative))) throw new Error("--initiative is a rate a second, with --aggression");
+  const pressureTable = values["pressure-profiles"] === undefined ? null : JSON.parse(await readFile(values["pressure-profiles"], "utf8")).profiles;
+  /** A `--set`: the side it is for (null, both), the path and the value, the JSON given or the JSON file it names. */
+  const sets = values.set.map((text) => {
+    const at = text.indexOf("="), side = /^(left|right):/.exec(text)?.[1] ?? null, given = text.slice(at + 1);
+    if (at <= 0) throw new Error(`--set is [left:|right:]<path>=<JSON or a JSON file>: ${text}`);
+    return { side, path: text.slice(side === null ? 0 : side.length + 1, at), value: JSON.parse(existsSync(given) ? readFileSync(given, "utf8") : given) };
+  });
   // With `--drill stand|guard`, the left side is drilled at the right's trunk's middle with its punch (the Strike drill's Option Mind and Commander,
   // walking into the window at `--pace` m/s, or ordering it where it stands with none), the right a drill opponent (`drill-stand`, `drill-guard`),
   // the two set the gap apart, centre to centre, facing.
@@ -91,15 +90,26 @@ if (isMainThread) {
   if (Object.keys(holds).some(side => side !== "left" && side !== "right")) throw new Error("--holds is <left|right>=<skill/variation>");
   const added = Object.fromEntries(values["back-step"].map(side => [side, true]));
   if (Object.keys(added).some(side => side !== "left" && side !== "right")) throw new Error("--back-step is left or right");
-  const [{ HUMANOID_MODELS }, { LANDED }] = await Promise.all([import("../../../src/core/bodies/models.ts"), import("../../../src/evaluation/strike/read.ts")]);
+  const minded = sets.length > 0 || Object.keys(carriages).length > 0 || Object.keys(added).length > 0;
+  if (minded && drill) throw new Error("--set, --carriage and --back-step set the sides' minds; a drill sets its own");
+  const [{ HUMANOID_MODELS }, { LANDED }, { CONTEXT }, { replacedAt }, { inCarriage, withBackStep }, { recordingKey }, { sha256Text }] = await Promise.all([import("../../../src/core/bodies/models.ts"),
+    import("../../../src/evaluation/strike/read.ts"), import("../../../src/app/node/context.ts"), import("../../../src/app/catalog.ts"), import("../../../src/minds/option/config.ts"),
+    import("../../../src/core/world/recording.ts"), import("../../../src/evaluation/sha256.ts")]);
+  /** Both sides' minds, `left`'s and `right`'s: each its model's own with what `--set`, `--back-step` and `--carriage` give it, in that order; null where none gives anything. */
+  const mindsOf = (left, right) => !minded ? null : Object.fromEntries(["left", "right"].map((side) => {
+    const set = sets.filter((one) => one.side === null || one.side === side).reduce((mind, { path, value }) => replacedAt(mind, path, value), CONTEXT.defaultMind(side === "left" ? left : right));
+    const stepped = added[side] ? withBackStep(set) : set;
+    return [side, carriages[side] ? inCarriage(stepped, carriages[side]) : stepped];
+  }));
   const models = values.models?.split(",") ?? HUMANOID_MODELS, gaps = values.gaps.split(",").map(Number), seconds = Number(values.seconds);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), helds = values.held.split(",");
   if (!models.length || models.some(model => !HUMANOID_MODELS.includes(model)) || gaps.some(gap => !Number.isFinite(gap) || gap <= 0)
     || !Number.isFinite(seconds) || seconds <= 0 || !Number.isSafeInteger(lanes) || lanes < 1 || helds.some(held => !["club", "empty"].includes(held)))
     throw new Error("invalid models, gaps, seconds, workers or held selection");
   const jobs = [];
-  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, aggression, initiative, carriages, added, pressure, pressureTable, foeSteps, chooser });
-  const key = job => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${JSON.stringify(job.drill ? { ...job.holds, drill: job.drill } : job.holds)}${job.aggression === null ? "" : ` aggression ${job.aggression}`}${job.initiative == null ? "" : ` initiative ${job.initiative}`}${Object.keys(job.carriages).length ? ` carriages ${JSON.stringify(job.carriages)}` : ""}${Object.keys(job.added ?? {}).length ? ` back step ${Object.keys(job.added).join(",")}` : ""}${job.foeSteps === null ? "" : ` foe steps ${typeof job.foeSteps === "number" ? job.foeSteps : "measured"}`}${job.chooser === null ? "" : ` chooser ${JSON.stringify(job.chooser)}`}`;
+  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, holds, drill, minds: mindsOf(left, right), pressureTable });
+  /** A bout's key: its bodies, gap, what they hold and its seconds, and a digest of what else it is played with. */
+  const key = (job) => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${sha256Text(recordingKey({ holds: job.holds, drill: job.drill, minds: job.minds, pressureTable: job.pressureTable })).slice(0, 16)}`;
   const loaded = new Map(values.load ? savedBouts(values.load) : []);
   for (const job of jobs) job.result = loaded.get(key(job));
   const played = jobs.filter(job => !job.result), started = Date.now();
@@ -154,30 +164,19 @@ if (isMainThread) {
   const { footOn } = await import("../../../src/control/support.ts");
   const { CONTEXT } = await import("../../../src/app/node/context.ts");
   const { createDrillOpponents } = await import("../../../src/evaluation/drill-opponents.ts");
-  /** A model's own mind with its chooser's objective the few terms at `aggression`, and `initiative` where it is not null. */
-  const mindAt = (model, aggression, initiative) => { const mind = CONTEXT.defaultMind(model); return { ...mind, chooser: { ...mind.chooser, objective: { kind: "few-terms", aggression, ...initiative === null ? {} : { initiative } } } }; };
-  const { inCarriage: carried, withBackStep } = await import("../../../src/minds/option/config.ts");
   const { loadData } = await import("../../../src/core/data/store.ts");
-  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, aggression, initiative = null, carriages = {}, added = {}, pressure = null, pressureTable = null, foeSteps = null, chooser = null }) => {
+  parentPort.on("message", async ({ left, right, gap, held, seconds, holds, drill, minds, pressureTable }) => {
     let dispose;
     try {
       // A table from a file is the pressure data this worker loads, before any mind asks for the asset's; a worker plays one table.
       if (pressureTable) await loadData(["pressure-profiles"], { "pressure-profiles": async () => pressureTable });
-      if ((aggression !== null || Object.keys(carriages).length || Object.keys(added).length || pressure !== null || foeSteps !== null || chooser !== null) && drill) throw new Error("--aggression, --carriage, --back-step, --pressure, --foe-steps and --chooser set both sides' minds; a drill sets its own");
       const skills = Object.fromEntries(Object.entries(holds).map(([side, variation]) => [side, characterSkills(side === "left" ? left : right, [variation])]));
       const drilled = drill ? { recoverySeconds: null, entry: [], ends: [],
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, 0], heading: -Math.PI / 2 } },
         minds: { left: CONTEXT.catalog.minds["option-drill"].config, right: createDrillOpponents(CONTEXT).opponentOf(drill.opponent).mind },
         commanders: { left: { kind: "drill", skill: "straight-punch", region: { kind: "mark", mark: "middle" }, after: .5, ...(drill.pace === undefined ? { walking: true } : { pace: drill.pace }) } } } : {};
       const recipe = { left, right, gap, capSeconds: seconds, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } },
-        ...(Object.keys(skills).length ? { skills } : {}), ...drilled, ...(aggression === null && !Object.keys(carriages).length && !Object.keys(added).length && pressure === null && foeSteps === null && chooser === null ? {} : { minds: Object.fromEntries(SIDES.map((side) => {
-          const model = side === "left" ? left : right, own = aggression === null ? CONTEXT.defaultMind(model) : mindAt(model, aggression, initiative);
-          const pressing = pressure === null ? own : { ...own, predictions: { ...(own.predictions ?? { kind: "measured" }), pressure } };
-          const priced = foeSteps === null ? pressing : { ...pressing, predictions: { ...(pressing.predictions ?? { kind: "measured", pressure: "measured" }), foeSteps } };
-          const chosen = chooser === null ? priced : { ...priced, chooser: { ...priced.chooser, ...chooser } };
-          const mind = added[side] ? withBackStep(chosen) : chosen;
-          return [side, carriages[side] ? carried(mind, carriages[side]) : mind];
-        })) }) };
+        ...(Object.keys(skills).length ? { skills } : {}), ...drilled, ...(minds ? { minds } : {}) };
       const bout = await buildBout(recipe, { engine: BOUT_ENGINE }); dispose = bout.dispose;
       const { world, duel } = bout, track = Object.fromEntries(SIDES.map(side => [side, {
         side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, attempts: [], sequence: 0,
@@ -193,9 +192,7 @@ if (isMainThread) {
           from: duel.duelists[side].body.view.stance.recoveries, downAt: null, wounds: [], struck: 0 };
         byId[side].set(action.id, attempt); track[side].attempts.push(attempt); return attempt;
       };
-      // When each side went down; and at each decision of its mind (its offers anew), [s, apart m centre to centre, the offer chosen, its terms'
-      // duration s, dealt and taken (life), its own life then, the foe's, holding's price a second (life), each strike offered: [its skill and limb, its terms],
-      // what it read the foe doing, where each body's centre stood, its then the foe's, and the kind of the option it runs (`Engagement.kind`)].
+      // When each side went down; and each decision of its mind (its offers anew).
       const downs = { left: [], right: [] }, wasDown = { left: false, right: false }, grounded = [], state = { groundedSince: null }, decisions = { left: [], right: [] }, offered = { left: null, right: null };
       while (!duel.verdict && duel.clock < seconds) {
         world.step();
@@ -211,12 +208,27 @@ if (isMainThread) {
           if (offers && offers !== offered[side]) {
             offered[side] = offers;
             const chosen = offers.find((offer) => offer.name === engagement.phase), terms = chosen?.terms, a = me.body.view.stance.centre, b = foe.body.view.stance.centre;
-            const termsOf = (t) => t ? [+t.duration.toFixed(3), +t.dealt.toFixed(5), +t.taken.toFixed(5)] : [null, null, null];
+            /** An offer's terms: how long, s, and the life it deals and takes; null with none. */
+            const termsOf = (t) => t ? { duration: +t.duration.toFixed(3), dealt: +t.dealt.toFixed(5), taken: +t.taken.toFixed(5) } : null;
             const hold = offers.find((offer) => offer.name === "hold")?.terms;
-            decisions[side].push([+duel.clock.toFixed(4), +Math.hypot(a.x - b.x, a.z - b.z).toFixed(3), engagement.phase, ...termsOf(terms), +me.pool.bar().toFixed(5), +foe.pool.bar().toFixed(5),
-              hold && hold.duration > 0 ? +(hold.taken / hold.duration).toFixed(6) : null,
-              offers.filter((offer) => offer.kind === "strike").map((offer) => [offer.name, ...termsOf(offer.terms)]), engagement.foe ?? null,
-              [+a.x.toFixed(3), +a.z.toFixed(3)], [+b.x.toFixed(3), +b.z.toFixed(3)], engagement.kind ?? null]);
+            decisions[side].push({
+              t: +duel.clock.toFixed(4),
+              /** How far apart the two bodies' centres are, m. */
+              apart: +Math.hypot(a.x - b.x, a.z - b.z).toFixed(3),
+              chosen: engagement.phase, terms: termsOf(terms),
+              /** Its own life then, and the foe's. */
+              life: +me.pool.bar().toFixed(5), foeLife: +foe.pool.bar().toFixed(5),
+              /** Holding's price a second, life; null where it is not offered or takes no time. */
+              holding: hold && hold.duration > 0 ? +(hold.taken / hold.duration).toFixed(6) : null,
+              /** Each strike offered, by its skill and limb (`Offer.name`), with its terms. */
+              strikes: offers.filter((offer) => offer.kind === "strike").map((offer) => ({ name: offer.name, terms: termsOf(offer.terms) })),
+              /** What it read the foe doing (`Engagement.foe`). */
+              foe: engagement.foe ?? null,
+              /** Where its body's centre stood on the ground, and the foe's. */
+              at: [+a.x.toFixed(3), +a.z.toFixed(3)], foeAt: [+b.x.toFixed(3), +b.z.toFixed(3)],
+              /** The kind of the Option it runs (`Engagement.kind`). */
+              kind: engagement.kind ?? null,
+            });
           }
         }
         for (const side of SIDES) {

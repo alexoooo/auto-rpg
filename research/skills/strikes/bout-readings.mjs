@@ -114,29 +114,29 @@ if (prices) {
     for (const [, bout] of all) {
       const models = bout.sides.map((side) => side.model);
       // Each side's life at a time: the last reading at or before it, of either side's decisions, then the bout's end.
-      const lives = [...bout.decisions[0].map((d) => [d[0], d[6], d[7]]), ...bout.decisions[1].map((d) => [d[0], d[7], d[6]]), [bout.seconds, bout.bars[0], bout.bars[1]]].sort((a, b) => a[0] - b[0]);
+      const lives = [...bout.decisions[0].map((d) => [d.t, d.life, d.foeLife]), ...bout.decisions[1].map((d) => [d.t, d.foeLife, d.life]), [bout.seconds, bout.bars[0], bout.bars[1]]].sort((a, b) => a[0] - b[0]);
       const lifeAt = (t, s) => { let lo = 0, hi = lives.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (lives[mid][0] <= t + 1e-9) lo = mid; else hi = mid - 1; } return lives[lo][1 + s]; };
       const lost = (s, from, seconds) => lifeAt(from, s) - lifeAt(Math.min(bout.seconds, from + seconds), s);
       for (const s of [0, 1]) {
         const body = models[s], foe = models[1 - s], pair = `${foe} ${body}`;
         if (!reaches.has(pair)) reaches.set(pair, reachOf(foe, body));
         const reach = reaches.get(pair), decisions = bout.decisions[s];
-        decisions.forEach(([t, apart, , duration, , taken, , , holding, , , , , kind], i) => {
+        decisions.forEach(({ t, apart, terms, holding, kind }, i) => {
           if (apart < reach) {
-            const next = decisions[i + 1]?.[0] ?? bout.seconds, dt = next - t;
+            const next = decisions[i + 1]?.t ?? bout.seconds, dt = next - t;
             if (holding !== null) add("seconds in reach", 0, 0, holding * dt, lost(s, t, dt));
-          } else if (duration !== null) add(`out of reach, ${doingOf(kind)}`, 0, 0, taken, lost(s, t, duration));
+          } else if (terms !== null) add(`out of reach, ${doingOf(kind)}`, 0, 0, terms.taken, lost(s, t, terms.duration));
         });
         // Each punch: the strike offered with its limb at the last decision at or before it began.
         for (const attempt of bout.sides[s].attempts) {
           if (!attempt.committed || attempt.action !== "straight-punch") continue;
           let at = null;
-          for (const d of decisions) { if (d[0] > attempt.began + 1e-9) break; at = d; }
-          const offer = at?.[9]?.find(([n]) => n === `${attempt.action} ${attempt.effector}`);
-          if (!offer || offer[1] === null) continue;
-          const [, duration, dealt, taken] = offer;
+          for (const d of decisions) { if (d.t > attempt.began + 1e-9) break; at = d; }
+          const offer = at?.strikes.find(({ name }) => name === `${attempt.action} ${attempt.effector}`);
+          if (!offer || offer.terms === null) continue;
+          const { duration, dealt, taken } = offer.terms;
           const given = lifeTaken(attempt, foe, bout.hp[1 - s]);
-          add(at[1] < reach ? "punch, in reach" : "punch, from out", dealt, given, taken, lost(s, attempt.began, duration));
+          add(at.apart < reach ? "punch, in reach" : "punch, from out", dealt, given, taken, lost(s, attempt.began, duration));
           add("punch", dealt, given, taken, lost(s, attempt.began, duration));
         }
       }
