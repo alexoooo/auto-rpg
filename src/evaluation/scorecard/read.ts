@@ -1,8 +1,7 @@
 /**
  * **How the scorecard reads a bout**: at each decision of each side's mind that reports its offers
  * (`Engagement.offers`), what the chosen offer was priced to deal and take over its seconds against
- * what the bout gave over them; the strikes each side began, its falls, and the wall time of the
- * steps a mind decided in.
+ * what the bout gave over them; the strikes each side began, and its falls.
  */
 import { SIDES } from "../../game/arena/duel.ts";
 import { hypot } from "../../core/math/real.ts";
@@ -42,15 +41,12 @@ export type SideReading = {
 
 /**
  * A bout as the scorecard reads it: the contest's reading (`BoutReading`), each side's own
- * (`SideReading`), and the wall time of its steps, ms: of all of them, of those in which a mind
- * decided, and the worst. Wall time is the machine's and its load's, the one reading of a case
- * that is not the same each time it is played. And when either body was down, each stretch from
- * the step one went down to the step both stood again, s (`grounded`).
+ * (`SideReading`), and when either body was down, each stretch from the step one went down to the
+ * step both stood again, s (`grounded`).
  */
 export type ScorecardReading = BoutReading & {
   readonly sides: readonly [SideReading, SideReading];
   readonly grounded: readonly (readonly [number, number])[];
-  readonly ms: { readonly steps: number; readonly total: number; readonly deciding: number; readonly decidingTotal: number; readonly worst: number };
 };
 
 type Decision = { readonly t: number; readonly duration: number; readonly dealt: number; readonly taken: number; readonly slices: readonly string[] };
@@ -62,14 +58,10 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
   const decisions: [Decision[], Decision[]] = [[], []], strikes: [number[], number[]] = [[], []], downs = [0, 0], wasDown = [false, false];
   const offered: unknown[] = [null, null], sequence = [0, 0], grounded: [number, number][] = [];
   let groundedSince: number | null = null;
-  const ms = { steps: 0, total: 0, deciding: 0, decidingTotal: 0, worst: 0 };
-  let last = performance.now();
   return {
     afterStep() {
-      const now = performance.now(), spent = now - last;
       contest.afterStep();
       times.push(duel.clock);
-      let decided = false;
       SIDES.forEach((side, s) => {
         const me = duel.duelists[side], foe = duel.duelists[SIDES[1 - s]!];
         lives[s]!.push(duel.life(side));
@@ -83,7 +75,6 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
         const engagement = me.minded.report?.engagement, offers = engagement?.offers;
         if (!engagement || !offers || offers === offered[s]) return;
         offered[s] = offers;
-        decided = true;
         const terms = offers.find((offer) => offer.name === engagement.phase)?.terms;
         if (!terms) return;
         const a = me.body.physical.head, b = foe.body.physical.head, range = hypot(a.x - b.x, a.z - b.z);
@@ -93,9 +84,6 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
       const either = SIDES.some((side) => duel.duelists[side].body.down);
       if (either && groundedSince === null) groundedSince = duel.clock;
       else if (!either && groundedSince !== null) { grounded.push([groundedSince, duel.clock]); groundedSince = null; }
-      ms.steps++; ms.total += spent; ms.worst = Math.max(ms.worst, spent);
-      if (decided) { ms.deciding++; ms.decidingTotal += spent; }
-      last = performance.now();
     },
     get ended() { return contest.ended; },
     reading() {
@@ -122,7 +110,7 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
         }
         return { decisions: decisions[s]!.length, prices, strikes: strikes[s]!, downs: downs[s]! };
       }) as unknown as readonly [SideReading, SideReading];
-      return { ...read, sides, ms, grounded: groundedSince === null ? grounded : [...grounded, [groundedSince, end] as [number, number]] };
+      return { ...read, sides, grounded: groundedSince === null ? grounded : [...grounded, [groundedSince, end] as [number, number]] };
     },
   };
 }

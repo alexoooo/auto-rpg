@@ -1,6 +1,6 @@
 /**
  * **A bout's strikes read as the Strike drill's trials are**: each action either side begins at a
- * mark on the other's body, read by its own strike reader (`readStrike`'s `free`) from the step
+ * mark on the other's body, read by its own strike reader (`readStrike`, thrown by a fight: `Thrown`) from the step
  * after it is seen, so a bout writes the row a sparring trial writes (`StrikeReading`).
  */
 import type { Side } from "../../core/bodies/bilateral.ts";

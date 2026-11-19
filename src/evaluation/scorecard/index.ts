@@ -3,8 +3,8 @@
  * bouts (how they end, the silence, the falls), each draw's beside the others' so a difference is
  * read against the set's own spread; what its decisions were priced to deal and take against what
  * the bout gave (`readScorecard`), by what the chosen offer was priced to do and by what the mind
- * read the foe doing; and the wall time of a step it decided in. Two kinds of mind are read on the
- * same cases; which beats which is the match's (`npm run match`).
+ * read the foe doing. Two kinds of mind are read on the same cases; which beats which is the
+ * match's (`npm run match`). How long a case took to play is the runner's to say, beside its row.
  */
 import { recordingKey } from "../../core/world/recording.ts";
 import type { Evaluation, Json } from "../evaluation.ts";
@@ -28,7 +28,7 @@ export const createScorecardIndex = perContext((context: GameContext) => {
     id: "scorecard",
     title: "The scorecard",
     group: "decisions",
-    question: "How does a mind fight itself, how well does it know what its choices bring, and how long does it take to decide?",
+    question: "How does a mind fight itself, and how well does it know what its choices bring?",
     protocols: SCORECARD_CASES,
     defaultProtocol: "warrior",
     schedule: "all",
@@ -39,9 +39,8 @@ export const createScorecardIndex = perContext((context: GameContext) => {
       { name: "standing silent", unit: "share of a bout after its first strike in gaps with none begun and both bodies standing", kind: "mean", better: "lower", of: (r) => { const s = readingSilence(r); return s && s.fought > 0 ? s.standing / s.fought : null; } },
       { name: "knockout", unit: "share of bouts ended by a body's life", kind: "rate", better: "higher", of: (r) => knockedOut(r) },
       { name: "downs", unit: "falls a bout, both sides", kind: "mean", better: "lower", of: (r) => r.sides[0].downs + r.sides[1].downs },
-      { name: "deciding", unit: "wall ms a step a mind decided in", kind: "mean", better: "lower", of: (r) => r.ms.deciding > 0 ? r.ms.decidingTotal / r.ms.deciding : null },
     ],
-    /** For each subject: its bouts by draw and pooled, its prices by slice, and its steps' wall time. */
+    /** For each subject: its bouts by draw and pooled, and its prices by slice. */
     summary({ subjects, cases }) {
       const lines: string[] = [], json: Record<string, Json> = {};
       for (const subject of subjects) {
@@ -62,8 +61,6 @@ export const createScorecardIndex = perContext((context: GameContext) => {
           const q = prices[slice] ??= { n: 0, taken: 0, lost: 0, dealing: 0, dealt: 0, given: 0 };
           q.n += p.n; q.taken += p.taken; q.lost += p.lost; q.dealing += p.dealing; q.dealt += p.dealt; q.given += p.given;
         }
-        const ms = own.reduce((t, { reading: { ms: m } }) => ({ steps: t.steps + m.steps, total: t.total + m.total, deciding: t.deciding + m.deciding, decidingTotal: t.decidingTotal + m.decidingTotal, worst: Math.max(t.worst, m.worst) }),
-          { steps: 0, total: 0, deciding: 0, decidingTotal: 0, worst: 0 });
         const slices = Object.keys(prices).sort((a, b) => (a === "all" ? -1 : b === "all" ? 1 : a.localeCompare(b)));
         const row = (label: string, b: ReturnType<typeof bouts>) => `| ${label} | ${b.bouts} | ${b.knockouts} | ${b.silent === null ? "-" : pct(b.silent)} | ${b.standing === null ? "-" : pct(b.standing)} | ${b.downs?.toFixed(2) ?? "-"} | ${b.seconds?.toFixed(0) ?? "-"} |`;
         lines.push(`${subject.label} (${sha256Text(recordingKey(subject.value)).slice(0, 16)})`, "",
@@ -72,9 +69,8 @@ export const createScorecardIndex = perContext((context: GameContext) => {
           "Priced against given, each side's decisions, % of a life each a mean; a ratio over 1 a price above what the bout gave; dealt read over the decisions priced to deal:", "",
           "| Slice | Decisions | Priced taken | Lost | Ratio | Dealing | Priced dealt | Given | Ratio |", "|---|---|---|---|---|---|---|---|---|",
           ...slices.map((slice) => { const p = prices[slice]!, d = p.dealing;
-            return `| ${slice} | ${p.n} | ${pct(p.taken / p.n)} | ${pct(p.lost / p.n)} | ${ratio(p.taken, p.lost)} | ${d} | ${d ? pct(p.dealt / d) : "-"} | ${d ? pct(p.given / d) : "-"} | ${ratio(p.dealt, p.given)} |`; }), "",
-          `Wall time: ${ms.steps ? (ms.total / ms.steps).toFixed(2) : "-"} ms a step, ${ms.deciding ? (ms.decidingTotal / ms.deciding).toFixed(2) : "-"} ms a step a mind decided in (${ms.deciding} of ${ms.steps}), the worst ${ms.worst.toFixed(1)} ms; the machine's and its load's.`, "");
-        json[subject.id] = { draws: byDraw, all, prices, ms } as unknown as Json;
+            return `| ${slice} | ${p.n} | ${pct(p.taken / p.n)} | ${pct(p.lost / p.n)} | ${ratio(p.taken, p.lost)} | ${d} | ${d ? pct(p.dealt / d) : "-"} | ${d ? pct(p.given / d) : "-"} | ${ratio(p.dealt, p.given)} |`; }), "");
+        json[subject.id] = { draws: byDraw, all, prices } as unknown as Json;
       }
       return { lines, json };
     },

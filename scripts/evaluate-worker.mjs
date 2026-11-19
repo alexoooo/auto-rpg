@@ -1,4 +1,4 @@
-// One evaluation case at a time (`scripts/evaluate.mjs`): each job is answered with its row when its case is done.
+// One evaluation case at a time (`scripts/evaluate.mjs`): each job is answered with its row when its case is done, and the wall time it took, ms (`Answer`).
 import "../tests/harness/preload-data.mjs";
 import { parentPort } from "node:worker_threads";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
@@ -9,8 +9,9 @@ import { playRow } from "../src/app/node/evaluation.ts";
 Logger.LogLevels = Logger.NoneLogLevel;
 
 parentPort.on("message", async ({ evaluation, protocol, key, condition, world, seconds }) => {
-  const cases = EVALUATIONS[evaluation]?.protocols[protocol];
-  parentPort.postMessage(cases
+  const cases = EVALUATIONS[evaluation]?.protocols[protocol], from = performance.now();
+  const row = cases
     ? await playRow(key, world, seconds, (built) => cases.read(built, condition))
-    : { key, reading: null, digest: null, played: null, fault: { kind: "error", message: `no cases for ${evaluation} ${protocol}` } });
+    : { key, reading: null, digest: null, played: null, fault: { kind: "error", message: `no cases for ${evaluation} ${protocol}` } };
+  parentPort.postMessage({ row, ms: performance.now() - from });
 });

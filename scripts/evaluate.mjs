@@ -240,11 +240,15 @@ async function runProtocol(evaluation, id, protocol, named, values) {
     worker.on("exit", (code) => listen.lost(`its worker exited (${code})`));
     return { post: (job) => worker.postMessage(job), terminate: () => void worker.terminate() };
   };
+  /** The wall time each seating's cases took, by its subjects, ms, and the simulated s they played: the machine's and its load's, said beside the rows (`Answer`). */
+  const seatingOf = new Map(shard.flat().map((one) => [one.key, one.subjects.join(" v ") || "no subject"])), walls = new Map();
   if (toPlay > 0) {
     await runEvaluation(shard, rows, {
       evaluation: id, protocol, lanes, minutes: Number(values["case-minutes"]), spawn,
       stop: () => (spent ||= Date.now() >= deadline) || settledNow(),
-      onRow: (row) => {
+      onAnswer: ({ row, ms }) => {
+        const wall = walls.get(seatingOf.get(row.key)) ?? { cases: 0, ms: 0, seconds: 0, worst: 0 };
+        walls.set(seatingOf.get(row.key), { cases: wall.cases + 1, ms: wall.ms + ms, seconds: wall.seconds + (row.played ?? 0), worst: Math.max(wall.worst, ms) });
         store.keep(row);
         now.add(row.key);
         if (++played === Math.min(lanes, toPlay) && toPlay > played)
@@ -256,6 +260,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   // The complete units in their definition's order, which neither the play order nor the keys change: a summary's digest reads them so.
   const complete = order.filter((unit) => unit.every((one) => rows.has(one.key))).sort((a, b) => defined.get(a[0].key) - defined.get(b[0].key));
   console.log(`${played} played in ${((Date.now() - started) / 1000).toFixed(0)} s; ${lost.length} lost; commit ${commit ?? "unknown"}; build ${BUILD_IDENTITY}`);
+  for (const [seating, wall] of walls) console.log(`wall time, ${seating}: ${wall.seconds > 0 ? (wall.ms / wall.seconds).toFixed(0) : "-"} ms a simulated second over ${wall.cases} cases, the slowest case ${(wall.worst / 1000).toFixed(1)} s; the machine's and its load's`);
   const oldest = oldestOf(complete.flat().map((one) => rows.get(one.key)));
   if (oldest && !now.has(oldest.key) && !store.current(oldest)) console.log(`the oldest row read was played on ${originText(oldest.from)}`);
   await checkFound(shard.flat().filter((one) => !now.has(one.key)), store, { evaluation: id, protocol, lanes, minutes: Number(values["case-minutes"]), spawn, stop: () => spent || Date.now() >= deadline });
@@ -324,7 +329,7 @@ async function checkFound(found, store, playing) {
   const differ = [];
   let same = 0, lost = 0;
   await runEvaluation(drawn.map((one) => [one]), new Map(), { ...playing,
-    onRow: (row) => { if (row.digest === store.rows.get(row.key).digest) same++; else differ.push(drawn.find((one) => one.key === row.key)); },
+    onAnswer: ({ row }) => { if (row.digest === store.rows.get(row.key).digest) same++; else differ.push(drawn.find((one) => one.key === row.key)); },
     onLost: () => { lost++; } });
   console.log(`${drawn.length} of the ${of} rows found from other code played again: ${same} read as kept${lost > 0 ? `, ${lost} lost` : ""}`);
   for (const one of differ) console.log(`  reads differently now: ${one.subjects.join(" v ") || "no subject"} on ${recordingKey(one.condition)}, kept on ${originText(store.rows.get(one.key).from)}; --fresh plays its subject's cases again`);
