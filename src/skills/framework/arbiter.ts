@@ -3,7 +3,7 @@ import type { Clearance } from "./navigation.ts";
 import type { GaitLimits, Locomotion } from "./locomotion-part.ts";
 import { kitOf, menuOf, type SpotFinder } from "./menu.ts";
 import { aimsState, keepingNothing, type Aims } from "./aim-part.ts";
-import { facesTravel, type Intent } from "./intent.ts";
+import { facesTravel, SERVICES, type Intent, type Service } from "./intent.ts";
 import type { Body, BodyCommand, BodyView } from "../../control/body.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import type { EffectorGoal, FreedomPath, MusclePush, PointTask } from "../../control/motor.ts";
@@ -61,6 +61,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const { executors, actions } = services;
   const { legs, guard } = services, support = services.support ?? null;
   const navigation = services.navigation;
+  /** Each service by its name (`Service`), what a mind's chosen skill is selected in. */
+  const chosen: Readonly<Record<Service, { select?(name: string | undefined, view: BodyView): void } | null>> = { guard, navigation, support };
   const models = bodyEffectors(body.built).map(e => e.model), feet = legs.supports.map(name => {
     const end = body.built.spec.ends?.find(end => end.name === name);
     if (!end) throw new Error(`unknown locomotion support ${name}`);
@@ -184,9 +186,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       state.unstanced = false;
     },
     command(view: BodyView, requested: Intent, dt: number): BodyCommand {
-      guard.select?.(requested.guardSkill, view);
-      navigation?.select?.(requested.navigationSkill);
-      support?.select?.(requested.supportSkill, view);
+      for (let i = 0; i < SERVICES.length; i++) chosen[SERVICES[i]!]?.select?.(requested.skills?.[SERVICES[i]!], view);
       if (!navigation && requested.movement) throw new Error("a movement request to a skill set with no navigation");
       const intent = navigated(navigation, { view, report }, legs, body.envelope, requested, dt, state.walkable && (!support || support.walks()));
       const near = context(intent);

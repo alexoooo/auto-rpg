@@ -85,7 +85,7 @@ test("the mind can choose every enabled guard and restore the chosen posture", a
   try {
     skills = makeSkills(actor.commanded, stand.world.clock, parts, { legs: given.legs, guards,
       navigations: parts.selected("navigation", spec), executors: [], actions: [], supports: [] });
-    assert.deepEqual(options.map(option => option.step(now, 1 / 120).asked.guardSkill), guards.map(skillName), "no stage removes a guard from the chooser");
+    assert.deepEqual(options.map(option => option.step(now, 1 / 120).asked.skills?.guard), guards.map(skillName), "no stage removes a guard from the chooser");
     let saved, expected;
     for (const [i, option] of options.entries()) {
       const command = skills.command(actor.view, { ...standIntent(), ...option.step(now, 1 / 120).asked }, 1 / 120);
@@ -96,7 +96,7 @@ test("the mind can choose every enabled guard and restore the chosen posture", a
     loadState(skills.state, saved);
     const restored = skills.command(actor.view, standIntent(), 1 / 120);
     for (const [channel, angle] of Object.entries(expected)) assert.equal(restored.posture[channel], angle, "restoring memory restores the actual guard");
-    assert.throws(() => skills.command(actor.view, { ...standIntent(), guardSkill: "rest/rest" }, 1 / 120), /not selected/);
+    assert.throws(() => skills.command(actor.view, { ...standIntent(), skills: { guard: "rest/rest" } }, 1 / 120), /not selected/);
   } finally { skills?.release(actor.view, "replaced"); actor.dispose(); stand.dispose(); }
 });
 

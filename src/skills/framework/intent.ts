@@ -33,12 +33,8 @@ export interface Intent {
    * guarded (`src/skills/guard/shared/guard.ts`); a hand an attack has does not guard.
    */
   readonly guard: Readonly<Partial<Record<string, Cover | null>>>;
-  /** The enabled guard variation chosen by the mind. */
-  readonly guardSkill?: string;
-  /** The enabled navigation variation chosen by the mind. */
-  readonly navigationSkill?: string;
-  /** The enabled low support chosen by the Option using it. */
-  readonly supportSkill?: string;
+  /** The enabled skill chosen of each service it names, by its `skill/variation` name (`skillName`); a service not named keeps the one it has. */
+  readonly skills?: Readonly<Partial<Record<Service, string>>>;
   /** How far under its standing height to hold the centre of mass, m; `STANCE_LOWER` when not given. */
   readonly lower?: number;
   /** Discrete commitments requested on this control step. */
@@ -59,6 +55,12 @@ export interface Intent {
   /** The gait to go by, by name (`GAITS`), for legs that walk by gaits; absent, their own choice (`move`'s rules). */
   readonly gait?: GaitName;
 }
+
+/** **A service a mind chooses one of its enabled skills of** (`Intent.skills`): the guard, the navigation, the low support. */
+export type Service = "guard" | "navigation" | "support";
+
+/** Every service (`Service`). */
+export const SERVICES: readonly Service[] = Object.freeze(["guard", "navigation", "support"]);
 
 /** What a guarding hand covers: where the threat is, and the place of its own body it is kept from; world, m. */
 export interface Cover {
@@ -95,24 +97,25 @@ export const claimsLegs = (claims: readonly Resource[]): boolean => hasResource(
 /**
  * **The intent of a set selected** (`SelectedAsk`, a mind's intent as the options it selected): the
  * asks of the first member that claims the legs, its walk and facing, else `idle`'s; every member's
- * actions; and every member's covers of a hand no member's asks hold.
+ * actions; every member's covers of a hand no member's asks hold; and every member's skill of a
+ * service (`Intent.skills`), two members choosing two of one service refused.
  */
 export function intentOfSet(set: readonly SelectedAsk[], idle: () => Omit<Intent, "guard" | "actions">): Intent {
   let legs: SelectedAsk["asked"] | null = null;
-  const services: Partial<Record<"guardSkill" | "supportSkill", string>> = {};
+  const skills: Partial<Record<Service, string>> = {};
   const actions: ActionRequest[] = [], held: Resource[] = [], guard: Record<string, Cover> = {};
   for (const { claims, holds, asked } of set) {
     for (const action of asked.actions) actions.push(action);
     for (const resource of holds) if (!hasResource(held, resource)) held.push(resource);
     if (asked.guard) Object.assign(guard, asked.guard);
-    for (const field of SERVICE_CHOICES) if (asked[field] !== undefined) {
-      if (services[field] !== undefined && services[field] !== asked[field]) throw new Error(`two ${field} choices on the same step`);
-      services[field] = asked[field];
+    if (asked.skills) for (const service of SERVICES) {
+      const skill = asked.skills[service];
+      if (skill === undefined) continue;
+      if (skills[service] !== undefined && skills[service] !== skill) throw new Error(`two ${service} skills chosen on the same step`);
+      skills[service] = skill;
     }
     if (legs === null && claimsLegs(claims)) legs = asked;
   }
   for (const hand of Object.keys(guard)) if (hasResource(held, segmentResource(hand))) delete guard[hand];
-  return { ...(legs ?? idle()), actions, guard: { ...NO_COVER, ...guard }, ...services };
+  return { ...(legs ?? idle()), actions, guard: { ...NO_COVER, ...guard }, skills };
 }
-
-const SERVICE_CHOICES = ["guardSkill", "supportSkill"] as const;
