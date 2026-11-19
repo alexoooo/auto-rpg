@@ -46,8 +46,23 @@ without Initiative; bar 4 not met, standing silence 16.2% with it against 8.1% w
 6.3 to 9.9, 216 gaps), against 16.5% and 7.7% without Initiative. Without the back step the mirror
 at 0.1 fights as the game's (standing silence 8% against 8%, 216 gaps; 0.59 falls a bout against
 0.39). So at 0.1 Initiative does not unlock the back step. Read once on the scorecard and the match
-(item 3) after [the cleanup](2026-11-18-cleanup.md), which the owner put ahead of further feature
-work.
+(item 3) now the cleanup the owner put ahead of further feature work has landed.
+
+**The browser look owed with item 3**: what changed on screen that no test or fingerprint sees,
+looked at once on `npm run preview` (a port of its own):
+- the Arena: the Initiative field beside Aggression; the skill panel's skills and variations for
+  a body (`skillsFor`, decided below the page where the page decided it);
+- the mind editor: a Warrior's fault text ("Walker is used"), its slots' pickers and ↑ and ✕
+  buttons, a strike's regions (the four marks and a segment), each disabled where read-only;
+- the Lab: the gust sliders (a step of 1 N, where it was 5) and the other sliders; the Ground
+  scenario's timeline ("The last 35 seconds"); the Attack scenario's hands; the Reach scenario's
+  place;
+- the Crypt: the reference chamber and a random crypt, their doors, the two nearest torches'
+  shadows, the near walls' cut, the damp, the stains, the fog's stone, the sconces and the exit's
+  glow; the Tactical view's cells (revealed with the fog, walls cut near the leader, an opened
+  door gone); the party's companions drawn again on a new hero or count;
+- the skins: the rat's and the reptile's maps; the character preview's hands, a hand its puppet
+  holds no pose for now relaxed where it was closed; the robots' hands in the three designs.
 
 ## What done is
 
