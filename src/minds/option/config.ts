@@ -1,6 +1,6 @@
 import { recordingKey } from "../../core/world/recording.ts";
 import { GOING, type MoveConfig } from "../../skills/locomotion/move/index.ts";
-import { STOCK_GAITS } from "../../skills/locomotion/move/gaits.ts";
+import { stockGaits } from "../../skills/locomotion/move/gaits.ts";
 import type { Carriage } from "../../skills/locomotion/shared/locomotion.ts";
 import type { MindConfig } from "../catalog/config.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
@@ -48,12 +48,12 @@ function onMove(mind: MindConfig, doing: string): { readonly config: OptionMindC
 
 /**
  * **`mind` with every stance walk of its legs held in `carriage`** (`Carriage`): its legs Move's
- * with its gaits (the stock ones, `STOCK_GAITS`, where it names none) so held, the others as they
- * are (`onMove`).
+ * with its gaits (the stock ones among `parts`, `stockGaits`, where it names none) so held, the
+ * others as they are (`onMove`).
  */
-export function inCarriage(mind: MindConfig, carriage: Carriage): MindConfig {
+export function inCarriage(parts: PartLookup, mind: MindConfig, carriage: Carriage): MindConfig {
   const { config, move } = onMove(mind, "held in a carriage");
-  return withLegs(config, { ...move, gaits: (move.gaits ?? STOCK_GAITS).map((gait) => gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait) });
+  return withLegs(config, { ...move, gaits: (move.gaits ?? stockGaits(parts)).map((gait) => gait.legs.kind === "stance-walk" ? { ...gait, legs: { ...gait.legs, carriage } } : gait) });
 }
 
 /**

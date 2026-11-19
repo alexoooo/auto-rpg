@@ -1,15 +1,15 @@
 import { varied, type Varied } from "../../framework/variations.ts";
 import type { Body } from "../../../control/body.ts";
-import type { Legs } from "../../framework/locomotion-part.ts";
-import type { Locomotion } from "../../framework/locomotion-part.ts";
+import type { Gait, Legs, Locomotion } from "../../framework/locomotion-part.ts";
 import type { GaitName } from "../../framework/skill.ts";
 import { choice } from "../../../parts/fields.ts";
 import type { LocomotionPart } from "../../framework/locomotion-part.ts";
 import { slotList, type PartConfig } from "../../../parts/parts.ts";
+import type { PartLookup } from "../../../parts/lookup.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { gaitNamed, STOCK_GAITS, type Gait } from "./gaits.ts";
+import { gaitNamed, stockGaits } from "./gaits.ts";
 import { move, type MoveGait } from "../shared/move.ts";
-import { GAIT_CHOICES, type MoveRuleConfig } from "./move-rule-part.ts";
+import { gaitChoices, type MoveRuleConfig } from "./move-rule-part.ts";
 
 /**
  * The legs a body gets about by (`move`): by the gait its legs goal names (`LegsGoal.gait`), the
@@ -18,7 +18,7 @@ import { GAIT_CHOICES, type MoveRuleConfig } from "./move-rule-part.ts";
 export const GOING: MoveConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
 
 /**
- * **Move** (`move`, `skills/locomotion/shared/move.ts`): of its gaits (`gaits`, the stock ones, `STOCK_GAITS`, where
+ * **Move** (`move`, `skills/locomotion/shared/move.ts`): of its gaits (`gaits`, the stock ones, `stockGaits`, where
  * it names none), the one of the first of `rules` that holds, or `otherwise`'s.
  */
 export interface MoveConfig extends Varied {
@@ -28,18 +28,18 @@ export interface MoveConfig extends Varied {
   readonly otherwise: GaitName;
 }
 
-/** **The gaits Move walks by** (`MoveConfig.gaits`): its own, else the stock ones (`STOCK_GAITS`). */
-const gaitsOfMove = (config: MoveConfig): readonly Gait[] => config.gaits ?? STOCK_GAITS;
+/** **The gaits Move walks by** (`MoveConfig.gaits`): its own, else the stock ones among `parts` (`stockGaits`). */
+const gaitsOfMove = (config: MoveConfig, parts: PartLookup): readonly Gait[] => config.gaits ?? stockGaits(parts);
 
 /** The gaits `config` walks by, each once, in the order its rules and then `otherwise` name them, then every other of its gaits, which a legs goal may name; a name none of them has left out. */
-const gaitsOf = (config: MoveConfig): readonly Gait[] => {
-  const gaits = gaitsOfMove(config);
+const gaitsOf = (config: MoveConfig, parts: PartLookup): readonly Gait[] => {
+  const gaits = gaitsOfMove(config, parts);
   return [...new Set([...config.rules.map((r) => r.gait), config.otherwise, ...gaits.map((gait) => gait.name)])].flatMap((name) => gaitNamed(gaits, name) ?? []);
 };
 
 /** What is wrong with `config`'s gaits: a name empty or twice, legs that name no kind, or a rule or `otherwise` naming a gait it does not have. */
-function gaitFaults(config: MoveConfig): readonly string[] {
-  const gaits = gaitsOfMove(config), faults: string[] = [];
+function gaitFaults(config: MoveConfig, parts: PartLookup): readonly string[] {
+  const gaits = gaitsOfMove(config, parts), faults: string[] = [];
   if (!Array.isArray(config.rules)) faults.push("rules: a list of move-rule parts");
   if (config.gaits !== undefined && !Array.isArray(config.gaits)) faults.push("gaits: a list of named gait parts");
   if (faults.length) return faults;
@@ -58,7 +58,7 @@ function gaitFaults(config: MoveConfig): readonly string[] {
 /** Move's variations: move. */
 const VARIATIONS = {
   move(body: Body, config: MoveConfig, legs: Legs): Locomotion {
-    const walked = gaitsOf(config).filter(gait => legs.parts.of("gait", gait.legs).fits(body.built.spec, gait.legs, legs.parts) === null), names = walked.map((gait) => gait.name), built = new Map<string, Locomotion>();
+    const walked = gaitsOf(config, legs.parts).filter(gait => legs.parts.of("gait", gait.legs).fits(body.built.spec, gait.legs, legs.parts) === null), names = walked.map((gait) => gait.name), built = new Map<string, Locomotion>();
     // Made where nothing asked its fit first (a lab's legs of one gait alone): the refusal its fit gives, not a walk with no gait.
     if (walked.length === 0) throw new Error(`${body.built.spec.model} has no enabled gait to move by`);
     const gaits = walked.map((gait): MoveGait => {
@@ -77,15 +77,15 @@ const VARIATIONS = {
  */
 export const MOVE_PART = deepFreeze<LocomotionPart<MoveConfig>>({
   role: "locomotion", label: "Move", defaults: GOING, keys: { kind: true, variation: true, gaits: true, rules: true, otherwise: true },
-  fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
+  fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", gaitChoices)],
   slots: [slotList("rules", "When", "move-rule")],
   // A gait of its own list the body does not fit is passed over, as a stock one is: it walks by those that fit (`fits`).
   children: config => Array.isArray(config.gaits) ? config.gaits.map((gait, i) => ({ path: ["gaits", i, "legs"], role: "gait", config: gait?.legs, picked: true as const })) : [],
   // The stock gaits' legs, where it names no gaits of its own.
-  supplies: config => config.gaits == null ? STOCK_GAITS.map((gait) => ({ role: "gait" as const, config: gait.legs })) : [],
+  supplies: (config, parts) => config.gaits == null ? stockGaits(parts).map((gait) => ({ role: "gait" as const, config: gait.legs })) : [],
   ...varied({ skill: "move", label: "move", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [
-    (spec, config, parts) => gaitsOf(config).some(gait => parts.of("gait", gait.legs).fits(spec, gait.legs, parts) === null) ? null : "has no enabled gait to move by"] }),
-  faults: gaitFaults, gaits: gaitsOfMove, skillGroup: "Travel",
+    (spec, config, parts) => gaitsOf(config, parts).some(gait => parts.of("gait", gait.legs).fits(spec, gait.legs, parts) === null) ? null : "has no enabled gait to move by"] }),
+  faults: gaitFaults, gaits: (config, _spec, parts) => gaitsOfMove(config, parts), skillGroup: "Travel",
 });
 
 declare module "../../config.ts" {

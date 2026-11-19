@@ -45,13 +45,13 @@ const KINDS = {
     const { profileLearningMind, gaitLearningMind } = await import('../src/minds/option/index.ts');
     const { withLegs } = await import('../src/minds/option/config.ts');
     const { GOING } = await import('../src/skills/locomotion/move/index.ts');
-    const { STOCK_GAITS } = await import('../src/skills/locomotion/move/gaits.ts');
+    const { stockGaits } = await import('../src/skills/locomotion/move/gaits.ts');
     const { GAME } = await import('../src/app/catalog.ts');
     /** `preset` with a gait Move's stock has not, named by its part's kind and steered where asked, beside Move's stock gaits. */
     const addedGait = (preset, { gait, steered }) => preset.kind !== 'option' ? { refused: `${preset.kind} is not an Option Mind` }
-      : withLegs(preset, { ...GOING, gaits: [...STOCK_GAITS, { name: gait, label: gait, legs: { kind: gait, ...(steered ? { steered: true } : {}) } }] });
+      : withLegs(preset, { ...GOING, gaits: [...stockGaits(GAME.partLookup), { name: gait, label: gait, legs: { kind: gait, ...(steered ? { steered: true } : {}) } }] });
     return configuration => caseEnvironment(configuration, { configureMind: (preset, request) => request.gait !== undefined
-      ? (STOCK_GAITS.some((one) => one.name === request.gait) ? gaitLearningMind : addedGait)(preset, request)
+      ? (stockGaits(GAME.partLookup).some((one) => one.name === request.gait) ? gaitLearningMind(GAME.partLookup, preset, request) : addedGait(preset, request))
       : profileLearningMind(GAME.partLookup, owning(GAME, preset, request.skill), request) });
   },
 };

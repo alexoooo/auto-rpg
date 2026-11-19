@@ -27,8 +27,8 @@ export const CONDITIONS: { readonly [K in ConditionConfig["kind"]]: Registration
   "follow-up": { fields: [number<Of<"follow-up">, "seconds">("seconds", "Since contact", 0, 5, .05, "s")],
     matches: (config, reading) => reading.sinceTarget !== undefined && reading.sinceTarget >= 0 && reading.sinceTarget <= config.seconds },
   "when-distance": { fields: [
-    choice<Of<"when-distance">, "of">("of", "Distance to", [["foe", "Nearest foe"], ["destination", "Destination"], ["ally", "Nearest of its side"]]),
-    choice<Of<"when-distance">, "than">("than", "Compare", [["under", "Under"], ["over", "Over"]]),
+    choice<Of<"when-distance">, "of">("of", "Distance to", () => [["foe", "Nearest foe"], ["destination", "Destination"], ["ally", "Nearest of its side"]]),
+    choice<Of<"when-distance">, "than">("than", "Compare", () => [["under", "Under"], ["over", "Over"]]),
     number<Of<"when-distance">, "metres">("metres", "Distance", 0, 100, .1, "m"),
   ], matches(config, reading, margin) {
     switch (config.than) {

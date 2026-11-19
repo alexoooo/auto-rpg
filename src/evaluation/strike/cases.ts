@@ -441,7 +441,7 @@ const SPARRING_LAID = deepFreeze({ ...STOMPING_SAMPLED, targets: FOES, trials: 2
   laid: { ...LAID, speed: 2 }, settled: .6, gaps: [.5, .8], closer: [.8, 1.2] });
 
 export const createStrikeCases = perContext((context: GameContext) => {
-  const { treeObeys, controllers: CONTROLLERS, minds: MINDS } = context.catalog;
+  const { treeObeys, controllers: CONTROLLERS, minds: MINDS, partLookup } = context.catalog;
   const mindFaults = mindFaultsOf(context);
   const { opponentOf, DRILL_OPPONENTS } = createDrillOpponents(context);
 
@@ -529,8 +529,8 @@ export const createStrikeCases = perContext((context: GameContext) => {
         const leading = opposed(striker(value as unknown as StrikeSubject, effectorOf(condition), mark, { after: protocol.settled, pace: protocol.pace,
           walking: start === "walking" || carried !== null || approach !== undefined, ...(approach === undefined ? {} : { approach }), ...(letGo === undefined ? {} : { letGo }) }), opponentOf(protocol.opponent ?? STANDING)!);
         // A body drawn staggered walks every stance walk of its mind in that carriage all trial.
-        const minds = staggered === undefined ? leading.minds : { left: staggered === "target" ? leading.minds.left : inCarriage(leading.minds.left, STAGGERED),
-          right: staggered === "striker" ? leading.minds.right : inCarriage(leading.minds.right, STAGGERED) };
+        const minds = staggered === undefined ? leading.minds : { left: staggered === "target" ? leading.minds.left : inCarriage(partLookup, leading.minds.left, STAGGERED),
+          right: staggered === "striker" ? leading.minds.right : inCarriage(partLookup, leading.minds.right, STAGGERED) };
         return { kind: "bout", engine, tape: [], ...protocol.timing === undefined ? {} : { timing: protocol.timing },
         // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
         recipe: { left: model, right: target ?? "man", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideCharacters({ left: model, right: target ?? "man" }, { left: seat, ...foeSeat(protocol.opponent ?? STANDING) }),

@@ -5,11 +5,10 @@ import { soleRefusal } from "../../../control/support.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { cos, sin } from "../../../core/math/real.ts";
 import { wrap } from "../../../core/math/turn.ts";
-import type { GaitPart, Locomotion } from "../../framework/locomotion-part.ts";
+import type { Gait, GaitPart, Locomotion } from "../../framework/locomotion-part.ts";
 import { varied, type Varied } from "../../framework/variations.ts";
 import type { LegsAsked } from "../../framework/skill.ts";
 import { STAGGERED, validCarriage, type Carriage } from "../shared/locomotion.ts";
-import type { Gait } from "../move/gaits.ts";
 import { stanceWalk } from "../shared/stance-walk.ts";
 
 /** How far behind the rear sole's middle the back step asks the centre, m: past where the stance holds it (within its support), so it goes as far back as the stance lets it. */
@@ -186,7 +185,7 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
  * **The back step** as a gait (`Gait`): the body swayed back in the staggered carriage
  * (`STAGGERED`) and in again, as the back step's evaluation reads best (out 0.7 s, back 0.5 s, the
  * lead foot stepping 0.1 m in, its follow 0.15 m). A gait no walk goes by (`GaitPart.travels`),
- * which its Option orders (`backStepping`); one of the stock gaits (`STOCK_GAITS`).
+ * which its Option orders (`backStepping`); its part's one gait (`GaitPart.gaits`).
  */
 export const BACK_STEP_GAIT: Gait = deepFreeze({ name: "back-step", label: "Back step",
   legs: { kind: "back-step", carriage: STAGGERED, out: SWAY.out, back: SWAY.back, stepIn: .1, follow: .15, turn: 2 } satisfies BackStepConfig });
@@ -206,7 +205,7 @@ const VARIATIONS = { "back-step": backStep };
 
 /** **The back step** (`backStep`): a gait part, ordered by name where a body's Move has it among its gaits (`MoveConfig.gaits`), on a body whose character holds it. */
 export const BACK_STEP_PART = deepFreeze<GaitPart<BackStepConfig>>({
-  role: "gait", requires: [SUPPORT_REFERENCE], label: "Back step", fields: [], slots: [], defaults: { kind: "back-step" }, travels: false,
+  role: "gait", requires: [SUPPORT_REFERENCE], label: "Back step", fields: [], slots: [], defaults: { kind: "back-step" }, travels: false, gaits: [BACK_STEP_GAIT],
   keys: { kind: true, variation: true, carriage: true, out: true, back: true, stepIn: true, follow: true, turn: true },
   ...varied({ skill: "back-step", label: "back step", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [soleRefusal] }),
   faults: (config) => [

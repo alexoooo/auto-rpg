@@ -167,11 +167,11 @@ test("a commanded Mind restores its driver's memory from its own state", async (
  * do not establish that saved orders pass the external recording validator.
  */
 test("recorded orders accept configured gait names across JSON transport", () => {
-  const stock = MOVE_PART.gaits(MOVE_PART.defaults);
+  const spec = modelSpec("man"), stock = MOVE_PART.gaits(MOVE_PART.defaults, spec, partLookup);
   assert.ok(stock.length > 0, "the fixture needs a registered gait for its custom name");
   const config = { ...MOVE_PART.defaults, gaits: [...stock, { ...stock[0], name: "entrant-step" }], otherwise: "entrant-step" };
-  assert.deepEqual(MOVE_PART.faults(config), [], "the locomotion must admit the configured gait");
-  const gaits = [...MOVE_PART.gaits(config), ...PAW_MOVE.gaits(PAW_MOVE.defaults)];
+  assert.deepEqual(MOVE_PART.faults(config, partLookup), [], "the locomotion must admit the configured gait");
+  const gaits = [...MOVE_PART.gaits(config, spec, partLookup), ...PAW_MOVE.gaits(PAW_MOVE.defaults, modelSpec("reptile"), partLookup)];
   const tape = gaits.map(({ name }, step) => ({ step, side: "left", orders: { face: null, gait: name } }));
   const transported = JSON.parse(JSON.stringify(tape));
   assert.deepEqual(transported.filter(isOrdersEntry), tape);

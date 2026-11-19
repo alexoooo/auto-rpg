@@ -1,12 +1,12 @@
 import type { GaitName } from "../../framework/skill.ts";
 import { choice, type PartField } from "../../../parts/fields.ts";
-import type { ConfigFor } from "../../../parts/lookup.ts";
+import type { ConfigFor, PartLookup } from "../../../parts/lookup.ts";
 import { anyBody, type KeysOf, type Part, type PartConfig } from "../../../parts/parts.ts";
-import { STOCK_GAITS } from "./gaits.ts";
+import { stockGaits } from "./gaits.ts";
 import type { MoveRule } from "../shared/move.ts";
 
-/** The stock gaits (`STOCK_GAITS`) as a choice offers them; a gait a config adds is named in its config. */
-export const GAIT_CHOICES = STOCK_GAITS.map((gait): [GaitName, string] => [gait.name, gait.label]);
+/** The stock gaits among `parts` (`stockGaits`) as a choice offers them; a gait a config adds is named in its config. */
+export const gaitChoices = (parts: PartLookup): readonly [GaitName, string][] => stockGaits(parts).map((gait) => [gait.name, gait.label]);
 
 /** A rule of Move's config: when it holds, and the gait it chooses then. */
 interface RuleConfig extends PartConfig { readonly gait: GaitName }
@@ -23,14 +23,14 @@ export interface MoveRulePart<C extends RuleConfig = RuleConfig> extends Part<C>
 
 /** Condition fields that keep the rule's gait when a person edits them. */
 export const withGait = <C>(fields: readonly PartField<C>[]): readonly PartField<C & { readonly gait: GaitName }>[] => fields.map(field => ({ ...field,
-  write(config: C & { readonly gait: GaitName }, value: string) {
-    const updated = field.write(config, value);
+  write(config: C & { readonly gait: GaitName }, value: string, parts: PartLookup) {
+    const updated = field.write(config, value, parts);
     return updated ? { ...config, ...updated } : null;
   } }));
 
 /** A Move rule's part: its own fields and the gait's choice, and its own faults (its Move says a gait it has not), for every body. */
 export const moveRulePart = <C extends RuleConfig>(rule: Omit<MoveRulePart<C>, "role" | "stage" | "slots" | "fits">): MoveRulePart<C> => ({
-  ...rule, role: "move-rule", slots: [], fits: anyBody, fields: [...rule.fields, choice<C, "gait">("gait", "Gait", GAIT_CHOICES)],
+  ...rule, role: "move-rule", slots: [], fits: anyBody, fields: [...rule.fields, choice<C, "gait">("gait", "Gait", gaitChoices)],
 });
 
 declare module "../../../parts/lookup.ts" {

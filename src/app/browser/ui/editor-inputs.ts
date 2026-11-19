@@ -1,6 +1,7 @@
 import { valueEditor } from "./value-editors.ts";
 import { selectInput } from "./inputs.ts";
 import type { PartField } from "../../../parts/fields.ts";
+import type { PartLookup } from "../../../parts/lookup.ts";
 
 /** A labelled editor input; editors share its layout and keyboard behaviour. */
 export function editorRow(label: string, input: HTMLElement): HTMLElement {
@@ -15,12 +16,12 @@ export function editorInput(value: string, changed: (value: string) => void, opt
   input.addEventListener("change", () => { input.blur(); changed(input.value); }); return input;
 }
 
-/** Every part editor uses the field's labels, limits, units and write validation. */
-export function partFieldInput<C>(field: PartField<C>, { config, write, readOnly }: { readonly config: C; write(config: C): void; readonly readOnly: boolean }): HTMLElement {
-  const changed = (value: string) => write(field.write(config, value) ?? config);
+/** Every part editor uses the field's labels, limits, units and write validation, its choices among `parts`. */
+export function partFieldInput<C>(field: PartField<C>, { config, parts, write, readOnly }: { readonly config: C; readonly parts: PartLookup; write(config: C): void; readonly readOnly: boolean }): HTMLElement {
+  const changed = (value: string) => write(field.write(config, value, parts) ?? config);
   switch (field.kind) {
     case "json": return valueEditor(field.editor, { text: field.read(config), changed, readOnly });
-    case "choice": return selectInput(field.options.map(([value, text]) => ({ value, text })), field.read(config), changed, { disabled: readOnly });
+    case "choice": return selectInput(field.options(parts).map(([value, text]) => ({ value, text })), field.read(config), changed, { disabled: readOnly });
     case "text": return editorInput(field.read(config), changed, { disabled: readOnly, numeric: false });
     case "number": {
       const input = editorInput(field.read(config), changed, { disabled: readOnly, numeric: true });

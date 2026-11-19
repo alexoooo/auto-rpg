@@ -7,7 +7,7 @@
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';
 import { LONE_WORLD } from '../../../src/app/node/evaluation.ts';
-import { defaultMind } from '../../../src/app/catalog.ts';
+import { defaultMind, partLookup } from '../../../src/app/catalog.ts';
 import { DEFAULT_ENGINE } from '../../../src/core/physics/engines.ts';
 import { massCentreToRef, massOf } from '../../../src/core/bodies/read-motion.ts';
 import { Vector3 } from '../../../src/core/math/vector.ts';
@@ -16,7 +16,7 @@ import { pending } from '../../../src/core/math/learning/learner.ts';
 import { uprightness } from '../../../src/control/ground.ts';
 import { footStatesOf, groundContact } from '../../../src/control/support.ts';
 import { GOING } from '../../../src/skills/locomotion/move/index.ts';
-import { STOCK_GAITS } from '../../../src/skills/locomotion/move/gaits.ts';
+import { stockGaits } from '../../../src/skills/locomotion/move/gaits.ts';
 import { TRAVEL_LAYOUT } from '../../../src/skills/locomotion/walk-run/walk-run/learned-run.ts';
 import { isOrders } from '../../../src/minds/orders.ts';
 import { decide, untilAsked } from '../../learner-adapter.mjs';
@@ -66,7 +66,7 @@ export async function travelEnvironment(configuration) {
   const loadout = o.loadouts ? o.loadouts[(o.seed >>> 0) % o.loadouts.length] : o.loadout ?? { left: 'empty', right: 'empty' };
   const base = defaultMind(o.model);
   const mind = { ...base, tuning: { ...base.tuning, parts: { ...base.tuning?.parts, legs: { ...GOING,
-    gaits: STOCK_GAITS.map(gait => gait.legs.kind === 'walk-run' ? { ...gait, legs: { ...gait.legs, tuning } } : gait) } } } };
+    gaits: stockGaits(partLookup).map(gait => gait.legs.kind === 'walk-run' ? { ...gait, legs: { ...gait.legs, tuning } } : gait) } } } };
   const built = await LONE_WORLD.build({ kind: 'lone', engine: o.engine ?? DEFAULT_ENGINE, lone: {
     model: o.model, mind, floorSize: 400, steadiness: 0, heading: heading + yaw, seed: o.seed, loadout,
     script: yaw === 0 && lower === 0 ? [] : [{ at: 0, orders: { move: null, face: { x: sin(heading), z: cos(heading) }, ...(lower > 0 ? { lower } : {}) } }],

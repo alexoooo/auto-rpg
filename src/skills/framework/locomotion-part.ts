@@ -1,7 +1,7 @@
 import type { StanceGoal } from "../../control/stance/goal.ts";
 import type { GaitName, Skill, LegsAsked, LegsUnmet } from "./skill.ts";
 import type { Body, BodyView, BodyCommand } from "../../control/body.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
+import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 import type { BearingEnd, BodySpec } from "../../core/bodies/spec/body.ts";
 import type { StanceEnvelope } from "../../control/stance/stance-envelope.ts";
@@ -38,9 +38,23 @@ export interface LocomotionPart<C extends PartConfig = PartConfig> extends Part<
  * faults and fit, and makes the walk a gait goes by (`Gait.legs`), which the legs (`LocomotionPart`)
  * go by while the gait is theirs.
  */
+/**
+ * **A gait**: what a body gets about by, as Move walks by it (`MoveConfig.gaits`): its name, which
+ * a legs goal and Move's rules name it by (`LegsGoal.gait`), its label, and its legs (a gait part's
+ * config, `GaitPart`), measured on each body by its envelope
+ * (`src/control/stance/stance-envelope.ts`) and its profile (the Gait drill).
+ */
+export interface Gait {
+  readonly name: GaitName;
+  readonly label: string;
+  readonly legs: ConfigFor<"gait">;
+}
+
 export interface GaitPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "gait";
   readonly keys: KeysOf<C>;
+  /** The gaits it offers by name: Move's stock where it is registered (`stockGaits`). */
+  readonly gaits: readonly Gait[];
   /** Whether it carries the body to a place: a walk goes by it; not the back step's sway. */
   readonly travels: boolean;
   /** The walk of `config` for `body`. */
@@ -107,7 +121,7 @@ export interface Locomotion extends Skill {
   readonly placed?: boolean;
   /** What of its last goal it did not carry out (`LegsUnmet`); absent, legs that say none. */
   readonly unmet?: LegsUnmet;
-  /** The gait it walks by now, for legs that walk by gaits by name (`GAITS`); absent, legs that have none. */
+  /** The gait it walks by now, for legs that walk by gaits by name (`Gait.name`); absent, legs that have none. */
   readonly gait?: GaitName;
   /** The gaits it walks by, by name, for legs that walk by gaits by name; absent, legs that have none. */
   readonly gaits?: readonly GaitName[];

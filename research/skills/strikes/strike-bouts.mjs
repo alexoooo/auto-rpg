@@ -84,13 +84,13 @@ if (isMainThread) {
   if (Object.keys(holds).some(side => side !== "left" && side !== "right")) throw new Error("--holds is <left|right>=<skill/variation>");
   const minded = sets.length > 0 || Object.keys(carriages).length > 0;
   if (minded && drill) throw new Error("--set and --carriage set the sides' minds; a drill sets its own");
-  const [{ HUMANOID_MODELS }, { LANDED }, { CONTEXT }, { replacedAt }, { inCarriage }, { recordingKey }, { sha256Text }] = await Promise.all([import("../../../src/core/bodies/models.ts"),
+  const [{ HUMANOID_MODELS }, { LANDED }, { CONTEXT }, { replacedAt, partLookup }, { inCarriage }, { recordingKey }, { sha256Text }] = await Promise.all([import("../../../src/core/bodies/models.ts"),
     import("../../../src/evaluation/strike/read.ts"), import("../../../src/app/node/context.ts"), import("../../../src/app/catalog.ts"), import("../../../src/minds/option/config.ts"),
     import("../../../src/core/world/recording.ts"), import("../../../src/evaluation/sha256.ts")]);
   /** Both sides' minds, `left`'s and `right`'s: each its model's own with what `--set` and `--carriage` give it, in that order; null where none gives anything. */
   const mindsOf = (left, right) => !minded ? null : Object.fromEntries(["left", "right"].map((side) => {
     const set = sets.filter((one) => one.side === null || one.side === side).reduce((mind, { path, value }) => replacedAt(mind, path, value), CONTEXT.defaultMind(side === "left" ? left : right));
-    return [side, carriages[side] ? inCarriage(set, carriages[side]) : set];
+    return [side, carriages[side] ? inCarriage(partLookup, set, carriages[side]) : set];
   }));
   const models = values.models?.split(",") ?? HUMANOID_MODELS, gaps = values.gaps.split(",").map(Number), seconds = Number(values.seconds);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), helds = values.held.split(",");

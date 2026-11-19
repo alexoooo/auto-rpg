@@ -1,42 +1,16 @@
 import type { GaitName } from "../../framework/skill.ts";
-import type { ConfigFor } from "../../../parts/lookup.ts";
+import type { PartLookup } from "../../../parts/lookup.ts";
+import type { Gait } from "../../framework/locomotion-part.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { STANCE_SPANS } from "../../framework/profile/nearest.ts";
 import { type StanceNumbers } from "../../framework/profile/profile.ts";
-import { BACK_STEP_GAIT } from "../back-step/index.ts";
 
 /**
- * **A gait**: what a body gets about by, as Move walks by it (`MoveConfig.gaits`): its name, which
- * a legs goal and Move's rules name it by (`LegsGoal.gait`), its label, and its legs (a gait part's
- * config, `GaitPart`), measured on each body by its envelope
- * (`src/control/stance/stance-envelope.ts`) and its profile (the Gait drill).
+ * **The stock gaits** among `parts`: every registered gait part's own (`GaitPart.gaits`), in the
+ * order registered; what Move walks by where its config names none. A body walks by those whose
+ * variation its character holds, and Move changes between them on the move (`move`).
  */
-export interface Gait {
-  readonly name: string;
-  readonly label: string;
-  readonly legs: ConfigFor<"gait">;
-}
-
-
-/**
- * **The stock gaits**, by name: the game's controllers and their searched settings, none of them a
- * person's to tune. Braced is the stance's walk (`StanceWalkConfig`), the fighting step; the
- * footwork is that walk's variation started with the other foot; staggered, its variation in the
- * staggered carriage (`STAGGERED`); the run is the walk and run (`WalkRunConfig`) by its body's record;
- * the back step sways the body back out of a blow's way and in again (`BACK_STEP_GAIT`), a gait no
- * walk goes by, which its Option orders. A body walks by those whose variation its character holds,
- * and Move changes between them on the move (`move`).
- */
-const GAITS: Readonly<Record<string, { readonly label: string; readonly legs: ConfigFor<"gait"> }>> = deepFreeze({
-  "braced": { label: "Braced", legs: { kind: "stance-walk", variation: "stance-walk" } },
-  "footwork": { label: "Footwork", legs: { kind: "stance-walk", variation: "footwork" } },
-  "staggered": { label: "Staggered", legs: { kind: "stance-walk", variation: "staggered" } },
-  "run": { label: "Run", legs: { kind: "walk-run" } },
-  "back-step": BACK_STEP_GAIT,
-});
-
-/** **The stock gaits** (`GAITS`) as gaits: what Move walks by where its config names none. */
-export const STOCK_GAITS: readonly Gait[] = deepFreeze(Object.entries(GAITS).map(([name, gait]) => ({ name, label: gait.label, legs: gait.legs })));
+export const stockGaits = (parts: PartLookup): readonly Gait[] => parts.candidates("gait").flatMap((legs) => parts.of("gait", legs).gaits);
 
 /**
  * **How a body walking by a gait stands** (`StanceNumbers`), by the gait's legs (`kind/variation`)

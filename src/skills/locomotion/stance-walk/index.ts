@@ -47,6 +47,9 @@ const VARIATIONS = {
 /** **Walk in the stance** (`locomotion`): it holds the body's stance envelope (`Body.envelope`) and stops at `STANCE_STOPPING`. */
 export const STANCE_WALK_PART = deepFreeze<GaitPart<StanceWalkConfig>>({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk in the stance", travels: true, fields: [], slots: [], defaults: { kind: "stance-walk" },
+  // Braced, the fighting step; the footwork, that walk started with the other foot; staggered, that walk in the staggered carriage.
+  gaits: [{ name: "braced", label: "Braced", legs: { kind: "stance-walk", variation: "stance-walk" } }, { name: "footwork", label: "Footwork", legs: { kind: "stance-walk", variation: "footwork" } },
+    { name: "staggered", label: "Staggered", legs: { kind: "stance-walk", variation: "staggered" } }],
   keys: { kind: true, variation: true, tuning: true, carriage: true }, tuning: ["turnLimit", "turnStartup"],
   ...varied({ skill: "stance-walk", label: "walk in the stance", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [soleRefusal] }),
   faults: (config) => [

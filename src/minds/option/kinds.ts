@@ -5,7 +5,7 @@ import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import { optionApplies, type OptionPart } from "./parts.ts";
 import { choice, json, optionalChoice } from "../../parts/fields.ts";
 import { anyBody, slotOne, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
-import { GAIT_CHOICES } from "../../skills/locomotion/move/move-rule-part.ts";
+import { gaitChoices } from "../../skills/locomotion/move/move-rule-part.ts";
 import { heldVariations, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { recordingKey } from "../../core/world/recording.ts";
@@ -211,7 +211,7 @@ function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, se
     });
   return deepFreeze<StrikeKindPart<K>>({
     role: "option", model: PROFILE_MODEL, label, stands: false, skill,
-    fields: [choice<StrikeConfig<K>, "limbs">("limbs", "Limbs", LIMB_ROLES), json<StrikeConfig<K>, "regions">("regions", "Target regions", "target-regions")],
+    fields: [choice<StrikeConfig<K>, "limbs">("limbs", "Limbs", () => LIMB_ROLES), json<StrikeConfig<K>, "regions">("regions", "Target regions", "target-regions")],
     slots: [slotSkill("skill", "Skill", "executor"), { ...slotSkill("support", "Low support", "support"), optional: true }, slotOne("aim", "Aim", "aim", true)],
     defaults: { kind: `strike-${skill}`, skill: { kind: skill }, ...settings } as StrikeConfig<K>,
     keys: { kind: true, skill: true, limbs: true, regions: true, aim: true, support: true } as KeysOf<StrikeConfig<K>>,
@@ -288,7 +288,7 @@ export interface WalkConfig {
  * (`Sites`); none on legs without that gait. Its way is planned by its navigation.
  */
 export const WALK_OPTION = deepFreeze<ProfileOptionPart<WalkConfig>>({
-  role: "option", model: PROFILE_MODEL, label: "Walk to a site", stands: false, fields: [optionalChoice<WalkConfig, "gait">("gait", "Gait", "Every gait", GAIT_CHOICES)],
+  role: "option", model: PROFILE_MODEL, label: "Walk to a site", stands: false, fields: [optionalChoice<WalkConfig, "gait">("gait", "Gait", "Every gait", gaitChoices)],
   slots: [slotOne("navigation", "Navigation", "navigation", true)], defaults: { kind: "walk" },
   keys: { kind: true, gait: true, navigation: true }, fits: anyBody, faults: () => [],
   applicable: (config: WalkConfig, { parts, legs, spec }) => legs === null || gaitsOf(parts, legs, spec).some(gait => config.gait === undefined || gait.name === config.gait),

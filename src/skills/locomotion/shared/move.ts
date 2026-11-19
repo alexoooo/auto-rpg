@@ -46,7 +46,7 @@ function foeDistance(view: BodyView): number {
   return foe === null ? Infinity : hypot(foe.centre.x - centre.x, foe.centre.z - centre.z);
 }
 
-/** **A gait of Move**: its name (`GAITS`) and the walk it walks by. Two gaits may share one walk. */
+/** **A gait of Move**: its name (`Gait.name`) and the walk it walks by. Two gaits may share one walk. */
 export interface MoveGait {
   readonly name: GaitName;
   readonly legs: Locomotion;

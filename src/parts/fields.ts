@@ -1,20 +1,22 @@
 /** A value a field may take, as text, and its name on the page. */
 type Option<V extends string> = readonly [value: V, name: string];
 
+import type { PartLookup } from "./lookup.ts";
+
 interface Field<C> {
   /** Its key in the config. */
   readonly key: string;
   readonly label: string;
   /** Its value in `config`, as text. */
   read(config: C): string;
-  /** `config` with `text` for its value; null for text this field does not take. */
-  write(config: C, text: string): C | null;
+  /** `config` with `text` for its value, among `parts`; null for text this field does not take. */
+  write(config: C, text: string, parts: PartLookup): C | null;
 }
 
-/** A setting chosen from a list. */
+/** A setting chosen from a list, which may be of the parts registered (`parts`). */
 interface ChoiceField<C> extends Field<C> {
   readonly kind: "choice";
-  readonly options: readonly Option<string>[];
+  options(parts: PartLookup): readonly Option<string>[];
 }
 
 /** A number from `least` to `most`, offered at `step`. */
@@ -57,21 +59,21 @@ export function json<C, K extends keyof C & string>(key: K, label: string, edito
 }
 
 /** The string-valued field `key` of a config, from `options`. */
-export function choice<C, K extends keyof C & string>(key: K, label: string, options: readonly Option<C[K] & string>[]): ChoiceField<C> {
+export function choice<C, K extends keyof C & string>(key: K, label: string, options: (parts: PartLookup) => readonly Option<C[K] & string>[]): ChoiceField<C> {
   return {
     kind: "choice", key, label, options,
     read: (config) => String(config[key]),
-    write: (config, text) => options.some(([value]) => value === text) ? { ...config, [key]: text } : null,
+    write: (config, text, parts) => options(parts).some(([value]) => value === text) ? { ...config, [key]: text } : null,
   };
 }
 
 /** The string-valued field `key` of a config that may leave it out, from `options`, or `none`, named as given, where it does. */
-export function optionalChoice<C, K extends keyof C & string>(key: K, label: string, none: string, options: readonly Option<NonNullable<C[K]> & string>[]): ChoiceField<C> {
+export function optionalChoice<C, K extends keyof C & string>(key: K, label: string, none: string, options: (parts: PartLookup) => readonly Option<NonNullable<C[K]> & string>[]): ChoiceField<C> {
   return {
-    kind: "choice", key, label, options: [["", none], ...options],
+    kind: "choice", key, label, options: (parts) => [["", none], ...options(parts)],
     read: (config) => config[key] === undefined ? "" : String(config[key]),
-    write: (config, text) => {
-      if (text !== "") return options.some(([value]) => value === text) ? { ...config, [key]: text } : null;
+    write: (config, text, parts) => {
+      if (text !== "") return options(parts).some(([value]) => value === text) ? { ...config, [key]: text } : null;
       const { [key]: _, ...rest } = config;
       return rest as C;
     },

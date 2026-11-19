@@ -52,7 +52,7 @@ export interface Intent {
    * (`LegsGoal.centre`); absent where no walk has arrived.
    */
   readonly rest?: readonly [number, number];
-  /** The gait to go by, by name (`GAITS`), for legs that walk by gaits; absent, their own choice (`move`'s rules). */
+  /** The gait to go by, by name (`Gait.name`), for legs that walk by gaits; absent, their own choice (`move`'s rules). */
   readonly gait?: GaitName;
 }
 

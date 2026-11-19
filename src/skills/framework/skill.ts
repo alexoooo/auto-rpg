@@ -22,7 +22,7 @@ export interface Skill<V = BodyView> {
  *   walk or facing left out is the intent's: absent and a walk of none are distinct. Each foot's
  *   place is keyed by its end's name (`BearingEnd`).
  * - **The carriage** the legs hold from now on, by a name their implementation understands; left out, the one they hold.
- *   **The gait** they move by, by name (`GAITS`), where their set has it; left out, their set's choice.
+ *   **The gait** they move by, by name (`Gait.name`), where their set has it; left out, their set's choice.
  * - **The stance's fields** (`StanceGoal`): `feet`, the ends that bear (`BearingEnd`, the body's
  *   own names: a human's `foot.left`), a human standing on its two feet;
  *   `height`, the centre of mass's over the soles, m; `heading`, the stance's, rad, unstored (the

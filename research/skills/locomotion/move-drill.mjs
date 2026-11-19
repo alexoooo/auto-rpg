@@ -18,6 +18,7 @@ import { isRefused } from "../../../src/core/refusal.ts";
 import { dataOf } from "../../../src/core/data/store.ts";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
 import { withLegs } from "../../../src/minds/option/config.ts";
+import { partLookup } from "../../../src/app/catalog.ts";
 import { withGaitTuning, withStanceTuning } from "../../../src/minds/option/index.ts";
 import { confirmRow, drillTrials, rowOf, subjectOf } from "../../drill-trials.mjs";
 
@@ -36,7 +37,7 @@ export function moveValue(value, { legs, gaits = {}, stance } = {}) {
   let mind = legs === undefined ? value : withLegs(value, legs);
   for (const [gait, tuning] of Object.entries(gaits)) {
     if (legs !== undefined) throw new Error("a gait's tuning goes onto the stock gaits, not onto legs given whole");
-    const tuned = withGaitTuning(mind, gait, tuning);
+    const tuned = withGaitTuning(partLookup, mind, gait, tuning);
     if (isRefused(tuned)) throw new Error(tuned.refused);
     mind = tuned;
   }

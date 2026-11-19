@@ -601,7 +601,7 @@ interface ValuedConfig extends SearchConfig { readonly kind: "valued"; readonly 
  */
 function obedienceField<C extends SearchConfig>(): PartField<C> {
   return {
-    kind: "choice", key: "obedience", label: "Obedience", options: OBEDIENCE.map(([value, name]) => [value, name] as const),
+    kind: "choice", key: "obedience", label: "Obedience", options: () => OBEDIENCE.map(([value, name]) => [value, name] as const),
     read: (config) => config.obedience ?? "steady",
     write: (config, text) => {
       const level = OBEDIENCE.find(([value]) => value === text);

@@ -8,7 +8,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { massOf } from "../../../core/bodies/read-motion.ts";
 import { GOING, type MoveConfig } from "../../../skills/locomotion/move/index.ts";
 import { withLegs, type OptionMindConfig } from "../../../minds/option/config.ts";
-import { STOCK_GAITS } from "../../../skills/locomotion/move/gaits.ts";
+import { stockGaits } from "../../../skills/locomotion/move/gaits.ts";
 import { partLookup } from "../../catalog.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
@@ -74,11 +74,11 @@ const COURSES: Readonly<Record<CourseId, { readonly name: string; readonly size?
 type Legs = GaitName | "mind";
 const LEGS: readonly Entry<Legs>[] = [
   { value: "mind", name: "As its mind says", title: "The locomotion of the mind under Character, its gait chosen by value" },
-  ...STOCK_GAITS.filter((gait) => partLookup.of("gait", gait.legs).travels).map((gait) => ({ value: gait.name, name: gait.label, title: `Legs that go by ${gait.label.toLowerCase()} alone` })),
+  ...stockGaits(partLookup).filter((gait) => partLookup.of("gait", gait.legs).travels).map((gait) => ({ value: gait.name, name: gait.label, title: `Legs that go by ${gait.label.toLowerCase()} alone` })),
 ];
 
 /** Move by the stock gait `name` alone. */
-const alone = (name: GaitName): MoveConfig => ({ ...GOING, gaits: STOCK_GAITS.filter((gait) => gait.name === name), otherwise: name });
+const alone = (name: GaitName): MoveConfig => ({ ...GOING, gaits: stockGaits(partLookup).filter((gait) => gait.name === name), otherwise: name });
 
 /** A flat strip along `track` on the ground, for the eye; it collides with nothing. */
 function paintTrack(scene: Scene, track: Track, material: StandardMaterial): Mesh {
