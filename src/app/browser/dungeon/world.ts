@@ -9,7 +9,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { cellKey, isFloor, type DungeonMap, type Point } from "../../../game/dungeon/map.ts";
 import { WALL_HEIGHT, wallSurface, type WallFace } from "../../../game/dungeon/fog.ts";
 import { dungeonFog } from "./fog-plugin.ts";
-import { dungeonStone, flatStone, type DungeonSurfaces } from "./stone.ts";
+import { flatStone, type DungeonSurfaces } from "./stone.ts";
 import { masonryQuads, type Quad } from "./masonry.ts";
 import { DRESSING, FLOOR_TOP, HUNG_TOP, decalCorners, decalHeight, hungCentre, muralHeight, type Dressing, type TorchPlacement } from "../../../game/dungeon/dressing.ts";
 import { ATLAS, atlasRect, decalAtlas, muralRect } from "../../../game/dungeon/decals.ts";
@@ -99,10 +99,10 @@ function fitting(name: string, pieces: Mesh[], x: number, z: number, turn: numbe
 }
 
 /**
- * **The level drawn**: its solids (`dungeonSolids`, with no physics) and its look. `visuals` is true for the flat
- * colours and otherwise the page's chosen stone (`dungeonStone` in `stone.ts`); a door's leaf hides as it opens.
+ * **The level drawn**: its solids (`dungeonSolids`, with no physics) and its look, the page's chosen stone
+ * (`dungeonStone` in `stone.ts`); a door's leaf hides as it opens.
  */
-export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: true | DungeonSurfaces = true) {
+export function buildDungeonWorld(scene: Scene, map: DungeonMap, look: DungeonSurfaces) {
   const wood = flatStone(scene, "ironbound doors", "#806044", 0.8);
   const level = dungeonSolids(map, undefined, (door) => { for (const mesh of doors[door.id]!.leaf) mesh.isVisible = false; });
   const iron = flatStone(scene, "door and sconce iron", "#3b3734", 0.5); iron.metallic = 0.7;
@@ -126,21 +126,18 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: true |
     return { leaf };
   });
   // Fog is a mask the surfaces read (`fog-plugin.ts`), so nothing here is shown or hidden cell by cell.
-  const look = visuals === true ? dungeonStone(scene) : visuals;
-  const fog = look ? dungeonFog(scene, map) : null;
+  const fog = dungeonFog(scene, map);
   const surfaces: Mesh[] = [], fittings: { mesh: Mesh; floor: number }[] = [];
-  if (look && fog) {
-    fog.attach(look.floor.material, look.floor.textured ? "floor" : null);
-    fog.attach(look.wall.material, look.wall.textured ? "wall" : null);
-    fog.attach(wood, null); fog.attach(iron, null);
-    const tiles: Quad[] = [], h = look.floor.textured ? TILE.half : TILE.flatHalf, { y } = TILE;
-    for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size; x++) if (isFloor(map, x, z))
-      tiles.push({ cell: { x, z }, normal: [0, 1, 0], corners: [[x - h, y, z - h], [x - h, y, z + h], [x + h, y, z + h], [x + h, y, z - h]] });
-    for (const mesh of mergedQuads(scene, "floor.visual", tiles, look.floor.metresPerRepeat)) { mesh.material = look.floor.material; surfaces.push(mesh); }
-    const walls = look.masonry === false ? wallSurface(map).map(({ cell, face }) => ({ cell, ...faceCorners(cell.x, cell.z, face) }))
-      : masonryQuads(map, look.wall.metresPerRepeat);
-    for (const mesh of mergedQuads(scene, "wall.visual", walls, look.wall.metresPerRepeat)) { mesh.material = look.wall.material; surfaces.push(mesh); }
-  }
+  fog.attach(look.floor.material, look.floor.textured ? "floor" : null);
+  fog.attach(look.wall.material, look.wall.textured ? "wall" : null);
+  fog.attach(wood, null); fog.attach(iron, null);
+  const tiles: Quad[] = [], h = look.floor.textured ? TILE.half : TILE.flatHalf, { y } = TILE;
+  for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size; x++) if (isFloor(map, x, z))
+    tiles.push({ cell: { x, z }, normal: [0, 1, 0], corners: [[x - h, y, z - h], [x - h, y, z + h], [x + h, y, z + h], [x + h, y, z - h]] });
+  for (const mesh of mergedQuads(scene, "floor.visual", tiles, look.floor.metresPerRepeat)) { mesh.material = look.floor.material; surfaces.push(mesh); }
+  const walls = look.masonry === false ? wallSurface(map).map(({ cell, face }) => ({ cell, ...faceCorners(cell.x, cell.z, face) }))
+    : masonryQuads(map, look.wall.metresPerRepeat);
+  for (const mesh of mergedQuads(scene, "wall.visual", walls, look.wall.metresPerRepeat)) { mesh.material = look.wall.material; surfaces.push(mesh); }
   const exit = MeshBuilder.CreateTorus("exit sigil", { diameter: 2, thickness: 0.12, tessellation: 40 }, scene);
   exit.position.set(map.exit.x, 0.06, map.exit.z); exit.isPickable = false; exit.isVisible = false;
   // #42b998 in linear light has a luminance of 0.381; bloom extracts what exceeds its 1.1 threshold after the 1.15
@@ -159,7 +156,6 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: true |
      * reads a fitting's top and underside from that floor cell and its front from the wall, which shows as soon as a
      * diagonal neighbour is explored: without the gate, the front of a sconce would be drawn without its top. */
     sconces(torches: readonly TorchPlacement[]): Mesh[] {
-      if (!fog) return [];
       const S = SCONCE;
       return torches.map((torch, i) => {
         const [w, h, d] = S.plate, plate = MeshBuilder.CreateBox("plate", { width: w, height: h, depth: d }, scene);
@@ -200,7 +196,7 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: true |
      * the rock and half from the floor.
      */
     dress(dressing: readonly Dressing[]): Mesh[] {
-      if (!fog || !dressing.length) return [];
+      if (!dressing.length) return [];
       const atlas = RawTexture.CreateRGBATexture(decalAtlas(), ATLAS.tile * ATLAS.columns, ATLAS.tile * ATLAS.rows, scene,
         true, false, Constants.TEXTURE_TRILINEAR_SAMPLINGMODE);
       atlas.name = "dungeon dressing atlas"; atlas.hasAlpha = true; atlas.wrapU = atlas.wrapV = Constants.TEXTURE_CLAMP_ADDRESSMODE;
@@ -255,13 +251,12 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: true |
     },
     /** Writes the fog mask from what the hero sees and has seen. A closed door is drawn wherever the mask shows it. */
     present(visible: ReadonlySet<number>, explored: ReadonlySet<number>, hero: Point, pitch: number, toward: Point) {
-      if (!fog) return;
       fog.setHero(hero); fog.update(visible, explored, pitch, toward);
       exit.isVisible = explored.has(cellKey(map, map.exit));
       for (const { mesh, floor } of fittings) mesh.isVisible = explored.has(floor);
     },
     /** Where the walls in front of the hero open. The page calls it every frame; `present` runs every 100 ms. */
-    setHero(hero: Point) { fog?.setHero(hero); },
-    dispose() { level.dispose(); fog?.dispose(); },
+    setHero(hero: Point) { fog.setHero(hero); },
+    dispose() { level.dispose(); fog.dispose(); },
   };
 }

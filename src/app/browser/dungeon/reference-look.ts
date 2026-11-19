@@ -213,7 +213,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   new CryptCutaway(wood, cutaway, toward);
   if(doorWood!==wood) {
     new CryptCutaway(doorWood,cutaway,toward);
-    doorWood.maxSimultaneousLights=6;level.fog?.attach(doorWood,"wall");
+    doorWood.maxSimultaneousLights=6;level.fog.attach(doorWood,"wall");
   }
   for(const door of level.doorVisuals) { door.wood.material=doorWood;door.iron.material=iron;door.wood.receiveShadows=door.iron.receiveShadows=true; }
   for(let i=0;i<torches.length;i++) {
@@ -221,7 +221,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
     if(basket){basket.material=iron;basket.receiveShadows=true;}
   }
   for(const [name,material] of Object.entries(materials)) {
-    material.maxSimultaneousLights=6;level.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"||(name==="wood"&&!!plan)?"wall":null);
+    material.maxSimultaneousLights=6;level.fog.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"||(name==="wood"&&!!plan)?"wall":null);
     if (["wall", "trim", "root", "earth", "iron", "cloth"].includes(name)) new CryptCutaway(material, cutaway, toward);
   }
   // Retain working doors and exit; replace only the generated architectural skin.

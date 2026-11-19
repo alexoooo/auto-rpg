@@ -24,17 +24,16 @@ export function flatStone(scene: Scene, name: string, colour: string, roughness 
   return material;
 }
 
-function stoneSurface(scene: Scene, kind: "floor" | "wall", choice: StoneChoice, textures?: TextureFactory): StoneSurface {
+function stoneSurface(scene: Scene, kind: "floor" | "wall", choice: StoneChoice, textures: TextureFactory): StoneSurface {
   if (choice === "flat") return { material: flatStone(scene, FLAT[kind].name, FLAT[kind].colour), metresPerRepeat: 1, textured: false };
   const descriptor = STONE[kind];
-  if (!textures) throw new Error("Textured dungeon stone requires a ready art texture factory");
   const material = surface(scene, descriptor, textures);
   material.maxSimultaneousLights = 4;
   return { material, metresPerRepeat: surfaceMetresPerRepeat(descriptor), textured: true };
 }
 
-/** The floor and walls a run is drawn in. Flat by default, which loads no image, so Node can build it. */
-export function dungeonStone(scene: Scene, floor: StoneChoice = "flat", wall: StoneChoice = "flat", textures?: TextureFactory): DungeonSurfaces {
+/** The floor and walls a run is drawn in, each in the stone or the flat colour chosen. */
+export function dungeonStone(scene: Scene, floor: StoneChoice, wall: StoneChoice, textures: TextureFactory): DungeonSurfaces {
   return { floor: stoneSurface(scene, "floor", floor, textures), wall: stoneSurface(scene, "wall", wall, textures) };
 }
 
