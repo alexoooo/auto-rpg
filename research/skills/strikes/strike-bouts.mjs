@@ -22,9 +22,9 @@
  *
  * A saved bout keeps its winner, each side's life left (`bars`), when each went down, and each
  * side's decisions (`decisions`): at each of a mind that reports its offers (`Engagement.offers`),
- * the offer it chose and its terms, the life each side had then, and where on the ground each
- * body's centre stood, named as each is pushed below: what `bout-readings.mjs` reads the prices
- * against. And each strike each side threw at the other's body, read as the Strike drill reads a
+ * the offer it chose, its terms and worth, the best worth of each kind on offer, the life each side
+ * had then, and where on the ground each body's centre stood, named as each is pushed below: what
+ * `bout-readings.mjs` reads the prices against. And each strike each side threw at the other's body, read as the Strike drill reads a
  * sparring trial (`readFought`) and made a profile's trial as its sparring's are (`strikeTrial`),
  * under the key its profile is found by and the digests it came from (`strikeKey`): what
  * `bout-profiles.mjs` builds profiles from (`strikes`).
@@ -211,17 +211,21 @@ if (isMainThread) {
             /** An offer's terms: how long, s, and the life it deals and takes; null with none. */
             const termsOf = (t) => t ? { duration: +t.duration.toFixed(3), dealt: +t.dealt.toFixed(5), taken: +t.taken.toFixed(5) } : null;
             const hold = offers.find((offer) => offer.name === "hold")?.terms;
+            /** The best worth of each kind of offer (`Choice.kind`). */
+            const bestByKind = (all) => { const best = {}; for (const offer of all) best[offer.kind] = Math.max(best[offer.kind] ?? -Infinity, +offer.worth.toFixed(5)); return best; };
             decisions[side].push({
               t: +duel.clock.toFixed(4),
               /** How far apart the two bodies' centres are, m. */
               apart: +Math.hypot(a.x - b.x, a.z - b.z).toFixed(3),
               chosen: engagement.phase, terms: termsOf(terms),
+              /** What the search found the chosen offer worth (`Priced.worth`), and the best of each kind on offer. */
+              worth: chosen ? +chosen.worth.toFixed(5) : null, worths: bestByKind(offers),
               /** Its own life then, and the foe's. */
               life: +me.pool.bar().toFixed(5), foeLife: +foe.pool.bar().toFixed(5),
               /** Holding's price a second, life; null where it is not offered or takes no time. */
               holding: hold && hold.duration > 0 ? +(hold.taken / hold.duration).toFixed(6) : null,
-              /** Each strike offered, by its skill and limb (`Offer.name`), with its terms. */
-              strikes: offers.filter((offer) => offer.kind === "strike").map((offer) => ({ name: offer.name, terms: termsOf(offer.terms) })),
+              /** Each strike offered, by its skill and limb (`Offer.name`), with its worth and terms. */
+              strikes: offers.filter((offer) => offer.kind === "strike").map((offer) => ({ name: offer.name, worth: +offer.worth.toFixed(5), terms: termsOf(offer.terms) })),
               /** What it read the foe doing (`Engagement.foe`). */
               foe: engagement.foe ?? null,
               /** Where its body's centre stood on the ground, and the foe's. */
