@@ -5,6 +5,10 @@ import { DEFAULT_ENGINE } from "../../src/core/physics/engines.ts";
 import { recipeOf } from "../../src/app/node/setup.ts";
 import { risingJobs } from "../../src/evaluation/rising.ts";
 import { freshEngine } from "../harness/core-stand.mjs";
+import { CONTEXT } from "../../src/app/node/context.ts";
+import { evaluationApplication } from "../../src/app/evaluation.ts";
+import { gameApplication } from "../../src/app/game.ts";
+import { SAID_FIELDS } from "../../src/minds/seat/apart.ts";
 
 /**
  * Reproduce a report owner writing into a value the mind has said: navigation moved its route's
@@ -15,8 +19,6 @@ import { freshEngine } from "../harness/core-stand.mjs";
  * the mind said, so it cannot see the stale report.
  */
 test("a mind's report is what it said at its answer, through a sword bout, a fall it rises from and a Crypt run", async () => {
-  const [{ CONTEXT }, { evaluationApplication }, { gameApplication }, { SAID_FIELDS }] = await Promise.all([
-    import("../../src/app/node/context.ts"), import("../../src/app/evaluation.ts"), import("../../src/app/game.ts"), import("../../src/minds/seat/apart.ts")]);
   // The live report copied whole at each answer, by the mind's own state: the publisher's first read of it is that answer's.
   const answered = new WeakMap();
   const fields = (report) => Object.fromEntries(SAID_FIELDS.map((key) => [key, report[key]]));

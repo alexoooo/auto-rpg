@@ -11,7 +11,8 @@ import { BUILD_IDENTITY_FORM } from "../src/core/world/recording.ts";
 /**
  * On uncommitted code each process made its own mark, so a worker's recordings carried another
  * build's identity and were refused. Start a process with no inherited identity and verify its
- * worker thread and child process read the one it made.
+ * worker thread and child process read the one it made. The gate's runs are on committed code,
+ * where every process makes the same mark.
  */
 test("a build's identity is one for the process, its worker threads and the processes it starts", () => {
   // A process with no identity of its parent's makes one; with a build input not committed, each make differs.
@@ -48,6 +49,7 @@ test("idle learning-worker errors survive until the next protocol request", asyn
 /**
  * Reproduce a rejected posture job leaving its worker message listener alive and preventing child
  * exit. The check asserts every owned worker is terminated before failure reaches the caller.
+ * A run's results do not show a worker left alive, only a process that does not end.
  */
 test("a reported research job failure closes every worker before rejecting", async () => {
   const workers = [];
@@ -61,7 +63,8 @@ test("a reported research job failure closes every worker before rejecting", asy
 
 
 /**
- * Closing a pool left queued promises pending and admitted subsequent work.
+ * Closing a pool left queued promises pending and admitted subsequent work. A run closes its pool
+ * once its work is done, so none closes it with work queued.
  */
 test("closing research workers settles queued work and refuses work after close", async () => {
   const workers = [];
