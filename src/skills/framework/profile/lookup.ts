@@ -41,7 +41,7 @@ export function strikeSkill(spec: BodySpec, executors: readonly ExecutorEntry[],
 export const techniqueSkill = (spec: BodySpec, technique: PartConfig): string => `${technique.kind}/${chosenVariation(spec, technique.kind, technique) ?? ""}`;
 
 /** **What a profile is asked of**: its skill (`strikeSkill`, `techniqueSkill`), and the limb it is thrown with, null with none. */
-export interface Asked {
+export interface SkillAsked {
   readonly skill: string;
   readonly limb: string | null;
 }
@@ -54,8 +54,8 @@ export interface MeasuredAt {
   readonly delay: number;
 }
 
-/** The question (`Measured`) a profile asked of `asked` (`Asked`) answers for a body of `spec` measured at `at` (`MeasuredAt`). */
-export function measuredOn(spec: BodySpec, { skill, limb }: Asked, { hz, reaction, rate, delay }: MeasuredAt): Measured {
+/** The question (`Measured`) a profile asked of `asked` (`SkillAsked`) answers for a body of `spec` measured at `at` (`MeasuredAt`). */
+export function measuredOn(spec: BodySpec, { skill, limb }: SkillAsked, { hz, reaction, rate, delay }: MeasuredAt): Measured {
   return { body: spec.model, stature: spec.stature.value, skill, ...(limb === null ? {} : { limb }), hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) };
 }
 

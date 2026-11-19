@@ -165,9 +165,8 @@ export interface Held {
  * its skill ran (a strike's action from its start to its end, when its limb is free to begin
  * another; an edge's run); the seconds from its end until its limb was back at its guard and still
  * (`recovers`: null where its drill did not see it so, or measures none); whether it ended with the
- * body down; where it came to rest where not done (`end`, an edge's position); the percepts it left
- * the body in, by name (`exit`: a strike's range head to head to the foe once its limb was back,
- * `range`, m); and, where its drill
+ * body down; where it came to rest where not done (`end`, an edge's position); where it left the
+ * two (`Exit`); and, where its drill
  * let it go before its point of no return (`letGo`), at what progress of its motion (s from its
  * start), the seconds until the hand was back at its guard, and the hit points its body lost
  * meanwhile: such a trial prices letting go alone.
@@ -181,9 +180,22 @@ export interface Trial {
   readonly recovers: number | null;
   readonly down: boolean;
   readonly end?: string;
-  readonly exit?: Readonly<Record<string, number>>;
+  readonly exit?: Exit;
   readonly letGo?: { readonly progress: number; readonly seconds: number; readonly taken: number };
 }
+
+/** What a trial's exit names (`Exit`), in the order a trial records them. */
+export const EXIT_KEYS = Object.freeze(["range", "stays", "moved", "own", "striking"] as const);
+
+/**
+ * **Where a trial left the two** (`Trial.exit`, `trialExit`), each absent where its trial did not
+ * record it: their range head to head as it ended, m (`range`); whether they stood within
+ * `ARRIVED` of where they began centre to centre (`stays`, 1 or 0), else by how much further
+ * apart (`moved`, m); of a sway, its own steps' share of that (`own`, m), and whether the foe was
+ * striking as it ended (`striking`, 1 or 0). A reading's (`Expected.exit`) is each one's mean
+ * over the trials that record it.
+ */
+export type Exit = { readonly [K in typeof EXIT_KEYS[number]]?: number };
 
 /** Whether `start` began with the bodies standing as `postures` say (both standing where it names none). */
 export const startedAt = (start: Pick<Start, "postures">, postures: Postures): boolean =>
@@ -232,7 +244,7 @@ const profileTrial = (value: unknown): boolean => profileObject(value) && profil
   && profileNonnegative(value.dealt) && profileNonnegative(value.taken) && profileNonnegative(value.seconds)
   && (value.recovers === null || profileNonnegative(value.recovers))
   && (value.end === undefined || profileText(value.end))
-  && (value.exit === undefined || profileObject(value.exit) && Object.values(value.exit).every(profileNumber))
+  && (value.exit === undefined || profileObject(value.exit) && Object.entries(value.exit).every(([name, number]) => EXIT_KEYS.some((key) => key === name) && profileNumber(number)))
   && (value.letGo === undefined || profileObject(value.letGo) && [value.letGo.progress, value.letGo.seconds, value.letGo.taken].every(profileNonnegative));
 
 /** Whether supplied profiles have finite measurements and the trial fields their readers use. */

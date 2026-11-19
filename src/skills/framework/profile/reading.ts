@@ -3,7 +3,7 @@
  * bring from a start, by the trials nearest it (`nearestRun`), at the postures the bodies stand in.
  */
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
-import { STANDING, startedAt, type Asked, type Postures, type Profile, type Trial } from "./profile.ts";
+import { EXIT_KEYS, STANDING, startedAt, type Asked, type Exit, type Postures, type Profile, type Trial } from "./profile.ts";
 import { bodyNumbers, eachNearest, numbersAt, sampleOf, type Sample } from "./nearest.ts";
 import { acrossBodies, heldPast } from "./across.ts";
 import { struckNumbers } from "./numbers.ts";
@@ -31,8 +31,8 @@ export interface Expected {
   readonly ends: readonly { readonly at: string; readonly share: number }[];
   /** What letting it go at the progress asked cost, from the let-go trials nearest it; absent where no progress was asked, or none was let go. */
   readonly letGo?: { readonly seconds: number; readonly taken: number };
-  /** The percepts it is expected to leave the body in, by name (`Trial.exit`); absent where its trials name none. */
-  readonly exit?: Trial["exit"];
+  /** Where it is expected to leave the two (`Exit`); absent where its trials record none. */
+  readonly exit?: Exit;
 }
 
 /**
@@ -106,19 +106,22 @@ export function nearestRun(run: Sample, own: number): RunReading {
     expect(at, levels, struck) {
       const shares = new Map<string, number>();
       let done = 0, dealt = 0, taken = 0, seconds = 0, recovered = 0, recovers = 0, down = 0;
-      const exits: Record<string, number> = {}, exited: Record<string, number> = {};
+      const exits: { -readonly [K in keyof Exit]: number } = {}, exited: { -readonly [K in keyof Exit]: number } = {};
       const n = eachNearest(run, at, levels, (trial) => {
         if (trial.done) done++;
         if (trial.down) down++;
         dealt += trial.dealt; taken += trial.taken; seconds += trial.seconds;
         if (trial.recovers !== null) { recovered++; recovers += trial.recovers; }
         if (trial.end !== undefined) shares.set(trial.end, (shares.get(trial.end) ?? 0) + 1);
-        for (const key in trial.exit) { exits[key] = (exits[key] ?? 0) + trial.exit[key]!; exited[key] = (exited[key] ?? 0) + 1; }
+        if (trial.exit) for (const key of EXIT_KEYS) {
+          const value = trial.exit[key];
+          if (value !== undefined) { exits[key] = (exits[key] ?? 0) + value; exited[key] = (exited[key] ?? 0) + 1; }
+        }
       });
       if (n === 0) return null;
       return { done: done / n, dealt: struck ? dealt / n / struck.wounds.hp.value : 0, taken: taken / n / own, seconds: seconds / n, recovers: recovered ? recovers / recovered : 0, down: down / n,
         ends: [...shares].map(([end, count]) => ({ at: end, share: count / n })),
-        ...(Object.keys(exits).length ? { exit: Object.fromEntries(Object.keys(exits).map(key => [key, exits[key]! / exited[key]!])) } : {}) };
+        ...(Object.keys(exits).length ? { exit: Object.fromEntries(EXIT_KEYS.flatMap((key) => exits[key] === undefined ? [] : [[key, exits[key] / exited[key]!]])) } : {}) };
     },
     cycle: (at, levels) => cycleAt(run, at, levels),
   };

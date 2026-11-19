@@ -12,7 +12,7 @@
  */
 import { nearestRun, profileReader, type Cycle, type Expected, type ReadsProfile, type RunReading } from "./profile/reading.ts";
 import { COORDINATE, readStartOf, readWithin, type Sample } from "./profile/nearest.ts";
-import { type Asked } from "./profile/profile.ts";
+import { EXIT_KEYS, type Asked, type Exit } from "./profile/profile.ts";
 
 /** A start's numbers the form always weighs: none, the range, its square, closing and across. */
 const START_TERMS = 5;
@@ -64,7 +64,7 @@ interface Form {
   readonly terms: readonly Term[];
   readonly done: Float64Array; readonly dealt: Float64Array; readonly taken: Float64Array; readonly seconds: Float64Array; readonly down: Float64Array;
   readonly recovers: Float64Array | null;
-  readonly exit: ReadonlyMap<string, Float64Array>;
+  readonly exit: ReadonlyMap<keyof Exit, Float64Array>;
   readonly ends: Expected["ends"];
 }
 
@@ -93,8 +93,8 @@ function formOf(run: Sample): Form | null {
   const done = fit((trial) => +trial.done), dealt = fit((trial) => trial.dealt), taken = fit((trial) => trial.taken), seconds = fit((trial) => trial.seconds), down = fit((trial) => +trial.down);
   if (!done || !dealt || !taken || !seconds || !down) return null;
   const recovered = trials.flatMap((trial, k) => trial.recovers === null ? [] : [k]), recovers = fitted(recovered.map((k) => xs[k]!), recovered.map((k) => trials[k]!.recovers!));
-  const exit = new Map<string, Float64Array>();
-  for (const name of new Set(trials.flatMap((trial) => Object.keys(trial.exit ?? {})))) {
+  const exit = new Map<keyof Exit, Float64Array>();
+  for (const name of EXIT_KEYS) {
     const having = trials.flatMap((trial, k) => trial.exit?.[name] === undefined ? [] : [k]), weights = fitted(having.map((k) => xs[k]!), having.map((k) => trials[k]!.exit![name]!));
     if (weights) exit.set(name, weights);
   }

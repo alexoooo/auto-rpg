@@ -1,4 +1,5 @@
 import type { Spot } from "../../skills/framework/menu.ts";
+import type { Exit } from "../../skills/framework/profile/profile.ts";
 import { hasResource, LEG_RESOURCE } from "../../skills/framework/action.ts";
 import type { Readiness, Resource } from "../../skills/framework/action.ts";
 import { SETTLED } from "../../skills/intent/action-window.ts";
@@ -131,7 +132,7 @@ export function along(at: Situation, range: number): Spot {
  * moved (`moved`, m), on the line from the focus through it (`along`); where its trials do not
  * say, where it stands. Down in the share `down` (`upOrDown`).
  */
-export function exitOutcomes(at: Situation, exit: Readonly<Record<string, number>> | undefined, down: number, leaves: Omit<Leaves, "where"> = {}): readonly Outcome[] {
+export function exitOutcomes(at: Situation, exit: Exit | undefined, down: number, leaves: Omit<Leaves, "where"> = {}): readonly Outcome[] {
   const stays = exit?.stays ?? 1, here = { ...leaves, where: along(at, at.range) };
   if (!(stays < 1)) return upOrDown(here, down);
   const there = { ...leaves, where: along(at, at.range + (exit?.moved ?? 0)) };

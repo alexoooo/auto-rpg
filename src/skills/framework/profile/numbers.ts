@@ -7,7 +7,7 @@ import type { BodySpec, ItemSpec } from "../../../core/bodies/spec/body.ts";
 import { hypot } from "../../../core/math/real.ts";
 import { ARRIVED } from "../movement.ts";
 import { remembered } from "../../../core/remembered.ts";
-import type { BodyHeld, Held, ItemNumbers, StruckNumbers } from "./profile.ts";
+import type { BodyHeld, Exit, Held, ItemNumbers, StruckNumbers } from "./profile.ts";
 
 /** The 4-place rounding a trial's numbers are written at. */
 const fourPlaces = (x: number): number => Number(x.toFixed(4));
@@ -19,7 +19,7 @@ const fourPlaces = (x: number): number => Number(x.toFixed(4));
  * else by how much further apart (`moved`, m). A head at an action's end leans or has been struck,
  * so a change head to head is not the bodies'. An exit with no centre gives its range alone.
  */
-export function trialExit(exit: { readonly range: number; readonly apart?: number }, apart: number): Record<string, number> {
+export function trialExit(exit: { readonly range: number; readonly apart?: number }, apart: number): Exit {
   const range = { range: fourPlaces(exit.range) };
   if (exit.apart === undefined) return range;
   const moved = exit.apart - apart;

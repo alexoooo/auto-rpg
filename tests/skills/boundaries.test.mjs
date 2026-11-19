@@ -74,8 +74,8 @@ test("assist writes require ownership and conflict across otherwise independent 
  * establish data identity.
  */
 test("profiles retain every observed exit percept and hash global data", async () => {
-  const profile = { measured: { body: stock.model, stature: stock.stature.value, skill: "s", hz: 120, reaction: null }, target: null, trials: [{ start: { range: 1, phase: "clear" }, done: true, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false, exit: { balance: .4 } }] };
-  assert.deepEqual(readProfile(profile, stock).expect({ range: 1, phase: "clear" }, null).exit, { balance: .4 });
+  const profile = { measured: { body: stock.model, stature: stock.stature.value, skill: "s", hz: 120, reaction: null }, trials: [{ start: { range: 1, phase: "clear" }, done: true, dealt: 0, taken: 0, seconds: 1, recovers: null, down: false, exit: { own: .4 } }] };
+  assert.deepEqual(readProfile(profile, stock).expect({ range: 1, phase: "clear" }, null).exit, { own: .4 });
   await loadData(["boundary-global-a", "boundary-global-b", "boundary-row"], {
     "boundary-global-a": async () => ({ gain: 1 }), "boundary-global-b": async () => ({ gain: 2 }),
     "boundary-row": bodyRecords(async () => ({ [stock.model]: { gain: 3 } })),
