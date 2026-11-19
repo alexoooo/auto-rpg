@@ -9,6 +9,7 @@ import { need as find } from "../dom.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import type { ScreenContext } from "../ui/screen.ts";
 import { isSeed } from "../../../core/math/random.ts";
+import { MOST_COMPANIONS } from "../../../game/dungeon/run.ts";
 
 export type DungeonScenario = "generated" | "reference" | "random-crypt";
 
@@ -63,7 +64,7 @@ function dungeonSetup(context: ScreenContext) {
   }
   const heroLabel = (model: BodyModel) => HEROES.find(h => h.model === model)?.label ?? model;
   if (!heroChoices.querySelector<HTMLInputElement>("input:checked")) heroChoices.querySelector<HTMLInputElement>("input")!.checked = true;
-  const linkedCompanions = (setupQuery.get("companions") ?? "").split(",").filter((value): value is BodyModel => HEROES.some(h => h.model === value)).slice(0, 3);
+  const linkedCompanions = (setupQuery.get("companions") ?? "").split(",").filter((value): value is BodyModel => HEROES.some(h => h.model === value)).slice(0, MOST_COMPANIONS);
   companionCount.querySelector<HTMLInputElement>(`input[value="${linkedCompanions.length}"]`)!.checked = true;
   let selectedCompanions = linkedCompanions;
   const attributeHolder = document.createElement("div");

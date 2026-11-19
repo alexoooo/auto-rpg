@@ -82,10 +82,19 @@ export function runMap(options: Pick<DungeonRunOptions, "seed" | "layout">): Dun
 const heroOf = (options: Pick<DungeonRunOptions, "hero">): BodyModel => options.hero ?? "man";
 const enemyAt = (map: DungeonMap, options: Pick<DungeonRunOptions, "enemy">, i: number): BodyModel =>
   options.enemy?.(i) ?? map.encounters?.[i]?.model ?? "skeleton";
+/** The hero's id among a run's participants. */
+export const HERO_ID = "hero";
+/** The most companions a hero takes into a run, as the setup offers them. */
+export const MOST_COMPANIONS = 3;
+/** The id of a run's `i`th companion. */
+const allyId = (i: number): string => `ally-${i}`;
+/** The party's ids with `companions` companions, as its participants carry them: the hero's, then each companion's in turn. */
+export const partyIds = (companions: number): string[] => [HERO_ID, ...Array.from({ length: companions }, (_, i) => allyId(i))];
+
 /** Every body a run of `options` on `map` fields, as its mind is chosen (`DungeonRunOptions.mind`): the hero, the companions, then the enemies. */
 export function runParticipants(map: DungeonMap, options: Pick<DungeonRunOptions, "hero" | "companions" | "enemy">): Participant[] {
-  return [{ id: "hero", side: "party", model: heroOf(options) },
-    ...(options.companions ?? []).map((model, i): Participant => ({ id: `ally-${i}`, side: "party", model })),
+  const party = [heroOf(options), ...options.companions ?? []], ids = partyIds(party.length - 1);
+  return [...party.map((model, i): Participant => ({ id: ids[i]!, side: "party", model })),
     ...map.spawns.map((_, i): Participant => ({ id: `enemy-${i}`, side: "enemy", model: enemyAt(map, options, i) }))];
 }
 /** Every model a run of `options` on `map` fields, each once: the party's, then the enemies'. */
@@ -213,11 +222,11 @@ export function prepareDungeonCharacters(map: DungeonMap, options: Pick<DungeonR
     if (isRefused(spec)) return spec;
     characters.set(participant.id, character); specs.set(participant.id, spec);
   }
-  const heroModel = heroOf(options), hero = cryptModel(heroModel, characters.get("hero")!.spec);
+  const heroModel = heroOf(options), hero = cryptModel(heroModel, characters.get(HERO_ID)!.spec);
   const geometryChanged = (id: string) => {
     const a = characters.get(id)!.config.attributes; return a.size !== 1 || a.weight !== 1;
   };
-  if (geometryChanged("hero") && (!walkable(map, map.start, hero.radius, true) || !findPath(map, map.start, map.exit, hero.radius).length))
+  if (geometryChanged(HERO_ID) && (!walkable(map, map.start, hero.radius, true) || !findPath(map, map.start, map.exit, hero.radius).length))
     return { refused: "Configured hero does not fit the dungeon's start or route to the exit." };
   const homes = new Map<string, Point>(), occupied = [{ ...map.start, radius: hero.radius }];
   const encounters = map.spawns.map((_, i) => cryptModel(enemyAt(map, options, i), characters.get(`enemy-${i}`)!.spec));
@@ -230,7 +239,7 @@ export function prepareDungeonCharacters(map: DungeonMap, options: Pick<DungeonR
   }
   const partyTaken = [{ ...map.start, radius: hero.radius }];
   for (const [i, model] of (options.companions ?? []).entries()) {
-    const id = `ally-${i}`, info = cryptModel(model, characters.get(id)!.spec), at = companionSpawn(map, partyTaken, info.radius);
+    const id = allyId(i), info = cryptModel(model, characters.get(id)!.spec), at = companionSpawn(map, partyTaken, info.radius);
     if (!at) return { refused: `No floor beside the start for companion ${i + 1}` };
     partyTaken.push({ ...at, radius: info.radius }); homes.set(id, at);
   }
@@ -349,11 +358,11 @@ export class DungeonRun {
       };
       this.actors.push(actor); return actor;
     };
-    this.hero = create("hero", heroOf(options), this.map.start, "party");
+    this.hero = create(HERO_ID, heroOf(options), this.map.start, "party");
     this.party.push(this.hero);
     this.map.spawns.forEach((_, i) => this.enemies.push(create(`enemy-${i}`, enemyAt(this.map, options, i), homes.get(`enemy-${i}`)!, "enemy")));
     for (const [i, model] of (options.companions ?? []).entries()) {
-      this.party.push(create(`ally-${i}`, model, homes.get(`ally-${i}`)!, "party"));
+      this.party.push(create(allyId(i), model, homes.get(allyId(i))!, "party"));
     }
     for (const member of this.party) this.build(member);
     this.warm(options.engine);

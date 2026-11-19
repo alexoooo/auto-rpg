@@ -2,7 +2,7 @@ import { attributeEditor } from "../ui/attribute-editor.ts";
 import { readAttributes, writeAttributes } from "../../../game/attribute-link.ts";
 import type { AttributeOverrides } from "../../../core/bodies/character-attributes.ts";
 import { modelLabel, type BodyModel } from "../../../core/bodies/models.ts";
-import type { Participant } from "../../../game/dungeon/run.ts";
+import { MOST_COMPANIONS, partyIds, type Participant } from "../../../game/dungeon/run.ts";
 import { ENCOUNTER_MODELS } from "../../../game/dungeon/encounters.ts";
 
 /** Party overrides belong to a slot; enemy overrides belong to a model's encounter template. */
@@ -15,12 +15,12 @@ export function runAttributes(holder: HTMLElement, search: string) {
   const query = new URLSearchParams(search), drafts = new Map<string, AttributeOverrides>();
   const editors = new Map<string, ReturnType<typeof attributeEditor>>();
   let rows: { scope: string; model: BodyModel; label: string }[] = [];
-  const scopes = ["hero", "ally-0", "ally-1", "ally-2", ...ENCOUNTER_MODELS.map(m => `enemy.${m}`)];
+  const scopes = [...partyIds(MOST_COMPANIONS), ...ENCOUNTER_MODELS.map(m => `enemy.${m}`)];
   for (const scope of scopes) drafts.set(scope, readAttributes(query, scope));
   return {
     update(hero: BodyModel, companions: readonly BodyModel[]) {
-      rows = [{ scope: "hero", model: hero, label: "Hero" },
-        ...companions.map((model, i) => ({ scope: `ally-${i}`, model, label: `Companion ${i + 1}` })),
+      const party = partyIds(companions.length);
+      rows = [...[hero, ...companions].map((model, i) => ({ scope: party[i]!, model, label: i === 0 ? "Hero" : `Companion ${i}` })),
         ...ENCOUNTER_MODELS.map(model => ({ scope: `enemy.${model}`, model, label: "Enemies" }))];
       editors.clear();
       holder.replaceChildren(...rows.map(row => {

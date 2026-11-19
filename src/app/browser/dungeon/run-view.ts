@@ -13,7 +13,7 @@ import { BODY_HEAD } from "../../worker/frame.ts";
 import { CAMERA_PITCH } from "../../../game/dungeon/bearing.ts";
 import type { PlayerLead } from "../../../game/player-input.ts";
 import { cellKey, type DungeonMap, type Point } from "../../../game/dungeon/map.ts";
-import { actorName, type RunStatus } from "../../../game/dungeon/run.ts";
+import { actorName, HERO_ID, type RunStatus } from "../../../game/dungeon/run.ts";
 import type { DungeonSurfaces } from "./stone.ts";
 import { buildDungeonWorld } from "./world.ts";
 import { damageFlashes } from "../render/damage-flashes.ts";
@@ -84,7 +84,7 @@ export class RunView {
   toward: Point;
   /** Live movement sent to the worker in world coordinates. */
   lead: PlayerLead = { keys: null, walk: false };
-  private leaderId = "hero";
+  private leaderId = HERO_ID;
   private looked: string | null = null;
   private running = false;
   private disposed = false;
@@ -124,7 +124,7 @@ export class RunView {
       };
       return actor;
     });
-    this.hero = this.actors.find((actor) => actor.id === "hero")!;
+    this.hero = this.actors.find((actor) => actor.id === HERO_ID)!;
     this.party = [this.hero, ...this.actors.filter((actor) => actor.side === "party" && actor !== this.hero)];
     this.enemies = this.actors.filter((actor) => actor.side === "enemy");
     link.listen({ news: (news) => {

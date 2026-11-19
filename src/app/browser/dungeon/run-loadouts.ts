@@ -1,10 +1,10 @@
 import { HELD, heldName, loadoutKey, readLoadout, type Held, type Loadout } from "../../../core/bodies/items/held.ts";
 import { modelHolds, modelLabel, type BodyModel } from "../../../core/bodies/models.ts";
 import { modelLoadout } from "../../../game/model-loadouts.ts";
-import type { Participant } from "../../../game/dungeon/run.ts";
+import { MOST_COMPANIONS, partyIds, type Participant } from "../../../game/dungeon/run.ts";
 
-/** The party's slots, by participant id: the hero, then up to three companions. */
-const SLOTS = ["hero", "ally-0", "ally-1", "ally-2"] as const;
+/** The party's slots, by participant id: the hero, then up to the most companions. */
+const SLOTS = partyIds(MOST_COMPANIONS);
 
 /** The link's key for a slot's loadout: `<slot>.loadout=left,right` (`loadoutKey`). */
 const linkKey = (slot: string): string => `${slot}.loadout`;
@@ -27,7 +27,8 @@ export function runLoadouts(holder: HTMLElement, search: string) {
   return {
     /** Shows a row for `hero` and each of `companions`. */
     update(hero: BodyModel, companions: readonly BodyModel[]): void {
-      rows = [{ slot: "hero", model: hero }, ...companions.map((model, i) => ({ slot: `ally-${i}`, model }))];
+      const slots = partyIds(companions.length);
+      rows = [hero, ...companions].map((model, i) => ({ slot: slots[i]!, model }));
       holder.replaceChildren(...rows.map(({ slot, model }, i) => {
         const row = document.createElement("div"), name = document.createElement("span"), holds = modelHolds(model);
         row.className = "loadout-row";
