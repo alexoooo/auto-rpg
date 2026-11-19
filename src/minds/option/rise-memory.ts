@@ -26,10 +26,10 @@ export const onFeet = (g: GroundReading): boolean => (g.onFeet || g.position ===
  * **What a body's reader keeps of its rise**, read once a decision, each count the seconds since
  * the decision before (the world's time, `BodyView.time`): whether its rise runs, from the decision the body is down until it has stood
  * ready (`standReady`, `READY_HOLD`) with no try under way, an action neither ended nor a mode of
- * the ground's (`TechniquePart.mode`), the regain not climbing
- * (`TechniquePart.mode.climbing`), or its regain's try is over with the body standing; the seconds it has been braced
- * tumbling off its feet (`TechniquePart.mode`, `tumbling`) since the rise began or a try in `record` last
- * ended; and the seconds the regain has held it in its try (`TechniquePart.mode`, `REGAIN_TRY`).
+ * the ground's (`TechniquePart.mode`), a mode that regains its feet not climbing
+ * (`TechniquePart.mode.climbs`), or its regain's try is over with the body standing; the seconds it has been braced
+ * tumbling off its feet (a mode that `braces`, `tumbling`) since the rise began or a try in `record` last
+ * ended; and the seconds a mode that regains its feet has held it in its try (`REGAIN_TRY`).
  */
 export function riseMemory(record: OptionRecord, parts: PartLookup, techniques: readonly PartConfig[]) {
   const modes = new Map<string, NonNullable<TechniquePart["mode"]>>();
@@ -49,8 +49,8 @@ export function riseMemory(record: OptionRecord, parts: PartLookup, techniques: 
       let regain = false, climbing = false, trying = false, bracing = false;
       for (const action of sight.report.actions) {
         const mode = modes.get(action.action);
-        if (mode?.kind === "regain") { regain = true; climbing ||= action.stage === mode.climbing; }
-        bracing ||= mode?.kind === "brace";
+        if (mode?.climbs) { regain = true; climbing ||= action.stage === mode.climbs; }
+        bracing ||= mode?.braces === true;
         trying ||= mode === undefined && !action.stage.startsWith("ended:");
       }
       state.regained = regain ? state.regained + dt : 0;

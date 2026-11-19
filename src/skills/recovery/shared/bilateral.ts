@@ -40,24 +40,30 @@ export function mirrorPosture(posture: Readonly<Record<string, number>>): Readon
 }
 
 /**
- * A technique part of `kind` with no settings of its own, its one variation the technique itself
+ * What makes a technique part over configs `C` (`techniquePart`): its label, stage, edges and mode,
+ * its configs' `defaults` and `keys`, the sides it starts from, and its run on a body (`make`).
+ */
+type TechniqueFields<C extends { readonly kind: string } & Varied> = Pick<TechniquePart<C>, "label" | "stage" | "edges" | "mode" | "defaults" | "keys"> & {
+  readonly skillGroup: string;
+  readonly sides: readonly Side[];
+  readonly make: (...args: Parameters<TechniquePart<C>["make"]>) => TechniqueRun<Side>;
+  readonly requires?: TechniquePart["requires"];
+  readonly reads?: Part["reads"]; readonly moving?: boolean;
+};
+
+/**
+ * A technique part over configs `C` (`TechniqueFields`), its one variation the technique itself
  * (`varied`), fitted to a body the stance stands on its feet (`soleRefusal`), as a technique's
  * regain and stance do.
  */
-export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "edges" | "mode"> & {
-  readonly skillGroup: string;
-  readonly sides: readonly Side[];
-  readonly make: (...args: Parameters<TechniquePart["make"]>) => TechniqueRun<Side>;
-  readonly requires?: TechniquePart["requires"];
-  readonly reads?: Part["reads"]; readonly moving?: boolean;
-}): TechniquePart<{ readonly kind: K } & Varied> => {
-  const { sides, make, ...rest } = part;
+export const techniquePart = <C extends { readonly kind: string } & Varied>({ sides, make, defaults, keys, ...rest }: TechniqueFields<C>): TechniquePart<C> => {
+  const kind = defaults.kind;
   const supported = (start: string): start is Side => sides.some(side => side === start);
-  const held = varied({ skill: kind, label: part.label.toLowerCase(), variations: { [kind]: make }, of: (own, _view, _clock, _fitted, config) => [own.spec, config], fits: [soleRefusal] });
-  const made: TechniquePart<{ readonly kind: K } & Varied> = { moving: false, starts: sides, bindings: (spec: BodySpec) => bilateralBindings(spec, sides), ...rest,
-    role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true, variation: true }), fields: [], slots: [],
+  const held = varied({ skill: kind, label: rest.label.toLowerCase(), variations: { [kind]: make }, of: (own, _view, _clock, _fitted, config) => [own.spec, config], fits: [soleRefusal] });
+  const made: TechniquePart<C> = { moving: false, starts: sides, bindings: (spec: BodySpec) => bilateralBindings(spec, sides), ...rest,
+    role: "technique", defaults: Object.freeze(defaults), keys: Object.freeze(keys), fields: [], slots: [],
     fits: held.fits, faults: () => [], variations: held.variations,
-    make(...args: Parameters<TechniquePart["make"]>): TechniqueRun {
+    make(...args: Parameters<TechniquePart<C>["make"]>): TechniqueRun {
       const run = held.make(...args);
       return { state: run.state, get phase() { return run.phase; }, get stage() { return run.stage; }, get yields() { return run.yields; },
         admits: (reading, start) => supported(start) && run.admits(reading, start),
@@ -69,3 +75,7 @@ export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "
     } };
   return Object.freeze(made);
 };
+
+/** A technique part of `kind` with no settings of its own (`techniquePart`). */
+export const technique = <K extends string>(kind: K, part: Omit<TechniqueFields<{ readonly kind: K } & Varied>, "defaults" | "keys">): TechniquePart<{ readonly kind: K } & Varied> =>
+  techniquePart<{ readonly kind: K } & Varied>({ ...part, defaults: { kind }, keys: { kind: true, variation: true } });

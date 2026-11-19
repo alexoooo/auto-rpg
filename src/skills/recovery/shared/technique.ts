@@ -39,8 +39,12 @@ export interface TechniqueRun<Start extends string = string> {
  */
 export interface TechniquePart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "technique";
-  /** A sustained recovery mode, and its climbing phase where it has one. */
-  readonly mode?: { readonly kind: "brace" | "land" | "regain"; readonly climbing?: string };
+  /**
+   * Where it is a mode of the ground, run until it is let go, what it does: whether it `braces` the
+   * body as it falls, and where it regains the body's feet, the stage it `climbs` in (null, it
+   * regains none), its try timed (`riseMemory`).
+   */
+  readonly mode?: { readonly braces: boolean; readonly climbs: string | null };
   readonly keys: KeysOf<C>;
   readonly starts: readonly string[];
   /** Physical segment identifiers used to select the declared start tokens. */

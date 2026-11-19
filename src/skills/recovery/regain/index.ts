@@ -19,7 +19,7 @@ const CLIMBING = "regain:climb";
  * a quiet crouch (`regaining`), its stage `regain`, or `regain:climb` while it climbs. Begun with no
  * ground skill carried over, its motor forgets what it had under way.
  */
-export const REGAIN_MODE = technique("regain", { skillGroup: "Balance", requires: [SUPPORT_REFERENCE, MOTOR_STANCE], mode: { kind: "regain", climbing: CLIMBING }, label: "Regain", stage: "game", sides: ONE_SIDE, edges: NO_EDGES,
+export const REGAIN_MODE = technique("regain", { skillGroup: "Balance", requires: [SUPPORT_REFERENCE, MOTOR_STANCE], mode: { braces: false, climbs: CLIMBING }, label: "Regain", stage: "game", sides: ONE_SIDE, edges: NO_EDGES,
   make: (own, view, _clock, fitted): TechniqueRun => {
     const regain = regaining(own, view, fitted);
     return { ...MODE, state: regain.state, get phase() { return regain.state.climb.on ? CLIMBING : "regain"; },
