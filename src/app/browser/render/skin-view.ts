@@ -7,7 +7,8 @@ export interface Clothing { readonly boots: boolean; readonly armour: boolean }
 /** Inputs belonging to one dressed body, never to a cached asset. */
 export interface SkinOptions {
   readonly clothing: Clothing;
-  readonly closure?: (hand: Side) => number;
+  /** How far each empty hand is closed, each frame: 0 relaxed to 1 a fist (a body's own, `handsOf`). */
+  readonly closure: (hand: Side) => number;
 }
 
 /** One body's visual instance; shared source assets remain owned by their scene. */

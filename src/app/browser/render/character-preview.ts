@@ -15,6 +15,7 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js"
 import { resolveCharacter, type BodyModel, type CharacterConfig } from "../../../core/bodies/models.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { puppetBody, type Puppet } from "./puppet.ts";
+import { handsOf } from "./strike-hands.ts";
 import { dresserFor } from "./dress.ts";
 import { appearanceFor, type Appearance } from "../../../game/appearance/appearance.ts";
 import { skinSlot, type SkinSlot } from "./skin-slot.ts";
@@ -80,7 +81,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement,
   const setAppearance = async (index: number, appearance: Appearance) => {
     const revision = ++revisions[index], model = chosen[index];
     await skins[index].replace(dresserFor(model, scene, { appearance: appearanceFor(model, appearance) }),
-      { clothing: { boots: true, armour: true } });
+      { clothing: { boots: true, armour: true }, closure: handsOf(bodies[index]!.configurations.state).closure });
     if (signal.aborted || revision !== revisions[index]) return;
     try { await warmScene(scene, signal); } catch (error) { if (signal.aborted) return; throw error; }
     if (!signal.aborted && revision === revisions[index]) draw();

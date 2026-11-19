@@ -7,7 +7,7 @@ import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { massOf } from "../../../core/bodies/read-motion.ts";
-import { manHands } from "../render/strike-hands.ts";
+import { handsOf } from "../render/strike-hands.ts";
 import { legend, readings, slider } from "../ui/controls.ts";
 import { startAttack } from "../../../game/lab/attack-mode.ts";
 import { actionReadout } from "../ui/action-readout.ts";
@@ -51,7 +51,7 @@ export function attackScenario(scene: Scene): LabScenario {
       if (isRefused(attack)) return attack;
       current = attack;
       weight = massOf([...built.segments.values()]) * -world.physics.gravity[1];
-      const hands = manHands({ minded: { body: actor.body } });
+      const hands = handsOf(actor.body.built.configurations.state);
       const history = recordHistory(built, puppet, world, HISTORY_SECONDS, () => ({ ...attack.frame(), closure: hands.snapshot() }));
       const player = createPlayer({ world, recording: history }, changed, clock);
       const balls: { mesh: Mesh; material: StandardMaterial; id: string }[] = [];

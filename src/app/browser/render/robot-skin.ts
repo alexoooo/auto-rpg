@@ -1,5 +1,4 @@
 import { heldAt } from "../../../core/bodies/spec/body.ts";
-import { HAND_CONFIGURATION } from "../../../core/bodies/human/hand-configurations.ts";
 /**
  * The Warrior's robot appearances, Industrial, Steampunk and Futuristic, built in code with no
  * external asset. They are cosmetic: the body, colliders,
@@ -81,8 +80,7 @@ export function dressRobot(built: DrawnBody, scene: Scene, appearance: Robot, op
   const update = () => {
     if (!meshes.some(mesh => mesh.isEnabled() && mesh.isVisible)) return;
     for (const finger of fingers) {
-      const pose = built.configurations.state[`hand.${finger.hand}`]?.applied;
-      const closed = finger.holding ? 1 : Math.max(0, Math.min(1, options.closure ? options.closure(finger.hand) : pose === HAND_CONFIGURATION.open ? 0 : 1));
+      const closed = finger.holding ? 1 : Math.max(0, Math.min(1, options.closure(finger.hand)));
       let y = finger.base.y, z = finger.base.z;
       for (let i = 0; i <= finger.index; i++) {
         const open = .12 + i * .10, angle = open + closed * (Math.PI / 6 + i * Math.PI / 3 - open);

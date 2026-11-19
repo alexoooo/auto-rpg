@@ -1,6 +1,6 @@
 import { heldAt } from "../../../core/bodies/spec/body.ts";
 import { HAND_CONFIGURATION } from "../../../core/bodies/human/hand-configurations.ts";
-import type { Clothing, SkinView } from "./skin-view.ts";
+import type { Clothing, SkinOptions, SkinView } from "./skin-view.ts";
 import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
 import { sceneModel } from "./asset-cache.ts";
 // The glTF loader registers itself on import; without it the load finds no plugin for `.glb`.
@@ -103,8 +103,7 @@ function trunkSegment(built: DrawnBody, point: Vector3): DrawnSegment {
  * hand is closed into a fist, 0 relaxed to 1 closed; a hand that holds something (`BodySpec.held`)
  * is closed on its haft.
  */
-export function dressBody(built: DrawnBody, container: AssetContainer, scene: Scene, clothing: Clothing,
-  closure?: (hand: Side) => number): SkinView {
+export function dressBody(built: DrawnBody, { container, scene, clothing, closure }: { readonly container: AssetContainer; readonly scene: Scene } & SkinOptions): SkinView {
   const model = built.spec.model as HumanModel, rig = RIGS[model], prefix = `${model}.skin.`;
   // Materials stay the container's, which the scene owns and other bodies share: a body part never
   // disposes them.
@@ -190,11 +189,7 @@ export function dressBody(built: DrawnBody, container: AssetContainer, scene: Sc
     if (!meshes.some(mesh => mesh.isEnabled() && mesh.isVisible)) return;
     for (const { mesh, part } of parting) if (mesh.isEnabled()) part();
     achieved.clear();
-    const physicalClosure = (hand: Side): number => {
-      const pose = built.configurations.state[`hand.${hand}`]?.applied;
-      return closure ? closure(hand) : pose === HAND_CONFIGURATION.open ? 0 : 1;
-    };
-    const shut = { left: holding.left ? 1 : physicalClosure("left"), right: holding.right ? 1 : physicalClosure("right") };
+    const shut = { left: holding.left ? 1 : closure("left"), right: holding.right ? 1 : closure("right") };
     for (const row of rows) {
       if (row.finger) {
         const { hand, scaling, rotation, position, open, fist, grip } = row.finger;

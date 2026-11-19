@@ -23,7 +23,7 @@ type Art = (model: BodyModel, scene: Scene, options: { readonly skeletonArt?: ()
 
 /** A human's skin, its clothing as each instance says. */
 const humanSkin: Art = (model, scene) => loadSkin(model as HumanModel, scene)
-  .then(container => (built, instance) => dressBody(built, container, scene, instance.clothing, instance.closure));
+  .then(container => (built, instance) => dressBody(built, { container, scene, ...instance }));
 
 /** A creature drawn as one skinned mesh (`SKINNED_LOOKS`). */
 const skinned = (model: keyof typeof SKINNED_LOOKS): Art => (_model, scene) => loadSkinnedArt(SKINNED_LOOKS[model])
