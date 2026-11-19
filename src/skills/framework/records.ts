@@ -36,7 +36,10 @@ export function recordFault<T>(skill: string, bodies: readonly string[], whole: 
 export const tunedSettings = <S>(records: SkillRecords<S>, spec: BodySpec, config: Tuned<S>): S =>
   ({ ...records[spec.model]?.settings, ...config.tuning }) as S;
 
-/** A per-body record loader whose identity is the selected body's row. */
+/** `body`'s row of per-body records `data`, or null where it has none. */
+export const bodyRecord = (data: unknown, body: string): unknown => (data as Readonly<Record<string, unknown>>)[body] ?? null;
+
+/** A per-body record loader whose identity is the selected body's row (`bodyRecord`). */
 export function bodyRecords(load: () => Promise<unknown>): DataLoader {
-  return Object.assign(load, { identity: (data: unknown, body: string) => (data as Readonly<Record<string, unknown>>)[body] ?? null });
+  return Object.assign(load, { identity: bodyRecord });
 }
