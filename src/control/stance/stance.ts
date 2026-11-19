@@ -7,7 +7,7 @@ import type { Limb } from "../bearing.ts";
 import type { WholeBodyAsk } from "../solve.ts";
 import { rotationAtToRef } from "../kinematics.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
-import { aimRecovery, catchStep, named, ownStep, paceToward } from "./gait.ts";
+import { aimRecovery, catchStep, LEAST_HEIGHT, named, ownStep, paceToward, pendulumRate } from "./gait.ts";
 import { gravityOf, makeStance, type Stance } from "./state.ts";
 import { type FootState, type SoleEnd, bearingEdge, bearingEnd, bearingOf, bearingSole, clearAcross, clearAlong, endPast, groundContact, heldBy, landingHeading, landingHeight, legLength, lowestCorner, pivotWithin, readSupport, rolledRows, soleFlatTurn, soleHeight, soleMiddleToRef, withinSupport } from "../support.ts";
 import { angularMomentumToRef, massCentreToRef, motionAtToRef, pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
@@ -280,8 +280,7 @@ function shiftWeight(s: Stance, swing: SwingGoal | null, bearer: FootState | und
     if (step.held >= swing!.transfer && bearer !== undefined && reading.ends[bearer.name]!.touching) reading.phase = "swing";
   } else if (reading.phase === "shift") {
     const c = reading.centre, vel = reading.velocity, g = gravityOf(s);
-    // The height's floor, 1 mm, is a numeric setting.
-    const w = Math.sqrt(g / Math.max(height, 1e-3)), cx = c.x + vel.x / w, cz = c.z + vel.z / w;
+    const w = pendulumRate(g, height), cx = c.x + vel.x / w, cz = c.z + vel.z / w;
     const [hx, hz] = withinSupport([bearingOf(bearer!)], cx, cz, 0);
     if (hx === cx && hz === cz) reading.phase = "swing";
   }
@@ -468,7 +467,7 @@ function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
   else if (!step.catching) step.catching = catchStep(s);
   // A catch runs to its landing, re-aimed on the way.
   if (step.catching) aimRecovery(s);
-  else if (stepsOfItself(s, goal)) ownStep(s, goal.heading, goal.height - s.rise, goal.halt === true);
+  else if (stepsOfItself(s, goal)) ownStep(s, { heading: goal.heading, hip: goal.height - s.rise, halted: goal.halt === true });
   else {
     reading.own = null;
     // A requested step uses its goal's heading, independent of the last catch's facing.
@@ -763,9 +762,8 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning, assist: Ass
         plan.velocity.copyFrom(vel);
         plan.on = true;
       }
-      // The pendulum is the plan's as this step finds it, before the plan goes on. Its height's
-      // floor, 1 mm, is a numeric setting.
-      const pendulum = g / Math.max(plan.at.y, 1e-3);
+      // The pendulum is the plan's as this step finds it, before the plan goes on.
+      const pendulum = g / Math.max(plan.at.y, LEAST_HEIGHT);
       const bearer = swing ? stance.find((foot) => foot.name !== swing.foot) : undefined;
       const planned = advancePlan(s, goal, stance, swing, bearer, pendulum, dt);
       shiftWeight(s, swing, bearer, height, dt);

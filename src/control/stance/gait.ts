@@ -21,6 +21,15 @@ const HOLDING: FootState[] = [];
 /** The foot of `feet` that is the end `name` (`FootState.name`). */
 export const named = (feet: readonly FootState[], name: BearingEnd): FootState => feet.find((foot) => foot.name === name)!;
 
+/** The least height, m, a centre is taken at over what it falls about: a numeric floor, since a centre at its feet has no pendulum. */
+export const LEAST_HEIGHT = 1e-3;
+
+/** The height of `centre` over the middle of the first two of `feet`' soles, m, at least `LEAST_HEIGHT`. */
+const overSoles = (feet: readonly FootState[], centre: Vector3): number => Math.max(centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2, LEAST_HEIGHT);
+
+/** The natural frequency, 1/s, of a pendulum `height` m long, at least `LEAST_HEIGHT`, under `g`. */
+export const pendulumRate = (g: number, height: number): number => Math.sqrt(g / Math.max(height, LEAST_HEIGHT));
+
 /**
  * A walk's step under way, for its re-aim: its foot, the pivot the body falls about, the swing's
  * time left, and the swing leg's reaction folded over it (`SwingShift.capture`).
@@ -48,9 +57,7 @@ function settleStep(feet: readonly FootState[], last: Side, heading: number, wid
 }
 
 /**
- * The step that catches a body whose capture point (Pratt et al. 2006) is more than `tuning.margin`
- * and `held` (what its assist holds it through, `assistReach`) outside the region both soles hold
- * (what their ankles hold, `bearingOf`), or null if it is not. The capture point
+ * The step that catches a body a recovery steps for (`unheld`). The capture point
  * xi = c + v / w (w = sqrt(g / height)), the body falling about the bearing sole's nearest point p,
  * runs to p + (xi - p) exp(w T) by the swing's end T (Kajita et al. 2001); the foot lands past that
  * by `tuning.reach` of its distance from the bearing sole's middle, and at least a sole's width and
@@ -80,12 +87,10 @@ function settleStep(feet: readonly FootState[], last: Side, heading: number, wid
  * foot, and the leg left hanging would land as a strut that throws the body on.
  */
 function recoveryStep(feet: readonly FootState[], holding: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, tuning: RecoveryTuning, gait: GaitTuning,
-  facing: number, hip: number, held: number, under?: Underway): SwingGoal | null {
+  facing: number, hip: number, under?: Underway): SwingGoal {
   if (tuning.longest !== undefined) gait = { ...gait, longest: tuning.longest };
   const { clearance, effort } = gait, rx = cos(facing), rz = -sin(facing);
-  const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
-  // The height's floor, 1 mm, is a numeric setting: a centre at its feet has no pendulum.
-  const w = Math.sqrt(g / Math.max(height, 1e-3)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
+  const w = pendulumRate(g, overSoles(feet, centre)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   // Where a step of `foot` lands from `bearer` over `seconds`: the
   // capture point run about the pivot (`px`, `pz`) of the bearing sole, past by the reach; kept
   // off the bearer's sole (`clearOfBearer`). A landing kept off as a crossover is stepped where
@@ -97,15 +102,15 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
   const landing = (bearer: FootState, foot: FootState, px: number, pz: number, seconds: number, reserve: number): [number, number] => {
     const b = bearer.middle, grow = exp(w * seconds), ex = px + (xi - px) * grow, ez = pz + (zi - pz) * grow, ax = ex + (ex - b.x) * tuning.reach, az = ez + (ez - b.z) * tuning.reach;
     const [cx, cz] = centreAtLanding(b, centre, velocity, w, px, pz, 0, px, pz, seconds), side = foot.side === "right" ? 1 : -1;
-    const reach = (x: number, z: number) => reachableStep(foot, x - b.x, z - b.z, cx, cz, rx, rz, side, gait, hip, null, reserve, true);
-    let [lx, lz] = clearOfBearer(bearer, foot, ax, az, clearance, false);
+    const reach = (x: number, z: number) => reachableStep({ foot, dx: x - b.x, dz: z - b.z, cx, cz, rx, rz, sign: side, tuning: gait, hip, bend: null, reserve, bends: true });
+    let [lx, lz] = clearOfBearer(bearer, foot, ax, az, clearance);
     const kept = lx !== ax || lz !== az;
     if (kept) {
-      const [kx, kz] = clearOfBearer(bearer, foot, ax, az, clearance, true);
+      const [kx, kz] = crossOverBearer(bearer, foot, ax, az, clearance);
       if ((kx !== lx || kz !== lz) && reach(kx, kz)[2]) return [kx, kz];
     }
     const [sx, sz, whole] = reach(lx, lz);
-    if (!whole) { short = true; [lx, lz] = clearOfBearer(bearer, foot, b.x + sx, b.z + sz, clearance, false); }
+    if (!whole) { short = true; [lx, lz] = clearOfBearer(bearer, foot, b.x + sx, b.z + sz, clearance); }
     return [lx, lz];
   };
   if (under) {
@@ -113,8 +118,6 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
     const [tx, tz] = landing(bearer, foot, p.x, p.z, Math.max(under.remaining, 0), 1);
     return { foot: foot.name, to: [tx, tz], seconds: tuning.seconds, lift: tuning.lift, shift: false, early: true };
   }
-  const [hx, hz] = withinSupport(heldBy(holding), xi, zi, 0);
-  if (holding.length === feet.length && hypot(xi - hx, zi - hz) <= tuning.margin + held) return null;
   // The step of `foot` from `bearer`, about the point of the bearing sole nearest the capture
   // point: over the recovery's time, or longer if the swing hip needs it for the way
   // (`swingWaySeconds`), the landing then where the capture point will be by then. It ends as the
@@ -150,11 +153,34 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
 }
 
 /**
- * A landing (x, z) of `foot` kept off `bearer`'s sole: out of the box
- * about it the swing's path keeps out of (`clearAcross`, `clearAlong`). A landing within the box
- * is moved out across to the foot's own side; `cross`, one beyond what the bearer's ankle holds
- * across (`bearingOf`) is moved along the bearer's sole past its end instead, the foot crossed
- * over the bearing leg: the crossover step catches a push toward the bearing side, where a step
+ * Where a landing (x, z) of `foot` lies about `bearer`'s sole: the sole's way along (`ax`, `az`) and
+ * across toward the foot's own side (`cx`, `cz`), how far the landing is out across and along, how far
+ * it must be across and along to be out of the box about the sole the swing's path keeps out of
+ * (`clearAcross`, `clearAlong`), and whether it is.
+ */
+function aboutBearer(bearer: FootState, foot: FootState, x: number, z: number, clearance: number) {
+  const b = bearer.middle, { front, heel } = bearer.ends;
+  const lx = front.middle.x - heel.middle.x, lz = front.middle.z - heel.middle.z, long = hypot(lx, lz), ax = lx / long, az = lz / long;
+  // Across the bearer's sole, toward the foot's own side of it.
+  let cx = az, cz = -ax;
+  if (foot.side === "left") { cx = -cx; cz = -cz; }
+  const out = (x - b.x) * cx + (z - b.z) * cz, along = (x - b.x) * ax + (z - b.z) * az, across = clearAcross(foot, clearance), need = clearAlong(bearer, foot, clearance);
+  return { ax, az, cx, cz, out, along, across, need, clear: out >= across || Math.abs(along) >= need };
+}
+
+/**
+ * A landing (x, z) of `foot` kept off `bearer`'s sole beside it (`aboutBearer`): one within the box
+ * is moved out across to the foot's own side.
+ */
+function clearOfBearer(bearer: FootState, foot: FootState, x: number, z: number, clearance: number): [number, number] {
+  const { cx, cz, out, across, clear } = aboutBearer(bearer, foot, x, z, clearance);
+  return clear ? [x, z] : [x + (across - out) * cx, z + (across - out) * cz];
+}
+
+/**
+ * A landing (x, z) of `foot` kept off `bearer`'s sole as a crossover (`aboutBearer`): one within the
+ * box beyond what the bearer's ankle holds across (`bearingOf`) is moved along the bearer's sole past
+ * its end, the foot crossed over the bearing leg, and one short of that out across as beside it (`clearOfBearer`): the crossover step catches a push toward the bearing side, where a step
  * in beside the bearer never reaches. It crosses ahead of the bearer or behind by which way the
  * hip's range leans the thigh further (`SwingLeg.range`): a human hip flexes far and extends
  * little, and crosses in front. The foot's own side is the bearer's sole's, as it faces, a left
@@ -162,17 +188,12 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
  * unless its landing is clear of the box there, and a crossover under way stays one, its landing
  * clear of the box or past the sole's end.
  */
-function clearOfBearer(bearer: FootState, foot: FootState, x: number, z: number, clearance: number, cross: boolean): [number, number] {
-  const b = bearer.middle, { front, heel } = bearer.ends;
-  const lx = front.middle.x - heel.middle.x, lz = front.middle.z - heel.middle.z, long = hypot(lx, lz), ax = lx / long, az = lz / long;
-  // Across the bearer's sole, toward the foot's own side of it.
-  let cx = az, cz = -ax;
-  if (foot.side === "left") { cx = -cx; cz = -cz; }
-  const out = (x - b.x) * cx + (z - b.z) * cz, along = (x - b.x) * ax + (z - b.z) * az, across = clearAcross(foot, clearance), need = clearAlong(bearer, foot, clearance);
-  if (out >= across || Math.abs(along) >= need) return [x, z];
+function crossOverBearer(bearer: FootState, foot: FootState, x: number, z: number, clearance: number): [number, number] {
+  const b = bearer.middle, { ax, az, cx, cz, out, along, across, need, clear } = aboutBearer(bearer, foot, x, z, clearance);
+  if (clear) return [x, z];
   let hold = 0;
-  if (cross) for (const corner of bearingOf(bearer).corners) hold = Math.max(hold, (b.x - corner.x) * cx + (b.z - corner.z) * cz);
-  if (!cross || out >= -hold) return [x + (across - out) * cx, z + (across - out) * cz];
+  for (const corner of bearingOf(bearer).corners) hold = Math.max(hold, (b.x - corner.x) * cx + (b.z - corner.z) * cz);
+  if (out >= -hold) return [x + (across - out) * cx, z + (across - out) * cz];
   const end = foot.leg.range.ahead >= foot.leg.range.behind ? need : -need;
   return [x + (end - along) * ax, z + (end - along) * az];
 }
@@ -187,8 +208,7 @@ function clearOfBearer(bearer: FootState, foot: FootState, x: number, z: number,
  */
 function carriedVelocity(s: Stance): Vector3 {
   const { reading } = s.state, { carried } = s.scratch, { feet } = s, L = reading.momentum, c = reading.centre, v = reading.velocity;
-  // The height's floor, 1 mm, is a numeric setting.
-  const over = s.parts().mass * Math.max(c.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2, 1e-3);
+  const over = s.parts().mass * overSoles(feet, c);
   return carried.set(v.x - L.z / over, v.y, v.z + L.x / over);
 }
 
@@ -197,11 +217,17 @@ function carriedVelocity(s: Stance): Vector3 {
  * outside the region the ankles of `of` (all of `feet` unless asked) hold (`bearingOf`), m.
  */
 function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, of = feet): number {
-  const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
-  // The height's floor, 1 mm, is a numeric setting.
-  const w = Math.sqrt(g / Math.max(height, 1e-3)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
+  const w = pendulumRate(g, overSoles(feet, centre)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   const [hx, hz] = withinSupport(heldBy(of), xi, zi, 0);
   return hypot(xi - hx, zi - hz);
+}
+
+/**
+ * Whether a recovery steps for a body on `feet` held by `holding` of them (`holding`): a foot holds
+ * nothing, or its capture point is more than `margin` outside what they hold (`outside`).
+ */
+function unheld(feet: readonly FootState[], holding: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, margin: number): boolean {
+  return holding.length < feet.length || outside(feet, centre, velocity, g, holding) > margin;
 }
 
 /**
@@ -214,8 +240,7 @@ function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3,
 function assistReach(s: Stance): number {
   const { assist, feet } = s, total = s.parts().mass, { recovery } = s.tuning, c = s.state.reading.centre;
   if (!assist || !assist.on || !recovery || recovery.assisted <= 0) return 0;
-  // The height's floor, 1 mm, is a numeric setting.
-  const height = Math.max(c.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2, 1e-3);
+  const height = overSoles(feet, c);
   return recovery.assisted * (assist.most.force * height + assist.most.moment) / (total * gravityOf(s));
 }
 
@@ -277,8 +302,11 @@ function ownSide(foot: FootState, b: Vector3, x: number, z: number, rx: number, 
  * less than `bend` (null, straight) and bending further behind for it if it `bends`; and no
  * further than `longest` of the leg, drawn toward the bearing sole for that.
  */
-function reachableStep(foot: FootState, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, tuning: GaitTuning, hip: number, bend: number | null, reserve: number, bends: boolean): [number, number, boolean] {
-  const [sx, sz, within] = reachableSole(foot.leg, dx, dz, cx, cz, foot.memory.hip, rx, rz, sign, hip - foot.ankle, legLength(foot, bend), foot.back, reserve, bends);
+function reachableStep({ foot, dx, dz, cx, cz, rx, rz, sign, tuning, hip, bend, reserve, bends }: {
+  readonly foot: FootState; readonly dx: number; readonly dz: number; readonly cx: number; readonly cz: number; readonly rx: number; readonly rz: number;
+  readonly sign: number; readonly tuning: GaitTuning; readonly hip: number; readonly bend: number | null; readonly reserve: number; readonly bends: boolean;
+}): [number, number, boolean] {
+  const [sx, sz, within] = reachableSole({ leg: foot.leg, dx, dz, cx, cz, at: foot.memory.hip, rx, rz, sign, hip: hip - foot.ankle, long: legLength(foot, bend), back: foot.back, reserve, bends });
   const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = hypot(sx, sz);
   return far > longest ? [sx * longest / far, sz * longest / far, false] : [sx, sz, within];
 }
@@ -336,7 +364,7 @@ function stepsWithin(feet: readonly FootState[], v: number, ux: number, uz: numb
   for (let k = 0; k < feet.length; k++) {
     const foot = feet[k]!, bearer = feet[1 - k]!, sign = foot.side === "right" ? 1 : -1, T = stepSeconds(foot, v, tuning) + Tds;
     const W = stepWidth(foot, v * Math.abs(ux * rx + uz * rz), T, tuning), dx = v * ux * T + sign * W * rx, dz = v * uz * T + sign * W * rz;
-    if (!reachableStep(foot, dx, dz, dx / 2, dz / 2, rx, rz, sign, tuning, hip, bend, tuning.reserve, false)[2]) return false;
+    if (!reachableStep({ foot, dx, dz, cx: dx / 2, cz: dz / 2, rx, rz, sign, tuning, hip, bend, reserve: tuning.reserve, bends: false })[2]) return false;
     if (bearingShare(bearer, dx / 2, dz / 2, rx, rz, -sign, hip, bend, tuning.reserve) < 1) return false;
   }
   return true;
@@ -435,8 +463,7 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The pelvis's right across the ground at the heading the step lands facing: +x at heading 0.
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
-  // The height's floor, 1 mm, is a numeric setting.
-  const T = stepSeconds(foot, hypot(walk[0], walk[1]), tuning), w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3)), grow = exp(w * T);
+  const T = stepSeconds(foot, hypot(walk[0], walk[1]), tuning), w = pendulumRate(g, centre.y - b.y), grow = exp(w * T);
   const W = stepWidth(foot, Math.abs(walk[0] * rx + walk[1] * rz), T, tuning);
   // Under way, the capture point runs from the pivot the body falls about for what is left of the
   // swing; the pivot is chosen while no less than the horizon is left, and held after
@@ -460,9 +487,9 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   [tx, tz] = ownSide(foot, b, tx, tz, rx, rz, sign, tuning.clearance);
   const [cx0, cz0] = at(tx - b.x, tz - b.z);
   // A step lands within the whole of the leg's reach: the gait's reserve is the steady walk's (`stepsWithin`), left for this step's corrections.
-  const [wx, wz, within] = reachableStep(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend, 1, true);
+  const [wx, wz, within] = reachableStep({ foot, dx: tx - b.x, dz: tz - b.z, cx: cx0, cz: cz0, rx, rz, sign, tuning, hip, bend, reserve: 1, bends: true });
   if (plan) plan.within = within;
-  [tx, tz] = clearOfBearer(bearer, foot, b.x + wx, b.z + wz, tuning.clearance, false);
+  [tx, tz] = clearOfBearer(bearer, foot, b.x + wx, b.z + wz, tuning.clearance);
   const [lx, lz] = at(tx - b.x, tz - b.z);
   return { foot: foot.name, to: [tx, tz], seconds: T, lift: tuning.lift, shift: !steady, capture: steady ? [ex, ez] : [tx + nx, tz + nz],
     lean: landingLeanOf(foot, tx - b.x, tz - b.z, lx, lz, rx, rz, sign, held) };
@@ -498,8 +525,7 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   const side: Side = under ? named(feet, under.foot).side : last === "left" ? "right" : "left";
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
-  // The height's floor, 1 mm, is a numeric setting.
-  const Tss = stepSeconds(foot, hypot(walk[0], walk[1]), tuning), Tds = tuning.transfer, T = Tss + Tds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3));
+  const Tss = stepSeconds(foot, hypot(walk[0], walk[1]), tuning), Tds = tuning.transfer, T = Tss + Tds, w = pendulumRate(g, centre.y - b.y);
   const W = stepWidth(foot, Math.abs(walk[0] * rx + walk[1] * rz), T, tuning);
   const E = exp(-w * Tss), F = exp(-w * Tds), G = (1 - F) / (w * Tds) - F;
   /** The capture point's reference as the foot lands at (x, z): at the end of the swing, on the bearing sole. */
@@ -537,9 +563,9 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   [tx, tz] = ownSide(foot, b, tx, tz, rx, rz, sign, tuning.clearance);
   const [cx0, cz0] = centreAtLanding(b, centre, velocity, w, qx, qz, under ? 0 : Tds, px, pz, swing);
   // A step lands within the whole of the leg's reach: the gait's reserve is the steady walk's (`stepsWithin`), left for this step's corrections.
-  const [wx, wz, within] = reachableStep(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend, 1, true);
+  const [wx, wz, within] = reachableStep({ foot, dx: tx - b.x, dz: tz - b.z, cx: cx0, cz: cz0, rx, rz, sign, tuning, hip, bend, reserve: 1, bends: true });
   if (plan) plan.within = within;
-  [tx, tz] = clearOfBearer(bearer, foot, b.x + wx, b.z + wz, tuning.clearance, false);
+  [tx, tz] = clearOfBearer(bearer, foot, b.x + wx, b.z + wz, tuning.clearance);
   const capture = reference(tx, tz), [lx, lz] = [cx0, cz0];
   return { foot: foot.name, to: [tx, tz], seconds: Tss, lift: tuning.lift, transfer: Tds,
     capture, handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)], lean: landingLeanOf(foot, tx - b.x, tz - b.z, lx, lz, rx, rz, sign, held) };
@@ -621,7 +647,7 @@ export function catchStep(s: Stance): boolean {
   step.off = off;
   const held = assistReach(s), hold = holding(s), carried = carriedVelocity(s);
   if (!away || outside(feet, reading.centre, carried, g, hold) <= recovery.margin + held) return false;
-  reading.own = recoveryStep(feet, hold, reading.centre, carried, g, recovery, gait, reading.facing, hipHeight(s) - gait.crouch, held)!;
+  reading.own = recoveryStep(feet, hold, reading.centre, carried, g, recovery, gait, reading.facing, hipHeight(s) - gait.crouch);
   step.recovering = true;
   state.stride = state.striding ? named(feet, reading.own.foot).side : null;
   reading.recoveries += 1;
@@ -637,7 +663,7 @@ export function aimRecovery(s: Stance): void {
   const { feet, state } = s, { reading, step, gait } = state, { recovery } = s.tuning;
   if (!recovery || !reading.own || !step.recovering || reading.phase !== "swing" || !step.lifted || step.swing !== reading.own) return;
   const under: Underway = { foot: reading.own.foot, pivot: reading.place, remaining: reading.own.seconds - step.time, shift: step.shift.capture };
-  const aimed = recoveryStep(feet, feet, reading.centre, carriedVelocity(s), gravityOf(s), recovery, gait, reading.facing, hipHeight(s) - gait.crouch, 0, under)!;
+  const aimed = recoveryStep(feet, feet, reading.centre, carriedVelocity(s), gravityOf(s), recovery, gait, reading.facing, hipHeight(s) - gait.crouch, under);
   reading.own = step.swing = { ...reading.own, to: aimed.to };
 }
 
@@ -653,7 +679,7 @@ export function aimRecovery(s: Stance): void {
  * unless the goal asks for one of its own. `halted` (`StanceGoal.halt`), a walk's step not yet
  * lifted is not taken, and no step settles the walk's end: it steps only to catch the body.
  */
-export function ownStep(s: Stance, heading: number, hip: number, halted: boolean): void {
+export function ownStep(s: Stance, { heading, hip, halted }: { readonly heading: number; readonly hip: number; readonly halted: boolean }): void {
   const { feet, rest, state } = s, { reading, pace, step, gait } = state, { recovery, bend } = s.tuning, hips = hip - state.crouch;
   if (halted && reading.own && !step.recovering && reading.phase === "shift") {
     reading.own = null;
@@ -672,7 +698,8 @@ export function ownStep(s: Stance, heading: number, hip: number, halted: boolean
         pace[1] = reach[1];
       }
       state.striding = [pace[0], pace[1]];
-      const caught = reach || !recovery ? null : recoveryStep(feet, hold, reading.centre, carried, gravityOf(s), recovery, gait, reading.facing, hipHeight(s) - gait.crouch, held);
+      const caught = reach || !recovery || !unheld(feet, hold, reading.centre, carried, gravityOf(s), recovery.margin + held) ? null
+        : recoveryStep(feet, hold, reading.centre, carried, gravityOf(s), recovery, gait, reading.facing, hipHeight(s) - gait.crouch);
       if (caught) {
         // No pace between the walk's and the body's own has a step the legs reach: no walk's step
         // holds the body, and a recovery's catches it, which the walk goes on from.
@@ -694,9 +721,9 @@ export function ownStep(s: Stance, heading: number, hip: number, halted: boolean
       step.recovering = false;
     } else if (recovery && outside(feet, reading.centre, carried, gravityOf(s)) > recovery.margin + held) {
       state.striding = null;
-      reading.own = recoveryStep(feet, hold, reading.centre, carried, gravityOf(s), recovery, gait, reading.facing, hipHeight(s) - gait.crouch, held);
-      step.recovering = reading.own !== null;
-      if (reading.own) reading.recoveries += 1;
+      reading.own = recoveryStep(feet, hold, reading.centre, carried, gravityOf(s), recovery, gait, reading.facing, hipHeight(s) - gait.crouch);
+      step.recovering = true;
+      reading.recoveries += 1;
     }
     state.stride = state.striding && reading.own ? named(feet, reading.own.foot).side : null;
   } else if (reading.own && step.recovering) {

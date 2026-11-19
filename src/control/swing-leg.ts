@@ -189,7 +189,10 @@ export function withinReach(leg: SwingLeg, dx: number, dz: number, cx: number, c
  * hangs, and keeps its way from it: drawn toward the bearing sole instead, a long step back or
  * ahead loses its width too, and the body it is to catch falls past the landing to the side.
  */
-export function reachableSole(leg: SwingLeg, dx: number, dz: number, cx: number, cz: number, at: Vector3, rx: number, rz: number, sign: number, hip: number, long: number, back: number, reserve: number, bends: boolean): [number, number, boolean] {
+export function reachableSole({ leg, dx, dz, cx, cz, at, rx, rz, sign, hip, long, back, reserve, bends }: {
+  readonly leg: SwingLeg; readonly dx: number; readonly dz: number; readonly cx: number; readonly cz: number; readonly at: Vector3; readonly rx: number; readonly rz: number;
+  readonly sign: number; readonly hip: number; readonly long: number; readonly back: number; readonly reserve: number; readonly bends: boolean;
+}): [number, number, boolean] {
   const [ahead, out] = ankleFromHip(dx, dz, cx, cz, at, rx, rz, sign, back);
   const share = shareOfReach(leg, ahead / reserve, out / reserve, hip, long, bends);
   if (share >= 1) return [dx, dz, true];
