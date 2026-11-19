@@ -124,7 +124,7 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
     holder.className = "mind-slot"; holder.dataset.slot = slot.key;
     const set = (next: unknown) => write({ ...config, [slot.key]: next } as PartConfig);
     if (!slot.many) {
-      const child = value as PartConfig | null, fallback = emptyRuns(partLookup, partOf(config), config, slot);
+      const child = value as PartConfig | null, fallback = emptyRuns(partLookup, partOf(config), config, slot)[0];
       const chosen = child ?? fallback, selected = defaultFallback(fallback) && same(child, fallback) ? "" : child?.kind ?? "";
       const options = choices(slot, child, [], fallback), fixed = options.length === 1 && options[0]!.value === selected && !options[0]!.disabled;
       const childPath = [...path, slot.key], content = chosen ? drawPart(chosen, set, childPath) : null;
@@ -139,7 +139,8 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
       } else { line.append(field); holder.append(line); }
       return holder;
     }
-    const list: readonly PartConfig[] = Array.isArray(value) ? value : [];
+    // Holding none, what runs in its place, which an edit writes out as its own.
+    const list: readonly PartConfig[] = Array.isArray(value) ? value : emptyRuns(partLookup, partOf(config), config, slot);
     const heading = document.createElement("span");
     heading.className = "mind-slot-name"; heading.textContent = slot.label;
     holder.append(heading);

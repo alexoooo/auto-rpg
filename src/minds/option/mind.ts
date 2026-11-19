@@ -38,7 +38,7 @@ export function optionMind(assembly: OptionAssembly) {
     // where no Option names one, and every part that may lie under its skills, of which a body gets the one it fits.
     supplies: (config, parts) => [
       ...whenEmpty(slots, config, { predictions: assembly.predictions }),
-      ...(config.options ? [] : optionsOf(config, parts)).map((option) => ({ role: "option" as const, config: option })),
+      ...(config.options ? [] : optionsOf(config, parts)).map((option) => ({ role: "option" as const, config: option, slot: "options" })),
       ...parts.candidates("navigation").map(one => ({ role: "navigation" as const, config: one })),
       ...parts.candidates("support").map(one => ({ role: "support" as const, config: one })),
       ...Object.values(FILLED).flatMap((role) => parts.candidates(role).map((one) => ({ role, config: one }))),

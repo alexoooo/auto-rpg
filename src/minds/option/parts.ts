@@ -59,11 +59,14 @@ export interface OptionPart<C extends PartConfig = PartConfig, G = unknown, O = 
   make(config: C, given: G): readonly O[];
 }
 
-/** Construction and editors use the same static Option admission, independent of a fight's state. */
+/**
+ * Construction and editors use the same static Option admission, independent of a fight's state: a
+ * config that stands for several (`OptionPart.each`) applies where one of them does.
+ */
 export function optionApplies(config: PartConfig, body: OptionBody): boolean {
   const { spec, parts, options } = body, part = parts.of("option", config);
-  return part.fits(spec, config, parts) === null && part.skills?.(config, spec, parts, options) !== null
-    && (part.applicable?.(config, body) ?? true);
+  return (part.each?.(config, parts) ?? [config]).some((one) => part.fits(spec, one, parts) === null && part.skills?.(one, spec, parts, options) !== null
+    && (part.applicable?.(one, body) ?? true));
 }
 
 /**

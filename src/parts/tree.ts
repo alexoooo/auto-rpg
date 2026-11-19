@@ -43,9 +43,9 @@ export function whenEmpty(slots: readonly Slot[], config: PartConfig, defaults: 
   });
 }
 
-/** **What `slot` of `part` runs where a config like `config` holds nothing in it** (`Supplied.slot`); undefined where it runs nothing. */
-export function emptyRuns(parts: PartLookup, part: Part, config: PartConfig, slot: Slot): PartConfig | undefined {
-  return part.supplies?.({ ...config, [slot.key]: null }, parts).find((one) => one.slot === slot.key)?.config;
+/** **What `slot` of `part` runs where a config like `config` holds nothing in it** (`Supplied.slot`), in order; none where it runs nothing. */
+export function emptyRuns(parts: PartLookup, part: Part, config: PartConfig, slot: Slot): readonly PartConfig[] {
+  return (part.supplies?.({ ...config, [slot.key]: null }, parts) ?? []).filter((one) => one.slot === slot.key).map((one) => one.config);
 }
 
 /**
