@@ -161,8 +161,8 @@ export const STANCE_GAIT: GaitTuning = Object.freeze({ seconds: 0.3, lift: 0.05,
 /** A complete stride has finite geometry, positive timing, and bounded strength and reach reserves. */
 export function validGaitTuning(gait: GaitTuning): boolean {
   if (!gait || typeof gait !== "object" || Array.isArray(gait)) return false;
-  const keys = ["seconds", "lift", "width", "longest", "reserve", "effort", "clearance", "accel", "crouch", "horizon"] as const;
-  if (Object.keys(gait).some(key => !keys.some(known => known === key) && key !== "transfer" && key !== "preswing" && key !== "startsToward")) return false;
+  const keys = ["seconds", "lift", "width", "longest", "reserve", "effort", "clearance", "accel", "crouch", "horizon"] as const, optional = ["transfer", "preswing", "startsToward"] as const;
+  if (Object.keys(gait).some(key => ![...keys, ...optional].some(known => known === key))) return false;
   if (!keys.every(key => Number.isFinite(gait[key]))) return false;
   return gait.seconds > 0 && gait.longest > 0 && gait.accel > 0 && gait.horizon > 0
     && gait.lift >= 0 && gait.width >= 0 && gait.clearance >= 0 && gait.crouch >= 0

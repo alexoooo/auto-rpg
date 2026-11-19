@@ -267,7 +267,7 @@ if (isMainThread) {
         const spec = specOf(side), struck = specOf(side === "left" ? "right" : "left"), mind = duel.recipe.minds?.[side] ?? CONTEXT.defaultMind(duel.recipe[side]);
         const { executors, actions } = strikesOf(spec, mind), keyed = new Map();
         for (const { action: name, effector, reading } of thrown.filter((one) => one.striker === side)) {
-          const action = actions.find((one) => one.name === name), trial = action && strikeTrial(reading, spec, struck, duel.rules, world.hz);
+          const action = actions.find((one) => one.name === name), trial = action && strikeTrial(reading, { spec, struck, rules: duel.rules });
           if (!trial) continue;
           const found = strikeKey(spec, mind, executors, action, effector, world.hz, reaction, world.delay), key = JSON.stringify(found.measured);
           if (!keyed.has(key)) keyed.set(key, { ...found, trials: [] });

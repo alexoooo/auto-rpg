@@ -59,7 +59,7 @@ const WALK_SPACING = PROFILE_SPANS.range / 2;
  */
 export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker, stance: StanceNumbers | null = null): Terms | null {
   // Walking by the gait, the body stands as the gait stands it, and the focus's pressure is read there.
-  const focus = at.focus, from = at.where, offset = at.apart - at.range, pressure = stance ? stancedPressure(at.predictions.pressure, stance, true) : at.predictions.pressure;
+  const focus = at.focus, from = at.where, offset = at.apart - at.range, pressure = stance ? stancedPressure(at.predictions.pressure, "target", stance) : at.predictions.pressure;
   const reach = focus ? edgeOf(at, pressure) + offset : 0, points = spot.route ?? [spot];
   const legs = walk.seconds(at, gait.name, points, focus ? walk.facing(at) : null);
   let duration = 0, taken = 0, grace = graceAt(at), x = from.x, z = from.z;

@@ -60,21 +60,19 @@ export interface StrikeConfig<K extends string = keyof ExecutorConfigs> {
 /** **A kind of strike**: a kind of option (`ProfileOptionPart`) that strikes by one skill, the executor kind it names (`skill`). */
 export type StrikeKindPart<K extends string = keyof ExecutorConfigs> = ProfileOptionPart<StrikeConfig<K>> & { readonly skill: K };
 
-/** Each executor's config as its body's skills hold it (`ExecutorEntry`), by its variation and whether it is named by it: a skill is one config a mind. */
+/** Each executor's config as its body's skills hold it (`ExecutorEntry`), by the variation it runs and the name it goes by: a skill is one config a mind. */
 const ENTRIES = new WeakMap<ConfigFor<"executor">, Map<string, ExecutorEntry>>();
 
 /**
  * **The executor `skill` as its body's skills hold it**, running `variation` (none for a skill
- * without variations), named by its kind, and by its variation too where the body holds `several`
- * of its skill's; made once a config.
+ * without variations) and named `name`; made once a config.
  */
-function executorEntry(skill: ConfigFor<"executor">, variation: string | null, several: boolean): ExecutorEntry {
+function executorEntry(skill: ConfigFor<"executor">, variation: string | null, name: string): ExecutorEntry {
   let byVariation = ENTRIES.get(skill);
   if (!byVariation) ENTRIES.set(skill, byVariation = new Map());
-  const key = `${variation ?? ""}${several ? "/" : ""}`;
+  const key = `${variation ?? ""} ${name}`;
   let entry = byVariation.get(key);
-  if (!entry) byVariation.set(key, entry = Object.freeze({ ...skill, ...variation === null ? {} : { variation },
-    name: several && variation !== null ? `${skill.kind}/${variation}` : skill.kind }));
+  if (!entry) byVariation.set(key, entry = Object.freeze({ ...skill, ...variation === null ? {} : { variation }, name }));
   return entry;
 }
 
@@ -152,8 +150,10 @@ function strikeAction(parts: PartLookup, spec: BodySpec, config: StrikeConfig, e
 function strikeSkills(parts: PartLookup, spec: BodySpec, config: StrikeConfig, options: readonly PartConfig[]): readonly { readonly executor: ExecutorEntry; readonly action: ActionConfig }[] {
   const variations = strikeVariations(parts, spec, config), several = heldVariations(spec, config.skill.kind).length > 1, name = strikeName(config, strikesIn(parts, options));
   return variations.flatMap((variation) => {
-    const executor = executorEntry(config.skill, variation, several);
-    const action = strikeAction(parts, spec, config, executor, several && variation !== null ? `${executor.name}${name.slice(config.skill.kind.length)}` : name);
+    // Named by its kind, and by its variation too where the body holds several of its skill's.
+    const shown = several ? variation : null, kind = config.skill.kind;
+    const executor = executorEntry(config.skill, variation, shown === null ? kind : `${kind}/${shown}`);
+    const action = strikeAction(parts, spec, config, executor, shown === null ? name : `${executor.name}${name.slice(kind.length)}`);
     return action ? [{ executor, action }] : [];
   });
 }
@@ -317,9 +317,8 @@ export const COVER_OPTION = kind("covers", "Cover", given => (given.guards ?? gi
   return covers(given.spec, part.covers?.(given.spec, config) ?? []).map(option => choosingSkill(option, config, "guard"));
 }));
 
-/** **The back step** (`backStepping`), where its body's steps' profiles measured it. */
-export const BACK_STEP_OPTION = kind("steps-back", "Back step", given => backStepping(given.spec, given.outcomes, given.walk, given.hz, given.rate ?? given.hz, given.delay,
-  goesBy(given.parts, given.legs, given.spec, "back-step")));
+/** **The back step** (`backStepping`), where its body's steps' profiles measured it and its legs go by its gait (`goesBy`). */
+export const BACK_STEP_OPTION = kind("steps-back", "Back step", given => goesBy(given.parts, given.legs, given.spec, "back-step") ? backStepping(given) : []);
 
 /** **Hold the position** (`hold`), a rest option. */
 export const HOLD_OPTION = deepFreeze({ ...kind("hold-position", "Hold the position", (given) => [hold(given.walk)]), stands: true });

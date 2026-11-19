@@ -531,19 +531,19 @@ export function cachedPressure(pressure: Pressure): Pressure {
 const STANCED = new WeakMap<Pressure, WeakMap<object, Pressure>>();
 
 /**
- * **`pressure` with the body it reads standing at `own`** (`Pressure.stance`): the struck body's
- * where `struck` (the focus's pressure on the body), else the striker's (the body's on the focus);
+ * **`pressure` with the body it reads standing at `own`** (`Pressure.stance`): `body`, the struck
+ * (`target`: the focus's pressure on the body) or the striker (`own`: the body's on the focus);
  * its exact-start cache made anew for it (`cachedPressure`). Made once for the two; `pressure`
  * itself where it reads that body at `own` already, so a walk in the body's carriage asks nothing anew.
  */
-export function stancedPressure(pressure: Pressure, own: StanceNumbers, struck: boolean): Pressure {
-  if ((struck ? pressure.stance?.target : pressure.stance?.own) === own) return pressure;
+export function stancedPressure(pressure: Pressure, body: keyof Stances, own: StanceNumbers): Pressure {
+  if (pressure.stance?.[body] === own) return pressure;
   let by = STANCED.get(pressure);
   if (!by) STANCED.set(pressure, by = new WeakMap());
   const known = by.get(own);
   if (known) return known;
   const { rateAt: _, ...rest } = pressure, was = pressure.stance ?? {};
-  const made = cachedPressure({ ...rest, stance: struck ? { ...was, target: own } : { ...was, own } });
+  const made = cachedPressure({ ...rest, stance: { ...was, [body]: own } });
   by.set(own, made);
   return made;
 }

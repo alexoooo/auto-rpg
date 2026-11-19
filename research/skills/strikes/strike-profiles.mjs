@@ -51,7 +51,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
 import { marksOf, strikeKey, strikesOf } from "./strike-keys.mjs";
-import { strikeTrial } from "../../../src/evaluation/strike/trial.ts";
+import { letGoTrial, strikeTrial } from "../../../src/evaluation/strike/trial.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 import { profileKey, profileKeys } from "../../../tests/harness/profile-keys.mjs";
 import { rulebook } from "../../../src/combat/rulebook.ts";
@@ -111,7 +111,7 @@ for (const path of paths) {
     profile.commits.add(row.from.commit);
     profile.dates.add(row.from.date.slice(0, 10));
     profile.changed ||= row.from.changed;
-    const trial = strikeTrial(row.reading, spec, struck, rulebook("arena", recipe.rules), hz, led.letGo !== undefined);
+    const trial = led.letGo !== undefined ? letGoTrial(row.reading, { spec, struck, hz }) : strikeTrial(row.reading, { spec, struck, rules: rulebook("arena", recipe.rules) });
     if (trial) profile.trials.push(trial);
   }
 }
