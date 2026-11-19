@@ -6,10 +6,9 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";
-import type { SegmentFrame, ShapeSpec } from "../../../core/bodies/spec/body.ts";
+import { localDirection, localPoint, type SegmentFrame, type ShapeSpec } from "../../../core/bodies/spec/body.ts";
 import { convexHull } from "../../../core/bodies/spec/hull.ts";
-import type { Vec3 } from "../../../core/quantity.ts";
-import { dot, length, normalize, sub } from "../../../core/bodies/spec/vec.ts";
+import { length, normalize, sub } from "../../../core/bodies/spec/vec.ts";
 import { acos } from "../../../core/math/real.ts";
 
 /**
@@ -22,12 +21,6 @@ export interface BodyShapes {
   dispose(): void;
 }
 
-const local = (frame: SegmentFrame, point: Vec3): Vector3 => {
-  const d = sub(point, frame.origin);
-  return new Vector3(dot(d, frame.x), dot(d, frame.y), dot(d, frame.z));
-};
-const localDirection = (frame: SegmentFrame, direction: Vec3): Vec3 =>
-  [dot(direction, frame.x), dot(direction, frame.y), dot(direction, frame.z)];
 
 function shapeMesh(name: string, frame: SegmentFrame, shape: ShapeSpec, scene: Scene): Mesh {
   switch (shape.kind) {
@@ -35,11 +28,11 @@ function shapeMesh(name: string, frame: SegmentFrame, shape: ShapeSpec, scene: S
       const r = shape.radius.value, span = sub(shape.to.value, shape.from.value);
       if (length(span) === 0) {
         const mesh = MeshBuilder.CreateSphere(name, { diameter: 2 * r, segments: 16 }, scene);
-        mesh.position = local(frame, shape.from.value);
+        mesh.position = Vector3.FromArray(localPoint(frame, shape.from.value));
         return mesh;
       }
       const mesh = MeshBuilder.CreateCapsule(name, { radius: r, height: length(span) + 2 * r, tessellation: 16, subdivisions: 1 }, scene);
-      mesh.position = local(frame, shape.from.value).add(local(frame, shape.to.value)).scaleInPlace(0.5);
+      mesh.position = Vector3.FromArray(localPoint(frame, shape.from.value)).add(Vector3.FromArray(localPoint(frame, shape.to.value))).scaleInPlace(0.5);
       // The capsule is built along its y; turn y onto the span, in the segment's coordinates.
       const along = normalize(localDirection(frame, span));
       const axis = Vector3.Cross(Vector3.Up(), new Vector3(...along));
@@ -52,18 +45,18 @@ function shapeMesh(name: string, frame: SegmentFrame, shape: ShapeSpec, scene: S
     case "box": {
       const [w, h, d] = shape.size.value;
       const mesh = MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
-      mesh.position = local(frame, shape.centre.value);
+      mesh.position = Vector3.FromArray(localPoint(frame, shape.centre.value));
       return mesh;
     }
     case "sphere": {
       const mesh = MeshBuilder.CreateSphere(name, { diameter: 2 * shape.radius.value, segments: 16 }, scene);
-      mesh.position = local(frame, shape.centre.value);
+      mesh.position = Vector3.FromArray(localPoint(frame, shape.centre.value));
       return mesh;
     }
     case "hull": {
       // Each face with its own corners, so it is shaded flat, and its outward normal; laid down
       // in both windings, so one of them faces out whatever the scene's handedness.
-      const points = shape.points.map((p) => local(frame, p.value));
+      const points = shape.points.map((p) => Vector3.FromArray(localPoint(frame, p.value)));
       const { faces, planes } = convexHull(points.map((p) => [p.x, p.y, p.z] as const));
       const positions: number[] = [], normals: number[] = [], indices: number[] = [];
       faces.forEach((corners, f) => {
