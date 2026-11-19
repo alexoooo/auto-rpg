@@ -1,7 +1,7 @@
 import type { SourceKey } from "../../../sources.ts";
 import { STANDARD_GRAVITY } from "../../../constants.ts";
 import { derive, sourced, type Quantity } from "../../../quantity.ts";
-import type { Sex } from "./de-leva-1996.ts";
+import { sexGroup, type Sex } from "./de-leva-1996.ts";
 
 /**
  * **How hard young adults turn each joint**: peak torque in newton metres, men's and women's
@@ -114,21 +114,19 @@ const PRINTED: Readonly<Record<Exertion, Printed>> = {
   neckRotation: vasavada("axial rotation", 15, 6),
 };
 
-const column = (sex: Sex): string => (sex === "male" ? "men" : "women");
-
 /** The mean body mass of the people whose `exertion` a source measured, kg. */
 export function subjectMass(exertion: Exertion, sex: Sex): Quantity<number> {
   const cohort: Cohort = COHORTS[PRINTED[exertion].cohort];
-  return sourced(cohort.mass[sex], "kg", cohort.source, `${cohort.where}, ${column(sex)}`);
+  return sourced(cohort.mass[sex], "kg", cohort.source, `${cohort.where}, ${sexGroup(sex)}`);
 }
 
 /** Peak torque of `exertion` in the source's people of `sex`, N m, as a magnitude. */
 export function measuredTorque(exertion: Exertion, sex: Sex): Quantity<number> {
   const printed = PRINTED[exertion];
   const cohort: Cohort = COHORTS[printed.cohort];
-  if (!cohort.stature) return sourced(printed[sex], "N m", cohort.source, `${printed.where}, ${column(sex)}`);
-  const c1 = sourced(printed[sex], "1", cohort.source, `${printed.where}, ${column(sex)}`);
-  const stature = sourced(cohort.stature[sex], "m", cohort.source, `${cohort.where}, height, ${column(sex)}`);
+  if (!cohort.stature) return sourced(printed[sex], "N m", cohort.source, `${printed.where}, ${sexGroup(sex)}`);
+  const c1 = sourced(printed[sex], "1", cohort.source, `${printed.where}, ${sexGroup(sex)}`);
+  const stature = sourced(cohort.stature[sex], "m", cohort.source, `${cohort.where}, height, ${sexGroup(sex)}`);
   return derive("N m", "C1 times the group's mean body weight and height", [c1, subjectMass(exertion, sex), STANDARD_GRAVITY, stature],
     (c, m, g, h) => c * m * g * h);
 }

@@ -4,8 +4,7 @@ import { cuboidMoments, cylinderMoments, massShare } from "../spec/geometry.ts";
 import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 import type { SourceKey } from "../../sources.ts";
 import { deepFreeze } from "../../state.ts";
-
-const vector = (v: readonly number[]): Vec3 => [v[0]!, v[1]!, v[2]!];
+import { vec3 } from "../spec/vec.ts";
 
 /** What a body file says losing a limb does (`LimbSpec.lost`); a thrown error for anything else. */
 const lostOf = (lost: string): LimbSpec["lost"] => {
@@ -27,7 +26,7 @@ export function quadrupedSpec(data: QuadrupedData, model: string, source: Source
   const mass = q(data.mass, "kg", "/mass");
   const weights = data.segments.map((s, i) => q(s.weight, "1", `/segments/${i}/weight`));
   const segments: SegmentSpec[] = data.segments.map((s, i) => {
-    const at = `/segments/${i}`, a = q(vector(s.proximal), "m", `${at}/proximal`), b = q(vector(s.distal), "m", `${at}/distal`);
+    const at = `/segments/${i}`, a = q(vec3(s.proximal), "m", `${at}/proximal`), b = q(vec3(s.distal), "m", `${at}/distal`);
     const centre = derive("m", "midpoint of the declared segment", [a, b], (a, b): Vec3 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
     const own = derive("kg", "body mass distributed by declared segment weights", [mass, weights[i]!, ...weights],
       (mass, weight, ...all) => massShare(mass, weight, all));
@@ -44,7 +43,7 @@ export function quadrupedSpec(data: QuadrupedData, model: string, source: Source
             inertia: derive("kg m2", "equivalent uniform cylinder principal moments", [own, span, radius], (m, l, r) => cylinderMoments(m, l, r)) };
         }
         case "box": {
-          const size = q(vector(s.size!), "m", `${at}/size`);
+          const size = q(vec3(s.size!), "m", `${at}/size`);
           return { shape: { kind: "box", centre, size },
             inertia: derive("kg m2", "uniform cuboid principal moments", [own, size], (m, d) => cuboidMoments(m, d)) };
         }
@@ -55,11 +54,11 @@ export function quadrupedSpec(data: QuadrupedData, model: string, source: Source
       name: s.name, proximal: a, distal: b, centreOfMass: centre, mass: own, inertia, shape,
       surface: { stiffness: q(data.stiffness, "N/m", "/stiffness") },
       ...(s.contacts ? { contacts: s.contacts.map((c, k) => ({ name: c.name,
-        shape: { kind: "hull" as const, points: c.points.map((p, n) => q(vector(p), "m", `${at}/contacts/${k}/points/${n}`)) },
+        shape: { kind: "hull" as const, points: c.points.map((p, n) => q(vec3(p), "m", `${at}/contacts/${k}/points/${n}`)) },
         surface: { stiffness: q(c.stiffness, "N/m", `${at}/contacts/${k}/stiffness`),
-          directed: { mechanism: "point" as const, direction: q(vector(c.direction), "1", `${at}/contacts/${k}/direction`), alignment: q(c.alignment, "1", `${at}/contacts/${k}/alignment`) } },
+          directed: { mechanism: "point" as const, direction: q(vec3(c.direction), "1", `${at}/contacts/${k}/direction`), alignment: q(c.alignment, "1", `${at}/contacts/${k}/alignment`) } },
       })) } : {}),
-      ...(s.points ? { points: Object.fromEntries(Object.entries(s.points).map(([name, p]) => [name, q(vector(p!), "m", `${at}/points/${name}`)])) } : {}),
+      ...(s.points ? { points: Object.fromEntries(Object.entries(s.points).map(([name, p]) => [name, q(vec3(p!), "m", `${at}/points/${name}`)])) } : {}),
     };
   });
   const joints: JointSpec[] = data.joints.map((j, i) => {
@@ -69,8 +68,8 @@ export function quadrupedSpec(data: QuadrupedData, model: string, source: Source
     j.limits.forEach(([min, max], k) => {
       if (!(min! <= 0 && 0 <= max!)) throw new Error(`${j.name} axis${k}: the reference pose, 0 rad, lies outside ${min}..${max} rad`);
     });
-    return { name: j.name, parent: j.parent, child: j.child, centre: q(vector(j.centre), "m", `${at}/centre`),
-      dofs: j.axes.map((axis, k) => ({ positive: `axis${k}`, negative: `reverse${k}`, axis: q(vector(axis), "1", `${at}/axes/${k}`),
+    return { name: j.name, parent: j.parent, child: j.child, centre: q(vec3(j.centre), "m", `${at}/centre`),
+      dofs: j.axes.map((axis, k) => ({ positive: `axis${k}`, negative: `reverse${k}`, axis: q(vec3(axis), "1", `${at}/axes/${k}`),
         min: q(j.limits[k]![0]!, "rad", `${at}/limits/${k}/0`), max: q(j.limits[k]![1]!, "rad", `${at}/limits/${k}/1`),
         bind: derive("rad", "reference joint angle", [], () => 0),
         muscle: { peakPositive: q(j.peak, "N m", `${at}/peak`), peakNegative: q(j.peak, "N m", `${at}/peak`), speedPositive: speed, speedNegative: speed } })) };

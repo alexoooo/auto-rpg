@@ -86,10 +86,10 @@ function fixedAt(level: BodyLevel): boolean {
   }
 }
 
-/** One freedom's muscles: which joint and freedom, and the curve each way. */
 /** The channel of `joint`'s freedom `index`: the joint's name and the freedom's positive motion, e.g. "elbow.right flexion". */
 export const channelName = (joint: JointKinematics, index: number): string => `${joint.spec.name} ${joint.dofs[index]!.spec.positive}`;
 
+/** One freedom's muscles: which joint and freedom, and the curve each way. */
 interface MuscleChannel {
   /** `joint.name` and the freedom's positive motion, e.g. "elbow.right flexion". */
   readonly name: string;
@@ -222,7 +222,7 @@ const peakOf = (channel: MuscleChannel, side: MuscleSide): number => channel.joi
 interface DrivingOptions { readonly dynamics?: false; readonly prepared?: true; readonly delay?: number }
 
 /** Called every world step, before the driver sends the command and applies the one sent `delay` steps ago; `dt` is the step, s. */
-export type MuscleController = (driver: MuscleDriver, dt: number) => void;
+type MuscleController = (driver: MuscleDriver, dt: number) => void;
 
 /**
  * Drive every freedom of `built` from its spec's muscles, before each step of `world` while the

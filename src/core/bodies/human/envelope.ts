@@ -2,6 +2,7 @@ import manHull from "../../../../assets/humanoid/man-trunk-hull.json" with { typ
 import womanHull from "../../../../assets/humanoid/woman-trunk-hull.json" with { type: "json" };
 import type { SourceKey } from "../../sources.ts";
 import { sourced, type Quantity, type Vec3 } from "../../quantity.ts";
+import { vec3 } from "../spec/vec.ts";
 import type { HumanModel } from "./rig.ts";
 import type { Side } from "../bilateral.ts";
 
@@ -59,10 +60,7 @@ const HULLS: Readonly<Record<HumanModel, { readonly file: HullFile; readonly sou
 
 function hull(model: HumanModel, segment: TrunkSegment): readonly Quantity<Vec3>[] {
   const { file, source } = HULLS[model];
-  return Object.freeze(file[segment].map((corner, i) => {
-    if (corner.length !== 3) throw new Error(`${model} ${segment} trunk hull corner ${i} is not a point`);
-    return sourced(corner as unknown as Vec3, "m", source, `/${segment}/${i}`);
-  }));
+  return Object.freeze(file[segment].map((corner, i) => sourced(vec3(corner), "m", source, `/${segment}/${i}`)));
 }
 
 export function humanEnvelope(model: HumanModel): HumanEnvelope {

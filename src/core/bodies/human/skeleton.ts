@@ -1,7 +1,7 @@
 import bind from "../../../../assets/skeleton/bind.json" with { type: "json" };
 import bones from "../../../../assets/skeleton/bones.json" with { type: "json" };
 import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
-import { add, midpoint, normalize, scale, sub } from "../spec/vec.ts";
+import { add, midpoint, normalize, scale, sub, vec3 } from "../spec/vec.ts";
 import type { Extents } from "./envelope.ts";
 import type { FittedSegment, HandFigure, HumanFigure, LimbFigure } from "./figure.ts";
 import { HUMAN_HASTE } from "./attributes.ts";
@@ -102,8 +102,7 @@ function end(p: Part, sign: 1 | -1, what: string): Quantity<Vec3> {
 /** A number of the bones' measure, at its JSON pointer. */
 const measured = <V extends number | Vec3>(value: V, unit: "m" | "m2", where: string): Quantity<V> =>
   sourced(value, unit, "skeleton-bones", where);
-const vector = (v: readonly number[]): Vec3 => [v[0]!, v[1]!, v[2]!];
-const corners = (points: readonly (readonly number[])[], at: string) => points.map((p, i) => measured(vector(p), "m", `${at}/${i}`));
+const corners = (points: readonly (readonly number[])[], at: string) => points.map((p, i) => measured(vec3(p), "m", `${at}/${i}`));
 
 type SegmentFile = { readonly centroid: readonly number[]; readonly hull: readonly (readonly number[])[];
   readonly spread: { readonly diagonal: readonly number[]; readonly off: readonly number[] } };
@@ -121,8 +120,8 @@ function fittedSegment(name: string): FittedSegment {
   if (!file) throw new Error(`the skeleton's bones have no ${name}`);
   const at = `/segments/${name}`;
   return {
-    centroid: measured(vector(file.centroid), "m", `${at}/centroid`),
-    spread: { diagonal: measured(vector(file.spread.diagonal), "m2", `${at}/spread/diagonal`), off: measured(vector(file.spread.off), "m2", `${at}/spread/off`) },
+    centroid: measured(vec3(file.centroid), "m", `${at}/centroid`),
+    spread: { diagonal: measured(vec3(file.spread.diagonal), "m2", `${at}/spread/diagonal`), off: measured(vec3(file.spread.off), "m2", `${at}/spread/off`) },
     ...(HULLED.has(name) && { hull: corners(file.hull, `${at}/hull`) }),
   };
 }
@@ -137,7 +136,7 @@ function footExtents(side: Side): Extents {
 /** A hand's measure: the closed hand's hull, open or a fist, where it bears and where it strikes. */
 function hand(side: Side): HandFigure {
   const file = bones.hands[side], at = `/hands/${side}`, hull = corners(file.hull, `${at}/hull`);
-  return { palm: { hull, centre: measured(vector(file.palm), "m", `${at}/palm`) }, fist: { hull, strike: measured(vector(file.strike), "m", `${at}/strike`) } };
+  return { palm: { hull, centre: measured(vec3(file.palm), "m", `${at}/palm`) }, fist: { hull, strike: measured(vec3(file.strike), "m", `${at}/strike`) } };
 }
 
 const placeholder = <V extends number | Vec3>(value: V, unit: "HP" | "1" | "%", where: string): Quantity<V> =>

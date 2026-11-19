@@ -1,6 +1,6 @@
 import type { SourceKey } from "../../../sources.ts";
 import { sourced, type Quantity } from "../../../quantity.ts";
-import type { Sex } from "./de-leva-1996.ts";
+import { sexGroup, type Sex } from "./de-leva-1996.ts";
 import type { Side } from "../../bilateral.ts";
 
 /**
@@ -107,7 +107,7 @@ const PRINTED: Readonly<Record<RangeRow, Printed>> = {
 export function rangeOfMotion(row: RangeRow, sex: Sex, side?: Side): Quantity<number> {
   const printed = PRINTED[row];
   const cell = printed[sex];
-  const who = printed.sample ?? (sex === "male" ? "men" : "women");
+  const who = printed.sample ?? sexGroup(sex);
   if (typeof cell === "number") return sourced(cell, "deg", printed.source, `${printed.where}, ${who}`);
   if (!side) throw new Error(`${row} is printed by side`);
   return sourced(cell[side], "deg", printed.source, `${printed.where}, ${who}, ${side}`);

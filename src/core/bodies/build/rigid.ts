@@ -72,7 +72,6 @@ export function rigidPoints(spec: BodySpec, segment: SegmentSpec): ReadonlyMap<s
   return points;
 }
 
-/** `segment`'s rigid body in `spec`. */
 /** A segment's own contact regions: its anatomical ones, then a foot's toes lying flat (`toes.ts`). */
 function regionsOf(segment: SegmentSpec): readonly ContactRegionSpec[] {
   return [...(segment.contacts ?? []), ...(segment.toes ? [toesRegion(segment, frameOf(segment), 0)] : [])];
@@ -81,6 +80,7 @@ function regionsOf(segment: SegmentSpec): readonly ContactRegionSpec[] {
 /** Which of a segment's rigid shapes (`Rigid.shapes`) is its toes': after its own shape and anatomical regions (`regionsOf`). */
 export const toesShape = (segment: SegmentSpec): number => 1 + (segment.contacts?.length ?? 0);
 
+/** `segment`'s rigid body in `spec`. */
 export function rigidOf(spec: BodySpec, segment: SegmentSpec): Rigid {
   const holding = heldBy(spec, segment.name);
   const [ix, iy, iz] = segment.inertia.value;
@@ -99,7 +99,7 @@ export function rigidOf(spec: BodySpec, segment: SegmentSpec): Rigid {
   const centre = scale(pieces.reduce((sum: Vec3, p) => add(sum, scale(p.centre, p.mass)), [0, 0, 0]), 1 / mass);
   // Into the segment frame.
   const inOwn = (v: Vec3): Vec3 => localDirection(own, v);
-  const t = [0, 0, 0, 0, 0, 0];
+  const t: [number, number, number, number, number, number] = [0, 0, 0, 0, 0, 0];
   const addOuter = (k: number, a: Vec3, b: Vec3) => {
     t[0]! += k * a[0] * b[0]; t[1]! += k * a[1] * b[1]; t[2]! += k * a[2] * b[2];
     t[3]! += k * a[0] * b[1]; t[4]! += k * a[0] * b[2]; t[5]! += k * a[1] * b[2];
@@ -111,7 +111,7 @@ export function rigidOf(spec: BodySpec, segment: SegmentSpec): Rigid {
     addOuter(-piece.mass, d, d);
   }
   return {
-    mass, centre, tensor: t as unknown as Tensor,
+    mass, centre, tensor: t,
     shapes: [segment.shape, ...regionsOf(segment).map(c => c.shape), ...holding.flatMap((held) =>
       [...held.item.shapes, ...(held.item.contacts ?? []).map(region => region.shape)].map(shape => placedShape(held, shape)))],
     owners: [{ kind: "segment" }, ...regionsOf(segment).map(region => ({ kind: "region" as const, region })), ...holding.flatMap((held): ShapeOwner[] =>

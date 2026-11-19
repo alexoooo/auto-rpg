@@ -17,6 +17,12 @@ export const distance = (a: Vec3, b: Vec3): number => length(sub(b, a));
 export const lerp = (a: Vec3, b: Vec3, t: number): Vec3 => add(a, scale(sub(b, a), t));
 export const midpoint = (a: Vec3, b: Vec3): Vec3 => lerp(a, b, 1 / 2);
 
+/** A point a file writes as a list of three numbers; any other list is refused with a thrown error. */
+export function vec3(list: readonly number[]): Vec3 {
+  if (list.length !== 3) throw new Error(`not a point: ${JSON.stringify(list)}`);
+  return [list[0]!, list[1]!, list[2]!];
+}
+
 export function normalize(a: Vec3): Vec3 {
   const n = length(a);
   if (!(n > 0)) throw new Error("cannot normalize a zero vector");

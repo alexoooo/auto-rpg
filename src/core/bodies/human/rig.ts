@@ -2,6 +2,7 @@ import manRig from "../../../../assets/humanoid/man.json" with { type: "json" };
 import womanRig from "../../../../assets/humanoid/woman.json" with { type: "json" };
 import type { SourceKey } from "../../sources.ts";
 import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
+import { vec3 } from "../spec/vec.ts";
 
 /**
  * **The two human models' rigs**, as the core reads them: bone ends from
@@ -39,9 +40,8 @@ export function rigPoint(model: HumanModel, bone: string, end: "head" | "tail"):
   if (!point) {
     const { rig, source } = RIGS[model];
     const found = rig.bones[bone]?.[end];
-    if (!found || found.length !== 3) throw new Error(`${model} has no bone ${bone}`);
-    const [x, y, z] = [0, 1, 2].map((i) => sourced(found[i]!, "m", source, `/bones/${bone}/${end}/${i}`));
-    point = derive("m", "Blender to the body frame", [x!, y!, z!], fromBlender);
+    if (!found) throw new Error(`${model} has no bone ${bone}`);
+    point = derive("m", "Blender to the body frame", [sourced(vec3(found), "m", source, `/bones/${bone}/${end}`)], ([x, y, z]) => fromBlender(x, y, z));
     cache.set(key, point);
   }
   return point;

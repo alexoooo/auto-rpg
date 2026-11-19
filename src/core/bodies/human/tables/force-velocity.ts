@@ -1,5 +1,5 @@
 import { sourced, type Quantity } from "../../../quantity.ts";
-import type { Sex } from "./de-leva-1996.ts";
+import { sexGroup, type Sex } from "./de-leva-1996.ts";
 
 /**
  * **How fast young adults' joint torque falls with speed**, as printed.
@@ -34,7 +34,7 @@ export function andersonPoints(direction: AndersonDirection, sex: Sex): {
   readonly threeQuarters: Quantity<number>; readonly half: Quantity<number>;
 } {
   const { row, [sex]: [c4, c5] } = ANDERSON_TABLE_3[direction];
-  const group = sex === "male" ? "men" : "women";
+  const group = sexGroup(sex);
   return {
     threeQuarters: sourced(c4, "rad/s", "anderson-2007", `Table 3, 18-25 y ${group}, ${row} C4`),
     half: sourced(c5, "rad/s", "anderson-2007", `Table 3, 18-25 y ${group}, ${row} C5`),
@@ -61,7 +61,7 @@ export function freyLawColumn(direction: FreyLawDirection, sex: Sex): readonly {
   readonly speed: Quantity<number>; readonly torque: Quantity<number>;
 }[] {
   const { table, [sex]: torques } = FREY_LAW_65[direction];
-  const group = sex === "male" ? "men" : "women";
+  const group = sexGroup(sex);
   return FREY_LAW_SPEEDS.map((speed, i) => ({
     speed: sourced(speed, "deg/s", "frey-law-2012", `${table}, row ${speed} deg/s`),
     torque: sourced(torques[i], "N m", "frey-law-2012", `${table}, row ${speed} deg/s, 65 deg, ${group}`),

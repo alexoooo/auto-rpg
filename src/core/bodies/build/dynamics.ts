@@ -126,6 +126,8 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
   let kept: Parts | null = null;
   const off = new Uint8Array(segments.length), cut = new Uint8Array(joints.length);
   const beyond = carriedWhole.map((list) => [...list]), shared = sharedWhole.map((row) => [...row]);
+  // The segments that are on, by index.
+  let onSegments: readonly number[] = [];
   const mask = (): void => {
     const now = on();
     if (now === kept) return;
@@ -136,7 +138,7 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
       beyond[j] = cut[j] ? [...carriedWhole[j]!] : carriedWhole[j]!.filter((i) => !off[i]);
     }
     for (let a = 0; a < joints.length; a++) for (let b = 0; b < joints.length; b++) shared[a]![b] = cut[a] === cut[b] ? sharedWhole[a]![b]! : -1;
-    whole.mass = segments.reduce((sum, s, i) => off[i] ? sum : sum + s.rigid.mass, 0);
+    onSegments = segments.flatMap((_, i) => off[i] ? [] : [i]);
   };
   const freedoms = joints.flatMap((joint, j) => joint.dofs.map((_, k) => ({ joint: j, k })));
   const passive = freedoms.flatMap(({ joint: j, k }, f) => {
@@ -172,6 +174,26 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
   const axes = joints.map((joint) => joint.dofs.map((): Point => [0, 0, 0]));
   const bodyAxes: [number, number, number][] = [];
   const scratch = { v: new Vector3(), q: new Quaternion(), carry: new Quaternion() };
+  /**
+   * `body`'s mass, centre and inertia about that centre from the segments `members` as they stand
+   * (`centres`, `inertias`): each segment's own inertia, and its mass at its centre's offset d,
+   * m (|d|^2 E - d d').
+   */
+  const gather = (body: { mass: number; readonly centre: Point; readonly inertia: Float64Array }, members: readonly number[]): void => {
+    const C = body.centre, I = body.inertia;
+    body.mass = 0; C.fill(0); I.fill(0);
+    for (const i of members) {
+      const m = segments[i]!.rigid.mass, c = centres[i]!;
+      body.mass += m; C[0] += m * c[0]; C[1] += m * c[1]; C[2] += m * c[2];
+    }
+    C[0] /= body.mass; C[1] /= body.mass; C[2] /= body.mass;
+    for (const i of members) {
+      const m = segments[i]!.rigid.mass, c = centres[i]!, own = inertias[i]!;
+      const d0 = c[0] - C[0], d1 = c[1] - C[1], d2 = c[2] - C[2], dd = d0 * d0 + d1 * d1 + d2 * d2;
+      I[0] += own[0] + m * (dd - d0 * d0); I[1] += own[1] + m * (dd - d1 * d1); I[2] += own[2] + m * (dd - d2 * d2);
+      I[3] += own[3] - m * d0 * d1; I[4] += own[4] - m * d0 * d2; I[5] += own[5] - m * d1 * d2;
+    }
+  };
   const toWorld = (rotation: Quaternion, a: Vec3, out: Point): Point => {
     scratch.v.set(a[0], a[1], a[2]).applyRotationQuaternionToRef(rotation, scratch.v);
     out[0] = scratch.v.x; out[1] = scratch.v.y; out[2] = scratch.v.z;
@@ -269,20 +291,8 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
         }
       }
       for (let j = 0; j < joints.length; j++) {
-        const joint = joints[j]!, body = composite[j]!, C = body.centre, I = body.inertia;
-        body.mass = 0; C.fill(0); I.fill(0);
-        for (const i of beyond[j]!) {
-          const m = segments[i]!.rigid.mass, c = centres[i]!;
-          body.mass += m; C[0] += m * c[0]; C[1] += m * c[1]; C[2] += m * c[2];
-        }
-        C[0] /= body.mass; C[1] /= body.mass; C[2] /= body.mass;
-        for (const i of beyond[j]!) {
-          // Each segment's own inertia, and its mass at its centre's offset d: m (|d|^2 E - d d').
-          const m = segments[i]!.rigid.mass, c = centres[i]!, own = inertias[i]!;
-          const d0 = c[0] - C[0], d1 = c[1] - C[1], d2 = c[2] - C[2], dd = d0 * d0 + d1 * d1 + d2 * d2;
-          I[0] += own[0] + m * (dd - d0 * d0); I[1] += own[1] + m * (dd - d1 * d1); I[2] += own[2] + m * (dd - d2 * d2);
-          I[3] += own[3] - m * d0 * d1; I[4] += own[4] - m * d0 * d2; I[5] += own[5] - m * d1 * d2;
-        }
+        const joint = joints[j]!;
+        gather(composite[j]!, beyond[j]!);
         const centre = toWorld(joint.child.pose.rotation, pivot[j]!, pivots[j]!), at = joint.child.pose.position;
         centre[0] += at.x; centre[1] += at.y; centre[2] += at.z;
         // A body-frame axis as the parent now carries it: P P0^-1 (`joint-state.ts` turns the other way).
@@ -293,17 +303,8 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
       }
       // The whole body about its centre of mass, and the root's rows about the root's centre.
       {
+        gather(whole, onSegments);
         const C = whole.centre, I = whole.inertia;
-        C.fill(0); I.fill(0);
-        for (let i = 0; i < segments.length; i++) { if (off[i]) continue; const m = segments[i]!.rigid.mass, c = centres[i]!; C[0] += m * c[0]; C[1] += m * c[1]; C[2] += m * c[2]; }
-        C[0] /= whole.mass; C[1] /= whole.mass; C[2] /= whole.mass;
-        for (let i = 0; i < segments.length; i++) {
-          if (off[i]) continue;
-          const m = segments[i]!.rigid.mass, c = centres[i]!, own = inertias[i]!;
-          const d0 = c[0] - C[0], d1 = c[1] - C[1], d2 = c[2] - C[2], dd = d0 * d0 + d1 * d1 + d2 * d2;
-          I[0] += own[0] + m * (dd - d0 * d0); I[1] += own[1] + m * (dd - d1 * d1); I[2] += own[2] + m * (dd - d2 * d2);
-          I[3] += own[3] - m * d0 * d1; I[4] += own[4] - m * d0 * d2; I[5] += own[5] - m * d1 * d2;
-        }
         const p0 = root.centre, c0 = centres[rootIndex]!, M = whole.mass;
         p0[0] = c0[0]; p0[1] = c0[1]; p0[2] = c0[2];
         const d = subTo(C, p0, work.a), dd = dot3(d, d), A = root.mass;

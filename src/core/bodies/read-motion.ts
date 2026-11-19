@@ -86,8 +86,11 @@ export function angularMomentumToRef(parts: readonly ReadSegment[], centre: Vect
 
 /** `segment`'s point `at` (world): its velocity into `linear`, and the segment's spin into `angular`. */
 export function motionAtToRef(segment: ReadSegment, at: Vector3, linear: Vector3, angular: Vector3): void {
-  const body = segment.body, c = centreOfToRef(segment, new Vector3());
+  const body = segment.body, c = centreOfToRef(segment, motionWork.centre);
   body.linearVelocityToRef(linear);
   body.angularVelocityToRef(angular);
-  linear.addInPlace(Vector3.Cross(angular, at.subtract(c)));
+  linear.addInPlace(Vector3.CrossToRef(angular, at.subtractToRef(c, motionWork.offset), motionWork.turning));
 }
+
+/** `motionAtToRef`'s work, made once: it keeps nothing between calls. */
+const motionWork = { centre: new Vector3(), offset: new Vector3(), turning: new Vector3() };

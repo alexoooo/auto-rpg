@@ -3,6 +3,7 @@ import womanHands from "../../../../assets/humanoid/woman-hands.json" with { typ
 import type { SourceKey } from "../../sources.ts";
 
 import { sourced, type Quantity, type Vec3 } from "../../quantity.ts";
+import { vec3 } from "../spec/vec.ts";
 import type { HandFigure } from "./figure.ts";
 import type { HumanModel } from "./rig.ts";
 import type { Side } from "../bilateral.ts";
@@ -29,7 +30,7 @@ const FILES: Readonly<Record<HumanModel, { readonly file: HandsFile; readonly so
 export function humanHands(model: HumanModel): Readonly<Record<Side, HandFigure>> {
   const { file, source } = FILES[model];
   const hand = (side: Side): HandFigure => {
-    const at = (point: readonly number[], path: string): Quantity<Vec3> => sourced(point as unknown as Vec3, "m", source, `/${side}/${path}`);
+    const at = (point: readonly number[], path: string): Quantity<Vec3> => sourced(vec3(point), "m", source, `/${side}/${path}`);
     const { palm, fist } = file[side];
     return Object.freeze({
       palm: Object.freeze({ hull: Object.freeze(palm.hull.map((p, i) => at(p, `palm/hull/${i}`))), centre: at(palm.patch.centre, "palm/patch/centre") }),

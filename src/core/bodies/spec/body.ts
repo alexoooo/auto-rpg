@@ -162,7 +162,6 @@ interface EffectorSpec {
 /** **The paws `spec` stands on** (`PawLimb`, `BodySpec.ends`), in its spec's order: the order a crawl lifts them. */
 export const pawsOf = (spec: BodySpec): readonly PawLimb[] => (spec.ends ?? []).filter((end): end is PawLimb => end.kind === "paw");
 
-/** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
 /**
  * **A character's skills**: each variation of a skill it holds, as `skill/variation`
  * (`straight-punch/drive`: the skill a part's kind names, the variation one way of it). It may hold
@@ -198,6 +197,7 @@ export function withVariations(skills: SkillChoices, chosen: SkillChoices): Skil
   return Object.freeze(out);
 }
 
+/** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
 export type Substance = "flesh" | "bone" | "wood" | "metal" | "stone";
 
 /**
@@ -376,7 +376,8 @@ export function bellyOf(spec: BodySpec): Vec3 {
     if (!root || !high) throw new Error(`${spec.model} has no root or no ${spec.marks.high} to tell its belly by`);
     const up = high.centreOfMass.value[1] - root.centreOfMass.value[1], ahead = high.centreOfMass.value[2] - root.centreOfMass.value[2];
     // x cross y is z; x cross z is -y.
-    belly = Object.freeze(Math.abs(up) >= Math.abs(ahead) ? [0, 0, Math.sign(up)] : [0, -Math.sign(ahead), 0]) as unknown as Vec3;
+    const facing: Vec3 = Math.abs(up) >= Math.abs(ahead) ? [0, 0, Math.sign(up)] : [0, -Math.sign(ahead), 0];
+    belly = Object.freeze(facing);
     BELLIES.set(spec, belly);
   }
   return belly;

@@ -18,6 +18,9 @@ import { sourced, type Quantity } from "../../../quantity.ts";
  */
 export type Sex = "male" | "female";
 
+/** Who a table's column of `sex` is: men or women. */
+export const sexGroup = (sex: Sex): "men" | "women" => sex === "male" ? "men" : "women";
+
 export type DeLevaSegment =
   | "head" | "upperTrunk" | "middleTrunk" | "lowerTrunk"
   | "upperArm" | "forearm" | "hand" | "thigh" | "shank" | "foot";

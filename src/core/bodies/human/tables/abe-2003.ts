@@ -1,5 +1,5 @@
 import { sourced, type Quantity } from "../../../quantity.ts";
-import type { Sex } from "./de-leva-1996.ts";
+import { sexGroup, type Sex } from "./de-leva-1996.ts";
 
 /**
  * **Where young adults' skeletal muscle is, by sex**: Abe, Kearns & Fukunaga 2003, Table 1. Whole
@@ -24,12 +24,10 @@ const PRINTED: Readonly<Record<Sex, { readonly mass: number } & Readonly<Record<
   male: { mass: 63.5, trunk: 9.7, arms: 2.3, upperLegs: 8.0, lowerLegs: 2.4 },
   female: { mass: 55.6, trunk: 5.5, arms: 1.2, upperLegs: 5.0, lowerLegs: 1.8 },
 };
-const column = (sex: Sex): string => (sex === "male" ? "men" : "women");
-
 /** The mean body mass of the paper's people of `sex`. */
 export const abeBodyMass = (sex: Sex): Quantity<number> =>
-  sourced(PRINTED[sex].mass, "kg", "abe-2003", `Table 1, body mass (kg), ${column(sex)}`);
+  sourced(PRINTED[sex].mass, "kg", "abe-2003", `Table 1, body mass (kg), ${sexGroup(sex)}`);
 
 /** Their mean skeletal muscle in `region`. */
 export const abeRegionalMuscle = (sex: Sex, region: MuscleRegion): Quantity<number> =>
-  sourced(PRINTED[sex][region], "kg", "abe-2003", `Table 1, ${ROW[region]} (kg), ${column(sex)}`);
+  sourced(PRINTED[sex][region], "kg", "abe-2003", `Table 1, ${ROW[region]} (kg), ${sexGroup(sex)}`);

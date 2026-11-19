@@ -1,6 +1,6 @@
 import { isRefused, type Refused } from "../../refusal.ts";
 import type { Vec3 } from "../../quantity.ts";
-import { cross, dot, length, scale, sub } from "./vec.ts";
+import { add, cross, dot, length, scale, sub } from "./vec.ts";
 
 /**
  * **The convex hull of a set of points**, for a collision shape that follows a surface (a trunk
@@ -98,7 +98,7 @@ function incremental(points: readonly Vec3[]): Hull | Refused {
     edges.set(key(u, v), face); edges.set(key(v, w), face); edges.set(key(w, u), face);
   };
   // Wound so each normal points away from the fourth corner.
-  const inside = scale([0, 1, 2].map((i) => points[a]![i]! + points[b]![i]! + points[c]![i]! + points[d]![i]!) as unknown as Vec3, 1 / 4);
+  const inside = scale(add(add(add(points[a]!, points[b]!), points[c]!), points[d]!), 1 / 4);
   for (const [u, v, w] of [[a, b, c], [a, c, d], [a, d, b], [b, d, c]] as const) {
     const n = cross(sub(points[v]!, points[u]!), sub(points[w]!, points[u]!));
     if (dot(n, sub(inside, points[u]!)) < 0) addFace(u, v, w); else addFace(u, w, v);
