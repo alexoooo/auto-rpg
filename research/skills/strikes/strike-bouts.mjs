@@ -215,7 +215,7 @@ if (isMainThread) {
             const hold = offers.find((offer) => offer.name === "hold")?.terms;
             decisions[side].push([+duel.clock.toFixed(4), +Math.hypot(a.x - b.x, a.z - b.z).toFixed(3), engagement.phase, ...termsOf(terms), +me.pool.bar().toFixed(5), +foe.pool.bar().toFixed(5),
               hold && hold.duration > 0 ? +(hold.taken / hold.duration).toFixed(6) : null,
-              offers.filter((offer) => offer.kind === "strike").map((offer) => [offer.name.split(":")[0], ...termsOf(offer.terms)]), engagement.foe ?? null,
+              offers.filter((offer) => offer.kind === "strike").map((offer) => [offer.name, ...termsOf(offer.terms)]), engagement.foe ?? null,
               [+a.x.toFixed(3), +a.z.toFixed(3)], [+b.x.toFixed(3), +b.z.toFixed(3)], engagement.kind ?? null]);
           }
         }

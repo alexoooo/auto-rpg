@@ -1,5 +1,5 @@
-import { segmentResource } from "../../skills/framework/action.ts";
-import type { TargetRef } from "../../skills/framework/action.ts";
+import { GUARD_RESOURCE } from "../../skills/framework/action.ts";
+import type { Resource, TargetRef } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { pairedSegment, sidesWith } from "../../core/bodies/bilateral.ts";
 import { deepFreeze } from "../../core/state.ts";
@@ -82,15 +82,14 @@ export function holdAt(x: number, z: number, within: number, walk: Pick<Walker, 
 
 /**
  * **The hands at their guard**, where the legs can carry the body (`legsReadiness`; on offer at a
- * state where it stands, `standing`), holding it as it is (`holding`): each of
- * `hands` (effectors, `hand.left`) it is given (a rest option takes whichever are free, `Chooser`)
- * asked for nothing, its guard the body's; each of `shields` among them (a hand holding a covering
- * face) between a foe's weapon and the body while one is near (`Situation.ward`), as a shield's
- * guard is held.
+ * state where it stands, `standing`), holding it as it is (`holding`): it claims the guard
+ * (`GUARD_RESOURCE`) and asks the hands for nothing, its guard the body's; each of `shields` (a hand
+ * holding a covering face) between a foe's weapon and the body while one is near
+ * (`Situation.ward`), as a shield's guard is held.
  */
-function guard(hands: readonly string[], shields: readonly string[] = []): Option {
+function guard(shields: readonly string[]): Option {
   const covers: Record<string, Cover> = {};
-  return { name: "guard", kind: "guard", claims: Object.freeze(hands.map(segmentResource)), state: {}, ...RESTING,
+  return { name: "guard", kind: "guard", claims: GUARDING, state: {}, ...RESTING,
     entry: (now) => legsReadiness(now.sight.view), model: (at, ask) => standing(at) ? holding(at, ask) : null,
     step: (now) => {
       const asked = { move: null, face: now.sight.report.legs.heading, actions: [] };
@@ -107,8 +106,11 @@ function guard(hands: readonly string[], shields: readonly string[] = []): Optio
  */
 export const guardOf = (spec: BodySpec, covering: readonly string[]): readonly Option[] => {
   const hands = sidesWith(spec, "hand").map((side) => pairedSegment("hand", side));
-  return hands.length ? [guard(hands, shieldHands(spec).filter((hand) => hands.includes(hand) && covering.includes(hand)))] : [];
+  return hands.length ? [guard(shieldHands(spec).filter((hand) => hands.includes(hand) && covering.includes(hand)))] : [];
 };
+
+/** What a guard's Options claim: the guard (`GUARD_RESOURCE`). */
+export const GUARDING: readonly Resource[] = Object.freeze([GUARD_RESOURCE]);
 
 /** A brace's target: none; the body acts on itself. */
 const HERE: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });

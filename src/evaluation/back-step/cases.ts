@@ -105,7 +105,7 @@ export const createBackStepCases = perContext((context: GameContext) => {
     const gaits: Gait[] = [...STOCK_GAITS,
       { name: "set", label: "Set", legs: { kind: "stance-walk", variation: "stance-walk", carriage: CARRIAGE } as ConfigFor<"gait"> },
       BACK_STEP_GAIT];
-    return withLegs({ ...mind, options: [ORDERS_OPTION.defaults, ...standingOptions(mind)] }, { ...GOING, gaits });
+    return withLegs({ ...mind, options: [ORDERS_OPTION.defaults, ...standingOptions(mind, context.catalog.allParts())] }, { ...GOING, gaits });
   }
 
   /** The Warrior's own Mind fighting as in the game, choosing no back step of its own, its legs going by the back step's gait (`BACK_STEP_GAIT`) beside the stock gaits: what `SPAR_FIGHT` orders the sway. */

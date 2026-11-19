@@ -195,7 +195,7 @@ const fitting = (config: GroundConfig<string>, spec: BodySpec, parts: PartLookup
 function groundKind<K extends string>(kind: K, label: string, technique: TechniqueName, routing: { readonly purpose: "ascent" | "fallback" } | null,
   make: (given: ProfileOptionContext, config: GroundConfig<K>, part: TechniquePart) => readonly Option[]): ProfileOptionPart<GroundConfig<K>> {
   const wayUp = routing !== null;
-  return deepFreeze<ProfileOptionPart<GroundConfig<K>>>({ role: "option", model: PROFILE_MODEL, label, stage: "game", ...(routing ? { recovery: { purpose: routing.purpose, technique: (config: GroundConfig<K>) => config.skill } } : {}), fields: [], slots: [slotSkill("skill", "Technique", "technique")],
+  return deepFreeze<ProfileOptionPart<GroundConfig<K>>>({ role: "option", model: PROFILE_MODEL, label, stage: "game", stands: true, ...(routing ? { recovery: { purpose: routing.purpose, technique: (config: GroundConfig<K>) => config.skill } } : {}), fields: [], slots: [slotSkill("skill", "Technique", "technique")],
     defaults: { kind, skill: { kind: technique } }, keys: { kind: true, skill: true } as KeysOf<GroundConfig<K>>, fits: anyBody,
     faults: (config: GroundConfig<K>, parts: PartLookup) => isWayUp(parts.of("technique", config.skill)) === wayUp ? [] : [`skill: ${wayUp ? "a way up" : "a mode of the ground"}`],
     skills: (config: GroundConfig<K>, spec: BodySpec, parts: PartLookup): NamedSkills | null => fitting(config, spec, parts) ? { technique: config.skill } : null,

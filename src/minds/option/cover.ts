@@ -5,7 +5,7 @@ import { coveringHand } from "./cover-hand.ts";
 import type { Resource } from "../../skills/framework/action.ts";
 import { blocked, READY, type Situation, type Option } from "./option.ts";
 import { NOTHING } from "../choice.ts";
-import { holding } from "./rest.ts";
+import { GUARDING, holding } from "./rest.ts";
 import { type Side, pairedSegment, sidesWith } from "../../core/bodies/bilateral.ts";
 
 /** The share of a blow's life on the head a cover keeps off. */
@@ -15,7 +15,7 @@ const STOPS = .6;
  * **The cover**: one option of a body of `spec`, its target the blow predicted to reach the head
  * (`Situation.incoming`, `READINGS.predicted`), carried out by the hand on the side the blow closes
  * from (`coveringHand`: none where that hand holds a covering face, whose ward is the guard's).
- * On offer while there is such a hand and no action under way holds it, down or standing. It claims that hand,
+ * On offer while there is such a hand and no action under way holds it, down or standing. It claims the guard (`GUARDING`) and that hand,
  * asks it between the blow and the head, and is priced as holding the body as it is (`holding`)
  * less the share of the blow's life it keeps off (`STOPS` of `Predictions.danger`), at a state with
  * a blow coming; as holding, where the foe's pressure holds the blow (`OthersModel.holdsBlow`). It
@@ -34,12 +34,13 @@ export function covers(spec: BodySpec, hands: readonly string[]): readonly Optio
     return state.hand = coveringHand(spec, dx * cos(h) - dz * sin(h) >= 0 ? "right" : "left");
   };
   const OFF = blocked("no blow for a hand to cover"), HELD = blocked("an action holds the covering hand");
-  const claims: Readonly<Record<Side, readonly Resource[]>> = { left: Object.freeze([segmentResource(pairedSegment("hand", "left"))]), right: Object.freeze([segmentResource(pairedSegment("hand", "right"))]) };
+  const claimsOf = (side: Side): readonly Resource[] => Object.freeze([segmentResource(pairedSegment("hand", side)), ...GUARDING]);
+  const claims: Readonly<Record<Side, readonly Resource[]>> = { left: claimsOf("left"), right: claimsOf("right") };
   const sides = sidesWith(spec, "hand").filter((side) => hands.includes(pairedSegment("hand", side)));
   const option: Option = {
     name: "cover", kind: "cover", state,
-    /** The hand on the blow's side, as the entry last read it. */
-    get claims() { return state.hand ? claims[state.hand] : NOTHING; },
+    /** The guard, and the hand on the blow's side as the entry last read it. */
+    get claims() { return state.hand ? claims[state.hand] : GUARDING; },
     entry: (now) => {
       const side = handAt(now);
       if (side === null || !sides.includes(side)) return OFF;
