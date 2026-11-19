@@ -277,8 +277,8 @@ export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[
 
 /** `segment`'s fits (`FootState.fits`), a foot on `chain`, at `weight` and `inset` and its ankle's strength now. */
 function fitsOf(segment: ReadSegment, chain: readonly ReadJoint[], weight: number, inset: number): SoleFits {
-  const flat = fitOf(segment, chain, weight, inset, true), toes = segment.spec.toes?.length.value;
-  return { flat, bent: toes === undefined ? flat : fitOf(segment, chain, weight, inset, false), within: toes === undefined ? Infinity : asin(Math.min(DOWN / toes, 1)) };
+  const flat = fitOf(segment, chain, { weight, inset, toes: "flat" }), toes = segment.spec.toes?.length.value;
+  return { flat, bent: toes === undefined ? flat : fitOf(segment, chain, { weight, inset, toes: "bent" }), within: toes === undefined ? Infinity : asin(Math.min(DOWN / toes, 1)) };
 }
 
 /** Each freedom of `chain`'s strength now (`ReadJoint.strength`), in its joints' order, into `out`; whether any differs from what `out` held. */
@@ -298,25 +298,28 @@ function strengthOf(chain: readonly ReadJoint[], out: Float64Array): boolean {
  */
 const FITS = new WeakMap<SegmentSpec, WeakMap<JointSpec, Map<string, SoleFit>>>();
 
-/** `soleFit`, read once for each foot's spec, ankle's spec, weight, inset and toes. */
-function fitOf(segment: ReadSegment, chain: readonly ReadJoint[], weight: number, inset: number, toesFlat: boolean): SoleFit {
+/** How a sole is read (`soleFit`): at the body's `weight`, its edges drawn in by `inset`, its `toes` flat or bent (`soleCorners`). */
+interface SoleRead { readonly weight: number; readonly inset: number; readonly toes: "flat" | "bent" }
+
+/** `soleFit`, read once for each foot's spec, ankle's spec, and way it is read. */
+function fitOf(segment: ReadSegment, chain: readonly ReadJoint[], read: SoleRead): SoleFit {
   let byAnkle = FITS.get(segment.spec);
   if (!byAnkle) FITS.set(segment.spec, byAnkle = new WeakMap());
   let byRead = byAnkle.get(chain[2]!.spec);
   if (!byRead) byAnkle.set(chain[2]!.spec, byRead = new Map());
-  const ankle = chain[2]!, key = `${weight} ${inset} ${toesFlat} ${ankle.dofs.map((_, dof) => ankle.strength(dof)).join(" ")}`;
+  const ankle = chain[2]!, key = `${read.weight} ${read.inset} ${read.toes} ${ankle.dofs.map((_, dof) => ankle.strength(dof)).join(" ")}`;
   let fit = byRead.get(key);
-  if (!fit) byRead.set(key, fit = Object.freeze(soleFit(segment, chain, weight, inset, toesFlat)));
+  if (!fit) byRead.set(key, fit = Object.freeze(soleFit(segment, chain, read)));
   return fit;
 }
 
 /**
- * What a stance reads from the sole of `segment`, a foot on `chain` (`soleCorners`, its toes flat
- * or not), reference pose: the sole, what its ankle holds over it at `weight` drawn in by `inset`
+ * What a stance reads from the sole of `segment`, a foot on `chain` (`soleCorners`, its `toes` as
+ * read), reference pose: the sole, what its ankle holds over it at `weight` drawn in by `inset`
  * (`holdOf`), and its measures.
  */
-function soleFit(segment: ReadSegment, chain: readonly ReadJoint[], weight: number, inset: number, toesFlat: boolean): SoleFit {
-  const corners = soleCorners(segment, toesFlat), sole = soleOf(segment, corners);
+function soleFit(segment: ReadSegment, chain: readonly ReadJoint[], { weight, inset, toes }: SoleRead): SoleFit {
+  const corners = soleCorners(segment, toes), sole = soleOf(segment, corners);
   const ankle = chain[2]!.spec.centre.value, ahead = aheadOf(corners, ankle), [mx, mz] = ankleToMiddle(corners, ankle);
   const { points, reach: holdReach, hold: ankleHold } = holdOf(corners, ahead, ankle, chain[2]!, weight, inset);
   return { sole, hold: soleOf(segment, points), holdReach, ankleHold, ahead,
@@ -355,7 +358,7 @@ function fitSole(foot: FootState): void {
  * (Thelen 2003). Along it, a sole held past its peak tips onto its toes or its heel, which the
  * stance reads and plans on (`bearingEnd`).
  */
-function ankleStrength(muscle: MuscleSpec, strength: number, sense: "peakPositive" | "peakNegative", across: boolean): number {
+function ankleStrength(muscle: MuscleSpec, { strength, sense, across }: { readonly strength: number; readonly sense: "peakPositive" | "peakNegative"; readonly across: boolean }): number {
   const curve = sense === "peakPositive" ? muscle.speedPositive : muscle.speedNegative;
   return strength * muscle[sense].value * (across ? curve.eccentricCeiling.value : 1);
 }
@@ -384,7 +387,7 @@ function holdOf(corners: readonly Vec3[], ahead: readonly number[], ankle: Vec3,
     const dof = joint.dofs.findIndex((d) => d.spec.positive === name);
     if (dof < 0) return Infinity;
     const muscle = joint.dofs[dof]!.spec.muscle;
-    return muscle ? ankleStrength(muscle, joint.strength(dof), sense, name === "inversion") : 0;
+    return muscle ? ankleStrength(muscle, { strength: joint.strength(dof), sense, across: name === "inversion" }) : 0;
   };
   // Dorsiflexion (toes up) presses the heel into the ground, plantar flexion the toes; inversion and eversion each press a side.
   const hold: AnkleHold = { toe: strength("dorsiflexion", "peakNegative"), heel: strength("dorsiflexion", "peakPositive"),
@@ -445,7 +448,7 @@ export function standingHeight(built: ReadBody): number {
     const segment = built.segments.get(end.segment);
     if (!segment) throw new Error(`${built.spec.model} has no segment ${end.segment} for its end ${end.name}`);
     if (end.kind === "paw") { sole += segment.spec.points![end.point]!.value[1]; count += 1; continue; }
-    for (const corner of soleCorners(segment, true)) {
+    for (const corner of soleCorners(segment, "flat")) {
       sole += corner[1];
       count += 1;
     }
@@ -458,7 +461,7 @@ export function standingHeight(built: ReadBody): number {
 export function standingFooting(built: ReadBody): { offsets: Record<Side, readonly [number, number]>; length: number } {
   const middle = (side: Side): readonly [number, number] => {
     const foot = built.segments.get(stanceFeet(built.spec).find(foot => foot.side === side)!.end.segment)!;
-    const corners = soleCorners(foot, true);
+    const corners = soleCorners(foot, "flat");
     return [corners.reduce((sum, corner) => sum + corner[0], 0) / corners.length,
       corners.reduce((sum, corner) => sum + corner[2], 0) / corners.length];
   };
@@ -829,17 +832,17 @@ function lengthsOf(chain: readonly ReadJoint[]): [number, number] {
 
 /**
  * The corners of `foot`'s sole, body frame, reference pose: the four corners of its box lowest
- * there, its front ones carried out to its toes' tips (`ToesSpec`) under `toesFlat`. Flat toes
- * bear the foot as its sole does; bent, it turns about the ball, the box's front.
+ * there, its front ones carried out to its toes' tips (`ToesSpec`) where its `toes` are flat. Flat
+ * toes bear the foot as its sole does; bent, it turns about the ball, the box's front.
  */
-function soleCorners(foot: ReadSegment, toesFlat: boolean): Vec3[] {
+function soleCorners(foot: ReadSegment, toes: "flat" | "bent"): Vec3[] {
   const shape = foot.spec.shape;
   if (shape.kind !== "box") throw new Error(`${foot.spec.name} is a ${shape.kind}; a stance reads a box's sole`);
   const { x, y, z } = foot.frame, centre = shape.centre.value, size = shape.size.value;
-  const toes = toesFlat ? foot.spec.toes?.length.value ?? 0 : 0;
+  const tips = toes === "flat" ? foot.spec.toes?.length.value ?? 0 : 0;
   const corners: Vec3[] = [];
   for (const sx of [-0.5, 0.5]) for (const sy of [-0.5, 0.5]) for (const sz of [-0.5, 0.5]) {
-    const at = (k: number) => centre[k]! + sx * size[0] * x[k]! + (sy * size[1] + (sy > 0 ? toes : 0)) * y[k]! + sz * size[2] * z[k]!;
+    const at = (k: number) => centre[k]! + sx * size[0] * x[k]! + (sy * size[1] + (sy > 0 ? tips : 0)) * y[k]! + sz * size[2] * z[k]!;
     corners.push([at(0), at(1), at(2)]);
   }
   corners.sort((a, b) => a[1] - b[1]);

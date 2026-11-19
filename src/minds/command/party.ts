@@ -225,8 +225,8 @@ function partyCommander(host: TeamHost, config: PartyConfig): Commander {
     return leader.fighting ? approach(leader.id, TRAIL_METRES) : null;
   };
 
-  /** What `order` has a member doing, in a word or two: what it was told, or does untold. */
-  const task = (order: TeamOrder, post: GroundPoint | null, leads: boolean): string => {
+  /** What `order` has a member doing, in a word or two: what it was told, or does untold, at its `post` or none, whether it `leads`. */
+  const task = (order: TeamOrder, { post, leads }: { readonly post: GroundPoint | null; readonly leads: boolean }): string => {
     switch (order.kind) {
       case "idle": return post ? "holding" : leads ? "standing" : "with you";
       case "lock": return "fighting";
@@ -352,7 +352,7 @@ function partyCommander(host: TeamHost, config: PartyConfig): Commander {
     idle: () => false,
     report(member: string): MemberReport {
       const mind = state.members[member], order = mind?.order ?? IDLE;
-      return { target: mind?.target ?? null, task: task(order, mind?.post ?? null, member === state.leader), forced: order.kind === "force",
+      return { target: mind?.target ?? null, task: task(order, { post: mind?.post ?? null, leads: member === state.leader }), forced: order.kind === "force",
         selected: state.selected === null || state.selected.includes(member) };
     },
     get notice() { return state.notice; },

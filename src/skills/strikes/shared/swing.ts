@@ -260,7 +260,8 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
         const steer = act(learner, policy);
         if ((live.phase === "commit" || !live.opened) && ask(learner, live.step)) {
           live.opened = true;
-          steering.read(view, live.hand, live.time, live.sensed, live.aimed, (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0, learner.inputs);
+          steering.read(view, live.hand, { since: live.time, sensed: live.sensed, aimed: live.aimed,
+            touching: (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0 }, learner.inputs);
         }
         if (live.phase === "commit") steerPushes(pushes, steering.channels[live.hand], steer);
       }

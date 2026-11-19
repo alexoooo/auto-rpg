@@ -149,8 +149,8 @@ function limb(side: Side, feet: Extents): LimbFigure {
   const WJC = end(rollRing, -1, "WJC"), MET3 = end(wrist, -1, "MET3");
   // Thumb up: toward the thumb on the right hand, toward the little finger (down) on the left.
   const handRight = placeholder<Vec3>(side === "right" ? [0, 1, 0] : [0, -1, 0], "1", `the ${side} fist thumb up, as the bind's guard holds it`);
-  const footEnd = (front: boolean, what: string) => derive("m", `${what}: the foot bones' box, its middle across and up, its ${front ? "front" : "back"}`,
-    [feet.x.min, feet.x.max, feet.y.min, feet.y.max, front ? feet.z.max : feet.z.min],
+  const footEnd = (toward: "front" | "back", what: string) => derive("m", `${what}: the foot bones' box, its middle across and up, its ${toward}`,
+    [feet.x.min, feet.x.max, feet.y.min, feet.y.max, toward === "front" ? feet.z.max : feet.z.min],
     (x0, x1, y0, y1, z) => [(x0 + x1) / 2, (y0 + y1) / 2, z]);
   return {
     HJC: end(thigh, 1, "HJC"),
@@ -162,8 +162,8 @@ function limb(side: Side, feet: Extents): LimbFigure {
     MET3,
     DAC3: derive("m", `DAC3: ${fist.key}'s far side, its centre on along the hand's line by half its box`,
       [fist.position, fist.max[1]!, WJC, MET3], (at, half, w, k) => add(at, scale(normalize(sub(k, w)), half))),
-    HEEL: footEnd(false, "HEEL"),
-    TTIP: footEnd(true, "TTIP"),
+    HEEL: footEnd("back", "HEEL"),
+    TTIP: footEnd("front", "TTIP"),
     handRight,
     little: side === "right"
       ? derive("m", `the little finger's knuckle: ${fist.key}'s half-width from the middle knuckle, against the hand's right`,

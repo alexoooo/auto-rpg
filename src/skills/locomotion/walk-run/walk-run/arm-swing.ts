@@ -10,8 +10,10 @@ import { type Side, otherSide } from "../../../../core/bodies/bilateral.ts";
 
 /**
  * **The arms swinging** against the legs: each shoulder's flexion from the arm hanging, turned
- * forward by `gain` rad for every metre the other side's sole leads the centre of mass along the
- * heading, and no further than `ARM_REACH` rad either way; the caller holds the rest of the arm.
+ * forward by `gain` rad for every metre the other side's sole leads its own along the heading,
+ * halved, so the arms swing against each other about the hanging whatever the soles' mean lead,
+ * which a run carries behind; and no further than `ARM_REACH` rad either way. The caller holds the
+ * rest of the arm.
  * An arm reaches a posture that moves at a walk's cadence about `ARM_LEAD` s late (the servo's
  * lag), so each arm is asked where the other side's sole will be then: a swinging sole along its
  * way to its landing, a bearing one where it is, from the centre of mass run on.
@@ -25,12 +27,8 @@ interface Swinging {
   readonly off: boolean;
 }
 
-/**
- * An arm swing (`ARM_REACH`): `pose(view, heading, swinging)` gives the shoulders' flexions. `centred`,
- * each arm is turned by the half the other side's sole leads its own by instead, so the arms swing
- * against each other about the hanging whatever the soles' mean lead, which a run carries behind.
- */
-export function armSwing(spec: BodySpec, gain: number, centred = false): (view: BodyView, heading: number, swinging: Swinging) => Pose {
+/** An arm swing (`ARM_REACH`): `pose(view, heading, swinging)` gives the shoulders' flexions. */
+export function armSwing(spec: BodySpec, gain: number): (view: BodyView, heading: number, swinging: Swinging) => Pose {
   const progress = new Vector3(), feet = { left: footOn(spec, "left"), right: footOn(spec, "right") };
   return (view, heading, { step, swung, off }) => {
     const s = view.stance, fx = sin(heading), fz = cos(heading);
@@ -48,7 +46,7 @@ export function armSwing(spec: BodySpec, gain: number, centred = false): (view: 
     };
     const flexion = (side: Side): number => {
       const other = lead(otherSide(side));
-      return Math.min(ARM_REACH, Math.max(-ARM_REACH, gain * (centred ? (other - lead(side)) / 2 : other)));
+      return Math.min(ARM_REACH, Math.max(-ARM_REACH, gain * ((other - lead(side)) / 2)));
     };
     return { "shoulder.left flexion": flexion("left"), "shoulder.right flexion": flexion("right") };
   };

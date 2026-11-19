@@ -97,6 +97,8 @@ export function swingLegOf(chain: readonly ReadJoint[]): SwingLeg {
  * else the leg straight at the range, or, where the knee `bends` (a trailing leg behind, at the
  * end of its step), the thigh at the range and the shank down from the knee to the ankle's depth,
  * which the knee's bend takes further back. 0 where the hip stands higher than the leg is long.
+ * Scalars and a flag, no fields: it runs inside the pace's and the height's bisections every
+ * control step (`stepsWithin`), where an object a call is allocation.
  */
 function reachAt(leg: SwingLeg, range: number, bends: boolean, hip: number, long: number): number {
   if (hip >= long) return 0;
@@ -156,7 +158,7 @@ export function landingLean(leg: SwingLeg, dx: number, dz: number, cx: number, c
  * of it: within the ellipse of its reach (`reachAt`) ahead or behind and out or in, with the hip
  * `hip` over the ankle and the leg no longer than `long` (hip to ankle at the knee's least bend).
  * The leg reaches straight within its hip's range; behind, where the hip's range stops the thigh,
- * its knee bends for the rest if it `bends`.
+ * its knee bends for the rest if it `bends`. Scalars and a flag, as `reachAt`'s, for the same reason.
  */
 function shareOfReach(leg: SwingLeg, ahead: number, out: number, hip: number, long: number, bends: boolean): number {
   const ra = ahead >= 0 ? reachAt(leg, leg.range.ahead, false, hip, long) : reachAt(leg, leg.range.behind, bends, hip, long);

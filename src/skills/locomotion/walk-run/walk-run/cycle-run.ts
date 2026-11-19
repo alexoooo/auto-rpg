@@ -283,7 +283,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
   const memory: RunCycleMemory = { phase: 0, waited: 0, pace: 0, trim: 0, trimOrder: null, touching: { left: true, right: true }, root: new Quaternion(), heading: 0, lean: 0, bank: 0, steer: neutral(), steps: 0 };
   const scratch = { up: new Vector3(), spin: new Vector3(), target: new Quaternion(), pitch: new Quaternion(), roll: new Quaternion(), error: new Vector3(), relative: new Vector3(),
     speeds: [0, 0, 0] as [number, number, number], rates: new Float64Array(muscles.channels.length), pushes: new Int32Array(muscles.channels.length) };
-  const runner = armSwing(spec, settings.arms, true), brakeRunner = armSwing(spec, braking.arms, true), feet = { left: footOn(spec, "left"), right: footOn(spec, "right") };
+  const runner = armSwing(spec, settings.arms), brakeRunner = armSwing(spec, braking.arms), feet = { left: footOn(spec, "left"), right: footOn(spec, "right") };
   /** Whether the ground bore the foot on `side` in the last step (`StanceEnd.touching`). */
   const touching = (view: BodyView, side: Side): boolean => view.stance.ends[feet[side]]!.touching;
   const own = (side: Side): number => { const x = side === "left" ? memory.phase : memory.phase - 0.5; return x - Math.floor(x); };

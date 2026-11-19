@@ -35,8 +35,10 @@ export function faceSteering(body: Body, faces: Partial<Record<Side, StrikingFac
   const shoulder = new Vector3(), target = new Vector3(), apart = new Vector3(), struck = new Vector3();
   return {
     channels,
-    /** What `hand`'s blow `since` s old reads (`steerFeatures`), into `out`: the target `sensed` (world) moving at `aimed`, m/s. */
-    read(view: BodyView, hand: Side, since: number, sensed: Vec3, aimed: readonly number[], touching: boolean, out: number[]): void {
+    /** What `hand`'s blow `since` s old reads (`steerFeatures`), into `out`: the target `sensed` (world) moving at `aimed`, m/s, and whether the hand is `touching`. */
+    read(view: BodyView, hand: Side, { since, sensed, aimed, touching }: {
+      readonly since: number; readonly sensed: Vec3; readonly aimed: readonly number[]; readonly touching: boolean;
+    }, out: number[]): void {
       const limb = limbs[hand]!;
       limb.trunkChain.forEach((joint, j) => joint.dofs.forEach((_, k) => { limb.angles[j]![k] = view.angles[channelName(joint, k)] ?? 0; }));
       pointAtToRef(limb.trunkChain, limb.angles, limb.shoulder, shoulder);

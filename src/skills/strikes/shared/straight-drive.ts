@@ -397,14 +397,16 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
   const target = new Vector3(), shoulder = new Vector3(), head = new Vector3(), apart = new Vector3(), face = new Vector3();
   /**
    * The arm's angles that put its striking point `out` m from the shoulder on the line to the
-   * target, into the limb's `angles`: the trunk as it stands, or at its contact goals with
+   * target, into the limb's `angles`: the `trunk` as it stands, or at its contact goals where
    * `turned`; the elbow drawn toward `elbow`, a fist's wrist toward the line, the shoulder and a
    * held face's wrist toward where they are, a held face's arm from its guard.
    */
-  const solve = (view: BodyView, limb: Limb, turned: boolean, out: (apart: number, along: number) => number, elbow: number | null): void => {
+  const solve = (view: BodyView, limb: Limb, { trunk, out, elbow }: {
+    readonly trunk: TrunkAt; readonly out: (apart: number, along: number) => number; readonly elbow: number | null;
+  }): void => {
     const { chain, angles, free, goals } = limb;
     chain.forEach((joint, j) => joint.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(joint, k)] ?? 0; }));
-    if (turned) for (const g of goals) angles[g.joint]![g.k] = g.angle;
+    if (trunk === "turned") for (const g of goals) angles[g.joint]![g.k] = g.angle;
     // A held face's arm is solved from the guard, wherever a chamber has drawn it: one contact pose, not the one nearest a drawn-back arm.
     if (limb.behind) for (const f of free) angles[f.joint]![f.k] = guard[f.name] ?? angles[f.joint]![f.k]!;
     intoFrameToRef(view.root, state.target, target);
@@ -424,7 +426,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
   const chamber = (view: BodyView, hand: Side): Pose | null => {
     if (settings.chamber === 0) return null;
     const limb = limbs[hand], posture: Record<string, number> = { ...guard };
-    solve(view, limb, false, () => settings.chamber, guard[`elbow.${hand} flexion`] ?? null);
+    solve(view, limb, { trunk: "standing", out: () => settings.chamber, elbow: guard[`elbow.${hand} flexion`] ?? null });
     for (const f of limb.free) posture[f.name] = limb.angles[f.joint]![f.k]!;
     return posture;
   };
@@ -436,7 +438,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
    */
   const drive = (view: BodyView, hand: Side, since: number, pushes: MusclePush[], policy?: (features: readonly number[]) => number[]): Pose => {
     const limb = limbs[hand], posture: Record<string, number> = { ...(chamber(view, hand) ?? guard) }, step = state.step;
-    solve(view, limb, true, (apart) => apart + settings.through, null);
+    solve(view, limb, { trunk: "turned", out: (apart) => apart + settings.through, elbow: null });
     /** The share of this control step, from `since` for `step` s, that falls from `from` to `to`; with no step, whether `since` does. */
     const share = (from: number, to: number) => stepShare(since, step, from, to);
     const push = (channel: string, goal: number, part = 1) => {
@@ -512,12 +514,12 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
   /**
    * The arm's pose that puts its striking point `out(apart, along)` m from the shoulder on the line
    * to the target (`apart` m from it, the striking point now `along` m along it), the elbow drawn
-   * straight and the wrist onto the line, with the trunk as it stands or at its contact goals with
+   * straight and the wrist onto the line, with the `trunk` as it stands or at its contact goals where
    * `turned` (`StrokeReach`).
    */
-  const reach = (view: BodyView, hand: Side, out: (apart: number, along: number) => number, turned: boolean): StrokeReach => {
+  const reach = (view: BodyView, hand: Side, { out, trunk }: { readonly out: (apart: number, along: number) => number; readonly trunk: TrunkAt }): StrokeReach => {
     const limb = limbs[hand];
-    solve(view, limb, turned, out, null);
+    solve(view, limb, { trunk, out, elbow: null });
     return { apart: state.apart, along: state.along, arm: limb.arm, trunk: limb.goals.map((g) => ({ channel: g.channel, angle: g.angle })), turns: limb.turns, elbow: limb.elbow,
       pose: limb.free.map((f) => ({ channel: f.name, angle: limb.angles[f.joint]![f.k]! })) };
   };
@@ -525,6 +527,9 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
     heightFits: (hand: Side, up: number) => Math.abs(up - state.shoulders[hand][1]) <= settings.reach * limbs[hand].arm
       && (settings.above === undefined || up - state.shoulders[hand][1] <= settings.above) };
 }
+
+/** Where a straight drive's arm is solved with the trunk: as it stands, or turned to its contact goals. */
+export type TrunkAt = "standing" | "turned";
 
 /** **A straight drive's technique** (`straightTechnique`): what a throw (`Throw`) drives, reaches and steers by. */
 export type StraightTechnique = ReturnType<typeof straightTechnique>;

@@ -159,7 +159,7 @@ type Settling = { readonly sway: Omit<Sway, "down" | "facing">; readonly facing:
  * phase), and ends as that stops; each is kept once `SETTLE` s past its end. `afterStep` is given
  * the step's time and the life its blows took, HP.
  */
-function followSways(duel: Duel, chosen: boolean): { readonly sways: readonly Sway[]; afterStep(now: number, lost: number): void } {
+function followSways(duel: Duel, { chosen }: { readonly chosen: boolean }): { readonly sways: readonly Sway[]; afterStep(now: number, lost: number): void } {
   const subject = duel.duelists.left, attacker = duel.duelists.right;
   const view = "view" in subject.body ? (subject.body as HostedBody).view : null, head = centreReading(subject.built, "head"), theirHead = centreReading(attacker.built, "head");
   const sways: Sway[] = [], settling: Settling[] = [];
@@ -232,7 +232,7 @@ export type BackStepReads = { readonly seconds: number; readonly after?: number;
 
 /** The reader of a trial in which the subject, the bout's left side, meets the right side's straight punches (`followPunches`), its sways followed where `reads` says (`followSways`). */
 export function readBackStep({ world, duel }: { readonly world: World; readonly duel: Duel }, { seconds, after, sways: recording, chosen }: BackStepReads): Reader<BackStepReading> {
-  const { punches, afterStep: struck } = followPunches(duel), swaying = recording ? followSways(duel, chosen) : null;
+  const { punches, afterStep: struck } = followPunches(duel), swaying = recording ? followSways(duel, { chosen }) : null;
   let down = false;
   return {
     afterStep() {

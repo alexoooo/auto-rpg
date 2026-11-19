@@ -406,16 +406,16 @@ function navigated(navigation: Navigator | null, { sight, legs, envelope, reques
 
 /** The step's command frozen through: its readers share it without freezing an executor's own motion state. Its numbers are finite, but a push's speed, which may be unbounded (`MusclePush`). */
 function immutableCommand(command: BodyCommand): Readonly<BodyCommand> {
-  // `push`: the value is a push's, whose speed may be unbounded.
-  const copy = <T>(value: T, push = false, unbounded = false): T => {
-    if (typeof value === "number" && (unbounded ? Number.isNaN(value) : !Number.isFinite(value))) throw new Error("an action command needs finite numbers");
-    if (Array.isArray(value)) return Object.freeze(value.map(item => copy(item, push))) as T;
+  // What a value copied is: the command's, its pushes (each a push), or a push's speed, which may be unbounded.
+  const copy = <T>(value: T, kind: "command" | "pushes" | "speed"): T => {
+    if (typeof value === "number" && (kind === "speed" ? Number.isNaN(value) : !Number.isFinite(value))) throw new Error("an action command needs finite numbers");
+    if (Array.isArray(value)) return Object.freeze(value.map(item => copy(item, kind === "pushes" ? "pushes" : "command"))) as T;
     if (value !== null && typeof value === "object") {
       const result: Record<string, unknown> = {};
-      for (const key in value) if (Object.hasOwn(value, key)) result[key] = copy(value[key], key === "pushes", push && key === "speed");
+      for (const key in value) if (Object.hasOwn(value, key)) result[key] = copy(value[key], key === "pushes" ? "pushes" : kind === "pushes" && key === "speed" ? "speed" : "command");
       return Object.freeze(result) as T;
     }
     return value;
   };
-  return copy(command);
+  return copy(command, "command");
 }

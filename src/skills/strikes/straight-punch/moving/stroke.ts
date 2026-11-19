@@ -5,7 +5,7 @@ import type { Side } from "../../../../core/bodies/bilateral.ts";
 import { chainTo } from "../../../../control/kinematics.ts";
 import { channelName } from "../../../../core/bodies/muscle/driver.ts";
 import { segmentResource, TRUNK_RESOURCE } from "../../../framework/action.ts";
-import type { Goal, StrokeReach, ThrowMaker } from "../../shared/straight-drive.ts";
+import type { Goal, StrokeReach, ThrowMaker, TrunkAt } from "../../shared/straight-drive.ts";
 
 /** What `moving`'s stroke is given each step (`drive`). */
 interface StrokeAt {
@@ -17,8 +17,8 @@ interface StrokeAt {
   readonly kept: Record<string, number>;
   /** How far past the target the fist is steered toward, m (`StraightDrive.through`, its record's). */
   readonly through: number;
-  /** The arm's pose with its striking point `out(apart, along)` m from the shoulder on the line to the target (`StraightTechnique`'s `reach`). */
-  reach(out: (apart: number, along: number) => number, turned: boolean): StrokeReach;
+  /** The arm's pose with its striking point `out(apart, along)` m from the shoulder on the line to the target, the `trunk` as it stands or turned (`StraightTechnique`'s `reach`). */
+  reach(out: (apart: number, along: number) => number, trunk: TrunkAt): StrokeReach;
 }
 
 /** The channels of the limbs `body` bears on, `hand`'s own arm apart: each end's chain from the joint it begins at. */
@@ -46,7 +46,7 @@ export const MOVING_THROW: ThrowMaker = ({ body, guard, technique, settings, pol
     begin() { kept = {}; },
     touches: (met) => !(met?.kind === "body" && met.guard),
     drive(view, hand, since, touched, pushes) {
-      const posture = drive({ view, since, touched, guard, kept, through: settings.through, reach: (out, turned) => technique.reach(view, hand, out, turned) }, pushes);
+      const posture = drive({ view, since, touched, guard, kept, through: settings.through, reach: (out, trunk) => technique.reach(view, hand, { out, trunk }) }, pushes);
       if (settings.steered) technique.steer(view, hand, since, pushes, policy);
       return posture;
     },
@@ -98,7 +98,7 @@ const NEAR = 0.02;
  */
 function drive(at: StrokeAt, pushes: MusclePush[]): Pose {
   const { view, touched, kept } = at, posture: Record<string, number> = { ...at.guard };
-  const reached = at.reach((apart, along) => Math.min(apart + at.through, Math.max(0, along) + SPEED * AHEAD), false), pose = reached.pose;
+  const reached = at.reach((apart, along) => Math.min(apart + at.through, Math.max(0, along) + SPEED * AHEAD), "standing"), pose = reached.pose;
   const trunk: Goal[] = [];
   for (const goal of reached.trunk) {
     if (!reached.turns.includes(goal.channel)) { trunk.push(goal); continue; }
