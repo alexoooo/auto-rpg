@@ -18,7 +18,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { deserialize } from "node:v8";
 import { writeRecord } from "../../../../research/skills/skill-records.mjs";
-import { reptileSpec } from "../../../../src/core/bodies/quadruped/spec.ts";
+import { quadrupedSpec } from "../../../../src/core/bodies/quadruped/spec.ts";
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? fallback : process.argv[i + 1]; };
 const MODEL = arg("model", "rat"), GENS = Number(arg("gens", 50)), POP = Number(arg("pop", 24)), WORKERS = Number(arg("workers", 19));
@@ -126,7 +126,7 @@ const starts = STARTS.map((s, i) => ({ ...s, ...best.results[i] }));
 console.log(JSON.stringify({ starts, score: best.score }));
 if (process.argv.includes("--write")) {
   const made = `Found on the ${MODEL} by scripts/skills/recovery/righting/righting.mjs: CMA-ES over each pose's angles of the hips, knees and elbows, the neck and the tail's base, its hold and its mark, each candidate played through the game's mind (Node stand, Rapier, 120 Hz) and scored on its worst start and its mean; ${STARTS.length} starts, score ${best.score.toFixed(2)}.`;
-  writeRecord("righting", reptileSpec(data, MODEL, `${MODEL}-anatomy`).model, made, best.recipe);
+  writeRecord("righting", quadrupedSpec(data, MODEL, `${MODEL}-anatomy`).model, made, best.recipe);
 } else {
   const out = arg("out", resolve(ROOT, `.tmp/righting/${MODEL}.json`));
   mkdirSync(dirname(out), { recursive: true });

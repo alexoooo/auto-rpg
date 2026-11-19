@@ -1,16 +1,25 @@
-import type { BodySpec, SegmentSpec, ShapeSpec } from "../spec/body.ts";
+import { pawsOf, type BodySpec, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 import { add, dot, normalize, scale, sub } from "../spec/vec.ts";
 import { cuboidMoments, cylinderMoments } from "../spec/geometry.ts";
 import type { Physique } from "../human/physique.ts";
+import { BOUT_HASTE } from "../human/attributes.ts";
 
-/** The reptile's own anatomy with the character's physique and leg-speed capability. */
-export function reptilePhysique(spec: BodySpec, physique: Physique = {}, haste = 0): BodySpec {
+/** The joints of `spec`'s legs: each joint from a paw it stands on (`pawsOf`) up to its root. */
+function legJoints(spec: BodySpec): ReadonlySet<string> {
+  const byChild = new Map(spec.joints.map((joint) => [joint.child, joint]));
+  const legs = new Set<string>();
+  for (const paw of pawsOf(spec)) for (let joint = byChild.get(paw.segment); joint; joint = byChild.get(joint.parent)) legs.add(joint.name);
+  return legs;
+}
+
+/** A quadruped's own anatomy with the character's physique and leg-speed capability. */
+export function quadrupedPhysique(spec: BodySpec, physique: Physique, haste: number): BodySpec {
   const s = physique.size ?? 1, w = physique.weight ?? 1, strength = physique.strength ?? 1, speed = physique.speed ?? 1;
   if (s === 1 && w === 1 && strength === 1 && speed === 1 && haste === 0) return spec;
-  const size = sourced(s, "1", "owner-physique", "reptile size"), weight = sourced(w, "1", "owner-physique", "reptile weight");
-  const torque = sourced(strength, "1", "owner-physique", "reptile strength"), velocity = sourced(speed, "1", "owner-physique", "reptile speed");
-  const quick = sourced(haste, "%", "owner-haste", "the reptile's four legs");
+  const size = sourced(s, "1", "owner-physique", "size"), weight = sourced(w, "1", "owner-physique", "weight");
+  const torque = sourced(strength, "1", "owner-physique", "strength"), velocity = sourced(speed, "1", "owner-physique", "speed");
+  const quick = sourced(haste, "%", "owner-haste", BOUT_HASTE), legs = legJoints(spec);
   const breadth = derive("1", "the square root of the weight", [weight], Math.sqrt);
   const scaled = (p: Quantity<Vec3>) => s === 1 ? p : derive("m", "the point times size", [p, size], (p, k) => scale(p, k));
   const mass = (m: Quantity<number>) => derive("kg", "mass times size cubed and weight", [m, size, weight], (m, s, w) => m * s * s * s * w);
@@ -40,7 +49,7 @@ export function reptilePhysique(spec: BodySpec, physique: Physique = {}, haste =
       [own, collision.from, collision.to, collision.radius], (m, a, b, r) => {
         const d = sub(b, a); return cylinderMoments(m, Math.sqrt(dot(d, d)) + 2 * r, r);
       });
-    else throw new Error("the reptile's mass-bearing shapes are boxes and capsules");
+    else throw new Error("a quadruped's mass-bearing shapes are boxes and capsules");
     return { ...segment, proximal: scaled(segment.proximal), distal: scaled(segment.distal), mass: own, centreOfMass: point(segment.centreOfMass), inertia,
       shape: collision,
       ...(segment.points && { points: Object.fromEntries(Object.entries(segment.points).map(([key, p]) => [key, point(p)])) }),
@@ -61,7 +70,7 @@ export function reptilePhysique(spec: BodySpec, physique: Physique = {}, haste =
       peakNegative: derive("N m", "torque times size cubed and strength", [d.muscle.peakNegative, size, torque], (t, s, k) => t * s * s * s * k),
       ...Object.fromEntries((["speedPositive", "speedNegative"] as const).map(key => [key, { ...d.muscle[key],
         unloadedSpeed: derive("rad/s", "muscle speed times speed and, on a leg, one plus haste", [d.muscle[key].unloadedSpeed, velocity,
-          /^(girdle|bend|ankle)\./.test(j.name) ? quick : sourced(0, "%", "owner-haste", "a joint outside the legs"),
+          legs.has(j.name) ? quick : sourced(0, "%", "owner-haste", "a joint outside the legs"),
           sourced(100, "1", "owner-haste", "per cent denominator")], (v, speed, h, percent) => v * speed * (1 + h / percent)),
       }])),
     } })) })),

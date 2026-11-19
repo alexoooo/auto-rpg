@@ -13,11 +13,14 @@ export function humanAttributes(figure: HumanFigure): AttributeSpec {
 /** A human's haste: its legs' muscles at a person's speed, nothing over it: every character's. */
 export const HUMAN_HASTE = sourced(0, "%", "owner-haste", "every character 0");
 
+/** Where a haste given in place of a character's says it came from (`owner-haste`), in every family. */
+export const BOUT_HASTE = "a bout's haste";
+
 /** `figure` with its haste `haste` per cent over a person's, a bout's or an experiment's in place of its character's; `figure` itself where none is given. */
 export function hastedFigure(figure: HumanFigure, haste?: number): HumanFigure {
   if (haste === undefined) return figure;
   if (attributeError("haste", haste)) throw new Error(`a haste is a finite per cent over a person's, above -100: ${haste}`);
-  return { ...figure, haste: sourced(haste, "%", "owner-haste", "a bout's haste") };
+  return { ...figure, haste: sourced(haste, "%", "owner-haste", BOUT_HASTE) };
 }
 
 /** A haste written for a reader, signed: `+50`, `-20`, `0`. */

@@ -126,7 +126,7 @@ export interface DuelRecipe {
   readonly seed?: number;
   /** Each side's steadiness, per cent of its weight, in place of its character's (`AttributeSpec.steadiness`): an experiment's, or a link's. */
   readonly steadiness?: { readonly left: number; readonly right: number };
-  /** Each side's haste, per cent over a person's, in place of its character's (`AttributeSpec.haste`), where its model takes one (`modelHastes`): an experiment's, or a link's. */
+  /** Each side's haste, per cent over a person's, in place of its character's (`AttributeSpec.haste`): an experiment's, or a link's. */
   readonly haste?: Readonly<Partial<Record<Side, number>>>;
   /** What a per cent of steadiness is, in place of the rulebook's (`Rulebook.steadiness`): a sweep's. */
   readonly steadinessPercent?: AssistCeiling;

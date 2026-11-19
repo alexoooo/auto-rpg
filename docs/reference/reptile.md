@@ -1,7 +1,7 @@
 # Reptile anatomy and control
 
 The quadrupeds' bodies (`assets/reptile/body.json`, `assets/rat/body.json`, both read by
-`reptileSpec`, `src/core/bodies/quadruped/spec.ts`), what their controllers' settings serve, and
+`quadrupedSpec`, `src/core/bodies/quadruped/spec.ts`), what their controllers' settings serve, and
 their place in the Crypt. The numbers are in the body files, the fit scripts and the tuning
 records; this page says what is an estimate and why each fit departs from its art.
 

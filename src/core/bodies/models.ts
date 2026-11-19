@@ -1,8 +1,9 @@
 import { HUMANOID_MODELS, humanoidSpec, humanoidSpecChecked, type HumanoidModel } from "./human/spec.ts";
-import type { Physique } from "./human/physique.ts";
+import { PHYSIQUE_ATTRIBUTES, type Physique } from "./human/physique.ts";
+import { BOUT_HASTE } from "./human/attributes.ts";
 import { withVariations, type BodySpec, type SkillChoices } from "./spec/body.ts";
 import characters from "../../../assets/characters/characters.json" with { type: "json" };
-import { reptileSpec } from "./quadruped/spec.ts";
+import { quadrupedSpec } from "./quadruped/spec.ts";
 import reptileBody from "../../../assets/reptile/body.json" with { type: "json" };
 import ratBody from "../../../assets/rat/body.json" with { type: "json" };
 import { deepFreeze } from "../state.ts";
@@ -13,7 +14,7 @@ import { attributesError, type AttributeOverrides, type CharacterAttributes } fr
 import { sourced } from "../quantity.ts";
 import { quantityAdmission } from "./spec/admission.ts";
 import { bodyIntersections } from "./spec/clearance.ts";
-import { reptilePhysique } from "./quadruped/physique.ts";
+import { quadrupedPhysique } from "./quadruped/physique.ts";
 
 /** Models available to game builders, independent of a family's anatomical constructor. */
 export type BodyModel = HumanoidModel | "reptile" | "rat";
@@ -38,24 +39,18 @@ export interface ResolvedCharacter {
   readonly spec: BodySpec;
 }
 
-/**
- * **A body family's entry** (`FAMILIES`): its unmodified anatomy, that anatomy under a physique
- * and haste, and whether it takes a haste in place of its character's.
- */
+/** **A body family's entry** (`FAMILIES`): its unmodified anatomy, and that anatomy under a physique and haste. */
 interface Family {
   spec(model: BodyModel): BodySpec;
   physique(model: BodyModel, original: BodySpec, physique: Physique, haste: number): BodySpec | Refused;
-  readonly hastes: boolean;
 }
 
 const HUMANOID: Family = deepFreeze({ spec: (model: BodyModel) => humanoidSpec(model as HumanoidModel),
-  physique: (model: BodyModel, _original: BodySpec, physique: Physique, haste: number) => humanoidSpecChecked(model as HumanoidModel, physique, haste),
-  hastes: true });
+  physique: (model: BodyModel, _original: BodySpec, physique: Physique, haste: number) => humanoidSpecChecked(model as HumanoidModel, physique, haste) });
 /** A quadruped's family over its body file: the reptile's sprawl, or the rat's legs under its trunk. */
-const quadruped = (data: Parameters<typeof reptileSpec>[0], source: Parameters<typeof reptileSpec>[2]): Family => deepFreeze({
-  spec: (model: BodyModel) => reptileSpec(data, model, source),
-  physique: (_model: BodyModel, original: BodySpec, physique: Physique, haste: number) => reptilePhysique(original, physique, haste),
-  hastes: true });
+const quadruped = (data: Parameters<typeof quadrupedSpec>[0], source: Parameters<typeof quadrupedSpec>[2]): Family => deepFreeze({
+  spec: (model: BodyModel) => quadrupedSpec(data, model, source),
+  physique: (_model: BodyModel, original: BodySpec, physique: Physique, haste: number) => quadrupedPhysique(original, physique, haste) });
 const REPTILE = quadruped(reptileBody, "reptile-anatomy"), RAT = quadruped(ratBody, "rat-anatomy");
 
 /** **Every model's family**: the one list a body family is added to in the core. */
@@ -76,13 +71,19 @@ export interface Character {
 }
 
 /** **The characters and each model's own** (`assets/characters/characters.json`): as many characters on a model as it likes, one of them the model's. */
-export interface CharacterRegistry {
+interface CharacterRegistry {
   readonly characters: Readonly<Record<string, Character>>;
   readonly models: Readonly<Record<BodyModel, string>>;
 }
 
+/** The characters' file as it is read, before `checkRegistry` admits it. */
+interface RegistryFile {
+  readonly characters: Readonly<Record<string, { readonly model: string; readonly label: string; readonly skills: unknown }>>;
+  readonly models: Readonly<Record<string, string>>;
+}
+
 /** Why `registry` is no registry of characters, or null: each character on a known model holding skills (`skillsError`), each model's own one of its characters. */
-export function registryError(registry: CharacterRegistry): string | null {
+function registryError(registry: RegistryFile): string | null {
   for (const [name, character] of Object.entries(registry.characters)) {
     if (!/^[a-z][a-z-]*$/.test(name)) return `character ${name}: a name of lower-case words`;
     if (!Object.hasOwn(FAMILIES, character.model)) return `character ${name}: unknown model ${String(character.model)}`;
@@ -98,8 +99,15 @@ export function registryError(registry: CharacterRegistry): string | null {
   return null;
 }
 
-const REGISTRY: CharacterRegistry = deepFreeze(characters) as unknown as CharacterRegistry;
-{ const fault = registryError(REGISTRY); if (fault) throw new Error(`assets/characters/characters.json: ${fault}`); }
+/** `registry` admitted as a registry of characters; a fault (`registryError`) throws. */
+function checkRegistry(registry: RegistryFile): asserts registry is RegistryFile & CharacterRegistry {
+  const fault = registryError(registry);
+  if (fault) throw new Error(`assets/characters/characters.json: ${fault}`);
+}
+
+const FILE: RegistryFile = deepFreeze(characters);
+checkRegistry(FILE);
+const REGISTRY: CharacterRegistry = FILE;
 
 /** **Every character's name** (`CHARACTERS`), in the order a page lists them. */
 export const CHARACTERS: readonly string[] = Object.freeze(Object.keys(REGISTRY.characters));
@@ -178,11 +186,8 @@ function scalingRefusal(model: BodyModel, physique: Physique, haste: number, def
   return quantityAdmission(template, (quantity) => {
     const from = quantity.provenance;
     if (from.kind !== "source") return undefined;
-    if (from.source === "owner-physique") {
-      const name = from.where.startsWith("reptile ") ? from.where.slice("reptile ".length) : from.where;
-      return Object.hasOwn(physique, name) ? physique[name as keyof Physique] : undefined;
-    }
-    return from.source === "owner-haste" && (from.where === "a bout's haste" || from.where === "the reptile's four legs") ? haste : undefined;
+    if (from.source === "owner-physique") return Object.hasOwn(physique, from.where) ? physique[from.where as keyof Physique] : undefined;
+    return from.source === "owner-haste" && from.where === BOUT_HASTE ? haste : undefined;
   }, (quantity, value) => {
     // These positive physical capacities cannot disappear when every supplied factor is positive.
     if (!["kg", "kg m2", "m3", "N m", "rad/s"].includes(quantity.unit)) return null;
@@ -205,8 +210,7 @@ export function resolveCharacterChecked(character: CharacterConfig): ResolvedCha
   const skills = character.skills === undefined ? REGISTRY.characters[name]!.skills : deepFreeze([...character.skills]);
   const defaults = characterDefaults(model), attributes = Object.freeze({ ...defaults,
     ...Object.fromEntries(Object.entries(overrides).filter(([, value]) => value !== undefined)) }) as CharacterAttributes;
-  const physique = Object.fromEntries((["size", "weight", "strength", "speed"] as const)
-    .filter(key => attributes[key] !== 1).map(key => [key, attributes[key]]));
+  const physique = Object.fromEntries(PHYSIQUE_ATTRIBUTES.filter(key => attributes[key] !== 1).map(key => [key, attributes[key]]));
   const changed = Object.keys(physique).length > 0 || attributes.haste !== defaults.haste;
   if (changed) {
     const invalid = scalingRefusal(model, physique, attributes.haste, defaults.haste);
@@ -245,11 +249,6 @@ export function resolveCharacter(character: CharacterConfig): ResolvedCharacter 
  */
 export function modelSpec(model: BodyModel, physique?: Physique, attributes: { readonly haste?: number } = {}): BodySpec {
   return resolveCharacter({ model, attributes: { ...physique, ...attributes } }).spec;
-}
-
-/** Whether `model` takes a haste in place of its character's (`modelSpec`). */
-export function modelHastes(model: BodyModel): boolean {
-  return familyOf(model).hastes;
 }
 
 /** Each model's spec, read once, for what its body can do. */

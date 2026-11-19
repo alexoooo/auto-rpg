@@ -10,7 +10,7 @@ import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
 import { coreStand } from "../../../../tests/harness/core-stand.mjs";
 import { createMind } from "../../../../src/minds/seat/create-mind.ts";
 import { GAME, defaultMind } from "../../../../src/app/catalog.ts";
-import { reptileSpec } from "../../../../src/core/bodies/quadruped/spec.ts";
+import { quadrupedSpec } from "../../../../src/core/bodies/quadruped/spec.ts";
 import { STAND_ORDERS } from "../../../../src/minds/orders.ts";
 import { buildBout } from "../../../../src/app/node/evaluation.ts";
 import { loadState } from "../../../../src/core/state.ts";
@@ -72,7 +72,7 @@ export const LYING = { back: [0, 0, 1, 0], left: [0, 0, Math.SQRT1_2, Math.SQRT1
 export async function trial({ data, model, recipe, lying, heading = 0, forks, fork, seconds }) {
   if (fork !== undefined) return fightTrial(model, recipe, forks, fork, seconds);
   const turn = new Quaternion(0, Math.sin(heading / 2), 0, Math.cos(heading / 2));
-  const stand = await coreStand(reptileSpec(data, model, `${model}-anatomy`), { groundSize: 100, position: [0, .3, 0], rotation: turn.multiply(new Quaternion(...LYING[lying])).asArray() });
+  const stand = await coreStand(quadrupedSpec(data, model, `${model}-anatomy`), { groundSize: 100, position: [0, .3, 0], rotation: turn.multiply(new Quaternion(...LYING[lying])).asArray() });
   try {
   const config = withRecipe(model, recipe);
   const mind = createMind(GAME, stand.built, stand.world, config, { rules: rulebook("arena"), name: model, orders: () => STAND_ORDERS });

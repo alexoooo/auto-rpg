@@ -21,7 +21,7 @@ type QuadrupedData = typeof reptileData;
  * (authored estimates and their derivations: `docs/reference/reptile.md`); no other family's
  * anatomical table participates.
  */
-export function reptileSpec(data: QuadrupedData, model: string, source: SourceKey): BodySpec {
+export function quadrupedSpec(data: QuadrupedData, model: string, source: SourceKey): BodySpec {
   const q = <V extends number | Vec3>(value: V, unit: Parameters<typeof sourced>[1], where: string): Quantity<V> =>
     sourced(value, unit, source, where);
   const mass = q(data.mass, "kg", "/mass");
