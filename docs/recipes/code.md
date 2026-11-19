@@ -48,7 +48,7 @@ of a test.
 - **Switch on a union with a `never` default.**
 - **An expected refusal is a returned value.** A throw is a defect; a catch only at a reporting
   boundary, keeping the error's message.
-- **A flag fixed for a caller is set when it builds**; no bare boolean positionals.
+- **A flag fixed for a caller is set when it builds.**
 - **A module that owns a rule exports its predicate.** A published field needs a reader; an
   export needs an importer.
 - **What changes step to step is plain data in one `state` object** per module
@@ -71,3 +71,18 @@ of a test.
 - **Comments say what the code is**, and why where not obvious. Name the construct, not a line
   number. A comment about a code path is a hypothesis until the path has run. A comment in `src/`
   carries no date, commit hash, plan citation or "the owner": `tests/documents.test.mjs`.
+
+## What a change does not add
+
+- **A fix adds no flag, cast, optional parameter or second copy.** A field every maker gives is
+  required; what two modules need is one export of the module that owns it; a cast a type could
+  carry is that type (a generic over the config, a type guard).
+- **An experiment is a kind behind its contract**, selected by a config, or it is deleted when its
+  reading is in; never a flag, a string or an optional parameter in the code every kind shares.
+- **A stored file has one shape.** When the shape changes, the file is rewritten or made again in
+  the same commit; no reader allows for the old one.
+- **A new need is not a new trailing parameter.** A function written, reshaped or added to takes
+  named fields past three positionals or at its first boolean; a boolean that is the value itself
+  (what a setter sets, an outcome recorded) is a value, not a mode. A kernel on the step's dear
+  path (the stance's geometry, the swing leg's reach) may keep its scalars, and its comment says
+  why: an object a call there is allocation the step's ceiling counts.
