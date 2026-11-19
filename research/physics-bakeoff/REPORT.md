@@ -14,7 +14,7 @@ one thread; **Chrome**, the bench page on its main thread. Times are medians of 
 
 ## Setup
 
-- **One body.** The bench's `model.ts` hands every adapter the same Warrior from `humanSpec("man")`,
+- **One body.** The bench's `model.ts` hands every adapter the same Warrior from `humanoidSpec("man")`,
   each segment built world-aligned at its centre of mass and the trunk hull as its bounding box.
 - **One controller** (`control.ts`), no engine motor: at 120 Hz it reads each segment back and
   applies world torques held over the sub-steps: a critically damped acceleration of each

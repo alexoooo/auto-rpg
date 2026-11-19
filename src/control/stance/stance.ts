@@ -54,7 +54,7 @@ const LATE_DESCENT = 0.3, LATE_MOST = 1;
  * pressure on the sole, friction, twist), and where the soles cannot give it all, the root is
  * asked for the acceleration the wrench they can give makes: a body pushed past its feet is not
  * asked to stand. Every torque is given to the muscles as a torque source. Every inertia is the
- * body's own (`humanSpec`), and nothing conditions it.
+ * body's own (`humanoidSpec`), and nothing conditions it.
  *
  * **A step** (`SwingGoal`) shifts the weight onto the other foot until the body's capture point is
  * over that sole, lifts the foot, and carries it on its path while the plan falls as an inverted

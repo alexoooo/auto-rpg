@@ -27,7 +27,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Vector3 } from "../src/core/math/vector.ts";
 import { chainTo, pointAtToRef, solveReach } from "../src/control/kinematics.ts";
-import { humanSpec } from "../src/core/bodies/human/spec.ts";
+import { humanoidSpec } from "../src/core/bodies/human/spec.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 /** The body whose arm the fixture's solves are of. */
@@ -42,7 +42,7 @@ export const AT_PLACE = 1e-4;
  */
 export async function reachBed() {
   const asked = JSON.parse(await readFile(new URL("./reach-solves.json", import.meta.url), "utf8"));
-  const stand = await coreStand(humanSpec(MODEL), { ground: false, pinned: "lowerTrunk" });
+  const stand = await coreStand(humanoidSpec(MODEL), { ground: false, pinned: "lowerTrunk" });
   const chains = new Map(), at = new Vector3();
   const solves = asked.map(({ hand, chain: names, angles, free, tasks }) => {
     if (!chains.has(hand)) chains.set(hand, chainTo(stand.built, stand.built.segments.get(hand)));

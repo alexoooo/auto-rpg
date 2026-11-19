@@ -47,7 +47,7 @@ import { stockBody } from "../../../../src/app/stock-body.ts";
 import { pendingControl } from "../../../minds/pending-control.mjs";
 import { buildBody } from "../../../../src/core/bodies/build/build-body.ts";
 import { loadEngine } from "../../../../src/core/physics/engines.ts";
-import { humanSpec } from "../../../../src/core/bodies/human/spec.ts";
+import { humanoidSpec } from "../../../../src/core/bodies/human/spec.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { armedWith } from "../../../../src/core/bodies/items/held.ts";
 import { guardPosture } from "../../../../src/skills/guard/shared/guard.ts";
@@ -136,7 +136,7 @@ const SETTINGS = {
 
 /** A posture by channel (the pose drive's values, bind included) for a seed name on `spec`. */
 function seedPosture(spec, name) {
-  const reference = humanSpec("man");
+  const reference = humanoidSpec("man");
   const stored = id => {
     const held = poses.find(p => p.model === "man" && p.id === id);
     return Object.fromEntries(reference.joints.flatMap(j => j.dofs.map((d, k) => [`${j.name} ${d.positive}`, held.placement.joints[j.name][k] + d.bind.value])));
@@ -193,7 +193,7 @@ export function placement(move, spec, seed) {
   const start = MOVES[move].start, own = groundPostures(spec).includes(start);
   let waypoint;
   if (!own) {
-    const reference = humanSpec("man"), source = poses.find(p => p.model === "man" && p.id === start);
+    const reference = humanoidSpec("man"), source = poses.find(p => p.model === "man" && p.id === start);
     const angles = Object.fromEntries(reference.joints.flatMap(j => j.dofs.map((d, k) => [`${j.name} ${d.positive}`, source.placement.joints[j.name][k] + d.bind.value])));
     waypoint = { ...source.placement, joints: Object.fromEntries(spec.joints.map(j => [j.name, j.dofs.map(d => (angles[`${j.name} ${d.positive}`] ?? 0) - d.bind.value)])) };
   }

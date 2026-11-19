@@ -5,7 +5,7 @@ import { Matrix } from "@babylonjs/core/Maths/math.vector.js";
 import { heldPoint } from "../../src/core/bodies/build/rigid.ts";
 import { armed } from "../../src/core/bodies/human/grip.ts";
 import { FIT_SCALE } from "../../src/core/bodies/human/model.ts";
-import { humanSpec } from "../../src/core/bodies/human/spec.ts";
+import { humanoidSpec } from "../../src/core/bodies/human/spec.ts";
 import { woodenClub } from "../../src/core/bodies/items/club.ts";
 
 /** A body-frame point in the GLB's rest frame: the loader's root turns x, and the fit scales. */
@@ -30,7 +30,7 @@ function headOf(glb, name) {
  */
 export function haftOf(glb, model, side) {
   const hand = side === "r" ? "right" : "left";
-  const club = woodenClub(), spec = armed(humanSpec(model), hand, club);
+  const club = woodenClub(), spec = armed(humanoidSpec(model), hand, club);
   const [held] = spec.held, [haft] = club.shapes;
   if (haft.kind !== "capsule") throw new Error("the club's haft is not a capsule");
   const knuckles = toGlb(spec.segments.find((s) => s.name === `hand.${hand}`).points.knuckles.value);

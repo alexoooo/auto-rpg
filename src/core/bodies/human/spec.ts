@@ -8,29 +8,22 @@ import { physiqueFigure, type Physique } from "./physique.ts";
 import { peakTorque } from "./muscle.ts";
 import { HUMAN_MODELS, type HumanModel } from "./rig.ts";
 import { humanSegments } from "./segments.ts";
-import { SKELETON_MODEL, skeletonFigure, skeletonMotors } from "./skeleton.ts";
+import { SKELETON_MODEL, skeletonFigure } from "./skeleton.ts";
 import { jointSpeed } from "./speed.ts";
 import { toedFigure } from "./toes.ts";
 import { humanFigure } from "./rigged.ts";
 import { humanWounds } from "./wounds.ts";
 import { SIDES, pairedSegment } from "../bilateral.ts";
 
-/**
- * **A human model, whole**: its segments, the joints and muscle between them, its wounds and its
- * attributes, at x1, or with `physique` (`physique.ts`) and with `haste` per cent in place of its
- * character's; its feet with toes (`toes.ts`).
- */
-export function humanSpec(model: HumanModel, physique?: Physique, haste?: number): BodySpec {
-  const spec = shapedSpec(humanFigure(model), physique, haste);
-  if (isRefused(spec)) throw new Error(spec.refused);
-  return spec;
-}
-
 /** The core's bodies by model: the two humans and the skeleton. */
 export type HumanoidModel = HumanModel | typeof SKELETON_MODEL;
 export const HUMANOID_MODELS: readonly HumanoidModel[] = Object.freeze([...HUMAN_MODELS, SKELETON_MODEL]);
 
-/** **A core body by model**, whole, with `physique` and `haste` where they are given; the skeleton's joints are motors (`skeletonMotors`). */
+/**
+ * **A core body by model, whole**: its segments, the joints and muscle between them, its wounds and
+ * its attributes, at x1, or with `physique` (`physique.ts`) and with `haste` per cent in place of
+ * its character's; its feet with toes (`toes.ts`); its figure's last step taken (`HumanFigure.finish`).
+ */
 export function humanoidSpec(model: HumanoidModel, physique?: Physique, haste?: number): BodySpec {
   const spec = humanoidSpecChecked(model, physique, haste);
   if (isRefused(spec)) throw new Error(spec.refused);
@@ -39,20 +32,17 @@ export function humanoidSpec(model: HumanoidModel, physique?: Physique, haste?: 
 
 /** A humanoid under supplied physique settings, returning unsupported geometry from its owner. */
 export function humanoidSpecChecked(model: HumanoidModel, physique?: Physique, haste?: number): BodySpec | Refused {
-  const spec = shapedSpec(model === SKELETON_MODEL ? skeletonFigure() : humanFigure(model), physique, haste);
-  return isRefused(spec) || model !== SKELETON_MODEL ? spec : skeletonMotors(spec);
-}
-
-/** `figure`'s body: its toes first (`toedFigure`), so that a physique's size scales them, then its physique and haste. */
-const shapedSpec = (figure: HumanFigure, physique: Physique | undefined, haste: number | undefined): BodySpec | Refused => {
+  const figure = model === SKELETON_MODEL ? skeletonFigure() : humanFigure(model);
+  // Its toes first (`toedFigure`), so that a physique's size scales them, then its physique and haste.
   const shaped = physiqueFigure(toedFigure(figure), physique);
   return isRefused(shaped) ? shaped : figureSpec(hastedFigure(shaped, haste));
-};
-/** **A human figure, whole** (`figure.ts`): the human body plan on the figure's own numbers. */
+}
+
+/** **A human figure, whole** (`figure.ts`): the human body plan on the figure's own numbers, and its last step. */
 function figureSpec(figure: HumanFigure): BodySpec | Refused {
   const segments = humanSegments(figure);
   if (isRefused(segments)) return segments;
-  return {
+  return figure.finish({
     model: figure.model, mass: figure.mass, stature: figure.stature, segments,
     effectors: SIDES.flatMap(side => [
       { segment: pairedSegment("hand", side), base: "upperTrunk", point: "knuckles" },
@@ -74,5 +64,5 @@ function figureSpec(figure: HumanFigure): BodySpec | Refused {
       // A foot on its sole, as a stance stands on it.
       { kind: "foot", name: `foot.${side}`, segment: `foot.${side}`, from: `hip.${side}` },
     ]),
-  };
+  });
 }

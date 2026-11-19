@@ -1,4 +1,4 @@
-import type { Substance, ToesSpec } from "../spec/body.ts";
+import type { BodySpec, Substance, ToesSpec, WoundSpec } from "../spec/body.ts";
 import type { Quantity, Vec3 } from "../../quantity.ts";
 import type { Extents, TrunkSegment } from "./envelope.ts";
 import type { LimbLandmarks, TrunkLandmarks } from "./landmarks.ts";
@@ -62,6 +62,10 @@ export interface HumanFigure {
   readonly speed?: Quantity<number>;
   /** The body's hit points, in the rulebook's unit. */
   readonly hp: Quantity<number>;
+  /** What its wounds are beside its hit points (`humanWounds`): its vital segments, those that never come off, and its limbs. */
+  readonly wounds: Pick<WoundSpec, "vital" | "whole" | "limbs">;
+  /** The last step of its body, on the whole spec (`humanoidSpec`): the skeleton's joints made motors (`skeletonMotors`); a human's body as it is. */
+  readonly finish: (spec: BodySpec) => BodySpec;
   /** The body's steadiness, per cent of its weight (`AttributeSpec`). */
   readonly steadiness: Quantity<number>;
   /** The body's haste, per cent over a human's speed in its legs' muscles (`AttributeSpec`, `jointSpeed`); 0 is a human's. */

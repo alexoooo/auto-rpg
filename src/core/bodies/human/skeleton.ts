@@ -5,6 +5,7 @@ import { add, midpoint, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extents } from "./envelope.ts";
 import type { FittedSegment, HandFigure, HumanFigure, LimbFigure } from "./figure.ts";
 import { HUMAN_HASTE } from "./attributes.ts";
+import { armsAndLegs, limbSpec } from "./wounds.ts";
 import { dividedTrunk } from "./landmarks.ts";
 import type { BodySpec, ForceVelocitySpec, MuscleSpec } from "../spec/body.ts";
 import { type Side, SIDES } from "../bilateral.ts";
@@ -192,10 +193,17 @@ export function skeletonFigure(): HumanFigure {
     feet,
     hands: { left: hand("left"), right: hand("right") },
     fitted,
-    hp: placeholder(6, "HP", "the Warrior's hit points"),
+    hp: placeholder(6, "HP", "the Warrior's hit points"), wounds: SKELETON_WOUNDS, finish: skeletonMotors,
     steadiness: placeholder(0, "%", "the Warrior's steadiness"), haste: HUMAN_HASTE,
   };
 }
+
+/**
+ * **The skeleton's wounds** (`owner-life`, `HumanFigure.wounds`): its ribcage vital and never
+ * coming off, its head a limb (0.2 of full life) it fights on without, its arms 0.15 and its legs 0.25.
+ */
+const SKELETON_WOUNDS: HumanFigure["wounds"] = Object.freeze({ vital: ["upperTrunk"], whole: ["upperTrunk"],
+  limbs: [limbSpec({ name: "head", segments: ["head"], share: 0.2, lost: "fights on" }), ...armsAndLegs(0.15, 0.25)] });
 
 /** How a motor's torque falls with speed: Hill's a / T0 so large the curve is the straight line 1 - w / w0 within a thousandth. */
 const MOTOR_CURVATURE = sourced(1000, "1", "owner-skeleton-motor", "the motor's torque falling in a straight line with speed");
@@ -207,8 +215,8 @@ const MOTOR_ECCENTRIC_CEILING = sourced(1, "1", "owner-skeleton-motor", "no more
  * mass to land at the bar (`owner-skeleton-arms`).
  */
 const ARM_MOTOR_SPEED = sourced(2, "1", "owner-skeleton-arms", "the arms' motors' unloaded speed over the peak-power line's");
-/** Whether `joint` is an arm's, its motor run at `ARM_MOTOR_SPEED`. */
-const armJoint = (joint: string): boolean => joint.startsWith("shoulder.") || joint.startsWith("elbow.");
+/** The arms' joints the human body plan names (`joints.ts`), each motor run at `ARM_MOTOR_SPEED`. */
+const ARM_JOINTS: ReadonlySet<string> = new Set(SIDES.flatMap((side) => [`shoulder.${side}`, `elbow.${side}`]));
 
 /**
  * **The skeleton's joints as motors** (`owner-skeleton-motor`): each freedom of `spec` pushes as
@@ -228,7 +236,7 @@ export function skeletonMotors(spec: BodySpec): BodySpec {
     const unloaded = derive("rad/s", "the more powerful side's motor speed, either way",
       [samePower(speedPositive), samePower(speedNegative)], Math.max);
     const speed: ForceVelocitySpec = {
-      unloadedSpeed: armJoint(joint.name) ? derive("rad/s", "an arm's motor speed at its factor", [unloaded, ARM_MOTOR_SPEED], (w, k) => w * k) : unloaded,
+      unloadedSpeed: ARM_JOINTS.has(joint.name) ? derive("rad/s", "an arm's motor speed at its factor", [unloaded, ARM_MOTOR_SPEED], (w, k) => w * k) : unloaded,
       curvature: MOTOR_CURVATURE, eccentricCeiling: MOTOR_ECCENTRIC_CEILING, eccentricSlopeRatio: speedPositive.eccentricSlopeRatio,
     };
     const muscle: MuscleSpec = { peakPositive: peak, peakNegative: peak, speedPositive: speed, speedNegative: speed };

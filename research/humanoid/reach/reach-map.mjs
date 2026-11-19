@@ -16,7 +16,7 @@ import { Vector3 } from "../../../src/core/math/vector.ts";
 import { rigidPoints } from "../../../src/core/bodies/build/rigid.ts";
 import { chainTo, pointAtToRef, solveReach } from "../../../src/control/kinematics.ts";
 import { armed } from "../../../src/core/bodies/human/grip.ts";
-import { humanSpec } from "../../../src/core/bodies/human/spec.ts";
+import { humanoidSpec } from "../../../src/core/bodies/human/spec.ts";
 import { woodenClub } from "../../../src/core/bodies/items/club.ts";
 import { GUARD } from "../../../src/skills/guard/shared/guard.ts";
 import { coreStand } from "../../../tests/harness/core-stand.mjs";
@@ -25,7 +25,7 @@ const { values } = parseArgs({ options: {
 } });
 const ups = values.up.split(",").map(Number), aheads = values.ahead.split(",").map(Number);
 
-const spec = armed(humanSpec("man"), "right", woodenClub());
+const spec = armed(humanoidSpec("man"), "right", woodenClub());
 const stand = await coreStand(spec, { ground: false, pinned: "lowerTrunk" });
 const hand = stand.built.segments.get("hand.right"), chain = chainTo(stand.built, hand), points = rigidPoints(spec, hand.spec);
 const name = (j, k) => `${chain[j].spec.name} ${chain[j].dofs[k].spec.positive}`;

@@ -5,7 +5,7 @@ import type { Sex } from "./de-leva-1996.ts";
 
 /**
  * **How hard young adults turn each joint**: peak torque in newton metres, men's and women's
- * columns, with the mean body mass of the people who produced it. `humanSpec` reads the men's
+ * columns, with the mean body mass of the people who produced it. `humanoidSpec` reads the men's
  * column and scales it by muscle (`src/core/bodies/human/muscle.ts`); the women's column is the check on
  * that scaling, never an input to a spec. `docs/reference/human-strike-reference.md` section 9
  * has that check, and why DS2009 was taken for the hip's abduction and adduction.

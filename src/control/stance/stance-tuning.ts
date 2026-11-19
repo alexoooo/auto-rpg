@@ -121,7 +121,7 @@ const STANCE_KNEE_BEND = 0.2;
 
 /**
  * The ankle dorsiflexion, rad, the stance's height leaves unused. With the feet flat and the pelvis
- * upright, a lower stance tips the shanks forward until the ankle's range (`humanSpec`) ends it;
+ * upright, a lower stance tips the shanks forward until the ankle's range (`humanoidSpec`) ends it;
  * asked lower, the stance sinks only as far as the ankles reach less this spare, where held to the
  * height asked it would press its ankles on their stops. A lower
  * stance needs the hip to hinge, which the stance does not do.

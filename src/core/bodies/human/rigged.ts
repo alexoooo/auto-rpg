@@ -7,13 +7,13 @@ import { limbLandmarks, rigSuffix, trunkLandmarks } from "./landmarks.ts";
 import { bodyMass, FIT_SCALE, stature, HUMAN_SEX } from "./model.ts";
 import { rigPoint, type HumanModel } from "./rig.ts";
 import { HUMAN_HASTE, HUMAN_EXERTIONS, humanSteadiness } from "./attributes.ts";
-import { humanHitPoints } from "./wounds.ts";
+import { HUMAN_WOUNDS, humanHitPoints } from "./wounds.ts";
 import type { Side } from "../bilateral.ts";
 
 /**
  * **A human model as a human figure**: its rig's landmarks (`landmarks.ts`), its clothed
  * envelope's trunk hulls and boots (`envelope.ts`), its bare hands (`hands.ts`), its sex, size and mass (`model.ts`), and its
- * hit points and steadiness (`wounds.ts`, `attributes.ts`), all at the authored size with the fit scale to take them to x1.
+ * hit points, wounds and steadiness (`wounds.ts`, `attributes.ts`), all at the authored size with the fit scale to take them to x1.
  *
  * The rig's feet end in a boot, so the foot runs from the boot's heel to its toe, at the height of
  * the rig's ball. The rig holds each hand thumb up, a quarter turn from the anatomical position's
@@ -25,6 +25,7 @@ export function humanFigure(model: HumanModel): HumanFigure {
   return {
     model, substance: "flesh", sex: HUMAN_SEX[model], scale: FIT_SCALE, mass: bodyMass(model), stature: stature(model),
     trunk: trunkLandmarks(model), limbs, hulls: envelope.trunk, feet: envelope.feet, hands: humanHands(model), hp: humanHitPoints(model),
+    wounds: HUMAN_WOUNDS, finish: (spec) => spec,
     steadiness: humanSteadiness(model), haste: HUMAN_HASTE, ...(HUMAN_EXERTIONS[model] && { exertions: HUMAN_EXERTIONS[model] }),
   };
 }

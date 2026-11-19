@@ -50,7 +50,7 @@ import { stockBody } from "../../../../src/app/stock-body.ts";
 import { pendingControl } from "../../../minds/pending-control.mjs";
 import { buildBody } from "../../../../src/core/bodies/build/build-body.ts";
 import { loadEngine } from "../../../../src/core/physics/engines.ts";
-import { humanSpec } from "../../../../src/core/bodies/human/spec.ts";
+import { humanoidSpec } from "../../../../src/core/bodies/human/spec.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { armedWith } from "../../../../src/core/bodies/items/held.ts";
 import { guardPosture } from "../../../../src/skills/guard/shared/guard.ts";
@@ -69,7 +69,7 @@ const bodySpec = (model, held) => armedWith(modelSpec(model), "right", held);
 
 /** The Warrior's stored squat put on `spec` at `seed`, or why it is refused. */
 export function placement(spec, seed) {
-  const reference = humanSpec("man"), source = poses.find(p => p.model === "man" && p.id === "squat");
+  const reference = humanoidSpec("man"), source = poses.find(p => p.model === "man" && p.id === "squat");
   const angles = Object.fromEntries(reference.joints.flatMap(j => j.dofs.map((d, k) => [`${j.name} ${d.positive}`, source.placement.joints[j.name][k] + d.bind.value])));
   const waypoint = { ...source.placement, joints: Object.fromEntries(spec.joints.map(j => [j.name, j.dofs.map(d => (angles[`${j.name} ${d.positive}`] ?? 0) - d.bind.value)])) };
   return groundPlacement(spec, { seed, ground: { start: "placed", posture: "squat", degrees: null, impulse: null, foe: 0, gusts: false } }, waypoint);
