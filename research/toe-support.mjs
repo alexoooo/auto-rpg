@@ -20,8 +20,7 @@ import {rapierModule} from '../src/core/physics/rapier.ts';
 import {Quaternion,Vector3} from '../src/core/math/vector.ts';
 import {sin,cos,atan2} from '../src/core/math/real.ts';
 import {modelSpec} from '../src/core/bodies/models.ts';
-import {frameOf} from '../src/core/bodies/spec/body.ts';
-import {local} from '../src/core/bodies/build/collider.ts';
+import {frameOf,localPoint} from '../src/core/bodies/spec/body.ts';
 import {principalOf} from '../src/core/bodies/build/rigid.ts';
 const sourceSha256=createHash('sha256').update(readFileSync(new URL(import.meta.url))).digest('hex');
 
@@ -42,8 +41,8 @@ const [width,length,height]=foot.shape.size.value,toeLength=foot.toes.length.val
 const toeMass=foot.mass.value*(toeLength*thickness)/(length*height+toeLength*thickness);
 const footMass=foot.mass.value-toeMass,loadMass=spec.mass.value*loadShare-foot.mass.value,parentMass=footMass+loadMass;
 if(loadMass<0)throw Error('--load must include the foot mass');
-const frame=frameOf(foot),c=local(frame,foot.shape.centre.value);
-const a=local(frame,spec.joints.find(j=>j.name==='ankle.left').centre.value);
+const frame=frameOf(foot),c=localPoint(frame,foot.shape.centre.value);
+const a=localPoint(frame,spec.joints.find(j=>j.name==='ankle.left').centre.value);
 const ankle=[a[0]-c[0],-(a[2]-c[2]-height/2),a[1]-c[1]-length/2],footCentre=[0,height/2,-length/2];
 const parentCentre=ankle.map((v,i)=>(v*loadMass+footCentre[i]*footMass)/parentMass);
 const moments=(mass,size)=>[mass*(size[1]**2+size[2]**2)/12,mass*(size[0]**2+size[2]**2)/12,mass*(size[0]**2+size[1]**2)/12];

@@ -30,7 +30,7 @@ export function cryptModel(model: BodyModel, spec?: BodySpec): CryptModel {
   if (spec) {
     const base = modelSpec(model), own = cryptModel(model);
     const footprint = (body: BodySpec) => Math.max(...body.segments.map(segment => {
-      const b = shapeBounds(segment), x = Math.max(Math.abs(b.min[0]), Math.abs(b.max[0])), z = Math.max(Math.abs(b.min[2]), Math.abs(b.max[2]));
+      const b = shapeBounds(segment, segment.shape), x = Math.max(Math.abs(b.min[0]), Math.abs(b.max[0])), z = Math.max(Math.abs(b.min[2]), Math.abs(b.max[2]));
       return Math.sqrt(x * x + z * z);
     }));
     return { ...own, radius: own.radius * (footprint(spec) / footprint(base)), attackMetres: own.attackMetres * (spec.stature.value / base.stature.value) };

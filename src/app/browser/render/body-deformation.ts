@@ -2,7 +2,7 @@ import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.j
 import type { DrawnBody } from "./drawn-body.ts";
 import { modelSpec, type BodyModel } from "../../../core/bodies/models.ts";
 import { frameOf } from "../../../core/bodies/spec/body.ts";
-import { shapeBounds } from "../../../core/bodies/spec/shape-bounds.ts";
+import { localShapeBounds } from "../../../core/bodies/spec/shape-bounds.ts";
 import { distance } from "../../../core/bodies/spec/vec.ts";
 
 /** Authored body-frame coordinates into a configured segment's local frame, including its surface deformation. */
@@ -12,7 +12,8 @@ export function skinReference(built: DrawnBody, name: string): Matrix {
   const reference = Matrix.Compose(Vector3.One(), Quaternion.RotationQuaternionFromAxis(
     Vector3.FromArray(frame.x), Vector3.FromArray(frame.y), Vector3.FromArray(frame.z)), Vector3.FromArray(frame.origin));
   if (source === target) return Matrix.Invert(reference);
-  const from = shapeBounds(source, true, source.configurations?.shapes[source.configurations.initial]), to = shapeBounds(target, true, target.configurations?.shapes[target.configurations.initial]);
+  const from = localShapeBounds(source, source.configurations?.shapes[source.configurations.initial] ?? source.shape),
+    to = localShapeBounds(target, target.configurations?.shapes[target.configurations.initial] ?? target.shape);
   const factors = [0, 1, 2].map(i => i === 1
     ? distance(target.proximal.value, target.distal.value) / distance(source.proximal.value, source.distal.value)
     : (to.max[i]! - to.min[i]!) / (from.max[i]! - from.min[i]!));

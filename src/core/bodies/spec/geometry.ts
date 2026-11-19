@@ -1,9 +1,18 @@
 import { cbrt } from "../../math/real.ts";
 import type { Vec3 } from "../../quantity.ts";
+import { add, scale } from "./vec.ts";
 
 /**
  * Geometry a spec's rules need and cannot write in one line.
  */
+
+/** A box's eight corners: `centre` out by each of `half` along its edge's axis (`axes`), either way. */
+export function boxCorners(centre: Vec3, axes: readonly Vec3[], half: Vec3): Vec3[] {
+  const corners: Vec3[] = [];
+  for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1])
+    corners.push([x, y, z].reduce<Vec3>((p, sign, i) => add(p, scale(axes[i]!, sign * half[i]!)), centre));
+  return corners;
+}
 
 /**
  * The radius of a capsule of overall length `length` (cap to cap) that holds `volume`:

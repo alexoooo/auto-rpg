@@ -2,6 +2,7 @@ import { Quaternion, Vector3 } from "../../math/vector.ts";
 import type { Vec3 } from "../../quantity.ts";
 import { motionAxesToRef } from "./joint-state.ts";
 import { hasProducts } from "./rigid.ts";
+import { localPoint } from "../spec/body.ts";
 import { type ReadBody, type ReadSegment, rootSegment } from "../read-body.ts";
 import { partsOn, type Parts } from "../read-motion.ts";
 
@@ -160,8 +161,8 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
   const alpha = segments.map((): Point => [0, 0, 0]), accel = segments.map((): Point => [0, 0, 0]);
   const force = segments.map((): Point => [0, 0, 0]), moment = segments.map((): Point => [0, 0, 0]);
 
-  const centreOfMass = segments.map((segment) => local(segment, segment.rigid.centre));
-  const pivot = joints.map((joint) => local(joint.child, joint.spec.centre.value));
+  const centreOfMass = segments.map((segment) => localPoint(segment.frame, segment.rigid.centre));
+  const pivot = joints.map((joint) => localPoint(joint.child.frame, joint.spec.centre.value));
   // Each segment's centre and inertia (xx, yy, zz, xy, xz, yz) in the world; each joint's carried
   // mass, centre and inertia about that centre, its centre, and its freedoms' motion axes in the world.
   const centres = segments.map((): Point => [0, 0, 0]);
@@ -367,13 +368,6 @@ type Point = [number, number, number];
 const X: Vec3 = [1, 0, 0], Y: Vec3 = [0, 1, 0], Z: Vec3 = [0, 0, 1];
 /** A tensor's products: the two axes each is between, and its entry (`Tensor`). */
 const PRODUCTS = [[0, 1, 3], [0, 2, 4], [1, 2, 5]] as const;
-
-/** `point`, body frame, in `segment`'s own coordinates: its frame at the reference pose. */
-function local(segment: ReadSegment, point: Vec3): Vec3 {
-  const { origin, x, y, z } = segment.frame;
-  const d: Vec3 = [point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]];
-  return [dot3(d, x), dot3(d, y), dot3(d, z)];
-}
 
 const dot3 = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 /** a + b, into `out`. */

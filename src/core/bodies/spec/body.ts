@@ -1,5 +1,5 @@
 import type { Quantity, Vec3 } from "../../quantity.ts";
-import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
+import { add, cross, dot, normalize, orthogonalTo, scale, sub } from "./vec.ts";
 
 /** An end a body bears its weight on, by its name among its spec's ends (`BodySpec.ends`): a human's `foot.left`, `hand.right`, `shin.left`. */
 export type BearingEnd = string;
@@ -552,3 +552,14 @@ export function segmentFrame(proximal: Vec3, distal: Vec3, right: Vec3 = BODY_RI
 /** A segment's frame, reference pose. */
 export const frameOf = (segment: SegmentSpec): SegmentFrame =>
   segmentFrame(segment.proximal.value, segment.distal.value, segment.right?.value);
+
+/** `direction`, body frame, in `frame`'s coordinates. */
+export const localDirection = (frame: SegmentFrame, direction: Vec3): Vec3 =>
+  [dot(direction, frame.x), dot(direction, frame.y), dot(direction, frame.z)];
+
+/** `point`, body frame, in `frame`'s coordinates: its offset from the frame's origin along its axes. */
+export const localPoint = (frame: SegmentFrame, point: Vec3): Vec3 => localDirection(frame, sub(point, frame.origin));
+
+/** `point`, in `frame`'s coordinates, in the body frame: `localPoint` undone. */
+export const bodyPoint = (frame: SegmentFrame, point: Vec3): Vec3 =>
+  add(frame.origin, add(scale(frame.x, point[0]), add(scale(frame.y, point[1]), scale(frame.z, point[2]))));

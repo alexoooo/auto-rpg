@@ -1,6 +1,7 @@
 import { isRefused, type Refused } from "../../refusal.ts";
 import { frameOf, type BodySpec, type SegmentSpec } from "./body.ts";
 import { convexHullChecked } from "./hull.ts";
+import { boxCorners } from "./geometry.ts";
 import { add, cross, dot, length, scale, sub } from "./vec.ts";
 import type { Vec3 } from "../../quantity.ts";
 
@@ -96,12 +97,7 @@ function pointHull(p: Vec3, h: Hull): number {
 }
 
 const along = (a: Capsule, t: number): Vec3 => add(a.from, scale(sub(a.to, a.from), t));
-function boxHull(b: Box): Hull | Refused {
-  const points: Vec3[] = [];
-  for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1])
-    points.push([x, y, z].reduce<Vec3>((p, sign, i) => add(p, scale(b.axes[i]!, sign * b.half[i]!)), b.centre));
-  return hull(points);
-}
+const boxHull = (b: Box): Hull | Refused => hull(boxCorners(b.centre, b.axes, b.half));
 
 /** Project corners in their declared order, with the same dot arithmetic on contiguous coordinates. */
 function projectHull(hull: Hull, axis: Vec3, out: Float64Array, offset: number): void {

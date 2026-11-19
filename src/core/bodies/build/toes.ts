@@ -1,10 +1,10 @@
 import { Quaternion, Vector3 } from "../../math/vector.ts";
 import type { ColliderShape, SegmentBody } from "../../physics/engine.ts";
 import { atan2, cos, sin } from "../../math/real.ts";
-import type { ContactRegionSpec, SegmentFrame, SegmentSpec } from "../spec/body.ts";
+import { bodyPoint, localPoint, type ContactRegionSpec, type SegmentFrame, type SegmentSpec } from "../spec/body.ts";
 import { derive, type Vec3 } from "../../quantity.ts";
 import type { StepHost } from "../step-host.ts";
-import { colliderOf, local } from "./collider.ts";
+import { colliderOf } from "./collider.ts";
 import { toesShape, type Rigid } from "./rigid.ts";
 
 /**
@@ -39,13 +39,12 @@ export function toesRegion(segment: SegmentSpec, frame: SegmentFrame, bend: numb
   const { shape, toes } = segment;
   if (shape.kind !== "box" || !toes) throw new Error(`${segment.name} has no box with toes`);
   if (toes.length.value > shape.size.value[2]) throw new Error(`${segment.name}'s toes are longer than its box is high`);
-  const c = local(frame, shape.centre.value), s = shape.size.value, ball = c[1] + s[1] / 2, sole = c[2] + s[2] / 2;
+  const c = localPoint(frame, shape.centre.value), s = shape.size.value, ball = c[1] + s[1] / 2, sole = c[2] + s[2] / 2;
   const y = cos(bend), z = -sin(bend), length = toes.length.value, thick = toes.thickness.value;
-  const body = (p: Vec3): Vec3 => [0, 1, 2].map((k) => frame.origin[k]! + frame.x[k]! * p[0] + frame.y[k]! * p[1] + frame.z[k]! * p[2]) as unknown as Vec3;
   // Its corners: across the box's width, from the ball out along the toes, and from the sole up through their thickness.
   const corners: Vec3[] = [];
   for (const x of [c[0] - s[0] / 2, c[0] + s[0] / 2]) for (const a of [0, length]) for (const b of [0, thick])
-    corners.push(body([x, ball + a * y + b * z, sole + a * z - b * y]));
+    corners.push(bodyPoint(frame, [x, ball + a * y + b * z, sole + a * z - b * y]));
   return { name: "toes", surface: segment.surface,
     shape: { kind: "hull", points: corners.map((p) => derive("m", "a foot's toes as they bend", [shape.centre, shape.size, toes.length, toes.thickness], () => p)) } };
 }

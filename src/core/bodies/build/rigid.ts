@@ -1,4 +1,4 @@
-import { frameOf, segmentFrame, type BodySpec, type ContactRegionSpec, type HeldSpec, type ItemShape, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
+import { bodyPoint, frameOf, localDirection, segmentFrame, type BodySpec, type ContactRegionSpec, type HeldSpec, type ItemShape, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import { derive, type Quantity, type Vec3 } from "../../quantity.ts";
 import { add, cross, dot, scale, sub } from "../spec/vec.ts";
 import { toesRegion } from "./toes.ts";
@@ -38,13 +38,10 @@ export interface Rigid {
 export const heldFrame = (held: HeldSpec): SegmentFrame =>
   segmentFrame(held.origin.value, add(held.origin.value, held.along.value), held.across.value);
 
-const placed = (frame: SegmentFrame, p: Vec3): Vec3 =>
-  add(frame.origin, add(scale(frame.x, p[0]), add(scale(frame.y, p[1]), scale(frame.z, p[2]))));
-
 /** `point`, in `held`'s item frame, in the body frame, reference pose. */
 export function heldPoint(held: HeldSpec, point: Quantity<Vec3>): Quantity<Vec3> {
   return derive("m", "an item's point, placed in the body frame by its holding", [point, held.origin, held.along, held.across],
-    (p, origin, along, across) => placed(segmentFrame(origin, add(origin, along), across), p));
+    (p, origin, along, across) => bodyPoint(segmentFrame(origin, add(origin, along), across), p));
 }
 
 function placedShape(held: HeldSpec, shape: ItemShape): ShapeSpec {
@@ -99,13 +96,13 @@ export function rigidOf(spec: BodySpec, segment: SegmentSpec): Rigid {
     { mass: segment.mass.value, centre: segment.centreOfMass.value, moments: segment.inertia.value, frame: own },
     ...holding.map((held) => {
       const frame = heldFrame(held);
-      return { mass: held.item.mass.value, centre: placed(frame, held.item.centreOfMass.value), moments: held.item.inertia.value, frame };
+      return { mass: held.item.mass.value, centre: bodyPoint(frame, held.item.centreOfMass.value), moments: held.item.inertia.value, frame };
     }),
   ];
   const mass = pieces.reduce((sum, p) => sum + p.mass, 0);
   const centre = scale(pieces.reduce((sum: Vec3, p) => add(sum, scale(p.centre, p.mass)), [0, 0, 0]), 1 / mass);
   // Into the segment frame.
-  const inOwn = (v: Vec3): Vec3 => [dot(v, own.x), dot(v, own.y), dot(v, own.z)];
+  const inOwn = (v: Vec3): Vec3 => localDirection(own, v);
   const t = [0, 0, 0, 0, 0, 0];
   const addOuter = (k: number, a: Vec3, b: Vec3) => {
     t[0]! += k * a[0] * b[0]; t[1]! += k * a[1] * b[1]; t[2]! += k * a[2] * b[2];

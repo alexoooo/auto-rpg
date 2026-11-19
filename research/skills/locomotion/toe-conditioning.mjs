@@ -1,6 +1,6 @@
 /** Solver override for development stands without save/load; toeLayerOnly retains normal foot-box contacts. */
 import {rapierModule} from '../../../src/core/physics/rapier.ts';
-import {local} from '../../../src/core/bodies/build/collider.ts';
+import {localPoint} from '../../../src/core/bodies/spec/body.ts';
 import {Vector3} from '../../../src/core/math/vector.ts';
 export async function conditionToeStand(stand,configuration) {
  const {pgs=32,stiffness=1e6,damping=12500,depth=.0005,articulated=false,soleLayer=true,toeLayerOnly=false}=configuration;
@@ -11,7 +11,7 @@ export async function conditionToeStand(stand,configuration) {
  if(articulated)for(const joint of stand.built.joints.values())if(joint.spec.dofs[0]?.passive) {
   if(joint.spec.dofs.length!==1)throw Error('toe articulation screen needs one passive freedom');
   const p=joint.parent,c=joint.child,centre=joint.spec.centre.value,spec=joint.spec.dofs[0],spring=spec.passive;
-  const a=local(p.frame,centre),b=local(c.frame,centre),axis=spec.axis.value;
+  const a=localPoint(p.frame,centre),b=localPoint(c.frame,centre),axis=spec.axis.value;
   const x=new Vector3(...axis),direction=new Vector3(Vector3.Dot(x,new Vector3(...p.frame.x)),Vector3.Dot(x,new Vector3(...p.frame.y)),Vector3.Dot(x,new Vector3(...p.frame.z)));
   const xyz=v=>({x:v[0],y:v[1],z:v[2]});
   joint.joint.release();

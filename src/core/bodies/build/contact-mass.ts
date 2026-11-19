@@ -4,6 +4,7 @@ import type { BuiltBody, BuiltSegment } from "./build-body.ts";
 import type { ReadJoint } from "../read-body.ts";
 import { jointAngles, motionAxesToRef } from "./joint-state.ts";
 import { hypot } from "../../math/real.ts";
+import { localPoint } from "../spec/body.ts";
 
 /**
  * **The mass a contact meets**: at a point on a body, along a direction, the mass that an impulse
@@ -142,16 +143,8 @@ function articulatedMass(built: BuiltBody): ContactMass {
     for (let at = byChild.get(segment); at !== undefined; at = byChild.get(joints[at]!.parent)) out.push(at);
     return out;
   });
-  const localCentre = segments.map((segment) => {
-    const { origin, x, y, z } = segment.frame, c = segment.rigid.centre;
-    const d = [c[0] - origin[0], c[1] - origin[1], c[2] - origin[2]];
-    return new Vector3(d[0]! * x[0] + d[1]! * x[1] + d[2]! * x[2], d[0]! * y[0] + d[1]! * y[1] + d[2]! * y[2], d[0]! * z[0] + d[1]! * z[1] + d[2]! * z[2]);
-  });
-  const localPivot = joints.map((joint) => {
-    const { origin, x, y, z } = joint.child.frame, c = joint.spec.centre.value;
-    const d = [c[0] - origin[0], c[1] - origin[1], c[2] - origin[2]];
-    return new Vector3(d[0]! * x[0] + d[1]! * x[1] + d[2]! * x[2], d[0]! * y[0] + d[1]! * y[1] + d[2]! * y[2], d[0]! * z[0] + d[1]! * z[1] + d[2]! * z[2]);
-  });
+  const localCentre = segments.map((segment) => new Vector3(...localPoint(segment.frame, segment.rigid.centre)));
+  const localPivot = joints.map((joint) => new Vector3(...localPoint(joint.child.frame, joint.spec.centre.value)));
 
   // The pose, as `update` took it; and the arrays its sums are worked in, made once.
   const centres = segments.map(() => [0, 0, 0] as [number, number, number]);

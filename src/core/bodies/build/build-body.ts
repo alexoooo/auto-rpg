@@ -4,14 +4,13 @@ import type { ColliderShape, EngineJoint, PhysicsWorld, Pose, SegmentBody } from
 import type { ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 import { jointKinematics } from "./joint-kinematics.ts";
 import type { StepHost } from "../step-host.ts";
-import { frameOf, type BodySpec, type ConfigurationName, type JointSpec, type SegmentFrame, type SegmentSpec } from "../spec/body.ts";
+import { frameOf, localDirection, localPoint, type BodySpec, type ConfigurationName, type JointSpec, type SegmentFrame, type SegmentSpec } from "../spec/body.ts";
 import type { Vec3 } from "../../quantity.ts";
-import { dot } from "../spec/vec.ts";
 import { hasProducts, principalOf, type Rigid } from "./rigid.ts";
 import { segmentShapes } from "./segment-shapes.ts";
 import { rotationOfToRef } from "./joint-state.ts";
 import { createConfigurations, type Configurations } from "./configurations.ts";
-import { colliderOf, local } from "./collider.ts";
+import { colliderOf } from "./collider.ts";
 import { createToes, flatToes, type ToesState } from "./toes.ts";
 
 /**
@@ -82,10 +81,6 @@ interface InitialPose { readonly position: Vector3; readonly rotation: Quaternio
 
 const v3 = (v: Vec3): Vector3 => new Vector3(v[0], v[1], v[2]);
 
-/** `direction`, body frame, in `frame`'s coordinates. */
-const localDirection = (frame: SegmentFrame, direction: Vec3): Vec3 =>
-  [dot(direction, frame.x), dot(direction, frame.y), dot(direction, frame.z)];
-
 function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: StepHost, start?: InitialPose): BuiltSegment {
   const { frame, rigid, initial, poses, bent, rigidAt } = segmentShapes(body, spec);
   const pose: Pose = { name: `${body.model}.${spec.name}`, position: v3(frame.origin).addInPlace(v3(placement.position)),
@@ -98,7 +93,7 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
   const principal = hasProducts(rigid.tensor) ? principalOf(rigid.tensor) : null;
   const physics = world.physics.addBody(pose, shapes.map((shape) => colliderOf(frame, shape)), {
     mass: rigid.mass,
-    centre: local(frame, rigid.centre),
+    centre: localPoint(frame, rigid.centre),
     moments: principal ? principal.moments : [xx, yy, zz],
     orientation: principal
       ? Quaternion.RotationQuaternionFromAxis(v3(principal.axes[0]), v3(principal.axes[1]), v3(principal.axes[2]))
@@ -130,8 +125,8 @@ function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, 
   const centre = spec.centre.value;
   const inFrame = (frame: SegmentFrame) => frameRotation(localDirection(frame, x), localDirection(frame, y), localDirection(frame, z));
   const joint = world.physics.addJoint(parent.body, child.body, {
-    anchorParent: local(parent.frame, centre),
-    anchorChild: local(child.frame, centre),
+    anchorParent: localPoint(parent.frame, centre),
+    anchorChild: localPoint(child.frame, centre),
     frameParent: inFrame(parent.frame),
     frameChild: inFrame(child.frame),
     limits: dofs.map(({ spec: { min, max }, sign }) => (sign > 0 ? [min.value, max.value] as const : [-max.value, -min.value] as const)),
@@ -179,8 +174,8 @@ function initialPoses(spec: BodySpec, placement: Placement): ReadonlyMap<string,
       const { axes, dofs } = jointKinematics(joint), angles = placement.joints?.[joint.name] ?? joint.dofs.map(() => 0);
       const native = [0, 1, 2].map((i) => i < angles.length ? dofs[i]!.sign * angles[i]! : 0);
       turn = carry.multiply(rotationOfToRef(axes, native[0]!, native[1]!, native[2]!, new Quaternion())).multiply(rest);
-      position = v3(local(parentFrame, joint.centre.value)).applyRotationQuaternionToRef(above.rotation, new Vector3()).addInPlace(above.position);
-      position.subtractInPlace(v3(local(frame, joint.centre.value)).applyRotationQuaternionToRef(turn, new Vector3()));
+      position = v3(localPoint(parentFrame, joint.centre.value)).applyRotationQuaternionToRef(above.rotation, new Vector3()).addInPlace(above.position);
+      position.subtractInPlace(v3(localPoint(frame, joint.centre.value)).applyRotationQuaternionToRef(turn, new Vector3()));
     }
     const result = { position, rotation: turn }; poses.set(name, result); visiting.delete(name); return result;
   };
