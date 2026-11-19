@@ -244,7 +244,7 @@ function holding(s: Stance): readonly FootState[] {
 
 /** A step's swing time, s: the gait's, or longer if the swing hip needs it at the walk's `pace`, m/s (`swingSeconds`). */
 function stepSeconds(foot: FootState, pace: number, tuning: GaitTuning): number {
-  return Math.max(tuning.seconds, swingSeconds(foot.leg, pace, tuning.transfer ?? 0, tuning.effort));
+  return Math.max(tuning.seconds, swingSeconds(foot.leg, pace, tuning.transfer, tuning.effort));
 }
 
 /**
@@ -332,7 +332,7 @@ function centreAtLanding(b: Vector3, centre: Vector3, velocity: Vector3, w: numb
  * that needs it they meet the ground short of the landing step after step.
  */
 function stepsWithin(feet: readonly FootState[], v: number, ux: number, uz: number, heading: number, tuning: GaitTuning, hip: number, bend: number | null): boolean {
-  const rx = cos(heading), rz = -sin(heading), Tds = tuning.transfer ?? 0;
+  const rx = cos(heading), rz = -sin(heading), Tds = tuning.transfer;
   for (let k = 0; k < feet.length; k++) {
     const foot = feet[k]!, bearer = feet[1 - k]!, sign = foot.side === "right" ? 1 : -1, T = stepSeconds(foot, v, tuning) + Tds;
     const W = stepWidth(foot, v * Math.abs(ux * rx + uz * rz), T, tuning), dx = v * ux * T + sign * W * rx, dz = v * uz * T + sign * W * rz;
@@ -499,7 +499,7 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
   // The height's floor, 1 mm, is a numeric setting.
-  const Tss = stepSeconds(foot, hypot(walk[0], walk[1]), tuning), Tds = tuning.transfer!, T = Tss + Tds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3));
+  const Tss = stepSeconds(foot, hypot(walk[0], walk[1]), tuning), Tds = tuning.transfer, T = Tss + Tds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3));
   const W = stepWidth(foot, Math.abs(walk[0] * rx + walk[1] * rz), T, tuning);
   const E = exp(-w * Tss), F = exp(-w * Tds), G = (1 - F) / (w * Tds) - F;
   /** The capture point's reference as the foot lands at (x, z): at the end of the swing, on the bearing sole. */

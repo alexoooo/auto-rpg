@@ -53,8 +53,7 @@ export function scaledStride(stride: GaitTuning, k: number, quick = 1): GaitTuni
   const time = Math.sqrt(k) / quick;
   return { ...stride, seconds: stride.seconds * time, lift: stride.lift * k, width: stride.width * k,
     clearance: stride.clearance * k, crouch: stride.crouch * k, horizon: stride.horizon * time,
-    ...(stride.transfer === undefined ? {} : { transfer: stride.transfer * time }),
-    ...(stride.preswing === undefined ? {} : { preswing: { ...stride.preswing, seconds: stride.preswing.seconds * time } }) };
+    transfer: stride.transfer * time, preswing: { ...stride.preswing, seconds: stride.preswing.seconds * time } };
 }
 
 /** How many times as quick the gait of a body hasted `haste` times a person (`hasteOver`) is, timed by `hasted` (`WalkRunSettings.hasted`). */

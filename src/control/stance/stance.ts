@@ -212,7 +212,7 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
     const swinging = !stance.includes(foot);
     const [a] = foot.lengths, hx = hipAt.x + (swinging ? landX : r.x) - c.x, hz = hipAt.z + (swinging ? landZ : r.z) - c.z, rise = c.y - hipAt.y - reading.support.y;
     if (swinging) ankleAt.addInPlaceFromFloats(swing!.to[0] - foot.middle.x, landingHeight(stance.find((f) => f !== foot)!, foot) - foot.middle.y, swing!.to[1] - foot.middle.z);
-    if (bend !== null && !s.state.pose) {
+    if (!s.state.pose) {
       const long = legLength(foot, bend), spread = hypot(hx - ankleAt.x, hz - ankleAt.z);
       high = Math.min(high, ankleAt.y + Math.sqrt(Math.max(0, long * long - spread * spread)) + rise);
     }
@@ -251,16 +251,16 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
  * backward.
  */
 function rollFeet(s: Stance, stance: readonly FootState[], swing: SwingGoal | null, floors: readonly [FootState, number, SoleEnd][], high: number): void {
-  const { feet } = s, { plan, reading, gait } = s.state, { heelOff } = s.tuning;
+  const { feet } = s, { plan, reading } = s.state;
   const r = plan.at, u = plan.velocity;
   for (const foot of feet) if (!stance.includes(foot)) foot.memory.rolled = null;
   for (const [foot, floor, end] of floors) {
     if (!stance.includes(foot)) continue;
     const past = endPast(foot, r.x, r.z), going = u.x * (r.x - foot.middle.x) + u.z * (r.z - foot.middle.z) > 0;
-    if (heelOff && going && (s.state.striding || swing?.transfer !== undefined && swing !== reading.own) && past === end && !foot.memory.rolled && floor > high && reading.phase === "swing") foot.memory.rolled = end;
+    if (going && (s.state.striding || swing?.transfer !== undefined && swing !== reading.own) && past === end && !foot.memory.rolled && floor > high && reading.phase === "swing") foot.memory.rolled = end;
     else if (foot.memory.rolled && past !== foot.memory.rolled && (reading.phase === "shift" && !swing?.transfer || (foot.memory.rolled === "front" ? foot.heel <= foot.flat : -foot.heel <= -foot.flat))) foot.memory.rolled = null;
   }
-  if (gait.preswing !== undefined && reading.phase === "shift" && swing?.transfer) {
+  if (reading.phase === "shift" && swing?.transfer) {
     const trailing = feet.find((f) => f.name === swing.foot)!, front = trailing.ends.front.middle;
     if (stance.includes(trailing)) trailing.memory.rolled = u.x * (front.x - trailing.middle.x) + u.z * (front.z - trailing.middle.z) > 0 ? "front" : "heel";
   }
@@ -600,7 +600,7 @@ function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleReading)
   // freedoms take the task.
   ahead.length = foot.memory.channels.length;
   ahead.fill(NaN);
-  if (bend !== null && !s.state.pose) {
+  if (!s.state.pose) {
     const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, flexed = muscles.angle(i) - foot.straight, m = 1 / seconds.height;
     if (flexed < 0) ahead[k] = m * m * (bend - flexed) - 2 * m * muscles.rate(i);
   }
@@ -612,7 +612,7 @@ function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleReading)
     // Rolled, the ankle is held at that end's stop less the spare (the front's the dorsiflexion
     // stop, the heel's the plantar flexion stop), critically damped at the height's constant.
     const pre = step.swing;
-    if (gait.preswing !== undefined && reading.phase === "shift" && pre?.transfer && pre.foot === foot.name) {
+    if (reading.phase === "shift" && pre?.transfer && pre.foot === foot.name) {
       const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / gait.preswing.seconds;
       ahead[k] = m * m * (gait.preswing.knee - (muscles.angle(i) - foot.straight)) - 2 * m * muscles.rate(i);
     } else {

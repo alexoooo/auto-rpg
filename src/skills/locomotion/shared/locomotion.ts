@@ -100,7 +100,7 @@ export const STANCE_STOPPING = 0.5;
  * under way lands where it was planned and the next is planned at the pace the walk has come down
  * to, so it goes on through a swing and a double support (`STANCE_GAIT`'s).
  */
-const STANCE_LAG = STANCE_GAIT.seconds + (STANCE_GAIT.transfer ?? 0);
+const STANCE_LAG = STANCE_GAIT.seconds + STANCE_GAIT.transfer;
 
 /**
  * **A body's legs, under the stance**: both feet bearing, the centre of mass held at a height

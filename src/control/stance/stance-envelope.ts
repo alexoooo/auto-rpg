@@ -1,5 +1,8 @@
 import { derive, type Quantity } from "../../core/quantity.ts";
-import { atan2 } from "../../core/math/real.ts";
+
+/** The four ways a walk is measured: forward, to the right, back and to the left. */
+const WAYS = ["forward", "right", "back", "left"] as const;
+type Way = (typeof WAYS)[number];
 
 /**
  * Measured walking and turning limits supplied by a locomotion's calibration provider.
@@ -12,12 +15,7 @@ export interface StanceEnvelope {
    * speed at which every one of that way's trials held (`fastestEvery`; `heldPace` reads between
    * them). Where the asset measured no way by itself, each is its one fastest walk.
    */
-  readonly ways: { readonly forward: Quantity<number>; readonly right: Quantity<number>; readonly back: Quantity<number>; readonly left: Quantity<number> };
-  /** Optional operating limits at eight headings, forward then clockwise every 45 degrees.
-   * Cardinal entries equal `ways`; intermediate headings interpolate between adjacent limits.
-   * These explicit operating limits are not raised by a caller accepting trial failures.
-   */
-  readonly directions?: readonly Quantity<number>[];
+  readonly ways: { readonly [W in Way]: Quantity<number> };
   /**
    * At each speed of the gait battery up to its fastest walk forward (`ways.forward`), slowest
    * first: the fastest the heading turned while the body walked forward at that speed, and held,
@@ -34,7 +32,7 @@ export interface StanceEnvelope {
   readonly tried: {
     readonly speeds: readonly Quantity<number>[];
     readonly trials: Quantity<number>;
-    readonly held: { readonly forward: readonly Quantity<number>[]; readonly right: readonly Quantity<number>[]; readonly back: readonly Quantity<number>[]; readonly left: readonly Quantity<number>[] };
+    readonly held: { readonly [W in Way]: readonly Quantity<number>[] };
   } | null;
 }
 
@@ -44,36 +42,27 @@ export function validStanceEnvelope(value: unknown): value is StanceEnvelope {
   const envelope = value as StanceEnvelope;
   const quantity = (q: unknown, unit: string): boolean => !!q && typeof q === "object"
     && (q as Quantity<number>).unit === unit && Number.isFinite((q as Quantity<number>).value) && (q as Quantity<number>).value >= 0;
-  if (!envelope.ways || !["forward", "right", "back", "left"].every(way => quantity(envelope.ways[way as keyof StanceEnvelope["ways"]], "m/s"))) return false;
-  const directions = envelope.directions;
-  if (directions !== undefined && (!Array.isArray(directions) || directions.length !== 8 || !directions.every(q => quantity(q, "m/s"))
-    || ["forward", "right", "back", "left"].some((way, i) => directions[i * 2]!.value !== envelope.ways[way as keyof StanceEnvelope["ways"]].value))) return false;
+  if (!envelope.ways || !WAYS.every(way => quantity(envelope.ways[way], "m/s"))) return false;
   if (!Array.isArray(envelope.turns) || !envelope.turns.every((row, i) => row && quantity(row.speed, "m/s") && quantity(row.turn, "rad/s")
     && (i === 0 || row.speed.value > envelope.turns[i - 1]!.speed.value))) return false;
   const tried = envelope.tried;
   return tried === null || !!tried && Array.isArray(tried.speeds) && quantity(tried.trials, "1") && tried.trials.value > 0
     && tried.speeds.every(speed => quantity(speed, "m/s")) && !!tried.held
-    && ["forward", "right", "back", "left"].every(way => {
-      const counts = tried.held[way as keyof StanceEnvelope["ways"]];
+    && WAYS.every(way => {
+      const counts = tried.held[way];
       return Array.isArray(counts) && counts.length === tried.speeds.length && counts.every(count => quantity(count, "1") && count.value <= tried.trials.value);
     });
 }
 
 /**
  * The fastest pace `envelope` holds walking `forward` m/s ahead and `right` m/s to the right, m/s: on
- * the eight-heading operating table where supplied, else the ellipse through the fastest walks
- * of the two ways that walk lies between (`StanceEnvelope.ways`),
+ * the ellipse through the fastest walks of the two ways that walk lies between (`StanceEnvelope.ways`),
  * so a walk asked past it keeps its way at the most that way holds. A way that held no speed holds
  * none, nor does any walk with a share of it. Given a `share` under 1, each way's fastest is the
  * fastest speed at which at least that share of its trials held (`StanceEnvelope.tried`), where it
  * is faster than the rule's: the pace a caller asks that accepts the rest falling.
  */
 export function heldPace(envelope: StanceEnvelope, forward: number, right: number, share = 1): number {
-  if (envelope.directions && (forward !== 0 || right !== 0)) {
-    const angle = atan2(right, forward), sector = (angle < 0 ? angle + 2 * Math.PI : angle) * 4 / Math.PI;
-    const cell = Math.floor(sector), fraction = sector - cell, limits = envelope.directions;
-    return limits[cell % 8]!.value * (1 - fraction) + limits[(cell + 1) % 8]!.value * fraction;
-  }
   const along = risked(envelope, forward >= 0 ? "forward" : "back", share), across = risked(envelope, right >= 0 ? "right" : "left", share);
   if (along === across) return along;
   const speed = Math.sqrt(forward * forward + right * right);
@@ -83,7 +72,7 @@ export function heldPace(envelope: StanceEnvelope, forward: number, right: numbe
 }
 
 /** The fastest walk `way` that held at least `share` of its trials at its speed, or by the rule (`StanceEnvelope.ways`) where that is faster, m/s. */
-function risked({ ways, tried }: StanceEnvelope, way: keyof StanceEnvelope["ways"], share: number): number {
+function risked({ ways, tried }: StanceEnvelope, way: Way, share: number): number {
   let fastest = ways[way].value;
   if (share >= 1 || !tried) return fastest;
   const held = tried.held[way], trials = tried.trials.value;
@@ -103,7 +92,7 @@ export function turnAt(envelope: StanceEnvelope, speed: number): number {
 }
 
 /** The fastest speed of `envelope`'s table at which it held a turn, m/s; 0 if it held none. */
-export function fastestTurning(envelope: StanceEnvelope): number {
+function fastestTurning(envelope: StanceEnvelope): number {
   let fastest = 0;
   for (const t of envelope.turns) if (t.turn.value > 0) fastest = Math.max(fastest, t.speed.value);
   return fastest;
@@ -143,10 +132,9 @@ export function carried(turn: number, radius: number): number {
 export function quickened(envelope: StanceEnvelope, quick: number): StanceEnvelope {
   if (quick === 1) return envelope;
   const faster = (q: Quantity<number>): Quantity<number> => derive(q.unit, "quickened as the gait is by the body's haste", [q], (v) => v * quick);
-  const { ways, tried, turns, directions } = envelope;
+  const { ways, tried, turns } = envelope;
   return {
     ways: { forward: faster(ways.forward), right: faster(ways.right), back: faster(ways.back), left: faster(ways.left) },
-    ...(directions ? { directions: directions.map(faster) } : {}),
     tried: tried && { ...tried, speeds: tried.speeds.map(faster) },
     turns: turns.map(({ speed, turn }) => ({ speed: faster(speed), turn: faster(turn) })),
   };

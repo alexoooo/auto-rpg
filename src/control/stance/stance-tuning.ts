@@ -6,10 +6,9 @@
 
 /**
  * The time constants, s, all critically damped: the centre of mass's pull across the ground and in
- * height, the pelvis's turn, and a swinging foot's pull onto its path. The solve gives a swinging
- * foot the acceleration it asks; at 0.1 s the foot lags its path, most where the path rises late
- * under a leg stepping back (its knee bending, its ankle on its stop, its toes dropping), and the
- * toes meet the ground short of the landing and drag.
+ * height, the pelvis's turn, and a swinging foot's pull onto its path. The swinging foot's is short:
+ * the solve gives the foot the acceleration it asks, and a longer constant lags the path where it
+ * rises late under a leg stepping back, so the toes meet the ground short of the landing and drag.
  */
 const STANCE_SECONDS = { across: 0.3, height: 0.15, turn: 0.15, swing: 0.04 } as const;
 
@@ -20,8 +19,8 @@ export interface StanceTuning {
   readonly track?: number;
   /** `SOLE_MARGIN`. */
   readonly soleMargin?: number;
-  /** The least knee bend the height is held for, rad; null holds the goal's height however far the legs reach. */
-  readonly kneeBend?: number | null;
+  /** The least knee bend the height is held for, rad (`STANCE_KNEE_BEND`). */
+  readonly kneeBend?: number;
   /** The ankle's dorsiflexion left unused, rad; null holds the goal's height however far the ankles bend. */
   readonly ankleSpare?: number | null;
   /** `SUPPORT_INSET`. */
@@ -30,8 +29,6 @@ export interface StanceTuning {
   readonly recovery?: RecoveryTuning | null;
   /** How a stance walks (`STANCE_GAIT`). */
   readonly gait?: GaitTuning;
-  /** A bearing foot whose ankle would pass its stop rolls onto its front edge; false holds it flat (the control). */
-  readonly heelOff?: boolean;
 }
 
 /** The settings of a walk's steps. */
@@ -77,17 +74,16 @@ export interface GaitTuning {
   readonly horizon: number;
   /**
    * A double support before each steady step's lift, s (`transferStep`): both soles bear while the
-   * weight goes from the trailing foot to the leading one. None, and a step lifts the tick the last
-   * one lands (the control).
+   * weight goes from the trailing foot to the leading one. 0, and a step lifts the tick the last
+   * one lands.
    */
-  readonly transfer?: number;
+  readonly transfer: number;
   /**
    * The pre-swing, in a walk with a double support: through it the foot about to lift, while the
    * body goes its toes' way, rolls onto its front edge and its knee flexes toward `knee`, rad from
-   * straight, critically damped at `seconds`, the ankle going where the leg takes it. None, and a
-   * rolled foot's ankle is held as the heel-off holds it.
+   * straight, critically damped at `seconds`, the ankle going where the leg takes it.
    */
-  readonly preswing?: { readonly knee: number; readonly seconds: number };
+  readonly preswing: { readonly knee: number; readonly seconds: number };
   /**
    * Whether a walk starts with the foot whose first landing is the further the walk's way from
    * where it stands (`startingSide`); false or none, with the one on the side the walk goes.
@@ -130,7 +126,7 @@ const STANCE_KNEE_BEND = 0.2;
  * height asked it would press its ankles on their stops. A lower
  * stance needs the hip to hinge, which the stance does not do.
  */
-export const STANCE_ANKLE_SPARE = 0.01;
+const STANCE_ANKLE_SPARE = 0.01;
 
 /**
  * A stance on both feet steps to catch a push (`recoveryStep`) once its capture point is `margin` m
@@ -159,16 +155,17 @@ export const STANCE_GAIT: GaitTuning = Object.freeze({ seconds: 0.3, lift: 0.05,
   preswing: Object.freeze({ knee: 0.61, seconds: 0.04 }) });
 
 /** A complete stride has finite geometry, positive timing, and bounded strength and reach reserves. */
-export function validGaitTuning(gait: GaitTuning): boolean {
-  if (!gait || typeof gait !== "object" || Array.isArray(gait)) return false;
-  const keys = ["seconds", "lift", "width", "longest", "reserve", "effort", "clearance", "accel", "crouch", "horizon"] as const, optional = ["transfer", "preswing", "startsToward"] as const;
+export function validGaitTuning(value: unknown): value is GaitTuning {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const gait = value as GaitTuning;
+  const keys = ["seconds", "lift", "width", "longest", "reserve", "effort", "clearance", "accel", "crouch", "horizon", "transfer"] as const, optional = ["preswing", "startsToward"] as const;
   if (Object.keys(gait).some(key => ![...keys, ...optional].some(known => known === key))) return false;
   if (!keys.every(key => Number.isFinite(gait[key]))) return false;
   return gait.seconds > 0 && gait.longest > 0 && gait.accel > 0 && gait.horizon > 0
     && gait.lift >= 0 && gait.width >= 0 && gait.clearance >= 0 && gait.crouch >= 0
     && gait.reserve > 0 && gait.reserve <= 1 && gait.effort > 0 && gait.effort <= 1
-    && (gait.transfer === undefined || Number.isFinite(gait.transfer) && gait.transfer >= 0)
-    && (gait.preswing === undefined || gait.preswing !== null && typeof gait.preswing === "object" && !Array.isArray(gait.preswing)
+    && gait.transfer >= 0
+    && (gait.preswing !== null && typeof gait.preswing === "object" && !Array.isArray(gait.preswing)
       && Object.keys(gait.preswing).every(key => key === "knee" || key === "seconds") && Number.isFinite(gait.preswing.knee) && gait.preswing.knee >= 0
       && Number.isFinite(gait.preswing.seconds) && gait.preswing.seconds > 0)
     && (gait.startsToward === undefined || typeof gait.startsToward === "boolean");
@@ -208,25 +205,23 @@ export const SUPPORT_INSET = 0.5;
 /** The stance's settings as it reads them: each one `StanceTuning`'s, or the constant it stands in for. */
 export interface ResolvedStance {
   readonly seconds: NonNullable<StanceTuning["seconds"]>;
+  readonly bend: number;
   /** Null where the tuning turns the limit, or the step, off. */
-  readonly bend: number | null;
   readonly spare: number | null;
   readonly recovery: RecoveryTuning | null;
   readonly gait: GaitTuning;
   readonly track: number;
   readonly soleMargin: number;
-  readonly heelOff: boolean;
 }
 
 export function resolveStance(tuning: StanceTuning): ResolvedStance {
   return {
     seconds: tuning.seconds ?? STANCE_SECONDS,
-    bend: tuning.kneeBend === undefined ? STANCE_KNEE_BEND : tuning.kneeBend,
+    bend: tuning.kneeBend ?? STANCE_KNEE_BEND,
     spare: tuning.ankleSpare === undefined ? STANCE_ANKLE_SPARE : tuning.ankleSpare,
     recovery: tuning.recovery === undefined ? STANCE_RECOVERY : tuning.recovery,
     gait: tuning.gait ?? STANCE_GAIT,
     track: tuning.track ?? STANCE_TRACK,
     soleMargin: tuning.soleMargin ?? SOLE_MARGIN,
-    heelOff: tuning.heelOff ?? true,
   };
 }
