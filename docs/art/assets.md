@@ -21,8 +21,11 @@ Run the documented authoring builder to update a source export, then `npm run as
 delivery files. The builders never write full-quality exports into `public/`.
 
 `public/assets/env.hdr`, the environment map, is Poly Haven's `kloofendal_43d_clear` at 1k
-(<https://polyhaven.com/a/kloofendal_43d_clear>), released under CC0 1.0; the menu image's source
-is [the menu painting](menu.md).
+(<https://polyhaven.com/a/kloofendal_43d_clear>), released under CC0 1.0, with the one pixel at
+the sun's centre dimmed from 75776 to 65280 in its brightest channel, its colour kept
+(`node scripts/art/radiance.mjs cap <in.hdr> <out.hdr>`). A half-float texel holds no more than
+65504, and a phone holds the map in half floats ([the traps](../traps.md#babylon)); the asset
+check refuses a brighter pixel. The menu image's source is [the menu painting](menu.md).
 
 Never commit an LFS pointer whose content has not been uploaded when publishing the
 corresponding code.

@@ -30,6 +30,13 @@ its kind or running those tools.
 - **A transparent overlay drawing over geometry keeps stencil masks read-only**
   (`material.stencil.enabled = true`, `mask = 0`); otherwise a HighlightLayer can fill its quad
   with a character's silhouette.
+- **An environment map's brightest pixel must fit a half float** (65504): Babylon filters the map
+  into half-float textures, and a phone uploads it as them. A desktop GPU clamps a brighter
+  value; a phone's makes it infinite, and every surface whose reflection reaches it loses that
+  channel. A clear sky's sun at 75776 red and 71168 green, with its blue under the limit, drew
+  the Arena's floor and fighters saturated blue in blocks on a phone and nothing wrong on a
+  desktop. `node scripts/art/radiance.mjs cap` dims such pixels, and `npm run assets:check`
+  refuses them.
 - **The Tactical view turns the scene's textures off** (`scene.texturesEnabled`): a standard
   material that is nothing but its textures then draws a black quad. What must read in both views
   carries a colour of its own (a route's chalk) or draws with a `ShaderMaterial`, which samples

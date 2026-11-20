@@ -11,6 +11,7 @@ import sharp from "sharp";
 import { build as bundle } from "vite";
 import validator from "gltf-validator";
 import { ROOT, CACHE, TOOL_RELEASES, digest, run, tool } from "./tools.mjs";
+import { overHalfFloat } from "./radiance.mjs";
 
 const CATALOG = join(ROOT, "assets/art/catalog.json");
 const OUTPUT = join(ROOT, "public/assets/generated");
@@ -300,6 +301,10 @@ export async function checkAssets(folder = OUTPUT) {
     const hash = digest(await readFile(join(folder, uri)));
     assert.equal(hash, uri.split("/").at(-1).split(".")[0], `Changed artifact: ${uri}`);
     assert.ok(!content.has(hash), `Duplicated delivery payload: ${uri} and ${content.get(hash)}`); content.set(hash, uri);
+  }
+  // A phone holds an environment map in half floats: a brighter pixel is infinite there, and its light is lost.
+  for (const file of catalog().retained.filter(file => file.endsWith(".hdr"))) {
+    assert.equal(overHalfFloat(await readFile(join(ROOT, file))), 0, `${file}: pixels brighter than a half float holds; node scripts/art/radiance.mjs cap`);
   }
   const total = await deliveryBytes(folder, manifest);
   assert.ok(total <= catalog().profile.totalBudgetBytes, `Art delivery: ${total} > ${catalog().profile.totalBudgetBytes} bytes`);
