@@ -4,7 +4,9 @@
 quality of this project. we need to implement everything in the most simple and general way that
 we can"; "I always want everything to be just a skill. I don't want any ad-hoc hard-coded hacks."
 A new capability enters by the config path those already there take, on main, where the owner can
-pick it in the game before it is judged: "the first thing I want is to see it".
+pick it in the game before it is judged: "the first thing I want is to see it". What measures
+better than the game stays pickable in the game and is reported first; nothing selectable,
+measured or collected is removed without the owner's word.
 
 [README](README.md) says what the game is, the documents below the rest. Work toward the owner's
 goal runs unattended, overnight included. A second session that reviews it reads read-only and
