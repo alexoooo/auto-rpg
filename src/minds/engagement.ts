@@ -8,6 +8,8 @@ import type { Priced } from "./choice.ts";
  * it carries out; and where it leaves the body, the range head to head, m, and the chance it is down.
  */
 export interface OfferTerms {
+  /** Whether it runs as long as it is held (`Option.open`): its duration the seconds it was priced to be held, not one run's. */
+  readonly open: boolean;
   readonly duration: number;
   readonly dealt: number;
   readonly taken: number;

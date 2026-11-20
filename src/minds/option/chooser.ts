@@ -525,7 +525,7 @@ function searching(make: (now: Situation) => Lines): Appraise<Situation, OfferTe
       range += outcome.chance * end.range; down += outcome.chance * (end.down ? 1 : 0);
     }
     const letGo = terms.letGo ? Math.max(0, terms.letGo.taken - threatened(now, terms.letGo.seconds)) : 0;
-    return { name: option.name, kind: option.kind, worth, terms: { duration: terms.duration, dealt: terms.dealt, taken: terms.taken, orders: terms.orders, exit: { range, down } },
+    return { name: option.name, kind: option.kind, worth, terms: { open: option.open === true, duration: terms.duration, dealt: terms.dealt, taken: terms.taken, orders: terms.orders, exit: { range, down } },
       moves: worth - (terms.dealt - terms.taken), letGo };
   };
 }

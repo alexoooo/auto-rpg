@@ -1,7 +1,7 @@
 /**
  * **How the scorecard reads a bout**: at each decision of each side's mind that reports its offers
- * (`Engagement.offers`), what the chosen offer was priced to deal and take over its seconds against
- * what the bout gave over them; the strikes each side began, and its falls.
+ * (`Engagement.offers`), what the chosen offer was priced to deal and take against what the bout gave
+ * (`pricesOf`); the strikes each side began, and its falls.
  */
 import { SIDES } from "../../game/arena/duel.ts";
 import { hypot } from "../../core/math/real.ts";
@@ -17,18 +17,15 @@ const BAND = .25;
 export const QUIET = 3;
 
 /**
- * Priced against given, summed over decisions: how many, and the life (a share of a full life)
- * the chosen offer was priced to take over its seconds against what the body lost over them; and
- * of those priced to deal (`dealing`), what they were priced to deal against what the foe lost
- * over them. An offer priced to deal nothing is not read for it: the life dealt in its seconds is
- * the later decisions'.
+ * Priced against given, summed over choices (`pricesOf`): how many, and the life (a share of a full
+ * life) each was priced to take against what the body lost; and of those priced to deal
+ * (`dealing`), what they were priced to deal against what the foe lost. A choice priced to deal
+ * nothing is not read for it: the life dealt while it held is the earlier choices'.
  */
 export type Prices = { n: number; taken: number; lost: number; dealing: number; dealt: number; given: number };
 
 /**
- * What one side's choices came to, by slice, each Option chosen read over the span it ran (until
- * another was chosen, at most its priced duration), what it was priced to take for its share of that duration
- * and what it was priced to deal whole: `all`; by what the chosen offer was priced to do
+ * What one side's choices came to, by slice, each read as `pricesOf` reads it: `all`; by what the chosen offer was priced to do
  * (`strike` where it deals, else `move` where it leaves the range further than `ARRIVED` from where
  * it was, as the chooser tells a staying run, else `stay`); by what its mind read the foe doing (`foe <label>`, `Engagement.foe`); and by
  * the range head to head it decided at, in bands `BAND` wide (`range <from>`).
@@ -51,8 +48,41 @@ export type ScorecardReading = BoutReading & {
   readonly grounded: readonly (readonly [number, number])[];
 };
 
-/** A decision: when, the Option it chose (`name`), and that Option's priced terms. */
-type Decision = { readonly t: number; readonly name: string; readonly duration: number; readonly dealt: number; readonly taken: number; readonly slices: readonly string[] };
+/** A decision: when, the Option it chose (`name`), whether that Option is held (`OfferTerms.open`), its priced terms, and the slices it is read in. */
+export type Decision = { readonly t: number; readonly name: string; readonly open: boolean; readonly duration: number; readonly dealt: number; readonly taken: number; readonly slices: readonly string[] };
+
+/**
+ * **Priced against given**, one side's `decisions` in time order, its life and its foe's at a time
+ * (`lifeAt(0 | 1, t)`, its own 0), the bout ending at `end`, its last bars held past it where
+ * `carried`. A run of decisions choosing one Option is one choice, and it holds until another is
+ * chosen, at most its priced duration.
+ * - What it was priced to take, the others' pressure on the body, against the life the body lost
+ *   over the window it was priced for, whatever the body chose in it: a run's whole duration (a
+ *   strike's, a walk's, whose danger may come at its end); a held Option's (`open`), priced as
+ *   held to the horizon, over the span it was held, its price for that share of its duration.
+ * - What it was priced to deal, its own blows, whole, against the life the foe lost over the span
+ *   it held: a later choice's blows are that choice's.
+ * A choice whose window runs past a bout cut by the clock is not read.
+ */
+export function pricesOf(decisions: readonly Decision[], lifeAt: (side: 0 | 1, t: number) => number, end: number, carried: boolean): Record<string, Prices> {
+  const prices: Record<string, Prices> = {};
+  for (let i = 0; i < decisions.length; i++) {
+    const d = decisions[i]!;
+    let next = i + 1;
+    while (next < decisions.length && decisions[next]!.name === d.name) next++;
+    i = next - 1;
+    const held = Math.min(d.duration, (next < decisions.length ? decisions[next]!.t : end) - d.t);
+    const window = d.open ? held : d.duration, taken = d.open && d.duration > 0 ? d.taken * held / d.duration : d.taken;
+    if (d.t + window >= end && !carried) continue;
+    const lost = lifeAt(0, d.t) - lifeAt(0, d.t + window), given = lifeAt(1, d.t) - lifeAt(1, d.t + held);
+    for (const slice of d.slices) {
+      const p = prices[slice] ??= { n: 0, taken: 0, lost: 0, dealing: 0, dealt: 0, given: 0 };
+      p.n++; p.taken += taken; p.lost += lost;
+      if (d.dealt > 0) { p.dealing++; p.dealt += d.dealt; p.given += given; }
+    }
+  }
+  return prices;
+}
 
 /** A bout's scorecard reader: the contest's, with each side's decisions read as they are made and priced at the end. */
 export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
@@ -82,7 +112,7 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
         if (!terms) return;
         const a = me.body.physical.head, b = foe.body.physical.head, range = hypot(a.x - b.x, a.z - b.z);
         const kind = terms.dealt > 0 ? "strike" : Math.abs(terms.exit.range - range) > ARRIVED ? "move" : "stay";
-        decisions[s]!.push({ t: duel.clock, name: engagement.phase, duration: terms.duration, dealt: terms.dealt, taken: terms.taken, slices: ["all", kind, ...engagement.foe ? [`foe ${engagement.foe}`] : [], `range ${(Math.floor(range / BAND) * BAND).toFixed(2)}`] });
+        decisions[s]!.push({ t: duel.clock, name: engagement.phase, open: terms.open, duration: terms.duration, dealt: terms.dealt, taken: terms.taken, slices: ["all", kind, ...engagement.foe ? [`foe ${engagement.foe}`] : [], `range ${(Math.floor(range / BAND) * BAND).toFixed(2)}`] });
       });
       const either = SIDES.some((side) => duel.duelists[side].body.down);
       if (either && groundedSince === null) groundedSince = duel.clock;
@@ -100,24 +130,7 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
         return lives[s]![lo]!;
       };
       const sides = SIDES.map((_, s): SideReading => {
-        const prices: Record<string, Prices> = {}, own = decisions[s]!;
-        for (let i = 0; i < own.length; i++) {
-          // A choice runs from its decision until another Option is chosen (`Decision.name`), at most its priced duration, and
-          // the life given and lost is read over that span. What it was priced to take, the others' pressure over its time, is
-          // read for the share of that duration it ran; what it was priced to deal, its blow's, landing once in its run, whole.
-          const d = own[i]!;
-          let next = i + 1;
-          while (next < own.length && own[next]!.name === d.name) next++;
-          const ran = Math.min(d.duration, (next < own.length ? own[next]!.t : end) - d.t), until = d.t + ran, share = d.duration > 0 ? ran / d.duration : 1;
-          i = next - 1;
-          if (until >= end && !carried) continue;
-          const given = lifeAt(1 - s, d.t) - lifeAt(1 - s, until), lost = lifeAt(s, d.t) - lifeAt(s, until);
-          for (const slice of d.slices) {
-            const p = prices[slice] ??= { n: 0, taken: 0, lost: 0, dealing: 0, dealt: 0, given: 0 };
-            p.n++; p.taken += share * d.taken; p.lost += lost;
-            if (d.dealt > 0) { p.dealing++; p.dealt += d.dealt; p.given += given; }
-          }
-        }
+        const prices = pricesOf(decisions[s]!, (side, t) => lifeAt(side === 0 ? s : 1 - s, t), end, carried);
         return { decisions: decisions[s]!.length, prices, strikes: strikes[s]!, downs: downs[s]! };
       }) as unknown as readonly [SideReading, SideReading];
       return { ...read, sides, grounded: groundedSince === null ? grounded : [...grounded, [groundedSince, end] as [number, number]] };
