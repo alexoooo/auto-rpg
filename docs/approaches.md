@@ -225,6 +225,16 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   read the chosen sways' falls at 2.7 % against 4.5 % and their life at 1.46 times, one of the
   chosen alone 5.1 % and 1.03 (`dac468d58`). Such a profile moves with the mind's prices and is
   read again when they change. *Shown.*
+- **A strike's profile read where its blow begins prices it; the Mind's choosing on that reading
+  overprices it**: the man's moving punch, the profile remade from sparring (2026-11-19's rows),
+  read at the starts of 1,789 punches begun in fights reads 1.03 of what they dealt (1.01 on
+  sparring's own), the profile made 2026-11-17 1.34. Read where the Mind asks the blow it is the
+  profile's reading; but a strike choice is priced about 1.5 times what it gives, and what it gives
+  rises at about 0.4 of its price over five price bands: the Mind chooses where the nearest trials
+  read high, part of which is their noise. Remade, the profiles still read 1.40 in play and the
+  mirror stood off (0 of 216 knocked out within 60 s); measured in fights instead, a profile
+  measures the Mind as much as the punch (0.212 hit points a punch at 100 runs, 0.159 at 50), not
+  built. *Shown* (the plan of 2026-11-19, step 5).
 - **A foe's pressure measured in bouts prices what bouts give; the rate from its strikes did
   not**: priced by its best strike's dealt over its cycle, a Warrior's second in reach with the
   foe throwing nothing was 17 to 20 times what it lost at 0.2 s and 0.8 with a punch committed.
