@@ -178,7 +178,7 @@
 :where(#screen-root[data-screen="arena"]) #arena-view .field { display: grid; grid-template-columns: 66px minmax(0, 1fr); align-items: baseline; gap: 8px; margin: 8px 0 0; }
 :where(#screen-root[data-screen="arena"]) #arena-view .label { color: var(--dim); margin: 0; }
 :where(#screen-root[data-screen="arena"]) #arena-view .options { display: flex; flex-wrap: wrap; gap: 5px; }
-:where(#screen-root[data-screen="arena"]) #arena-view-controls button { flex: 1; min-width: 0; padding: 7px; border: 1px solid var(--edge); border-radius: 4px;
+:where(#screen-root[data-screen="arena"]) #arena-view-controls button { flex: auto; min-width: 0; padding: 7px; border: 1px solid var(--edge); border-radius: 4px;
   background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
 :where(#screen-root[data-screen="arena"]) #arena-view-controls button[aria-pressed="true"] { color: var(--hot); border-color: var(--hot); }
 :where(#screen-root[data-screen="arena"]) #arena-view-controls button:hover { background: rgba(255, 255, 255, .06); }

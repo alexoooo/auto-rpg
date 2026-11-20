@@ -55,7 +55,7 @@ import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
-import { choice, following, type Control } from "../ui/controls.ts";
+import { choice, following, when, type Control } from "../ui/controls.ts";
 import { viewControls } from "../ui/view-controls.ts";
 import { floatingPanel } from "../ui/floating-panel.ts";
 import { cameraControls } from "../ui/camera-controls.ts";
@@ -447,9 +447,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     for (const control of viewFields) control.refresh();
   };
   viewFields.push(...viewControls(() => view, chooseView),
-    following(() => view.camera, mode => choice("Focus", cameraFocuses(mode).map(value => ({ value,
+    // The focus is asked only of a camera that offers more than one.
+    following(() => view.camera, mode => when(() => cameraFocuses(mode).length > 1, choice("Focus", cameraFocuses(mode).map(value => ({ value,
       name: ({ both: "Both", left: "Left", right: "Right" } satisfies Record<ArenaFocus, string>)[value] })),
-      () => view.focus, focus => chooseView({ focus }))));
+      () => view.focus, focus => chooseView({ focus })))));
   need("arena-view-controls").append(...viewFields.map(control => control.element));
   /** Whether the bout holds where the person's side has a new choice, and whether it is held so now, for the person to pick. */
   let pauseOnChoice = false, choosing = false;

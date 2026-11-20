@@ -11,7 +11,7 @@ export type ArenaSubjects = Readonly<Record<Side, CameraSubject>>;
 /** Arena setup framing, set by eye. */
 const OVERVIEW = Object.freeze({ pitch: .78, distance: 39, width: 31 });
 
-/** The Arena supplies its selected fighter or midpoint to the common camera. */
+/** The Arena supplies its selected fighter, or the fighters' midpoint and the line from the left one to the right, to the common camera. */
 export function arenaCameraRig(camera: FreeCamera, initial: ArenaView) {
   const rig = orbitCamera(camera, initial), target = new Vector3();
   let view = initial;
@@ -29,7 +29,7 @@ export function arenaCameraRig(camera: FreeCamera, initial: ArenaView) {
       const selected = view.focus === "both" ? null : subjects[view.focus];
       const a = subjects.left.position, b = subjects.right.position;
       target.set(selected?.position.x ?? (a.x + b.x) / 2, VIEW_CAMERA.lookHeight, selected?.position.z ?? (a.z + b.z) / 2);
-      rig.frame(target, selected, dt, aspect);
+      rig.frame(target, selected, dt, aspect, selected ? null : { x: b.x - a.x, z: b.z - a.z });
     },
   };
 }

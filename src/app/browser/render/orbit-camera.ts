@@ -3,7 +3,7 @@ import type { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Puppet } from "./puppet.ts";
 import type { ViewSettings } from "../../../game/appearance/view.ts";
-import { CHASE_BETA, followCameraAngles, ISO_ALPHA, ISO_BETA, orthoExtents, VIEW_CAMERA, type CameraFacing } from "./camera-math.ts";
+import { CHASE_BETA, followCameraAngles, ISO_ALPHA, ISO_BETA, orthoExtents, SIDE_BETA, sideFrame, VIEW_CAMERA, type CameraFacing, type CameraSpan } from "./camera-math.ts";
 
 /** Orbit angles, distance and pointer sensitivity, set by eye. Distances scale with the opening frame. */
 const ORBIT = Object.freeze({ azimuth: 0, pitch: .32, distance: 7, nearest: 2.5, farthest: 16,
@@ -27,18 +27,25 @@ export function orbitPosition(target: { readonly x: number; readonly y: number; 
   return [target.x - Math.sin(azimuth) * along, target.y + Math.sin(pitch) * distance, target.z - Math.cos(azimuth) * along];
 }
 
-/** Free, Isometric and Chase share one pose-driven camera; a screen supplies its focus and opening scale. */
+/**
+ * Free, Isometric, Chase and Side share one pose-driven camera; a screen supplies its focus and
+ * opening scale. The wheel's zoom is the camera's distance, but in Side it is a factor: Side stands
+ * where it holds what it is given in the frame (`sideFrame`), and the zoom multiplies that.
+ */
 export function orbitCamera(camera: FreeCamera, initial: ViewSettings, framing: { readonly extent?: number } = {}) {
   const distance = framing.extent === undefined ? ORBIT.distance : framing.extent / Math.tan(camera.fov / 2);
   const scale = distance / ORBIT.distance;
+  const held = { free: null, isometric: ISO_BETA, chase: CHASE_BETA, side: SIDE_BETA }[initial.camera];
   const state = {
     view: initial, distance,
+    /** Where the camera stands now, which follows what its mode asks for: how far back, and how far over the point followed it looks. */
+    shown: { distance, lift: 0 },
     azimuth: initial.camera === "isometric" ? -Math.PI / 2 - ISO_ALPHA : ORBIT.azimuth as number,
-    pitch: initial.camera === "isometric" ? Math.PI / 2 - ISO_BETA : initial.camera === "chase" ? Math.PI / 2 - CHASE_BETA : ORBIT.pitch as number,
+    pitch: held === null ? ORBIT.pitch as number : Math.PI / 2 - held,
     free: { azimuth: ORBIT.azimuth as number, pitch: ORBIT.pitch as number },
     facing: { x: 0, z: 1 }, following: false,
   };
-  const target = new Vector3();
+  const target = new Vector3(), look = new Vector3();
   return {
     choose(view: ViewSettings) {
       if (view.camera === "free" && state.view.camera !== "free") {
@@ -55,20 +62,29 @@ export function orbitCamera(camera: FreeCamera, initial: ViewSettings, framing: 
     },
     /** Multiply the camera's distance by `factor`, kept between its nearest and its farthest. */
     zoom(factor: number) {
-      state.distance = Math.min(ORBIT.farthest * scale, Math.max(ORBIT.nearest * scale, state.distance * factor));
+      const zoomed = Math.min(ORBIT.farthest * scale, Math.max(ORBIT.nearest * scale, state.distance * factor));
+      state.shown.distance *= zoomed / state.distance; state.shown.lift *= zoomed / state.distance; state.distance = zoomed;
     },
-    get azimuth() { return Math.atan2(target.x - camera.position.x, target.z - camera.position.z); },
+    get azimuth() { return Math.atan2(look.x - camera.position.x, look.z - camera.position.z); },
     get pitch() { return state.pitch; },
-    get extent() { return state.distance * Math.tan(camera.fov / 2); },
-    frame(wanted: Vector3, subject: CameraSubject | null, dt: number, aspect: number) {
-      if (!state.following) { target.copyFrom(wanted); state.following = true; }
-      else Vector3.LerpToRef(target, wanted, VIEW_CAMERA.follow, target);
-      followCameraAngles(state.view.camera, state, subject, dt);
-      camera.position.set(...orbitPosition(target, state.azimuth, state.pitch, state.distance)); camera.setTarget(target);
+    get extent() { return state.shown.distance * Math.tan(camera.fov / 2); },
+    /** Look at `wanted`, following `subject`'s facing where there is one; `span` is the line Side stands beside. */
+    frame(wanted: Vector3, subject: CameraSubject | null, dt: number, aspect: number, span: CameraSpan | null = null) {
+      const side = state.view.camera === "side" ? sideFrame(span, camera.fov, aspect) : null, zoom = state.distance / distance;
+      const asked = side ? { distance: side.distance * zoom, lift: side.lift * zoom } : { distance: state.distance, lift: 0 };
+      if (!state.following) { target.copyFrom(wanted); state.shown = asked; state.following = true; }
+      else {
+        const approach = 1 - Math.exp(-dt / VIEW_CAMERA.turnSeconds);
+        Vector3.LerpToRef(target, wanted, VIEW_CAMERA.follow, target);
+        state.shown.distance += (asked.distance - state.shown.distance) * approach; state.shown.lift += (asked.lift - state.shown.lift) * approach;
+      }
+      followCameraAngles(state.view.camera, state, subject, dt, span);
+      look.set(target.x, target.y + state.shown.lift, target.z);
+      camera.position.set(...orbitPosition(look, state.azimuth, state.pitch, state.shown.distance)); camera.setTarget(look);
       const flat = state.view.camera === "isometric" && state.view.projection === "orthographic";
       camera.mode = flat ? Camera.ORTHOGRAPHIC_CAMERA : Camera.PERSPECTIVE_CAMERA;
       if (flat) {
-        const extents = orthoExtents(state.distance, camera.fov, aspect);
+        const extents = orthoExtents(state.shown.distance, camera.fov, aspect);
         camera.orthoTop = extents.top; camera.orthoBottom = extents.bottom; camera.orthoLeft = extents.left; camera.orthoRight = extents.right;
       }
     },

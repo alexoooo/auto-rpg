@@ -7,6 +7,14 @@ export const ISO_ALPHA = -3 * Math.PI / 4;
 export const ISO_BETA = Math.acos(1 / Math.sqrt(3));
 /** Chase's polar angle, 21 degrees above level. */
 export const CHASE_BETA = 1.2;
+/** Side's polar angle, 8 degrees above level, set by eye. */
+export const SIDE_BETA = 1.43;
+/**
+ * Side's frame, set by eye. It holds `beside` metres past each end of the line it stands beside,
+ * and at least `half` metres over and under its middle. Its middle is `lift` of its half height
+ * over the point followed, so that bodies stand in its lower part, clear of a HUD along its top.
+ */
+const SIDE_FRAME = Object.freeze({ beside: 1.3, half: 1.65, lift: .25 });
 /** Camera follow and turn rates chosen for body inspection, set by eye. */
 export const VIEW_CAMERA = Object.freeze({ turnSeconds: .3, lookHeight: 1, follow: .05 });
 
@@ -41,9 +49,16 @@ function horizontalForward(x: number, z: number, fallbackX: number, fallbackZ: n
 
 export interface CameraFacing { readonly rotation: Quaternion; readonly rest: Quaternion }
 
-/** The common camera modes turn toward the isometric diagonal or behind the body's facing. */
+/** A line on the ground from one body to another, m: Side stands beside it and holds both its ends in the frame. */
+export interface CameraSpan { readonly x: number; readonly z: number }
+
+/**
+ * The common camera modes turn toward the isometric diagonal, behind the body's facing, or beside
+ * a line: `span` where there is one, and the body's facing otherwise.
+ */
 export function followCameraAngles(mode: CameraMode,
-  state: { azimuth: number; pitch: number; facing: { x: number; z: number } }, subject: CameraFacing | null, dt: number): void {
+  state: { azimuth: number; pitch: number; facing: { x: number; z: number } }, subject: CameraFacing | null, dt: number,
+  span: CameraSpan | null = null): void {
   const approach = 1 - Math.exp(-dt / VIEW_CAMERA.turnSeconds);
   switch (mode) {
     case "free": break;
@@ -56,8 +71,26 @@ export function followCameraAngles(mode: CameraMode,
       state.azimuth = easeAngle(state.azimuth, Math.atan2(state.facing.x, state.facing.z), dt, VIEW_CAMERA.turnSeconds);
       state.pitch += (Math.PI / 2 - CHASE_BETA - state.pitch) * approach;
       break;
+    case "side":
+      // The line runs from the left of the frame to its right: a quarter turn back from looking along it.
+      if (span) state.facing = horizontalForward(span.x, span.z, state.facing.x, state.facing.z);
+      else if (subject) state.facing = facingOf(subject.rotation, subject.rest, state.facing);
+      state.azimuth = easeAngle(state.azimuth, Math.atan2(state.facing.x, state.facing.z) - Math.PI / 2, dt, VIEW_CAMERA.turnSeconds);
+      state.pitch += (Math.PI / 2 - SIDE_BETA - state.pitch) * approach;
+      break;
     default: { const never: never = mode; throw new Error(`no camera ${never}`); }
   }
+}
+
+/**
+ * Where Side stands to hold `span` and a standing body in a frame of vertical field of view `fov`:
+ * how far back, by whichever of the frame's width and its height asks for more, and how far over
+ * the point followed it looks.
+ */
+export function sideFrame(span: CameraSpan | null, fov: number, aspect: number): { distance: number; lift: number } {
+  const across = (span ? Math.hypot(span.x, span.z) / 2 : 0) + SIDE_FRAME.beside;
+  const half = Math.max(across / aspect, SIDE_FRAME.half);
+  return { distance: half / Math.tan(fov / 2), lift: half * SIDE_FRAME.lift };
 }
 
 /**
