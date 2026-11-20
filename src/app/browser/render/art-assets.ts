@@ -17,9 +17,13 @@ export interface ArtAssets {
 
 let loading: Promise<ArtManifest> | null = null;
 
-/** Hashed resources share URLs across consumers; decoder dependencies stay on this origin. */
+/**
+ * Hashed resources share URLs across consumers; decoder dependencies stay on this origin. The list
+ * itself has one address and names those hashed files, so it is checked against the server on
+ * each load: a copy the browser kept from before a publish names files that are gone.
+ */
 async function manifest(): Promise<ArtManifest> {
-  loading ??= fetch(publicAssetUrl("/assets/generated/manifest.json")).then(async response => {
+  loading ??= fetch(publicAssetUrl("/assets/generated/manifest.json"), { cache: "no-cache" }).then(async response => {
     if (!response.ok) throw new Error(`Art manifest could not load (${response.status})`);
     const value = await response.json() as ArtManifest;
     const { meshopt, ...ktx } = value.decoders;

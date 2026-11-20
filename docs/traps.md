@@ -63,6 +63,11 @@ its kind or running those tools.
 - **The Arena's, crowd's and Crypt's worlds are in workers**: `await __arena.step(n)` (or
   `__crowd`, `__dungeon`) steps and draws; `__arena.world.tape()`, `__arena.verdict` and
   `__dungeon.run` read the state.
+- **A file at one address that names hashed files is fetched with `cache: "no-cache"`** (the art
+  list, `assets/generated/manifest.json`): GitHub Pages lets a browser keep a file ten minutes,
+  and a list kept from before a publish names files the publish replaced. Their requests fail,
+  and a body whose skin does not load is drawn as its plain shapes (`dresserFor`), which looks
+  like the Tactical view; the Arena's setup then says so.
 - `Material.isReady(mesh)` is false outside a render pass; use `mesh.material`, not
   `scene.materials`; after a hot reload, navigate.
 

@@ -147,6 +147,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const previewFailed = (error: unknown) => {
     if (!context.signal.aborted) bootNote.textContent = `Preview unavailable: ${error instanceof Error ? error.message : String(error)}`;
   };
+  // A skin that does not load is drawn as its plain shapes (`dresserFor`). The page says so, because it looks like the Tactical view.
+  const artMissed = () => {
+    if (!context.signal.aborted) bootNote.textContent = "A character's artwork did not load, so it is drawn as its plain shapes. Reload the page to try again.";
+  };
   const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
   // A reel opened from the Ratings plays its trials in this screen, one after another; the trial
   // shown puts its choices in the address, so the pickers show them when the reel is left.
@@ -359,7 +363,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     }, { signal: lifetime.signal });
     startPreviews.push(() => {
       const character = previewCharacter(), appearance = appearances[side];
-      void showHeroLineup(preview, [character], lifetime.signal, [appearance]).then(view => {
+      void showHeroLineup(preview, [character], lifetime.signal, [appearance], artMissed).then(view => {
         context.signal.throwIfAborted();
         previews[side] = view;
         const current = previewCharacter();
@@ -399,14 +403,16 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   }
   context.own(() => context.remember(setupAddress()));
 
-  // Each model's dresser, loaded once: its skin, or its shapes if the skin does not load.
+  // Each model's dresser, loaded once: its skin, or its shapes if the skin does not load. Shapes are
+  // not kept: the next bout asks for the skin again.
   let skeletonArt: Promise<SkeletonArt> | null = null;
   const dressers = new Map<string, Promise<Dresser>>();
   const dresser = (model: BodyModel, appearance: Appearance): Promise<Dresser> => {
     const key = `${model}:${appearance}`;
     let found = dressers.get(key);
     if (!found) {
-      found = dresserFor(model, scene, { appearance, skeletonArt: () => skeletonArt ??= loadSkeletonArt() });
+      found = dresserFor(model, scene, { appearance, skeletonArt: () => skeletonArt ??= loadSkeletonArt().catch((error: unknown) => { skeletonArt = null; throw error; }),
+        shapes: () => { dressers.delete(key); artMissed(); } });
       dressers.set(key, found);
     }
     return found;
