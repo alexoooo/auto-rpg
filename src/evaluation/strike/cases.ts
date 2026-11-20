@@ -7,7 +7,7 @@
  * `fights`, and in fights drawn at random, `fights-twin`), or from starts drawn at random at a foe that fights back (`sparring`, and at one laid
  * down, `sparring-laid`). The rungs at a target ask how well the body throws the strike; what the
  * strike brings against a foe fighting back is another question, and a profile is that one's
- * answer, measured on the sparring rungs. The striker is the
+ * answer, measured in fights (`fights` and its draws) where a body reaches its strike there, at a foe laid down (`sparring-laid`), else on `sparring`. The striker is the
  * subject's mind as given, holding what its subject names (`StrikeSubject.held`), its side led by
  * the drill Commander (`DrillCommanderConfig`): it stands, walks the striker into its action's
  * window, and orders the one action at one mark with one limb, a hand or a foot, once; the mind
@@ -392,8 +392,8 @@ function drawnFights(protocol: typeof FIGHTS_TWIN): FightCondition[] {
 const SPARRING_FOE = "option";
 
 /**
- * **Sparring**, the `sparring` rung, which a strike's profile is measured on
- * (`research/skills/strikes/strike-profiles.mjs`) with `sparring-laid`: the sampled rung's starts
+ * **Sparring**, the `sparring` rung, which a strike's profile is measured on where its body's fights never reach it
+ * (`research/skills/strikes/strike-profiles.mjs`): the sampled rung's starts
  * (`SAMPLED`), drawn so a profile covers the ranges, the approaches and the places in its window a
  * chooser asks it at, with each hand at each mark, at each of the game's foes (`FOES`) under the
  * foe that fights back (`SPARRING_FOE`), which fights from the start while the striker stands and

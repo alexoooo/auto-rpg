@@ -1,10 +1,6 @@
 {
   "source": {
-    "script": "research/skills/strikes/strike-profiles.mjs",
-    "protocols": [
-      "sparring",
-      "sparring-laid"
-    ]
+    "script": "research/skills/strikes/strike-profiles.mjs"
   },
   "profiles": [
     {
@@ -20,7 +16,8 @@
       },
       "from": {
         "spec": "7091f24e8a393878",
-        "skill": "a1842f8185a0dde3"
+        "skill": "a1842f8185a0dde3",
+        "protocol": "sparring"
       },
       "trials": [
         {
@@ -2981,7 +2978,8 @@
       },
       "from": {
         "spec": "7091f24e8a393878",
-        "skill": "78de016a72160344"
+        "skill": "78de016a72160344",
+        "protocol": "sparring"
       },
       "trials": [
         {
@@ -5966,7 +5964,8 @@
       "from": {
         "spec": "7db87884a2cc3e6e",
         "skill": "161db2fa5bef1ad0",
-        "date": "2026-11-17"
+        "date": "2026-11-17",
+        "protocol": "sparring"
       },
       "trials": [
         {
@@ -59935,7 +59934,8 @@
       "from": {
         "spec": "7db87884a2cc3e6e",
         "skill": "5fc5ba152fc8b0f3",
-        "date": "2026-11-17"
+        "date": "2026-11-17",
+        "protocol": "sparring"
       },
       "trials": [
         {
@@ -113689,7 +113689,8 @@
       "from": {
         "spec": "356879a6a19ee180",
         "skill": "4023aab15a5d92cf",
-        "date": "2026-11-17"
+        "date": "2026-11-17",
+        "protocol": "sparring"
       },
       "trials": [
         {
@@ -167618,7 +167619,8 @@
       "from": {
         "spec": "356879a6a19ee180",
         "skill": "e25b5dd6ea49e1f4",
-        "date": "2026-11-17"
+        "date": "2026-11-17",
+        "protocol": "sparring"
       },
       "trials": [
         {
@@ -222040,7 +222042,8 @@
       },
       "from": {
         "spec": "893b518d83d1516b",
-        "skill": "65129bfecea326c4"
+        "skill": "65129bfecea326c4",
+        "protocol": "sparring"
       },
       "trials": [
         {
@@ -226161,7 +226164,8 @@
       },
       "from": {
         "spec": "7091f24e8a393878",
-        "skill": "45f196a845dc6346"
+        "skill": "45f196a845dc6346",
+        "protocol": "sparring-laid"
       },
       "trials": [
         {
@@ -228057,7 +228061,8 @@
       },
       "from": {
         "spec": "7091f24e8a393878",
-        "skill": "c1d36bcb3862a9b9"
+        "skill": "c1d36bcb3862a9b9",
+        "protocol": "sparring-laid"
       },
       "trials": [
         {
@@ -229680,7 +229685,8 @@
       },
       "from": {
         "spec": "d52b9b792e16232b",
-        "skill": "2cd7a7c23bcaf23c"
+        "skill": "2cd7a7c23bcaf23c",
+        "protocol": "sparring-laid"
       },
       "trials": [
         {
@@ -231144,7 +231150,8 @@
       },
       "from": {
         "spec": "d52b9b792e16232b",
-        "skill": "28f08dfd60310d1f"
+        "skill": "28f08dfd60310d1f",
+        "protocol": "sparring-laid"
       },
       "trials": [
         {
@@ -232693,7 +232700,8 @@
       "from": {
         "spec": "5687e03133cd3e13",
         "skill": "e036bae07bde8b8a",
-        "date": "2026-11-17"
+        "date": "2026-11-17",
+        "protocol": "sparring"
       },
       "trials": [
         {
@@ -376493,7 +376501,8 @@
       "from": {
         "spec": "5687e03133cd3e13",
         "skill": "ac36d1f14a0b712b",
-        "date": "2026-11-17"
+        "date": "2026-11-17",
+        "protocol": "sparring"
       },
       "trials": [
         {
@@ -520808,7 +520817,8 @@
         "skill": "ece1ca0e35d144a8",
         "commit": "316db64d2830bdaaecfbe533a2445598e50d9277",
         "changed": true,
-        "date": "2026-11-15"
+        "date": "2026-11-15",
+        "protocol": "sparring"
       },
       "trials": [
         {
@@ -523577,7 +523587,8 @@
         "skill": "98e97173c913a3e5",
         "commit": "316db64d2830bdaaecfbe533a2445598e50d9277",
         "changed": true,
-        "date": "2026-11-15"
+        "date": "2026-11-15",
+        "protocol": "sparring"
       },
       "trials": [
         {
@@ -526410,7 +526421,8 @@
         "skill": "ee0758f7d4ddec79",
         "commit": "316db64d2830bdaaecfbe533a2445598e50d9277",
         "changed": true,
-        "date": "2026-11-15"
+        "date": "2026-11-15",
+        "protocol": "sparring"
       },
       "trials": [
         {
@@ -529030,7 +529042,8 @@
         "skill": "1a300272acf1af04",
         "commit": "316db64d2830bdaaecfbe533a2445598e50d9277",
         "changed": true,
-        "date": "2026-11-15"
+        "date": "2026-11-15",
+        "protocol": "sparring"
       },
       "trials": [
         {
