@@ -121,7 +121,7 @@ const RULES: Omit<Rulebook, "mode"> = Object.freeze({
   through: sourced(0.25, "1", "owner-life", "a point through a part takes a quarter of full life"),
   unit: sourced(100, "J/HP", "owner-damage-unit", "one hit point is 100 J of blunt blow"),
   fist: derive("J", "the energy a hand stores loaded to a knuckle's injury, F^2 / 2k on the hand's stiffness, all of it the threshold",
-    [si(KNUCKLE_INJURY), si(CONTACT_STIFFNESS.hand), sourced(1, "1", "owner-fist-threshold", "the whole of it")],
+    [si(KNUCKLE_INJURY), si(CONTACT_STIFFNESS.flesh.hand), sourced(1, "1", "owner-fist-threshold", "the whole of it")],
     (force, stiffness, whole) => whole * force * force / (2 * stiffness)),
   worth: Object.freeze(Object.fromEntries(PRICED.map((mechanism) => [mechanism,
     derive("1", "the blunt price over this mechanism's", [MECHANISM_PRICE.blunt, MECHANISM_PRICE[mechanism]], (blunt, own) => blunt / own)],

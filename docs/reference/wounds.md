@@ -10,17 +10,25 @@ themselves are `src/combat/rulebook.ts` and `src/combat/share.ts`.
 ## Stiffness
 
 A surface's stiffness is one number, N/m: the force a blunt load pressed into it meets, over how
-far it gives, the same at any speed, area or direction.
+far it gives, the same at any speed, area or direction. A human figure reads its rows by what it
+is made of (`HumanFigure.substance`): flesh, the Warrior and the Rogue, or bare bone, the
+Skeleton.
 
 | Row | N/mm | What was measured, and how | Source |
 |---|---|---|---|
 | head | 201 | The nasal bone of 24 male cadavers under a free-falling 3.2 kg impactor with a flat 6.45 cm² face, at 4 to 16 J. After a 6 mm toe the response has two slopes: 55 (SD 56) N/mm to 20 % of the peak force, the soft tissue's, then 201 (SD 118) from 20 to 80 %, the bone's, which is taken. | `cormier-2009`, Table 14 |
-| upperTrunk | 17.0 | The intact chest of three cadavers under a 15.2 cm rigid hub pressed into the sternum at about 1 m/s, to 20 % of the chest's depth: 184.4, 173.3 and 152.3 N/cm, 170.0 in the mean. | `kent-2005`, Table 3 |
+| upperTrunk, flesh | 17.0 | The intact chest of three cadavers under a 15.2 cm rigid hub pressed into the sternum at about 1 m/s, to 20 % of the chest's depth: 184.4, 173.3 and 152.3 N/cm, 170.0 in the mean. | `kent-2005`, Table 3 |
+| upperTrunk, bone | 5.4 | The same three chests under the same hub with their skin, fat and muscle taken off and their organs out, the rib cage alone: 94.9, 36.2 and 31.2 N/cm, 54.1 in the mean. With the flesh off and the organs still in, 99.4. | `kent-2005`, Table 3 |
 | thigh | 247.1 | Fifteen femurs of eight men bent to failure at mid-shaft, three-point, by a 12 mm impactor at about 1.2 m/s: the support load at failure, 4349 (SD 746) N, over the mid-bone deflection at failure, 17.6 (SD 3.8) mm. The division is the table's rule; the paper states no stiffness. | `funk-2004`, Results |
 | hand | 122.3 | Isolated porcine second metacarpals in quasi-static three-point bending: 122.3 (SD 35.0) N/mm. A bone's bending, not a fist's contact stiffness ([Gaps](#gaps)). | `ochman-2011`, Results |
 
-The other six rows are lent ([Gaps](#gaps)). An item is rigid (a club, a buckler, a sword): it states no stiffness and takes no
-share of a blow, and the part it strikes takes the whole. Two items that meet wound nobody.
+The other six rows are lent ([Gaps](#gaps)). The head's, the thigh's and the hand's are each a
+bone's own reading, so flesh and bare bone share them, and the two differ in the trunk alone: a
+rib cage bends, so bare it gives three times what the chest its flesh and organs fill does, and
+takes the more of a blow.
+
+An item is rigid (a club, a buckler, a sword): it states no stiffness and takes no share of a
+blow, and the part it strikes takes the whole. Two items that meet wound nobody.
 
 ## Gaps
 
@@ -29,8 +37,8 @@ takes a neighbour's whole.
 
 | Row | Takes | Why that neighbour |
 |---|---|---|
-| middleTrunk | the upper trunk's | the nearest part measured; the abdomen is softer than the chest in every figure seen, none confirmed |
-| lowerTrunk | the middle trunk's | the same; a pelvis struck on its bone is stiffer |
+| middleTrunk | the upper trunk's | the nearest part measured; the abdomen is softer than the chest in every figure seen, none confirmed. On bare bone it is the lumbar spine, which takes the rib cage's |
+| lowerTrunk | the middle trunk's | the same; a pelvis struck on its bone is stiffer, on flesh and on bare bone alike |
 | upperArm, forearm, shank | the femur's | a long bone under flesh, bent across; the one such bone with a load and a deflection read |
 | foot | the hand's | the same kind of bones |
 
@@ -42,8 +50,8 @@ is its face's**, the surface a blow is aimed at.
 
 The surfaces that met are springs in series under one force, so each stores F²/2k: a surface's
 share of a blow's energy is its compliance over the sum, the more the softer it is
-(`energyShares`). So a fist on a head takes 0.62 of the blow and on a chest 0.12; a club, rigid,
-takes none and what it strikes takes all.
+(`energyShares`). So a fist on a head takes 0.62 of the blow, on a chest 0.12 and on a bare rib
+cage 0.04; a club, rigid, takes none and what it strikes takes all.
 
 ## The fist
 

@@ -1,4 +1,5 @@
-import type { BodySpec, Substance, ToesSpec, WoundSpec } from "../spec/body.ts";
+import type { BodySpec, ToesSpec, WoundSpec } from "../spec/body.ts";
+import type { HumanSubstance } from "./tables/contact-stiffness.ts";
 import type { Quantity, Vec3 } from "../../quantity.ts";
 import type { Extents, TrunkSegment } from "./envelope.ts";
 import type { LimbLandmarks, TrunkLandmarks } from "./landmarks.ts";
@@ -19,8 +20,8 @@ import type { Side } from "../bilateral.ts";
 export interface HumanFigure {
   /** The spec's model. */
   readonly model: string;
-  /** What the body is made of (`BodySpec.substance`). */
-  readonly substance: Substance;
+  /** What the body is made of (`BodySpec.substance`), which its surfaces' stiffness is read by (`CONTACT_STIFFNESS`). */
+  readonly substance: HumanSubstance;
   /** Which column of a sex-specific table the figure reads. */
   readonly sex: Sex;
   /** The one factor from the authored size to x1; absent, the figure is authored at x1. */

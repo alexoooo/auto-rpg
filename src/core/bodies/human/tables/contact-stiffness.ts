@@ -3,16 +3,23 @@ import type { DeLevaSegment } from "./de-leva-1996.ts";
 
 /**
  * **How stiff each part of a human is under a blunt load**, as the impact literature measured it,
- * by de Leva's segments, each row in its paper's own units. A part no study gives takes a
- * neighbour's under `contact-stiffness-gaps`. The table, what each paper measured and how, and
- * its gaps: `docs/reference/wounds.md#stiffness`.
+ * by what the body is made of and by de Leva's segments, each row in its paper's own units. A part
+ * no study gives takes a neighbour's under `contact-stiffness-gaps`. The table, what each paper
+ * measured and how, and its gaps: `docs/reference/wounds.md#stiffness`.
  */
 
 /** The nasal bone under a flat impactor, between 20 and 80 % of its peak force (`cormier-2009`). */
 const head = sourced(201, "N/mm", "cormier-2009", "Table 14, nasal bone, secondary stiffness, mean");
 
 /** The intact chest under a hub pressed into the sternum (`kent-2005`). */
-const upperTrunk = sourced(170.0, "N/cm", "kent-2005", "Table 3, effective stiffness, hub, intact, average");
+const chest = sourced(170.0, "N/cm", "kent-2005", "Table 3, effective stiffness, hub, intact, average");
+
+/**
+ * The rib cage alone under the same hub: the same chests with their skin, fat and muscle taken
+ * off and their organs out (`kent-2005`). A cage of ribs bends, so it gives more than the chest
+ * its organs and flesh fill.
+ */
+const ribCage = sourced(54.1, "N/cm", "kent-2005", "Table 3, effective stiffness, hub, eviscerated, average");
 
 /** A thigh bone bent at mid-shaft until it broke: the load it bore over how far it had bent (`funk-2004`). */
 const thigh = derive("N/mm", "the load at failure over the deflection at failure", [
@@ -29,17 +36,32 @@ const WHOLE = sourced(1, "1", "contact-stiffness-gaps", "a part no study gives t
 const neighbour = (row: Quantity<number>): Quantity<number> =>
   derive(row.unit, "the neighbour's, times the share of it taken", [row, WHOLE], (stiffness, share) => stiffness * share);
 
-const middleTrunk = neighbour(upperTrunk);
+/** A body's rows: its trunk's from `upperTrunk` down, each part lending the next, and the rest every body's. */
+function rows(upperTrunk: Quantity<number>): Readonly<Record<DeLevaSegment, Quantity<number>>> {
+  const middleTrunk = neighbour(upperTrunk);
+  return Object.freeze({
+    head,
+    upperTrunk,
+    middleTrunk,
+    lowerTrunk: neighbour(middleTrunk),
+    upperArm: neighbour(thigh),
+    forearm: neighbour(thigh),
+    hand,
+    thigh,
+    shank: neighbour(thigh),
+    foot: neighbour(hand),
+  });
+}
 
-export const CONTACT_STIFFNESS: Readonly<Record<DeLevaSegment, Quantity<number>>> = Object.freeze({
-  head,
-  upperTrunk,
-  middleTrunk,
-  lowerTrunk: neighbour(middleTrunk),
-  upperArm: neighbour(thigh),
-  forearm: neighbour(thigh),
-  hand,
-  thigh,
-  shank: neighbour(thigh),
-  foot: neighbour(hand),
+/** What a human figure is made of: what its rows are read by. */
+export type HumanSubstance = "flesh" | "bone";
+
+/**
+ * Each row by what the body is made of. The head's, the limbs', the hand's and the foot's are
+ * each a bone's own reading, so a body of flesh and a body of bare bone share them; they differ
+ * in the trunk, a chest whole or its rib cage alone.
+ */
+export const CONTACT_STIFFNESS: Readonly<Record<HumanSubstance, Readonly<Record<DeLevaSegment, Quantity<number>>>>> = Object.freeze({
+  flesh: rows(chest),
+  bone: rows(ribCage),
 });

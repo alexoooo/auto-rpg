@@ -53,7 +53,7 @@ const STRIDE_ROOM = sourced(0.03, "m", "owner-stride-room", "the room between th
  *   cylinder whose spread across it is the solid's. Broader (`HumanFigure.breadth`), a solid
  *   spreads across the segment by as much, and a hull broadens about the segment's line through
  *   its corners' mean.
- * - **Surface.** How stiff the part is under a blunt load, by its row (`tables/contact-stiffness.ts`),
+ * - **Surface.** How stiff the part is under a blunt load, by what the figure is made of and its row (`tables/contact-stiffness.ts`),
  *   and a foot's grip on what it stands on (`FOOT_FRICTION`).
  *
  * A foot runs from the figure's heel to its toe.
@@ -286,7 +286,7 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] | Refused {
       : shapeOf(figure, plan, { proximal, distal, mass, widest: widestOf(plan), fit });
     if (isRefused(shape)) return shape;
     const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape,
-      surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]), ...(plan.row === "foot" ? { friction: FOOT_FRICTION } : {}) },
+      surface: { stiffness: si(CONTACT_STIFFNESS[figure.substance][plan.row]), ...(plan.row === "foot" ? { friction: FOOT_FRICTION } : {}) },
       ...(plan.row === "foot" && figure.toes && { toes: figure.toes }) };
     const points = plan.points && Object.fromEntries(Object.entries(plan.points).map(([name, point]) => [name, atFit(point)]));
     if (plan.row === "foot" && segment.shape.kind === "box") {
