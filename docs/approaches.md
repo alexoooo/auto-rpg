@@ -316,12 +316,10 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   read at a foe down or rising (13.7 points) or past the range it measured (15.0), both priced
   nothing before; and the falls, more with it (0.68 a bout against 0.35), carry about 1.8 of the
   points. *Shown.*
-- **More runs buy no strength at 100, and a prior on the runs below the root finds nothing**: the
-  game's Mind at 300 runs against itself at 100, about 0.473 (0.435 to 0.511) over 576 bouts held
-  out. PUCT below the root (each Option's prior its one step's worth at the state, a softmax in
-  units of their spread; AlphaZero's bound) at 100 runs: its mirror knocked out within 60 s in
-  89.8% (85.1 to 93.2) of 216, against 91.7%, below the knockout bar by one bout; its strength not
-  read. *Shown.*
+- **The search's runs buy no strength between 50 and 300**: the game's Mind at 300 runs against
+  itself at 100, about 0.473 (0.435 to 0.511) over 576 bouts held out; at 50 against 100, about
+  0.507 (0.472 to 0.542), its deciding step's 99th percentile 1.8 times less: the game plays 50
+  (`RUNS`). *Shown.*
 - **A search that starts from its last decision's worths wins by fighting less**: each Option's
   worth at the last root kept as as many runs, fading by half each 0.5 s (a warm start), won
   0.635 (0.580 to 0.691) held out at the same runs, but silent 16.2% of a bout against 9.4%: an
