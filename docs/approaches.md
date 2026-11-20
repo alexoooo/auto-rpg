@@ -320,6 +320,9 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   itself at 100, about 0.473 (0.435 to 0.511) over 576 bouts held out; at 50 against 100, about
   0.507 (0.472 to 0.542), its deciding step's 99th percentile 1.8 times less: the game plays 50
   (`RUNS`). *Shown.*
+- **A kept branch has little to keep**: searches come every 0.2 s, mid-Option; of the previous
+  tree's runs, 8.5% and 20.6% (two mirror bouts) lie under states the new tree's same Option
+  reaches near, before those are priced again for the new path. Not built. *Counted.*
 - **A search that starts from its last decision's worths wins by fighting less**: each Option's
   worth at the last root kept as as many runs, fading by half each 0.5 s (a warm start), won
   0.635 (0.580 to 0.691) held out at the same runs, but silent 16.2% of a bout against 9.4%: an
