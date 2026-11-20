@@ -72,8 +72,8 @@ import { damageFlashes } from "../render/damage-flashes.ts";
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
  * of two bodies in it (`Duel`). Setup picks the two models and the side the person fights, if
- * any; a bout runs to its verdict, and can be run again under a new seed, or again with the right
- * side redrawn.
+ * any; a bout runs to its verdict, and can be run again from a start a little nearer or farther
+ * (`REPLAY_SPREAD`), or again with the right side redrawn.
  *
  * The bout's world steps in a worker (`duelStage`, `src/app/worker/`): the page draws a puppet of each
  * body between the last two steps it holds, and shows what each step's news tells (`DuelNews`), so
@@ -119,6 +119,11 @@ const trialNote = ({ commit, world }: Trial): string => {
 };
 /** The pause between one trial's end and the next one's start, with auto-play on, ms. */
 const TRIAL_BEAT_MS = 1000;
+/**
+ * How far either way Replay moves the fighters' starting gap, m, drawn to the millimetre. Too
+ * little to see, and enough: a millimetre is already another bout.
+ */
+const REPLAY_SPREAD = .05;
 
 /** The segment of `spec` no joint carries: the one the chase camera turns with. */
 
@@ -153,6 +158,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   context.own(() => { engine.stopRenderLoop(); engine.dispose(); });
   const level = readLevel(location.search);
+  /** The gap the page opened with, m: the address's, or the level's own. Replay draws its starts around it. */
+  const openingGap = readGap(location.search, level) ?? LEVELS[level].gap.default;
   const arena = await buildArena(engine, level, context.signal);
   const { scene, camera, shadows } = arena;
   context.own(() => scene.dispose());
@@ -560,8 +567,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       if (drafted) void previews[side].setCharacter(0, { model: matchupModels(matchup)[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) }, appearances[side]).catch(previewFailed);
     }
   };
-  /** Begins a bout of `next`: the reel's trial `given`, or the one the pickers make, under a new seed where `reseed`. */
-  const begin = async (next: Matchup, given: Trial | null = null, reseed = false) => {
+  /** Begins a bout of `next`: the reel's trial `given`, or the one the pickers make, from a start drawn again where `restart`. */
+  const begin = async (next: Matchup, given: Trial | null = null, restart = false) => {
     if (beginButton.disabled) return;
     if (!given) {
       for (const side of SIDES) {
@@ -587,8 +594,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           for (const side of SIDES) { writeAttributes(query, side, attributes[side]); writeSkills(query, side, skills[side]); }
           query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
           query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
-          // The new seed goes in the address, so the link plays this very bout again.
-          if (reseed) query.set("seed", String(Math.floor(Math.random() * 2 ** 32)));
+          // The start drawn, within what the level allows, goes in the address, so the link plays this very bout again.
+          if (restart) {
+            const { min, max } = LEVELS[level].gap, nearest = Math.max(min, openingGap - REPLAY_SPREAD), farthest = Math.min(max, openingGap + REPLAY_SPREAD);
+            query.set("gap", String(Number((nearest + Math.random() * (farthest - nearest)).toFixed(3))));
+          }
           for (const side of SIDES) query.set(`${side}.loadout`, SIDES.map((hand) => loadoutPickers[side][hand].value).join(","));
           const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
           context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view));
@@ -685,7 +695,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const playTrial = (k: number) => { at = k; const one = trials![k]!; void begin({ left: one.world.recipe.left, right: one.world.recipe.right }, one); };
   /**
    * The bout under way again: the trial as it was recorded, or a new bout of the pickers' choices
-   * under a new seed. The seed changes the bout only where a mind draws its choices by chance.
+   * from a start drawn again. The minds draw nothing by chance, so the same start is the same bout
+   * to the bit; another start is another bout, as an evaluation's bouts differ by their gaps.
    */
   const replay = () => trial ? playTrial(at) : void begin(matchup, null, true);
   for (const id of ["restart", "bout-end-replay"]) need(id).addEventListener("click", replay);
