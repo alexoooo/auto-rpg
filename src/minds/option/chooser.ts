@@ -1,6 +1,6 @@
 import { PROFILE_MODEL } from "./profile-contract.ts";
 import { deepFreeze } from "../../core/state.ts";
-import type { PartField } from "../../parts/fields.ts";
+import { number, type PartField } from "../../parts/fields.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import type { ChooserPart } from "./parts.ts";
 import { anyBody, slotOne, type PartConfig, type Supplied } from "../../parts/parts.ts";
@@ -469,7 +469,53 @@ interface TreeNode extends Tally { readonly at: Situation; readonly floor: numbe
  * worth: cut, its ways of ending priced where they leave the body; else the worths of the states
  * drawn by their chances among those drawn.
  */
-interface TreeEdge { readonly pair: Pair; readonly step: Step; readonly ends: (TreeNode | null)[]; runs: number; worth: number }
+interface TreeEdge { readonly pair: Pair; readonly step: Step; readonly ends: (TreeNode | null)[]; runs: number; worth: number; readonly kept?: Kept }
+
+/** **What a search starts an Option at its root from** (`RootStart`): its worth, and how many runs it is worth as evidence now. */
+interface Kept { readonly worth: number; readonly weight: number }
+
+/**
+ * **Where a tree search starts its root** (`treeSearch`), one search at a time: each Option and
+ * target's evidence before it runs (`Kept`), none where it has none; and, the search over, what it
+ * keeps of the root's Options (`TreeEdge`), each its worth and the runs it stood on, its evidence's
+ * among them.
+ */
+type RootStart = (root: Situation) => {
+  kept(pair: Pair): Kept | undefined;
+  keep(edges: readonly TreeEdge[]): void;
+};
+
+/** **A cold start**: no evidence, nothing kept. */
+const COLD_ROOT: ReturnType<RootStart> = Object.freeze({ kept: () => undefined, keep: () => {} });
+const COLD: RootStart = () => COLD_ROOT;
+
+/**
+ * **A tree chooser's kept work** (`TreeConfig.keeps`), by the focus searched against (its id, or
+ * none): when its last search was, s, and each Option and target at its root then, by its place
+ * in the options and its target, its worth and the runs it stood on. Plain numbers, in the
+ * chooser's state, so a bout saved and loaded searches on from the same.
+ */
+interface Warm { byFocus: Record<string, { at: number; keys: string[]; worths: number[]; weights: number[] }> }
+
+/**
+ * **A warm start** (`RootStart`): what the last search against the same focus kept of its root
+ * (`Warm`, its `state`), each Option at the root by its worth and runs, the runs fading by half
+ * each `keeps` s since.
+ */
+function warmStart(options: readonly Option[], keeps: number): { readonly start: RootStart; readonly state: Warm } {
+  const keyOf = (pair: Pair): string => `${options.indexOf(pair.option)}:${pair.target}`, state: Warm = { byFocus: {} };
+  return { state, start: (root) => {
+    const kept = new Map<string, Kept>(), focus = root.focus?.id ?? "", last = state.byFocus[focus];
+    if (last && root.time >= last.at) {
+      const fade = exp(-log(2) * (root.time - last.at) / keeps);
+      last.keys.forEach((key, i) => kept.set(key, { worth: last.worths[i]!, weight: last.weights[i]! * fade }));
+    }
+    return {
+      kept: (pair) => kept.get(keyOf(pair)),
+      keep: (edges) => { state.byFocus[focus] = { at: root.time, keys: edges.map((edge) => keyOf(edge.pair)), worths: edges.map((edge) => edge.worth), weights: edges.map((edge) => edge.runs + (edge.kept?.weight ?? 0)) }; },
+    };
+  } };
+}
 
 /**
  * **The tree chooser's search at `root`**: `runs` runs of a Monte Carlo tree search over the
@@ -480,10 +526,11 @@ interface TreeEdge { readonly pair: Pair; readonly step: Step; readonly ends: (T
  * drawn by its chance. It ends at the first state it makes, worth its leaf (`leaf`, whole), or where
  * its Option is cut (`cutWorth`); then each Option and state it went through is worth again what
  * lies below it (`TreeEdge`, `TreeNode`): the models are the mind's own, so a state is worth its best
- * line found, never less than its leaf. Every Option on offer at `root` is run at least once.
+ * line found, never less than its leaf. Every Option on offer at `root` is run at least once. Its
+ * root's Options start from what `start` gives them, as evidence of as many runs as it says.
  */
-function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly stream: { next(): number }; readonly leaf: LeafKind }): Lines {
-  const { runs, exploration, stream } = searched;
+function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly stream: { next(): number }; readonly leaf: LeafKind; readonly start: RootStart }): Lines {
+  const { runs, exploration, stream, start } = searched;
   const predictions = root.predictions;
   let pressure: Pressure | undefined;
   root = Object.create(root, { predictions: { value: Object.create(predictions, {
@@ -494,28 +541,30 @@ function treeSearch(root: Situation, searched: Searched & { readonly runs: numbe
     const floor = leafAt(state, from);
     return { at: state, dealt: from.dealt, taken: from.taken, orders: from.orders, seconds: from.seconds, floor, runs: 0, worth: floor, edges: null };
   };
-  const top = nodeAt(root, UNBEGUN);
+  const top = nodeAt(root, UNBEGUN), started = start(root);
   // A cut edge draws no way of ending (`run`): it shares one empty store.
   const edgesOf = (node: TreeNode): TreeEdge[] => {
     if (node.edges) return node.edges;
     const pairs = at.pairsAt(node.at), edges = new Array<TreeEdge>(pairs.length);
     for (let i = 0; i < pairs.length; i++) {
-      const pair = pairs[i]!;
-      edges[i] = { pair, runs: 0, worth: 0, ends: [], step: at.stepOf(pair, node.at, node) };
+      const pair = pairs[i]!, step = at.stepOf(pair, node.at, node);
+      const was = node === top ? started.kept(pair) : undefined;
+      edges[i] = { pair, runs: 0, worth: was?.worth ?? 0, ends: [], step, ...(was && was.weight > 0 ? { kept: was } : {}) };
     }
+    if (node === top) for (const edge of edges) node.runs += edge.kept?.weight ?? 0;
     return node.edges = edges;
   };
   /** The edge a run takes from `node`. */
   const pick = (node: TreeNode, edges: readonly TreeEdge[]): TreeEdge => {
     let low = Infinity, high = -Infinity;
     for (const edge of edges) {
-      if (edge.runs === 0) return edge;
+      if (edge.runs === 0 && !edge.kept) return edge;
       low = Math.min(low, edge.worth); high = Math.max(high, edge.worth);
     }
     const scale = exploration * (high - low), total = log(node.runs);
     let chosen = edges[0]!, bound = -Infinity;
     for (const edge of edges) {
-      const value = edge.worth + scale * Math.sqrt(total / edge.runs);
+      const value = edge.worth + scale * Math.sqrt(total / (edge.runs + (edge.kept?.weight ?? 0)));
       if (value > bound || value === bound && edge.runs < chosen.runs) { chosen = edge; bound = value; }
     }
     return chosen;
@@ -537,12 +586,15 @@ function treeSearch(root: Situation, searched: Searched & { readonly runs: numbe
       if (end) { worth += chance * end.worth; mass += chance; }
     }
     edge.worth = worth / mass;
+    // Kept worth weighs as its runs against this search's.
+    const kept = edge.kept;
+    if (kept) edge.worth = (kept.worth * kept.weight + edge.worth * edge.runs) / (kept.weight + edge.runs);
   };
   /** What `node` is worth (`TreeNode`): the more of its floor and its best edge run. */
   const revalue = (node: TreeNode): void => {
     let worth = node.floor;
     const edges = node.edges;
-    if (edges) for (let i = 0; i < edges.length; i++) if (edges[i]!.runs > 0) worth = Math.max(worth, edges[i]!.worth);
+    if (edges) for (let i = 0; i < edges.length; i++) if (edges[i]!.runs > 0 || edges[i]!.kept) worth = Math.max(worth, edges[i]!.worth);
     node.worth = worth;
   };
   const nodes: TreeNode[] = [], taken: TreeEdge[] = [];
@@ -567,6 +619,7 @@ function treeSearch(root: Situation, searched: Searched & { readonly runs: numbe
   };
   for (let k = 0; k < Math.max(runs, edgesOf(top).length); k++) run();
   const edges = top.edges!, prices = new Array<Line & { readonly pair: Pair }>(edges.length);
+  started.keep(edges);
   for (let i = 0; i < edges.length; i++) { const edge = edges[i]!; prices[i] = { pair: edge.pair, worth: edge.worth, terms: edge.step.terms }; }
   return pricedLines(prices);
 }
@@ -674,9 +727,14 @@ const EXPLORATION = 1;
 /**
  * **The tree chooser's config**: its runs a search (`RUNS` unless given), how far it explores
  * (`EXPLORATION` unless given), how its leaves read an Option run again (`Leaf`, the tail unless
- * given), and what every search is given (`SearchConfig`).
+ * given), whether it keeps its work (`keeps`, s: each Option's worth at its last search's root,
+ * as evidence of as many runs as it stood on, fading by half each so long; none kept unless given),
+ * and what every search is given (`SearchConfig`).
  */
-interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs?: number; readonly exploration?: number; readonly leaf?: LeafName }
+interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs?: number; readonly exploration?: number; readonly leaf?: LeafName; readonly keeps?: number }
+
+/** The tree's warm start (`TreeConfig.keeps`), the seconds its kept worths fade by half in: none kept written as none (0). */
+const KEEPS_FIELD = number<TreeConfig, "keeps">("keeps", "Warm start (half-life)", 0, 5, .1, "s", 0);
 
 /** Whether `name` names a kind of leaf (`LEAVES`). */
 const isLeaf = (name: unknown): name is LeafName => typeof name === "string" && Object.hasOwn(LEAVES, name);
@@ -699,18 +757,19 @@ const LEAF_FIELD: PartField<TreeConfig> = {
  * targets keeps the one it runs at `KEEP` s.
  */
 export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : []], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
-  defaults: { kind: "tree" }, reads: (config) => LEAVES[config.leaf ?? "tail"].reads, keys: { kind: true, runs: true, exploration: true, leaf: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
+  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  defaults: { kind: "tree" }, reads: (config) => LEAVES[config.leaf ?? "tail"].reads, keys: { kind: true, runs: true, exploration: true, leaf: true, keeps: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
     ...config.exploration === undefined || Number.isFinite(config.exploration) && config.exploration >= 0 ? [] : ["exploration: a finite number, not negative"],
-    ...config.leaf === undefined || isLeaf(config.leaf) ? [] : [`leaf: one of ${Object.keys(LEAVES).join(", ")}`]],
+    ...config.leaf === undefined || isLeaf(config.leaf) ? [] : [`leaf: one of ${Object.keys(LEAVES).join(", ")}`],
+    ...config.keeps === undefined || Number.isFinite(config.keeps) && config.keeps > 0 ? [] : ["keeps: a finite time, more than none"]],
   make: ({ config, options, seed, parts, phase }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
-    const stream = randomStream(seed);
-    const searched = { options, objective, obedience, horizon, runs, exploration, stream, leaf: LEAVES[config.leaf ?? "tail"] };
+    const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
+    const searched = { options, objective, obedience, horizon, runs, exploration, stream, leaf: LEAVES[config.leaf ?? "tail"], start: warm?.start ?? COLD };
     return chooser({ options, appraise: searching((now) => treeSearch(now, searched)), deciding: { rethink: RETHINK, phase, keep: KEEP },
-      chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state } });
+      chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },
 });
 

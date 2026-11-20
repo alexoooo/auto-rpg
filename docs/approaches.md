@@ -389,7 +389,7 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   worth at the last root kept as as many runs, fading by half each 0.5 s (a warm start), won
   0.635 (0.580 to 0.691) held out at the same runs, but silent 16.2% of a bout against 9.4%: an
   Option worth more at the last root stays chosen. Unset (`c1cdbe73d`), then removed, no Mind
-  taking it. *Shown.*
+  taking it, then restored on the owner's word (2026-11-20), pickable and unset. *Shown.*
 - **A line's end written as three numbers plays as the tail and the hold at 40% of their time**:
   each side trading life at a rate falling straight with how far apart the two stand, its shape from bout rows and one scale by bouts won: 0.503 at half the
   rows' rate, 0.417 at it, 0.434 at a quarter; 20.1 ms a deciding step against 49.6; with the back
