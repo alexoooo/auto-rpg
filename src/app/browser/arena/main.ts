@@ -1,6 +1,8 @@
+import "./style.css";
+import "./forge-ui.css";
 import type { SkeletonArt } from "../../../core/bodies/human/skeleton-art.ts";
 import { unhookConsole } from "../console-hook.ts";
-import { sceneProfile, visualGroup } from "../render/scene-profile.ts";
+import { sceneProfile } from "../render/scene-profile.ts";
 import { solidGeometry } from "../render/solid-geometry.ts";
 import { warmScene } from "../render/ready.ts";
 import { arenaMeasurement } from "./measure.ts";
@@ -142,7 +144,10 @@ interface Bout {
 export async function bootArena(context: ScreenContext): Promise<void> {
   const location = context.address, lifetime = context;
   const need = <T extends HTMLElement>(id: string): T => find<T>(id, context.root);
-  const previewFailed = (error: Error) => { need("boot-note").textContent = `Preview unavailable: ${error.message}`; };
+  const bootNote = need("boot-note");
+  const previewFailed = (error: unknown) => {
+    if (!context.signal.aborted) bootNote.textContent = `Preview unavailable: ${error instanceof Error ? error.message : String(error)}`;
+  };
   const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
   // A reel opened from the Ratings plays its trials in this screen, one after another; the trial
   // shown puts its choices in the address, so the pickers show them when the reel is left.
@@ -157,10 +162,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   context.own(() => { engine.stopRenderLoop(); engine.dispose(); });
-  const level = readLevel(location.search);
-  /** The gap the page opened with, m: the address's, or the level's own. Replay draws its starts around it. */
-  const openingGap = readGap(location.search, level) ?? LEVELS[level].gap.default;
-  const arena = await buildArena(engine, level, context.signal);
+  let level = readLevel(location.search);
+  /** The gap on entering the level, m: the address's, or the level's own. Replay draws starts around it. */
+  let openingGap = readGap(location.search, level) ?? LEVELS[level].gap.default;
+  const arena = buildArena(engine, context.signal);
   const { scene, camera, shadows } = arena;
   context.own(() => scene.dispose());
   const routes = movementRoutes(scene);
@@ -185,7 +190,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const controls = readControls(location.search), loadoutChoices = readLoadouts(location.search);
   const pickers = {} as Record<Side, HTMLSelectElement>;
   const refreshChoices = {} as Record<Side, () => void>, renameControl = {} as Record<Side, () => void>;
-  const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
+  const previews: Partial<Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>> = {};
   const attributeEditors = {} as Record<Side, ReturnType<typeof attributeEditor>>;
   const attributes = { ...arenaAttributes(location.search) };
   // Each side's skills as its panel holds them: undefined, its character's own (`Character.skills`).
@@ -195,7 +200,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const characterOf = (side: Side, character: string, control: string) => ({ model: characterNamed(character).model, character,
     attributes: controlCharacter(control, attributes[side]), ...(skills[side] ? { skills: skills[side] } : {}) });
   const matchupLabel = (side: Side): string => characterNamed(matchup[side]).label;
-  const previewLoads: Promise<void>[] = [];
+  const startPreviews: (() => void)[] = [];
   for (const side of SIDES) {
     const panel = document.createElement("section");
     panel.className = "contender"; panel.dataset.side = side;
@@ -207,7 +212,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     for (const character of CHARACTERS) {
       const option = document.createElement("option"); option.value = character; option.textContent = characterNamed(character).label; select.append(option);
     }
-    select.value = matchup[side]; select.disabled = true;
+    select.value = matchup[side];
     /** The body of the character the picker shows. */
     const bodyOf = (): BodyModel => characterNamed(select.value).model;
     select.setAttribute("aria-label", `${side === "left" ? "Left" : "Right"} character`);
@@ -216,7 +221,6 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     const appearanceField = document.createElement("label"), appearanceName = document.createElement("span"), appearancePicker = document.createElement("select");
     appearanceField.className = "field"; appearanceName.className = "field-name"; appearanceName.textContent = "Appearance";
     appearancePicker.setAttribute("aria-label", `${side === "left" ? "Left" : "Right"} appearance`);
-    appearancePicker.disabled = true;
     const refreshAppearance = () => {
       const model = bodyOf(), choices = appearancesFor(model);
       appearancePicker.replaceChildren(...choices.map(row => Object.assign(document.createElement("option"), { value: row.id, textContent: row.name })));
@@ -232,25 +236,26 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         attributes[side] = draft;
         if (resolved) {
           refreshChoices[side]?.();
-          void previews[side]?.setCharacter(0, { model: bodyOf(), attributes: controlCharacter(control.value, draft) }, appearances[side]);
+          void previews[side]?.setCharacter(0, { model: bodyOf(), attributes: controlCharacter(control.value, draft) }, appearances[side]).catch(previewFailed);
         }
       },
     });
-    choices.append(attributePanel.element);
     const controller = document.createElement("label"), control = document.createElement("select");
     controller.className = "field"; controller.textContent = "Controller";
     control.setAttribute("aria-label", `${side} controller`);
     for (const [value, textContent] of Object.entries(CONTROLS)) control.append(Object.assign(document.createElement("option"), { value, textContent }));
     control.value = controls[side];
-    controller.append(control); choices.append(controller); controlPickers[side] = control;
-    const hands = {} as Record<Side, HTMLSelectElement>, equipment: HTMLLabelElement[] = [];
+    controller.append(control); controlPickers[side] = control;
+    const hands = {} as Record<Side, HTMLSelectElement>, equipment = document.createElement("div");
+    equipment.className = "contender-equipment";
+    choices.append(equipment, controller);
     for (const hand of SIDES) {
       const field = document.createElement("label"), picker = document.createElement("select");
       field.className = "field"; field.textContent = `${hand === "left" ? "Left" : "Right"} hand`;
       picker.setAttribute("aria-label", `${side} fighter's ${hand} hand`);
       for (const value of HELD) picker.append(Object.assign(document.createElement("option"), { value, textContent: heldName(value) }));
       picker.value = loadoutChoices?.[side][hand] ?? modelLoadout(matchupModels(matchup)[side])[hand];
-      field.append(picker); controller.before(field); equipment.push(field); hands[hand] = picker;
+      field.append(picker); equipment.append(field); hands[hand] = picker;
     }
     loadoutPickers[side] = hands;
     const loadout = (): Loadout => ({ left: hands.left.value as typeof HELD[number], right: hands.right.value as typeof HELD[number] });
@@ -282,10 +287,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     const skillPanel = skillEditors[side] = skillEditor(matchup[side], skills[side], () => skillsFor(editorSpec()), {
       change: (next) => { if (next === undefined) delete skills[side]; else skills[side] = next; refreshChoices[side]?.(); },
     });
-    attributePanel.element.after(skillPanel.element);
     // The minds are checked by the entry rule of the bout the page opens with: a trial's own, or a fight's.
     const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), entry: entryRules(trials?.[at]!.world.recipe), onFault: "the bout is not played until it is fixed", onChange: () => nameControl() });
-    settings.append(summary, editor.element); choices.append(notes, settings);
+    settings.append(summary, editor.element); choices.append(attributePanel.element, skillPanel.element, notes, settings);
     // The chosen mind's character is the attributes' base (`controlCharacter`): the panel shows it, and a person's draft goes over it.
     let shownBase = "{}";
     const based = () => {
@@ -313,7 +317,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     const refresh = refreshChoices[side] = () => {
       refreshAppearance();
       const model = bodyOf(), hands = modelHolds(model);
-      for (const field of equipment) field.hidden = !hands;
+      equipment.hidden = !hands;
       for (const hand of SIDES) {
         const picker = loadoutPickers[side][hand];
         for (const option of picker.options) option.disabled = !hands && option.value !== "empty";
@@ -338,44 +342,46 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     refresh();
     need("matchup").append(panel);
     pickers[side] = select;
-    previewLoads.push(showHeroLineup(preview, [matchupModels(matchup)[side]], lifetime.signal, [appearances[side]]).then(async view => {
-      context.signal.throwIfAborted();
-      previews[side] = view; select.disabled = false; appearancePicker.disabled = false;
-      const drafted = attributePanel.read() !== null;
-      if (drafted) await view.setCharacter(0, { model: bodyOf(), attributes: controlCharacter(control.value, attributes[side]) }, appearances[side]).catch(previewFailed);
-      select.addEventListener("change", () => {
-        appearances = { ...appearances, [side]: "default" };
-        attributePanel.set({ model: bodyOf(), attributes: attributes[side] });
-        // Another character: its own skills.
-        delete skills[side];
-        refresh();
-        skillPanel.set(select.value, undefined);
-        select.blur();
-        if (attributePanel.read() !== null) void view.setCharacter(0, { model: bodyOf(), attributes: controlCharacter(control.value, attributes[side]) }).catch(previewFailed);
-      }, { signal: lifetime.signal });
-      appearancePicker.addEventListener("change", () => {
-        const appearance = appearanceFor(bodyOf(), appearancePicker.value);
-        appearances = { ...appearances, [side]: appearance };
-        appearancePicker.blur();
-        void view.setAppearance(0, appearance).catch(previewFailed);
-      }, { signal: lifetime.signal });
-    }));
+    const previewCharacter = () => ({ model: bodyOf(), attributes: controlCharacter(control.value, attributes[side]) });
+    select.addEventListener("change", () => {
+      appearances = { ...appearances, [side]: "default" };
+      attributePanel.set({ model: bodyOf(), attributes: attributes[side] });
+      delete skills[side];
+      refresh();
+      skillPanel.set(select.value, undefined);
+      select.blur();
+      if (attributePanel.read() !== null) void previews[side]?.setCharacter(0, previewCharacter()).catch(previewFailed);
+    }, { signal: lifetime.signal });
+    appearancePicker.addEventListener("change", () => {
+      const appearance = appearanceFor(bodyOf(), appearancePicker.value);
+      appearances = { ...appearances, [side]: appearance };
+      appearancePicker.blur();
+      void previews[side]?.setAppearance(0, appearance).catch(previewFailed);
+    }, { signal: lifetime.signal });
+    startPreviews.push(() => {
+      const character = previewCharacter(), appearance = appearances[side];
+      void showHeroLineup(preview, [character], lifetime.signal, [appearance]).then(view => {
+        context.signal.throwIfAborted();
+        previews[side] = view;
+        const current = previewCharacter();
+        if (JSON.stringify(current) !== JSON.stringify(character) || appearances[side] !== appearance)
+          return view.setCharacter(0, current, appearances[side]);
+      }).catch(previewFailed);
+    });
   }
 
-  const levelField = document.createElement("label"), levelPicker = document.createElement("select");
-  levelField.className = "field bout-choice"; levelField.textContent = "Level"; levelPicker.setAttribute("aria-label", "Arena level");
+  const levelPicker = need<HTMLSelectElement>("arena-level"), levelField = levelPicker.closest("label")!;
   for (const [value, definition] of Object.entries(LEVELS)) levelPicker.append(Object.assign(document.createElement("option"), { value, textContent: definition.label }));
   levelPicker.value = level;
   levelPicker.addEventListener("change", () => {
-    const query = new URLSearchParams(location.search), next = levelPicker.value as ArenaLevel;
-    query.set("level", next);
-    if (readGap(location.search, next) === undefined) query.delete("gap");
     const draft = new URL(setupAddress());
-    draft.searchParams.set("level", next);
-    if (!query.has("gap")) draft.searchParams.delete("gap");
-    context.navigate(draft.href, { setup: true });
+    level = readLevel(draft.search);
+    const gap = readGap(draft.search, level);
+    if (gap === undefined) draft.searchParams.delete("gap");
+    openingGap = gap ?? LEVELS[level].gap.default;
+    context.replace(draft);
+    void prepareLevel(level);
   });
-  levelField.append(levelPicker); need("matchup").after(levelField);
 
   function setupAddress(): string {
     const models: Matchup = { left: pickers.left.value, right: pickers.right.value };
@@ -422,9 +428,28 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   /** A trial's overlays (`trialOverlay`), while the bout plays one. */
   let overlay: ReturnType<typeof trialOverlay> | null = null;
   const profile = sceneProfile(scene);
-  profile.register("world", visualGroup([...scene.meshes]));
-  const geometry = solidGeometry(scene, arenaSolids(level));
-  profile.register("tactical", geometry);
+  profile.register("world", arena);
+  let geometryLevel = level, geometry = solidGeometry(scene, arenaSolids(level));
+  let unregisterGeometry = profile.register("tactical", geometry);
+  let stage: { level: ArenaLevel; ready: Promise<void> } | undefined;
+  const prepareLevel = (next: ArenaLevel): Promise<void> => {
+    if (stage?.level === next) return stage.ready;
+    levelField.setAttribute("aria-busy", "true");
+    const ready = arena.setLevel(next).then(() => {
+      if (context.signal.aborted || stage?.ready !== ready || next === geometryLevel) return;
+      unregisterGeometry(); geometry.dispose();
+      geometry = solidGeometry(scene, arenaSolids(next));
+      unregisterGeometry = profile.register("tactical", geometry);
+      geometryLevel = next;
+    });
+    stage = { level: next, ready };
+    const settled = () => { if (stage?.ready === ready) levelField.removeAttribute("aria-busy"); };
+    void ready.then(settled, error => {
+      if (stage?.ready !== ready) return;
+      settled(); stage = undefined; previewFailed(error);
+    });
+    return ready;
+  };
   context.own(() => { profile.dispose(); geometry.dispose(); });
   const applyView = () => {
     profile.setView(view.view);
@@ -564,7 +589,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       attributeEditors[side].set({ model: matchupModels(matchup)[side], attributes: attributes[side] });
       skillEditors[side].set(matchup[side], skills[side]);
       const drafted = attributeEditors[side].read() !== null;
-      if (drafted) void previews[side].setCharacter(0, { model: matchupModels(matchup)[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) }, appearances[side]).catch(previewFailed);
+      if (drafted) void previews[side]?.setCharacter(0, { model: matchupModels(matchup)[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) }, appearances[side]).catch(previewFailed);
     }
   };
   /** Begins a bout of `next`: the reel's trial `given`, or the one the pickers make, from a start drawn again where `restart`. */
@@ -605,7 +630,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         }
         // The bout: the trial's recipe, or the one the address and the pickers make.
         const recipe = given?.world.recipe ?? recipeOf(location.search, attributes, level);
-        const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchupModels(matchup)[side], appearances[side])] as const)));
+        const [loadedDressers] = await Promise.all([Promise.all(SIDES.map(async (side) => [side, await dresser(matchupModels(matchup)[side], appearances[side])] as const)),
+          prepareLevel(recipe.level ?? "open")]);
+        const dress = new Map(loadedDressers);
         context.signal.throwIfAborted();
         end();
         trial = given;
@@ -857,6 +884,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   engine.runRenderLoop(() => {
     sync();
     if (context.busy) { firstFrame = true; meter.reset(); return; }
+    if (screen === "setup" && startPreviews.length) {
+      void prepareLevel(level);
+      for (const start of startPreviews.splice(0)) start();
+    }
     if (firstFrame) meter.reset();
     const shownBefore = shownTime;
     const timing = meter.frame(() => {
@@ -866,7 +897,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         pose(bout.link.between(performance.now()));
         if (!paused && bout.news) for (const { side, speed, at } of bout.news.air) audio.swish(side, speed, airAt.set(at[0], at[1], at[2]));
       }
-      if (!paused && !context.busy && profile.view === "world") arena.fire.burn(seconds);
+      if (!paused && !context.busy && profile.view === "world") arena.burn(seconds);
       frame();
       if (!context.busy) steer();
       readout(); audio.update(); overlay?.update();
@@ -893,12 +924,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   Object.assign(window, { __arena: { get world() { return bout?.link ?? null; }, get verdict() { return bout?.news?.verdict ?? null; },
     get puppets() { return shownBodies.map((body) => body.puppet); }, step, scene, engine } });
 
-  await Promise.all(previewLoads);
-  context.signal.throwIfAborted();
-  frame();
-  await warmScene(scene, context.signal);
   const unread = unreadMinds(location.search);
-  need("boot-note").textContent = [...unread, ...trials ? [trialNote(trials[at]!)] : []].join(" ");
+  bootNote.textContent = [...unread, ...trials ? [trialNote(trials[at]!)] : []].join(" ");
   beginButton.disabled = false;
   // A reel plays from its trial at once: it has no setup of its own. A link that names its matchup
   // opens the bout directly, unless a mind it names could not be read.

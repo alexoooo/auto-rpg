@@ -27,15 +27,6 @@ interface VisualColliderPair {
   collider: string;
 }
 
-export interface ArenaAudit {
-  readonly meshes: number;
-  readonly materials: number;
-  readonly textures: number;
-  readonly instances: number;
-  readonly bodies: number;
-  visualColliderPairs: readonly VisualColliderPair[];
-}
-
 interface RoomPlacement {
   name: string;
   role: "wall" | "banner" | "furniture";
@@ -68,9 +59,6 @@ export interface RoomOcclusionTarget {
 }
 
 const NO_SHADOWS: ShadowRegistry = Object.freeze({ add: () => {}, remove: () => {} });
-const MATERIAL_TEXTURE_FIELDS = Object.freeze([
-  "albedoTexture", "diffuseTexture", "bumpTexture", "metallicTexture", "ambientTexture",
-] as const);
 const CARTESIAN_AXES = Object.freeze(["x", "y", "z"] as const);
 
 /** The parapet's sections as placements: drawn where `arenaWalls` stands them, each naming its collider. */
@@ -269,11 +257,10 @@ function buildArenaColliders(
   scene: Scene,
   materials: RoomMaterials,
   shadows: ShadowRegistry = NO_SHADOWS,
-  level: ArenaLevel = "open",
+  solids = arenaSolids(),
 ): ArenaColliders {
   const meshes: Mesh[] = [];
   const pairs: VisualColliderPair[] = [];
-  const solids = arenaSolids(level);
   // A mesh a collider stands behind says so, for the checks that ask what is solid (`isCollider`).
   const mark = (mesh: Mesh) => { mesh.metadata = { ...mesh.metadata, isCollider: true }; };
   for (const solid of solids) {
@@ -372,86 +359,47 @@ function buildCosmeticRoom(
 }
 
 interface ArenaWorld {
-  readonly colliders: ArenaColliders;
-  readonly room: CosmeticRoom;
-  audit(): ArenaAudit;
+  setLevel(level: ArenaLevel, kit: AssetContainer | undefined): readonly AbstractMesh[];
   updateOcclusion(camera: { x: number; y: number; z: number }, targets: readonly RoomOcclusionTarget[]): void;
-  dispose(): void;
 }
 
 export function buildArenaWorld(
   scene: Scene,
   materials: RoomMaterials,
-  shadows: ShadowRegistry = NO_SHADOWS,
-  groups: readonly RoomGroup[] = ROOM_GROUPS,
-  level: ArenaLevel = "open",
-  kit?: AssetContainer,
+  shadows: ShadowRegistry,
 ): ArenaWorld {
-  const definition = levelDefinition(level);
-  if (definition.furniture.length && !kit) throw new Error(`${level} needs the Crypt kit`);
-  const furnitureGroups: RoomGroup[] = definition.furniture.length ? [{ role: "furniture", metresPerRepeat: 1,
-    placements: definition.furniture.map(({ solid, placement }) => {
-      if (solid.kind !== "box") throw new Error("Crypt furniture must have a box footprint");
-      return { name: solid.name, role: "furniture", position: solid.centre, rotationY: placement.turn,
-        halfExtent: [solid.size[0] / 2, solid.size[1] / 2, solid.size[2] / 2], solid: true, collider: solid.name };
-    }) }] : [];
-  const refused = validateRoomPlacements([...groups, ...furnitureGroups], new Set(arenaSolids(level).map(solid => solid.name)));
-  if (refused.length) throw new Error(refused.join("\n"));
-  const colliders = buildArenaColliders(scene, materials, shadows, level);
-  const room = buildCosmeticRoom(scene, materials, shadows, groups);
-  const furniture = kit ? assembleCryptKit(kit, definition.furniture.map(entry => entry.placement), { merge: false }) : [];
-  const furniturePairs = furniture.map(mesh => {
-    const placement = mesh.metadata.kitPlacement;
-    mesh.material = materials.wall; mesh.receiveShadows = true; shadows.add(mesh);
-    mesh.metadata = { ...mesh.metadata, roomPlacement: { role: "furniture", solid: true, collider: placement.obstacleId } };
-    return { visual: mesh.name, collider: placement.obstacleId as string };
-  });
-  const visualColliderPairs = Object.freeze([...colliders.pairs, ...room.pairs, ...furniturePairs].map((pair) => Object.freeze(pair)));
-  const alignmentFailures = validateVisualColliderPairs(scene, visualColliderPairs);
+  const colliders = buildArenaColliders(scene, materials, shadows);
+  const room = buildCosmeticRoom(scene, materials, shadows);
+  const alignmentFailures = validateVisualColliderPairs(scene, [...colliders.pairs, ...room.pairs]);
   if (alignmentFailures.length) {
-    for (const mesh of furniture) { shadows.remove(mesh); mesh.dispose(false, false); }
     room.dispose();
     colliders.dispose();
     throw new Error(alignmentFailures.join("\n"));
   }
-  const ownedMeshes: readonly AbstractMesh[] = Object.freeze([...colliders.meshes, ...room.meshes, ...furniture]);
-  const ownedMaterials: Material[] = [];
-  const ownedTextures: object[] = [];
-  const census = {
-    meshes: 0, materials: 0, textures: 0, instances: 0, bodies: 0, visualColliderPairs,
-  };
-  const report: ArenaAudit = Object.freeze({
-    get meshes() { return census.meshes; },
-    get materials() { return census.materials; },
-    get textures() { return census.textures; },
-    get instances() { return census.instances; },
-    get bodies() { return census.bodies; },
-    visualColliderPairs,
-  });
-  const audit = (): ArenaAudit => {
-    census.meshes = 0;
-    census.instances = 0;
-    census.bodies = 0;
-    ownedMaterials.length = 0;
-    ownedTextures.length = 0;
-    for (const mesh of ownedMeshes) {
-      if (mesh.isDisposed()) continue;
-      census.meshes += 1;
-      if (mesh.getClassName() === "InstancedMesh") census.instances += 1;
-      if (isCollider(mesh)) census.bodies += 1;
-      const material = mesh.material;
-      if (material && !ownedMaterials.includes(material)) ownedMaterials.push(material);
-    }
-    for (const material of ownedMaterials) {
-      const mapped = material as unknown as Record<string, object | null | undefined>;
-      for (const field of MATERIAL_TEXTURE_FIELDS) {
-        const texture = mapped[field];
-        if (texture && !ownedTextures.includes(texture)) ownedTextures.push(texture);
-      }
-    }
-    census.materials = ownedMaterials.length;
-    census.textures = ownedTextures.length;
-    return report;
+  let removeFurniture: (() => void) | undefined;
+  const setLevel = (level: ArenaLevel, kit: AssetContainer | undefined) => {
+    const placements = levelDefinition(level).furniture;
+    if (!placements.length) { removeFurniture?.(); removeFurniture = undefined; return []; }
+    if (!kit) throw new Error(`${level} needs the Crypt kit`);
+    const solids = placements.map(entry => entry.solid);
+    if (solids.some(solid => solid.kind !== "box")) throw new Error("Crypt furniture must have a box footprint");
+    const props = assembleCryptKit(kit, placements.map(entry => entry.placement), { merge: false });
+    const boxes = buildArenaColliders(scene, materials, shadows, solids);
+    const pairs = props.map(mesh => {
+      const placement = mesh.metadata.kitPlacement;
+      mesh.material = materials.wall; mesh.receiveShadows = true; shadows.add(mesh);
+      mesh.metadata = { ...mesh.metadata, roomPlacement: { role: "furniture", solid: true, collider: placement.obstacleId } };
+      return { visual: mesh.name, collider: placement.obstacleId as string };
+    });
+    const dispose = () => {
+      for (const mesh of props) { shadows.remove(mesh); mesh.dispose(false, false); }
+      boxes.dispose();
+    };
+    const faults = validateVisualColliderPairs(scene, pairs);
+    if (faults.length) { dispose(); throw new Error(faults.join("\n")); }
+    removeFurniture?.();
+    removeFurniture = dispose;
+    return [...boxes.meshes, ...props];
   };
   const updateOcclusion = (
     camera: { x: number; y: number; z: number },
@@ -474,14 +422,7 @@ export function buildArenaWorld(
     }
   };
   return {
-    colliders,
-    room,
-    audit,
+    setLevel,
     updateOcclusion,
-    dispose: () => {
-      for (const mesh of furniture) { shadows.remove(mesh); mesh.dispose(false, false); }
-      room.dispose();
-      colliders.dispose();
-    },
   };
 }

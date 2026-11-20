@@ -31,8 +31,7 @@ const upright = (spec: BodySpec): boolean => {
  * keeps the characters centred. This scene draws on load, selection and resize, with no animation loop.
  * Its lighting (a warm ivory key, a crimson rim), framing and plinth sizes are set by eye. */
 export async function showHeroLineup(canvas: HTMLCanvasElement,
-  models: readonly BodyModel[], signal: AbortSignal, appearances: readonly Appearance[] = []): Promise<{
-    setModel(index: number, model: BodyModel, appearance?: Appearance): Promise<void>;
+  characters: readonly CharacterConfig[], signal: AbortSignal, appearances: readonly Appearance[] = []): Promise<{
     setCharacter(index: number, character: CharacterConfig, appearance?: Appearance): Promise<void>;
     setAppearance(index: number, appearance: Appearance): Promise<void>;
   }> {
@@ -52,14 +51,14 @@ export async function showHeroLineup(canvas: HTMLCanvasElement,
   rim.diffuse = Color3.FromHexString("#d76b52"); rim.intensity = 1.4;
   const stone = new StandardMaterial("lineup plinth", scene);
   stone.diffuseColor = Color3.FromHexString("#292321"); stone.specularColor = Color3.Black();
-  const revisions = models.map(() => 0);
+  const revisions = characters.map(() => 0);
   const bodies: Puppet[] = [], skins: SkinSlot[] = [], cameras: FreeCamera[] = [];
-  const chosen = [...models];
+  const chosen: BodyModel[] = characters.map(({ model }) => model);
   let ready = false;
   const draw = () => {
     if (!ready || signal.aborted || !canvas.checkVisibility()) return;
     engine.resize();
-    const aspect = canvas.clientWidth / models.length / canvas.clientHeight;
+    const aspect = canvas.clientWidth / characters.length / canvas.clientHeight;
     // A full body with headroom; narrow columns retain space for the arms.
     for (let i = 0; i < cameras.length; i++) {
       const camera = cameras[i]!, tall = upright(bodies[i]!.spec);
@@ -82,7 +81,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement,
     const revision = ++revisions[index], model = chosen[index];
     await skins[index].replace(dresserFor(model, scene, { appearance: appearanceFor(model, appearance) }),
       { clothing: { boots: true, armour: true }, closure: handsOf(bodies[index]!.configurations.state).closure });
-    if (signal.aborted || revision !== revisions[index]) return;
+    if (!ready || signal.aborted || revision !== revisions[index]) return;
     try { await warmScene(scene, signal); } catch (error) { if (signal.aborted) return; throw error; }
     if (!signal.aborted && revision === revisions[index]) draw();
   };
@@ -106,26 +105,25 @@ export async function showHeroLineup(canvas: HTMLCanvasElement,
     }
     await setAppearance(index, appearance);
   };
-  const setModel = (index: number, model: BodyModel, appearance: Appearance = "default") => setCharacter(index, { model }, appearance);
   try {
-    models.forEach((_, index) => {
+    characters.forEach((_, index) => {
       const x = index * 4, mask = 1 << index;
       const plinth = MeshBuilder.CreateCylinder(`plinth ${index}`, { diameter: 1.15, height: .06, tessellation: 64 }, scene);
       plinth.position.set(x, -.04, 0); plinth.material = stone; plinth.layerMask = mask;
       const camera = new FreeCamera(`hero ${index}`, new Vector3(x + .2, 1.05, 6), scene);
       camera.setTarget(new Vector3(x, .95, 0));
       camera.mode = Camera.ORTHOGRAPHIC_CAMERA; camera.minZ = .1; camera.maxZ = 15;
-      camera.viewport = new Viewport(index / models.length, 0, 1 / models.length, 1);
+      camera.viewport = new Viewport(index / characters.length, 0, 1 / characters.length, 1);
       camera.layerMask = mask;
       cameras.push(camera);
     });
     scene.activeCameras = cameras;
-    await Promise.all(models.map((model, index) => setModel(index, model, appearances[index])));
+    await Promise.all(characters.map((character, index) => setCharacter(index, character, appearances[index])));
     signal.throwIfAborted();
     ready = true;
     await warmScene(scene, signal);
     draw();
-    return { setModel, setCharacter, setAppearance };
+    return { setCharacter, setAppearance };
   } catch (error) {
     if (!signal.aborted) { signal.removeEventListener("abort", dispose); dispose(); }
     throw error;
