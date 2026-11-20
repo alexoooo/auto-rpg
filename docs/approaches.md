@@ -349,17 +349,19 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   Both exchange ends leave the mirror without it quieter than the tail (8.6% and 9.8% against
   6.4%). These three line's ends, none the game's, are removed; the tail is the search's one leaf.
   *Shown.*
-- **A leaf of each Option's own tries, none leaving, plays even at a third of the tail's time and
-  buys nothing with it**: each run Option at a leaf priced by its own model's terms alone, its tries
-  to the horizon each ending where it began (no states made after, no held leaf where a try
-  leaves), held Options as the tail holds them, no walk to a site at a leaf. Against the game's
-  Mind on `warrior-drawn` (288 bouts): 0.490 (0.434 to 0.542) at the same 100 runs, its deciding
-  steps about three times cheaper (99th percentile 8.3 ms against 26.7, six mirror cases, one
-  worker); at 300 runs 0.503 (0.448 to 0.559). In six standard-match mirrors five bouts ended
-  slain against two (the rest drained), its bodies down 59 s against 21. The leaf's time is the
+- **A leaf of each Option's own tries, none leaving, decides three times faster and fights less**:
+  each run Option at a leaf priced by its own model's terms alone, its tries to the horizon each
+  ending where it began (no states made after, no held leaf where a try leaves), held Options as
+  the tail holds them, no walk to a site at a leaf. Its deciding steps about three times cheaper
+  (99th percentile 8.3 ms against 26.7, six mirror cases, one worker). Against the game's Mind on
+  `warrior-drawn` at the same 100 runs: 0.490 (0.434 to 0.542) over 288 bouts and 0.476 (0.424 to
+  0.528) over 288 on gaps never played (draws 9 to 14), about 0.483 (0.446 to 0.520) pooled, not
+  told from even; at 300 runs 0.503 (0.448 to 0.559). But its mirror on `warrior-drawn` ended in
+  a knockout within 60 s in 85.6% (80.3 to 89.7) of 216 bouts against the tail's 93.1%, standing
+  silent 18.9% against 15.8%; and the walker, a valued chooser looking one Option ahead, stopped
+  short of its place on a plain hold, a leaf no longer walking on to it. The leaf's time is the
   tail's `line` (held Options priced to the horizon and walks to sites, 22 of its 30 points of a
-  bout) more than its tries run again (8). Dropped: below the speed bar's 0.45 low end, and runs
-  bought no strength. *Shown.*
+  bout) more than its tries run again (8). Dropped on the knockout bar. *Shown.*
 - **A value of a state fitted by hand-chosen terms does not stand in for the tail**: fitted to the
   life each side lost from a search's root to the bout's end, it is the two lives and the time
   left (R² 0.62 held out, every term of range or posture under 0.05 of a life); fitted to the
