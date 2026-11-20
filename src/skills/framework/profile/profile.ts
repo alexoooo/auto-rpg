@@ -57,14 +57,12 @@ export interface Measured {
 
 /**
  * **Where a profile came from**, which finds and refuses none: the digests of its body's spec and
- * of its skill, as its trials were played (`research/skills/profile-origin.mjs`); the drill's rung
- * they were played on (a strike's, `research/skills/strikes/strike-profiles.mjs`); and the commit its trials were played on,
+ * of its skill, as its trials were played (`research/skills/profile-origin.mjs`); and the commit its trials were played on,
  * whether a build input differed from it, and the day, where its tool knew them.
  */
 export interface Origin {
   readonly spec?: string;
   readonly skill?: string;
-  readonly protocol?: string;
   readonly commit?: string;
   readonly changed?: boolean;
   readonly date?: string;

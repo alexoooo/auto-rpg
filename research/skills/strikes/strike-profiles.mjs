@@ -47,7 +47,7 @@
  * `--write` puts the runs' profiles in the asset, each in place of the one measured on the same
  * body, skill and limb; the asset's others stay while a preset still throws their skill on a body
  * the game builds (`profileKeys`), so one skill is measured again without the rest. Each profile
- * names the rung it was measured on (`Origin.protocol`, a draw named as its rung): a strike some
+ * names the rung it was measured on (`StrikeProfile`'s `from.protocol`, a draw named as its rung): a strike some
  * body never reaches in a fight keeps the profile an earlier rung gave it.
  */
 import { readFileSync, writeFileSync } from "node:fs";
