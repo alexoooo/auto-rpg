@@ -44,7 +44,13 @@ its kind or running those tools.
 
 - **A browser check uses the Chrome on this machine**: the browser tools can reach the owner's
   other computer too, and both report themselves local; the one on this machine is the one that
-  loads its preview server.
+  loads its preview server. Where only the other is connected, its tab shows an error page for a
+  server `curl` reads; the look is then made headless with this machine's Edge
+  (`msedge.exe --headless=new --remote-debugging-port=<port>`, a `--user-data-dir` under `.tmp/`),
+  driven over its debugging protocol with Node's own `WebSocket`: `Runtime.evaluate` and
+  `Page.captureScreenshot`.
+- **A link that names its matchup starts the bout itself**: clicking Fight again restarts it and
+  disposes the running world's worker.
 - **A hidden tab does not render**: check `document.visibilityState` and that `engine.frameId`
   moves.
 - **The Arena's, crowd's and Crypt's worlds are in workers**: `await __arena.step(n)` (or
