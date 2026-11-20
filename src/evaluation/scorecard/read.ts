@@ -27,7 +27,8 @@ export type Prices = { n: number; taken: number; lost: number; dealing: number; 
 
 /**
  * What one side's choices came to, by slice, each Option chosen read over the span it ran (until
- * another was chosen, at most its priced duration) and priced for its share of that duration: `all`; by what the chosen offer was priced to do
+ * another was chosen, at most its priced duration), what it was priced to take for its share of that duration
+ * and what it was priced to deal whole: `all`; by what the chosen offer was priced to do
  * (`strike` where it deals, else `move` where it leaves the range further than `ARRIVED` from where
  * it was, as the chooser tells a staying run, else `stay`); by what its mind read the foe doing (`foe <label>`, `Engagement.foe`); and by
  * the range head to head it decided at, in bands `BAND` wide (`range <from>`).
@@ -101,8 +102,9 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
       const sides = SIDES.map((_, s): SideReading => {
         const prices: Record<string, Prices> = {}, own = decisions[s]!;
         for (let i = 0; i < own.length; i++) {
-          // A choice runs from its decision until another Option is chosen (`Decision.name`), at most its priced duration; its price is
-          // read for the share of that duration it ran, as the life given and lost over the same span.
+          // A choice runs from its decision until another Option is chosen (`Decision.name`), at most its priced duration, and
+          // the life given and lost is read over that span. What it was priced to take, the others' pressure over its time, is
+          // read for the share of that duration it ran; what it was priced to deal, its blow's, landing once in its run, whole.
           const d = own[i]!;
           let next = i + 1;
           while (next < own.length && own[next]!.name === d.name) next++;
@@ -113,7 +115,7 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
           for (const slice of d.slices) {
             const p = prices[slice] ??= { n: 0, taken: 0, lost: 0, dealing: 0, dealt: 0, given: 0 };
             p.n++; p.taken += share * d.taken; p.lost += lost;
-            if (d.dealt > 0) { p.dealing++; p.dealt += share * d.dealt; p.given += given; }
+            if (d.dealt > 0) { p.dealing++; p.dealt += d.dealt; p.given += given; }
           }
         }
         return { decisions: decisions[s]!.length, prices, strikes: strikes[s]!, downs: downs[s]! };
