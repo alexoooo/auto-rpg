@@ -9,7 +9,9 @@ import type { OfferTerms } from "../engagement.ts";
 import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding, type Holding, type Selection } from "../choice.ts";
 import { placed, placing, type Option, type Situation } from "./option.ts";
 import { FEW_TERMS_PART, type Objective, type Tally } from "./objective.ts";
-import { cachedPressure, threatened, type Pressure } from "./percepts.ts";
+import { cachedPressure, graceAt, threatened, type Pressure } from "./percepts.ts";
+import { featuresOf, fittedOver, offeredOf, readingAt, validFitted, type Offered } from "./fitted-value.ts";
+import { dataOf, type DataKey } from "../../core/data/store.ts";
 import { exp, log } from "../../core/math/real.ts";
 import { ARRIVED } from "../../skills/framework/movement.ts";
 import { randomStream } from "../../core/math/random.ts";
@@ -142,8 +144,6 @@ interface Searched {
   readonly objective: Objective;
   readonly obedience: Obedience;
   readonly horizon: number;
-  /** The kind of its leaves (`LeafKind`). */
-  readonly leaf: LeafKind;
 }
 
 /**
@@ -158,7 +158,7 @@ interface Searched {
  * (`best`), and ends at a leaf (`leaf`); a line is cut at the horizon, so every worth is absolute
  * over the same seconds and lines compare alike.
  */
-function space(root: Situation, { options, objective, obedience, horizon, leaf: leafKind }: Searched) {
+function space(root: Situation, { options, objective, obedience, horizon }: Searched) {
   const place = placing();
   const sites = new Set<string>();
   for (const option of options) if (option.sites) for (const site of option.sites) sites.add(site.name);
@@ -301,21 +301,23 @@ function space(root: Situation, { options, objective, obedience, horizon, leaf: 
     // A leaf where a walk has arrived never walks on to a site, and a held leaf reads only open Options.
     // Such a leaf models only the pairs it reads. Most leaves are where a walk arrives, so modelling every
     // walk from each of them would be most of a search's cost.
-    // A kind of leaf that walks to no site reads a whole leaf as an arrived one.
-    const pairs = reach === "whole" && leafKind.sites ? pairsAt(at) : readsAt(at, reach === "whole" ? "arrived" : reach);
+    const pairs = reach === "whole" ? pairsAt(at) : readsAt(at, reach);
     for (let i = 0; i < pairs.length; i++) {
       const pair = pairs[i]!;
       if (pair.option.open) top = Math.max(top, line(pair, at, 1, from));
       else if (reach === "held") continue;
       else if (toSite(pair)) { if (reach === "whole") top = Math.max(top, line(pair, at, 0, from)); }
-      else top = Math.max(top, leafKind.again(rerun, pair, at, from));
+      else top = Math.max(top, again(rerun, pair, at, from));
     }
     return top > -Infinity ? top : price(from, at);
   };
   /** What an Option run again from a leaf reads of the search (`Rerun`). */
   const rerun: Rerun = { horizon, modelAt, child, price, leaf };
-  return { pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
+  return { horizon, pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
 }
+
+/** **The states a search reads** (`space`). */
+type Space = ReturnType<typeof space>;
 
 
 /** **What an Option run again from a leaf reads of a search** (`space`): its horizon, its models, the states it makes, its price and its leaves. */
@@ -362,23 +364,45 @@ function again({ horizon, modelAt, child, price, leaf }: Rerun, pair: Pair, at: 
 }
 
 /**
- * **A kind of leaf** (`TreeConfig.leaf`): its name on the page, whether a whole leaf walks on to
- * each site and takes the best there (`sites`), and what an Option not open is worth run again to
- * the horizon from a leaf (`again`).
+ * **A kind of leaf** (`TreeConfig.leaf`): its name on the page, the mind data it reads, and what a
+ * search's leaf is worth at a state, after what the path to it brought (`leafOf`, made once a
+ * search at its root).
  */
 interface LeafKind {
   readonly label: string;
-  readonly sites: boolean;
-  again(search: Rerun, pair: Pair, at: Situation, from: Tally): number;
+  readonly reads: readonly DataKey[];
+  leafOf(search: Space, root: Situation): (at: Situation, from: Tally) => number;
 }
 
 /**
- * **The kinds of leaf**: `tail`, the game's, each try where it ends, the body held where one leaves
- * (`again`), and a walk to each site.
+ * **The kinds of leaf**: `tail`, the game's, the best of each Option on offer run again to the
+ * horizon or held, and of a walk to each site (`space`'s `leaf`, whole); `fitted`, the path's
+ * price and a value fitted to what followed the states bouts reached (`fittedLeaf`).
  */
 const LEAVES = Object.freeze({
-  tail: Object.freeze({ label: "Tail", sites: true, again }),
+  tail: Object.freeze({ label: "Tail", reads: Object.freeze([]), leafOf: (search: Space) => (at: Situation, from: Tally) => search.leaf(at, "whole", from) }),
+  fitted: Object.freeze({ label: "Fitted to what followed", reads: Object.freeze(["fitted-value"] as const), leafOf: fittedLeaf }),
 } satisfies Readonly<Record<string, LeafKind>>);
+
+/**
+ * **A leaf worth its path priced with what a value fitted to what followed reads there**
+ * (`dataOf("fitted-value")`, `fittedOver`): the life dealt and taken over the seconds the path
+ * leaves to the horizon added to the path's, as if it ran there; the state read with the Options on
+ * offer as their models price one try, and the reach's grace its own where its Option reckoned it,
+ * else the root's. The tail's where the state has no focus.
+ */
+function fittedLeaf(search: Space, root: Situation): (at: Situation, from: Tally) => number {
+  const value: unknown = dataOf("fitted-value"), grace = graceAt(root);
+  if (!validFitted(value)) throw new Error("fitted-value: not a value over today's features");
+  return (at, from) => {
+    const offered: Offered[] = [];
+    for (const pair of search.pairsAt(at)) { const terms = search.modelAt(pair, at); if (terms) offered.push(offeredOf(pair.option.kind, pair.option.open === true, terms)); }
+    const reading = readingAt(at, at.grace ?? grace, offered);
+    if (!reading) return search.leaf(at, "whole", from);
+    const followed = fittedOver(value, featuresOf(reading), search.horizon - from.seconds);
+    return search.price({ dealt: from.dealt + followed.dealt, taken: from.taken + followed.taken, orders: from.orders, seconds: Math.max(from.seconds, search.horizon) }, at);
+  };
+}
 type LeafName = keyof typeof LEAVES;
 
 /** **A step of a line** (`space`'s `stepOf`): its Option's model, and what the path has brought once it has run (`Tally`), what it brings counted by the share of its time within the horizon; an open Option, or one the horizon cuts, ends the path (`cut`). */
@@ -448,16 +472,16 @@ interface TreeEdge { readonly pair: Pair; readonly step: Step; readonly ends: (T
  * lies below it (`TreeEdge`, `TreeNode`): the models are the mind's own, so a state is worth its best
  * line found, never less than its leaf. Every Option on offer at `root` is run at least once.
  */
-function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly stream: { next(): number } }): Lines {
+function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly stream: { next(): number }; readonly leaf: LeafKind }): Lines {
   const { runs, exploration, stream } = searched;
   const predictions = root.predictions;
   let pressure: Pressure | undefined;
   root = Object.create(root, { predictions: { value: Object.create(predictions, {
     pressure: { get: () => pressure ??= cachedPressure(predictions.pressure) },
   }) } }) as Situation;
-  const at = space(root, searched);
+  const at = space(root, searched), leafAt = searched.leaf.leafOf(at, root);
   const nodeAt = (state: Situation, from: Tally): TreeNode => {
-    const floor = at.leaf(state, "whole", from);
+    const floor = leafAt(state, from);
     return { at: state, dealt: from.dealt, taken: from.taken, orders: from.orders, seconds: from.seconds, floor, runs: 0, worth: floor, edges: null };
   };
   const top = nodeAt(root, UNBEGUN);
@@ -622,7 +646,7 @@ export const VALUED_CHOOSER = deepFreeze<OptionChooserPart<ValuedConfig>>({
   faults: (config: ValuedConfig) => [...depthFaults(config.depth), ...searchFaults(config)],
   make: ({ config, options, seed, parts, phase }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON;
-    const searched = { options, objective, obedience, horizon, depth: config.depth, leaf: LEAVES.tail };
+    const searched = { options, objective, obedience, horizon, depth: config.depth };
     return chooser({ options, appraise: searching((now) => search(now, searched)), deciding: { rethink: RETHINK, phase, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: {} });
   },
@@ -666,7 +690,7 @@ const LEAF_FIELD: PartField<TreeConfig> = {
  */
 export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
   role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : []], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
-  defaults: { kind: "tree" }, keys: { kind: true, runs: true, exploration: true, leaf: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
+  defaults: { kind: "tree" }, reads: (config) => LEAVES[config.leaf ?? "tail"].reads, keys: { kind: true, runs: true, exploration: true, leaf: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
     ...config.exploration === undefined || Number.isFinite(config.exploration) && config.exploration >= 0 ? [] : ["exploration: a finite number, not negative"],
