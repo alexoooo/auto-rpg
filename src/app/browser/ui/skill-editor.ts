@@ -1,4 +1,5 @@
 import { buttonInput as button } from "./inputs.ts";
+import { svgIcon } from "../dom.ts";
 import { characterNamed } from "../../../core/bodies/models.ts";
 import type { SkillChoices } from "../../../core/bodies/spec/body.ts";
 import type { Control } from "./controls.ts";
@@ -46,19 +47,32 @@ export function skillEditor(character: string, skills: SkillChoices | undefined,
         const heading = document.createElement("summary"); heading.textContent = offer.group;
         group.append(heading); groups.set(offer.group, group); fields.append(group);
       }
-      const row = document.createElement("div"), text = document.createElement("span"), variations = document.createElement("div");
-      row.className = "skill-field"; text.className = "skill-name"; text.textContent = offer.label; text.title = offer.label;
-      row.setAttribute("role", "group"); row.setAttribute("aria-label", offer.label);
-      variations.className = "skill-variations"; row.append(text, variations);
+      const row = document.createElement("div"), title = document.createElement("span"), text = document.createElement("span");
+      row.className = "skill-field"; title.className = "skill-title";
+      text.className = "skill-name"; text.textContent = offer.label;
+      if (offer.icon) title.append(svgIcon(offer.icon));
+      title.append(text);
+
+      const multiple = offer.variations.length > 1;
+      const controls = multiple ? document.createElement("div") : row;
+      if (multiple) {
+        row.setAttribute("role", "group"); row.setAttribute("aria-label", offer.label);
+        controls.className = "skill-variations"; row.append(title, controls);
+      }
       for (const variation of offer.variations) {
         const name = `${offer.skill}/${variation}`, label = document.createElement("label"), box = document.createElement("input");
-        box.type = "checkbox"; box.setAttribute("aria-label", `${offer.label}: ${variation}`);
+        box.type = "checkbox";
         box.addEventListener("change", () => {
           const next = current().filter((one) => one !== name);
           chosen = Object.freeze(box.checked ? [...next, name] : next); refresh(); options.change?.(chosen);
         });
-        const nameText = document.createElement("span"); nameText.textContent = variation;
-        label.append(box, nameText); variations.append(label); boxes.set(name, box);
+        if (multiple) {
+          const nameText = document.createElement("span"); nameText.textContent = variation.replaceAll("-", " ");
+          label.className = "skill-variant"; label.append(box, nameText);
+        } else {
+          label.className = "skill-toggle"; label.append(title, box);
+        }
+        controls.append(label); boxes.set(name, box);
       }
       group.append(row);
     }

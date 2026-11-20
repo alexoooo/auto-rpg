@@ -1,7 +1,6 @@
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { damageDiagram, type FighterReading } from "../../../game/arena/fighter-readout.ts";
-
-const SVG = "http://www.w3.org/2000/svg";
+import { SVG, svgIcon } from "../dom.ts";
 
 /** Damage moves from a neutral body through amber to red, independently of side colours. */
 function damageColour(remaining: number): string {
@@ -24,10 +23,7 @@ function feedChip(label: string, icon: string | null, limb: string | null): HTML
   const chip = document.createElement("span");
   chip.className = "feed-chip"; chip.setAttribute("aria-hidden", "true");
   if (icon === null) chip.append(label.charAt(0));
-  else {
-    const drawing = document.createElementNS(SVG, "svg"), path = document.createElementNS(SVG, "path");
-    drawing.setAttribute("viewBox", "0 0 24 24"); path.setAttribute("d", icon); drawing.append(path); chip.append(drawing);
-  }
+  else chip.append(svgIcon(icon));
   const sided = limb?.split(".").find(word => word === "left" || word === "right");
   if (sided) chip.append(Object.assign(document.createElement("b"), { className: "feed-limb", textContent: sided === "left" ? "L" : "R" }));
   return chip;

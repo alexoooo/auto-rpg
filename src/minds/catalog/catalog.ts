@@ -20,10 +20,11 @@ export interface CatalogLists {
   readonly entrants: readonly Entrant[];
 }
 
-/** **A skill a character may hold** (`Part.variations`): its kind, its part's label and group, and its variations. */
+/** **A skill a character may hold** (`Part.variations`): its kind, its part's label, icon and group, and its variations. */
 export interface SkillOffer {
   readonly skill: string;
   readonly label: string;
+  readonly icon: string | undefined;
   readonly group: string;
   readonly variations: readonly string[];
 }
@@ -317,7 +318,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
 
   let skills: readonly SkillOffer[] | null = null;
   const skillsOf = (): readonly SkillOffer[] => skills ??= Object.freeze(Object.entries(registered().parts).flatMap(([skill, part]) =>
-    part.variations ? [Object.freeze({ skill, label: part.label, group: part.skillGroup ?? "Other", variations: part.variations })] : []));
+    part.variations ? [Object.freeze({ skill, label: part.label, icon: part.icon, group: part.skillGroup ?? "Other", variations: part.variations })] : []));
   /** Whether the executor of `config` strikes with one of the limbs of `spec` as it holds what it holds. */
   const strikes = (spec: BodySpec, config: PartConfig): boolean => {
     const executor = parts.of("executor", config);
