@@ -366,8 +366,13 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   does): the 99th-percentile step 16.3 ms against the tail's 30.3, the median 1.47 against 1.35;
   its mirror knocked out within 60 s in 78.2% (72.3 to 83.2) of 216 bouts against the tail's 91.7%
   on the same code, standing silent 24.1% against 15.6%. It fought less again, not more. What is
-  left cut, the state each try leaves and the held leaf there, is the tail's own: the speed came from
-  what keeps the mirror fighting. *Shown.*
+  left cut, the state each try leaves and the held leaf there, is the tail's own. At the same
+  states the staying leaf picks the tail's best 91% of the time (2,413 decisions, four bouts);
+  where they part it walks on where the tail strikes and steps back where the tail closes: the
+  tail repeats at a leaf only an Option whose try stays. The tail with only its held leaf cut (a
+  leaving try priced as it stands): the 99th-percentile step 8.1 ms against 30.2, knocked out
+  within 60 s 95.4% against 91.7%, and weaker, 0.434 (0.397 to 0.472) over 576 held out. The
+  tail's time is in its held leaf, and so is a part of its strength. *Shown.*
 - **A value of a state fitted by hand-chosen terms does not stand in for the tail**: fitted to the
   life each side lost from a search's root to the bout's end, it is the two lives and the time
   left (R² 0.62 held out, every term of range or posture under 0.05 of a life); fitted to the
