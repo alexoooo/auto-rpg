@@ -17,6 +17,9 @@ import { type GameContext, perContext } from "../../game/arena/context.ts";
 /** Whether a bout ended by a body's life, not by the clock or another rule. */
 const knockedOut = (r: ScorecardReading): boolean => r.bars.some((bar) => bar <= 0);
 
+/** How soon a mirror's bouts are to end by a body's life, s: the share that do is read (`knockout within`). */
+const KNOCKOUT_WITHIN = 60;
+
 const ratio = (a: number, b: number): string => b > 0 ? (a / b).toFixed(2) : "-";
 const pct = (x: number): string => (100 * x).toFixed(1);
 
@@ -38,6 +41,7 @@ export const createScorecardIndex = perContext((context: GameContext) => {
       { name: "silent", unit: "share of a bout after its first strike in gaps with none begun", kind: "mean", better: "lower", of: (r) => { const s = readingSilence(r); return s && s.fought > 0 ? s.silent / s.fought : null; } },
       { name: "standing silent", unit: "share of a bout after its first strike in gaps with none begun and both bodies standing", kind: "mean", better: "lower", of: (r) => { const s = readingSilence(r); return s && s.fought > 0 ? s.standing / s.fought : null; } },
       { name: "knockout", unit: "share of bouts ended by a body's life", kind: "rate", better: "higher", of: (r) => knockedOut(r) },
+      { name: `knockout within ${KNOCKOUT_WITHIN} s`, unit: `share of bouts ended by a body's life within ${KNOCKOUT_WITHIN} s`, kind: "rate", better: "higher", of: (r) => knockedOut(r) && r.seconds <= KNOCKOUT_WITHIN },
       { name: "downs", unit: "falls a bout, both sides", kind: "mean", better: "lower", of: (r) => r.sides[0].downs + r.sides[1].downs },
     ],
     /** For each subject: its bouts by draw and pooled, and its prices by slice. */
@@ -66,8 +70,8 @@ export const createScorecardIndex = perContext((context: GameContext) => {
         lines.push(`${subject.label} (${sha256Text(recordingKey(subject.value)).slice(0, 16)})`, "",
           "| Draw | Bouts | Knockouts | Silent, % | Both standing, % | Downs a bout | Seconds a bout |", "|---|---|---|---|---|---|---|",
           ...byDraw.map((b) => row(String(b.draw), b)), row("all", all), "",
-          "Priced against given, each side's decisions, % of a life each a mean; a ratio over 1 a price above what the bout gave; dealt read over the decisions priced to deal:", "",
-          "| Slice | Decisions | Priced taken | Lost | Ratio | Dealing | Priced dealt | Given | Ratio |", "|---|---|---|---|---|---|---|---|---|",
+          "Priced against given, each side's choices over the span each ran, % of a life each a mean; a ratio over 1 a price above what the bout gave; dealt read over the choices priced to deal:", "",
+          "| Slice | Choices | Priced taken | Lost | Ratio | Dealing | Priced dealt | Given | Ratio |", "|---|---|---|---|---|---|---|---|---|",
           ...slices.map((slice) => { const p = prices[slice]!, d = p.dealing;
             return `| ${slice} | ${p.n} | ${pct(p.taken / p.n)} | ${pct(p.lost / p.n)} | ${ratio(p.taken, p.lost)} | ${d} | ${d ? pct(p.dealt / d) : "-"} | ${d ? pct(p.given / d) : "-"} | ${ratio(p.dealt, p.given)} |`; }), "");
         json[subject.id] = { draws: byDraw, all, prices } as unknown as Json;
