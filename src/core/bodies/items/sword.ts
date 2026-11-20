@@ -8,27 +8,28 @@ const hull = (points: readonly Vec3[]) => ({ kind: "hull" as const, points: poin
 /** A one-handed short sword whose edge, flat, tip and hilt are physical contact regions. Its item
  * frame has y from butt to tip, x across the blade between its edges and z through its flat. */
 export function shortSword(): ItemSpec {
-  const stiffness = q(10e9, "N/m", "short sword: hard equipment surface"), alignment = q(.8, "1", "short sword: edge and tip normal cones");
+  const alignment = q(.8, "1", "short sword: edge and tip normal cones");
   const tip = point([0, .62, 0]), bladeBase = point([0, .145, 0]);
   const depth = derive("m", "the point's depth: its tip to the blade's base", [tip, bladeBase], (t, b) =>
     Math.sqrt((t[0] - b[0]) * (t[0] - b[0]) + (t[1] - b[1]) * (t[1] - b[1]) + (t[2] - b[2]) * (t[2] - b[2])));
-  const surface = (mechanism?: "point" | "edge", direction?: Vec3) => ({ stiffness,
-    ...(mechanism && direction ? { directed: { mechanism, direction: q(direction, "1", "short sword: region direction"), alignment, ...(mechanism === "point" ? { depth } : {}) } } : {}) });
+  /** A region's face: blunt, or wounding by `mechanism` along `direction`. */
+  const face = (mechanism?: "point" | "edge", direction?: Vec3) =>
+    mechanism && direction ? { directed: { mechanism, direction: q(direction, "1", "short sword: region direction"), alignment, ...(mechanism === "point" ? { depth } : {}) } } : {};
   return {
     name: "short sword", mass: q(.75, "kg", "short sword: mass"), centreOfMass: point([0, .29, 0]),
     inertia: q([.018, .0001, .018], "kg m2", "short sword: principal moments about its centre"),
     shapes: [{ kind: "capsule", from: point([0, .014, 0]), to: point([0, .106, 0]), radius: q(.014, "m", "short sword: grip radius") }],
     contacts: [
       { name: "hilt", shape: hull([[-.07, .12, -.006], [-.07, .12, .006], [.07, .12, -.006], [.07, .12, .006],
-        [-.07, .145, -.006], [-.07, .145, .006], [.07, .145, -.006], [.07, .145, .006]]), surface: surface() },
+        [-.07, .145, -.006], [-.07, .145, .006], [.07, .145, -.006], [.07, .145, .006]]), surface: face() },
       { name: "flat", shape: hull([[-.014, .145, -.003], [-.014, .145, .003], [.014, .145, -.003], [.014, .145, .003],
-        [-.014, .58, -.003], [-.014, .58, .003], [.014, .58, -.003], [.014, .58, .003]]), surface: surface() },
+        [-.014, .58, -.003], [-.014, .58, .003], [.014, .58, -.003], [.014, .58, .003]]), surface: face() },
       { name: "edge.right", shape: hull([[.014, .145, -.003], [.014, .145, .003], [.02, .145, 0],
-        [.014, .58, -.003], [.014, .58, .003], [.02, .58, 0]]), surface: surface("edge", [1, 0, 0]) },
+        [.014, .58, -.003], [.014, .58, .003], [.02, .58, 0]]), surface: face("edge", [1, 0, 0]) },
       { name: "edge.left", shape: hull([[-.014, .145, -.003], [-.014, .145, .003], [-.02, .145, 0],
-        [-.014, .58, -.003], [-.014, .58, .003], [-.02, .58, 0]]), surface: surface("edge", [-1, 0, 0]) },
+        [-.014, .58, -.003], [-.014, .58, .003], [-.02, .58, 0]]), surface: face("edge", [-1, 0, 0]) },
       { name: "tip", shape: hull([[-.02, .58, -.003], [-.02, .58, .003], [.02, .58, -.003], [.02, .58, .003], [0, .62, 0]]),
-        surface: surface("point", [0, 1, 0]) },
+        surface: face("point", [0, 1, 0]) },
     ],
     points: { "edge.right": point([.02, .3625, 0]), "edge.left": point([-.02, .3625, 0]), tip,
       bladeBase, bladeEnd: point([0, .58, 0]) },

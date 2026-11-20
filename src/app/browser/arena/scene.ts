@@ -9,14 +9,14 @@ import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Engine } from "@babylonjs/core/Engines/engine.js";
 
-import { dressForgeRoom, paintArenaBanners, type ForgeFire } from "./forge-room.ts";
+import { dressForgeRoom, paintArenaBanners } from "./forge-room.ts";
 import { loadForgeStyle, paveForge } from "./forge-style.ts";
 import { GRADE, postPipeline } from "../render/post.ts";
-import { buildArenaWorld, type ArenaAudit, type RoomMaterials, type RoomOcclusionTarget } from "./room.ts";
+import { buildArenaWorld, type RoomMaterials, type RoomOcclusionTarget } from "./room.ts";
 import { sceneModel } from "../render/asset-cache.ts";
 import { loadArtAssets } from "../render/art-assets.ts";
 import { levelDefinition, type ArenaLevel } from "../../../game/arena/levels.ts";
-import { ROOM_GROUPS } from "./room.ts";
+import { visualGroup } from "../render/scene-profile.ts";
 
 // Side effects: the PBR pipeline and shadow support register themselves on import.
 import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
@@ -28,14 +28,13 @@ import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 interface Arena {
   scene: Scene;
   camera: FreeCamera;
-  materials: RoomMaterials;
   shadows: ShadowGenerator;
-  /** A read-only scene census; calling it creates no Babylon object. */
-  audit(): ArenaAudit;
+  setLevel(level: ArenaLevel): Promise<void>;
+  setEnabled(on: boolean): void;
   /** Hide a parapet section only while it crosses the protected combat sight lines. */
   updateRoomOcclusion(targets: readonly RoomOcclusionTarget[]): void;
   /** The posts' fire, which the page burns each frame it is not paused. */
-  fire: ForgeFire;
+  burn(seconds: number): void;
 }
 
 /**
@@ -62,7 +61,7 @@ const ARENA_LIGHT = Object.freeze({
  * The arena's scene: its light, its room and its solids, drawn. The world that steps the bout, in a
  * worker (`src/app/worker/`), holds the solids as fixed colliders (`addArenaSolids`).
  */
-export async function buildArena(engine: Engine, level: ArenaLevel = "open", signal?: AbortSignal): Promise<Arena> {
+export function buildArena(engine: Engine, signal: AbortSignal): Arena {
   const scene = new Scene(engine);
   scene.clearColor = new Color4(...ARENA_LIGHT.clear);
   scene.ambientColor = new Color3(...ARENA_LIGHT.ambient);
@@ -71,10 +70,6 @@ export async function buildArena(engine: Engine, level: ArenaLevel = "open", sig
   camera.fov = ARENA_LIGHT.camera.fov;
   camera.minZ = ARENA_LIGHT.camera.near;
   camera.maxZ = ARENA_LIGHT.camera.far;
-
-  // Image-based lighting gives metal and stone their reflections.
-  scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, ARENA_LIGHT.environment.size, false, true, false, true);
-  scene.environmentIntensity = ARENA_LIGHT.environment.intensity;
 
   const sky = new HemisphericLight("sky", new Vector3(...ARENA_LIGHT.sky.direction), scene);
   sky.intensity = ARENA_LIGHT.sky.intensity;
@@ -92,34 +87,48 @@ export async function buildArena(engine: Engine, level: ArenaLevel = "open", sig
   shadows.bias = ARENA_LIGHT.shadow.bias;
   shadows.normalBias = ARENA_LIGHT.shadow.normalBias;
 
-  const forge = await loadForgeStyle(scene);
-  signal?.throwIfAborted();
-
-  const materials: RoomMaterials = {
-    ground: forge.materials.basalt,
-    wall: forge.materials.basalt,
-    banner: forge.materials.banner,
-    wood: forge.materials.basalt,
+  let world: ReturnType<typeof buildArenaWorld> | undefined, fire: ReturnType<typeof dressForgeRoom> | undefined;
+  let roomVisuals: ReturnType<typeof visualGroup> | undefined, props: ReturnType<typeof visualGroup> | undefined;
+  let shown = true;
+  const loadRoom = async () => {
+    scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, ARENA_LIGHT.environment.size, false, true, false, true);
+    scene.environmentIntensity = ARENA_LIGHT.environment.intensity;
+    const forge = await loadForgeStyle(scene);
+    signal.throwIfAborted();
+    const materials: RoomMaterials = {
+      ground: forge.materials.basalt, wall: forge.materials.basalt, banner: forge.materials.banner, wood: forge.materials.basalt,
+    };
+    const before = new Set(scene.meshes);
+    world = buildArenaWorld(scene, materials, {
+      add: mesh => shadows.addShadowCaster(mesh), remove: mesh => shadows.removeShadowCaster(mesh),
+    });
+    paveForge(scene, forge.materials.pavement, forge.materials.brazierBronze, forge.materials.lava);
+    paintArenaBanners(scene, forge);
+    fire = dressForgeRoom(scene, forge);
+    postPipeline(scene, camera, GRADE);
+    roomVisuals = visualGroup(scene.meshes.filter(mesh => !before.has(mesh)));
+    roomVisuals.setEnabled(shown);
+    return world;
   };
-
-  // The floor slab and the posts are colliders; the visible floor and the room's dressing are
-  // separate meshes with no body, so the art can change without touching the physics.
-  const kit = levelDefinition(level).furniture.length
-    ? await sceneModel((await loadArtAssets()).model("crypt-kit/kit.glb"), scene) : undefined;
-  if (signal?.aborted) { kit?.dispose(); signal.throwIfAborted(); }
-  kit?.addAllToScene();
-  const world = buildArenaWorld(scene, materials, {
-    add: (mesh) => shadows.addShadowCaster(mesh),
-    remove: (mesh) => shadows.removeShadowCaster(mesh),
-  }, ROOM_GROUPS, level, kit);
-
-  paveForge(scene, forge.materials.pavement, forge.materials.brazierBronze, forge.materials.lava);
-  paintArenaBanners(scene, forge);
-  const fire = dressForgeRoom(scene, forge);
-  postPipeline(scene, camera, GRADE);
+  let room: Promise<ReturnType<typeof buildArenaWorld>> | undefined, kit: ReturnType<typeof sceneModel> | undefined;
+  let level: ArenaLevel = "open", request = 0;
 
   return {
-    scene, camera, materials, shadows, fire, audit: world.audit,
-    updateRoomOcclusion: (targets) => world.updateOcclusion(camera.position, targets),
+    scene, camera, shadows,
+    async setLevel(next) {
+      const revision = ++request;
+      const templates = levelDefinition(next).furniture.length
+        ? kit ??= loadArtAssets().then(art => sceneModel(art.model("crypt-kit/kit.glb"), scene))
+          .catch(error => { kit = undefined; throw error; }) : undefined;
+      const [ready, models] = await Promise.all([room ??= loadRoom(), templates]);
+      signal.throwIfAborted();
+      if (revision !== request || next === level) return;
+      props = visualGroup(ready.setLevel(next, models));
+      props.setEnabled(shown);
+      level = next;
+    },
+    setEnabled(on) { shown = on; roomVisuals?.setEnabled(on); props?.setEnabled(on); },
+    burn(seconds) { fire?.burn(seconds); },
+    updateRoomOcclusion: targets => world?.updateOcclusion(camera.position, targets),
   };
 }

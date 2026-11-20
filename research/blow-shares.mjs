@@ -4,8 +4,8 @@
  *   node research/blow-shares.mjs
  *
  * It prints:
- * - each row's stiffness under a blunt load (`CONTACT_STIFFNESS`), N/mm, and the sources its
- *   provenance names (`docs/reference/wounds.md#stiffness`);
+ * - each row's stiffness under a blunt load (`CONTACT_STIFFNESS`), N/mm, on a body of flesh and on
+ *   one of bare bone, and the sources its provenance names (`docs/reference/wounds.md#stiffness`);
  * - the share each of two surfaces takes where they meet (`energyShares`,
  *   `docs/reference/wounds.md#shares`);
  * - the same with one surface half and twice as stiff as it is;
@@ -13,7 +13,7 @@
  *   rulebook's unit: to spend the body's life (its hit points over the part's cost in life,
  *   `lifeFactor`), and on a limb to empty the limb's bar (`LimbSpec.share` of full life).
  */
-import { CONTACT_STIFFNESS } from "../src/core/bodies/human/tables/contact-stiffness.ts";
+import { CONTACT_STIFFNESS, SKULL_STIFFNESS } from "../src/core/bodies/human/tables/contact-stiffness.ts";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/bodies/models.ts";
 import { lifeFactor, woundGroups } from "../src/combat/pool.ts";
 import { rulebook } from "../src/combat/rulebook.ts";
@@ -27,15 +27,22 @@ function sourcesOf(quantity, into = new Set()) {
   return into;
 }
 
-/** Each row's stiffness, N/m; a held item with no stated surface is rigid. */
-const K = { ...Object.fromEntries(Object.entries(CONTACT_STIFFNESS).map(([row, k]) => [row, si(k).value])), club: null };
+const { flesh: FLESH, bone: BONE } = CONTACT_STIFFNESS;
+/**
+ * Each row's stiffness, N/m: a body of flesh's by its row, a body of bare bone's as `bone.<row>`. The head's row is its face;
+ * `skull` is the rest of a head. An item, the club here, is rigid.
+ */
+const K = { ...Object.fromEntries(Object.entries(FLESH).map(([row, k]) => [row, si(k).value])), skull: si(SKULL_STIFFNESS).value,
+  ...Object.fromEntries(Object.entries(BONE).map(([row, k]) => [`bone.${row}`, si(k).value])), club: null };
 
-console.log("| Row | N/mm | Sources |\n|---|---|---|");
-for (const [row, k] of Object.entries(CONTACT_STIFFNESS)) console.log(`| ${row} | ${(si(k).value / 1000).toFixed(1)} | ${[...sourcesOf(k)].join(", ")} |`);
+const perMm = (k) => (si(k).value / 1000).toFixed(1);
+console.log("| Row | Flesh, N/mm | Bone, N/mm | Sources |\n|---|---|---|---|");
+for (const [row, k] of Object.entries(FLESH)) console.log(`| ${row} | ${perMm(k)} | ${perMm(BONE[row])} | ${[...sourcesOf(BONE[row], sourcesOf(k))].join(", ")} |`);
+console.log(`| head, skull | ${perMm(SKULL_STIFFNESS)} | ${perMm(SKULL_STIFFNESS)} | ${[...sourcesOf(SKULL_STIFFNESS)].join(", ")} |`);
 
 const MEETINGS = [
-  ["hand", "head"], ["hand", "upperTrunk"], ["hand", "hand"], ["hand", "forearm"], ["hand", "thigh"], ["foot", "thigh"], ["foot", "shank"],
-  ["head", "head"], ["head", "upperTrunk"], ["forearm", "upperTrunk"], ["forearm", "forearm"], ["club", "head"], ["club", "hand"], ["club", "club"],
+  ["hand", "head"], ["hand", "skull"], ["foot", "head"], ["foot", "skull"], ["hand", "upperTrunk"], ["hand", "hand"], ["hand", "forearm"], ["hand", "thigh"], ["foot", "thigh"], ["foot", "shank"],
+  ["hand", "bone.upperTrunk"], ["foot", "bone.upperTrunk"], ["hand", "bone.middleTrunk"], ["hand", "bone.lowerTrunk"],["head", "head"], ["head", "upperTrunk"], ["forearm", "upperTrunk"], ["forearm", "forearm"], ["club", "head"], ["club", "hand"], ["club", "club"],
 ];
 console.log("\n| Meeting | First's share | Second's share |\n|---|---|---|");
 for (const [first, second] of MEETINGS) console.log(`| ${first}, ${second} | ${energyShares([K[first], K[second]]).map((share) => share.toFixed(3)).join(" | ")} |`);
@@ -56,7 +63,7 @@ Joules of blunt blow that spend the body's life, and that empty the part's limb'
 console.log(`| Part | ${HUMANOID_MODELS.map((model) => `${model}: group | life, J | bar, J`).join(" | ")} |
 |---|${HUMANOID_MODELS.map(() => "---|---|---|").join("")}`);
 const specs = HUMANOID_MODELS.map(model => modelSpec(model));
-for (const row of Object.keys(CONTACT_STIFFNESS)) {
+for (const row of Object.keys(FLESH)) {
   const cells = specs.map((spec) => {
     const segment = spec.segments.find((one) => one.name === row || one.name === `${row}.right`), hp = spec.wounds.hp.value;
     const group = woundGroups(spec).get(segment.name), bar = group.kind === "limb" ? (group.limb.share.value * hp * unit).toFixed(0) : "-";

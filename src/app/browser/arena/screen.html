@@ -17,16 +17,17 @@
 </div>
 <!-- Setup covers the arena because no bout exists yet. Pause does not: its compact sibling
      below leaves the frozen arena visible. -->
-<!-- One grid over the arena: a title across the top, a contender panel at each edge, an
-     open centre, Fight under it and a footer. -->
 <div id="curtain">
   <header class="duel-title">
     <h1>Arena</h1>
   </header>
+  <div class="bout-actions">
+    <label class="field bout-choice">Level <select id="arena-level" aria-label="Arena level"></select></label>
+    <button id="begin" data-initial-focus class="action" type="button" disabled>Fight</button>
+  </div>
   <!-- Filled by src/app/browser/arena/main.ts from the core's models, so an option that is offered is
        one the core has. Its children are laid straight into this grid. -->
   <div id="matchup"></div>
-  <button id="begin" data-initial-focus class="action" type="button" disabled>Fight</button>
   <footer class="duel-footer">
     <button id="help-open" class="link" type="button">How to play</button>
     <a href="?play=ratings&amp;evaluation=tournament">Ratings</a>

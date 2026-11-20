@@ -1,6 +1,6 @@
 import { isRefused, type Refused } from "../../refusal.ts";
 import { handConfigurations } from "./hand-configurations.ts";
-import type { SegmentSpec, ShapeSpec } from "../spec/body.ts";
+import type { PlaceSpec, SegmentSpec, ShapeSpec } from "../spec/body.ts";
 import { segmentFrame } from "../spec/body.ts";
 import { square } from "../../math/real.ts";
 import { capsuleError, capsuleRadius, massShare } from "../spec/geometry.ts";
@@ -11,7 +11,7 @@ import type { FittedSegment, HandFigure, HumanFigure } from "./figure.ts";
 
 import { broadHull } from "./physique.ts";
 import { DE_LEVA_1996, type DeLevaRow, type DeLevaSegment } from "./tables/de-leva-1996.ts";
-import { CONTACT_STIFFNESS } from "./tables/contact-stiffness.ts";
+import { CONTACT_STIFFNESS, SKULL_STIFFNESS } from "./tables/contact-stiffness.ts";
 import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
 import { type Side, SIDES } from "../bilateral.ts";
 
@@ -53,8 +53,9 @@ const STRIDE_ROOM = sourced(0.03, "m", "owner-stride-room", "the room between th
  *   cylinder whose spread across it is the solid's. Broader (`HumanFigure.breadth`), a solid
  *   spreads across the segment by as much, and a hull broadens about the segment's line through
  *   its corners' mean.
- * - **Surface.** How stiff the part is under a blunt load, by its row (`tables/contact-stiffness.ts`),
- *   and a foot's grip on what it stands on (`FOOT_FRICTION`).
+ * - **Surface.** How stiff the part is under a blunt load, by what the figure is made of and its row (`tables/contact-stiffness.ts`).
+ *   The head's is its face's, and its skull is a harder place on it (`skullPlace`). A foot also
+ *   states its grip on what it stands on (`FOOT_FRICTION`).
  *
  * A foot runs from the figure's heel to its toe.
  *
@@ -247,6 +248,36 @@ function fittedHull(figure: HumanFigure, hull: readonly Quantity<Vec3>[], line: 
   return { kind: "hull", points: figure.breadth ? broadHull(corners, line, figure.breadth).corners : corners };
 }
 
+const FACE_DEPTH = sourced(0.5, "1", "owner-face", "the face is the front half of the head's depth");
+
+/** How far back and how far forward a head's shape reaches along the body's forward axis, z, m. */
+function foreAndAft(shape: ShapeSpec): { readonly back: Quantity<number>; readonly front: Quantity<number> } {
+  switch (shape.kind) {
+    case "capsule": return {
+      back: derive("m", "the capsule's rearmost", [shape.from, shape.to, shape.radius], (from, to, radius) => Math.min(from[2], to[2]) - radius),
+      front: derive("m", "the capsule's foremost", [shape.from, shape.to, shape.radius], (from, to, radius) => Math.max(from[2], to[2]) + radius),
+    };
+    case "hull": return {
+      back: derive("m", "the hull's rearmost", shape.points, (...points) => Math.min(...points.map((point) => point[2]))),
+      front: derive("m", "the hull's foremost", shape.points, (...points) => Math.max(...points.map((point) => point[2]))),
+    };
+    default: throw new Error(`a head is a capsule or a hull, not a ${shape.kind}`);
+  }
+}
+
+/**
+ * **A head's skull** (`owner-face`): the head wherever it is not its face. The head's own surface
+ * is its face, which is the front half of its depth, ahead of the ears, below the height of its
+ * centre of mass, about the bridge of the nose. So the skull is two boxes: everything above that
+ * height, the forehead and the crown, and everything behind that front half, the back.
+ */
+function skullPlace(shape: ShapeSpec, centreOfMass: Quantity<Vec3>): PlaceSpec {
+  const { back, front } = foreAndAft(shape);
+  const brow = derive("m", "the height of the head's centre of mass", [centreOfMass], (centre) => centre[1]);
+  const face = derive("m", "the head's foremost, less the face's share of its depth", [back, front, FACE_DEPTH], (rear, fore, share) => fore - share * (fore - rear));
+  return { name: "skull", within: [{ y: { min: brow } }, { z: { max: face } }], surface: { stiffness: si(SKULL_STIFFNESS) } };
+}
+
 /** The figure's segments at x1, head first, then the trunk, then each side's limbs. */
 export function humanSegments(figure: HumanFigure): SegmentSpec[] | Refused {
   const table = DE_LEVA_1996[figure.sex];
@@ -286,7 +317,8 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] | Refused {
       : shapeOf(figure, plan, { proximal, distal, mass, widest: widestOf(plan), fit });
     if (isRefused(shape)) return shape;
     const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape,
-      surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]), ...(plan.row === "foot" ? { friction: FOOT_FRICTION } : {}) },
+      surface: { stiffness: si(CONTACT_STIFFNESS[figure.substance][plan.row]), ...(plan.row === "foot" ? { friction: FOOT_FRICTION } : {}) },
+      ...(plan.row === "head" && { places: [skullPlace(shape, centreOfMass)] }),
       ...(plan.row === "foot" && figure.toes && { toes: figure.toes }) };
     const points = plan.points && Object.fromEntries(Object.entries(plan.points).map(([name, point]) => [name, atFit(point)]));
     if (plan.row === "foot" && segment.shape.kind === "box") {

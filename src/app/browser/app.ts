@@ -30,10 +30,11 @@ async function mount(source: Promise<{ default: string }>, context: ScreenContex
 async function open(route: Route, context: ScreenContext): Promise<void> {
   const root = context.root;
   const check = () => context.signal.throwIfAborted();
-  if (route !== "menu" && route !== "tools") {
+  const loadFitData = async () => {
     const { CONTEXT } = await import("./context.ts"); check();
     await CONTEXT.catalog.loadFitData(); check();
-  }
+  };
+  if (route !== "menu" && route !== "tools" && route !== "arena") await loadFitData();
   switch (route) {
     case "menu": {
       document.title = "Auto-RPG"; await mount(import("./menu.html?raw"), context);
@@ -53,10 +54,8 @@ async function open(route: Route, context: ScreenContext): Promise<void> {
     }
     case "arena": {
       document.title = "Arena · Auto-RPG";
-      await import("./arena/style.css"); check();
-      await import("./arena/forge-ui.css"); check();
-      await mount(import("./arena/screen.html?raw"), context);
-      const { bootArena } = await modules.arena(); check();
+      const [{ bootArena }] = await Promise.all([modules.arena(), loadFitData(), mount(import("./arena/screen.html?raw"), context)]);
+      check();
       return bootArena(context);
     }
     case "crowd": {

@@ -10,17 +10,37 @@ themselves are `src/combat/rulebook.ts` and `src/combat/share.ts`.
 ## Stiffness
 
 A surface's stiffness is one number, N/m: the force a blunt load pressed into it meets, over how
-far it gives, the same at any speed, area or direction.
+far it gives, the same at any speed, area or direction. A human figure reads its rows by what it
+is made of (`HumanFigure.substance`): flesh, the Warrior and the Rogue, or bare bone, the
+Skeleton.
 
 | Row | N/mm | What was measured, and how | Source |
 |---|---|---|---|
-| head | 201 | The nasal bone of 24 male cadavers under a free-falling 3.2 kg impactor with a flat 6.45 cm² face, at 4 to 16 J. After a 6 mm toe the response has two slopes: 55 (SD 56) N/mm to 20 % of the peak force, the soft tissue's, then 201 (SD 118) from 20 to 80 %, the bone's, which is taken. | `cormier-2009`, Table 14 |
-| upperTrunk | 17.0 | The intact chest of three cadavers under a 15.2 cm rigid hub pressed into the sternum at about 1 m/s, to 20 % of the chest's depth: 184.4, 173.3 and 152.3 N/cm, 170.0 in the mean. | `kent-2005`, Table 3 |
+| head, its face | 201 | The nasal bone of 24 male cadavers under a free-falling 3.2 kg impactor with a flat 6.45 cm² face, at 4 to 16 J. After a 6 mm toe the response has two slopes: 55 (SD 56) N/mm to 20 % of the peak force, the soft tissue's, then 201 (SD 118) from 20 to 80 %, the bone's, which is taken. | `cormier-2009`, Table 14 |
+| head, its skull | 731 | The frontal bone of 28 male cadavers under the same impactor, read the same way over the 25 tests in which the impactor did not slide: 331 (SD 180) N/mm to 20 % of the peak force, then 731 (SD 461) from 20 to 80 %, which is taken. | `cormier-2009`, Table 10 |
+| upperTrunk, flesh | 17.0 | The intact chest of three cadavers under a 15.2 cm rigid hub pressed into the sternum at about 1 m/s, to 20 % of the chest's depth: 184.4, 173.3 and 152.3 N/cm, 170.0 in the mean. | `kent-2005`, Table 3 |
+| upperTrunk, bone | 5.4 | The same three chests under the same hub with their skin, fat and muscle taken off and their organs out, the rib cage alone: 94.9, 36.2 and 31.2 N/cm, 54.1 in the mean. With the flesh off and the organs still in, 99.4. | `kent-2005`, Table 3 |
+| middleTrunk, bone | 251 | Eight lumbar motion segments (L2-3 and L4-5 of four women, 17 to 58), two vertebrae with the disc and ligaments between them, moved ±0.5 mm front to back with no load down the spine: 251 (SE 42) N/mm. A joint's shear, not a struck vertebra's give ([Gaps](#gaps)); under 500 N down the spine it is 397 to 473. | `gardner-morse-2004`, Table 1 |
+| lowerTrunk, bone | 135.9 | Ten isolated pelvic bones, nine of men, loaded on the iliac crest to 500 N at 5 mm/min: 206, 129, 211, 206, 155, 72, 46, 88, 141 and 105 N/mm, of which the mean is the table's; the paper gives none. Through the hip socket the same ten read 201 to 423. | `guillemot-1998`, Table 3 |
 | thigh | 247.1 | Fifteen femurs of eight men bent to failure at mid-shaft, three-point, by a 12 mm impactor at about 1.2 m/s: the support load at failure, 4349 (SD 746) N, over the mid-bone deflection at failure, 17.6 (SD 3.8) mm. The division is the table's rule; the paper states no stiffness. | `funk-2004`, Results |
 | hand | 122.3 | Isolated porcine second metacarpals in quasi-static three-point bending: 122.3 (SD 35.0) N/mm. A bone's bending, not a fist's contact stiffness ([Gaps](#gaps)). | `ochman-2011`, Results |
+| foot | 1160 | The heel pads of limbs amputated for vascular disease, each still on most of its heel bone and cut from the leg, compressed in a servo-hydraulic machine to about 2 kN at 0.1 to 70 Hz: the stiffness at a load of the body's weight, 1160 (SD 170) kN/m, n = 5. The rate did not change it. The pad stiffens as it is loaded: one pad read 2.96 to 3.14 kN/mm at 1 kN. | `bennett-1990`, Results |
 
-The other six rows are lent ([Gaps](#gaps)). An item with no stated surface is rigid: it takes no
-share of a blow, and the part it strikes takes the whole.
+The other five rows are lent ([Gaps](#gaps)). The head's two, the thigh's and the hand's are each a
+bone's own reading, so flesh and bare bone share them, and they share the heel's, no heel bone
+having been read without its pad. The two differ in the trunk alone. Of bare bone the spine and
+the hip bone are each about as stiff as a long bone, and the rib cage is not: it bends, so bare
+it gives three times what the chest its flesh and organs fill does, and takes the more of a
+blow. Of bare bone three rows are lent, the arm's two and the shank's.
+
+A head is two surfaces (`owner-face`). Its own is its face: the front half of its depth, ahead of
+the ears, below the height of its centre of mass, which on a person is about the bridge of the
+nose. The rest is its skull, the forehead and the crown above that height and the back behind
+that half, and the skull is a place on the head (`PlaceSpec`, `skullPlace`): a blow reads it by
+where on the head it lands. A place adds no collider, so the head moves and collides as it did.
+
+An item is rigid (a club, a buckler, a sword): it states no stiffness and takes no share of a
+blow, and the part it strikes takes the whole. Two items that meet wound nobody.
 
 ## Gaps
 
@@ -29,30 +49,39 @@ takes a neighbour's whole.
 
 | Row | Takes | Why that neighbour |
 |---|---|---|
-| middleTrunk | the upper trunk's | the nearest part measured; the abdomen is softer than the chest in every figure seen, none confirmed |
-| lowerTrunk | the middle trunk's | the same; a pelvis struck on its bone is stiffer |
+| middleTrunk | the upper trunk's | the nearest part measured; the abdomen is softer than the chest in every figure seen, none confirmed. Of flesh only |
+| lowerTrunk | the middle trunk's | the same; a pelvis struck on its bone is stiffer. Of flesh only |
 | upperArm, forearm, shank | the femur's | a long bone under flesh, bent across; the one such bone with a load and a deflection read |
-| foot | the hand's | the same kind of bones |
 
-Two rows are a study's value read as something it did not measure: **the hand's is a pig's
-metacarpal in bending** (no human fist's stiffness against a surface was found), and **the head's
-is its face's**, the surface a blow is aimed at.
+Four rows are a study's value read as something it did not measure: **bare bone's middle trunk
+is a lumbar joint's shear** (nothing was found for a vertebra struck across), **the hand's is a
+pig's metacarpal in bending** (no human fist's stiffness against a surface was found), **the
+face's is its nose's**, a cheek and a jaw having no value of their own, and **the foot's is its
+heel's**. For the ball of the foot nothing was found at a blow's loads, and no human metatarsal's
+bending stiffness.
+
+The heel's is the heel alone. A sole struck with the leg behind it gives far more, the ankle and
+the leg giving with it: 54.9 N/mm over the first 7 mm, then 633.8, in one cadaver leg under a
+pendulum (Gallenberger et al. 2013, Figure 3). That give is the body's joints', which the physics
+has, not the surface's.
 
 ## Shares
 
 The surfaces that met are springs in series under one force, so each stores F²/2k: a surface's
 share of a blow's energy is its compliance over the sum, the more the softer it is
-(`energyShares`). So a fist on a head takes 0.62 of the blow and on a chest 0.12; a club, rigid,
-takes none and what it strikes takes all.
+(`energyShares`). So a fist on a face takes 0.62 of the blow, on a skull 0.86, on a chest 0.12 and
+on a bare rib cage 0.04; a club, rigid, takes none and what it strikes takes all.
 
 ## The fist
 
 A bare fist that strikes flesh takes only what its share brings past a threshold
 (`Rulebook.fist`): the energy a hand stores loaded to a knuckle's even chance of injury, F²/2k at
 3.0 kN (`carpanen-2019`) on the hand's 122.3 N/mm, 36.8 J. It is a deductible: a share of 50 J
-costs the hand 13.2 J's worth. Against an item (a club, a blade, armour) the hand takes its whole
-share. A bare foot has the same threshold, so a stomp on a trunk, of which the foot stores 12 %,
-costs it nothing below 300 J; a body that names no foot end, the reptile, spares no foot.
+costs the hand 13.2 J's worth. So a fist is hurt by a blow of 59 J on a face and of 43 J on a
+skull. Against an item (a club, a blade, armour) the hand takes its whole share. A bare foot has
+the same threshold, so a stomp on a trunk, of which the foot stores 1.4 %, costs it nothing below
+2,500 J, and a kick on a leg, of which it stores 18 %, nothing below 210 J; a body that names no
+foot end, the reptile, spares no foot.
 
 ## Mechanisms
 

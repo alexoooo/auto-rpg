@@ -183,10 +183,9 @@ function blowEnergy(striker: BodySpec, limb: string, struck: BodySpec, at: strin
   return mass > 0 ? impactEnergy(mass, segmentMass(struck, at), closing) : 0;
 }
 
-/** How stiff the face `limb` of `spec` strikes with is, N/m: what it holds, else the limb's own; null for a rigid one. */
+/** How stiff the face `limb` of `spec` strikes with is, N/m: the limb's own, or null for an item it holds, which is rigid. */
 function strikingStiffness(spec: BodySpec, limb: string): number | null {
-  const held = heldAt(spec, limb);
-  return (held ? held.item.surface : segmentOf(spec, limb)?.surface)?.stiffness.value ?? null;
+  return heldAt(spec, limb) ? null : segmentOf(spec, limb)?.surface.stiffness.value ?? null;
 }
 
 /**

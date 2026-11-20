@@ -27,6 +27,13 @@ export function pointOfToRef(segment: ReadSegment, point: Vec3, out: Vector3): V
     .applyRotationQuaternionToRef(turnOfToRef(segment, scratch.b), out).addInPlace(segment.pose.position);
 }
 
+/** `point` (world, on `segment`) where it is in the body frame at the reference pose: `pointOfToRef` undone. */
+export function referencePointToRef(segment: ReadSegment, point: Vec3, out: Vector3): Vector3 {
+  const origin = segment.frame.origin, back = Quaternion.InverseToRef(turnOfToRef(segment, scratch.b), scratch.b);
+  return out.set(point[0], point[1], point[2]).subtractInPlace(segment.pose.position)
+    .applyRotationQuaternionToRef(back, out).addInPlaceFromFloats(origin[0], origin[1], origin[2]);
+}
+
 export const centreOfToRef = (segment: ReadSegment, out: Vector3): Vector3 => pointOfToRef(segment, segment.rigid.centre, out);
 
 /** The mass of `parts`, kg: their rigid bodies' masses summed in order. */

@@ -75,7 +75,8 @@ export type BearingEndSpec = EndLimb | ProppedLimb | FootLimb | PawLimb;
  *
  * What the rulebook wounds is `wounds`: the body's hit points, and which segments kill when they
  * are emptied or lost and which never come off. What else a fight's rules read of the character is
- * `attributes`. What a blow reads of a segment, or of an item, is its `surface`. What a body and
+ * `attributes`. What a blow reads of a segment is its `surface`; an item is rigid, and a blow reads
+ * only its regions' faces (`FaceSpec`). What a body and
  * an item are made of is `substance`: no rule of a fight reads it, and a sound does
  * (`src/game/audio/cues.ts`).
  *
@@ -228,8 +229,8 @@ export interface ItemSpec {
   readonly inertia: Quantity<Vec3>;
   /** What it collides as, in the item frame. A box is not one: its edges would need a frame of their own. */
   readonly shapes: readonly ItemShape[];
-  /** Named colliders with their own surfaces, in the item frame; their mass is already included above. */
-  readonly contacts?: readonly ContactRegionSpec<ItemShape>[];
+  /** Named colliders with their own faces, in the item frame; their mass is already included above. */
+  readonly contacts?: readonly ContactRegionSpec<ItemShape, FaceSpec>[];
   /** Named points, in the item frame: where a reading is taken on it, such as where a club strikes. */
   readonly points: { readonly [name: string]: Quantity<Vec3> };
   /** The point of `points` a blow with the item is brought to its target by: where it strikes. */
@@ -238,8 +239,6 @@ export interface ItemSpec {
   readonly cover?: readonly [string] | readonly [string, string];
   /** Outward face normal in the item frame; a guard turns this face toward the threat. */
   readonly coverNormal?: Quantity<Vec3>;
-  /** Absent, the item is rigid: it takes no share of a blow. */
-  readonly surface?: SurfaceSpec;
   /** What it is made of. */
   readonly substance: Substance;
   /**
@@ -339,6 +338,8 @@ export interface SegmentSpec {
   /** Named collision configurations in the reference frame; changing one retains the stated mass properties. */
   readonly configurations?: ConfigurationSpec;
   readonly surface: SurfaceSpec;
+  /** Places on the segment's own shape that are another surface than the rest of it (`PlaceSpec`). */
+  readonly places?: readonly PlaceSpec[];
   /** Additional anatomical contact shapes; their mass is included in the segment's stated mass properties. */
   readonly contacts?: readonly ContactRegionSpec[];
   /** A foot's toes, ahead of its box (`src/core/bodies/build/toes.ts`). */
@@ -394,11 +395,11 @@ export interface ToesSpec {
   readonly thickness: Quantity<number>;
 }
 
-/** A named collider with its own surface, in the body's reference frame or its item's frame. */
-export interface ContactRegionSpec<Shape extends ShapeSpec = ShapeSpec> {
+/** A named collider with its own surface, in the body's reference frame; or an item's, with its own face, in the item's frame. */
+export interface ContactRegionSpec<Shape extends ShapeSpec = ShapeSpec, Surface extends FaceSpec = SurfaceSpec> {
   readonly name: string;
   readonly shape: Shape;
-  readonly surface: SurfaceSpec;
+  readonly surface: Surface;
 }
 
 /** A configuration's name within its segment's declared shapes. */
@@ -428,11 +429,29 @@ export function configurationShapeAt(body: BodySpec, segment: SegmentSpec, confi
 }
 
 /**
- * **What a blow reads of a surface** (`src/combat/share.ts`): how stiff it is under a blunt
- * load pressed into it, N/m. The softer of two surfaces that meet takes the more of a blow.
+ * **A named place on a segment's own shape** that is another surface than the rest of it, as a
+ * head's skull is harder than its face. A blow that lands on the shape at a point inside any of
+ * `within` reads this surface. A place adds no collider, so the body moves and collides as it
+ * does without it.
  */
-interface SurfaceSpec {
-  readonly stiffness: Quantity<number>;
+export interface PlaceSpec {
+  readonly name: string;
+  readonly within: readonly BoundsSpec[];
+  readonly surface: SurfaceSpec;
+}
+
+/**
+ * A box in the body's reference frame, m: along each axis, the least and the greatest it
+ * reaches. It is unbounded along an axis, or toward an end, that it leaves out.
+ */
+export type BoundsSpec = { readonly [axis in "x" | "y" | "z"]?: { readonly min?: Quantity<number>; readonly max?: Quantity<number> } };
+
+/**
+ * **What a blow reads of a face, a body's or an item's**: the mechanism it wounds by, where it
+ * has one, and its grip. An item's face is this and no more: an item is rigid, so it takes no
+ * share of a blow, and what it strikes takes the whole.
+ */
+export interface FaceSpec {
   /**
    * A mechanism's direction and admitted normal cosine: body reference frame for anatomy, item
    * frame for equipment. A held point states its `depth`, m, how far behind its tip it can go in
@@ -441,6 +460,15 @@ interface SurfaceSpec {
   readonly directed?: { readonly mechanism: "point" | "edge"; readonly direction: Quantity<Vec3>; readonly alignment: Quantity<number>; readonly depth?: Quantity<number> };
   /** Its coefficient of friction, where it grips better than the engine's default (`ContactMaterial.friction`). */
   readonly friction?: Quantity<number>;
+}
+
+/**
+ * **What a blow reads of a body's own surface** (`src/combat/share.ts`): its face, and how stiff
+ * it is under a blunt load pressed into it, N/m. The softer of two surfaces that meet takes the
+ * more of a blow.
+ */
+interface SurfaceSpec extends FaceSpec {
+  readonly stiffness: Quantity<number>;
 }
 
 /**
