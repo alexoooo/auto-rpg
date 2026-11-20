@@ -349,6 +349,24 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   Both exchange ends leave the mirror without it quieter than the tail (8.6% and 9.8% against
   6.4%). These three line's ends, none the game's, are removed; the tail is the search's one leaf.
   *Shown.*
+- **A leaf of each Option's own tries, none leaving, plays even at a third of the tail's time and
+  buys nothing with it**: each run Option at a leaf priced by its own model's terms alone, its tries
+  to the horizon each ending where it began (no states made after, no held leaf where a try
+  leaves), held Options as the tail holds them, no walk to a site at a leaf. Against the game's
+  Mind on `warrior-drawn` (288 bouts): 0.490 (0.434 to 0.542) at the same 100 runs, its deciding
+  steps about three times cheaper (99th percentile 8.3 ms against 26.7, six mirror cases, one
+  worker); at 300 runs 0.503 (0.448 to 0.559). In six standard-match mirrors five bouts ended
+  slain against two (the rest drained), its bodies down 59 s against 21. The leaf's time is the
+  tail's `line` (held Options priced to the horizon and walks to sites, 22 of its 30 points of a
+  bout) more than its tries run again (8). Dropped: below the speed bar's 0.45 low end, and runs
+  bought no strength. *Shown.*
+- **A value of a state fitted by hand-chosen terms does not stand in for the tail**: fitted to the
+  life each side lost from a search's root to the bout's end, it is the two lives and the time
+  left (R² 0.62 held out, every term of range or posture under 0.05 of a life); fitted to the
+  tail's own worth at the tree's leaves, it orders two leaves of one search as the tail does 55%
+  of the time (R² 0.12 held out), and 64% with each Option's one-step model at the leaf among its
+  terms. The tail's worth is mostly its best Option's one-try rate: that alone, unfitted, orders 77%
+  of pairs as the tail and picks its best leaf in 85% of searches. *Shown.*
 - **A bar read on bouts won needs its spread**: the back step's Warrior against one without won
   79 to 65 on the game's Mind, 0.549 with 0.472 to 0.632 over bouts, and 0.521 (0.472 to 0.567)
   over 432 under the written line's end: neither a win (`fc29f4f3d`). *Shown.*
