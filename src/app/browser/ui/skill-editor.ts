@@ -1,5 +1,6 @@
 import { buttonInput as button } from "./inputs.ts";
 import { svgIcon } from "../dom.ts";
+import { allParts } from "../../catalog.ts";
 import { characterNamed } from "../../../core/bodies/models.ts";
 import type { SkillChoices } from "../../../core/bodies/spec/body.ts";
 import type { Control } from "./controls.ts";
@@ -37,6 +38,7 @@ export function skillEditor(character: string, skills: SkillChoices | undefined,
   };
   const draw = (available: readonly SkillOffer[]) => {
     const expanded = new Set([...groups].filter(([, group]) => group.open).map(([name]) => name));
+    const parts = allParts();
     boxes.clear(); fields.replaceChildren();
     groups.clear();
     for (const offer of available) {
@@ -47,32 +49,29 @@ export function skillEditor(character: string, skills: SkillChoices | undefined,
         const heading = document.createElement("summary"); heading.textContent = offer.group;
         group.append(heading); groups.set(offer.group, group); fields.append(group);
       }
-      const row = document.createElement("div"), title = document.createElement("span"), text = document.createElement("span");
-      row.className = "skill-field"; title.className = "skill-title";
-      text.className = "skill-name"; text.textContent = offer.label;
-      if (offer.icon) title.append(svgIcon(offer.icon));
-      title.append(text);
-
       const multiple = offer.variations.length > 1;
-      const controls = multiple ? document.createElement("div") : row;
-      if (multiple) {
+      const row = document.createElement(multiple ? "div" : "label"), title = document.createElement("span");
+      row.className = "skill-field"; title.className = "skill-name"; title.textContent = offer.label;
+      const icon = parts[offer.skill]?.icon;
+      if (icon) row.append(svgIcon(icon));
+      row.append(title);
+      const variations = multiple ? document.createElement("div") : null;
+      if (variations) {
         row.setAttribute("role", "group"); row.setAttribute("aria-label", offer.label);
-        controls.className = "skill-variations"; row.append(title, controls);
+        variations.className = "skill-variations"; row.append(variations);
       }
       for (const variation of offer.variations) {
-        const name = `${offer.skill}/${variation}`, label = document.createElement("label"), box = document.createElement("input");
+        const name = `${offer.skill}/${variation}`, box = document.createElement("input");
         box.type = "checkbox";
         box.addEventListener("change", () => {
           const next = current().filter((one) => one !== name);
           chosen = Object.freeze(box.checked ? [...next, name] : next); refresh(); options.change?.(chosen);
         });
-        if (multiple) {
-          const nameText = document.createElement("span"); nameText.textContent = variation.replaceAll("-", " ");
-          label.className = "skill-variant"; label.append(box, nameText);
-        } else {
-          label.className = "skill-toggle"; label.append(title, box);
-        }
-        controls.append(label); boxes.set(name, box);
+        if (variations) {
+          const label = document.createElement("label");
+          label.append(box, variation); variations.append(label);
+        } else row.append(box);
+        boxes.set(name, box);
       }
       group.append(row);
     }
