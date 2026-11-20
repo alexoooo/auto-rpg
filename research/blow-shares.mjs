@@ -38,7 +38,7 @@ for (const [row, k] of Object.entries(FLESH)) console.log(`| ${row} | ${perMm(k)
 
 const MEETINGS = [
   ["hand", "head"], ["hand", "upperTrunk"], ["hand", "hand"], ["hand", "forearm"], ["hand", "thigh"], ["foot", "thigh"], ["foot", "shank"],
-  ["hand", "bone.upperTrunk"], ["foot", "bone.upperTrunk"], ["head", "head"], ["head", "upperTrunk"], ["forearm", "upperTrunk"], ["forearm", "forearm"], ["club", "head"], ["club", "hand"], ["club", "club"],
+  ["hand", "bone.upperTrunk"], ["foot", "bone.upperTrunk"], ["hand", "bone.middleTrunk"], ["hand", "bone.lowerTrunk"],["head", "head"], ["head", "upperTrunk"], ["forearm", "upperTrunk"], ["forearm", "forearm"], ["club", "head"], ["club", "hand"], ["club", "club"],
 ];
 console.log("\n| Meeting | First's share | Second's share |\n|---|---|---|");
 for (const [first, second] of MEETINGS) console.log(`| ${first}, ${second} | ${energyShares([K[first], K[second]]).map((share) => share.toFixed(3)).join(" | ")} |`);

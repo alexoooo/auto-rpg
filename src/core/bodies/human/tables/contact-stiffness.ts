@@ -31,6 +31,17 @@ const thigh = derive("N/mm", "the load at failure over the deflection at failure
 const hand = sourced(122.3, "N/mm", "ochman-2011", "Results, intact metacarpals, bending stiffness, mean");
 
 /**
+ * One joint of the lower spine, two vertebrae with the disc and the ligaments between them,
+ * pushed front to back with no load down the spine (`gardner-morse-2004`).
+ */
+const lumbar = sourced(251, "N/mm", "gardner-morse-2004", "Table 1, intact motion segments, no preload, anterior-posterior shear, mean of 8");
+
+/** A bare hip bone loaded on the crest of its wing, ten of them: the mean (`guillemot-1998`). */
+const pelvis = derive("N/mm", "the mean of the ten",
+  [206, 129, 211, 206, 155, 72, 46, 88, 141, 105].map((stiffness, k) => sourced(stiffness, "N/mm", "guillemot-1998", `Table 3, iliac wing, pelvis ${k + 1}`)),
+  (...each) => each.reduce((sum, one) => sum + one) / each.length);
+
+/**
  * The heel: its pad with the heel bone it sits under, cut from the leg and pressed flat at a load
  * of the body's own weight (`bennett-1990`). The foot strikes with it, in a stomp or a kick.
  */
@@ -42,14 +53,13 @@ const WHOLE = sourced(1, "1", "contact-stiffness-gaps", "a part no study gives t
 const neighbour = (row: Quantity<number>): Quantity<number> =>
   derive(row.unit, "the neighbour's, times the share of it taken", [row, WHOLE], (stiffness, share) => stiffness * share);
 
-/** A body's rows: its trunk's from `upperTrunk` down, each part lending the next, and the rest every body's. */
-function rows(upperTrunk: Quantity<number>): Readonly<Record<DeLevaSegment, Quantity<number>>> {
-  const middleTrunk = neighbour(upperTrunk);
+type Trunk = "upperTrunk" | "middleTrunk" | "lowerTrunk";
+
+/** A body's rows: its own trunk's, and the rest every body's. */
+function rows(trunk: Readonly<Record<Trunk, Quantity<number>>>): Readonly<Record<DeLevaSegment, Quantity<number>>> {
   return Object.freeze({
     head,
-    upperTrunk,
-    middleTrunk,
-    lowerTrunk: neighbour(middleTrunk),
+    ...trunk,
     upperArm: neighbour(thigh),
     forearm: neighbour(thigh),
     hand,
@@ -65,10 +75,11 @@ export type HumanSubstance = "flesh" | "bone";
 /**
  * Each row by what the body is made of. The head's, the limbs' and the hand's are each a bone's
  * own reading, so a body of flesh and a body of bare bone share them, and they share the heel's,
- * no heel bone having been read without its pad; they differ in the trunk, a chest whole or its
- * rib cage alone.
+ * no heel bone having been read without its pad. They differ in the trunk. Of flesh it is the
+ * chest whole, which lends the belly and the hips its own. Of bare bone it is the rib cage alone,
+ * the lower spine and the hip bone, each as it was read.
  */
 export const CONTACT_STIFFNESS: Readonly<Record<HumanSubstance, Readonly<Record<DeLevaSegment, Quantity<number>>>>> = Object.freeze({
-  flesh: rows(chest),
-  bone: rows(ribCage),
+  flesh: rows({ upperTrunk: chest, middleTrunk: neighbour(chest), lowerTrunk: neighbour(neighbour(chest)) }),
+  bone: rows({ upperTrunk: ribCage, middleTrunk: lumbar, lowerTrunk: pelvis }),
 });

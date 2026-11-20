@@ -521,10 +521,25 @@ const SOURCES = Object.freeze({
       + "in a testing machine to 2 kN at 0.1 to 70 Hz; Results give the stiffness at a load of body weight.",
     link: "https://pmc.ncbi.nlm.nih.gov/articles/PMC1257133/",
   },
+  "gardner-morse-2004": {
+    kind: "literature",
+    cite: "Gardner-Morse MG, Stokes IAF. Structural behavior of human lumbar spinal motion segments. J Biomech "
+      + "2004;37:205-212: eight lumbar motion segments of four women moved in six axes at axial preloads of 0, "
+      + "250 and 500 N; Table 1 gives the intact segments' stiffness in each.",
+    link: "https://doi.org/10.1016/j.jbiomech.2003.10.003",
+  },
+  "guillemot-1998": {
+    kind: "literature",
+    cite: "Guillemot H, Got C, Besnault B, Lavaste F, Robin S, Le Coz JY, Lassau JP. Pelvic behavior in side "
+      + "collisions: static and dynamic tests on isolated pelvic bones. Proc 16th ESV Conference, Windsor "
+      + "1998, paper 98-S6-W-37:1412-1424: ten isolated pelvic bones loaded to 500 N on the iliac crest and "
+      + "through the acetabulum at 5 mm/min; Table 3 gives each one's stiffness under both.",
+    link: "http://web.archive.org/web/20161222164437/http://www-nrd.nhtsa.dot.gov/Pdf/ESV/esv16/98S6W37.PDF",
+  },
   "contact-stiffness-gaps": {
     kind: "tuned",
-    for: "A part no study gives a blunt stiffness for takes a neighbour's: the middle trunk the upper's, "
-      + "the lower the middle's, upper arm, forearm and shank the femur's, the hand a porcine "
+    for: "A part no study gives a blunt stiffness for takes a neighbour's: of flesh the middle trunk the "
+      + "upper's and the lower the middle's, upper arm, forearm and shank the femur's, the hand a porcine "
       + "metacarpal's, the head its face's, the foot its heel's.",
   },
 } as const satisfies Readonly<Record<string, Source>>);
