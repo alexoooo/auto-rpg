@@ -470,8 +470,8 @@ const SOURCES = Object.freeze({
   "cormier-2009": {
     kind: "literature",
     cite: "Cormier JM. Epidemiology and Biomechanical Analysis of Facial Fractures. PhD dissertation, Virginia "
-      + "Polytechnic Institute and State University, 2009: cadaver faces struck by a flat-faced impactor; Table 14 "
-      + "gives the nasal bone's stiffness at 20 % and between 20 and 80 % of peak force.",
+      + "Polytechnic Institute and State University, 2009: cadaver faces struck by a flat-faced impactor; Tables 10 "
+      + "and 14 give the frontal and the nasal bone's stiffness at 20 % and between 20 and 80 % of peak force.",
     link: "https://hdl.handle.net/10919/26280",
   },
   "kent-2005": {
@@ -536,11 +536,18 @@ const SOURCES = Object.freeze({
       + "through the acetabulum at 5 mm/min; Table 3 gives each one's stiffness under both.",
     link: "http://web.archive.org/web/20161222164437/http://www-nrd.nhtsa.dot.gov/Pdf/ESV/esv16/98S6W37.PDF",
   },
+  "owner-face": {
+    kind: "tuned",
+    for: "A head is two surfaces. Its face is one, as stiff as its nose, with no value of its own for a "
+      + "cheek or a jaw; the rest is its skull, as stiff as its forehead. The face is the front half of the "
+      + "head's depth, ahead of the ears, below the height of the head's centre of mass, which on a person is "
+      + "about the bridge of the nose.",
+  },
   "contact-stiffness-gaps": {
     kind: "tuned",
     for: "A part no study gives a blunt stiffness for takes a neighbour's: of flesh the middle trunk the "
       + "upper's and the lower the middle's, upper arm, forearm and shank the femur's, the hand a porcine "
-      + "metacarpal's, the head its face's, the foot its heel's.",
+      + "metacarpal's, the face its nose's, the foot its heel's.",
   },
 } as const satisfies Readonly<Record<string, Source>>);
 

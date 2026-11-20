@@ -23,7 +23,7 @@ import type { Pool } from "../../combat/pool.ts";
 import { seedOf } from "../../core/math/random.ts";
 import { phaseOf } from "../../minds/seat/host.ts";
 import { reactionSteps, rulebook, type Rulebook, type RulebookOverride } from "../../combat/rulebook.ts";
-import type { BodySpec, SkillChoices } from "../../core/bodies/spec/body.ts";
+import type { BodySpec, SegmentSpec, SkillChoices } from "../../core/bodies/spec/body.ts";
 import { derive, type Vec3 } from "../../core/quantity.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import { loadState, saveState, stateShape, type Saved } from "../../core/state.ts";
@@ -167,7 +167,7 @@ export const entryRules = (recipe?: Pick<DuelRecipe, "entry">): readonly EntryRu
 export const duelMinds = (recipe: Pick<DuelRecipe, "left" | "right" | "minds">, defaultMind: GameContext["defaultMind"]): Readonly<Record<Side, MindConfig>> =>
   ({ left: recipe.minds?.left ?? defaultMind(recipe.left), right: recipe.minds?.right ?? defaultMind(recipe.right) });
 
-/** `spec` with each segment `factors` names as stiff as its own surface times its factor. */
+/** `spec` with each segment `factors` names as stiff as its own surface times its factor, and each place on it as stiff as that place's times the same. */
 function stiffened(spec: BodySpec, factors: Readonly<Record<string, number>>): BodySpec {
   for (const name of Object.keys(factors)) if (!spec.segments.some((segment) => segment.name === name)) throw new Error(`${spec.model} has no segment ${name} to stiffen`);
   return {
@@ -176,7 +176,9 @@ function stiffened(spec: BodySpec, factors: Readonly<Record<string, number>>): B
       const factor = factors[segment.name];
       if (factor === undefined) return segment;
       const times = derive("1", "the recipe's factor on this surface", [], () => factor);
-      return { ...segment, surface: { ...segment.surface, stiffness: derive("N/m", "the surface's stiffness, times the recipe's factor", [segment.surface.stiffness, times], (k, f) => k * f) } };
+      const scaled = <Surface extends SegmentSpec["surface"]>(surface: Surface): Surface =>
+        ({ ...surface, stiffness: derive("N/m", "the surface's stiffness, times the recipe's factor", [surface.stiffness, times], (k, f) => k * f) });
+      return { ...segment, surface: scaled(segment.surface), ...(segment.places && { places: segment.places.map((place) => ({ ...place, surface: scaled(place.surface) })) }) };
     }),
   };
 }

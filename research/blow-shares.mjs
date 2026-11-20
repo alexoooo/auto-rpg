@@ -13,7 +13,7 @@
  *   rulebook's unit: to spend the body's life (its hit points over the part's cost in life,
  *   `lifeFactor`), and on a limb to empty the limb's bar (`LimbSpec.share` of full life).
  */
-import { CONTACT_STIFFNESS } from "../src/core/bodies/human/tables/contact-stiffness.ts";
+import { CONTACT_STIFFNESS, SKULL_STIFFNESS } from "../src/core/bodies/human/tables/contact-stiffness.ts";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/bodies/models.ts";
 import { lifeFactor, woundGroups } from "../src/combat/pool.ts";
 import { rulebook } from "../src/combat/rulebook.ts";
@@ -28,16 +28,20 @@ function sourcesOf(quantity, into = new Set()) {
 }
 
 const { flesh: FLESH, bone: BONE } = CONTACT_STIFFNESS;
-/** Each row's stiffness, N/m: a body of flesh's by its row, a body of bare bone's as `bone.<row>`; an item, the club here, is rigid. */
-const K = { ...Object.fromEntries(Object.entries(FLESH).map(([row, k]) => [row, si(k).value])),
+/**
+ * Each row's stiffness, N/m: a body of flesh's by its row, a body of bare bone's as `bone.<row>`. The head's row is its face;
+ * `skull` is the rest of a head. An item, the club here, is rigid.
+ */
+const K = { ...Object.fromEntries(Object.entries(FLESH).map(([row, k]) => [row, si(k).value])), skull: si(SKULL_STIFFNESS).value,
   ...Object.fromEntries(Object.entries(BONE).map(([row, k]) => [`bone.${row}`, si(k).value])), club: null };
 
 const perMm = (k) => (si(k).value / 1000).toFixed(1);
 console.log("| Row | Flesh, N/mm | Bone, N/mm | Sources |\n|---|---|---|---|");
 for (const [row, k] of Object.entries(FLESH)) console.log(`| ${row} | ${perMm(k)} | ${perMm(BONE[row])} | ${[...sourcesOf(BONE[row], sourcesOf(k))].join(", ")} |`);
+console.log(`| head, skull | ${perMm(SKULL_STIFFNESS)} | ${perMm(SKULL_STIFFNESS)} | ${[...sourcesOf(SKULL_STIFFNESS)].join(", ")} |`);
 
 const MEETINGS = [
-  ["hand", "head"], ["hand", "upperTrunk"], ["hand", "hand"], ["hand", "forearm"], ["hand", "thigh"], ["foot", "thigh"], ["foot", "shank"],
+  ["hand", "head"], ["hand", "skull"], ["foot", "head"], ["foot", "skull"], ["hand", "upperTrunk"], ["hand", "hand"], ["hand", "forearm"], ["hand", "thigh"], ["foot", "thigh"], ["foot", "shank"],
   ["hand", "bone.upperTrunk"], ["foot", "bone.upperTrunk"], ["hand", "bone.middleTrunk"], ["hand", "bone.lowerTrunk"],["head", "head"], ["head", "upperTrunk"], ["forearm", "upperTrunk"], ["forearm", "forearm"], ["club", "head"], ["club", "hand"], ["club", "club"],
 ];
 console.log("\n| Meeting | First's share | Second's share |\n|---|---|---|");

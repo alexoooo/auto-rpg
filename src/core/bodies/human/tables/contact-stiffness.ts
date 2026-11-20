@@ -8,8 +8,17 @@ import type { DeLevaSegment } from "./de-leva-1996.ts";
  * measured and how, and its gaps: `docs/reference/wounds.md#stiffness`.
  */
 
-/** The nasal bone under a flat impactor, between 20 and 80 % of its peak force (`cormier-2009`). */
+/**
+ * The nasal bone under a flat impactor, between 20 and 80 % of its peak force (`cormier-2009`).
+ * It is the head's own surface, its face: what a blow aimed at a head meets.
+ */
 const head = sourced(201, "N/mm", "cormier-2009", "Table 14, nasal bone, secondary stiffness, mean");
+
+/**
+ * The forehead under the same impactor, read the same way (`cormier-2009`): the skull, which is
+ * the head wherever it is not its face (`skullPlace`, `segments.ts`).
+ */
+export const SKULL_STIFFNESS = sourced(731, "N/mm", "cormier-2009", "Table 10, frontal bone, stiffness between 20 and 80 % of peak force, mean");
 
 /** The intact chest under a hub pressed into the sternum (`kent-2005`). */
 const chest = sourced(170.0, "N/cm", "kent-2005", "Table 3, effective stiffness, hub, intact, average");
