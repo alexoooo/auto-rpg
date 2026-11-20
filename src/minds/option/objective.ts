@@ -1,4 +1,4 @@
-import { hypot, tanh } from "../../core/math/real.ts";
+import { exp, hypot, tanh } from "../../core/math/real.ts";
 import { anyBody, type KeysOf } from "../../parts/parts.ts";
 import { number } from "../../parts/fields.ts";
 import { deepFreeze } from "../../core/state.ts";
@@ -28,11 +28,16 @@ export interface Path extends Tally {
  * verdict's unit), its orders carried out at `obedience`; a path is read at the call and not kept.
  * One interface, so the few terms (`fewTerms`) and a learned or non-combat value are each an
  * implementation of it; its memory, where it keeps one, is in `state`, plain data, which its
- * chooser keeps with its own.
+ * chooser keeps with its own. Where it has `weigh`, it says what life a path trades counts for by
+ * when in the line it comes: `dealt` (the focus's) or `taken` (the body's own), traded evenly over
+ * `span` s from `from` s into a line of `horizon` s, a share the chooser, which alone knows when,
+ * multiplies that life by as it adds a line up, before the path is priced (`Path`); without it,
+ * all counts as itself.
  */
 export interface Objective {
   readonly name: string;
   readonly state?: object;
+  weigh?(side: "dealt" | "taken", from: number, span: number, horizon: number): number;
   worth(path: Path, now: Situation, obedience: Obedience): number;
 }
 
@@ -61,16 +66,18 @@ const atBell = (lead: number): number => MARGIN * tanh(lead / MARGIN) - DRAW * (
  */
 export const AGGRESSION = 2;
 
-/** **The few terms' config**: its aggression (`AGGRESSION` unless given). */
-export interface FewTermsConfig { readonly kind: "few-terms"; readonly aggression?: number }
+/** **The few terms' config**: its aggression (`AGGRESSION` unless given), and its initiative (`initiativeWeight`; none unless given). */
+export interface FewTermsConfig { readonly kind: "few-terms"; readonly aggression?: number; readonly initiative?: number }
 
 /**
  * **The few terms' settings**, each a number a person sets from `least` to `most`, and what it is
  * where a config leaves it out (`preset`): aggression, from valuing the focus's life as the body's
- * own to five times it.
+ * own to five times it; initiative, a rate a second (`initiativeWeight`), from none to 0.3, where
+ * over the chooser's 20 s a blow now counts 6 times its mean and one at the horizon a sixtieth.
  */
 const SETTINGS = deepFreeze({
   aggression: { label: "Aggression", least: 1, most: 5, step: .1, unit: "×", preset: AGGRESSION },
+  initiative: { label: "Initiative", least: 0, most: .3, step: .01, unit: "/s", preset: 0 },
 });
 
 /**
@@ -90,11 +97,27 @@ function fewTermsWorth(path: Path, now: Situation, obedience: Obedience, aggress
   return obeying.metre * path.orders + (1 - late) * (dealt - path.taken) + late * (atBell(lead + dealt) - bell + atBell(lead - path.taken) - bell);
 }
 
-/** **The few terms** (`fewTermsWorth`) at `aggression`: combat's objective, the lives a path trades, its orders and the lead at the verdict; made once an aggression. */
-const FEW_TERMS = new Map<number, Objective>();
-function fewTerms(aggression: number): Objective {
-  let made = FEW_TERMS.get(aggression);
-  if (!made) FEW_TERMS.set(aggression, made = Object.freeze({ name: "few terms", worth: (path: Path, now: Situation, obedience: Obedience) => fewTermsWorth(path, now, obedience, aggression) }));
+/**
+ * **Initiative, a cost on delay** (`FewTermsConfig.initiative`, a rate a second): life the body
+ * deals counts less by that rate the later in a line it comes, and more than itself sooner, scaled
+ * so that over the horizon it counts as itself on the mean (`Objective.weigh`). So a blow now is
+ * worth more than as much later and a line that puts off its blows pays for it, while one that
+ * deals evenly to the horizon, or deals nothing, is worth what it was; life taken counts as itself.
+ */
+function initiativeWeight(initiative: number): NonNullable<Objective["weigh"]> {
+  /** The mean of `exp(-initiative t)` over `span` s from `from` s on (its value at `from` where the span is none). */
+  const meanDecay = (from: number, span: number): number =>
+    span > 0 ? (exp(-initiative * from) - exp(-initiative * (from + span))) / (initiative * span) : exp(-initiative * from);
+  return (side, from, span, horizon) => side === "taken" ? 1 : 1 / meanDecay(0, horizon) * meanDecay(from, span);
+}
+
+/** **The few terms** (`fewTermsWorth`) at `aggression` and `initiative` (none at 0, `initiativeWeight`): combat's objective, the lives a path trades, its orders and the lead at the verdict; made once a pair. */
+const FEW_TERMS = new Map<string, Objective>();
+function fewTerms(aggression: number, initiative: number): Objective {
+  const key = `${aggression} ${initiative}`;
+  let made = FEW_TERMS.get(key);
+  if (!made) FEW_TERMS.set(key, made = Object.freeze({ name: "few terms", worth: (path: Path, now: Situation, obedience: Obedience) => fewTermsWorth(path, now, obedience, aggression),
+    ...initiative > 0 ? { weigh: initiativeWeight(initiative) } : {} }));
   return made;
 }
 
@@ -106,13 +129,13 @@ const SETTING_FIELDS = (Object.keys(SETTINGS) as (keyof typeof SETTINGS)[]).map(
 
 /** **The few terms** (`fewTerms`) as a part of role `objective`: what a chooser that values options prices them by. */
 export const FEW_TERMS_PART = deepFreeze<ObjectivePart<FewTermsConfig, Objective>>({
-  role: "objective", label: "Combat", fields: SETTING_FIELDS, slots: [], defaults: { kind: "few-terms" }, keys: { kind: true, aggression: true },
+  role: "objective", label: "Combat", fields: SETTING_FIELDS, slots: [], defaults: { kind: "few-terms" }, keys: { kind: true, aggression: true, initiative: true },
   fits: anyBody,
   faults: (config: FewTermsConfig) => (Object.keys(SETTINGS) as (keyof typeof SETTINGS)[]).flatMap((key) => {
     const value = config[key], { least, most, unit } = SETTINGS[key];
     return value === undefined || Number.isFinite(value) && value >= least && value <= most ? [] : [`${key}: a number from ${least} to ${most} ${unit}`];
   }),
-  make: (config: FewTermsConfig) => fewTerms(config.aggression ?? SETTINGS.aggression.preset),
+  make: (config: FewTermsConfig) => fewTerms(config.aggression ?? SETTINGS.aggression.preset, config.initiative ?? SETTINGS.initiative.preset),
 });
 
 /**

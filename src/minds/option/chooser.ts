@@ -156,10 +156,15 @@ interface Searched {
  * priced whole by the objective (`price`, `Path`). A line (`line`) runs its Option (`Option.model`),
  * then at each way it ends (`Outcome`) the best single Option from there where it goes deeper
  * (`best`), and ends at a leaf (`leaf`); a line is cut at the horizon, so every worth is absolute
- * over the same seconds and lines compare alike.
+ * over the same seconds and lines compare alike. Each side of the life a line trades counts as the
+ * objective weighs it by when it comes (`Objective.weigh`: `dealtWeight`, `takenWeight`), as
+ * itself where it weighs none.
  */
 function space(root: Situation, { options, objective, obedience, horizon }: Searched) {
   const place = placing();
+  /** What life dealt, and taken, traded evenly over `span` s from `from` s on counts for, a share (`Objective.weigh`); 1 where the objective weighs none. */
+  const dealtWeight = (from: number, span: number): number => objective.weigh ? objective.weigh("dealt", from, span, horizon) : 1;
+  const takenWeight = (from: number, span: number): number => objective.weigh ? objective.weigh("taken", from, span, horizon) : 1;
   const sites = new Set<string>();
   for (const option of options) if (option.sites) for (const site of option.sites) sites.add(site.name);
   // Descriptors belong to the search; each situation owns its result row and offered list.
@@ -246,8 +251,8 @@ function space(root: Situation, { options, objective, obedience, horizon }: Sear
     let chances = 0;
     for (let i = 0; i < terms.outcomes.length; i++) chances += terms.outcomes[i]!.chance;
     if (Math.abs(chances - 1) > 1e-9) throw new Error(`${option.name}'s outcomes' chances sum to ${chances}`);
-    const after = seconds + share * terms.duration;
-    out.terms = terms; out.dealt = dealt + share * terms.dealt; out.taken = taken + share * terms.taken; out.orders = orders + share * terms.orders; out.seconds = after;
+    const after = seconds + share * terms.duration, counts = takenWeight(seconds, share * terms.duration), dealing = dealtWeight(seconds, share * terms.duration);
+    out.terms = terms; out.dealt = dealt + dealing * share * terms.dealt; out.taken = taken + counts * share * terms.taken; out.orders = orders + share * terms.orders; out.seconds = after;
     out.cut = option.open === true || after >= horizon;
     return out;
   };
@@ -312,17 +317,19 @@ function space(root: Situation, { options, objective, obedience, horizon }: Sear
     return top > -Infinity ? top : price(from, at);
   };
   /** What an Option run again from a leaf reads of the search (`Rerun`). */
-  const rerun: Rerun = { horizon, modelAt, child, price, leaf };
-  return { horizon, pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
+  const rerun: Rerun = { horizon, dealtWeight, takenWeight, modelAt, child, price, leaf };
+  return { horizon, dealtWeight, takenWeight, pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
 }
 
 /** **The states a search reads** (`space`). */
 type Space = ReturnType<typeof space>;
 
 
-/** **What an Option run again from a leaf reads of a search** (`space`): its horizon, its models, the states it makes, its price and its leaves. */
+/** **What an Option run again from a leaf reads of a search** (`space`): its horizon, how it weighs life by when it comes, its models, the states it makes, its price and its leaves. */
 interface Rerun {
   readonly horizon: number;
+  dealtWeight(from: number, span: number): number;
+  takenWeight(from: number, span: number): number;
   modelAt(pair: Pair, at: Situation): Terms | null;
   child(at: Situation, leaves: Leaves, seconds: number): Situation;
   price(tally: Tally, end: Situation): number;
@@ -338,7 +345,7 @@ interface Rerun {
  * as many tries as it is expected to, then held where it went (`leaf`, an open Option). -Infinity
  * where no outcome stays, or a try takes no time.
  */
-function again({ horizon, modelAt, child, price, leaf }: Rerun, pair: Pair, at: Situation, from: Tally): number {
+function again({ horizon, dealtWeight, takenWeight, modelAt, child, price, leaf }: Rerun, pair: Pair, at: Situation, from: Tally): number {
   const { dealt, taken, orders, seconds } = from, terms = modelAt(pair, at)!, duration = terms.duration;
   if (!(duration > 0) || seconds >= horizon) return -Infinity;
   let stay = 0, there: Situation | null = null;
@@ -350,10 +357,11 @@ function again({ horizon, modelAt, child, price, leaf }: Rerun, pair: Pair, at: 
   // Of `full` whole tries, the chance all stay (`through`), and the tries the body is expected to run where one leaves (`run`).
   const tries = (horizon - seconds) / duration, full = Math.floor(tries), through = full === 0 ? 1 : stay === 0 ? 0 : exp(full * log(stay)), left = 1 - through;
   const o = orders + Math.min(1, tries) * terms.orders;
-  let worth = through * price({ dealt: dealt + tries * terms.dealt, taken: taken + tries * terms.taken, orders: o, seconds: horizon }, there);
+  const whole = takenWeight(seconds, horizon - seconds), wholeDealt = dealtWeight(seconds, horizon - seconds);
+  let worth = through * price({ dealt: dealt + wholeDealt * tries * terms.dealt, taken: taken + whole * tries * terms.taken, orders: o, seconds: horizon }, there);
   if (left > 0) {
-    const run = (1 - (full + 1) * through + full * through * stay) / ((1 - stay) * left);
-    const ran: Tally = { dealt: dealt + run * terms.dealt, taken: taken + run * terms.taken, orders: o, seconds: seconds + run * duration };
+    const run = (1 - (full + 1) * through + full * through * stay) / ((1 - stay) * left), part = takenWeight(seconds, run * duration);
+    const ran: Tally = { dealt: dealt + dealtWeight(seconds, run * duration) * run * terms.dealt, taken: taken + part * run * terms.taken, orders: o, seconds: seconds + run * duration };
     for (let i = 0; i < terms.outcomes.length; i++) {
       const outcome = terms.outcomes[i]!, end = child(at, outcome.leaves, duration);
       if (end === there || end.posture === at.posture && Math.abs(end.range - at.range) <= ARRIVED) continue;
@@ -387,7 +395,8 @@ const LEAVES = Object.freeze({
 /**
  * **A leaf worth its path priced with what a value fitted to what followed reads there**
  * (`dataOf("fitted-value")`, `fittedOver`): the life dealt and taken over the seconds the path
- * leaves to the horizon added to the path's, as if it ran there; the state read with the Options on
+ * leaves to the horizon added to the path's, as if it ran there, each weighed as traded evenly over
+ * those seconds (`dealtWeight`, `takenWeight`); the state read with the Options on
  * offer as their models price one try, and the reach's grace its own where its Option reckoned it,
  * else the root's. The tail's where the state has no focus.
  */
@@ -399,8 +408,9 @@ function fittedLeaf(search: Space, root: Situation): (at: Situation, from: Tally
     for (const pair of search.pairsAt(at)) { const terms = search.modelAt(pair, at); if (terms) offered.push(offeredOf(pair.option.kind, pair.option.open === true, terms)); }
     const reading = readingAt(at, at.grace ?? grace, offered);
     if (!reading) return search.leaf(at, "whole", from);
-    const followed = fittedOver(value, featuresOf(reading), search.horizon - from.seconds);
-    return search.price({ dealt: from.dealt + followed.dealt, taken: from.taken + followed.taken, orders: from.orders, seconds: Math.max(from.seconds, search.horizon) }, at);
+    const left = search.horizon - from.seconds, followed = fittedOver(value, featuresOf(reading), left);
+    const dealt = from.dealt + search.dealtWeight(from.seconds, left) * followed.dealt, taken = from.taken + search.takenWeight(from.seconds, left) * followed.taken;
+    return search.price({ dealt, taken, orders: from.orders, seconds: Math.max(from.seconds, search.horizon) }, at);
   };
 }
 type LeafName = keyof typeof LEAVES;

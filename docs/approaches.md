@@ -355,7 +355,8 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   0.517 (0.434 to 0.597) won, and standing silent 16.2% against 8.1% (`c6c3d95fb`). At 0.03, 0.2
   and 0.3 neither: the mirror with the back step on both sides against without, 72 gaps, 12.0,
   12.8 and 11.8 points more silent (the least, 9.0 to 14.5) where unset is 14.5 (11.2 to 17.7).
-  Removed, no Mind taking it. *Shown.*
+  Removed, no Mind taking it, then restored on the owner's word (2026-11-20), unset, the leaf fitted
+  to what followed weighed by it too. *Shown.*
 - **A Mind that can sway back chases its foe**: two Warriors with the back step stand silent 20.2%
   of a bout against 7.2% without it (216 gaps, paired 13.0 points, 11.1 to 14.9, at `9b0fcc618`),
   nearly all of it 1 to 2 m apart, walking in on a foe that sways back from it. About 3.7 of those
