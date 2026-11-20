@@ -316,11 +316,16 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   read at a foe down or rising (13.7 points) or past the range it measured (15.0), both priced
   nothing before; and the falls, more with it (0.68 a bout against 0.35), carry about 1.8 of the
   points. *Shown.*
-- **The search's runs buy no strength shown between 25 and 300**: the game's Mind at 300 runs
-  against itself at 100, about 0.473 (0.435 to 0.511) over 576 bouts held out; at 50 against 100,
-  about 0.507 (0.472 to 0.542), its deciding step's 99th percentile 1.8 times less; at 25 against
-  100, about 0.464 (0.425 to 0.502), its 99th a third less again, its mirror standing silent 18.8%
-  (16.0% at 50): the game plays 25 (`RUNS`), at the edge of not shown weaker. *Shown.*
+- **The search's runs buy no strength between 50 and 300, and 25 begins to cost it**: the game's
+  Mind at 300 runs against itself at 100, about 0.473 (0.435 to 0.511) over 576 bouts held out; at
+  50 against 100, about 0.507 (0.472 to 0.542), its deciding step's 99th percentile 1.8 times
+  less: the game plays 50 (`RUNS`). At 25 against 100, about 0.464 (0.425 to 0.502), its 99th a
+  third less again, its mirror standing silent 18.8% (16.0% at 50): about three and a half points
+  for the speed, left to the owner. *Shown.*
+- **A prior from each Option's one step does not make the search stronger**: PUCT below the root
+  (each Option's prior its one step's worth at the state, a softmax in units of their spread;
+  AlphaZero's bound), the root as it was, at 50 runs: about 0.515 (0.479 to 0.550) over 576 bouts
+  held out against the game's Mind, its mirror knocking out within 60 s in 93.1%. *Shown.*
 - **An open Option's model asked once a state saves no time worth reading**: a held leaf asks the
   same answer about nine times (436 asks on 56 pairs a search), yet kept per state it read a
   99th-percentile step of 16.59 ms between the unchanged code's 17.51 and 16.66 in one quiet
