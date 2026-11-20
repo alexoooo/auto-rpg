@@ -337,10 +337,8 @@
 :where(#screen-root[data-screen="arena"]) #curtain .contender {
   position: relative;
   display: grid;
-  /* The preview keeps a strip; choices scroll within the room left in the column. */
-  grid-template-rows: auto minmax(96px, 1fr) minmax(0, max-content);
-  align-self: center;
-  height: min(72vh, 760px);
+  /* Each portrait keeps its space while the editor scrolls below it. */
+  grid-template-rows: auto clamp(144px, 34vh, 340px) minmax(0, 1fr);
   min-height: 0;
   padding: 24px 10px 22px;
   background: radial-gradient(ellipse at 50% 62%, #63221d35, transparent 66%),
@@ -353,8 +351,6 @@
   border-radius: 48% 48% 0 0 / 22% 22% 0 0;
   mask-image: linear-gradient(#000, transparent 88%);
 }
-/* An open editor takes the panel's whole column. */
-:where(#screen-root[data-screen="arena"]) #curtain .contender:has(> .contender-choices > details[open]) { align-self: stretch; height: auto; }
 :where(#screen-root[data-screen="arena"]) #curtain .contender[data-side="left"] { grid-column: 1; grid-row: 2 / -1; }
 :where(#screen-root[data-screen="arena"]) #curtain .contender[data-side="right"] { grid-column: 3; grid-row: 2 / -1; }
 :where(#screen-root[data-screen="arena"]) #curtain .contender-head { text-align: center; }
@@ -409,7 +405,7 @@
   :where(#screen-root[data-screen="arena"]) .bout-actions { grid-area: 2 / 1; position: sticky; top: 0; z-index: 2;
     grid-template-columns: minmax(0, 1fr) auto; justify-items: stretch; align-items: end; gap: 10px;
     width: 100%; padding: 8px; border: 1px solid var(--edge); background: #140f10; }
-  :where(#screen-root[data-screen="arena"]) #curtain .contender[data-side] { grid-area: auto; grid-template-rows: auto 108px auto; height: auto; padding: 12px;
+  :where(#screen-root[data-screen="arena"]) #curtain .contender[data-side] { grid-area: auto; grid-template-rows: auto 144px auto; padding: 12px;
     background: linear-gradient(#1b1417d9, #140f10f5); }
   :where(#screen-root[data-screen="arena"]) #curtain .contender-choices { overflow: visible; scrollbar-gutter: auto; padding-right: 0; }
   :where(#screen-root[data-screen="arena"]) #curtain .contender-choices > details > summary { position: static; padding: 5px 0; }
@@ -419,7 +415,7 @@
 }
 @media (max-height: 620px) and (min-width: 821px) {
   :where(#screen-root[data-screen="arena"]) #curtain { padding-top: 12px; padding-bottom: 16px; }
-  :where(#screen-root[data-screen="arena"]) #curtain .contender { height: 76vh; padding: 8px; }
+  :where(#screen-root[data-screen="arena"]) #curtain .contender { padding: 8px; }
 }
 
 /* A panel taller than the window scrolls itself rather than its overlay: a grid with
