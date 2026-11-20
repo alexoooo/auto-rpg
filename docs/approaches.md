@@ -225,6 +225,16 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   read the chosen sways' falls at 2.7 % against 4.5 % and their life at 1.46 times, one of the
   chosen alone 5.1 % and 1.03 (`dac468d58`). Such a profile moves with the mind's prices and is
   read again when they change. *Shown.*
+- **A strike's profile read where its blow begins prices it; the Mind's choosing on that reading
+  overprices it**: the man's moving punch, the profile remade from sparring (2026-11-19's rows),
+  read at the starts of 1,789 punches begun in fights reads 1.03 of what they dealt (1.01 on
+  sparring's own), the profile made 2026-11-17 1.34. Read where the Mind asks the blow it is the
+  profile's reading; but a strike choice is priced about 1.5 times what it gives, and what it gives
+  rises at about 0.4 of its price over five price bands: the Mind chooses where the nearest trials
+  read high, part of which is their noise. Remade, the profiles still read 1.40 in play and the
+  mirror stood off (0 of 216 knocked out within 60 s); measured in fights instead, a profile
+  measures the Mind as much as the punch (0.212 hit points a punch at 100 runs, 0.159 at 50), not
+  built. *Shown* (the plan of 2026-11-19, step 5).
 - **A foe's pressure measured in bouts prices what bouts give; the rate from its strikes did
   not**: priced by its best strike's dealt over its cycle, a Warrior's second in reach with the
   foe throwing nothing was 17 to 20 times what it lost at 0.2 s and 0.8 with a punch committed.
@@ -316,6 +326,23 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   read at a foe down or rising (13.7 points) or past the range it measured (15.0), both priced
   nothing before; and the falls, more with it (0.68 a bout against 0.35), carry about 1.8 of the
   points. *Shown.*
+- **The search's runs buy no strength between 50 and 300, and 25 begins to cost it**: the game's
+  Mind at 300 runs against itself at 100, about 0.473 (0.435 to 0.511) over 576 bouts held out; at
+  50 against 100, about 0.507 (0.472 to 0.542), its deciding step's 99th percentile 1.8 times
+  less: the game plays 50 (`RUNS`). At 25 against 100, about 0.464 (0.425 to 0.502), its 99th a
+  third less again, its mirror standing silent 18.8% (16.0% at 50): about three and a half points
+  for the speed, left to the owner. *Shown.*
+- **A prior from each Option's one step does not make the search stronger**: PUCT below the root
+  (each Option's prior its one step's worth at the state, a softmax in units of their spread;
+  AlphaZero's bound), the root as it was, at 50 runs: about 0.515 (0.479 to 0.550) over 576 bouts
+  held out against the game's Mind, its mirror knocking out within 60 s in 93.1%. *Shown.*
+- **An open Option's model asked once a state saves no time worth reading**: a held leaf asks the
+  same answer about nine times (436 asks on 56 pairs a search), yet kept per state it read a
+  99th-percentile step of 16.59 ms between the unchanged code's 17.51 and 16.66 in one quiet
+  session. *Shown.*
+- **A kept branch has little to keep**: searches come every 0.2 s, mid-Option; of the previous
+  tree's runs, 8.5% and 20.6% (two mirror bouts) lie under states the new tree's same Option
+  reaches near, before those are priced again for the new path. Not built. *Counted.*
 - **A search that starts from its last decision's worths wins by fighting less**: each Option's
   worth at the last root kept as as many runs, fading by half each 0.5 s (a warm start), won
   0.635 (0.580 to 0.691) held out at the same runs, but silent 16.2% of a bout against 9.4%: an
@@ -349,6 +376,37 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   Both exchange ends leave the mirror without it quieter than the tail (8.6% and 9.8% against
   6.4%). These three line's ends, none the game's, are removed; the tail is the search's one leaf.
   *Shown.*
+- **A leaf of each Option's own tries, none leaving, decides three times faster and fights less**:
+  each run Option at a leaf priced by its own model's terms alone, its tries to the horizon each
+  ending where it began (no states made after, no held leaf where a try leaves), held Options as
+  the tail holds them, no walk to a site at a leaf. Its deciding steps about three times cheaper
+  (99th percentile 8.3 ms against 26.7, six mirror cases, one worker). Against the game's Mind on
+  `warrior-drawn` at the same 100 runs: 0.490 (0.434 to 0.542) over 288 bouts and 0.476 (0.424 to
+  0.528) over 288 on gaps never played (draws 9 to 14), about 0.483 (0.446 to 0.520) pooled, not
+  told from even; at 300 runs 0.503 (0.448 to 0.559). But its mirror on `warrior-drawn` ended in
+  a knockout within 60 s in 85.6% (80.3 to 89.7) of 216 bouts against the tail's 93.1%, standing
+  silent 18.9% against 15.8%; and the walker, a valued chooser looking one Option ahead, stopped
+  short of its place on a plain hold, a leaf no longer walking on to it. The leaf's time is the
+  tail's `line` (held Options priced to the horizon and walks to sites, 22 of its 30 points of a
+  bout) more than its tries run again (8). Dropped on the knockout bar. With the walks to sites
+  kept at a leaf (a whole leaf reads every pair, a walk run on to its arrived leaf, as the tail
+  does): the 99th-percentile step 16.3 ms against the tail's 30.3, the median 1.47 against 1.35;
+  its mirror knocked out within 60 s in 78.2% (72.3 to 83.2) of 216 bouts against the tail's 91.7%
+  on the same code, standing silent 24.1% against 15.6%. It fought less again, not more. What is
+  left cut, the state each try leaves and the held leaf there, is the tail's own. At the same
+  states the staying leaf picks the tail's best 91% of the time (2,413 decisions, four bouts);
+  where they part it walks on where the tail strikes and steps back where the tail closes: the
+  tail repeats at a leaf only an Option whose try stays. The tail with only its held leaf cut (a
+  leaving try priced as it stands): the 99th-percentile step 8.1 ms against 30.2, knocked out
+  within 60 s 95.4% against 91.7%, and weaker, 0.434 (0.397 to 0.472) over 576 held out. The
+  tail's time is in its held leaf, and so is a part of its strength. *Shown.*
+- **A value of a state fitted by hand-chosen terms does not stand in for the tail**: fitted to the
+  life each side lost from a search's root to the bout's end, it is the two lives and the time
+  left (R² 0.62 held out, every term of range or posture under 0.05 of a life); fitted to the
+  tail's own worth at the tree's leaves, it orders two leaves of one search as the tail does 55%
+  of the time (R² 0.12 held out), and 64% with each Option's one-step model at the leaf among its
+  terms. The tail's worth is mostly its best Option's one-try rate: that alone, unfitted, orders 77%
+  of pairs as the tail and picks its best leaf in 85% of searches. *Shown.*
 - **A bar read on bouts won needs its spread**: the back step's Warrior against one without won
   79 to 65 on the game's Mind, 0.549 with 0.472 to 0.632 over bouts, and 0.521 (0.472 to 0.567)
   over 432 under the written line's end: neither a win (`fc29f4f3d`). *Shown.*
