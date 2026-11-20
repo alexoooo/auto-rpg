@@ -246,6 +246,25 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   of the tail cheaper than it misses the tail's best leaf (59 to 63 % against the one-try rate's
   71 %): that leaf is worth what repeating the best Option leads to, which only running the models
   again reads. *Shown* (the plan of 2026-11-19, step 8).
+- **The tree's ranking of a search's root lines is not information about what follows**: in 480
+  Warrior mirror bouts where one search in ten took a root line drawn at random (29,797 such),
+  what followed (less a state value fitted on other bouts) against the drawn line's worth less the
+  top line's, the part beyond its first step's price (sd 1.12), reads a slope of 0.0000 ± 0.0026 over
+  20 s and -0.0001 ± 0.0012 over 3 s; its first step's price 0.020 ± 0.012. The tail's weight against
+  the path's price moves how much the mirror fights (half the weight 91.7 % within 60 s, a tenth 75.9
+  %) and not how well (half the weight 0.492 against the whole). *Shown* (the plan of 2026-11-19,
+  step 8).
+- **A strike's reading, unselected, gives about 0.4 of itself; pricing it so changes how often
+  the mirror strikes, not how well**: 12,239 strikes drawn at random among those offered and run
+  gave, read as the scorecard reads a choice, 0.0044 of a life and 0.39 of their written form's
+  reading (R² 0.051 held out by bout; the reading as it is -0.186), and the form's own terms refitted
+  on them read more (0.059), with the seconds since the foe's last strike and its own more again
+  (0.079). The sparring trials' mean is five times what fight blows give (the man's moving punch 0.085
+  of a life a trial): trusted toward it, strikes are priced higher and the mirror fights more (95.8 %
+  within 60 s) at 0.483 against today's; read as half the reading and a tenth of the trials' mean,
+  priced 0.93 of what they give (today 1.49) at 0.500. A chosen strike gives more than a drawn one
+  (3.6 % of a life against 1.7 %): the search's choosing finds what the reading lacks. *Shown* (the
+  plan of 2026-11-19, step 9).
 - **A foe's pressure measured in bouts prices what bouts give; the rate from its strikes did
   not**: priced by its best strike's dealt over its cycle, a Warrior's second in reach with the
   foe throwing nothing was 17 to 20 times what it lost at 0.2 s and 0.8 with a punch committed.
