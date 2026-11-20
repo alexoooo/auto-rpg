@@ -262,9 +262,20 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   (0.079). The sparring trials' mean is five times what fight blows give (the man's moving punch 0.085
   of a life a trial): trusted toward it, strikes are priced higher and the mirror fights more (95.8 %
   within 60 s) at 0.483 against today's; read as half the reading and a tenth of the trials' mean,
-  priced 0.93 of what they give (today 1.49) at 0.500. A chosen strike gives more than a drawn one
-  (3.6 % of a life against 1.7 %): the search's choosing finds what the reading lacks. *Shown* (the
-  plan of 2026-11-19, step 9).
+  priced 0.93 of what they give (today 1.49) at 0.500. Drawn, a strike's cost is priced as it
+  falls (the body's loss over it 0.029 of a life, its model's taken 0.031); what it gives moves with
+  the foe's timing and its cost little (the lead 2 given - lost -0.003 within half a second of the
+  foe's strike, +0.060 and +0.084 at 1 to 2 and 2 to 4 s; lost 0.031 against 0.028 and 0.024). *Shown*
+  (the plan of 2026-11-19, steps 9 and 10).
+- **The tree already takes the best its Options offer at every state the data resolves**: in the
+  Warrior mirror, a root line drawn at random against the search's own choice at like states where
+  that class was offered (range band × the foe's phase × the seconds since its last strike × the body's
+  own state), what followed in the lead (2 dealt - taken) over 3 s: every class within noise (a strike
+  +0.003 ± 0.016, a walk to a window +0.002 ± 0.003, a guard +0.002 ± 0.007, 29,797 drawn in 480
+  bouts); of 92 cells × classes, none better at z 3 and two at z 2, what chance gives; 14,321 strikes
+  drawn in 240 bouts against the search's own where a strike was offered, -0.001 ± 0.005. Strength
+  against this Mind is not to be had by choosing otherwise among these Options; a chosen strike that
+  gives more than a drawn one does so by its state. *Shown* (the plan of 2026-11-19, step 10).
 - **A foe's pressure measured in bouts prices what bouts give; the rate from its strikes did
   not**: priced by its best strike's dealt over its cycle, a Warrior's second in reach with the
   foe throwing nothing was 17 to 20 times what it lost at 0.2 s and 0.8 with a punch committed.
