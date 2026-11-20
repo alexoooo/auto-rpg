@@ -88,7 +88,15 @@
 :where(#screen-root[data-screen="arena"]) .hud-reel label, :where(#screen-root[data-screen="arena"]) .hud-reel button { pointer-events: auto; }
 :where(#screen-root[data-screen="arena"]) .hud-reel button { width: auto; margin-top: 0; padding: 6px 12px; }
 :where(#screen-root[data-screen="arena"]) #arena-pause { pointer-events: auto; width: auto; min-height: 44px; padding: 8px 14px; }
-:where(#screen-root[data-screen="arena"]) .arena-control { display: flex; align-items: center; gap: 8px; pointer-events: auto; }
+:where(#screen-root[data-screen="arena"]) #arena-pause[aria-pressed="true"] { color: var(--hot); border-color: var(--hot); }
+/* The bout's tools, one row under its clock. A panel one of them opens floats over the page (`floatingPanel`). */
+:where(#screen-root[data-screen="arena"]) .hud-tools { display: flex; align-items: center; justify-content: center; gap: 8px; }
+/* The frame meter keeps one width as its numbers change, so the row it is in the middle of stays where it is. */
+:where(#screen-root[data-screen="arena"]) .hud-tools .frame-meter > button { min-width: 14ch; text-align: left; }
+/* Who the person leads: a picture stands for its name, which a screen reader still reads. */
+:where(#screen-root[data-screen="arena"]) .arena-control { display: flex; align-items: center; gap: 6px; pointer-events: auto; }
+:where(#screen-root[data-screen="arena"]) .arena-control svg { flex: none; width: 22px; height: 22px; fill: var(--dim); fill-rule: evenodd; }
+:where(#screen-root[data-screen="arena"]) .arena-control .field-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 :where(#screen-root[data-screen="arena"]) .arena-control[hidden] { display: none; }
 :where(#screen-root[data-screen="arena"]) .arena-control select { width: auto; min-height: 44px; padding: 6px 10px; }
 :where(#screen-root[data-screen="arena"]) .hud-mind { pointer-events: auto; width: min(300px, calc(50vw - 40px)); max-height: calc(100dvh - 220px); overflow-y: auto; padding: 6px 10px; background: #0a0e16c0; border-radius: 4px; text-align: left; }
@@ -161,23 +169,19 @@
 :where(#screen-root[data-screen="arena"]) .feed-unavailable { align-self: start; grid-column: 2; grid-row: 1; padding-top: 4px; font-size: 10px; }
 :where(#screen-root[data-screen="arena"]) .feed-unavailable[hidden] { display: none; }
 
-/* The view panel leaves the centre of a live or paused bout open. */
-:where(#screen-root[data-screen="arena"]) #arena-view {
-  position: relative; pointer-events: auto; z-index: 9;
-  width: auto; padding: 7px 10px; border: 1px solid var(--edge); border-radius: 6px;
-  background: var(--panel); font: 12px/1.4 var(--font);
-}
-:where(#screen-root[data-screen="arena"]) #arena-view[open] { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); width: min(330px, calc(100vw - 24px)); max-height: calc(100dvh - 160px); overflow-y: auto; text-align: left; }
+/* The view's button, and its panel, which floats under it and leaves the rest of the readout where it is. */
+:where(#screen-root[data-screen="arena"]) #arena-view { pointer-events: auto; font: 12px/1.4 var(--font); }
 :where(#screen-root[data-screen="arena"]) #arena-view[hidden] { display: none; }
-:where(#screen-root[data-screen="arena"]) #arena-view summary { cursor: pointer; color: var(--ink); font-weight: 600; }
-:where(#screen-root[data-screen="arena"]) #arena-view[open] summary { margin-bottom: 12px; }
+:where(#screen-root[data-screen="arena"]) #arena-view > button { width: auto; min-height: 44px; margin: 0; padding: 7px 12px; border: 1px solid var(--edge); border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+:where(#screen-root[data-screen="arena"]) #arena-view > button[aria-expanded="true"] { color: var(--hot); border-color: var(--hot); }
+:where(#screen-root[data-screen="arena"]) #arena-view-controls { position: fixed; inset: auto; margin: 0; width: min(330px, calc(100vw - 24px)); max-height: calc(100dvh - 160px); overflow-y: auto; padding: 2px 12px 12px; border: 1px solid var(--edge); border-radius: 6px; background: var(--panel); backdrop-filter: blur(6px); color: var(--ink); text-align: left; }
 :where(#screen-root[data-screen="arena"]) #arena-view .field { display: grid; grid-template-columns: 66px minmax(0, 1fr); align-items: baseline; gap: 8px; margin: 8px 0 0; }
 :where(#screen-root[data-screen="arena"]) #arena-view .label { color: var(--dim); margin: 0; }
 :where(#screen-root[data-screen="arena"]) #arena-view .options { display: flex; flex-wrap: wrap; gap: 5px; }
-:where(#screen-root[data-screen="arena"]) #arena-view button { flex: 1; min-width: 0; padding: 7px; border: 1px solid var(--edge); border-radius: 4px;
+:where(#screen-root[data-screen="arena"]) #arena-view-controls button { flex: auto; min-width: 0; padding: 7px; border: 1px solid var(--edge); border-radius: 4px;
   background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
-:where(#screen-root[data-screen="arena"]) #arena-view button[aria-pressed="true"] { color: var(--hot); border-color: var(--hot); }
-:where(#screen-root[data-screen="arena"]) #arena-view button:hover { background: rgba(255, 255, 255, .06); }
+:where(#screen-root[data-screen="arena"]) #arena-view-controls button[aria-pressed="true"] { color: var(--hot); border-color: var(--hot); }
+:where(#screen-root[data-screen="arena"]) #arena-view-controls button:hover { background: rgba(255, 255, 255, .06); }
 :where(#screen-root[data-screen="arena"]) #arena-view [hidden] { display: none; }
 /* A narrow window keeps the fight in view: each side is its name, its bar, its diagram at the window's edge with its
    actions' chips beside it, and one line of what its mind does; its lists open as a sheet along the bottom, over the sound panel. */
@@ -191,7 +195,8 @@
   :where(#screen-root[data-screen="arena"]) #hud .hud-col[data-side] > * { flex: 0 0 100%; }
   :where(#screen-root[data-screen="arena"]) #hud .hud-col[data-side] > details { flex: 0 0 auto; }
   :where(#screen-root[data-screen="arena"]) #hud progress { width: 100%; }
-  :where(#screen-root[data-screen="arena"]) .arena-control .field-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  :where(#screen-root[data-screen="arena"]) .hud-tools { flex-direction: column; gap: 4px; }
+  :where(#screen-root[data-screen="arena"]) .arena-control svg { display: none; }
   :where(#screen-root[data-screen="arena"]) .fighter-readout { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px; min-height: 0; }
   :where(#screen-root[data-screen="arena"]) .fighter-now { order: 1; flex: 0 0 100%; gap: 4px; padding: 0; }
   :where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .fighter-readout { flex-direction: row-reverse; }
@@ -421,13 +426,16 @@
 
 /* ---------- pause inside the arena ---------- */
 
-/* Bottom left, clear of the fighters at the centre and the readout along the top. Not
-   `inset: 0`: a paused bout stays in view. */
+/* Under the bout's tools, by the button that opens it, floating over the arena and moving
+   nothing of the readout. Not `inset: 0`: a paused bout stays in view. */
 :where(#screen-root[data-screen="arena"]) #pause-menu {
-  position: fixed;
-  left: 18px;
-  bottom: 18px;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 12;
+  pointer-events: auto;
+  text-align: left;
   width: min(430px, calc(100vw - 36px));
   padding: 12px 13px 11px;
   border: 1px solid rgba(232, 180, 90, 0.42);
@@ -442,6 +450,12 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+}
+
+/* A narrow window has no room under its tools: the pause menu lies along the bottom, over the
+   sound panel, and a side's lists open over it. */
+@media (max-width: 700px) {
+  :where(#screen-root[data-screen="arena"]) #pause-menu { position: fixed; top: auto; left: 8px; right: 8px; bottom: 58px; transform: none; width: auto; }
 }
 
 :where(#screen-root[data-screen="arena"]) .pause-copy {

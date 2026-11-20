@@ -9,21 +9,23 @@ const CAMERAS: Named<CameraMode> = {
   free: { name: "Free", title: "Orbit with the pointer" },
   isometric: { name: "Isometric", title: "A fixed diagonal view" },
   chase: { name: "Chase", title: "Behind the body, turning after it" },
+  side: { name: "Side", title: "From the side: two fighters both in the frame, or one body in profile" },
 };
 const DRAWN: Named<Projection> = { orthographic: { name: "Orthographic" }, perspective: { name: "Perspective" } };
 
 /**
  * A view panel reads settings and requests edits; its screen owns their application and persistence.
- * Each screen uses the same choices and presentation.
+ * Each screen uses the same choices and presentation; `cameras` are those a screen offers, every one unless it says.
  */
 function viewModeControl(read: () => ViewMode, change: (view: ViewMode) => void): Control {
   return choice("View", entries(VIEW_MODES, VIEWS), read, change);
 }
 
-export function viewControls(read: () => ViewSettings, change: (patch: Partial<ViewSettings>) => void): readonly Control[] {
+export function viewControls(read: () => ViewSettings, change: (patch: Partial<ViewSettings>) => void,
+  cameras: readonly CameraMode[] = CAMERA_MODES): readonly Control[] {
   return [
     viewModeControl(() => read().view, view => change({ view })),
-    choice("Camera", entries(CAMERA_MODES, CAMERAS), () => read().camera, camera => change({ camera })),
+    choice("Camera", entries(cameras, CAMERAS), () => read().camera, camera => change({ camera })),
     when(() => read().camera === "isometric",
       choice("Projection", entries(PROJECTIONS, DRAWN), () => read().projection, projection => change({ projection }))),
   ];

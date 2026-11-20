@@ -55,8 +55,9 @@ import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
-import { choice, following, type Control } from "../ui/controls.ts";
+import { choice, following, when, type Control } from "../ui/controls.ts";
 import { viewControls } from "../ui/view-controls.ts";
+import { floatingPanel } from "../ui/floating-panel.ts";
 import { cameraControls } from "../ui/camera-controls.ts";
 import { cameraSubject } from "../render/orbit-camera.ts";
 import { playerControls } from "../ui/player-controls.ts";
@@ -71,7 +72,8 @@ import { damageFlashes } from "../render/damage-flashes.ts";
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
  * of two bodies in it (`Duel`). Setup picks the two models and the side the person fights, if
- * any; a bout runs to its verdict, and can be run again, or again with the right side redrawn.
+ * any; a bout runs to its verdict, and can be run again from a start a little nearer or farther
+ * (`REPLAY_SPREAD`), or again with the right side redrawn.
  *
  * The bout's world steps in a worker (`duelStage`, `src/app/worker/`): the page draws a puppet of each
  * body between the last two steps it holds, and shows what each step's news tells (`DuelNews`), so
@@ -117,6 +119,11 @@ const trialNote = ({ commit, world }: Trial): string => {
 };
 /** The pause between one trial's end and the next one's start, with auto-play on, ms. */
 const TRIAL_BEAT_MS = 1000;
+/**
+ * How far either way Replay moves the fighters' starting gap, m, drawn to the millimetre. Too
+ * little to see, and enough: a millimetre is already another bout.
+ */
+const REPLAY_SPREAD = .05;
 
 /** The segment of `spec` no joint carries: the one the chase camera turns with. */
 
@@ -151,6 +158,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   context.own(() => { engine.stopRenderLoop(); engine.dispose(); });
   const level = readLevel(location.search);
+  /** The gap the page opened with, m: the address's, or the level's own. Replay draws its starts around it. */
+  const openingGap = readGap(location.search, level) ?? LEVELS[level].gap.default;
   const arena = await buildArena(engine, level, context.signal);
   const { scene, camera, shadows } = arena;
   context.own(() => scene.dispose());
@@ -433,9 +442,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     for (const puppet of puppets) puppet.dispose();
     drawn = []; puppets = []; bodies.clear(); shownBodies = []; subjects = null;
   };
-  const viewPanel = need<HTMLDetailsElement>("arena-view");
-  viewPanel.open = false;
-  viewPanel.querySelector("summary")!.addEventListener("click", event => (event.currentTarget as HTMLElement).blur());
+  // The view's button and its panel, which floats under it.
+  const viewPanel = need("arena-view"), viewButton = need<HTMLButtonElement>("arena-view-button");
+  floatingPanel(viewButton, need("arena-view-controls"), context.signal);
+  viewButton.addEventListener("click", () => viewButton.blur());
   for (const type of ["pointerdown", "pointermove", "wheel"]) viewPanel.addEventListener(type, event => event.stopPropagation());
   const viewFields: Control[] = [];
   const chooseView = (patch: Partial<ArenaView>) => {
@@ -445,9 +455,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     for (const control of viewFields) control.refresh();
   };
   viewFields.push(...viewControls(() => view, chooseView),
-    following(() => view.camera, mode => choice("Focus", cameraFocuses(mode).map(value => ({ value,
+    // The focus is asked only of a camera that offers more than one.
+    following(() => view.camera, mode => when(() => cameraFocuses(mode).length > 1, choice("Focus", cameraFocuses(mode).map(value => ({ value,
       name: ({ both: "Both", left: "Left", right: "Right" } satisfies Record<ArenaFocus, string>)[value] })),
-      () => view.focus, focus => chooseView({ focus }))));
+      () => view.focus, focus => chooseView({ focus })))));
   need("arena-view-controls").append(...viewFields.map(control => control.element));
   /** Whether the bout holds where the person's side has a new choice, and whether it is held so now, for the person to pick. */
   let pauseOnChoice = false, choosing = false;
@@ -503,8 +514,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const meter = frameMeter(engine, context.signal);
   clockColumn.className = "hud-col hud-clock";
   pauseButton.id = "arena-pause"; pauseButton.type = "button"; pauseButton.className = "action quiet";
-  pauseButton.textContent = "Pause"; pauseButton.title = "Pause (Space / Esc)"; pauseButton.hidden = true;
-  pauseButton.setAttribute("aria-controls", "pause-menu");
+  pauseButton.textContent = "Pause"; pauseButton.title = "Pause or resume (Space / Esc)"; pauseButton.hidden = true;
+  pauseButton.setAttribute("aria-controls", "pause-menu"); pauseButton.setAttribute("aria-pressed", "false");
   // Pause on choice, while the person leads a side; paused so, what to do and how to go on.
   const choiceBox = Object.assign(document.createElement("input"), { type: "checkbox", checked: pauseOnChoice });
   const choiceLabel = document.createElement("label"), choosingLine = document.createElement("div");
@@ -515,7 +526,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   for (const control of [controlField, choiceLabel, goOn]) for (const type of ["pointerdown", "pointermove"]) control.addEventListener(type, event => event.stopPropagation());
   choiceBox.addEventListener("change", () => { choiceBox.blur(); pauseOnChoice = choiceBox.checked; bout?.link.input({ kind: "hold", hold: pauseOnChoice }); });
   goOn.addEventListener("click", () => { goOn.blur(); setPaused(false); });
-  clockColumn.append(clock, controlField, pauseButton, choiceLabel, choosingLine, viewPanel, meter.element); hud.insertBefore(clockColumn, rows[1].label.parentElement);
+  // The bout's tools stand in one row under its clock: who the person leads, pause, the view and the frame meter.
+  const tools = document.createElement("div");
+  tools.className = "hud-tools"; tools.append(controlField, pauseButton, viewPanel, meter.element);
+  // The pause menu floats under them, by the button that opens it.
+  clockColumn.append(clock, tools, choiceLabel, choosingLine, need("pause-menu")); hud.insertBefore(clockColumn, rows[1].label.parentElement);
   // A reel's trial: which, its conditions and the outcome it was read as, auto-play and the next trial.
   const reelLine = document.createElement("div"), trialText = document.createElement("span");
   const autoBox = Object.assign(document.createElement("input"), { type: "checkbox", checked: auto });
@@ -533,7 +548,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     choosing = paused && why === "choice";
     show("pause-menu", paused && !choosing);
     choosingLine.hidden = !choosing;
-    pauseButton.hidden = paused || !bout || decided;
+    // The button stays where it is while the bout is paused, marked so, and resumes it.
+    pauseButton.hidden = !bout || decided; pauseButton.setAttribute("aria-pressed", String(paused));
     audio.setActive(!paused && bout !== null && !decided);
     sync();
   };
@@ -551,8 +567,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       if (drafted) void previews[side].setCharacter(0, { model: matchupModels(matchup)[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) }, appearances[side]).catch(previewFailed);
     }
   };
-  /** Begins a bout of `next`: the reel's trial `given`, or the one the pickers make. */
-  const begin = async (next: Matchup, given: Trial | null = null) => {
+  /** Begins a bout of `next`: the reel's trial `given`, or the one the pickers make, from a start drawn again where `restart`. */
+  const begin = async (next: Matchup, given: Trial | null = null, restart = false) => {
     if (beginButton.disabled) return;
     if (!given) {
       for (const side of SIDES) {
@@ -578,6 +594,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           for (const side of SIDES) { writeAttributes(query, side, attributes[side]); writeSkills(query, side, skills[side]); }
           query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
           query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
+          // The start drawn, within what the level allows, goes in the address, so the link plays this very bout again.
+          if (restart) {
+            const { min, max } = LEVELS[level].gap, nearest = Math.max(min, openingGap - REPLAY_SPREAD), farthest = Math.min(max, openingGap + REPLAY_SPREAD);
+            query.set("gap", String(Number((nearest + Math.random() * (farthest - nearest)).toFixed(3))));
+          }
           for (const side of SIDES) query.set(`${side}.loadout`, SIDES.map((hand) => loadoutPickers[side][hand].value).join(","));
           const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
           context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view));
@@ -666,14 +687,18 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     you = youPicker.value === "left" || youPicker.value === "right" ? youPicker.value : null;
     void begin(fromPickers());
   });
-  for (const [button, value] of [[pauseButton, true], [need("resume"), false]] as const) {
+  for (const button of [pauseButton, need("resume")]) {
     for (const type of ["pointerdown", "pointermove"]) button.addEventListener(type, event => event.stopPropagation());
-    button.addEventListener("click", () => { button.blur(); setPaused(value); });
+    button.addEventListener("click", () => { button.blur(); setPaused(button === pauseButton && !paused); });
   }
   /** Plays the reel's trial `k`. */
   const playTrial = (k: number) => { at = k; const one = trials![k]!; void begin({ left: one.world.recipe.left, right: one.world.recipe.right }, one); };
-  /** The bout under way again: the trial, or a new bout of the pickers' choices. */
-  const replay = () => trial ? playTrial(at) : void begin(matchup);
+  /**
+   * The bout under way again: the trial as it was recorded, or a new bout of the pickers' choices
+   * from a start drawn again. The minds draw nothing by chance, so the same start is the same bout
+   * to the bit; another start is another bout, as an evaluation's bouts differ by their gaps.
+   */
+  const replay = () => trial ? playTrial(at) : void begin(matchup, null, true);
   for (const id of ["restart", "bout-end-replay"]) need(id).addEventListener("click", replay);
   for (const id of ["random-replay", "bout-end-random"]) need(id).addEventListener("click", () => void begin(redrawn()));
   for (const id of ["leave", "bout-end-leave"]) need(id).addEventListener("click", setup);

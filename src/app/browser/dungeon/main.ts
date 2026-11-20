@@ -8,7 +8,7 @@ import { solidGeometry } from "../render/solid-geometry.ts";
 import { viewControls } from "../ui/view-controls.ts";
 import { cameraControls } from "../ui/camera-controls.ts";
 import type { Control } from "../ui/controls.ts";
-import { readViewSettings, viewSearch, type ViewSettings } from "../../../game/appearance/view.ts";
+import { CAMERA_MODES, readViewSettings, viewSearch, type ViewSettings } from "../../../game/appearance/view.ts";
 import { boundary, cutAway, CUT_AWAY, fogMask, WALL_HEIGHT } from "../../../game/dungeon/fog.ts";
 import { isFloor } from "../../../game/dungeon/map.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
@@ -84,7 +84,9 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
   const partyList = need<HTMLOListElement>("party-list");
   const { heroChoices, seedInput, choice, attributePanel, loadoutPanel, mindPanel,
     scenario, quality, partyCommander, enemyCommander, writeCommanders, heroLabel } = setup;
-  let view = readViewSettings(location.search, { view: "world", camera: "isometric", projection: "orthographic" });
+  // Every camera but Side: it stands level and close beside the hero, where a room's wall is in its way.
+  const cameras = CAMERA_MODES.filter(mode => mode !== "side");
+  let view = readViewSettings(location.search, { view: "world", camera: "isometric", projection: "orthographic" }, cameras);
   let profile: ReturnType<typeof sceneProfile> | null = null;
   let geometry: ReturnType<typeof solidGeometry> | null = null;
   let geometryVersion = "";
@@ -190,7 +192,7 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
       context.replace(viewSearch(context.address.search, view) + context.address.hash);
       for (const control of viewFields) control.refresh();
     };
-    viewFields.push(...viewControls(() => view, chooseView));
+    viewFields.push(...viewControls(() => view, chooseView, cameras));
     need("dungeon-view-controls").append(...viewFields.map(control => control.element));
     need("pause-button").before(meter.element);
     const abort = new AbortController();

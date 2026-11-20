@@ -77,7 +77,7 @@ const FLOOR = 200;
  * is logged (`mind-log.ts`), and the Thinking section shows the log up to the time shown. It is drawn in one
  * of two views: World, the human model's skin (`skin.ts`), wearing the loadout's clothing, or
  * Tactical, the collision shapes themselves (`src/app/browser/render/body-shapes.ts`); what a hand holds is drawn as its shapes
- * in both. A Free, an Isometric or a Chase camera follows it (`camera.ts`).
+ * in both. A Free, an Isometric, a Chase or a Side camera follows it (`camera.ts`).
  *
  * The body is heard (`sound-log.ts`): its touches, its air, and the scenario's own instruments,
  * logged at the mind's time and played as the time shown passes them, so a replay sounds as the

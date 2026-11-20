@@ -1,7 +1,7 @@
 /** Presentation choices shared by body viewers; the first entry in each list is the default. */
 export const VIEW_MODES = ["world", "tactical"] as const;
 export type ViewMode = (typeof VIEW_MODES)[number];
-export const CAMERA_MODES = ["free", "isometric", "chase"] as const;
+export const CAMERA_MODES = ["free", "isometric", "chase", "side"] as const;
 export type CameraMode = (typeof CAMERA_MODES)[number];
 export const PROJECTIONS = ["orthographic", "perspective"] as const;
 export type Projection = (typeof PROJECTIONS)[number];
@@ -14,12 +14,15 @@ export interface ViewSettings {
 
 const DEFAULT_VIEW: ViewSettings = Object.freeze({ view: "world", camera: "free", projection: "orthographic" });
 
-/** Read the common presentation choices, retaining the caller's defaults for absent or invalid values. */
-export function readViewSettings(search: string, defaults: ViewSettings = DEFAULT_VIEW): ViewSettings {
+/**
+ * Read the common presentation choices, retaining the caller's defaults for absent or invalid
+ * values; a camera is valid where it is one of `cameras`, those the screen offers.
+ */
+export function readViewSettings(search: string, defaults: ViewSettings = DEFAULT_VIEW, cameras: readonly CameraMode[] = CAMERA_MODES): ViewSettings {
   const query = new URLSearchParams(search);
   return {
     view: VIEW_MODES.find(value => value === query.get("view")) ?? defaults.view,
-    camera: CAMERA_MODES.find(value => value === query.get("camera")) ?? defaults.camera,
+    camera: cameras.find(value => value === query.get("camera")) ?? defaults.camera,
     projection: PROJECTIONS.find(value => value === query.get("projection")) ?? defaults.projection,
   };
 }

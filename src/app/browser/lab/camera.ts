@@ -5,15 +5,16 @@ import type { CameraMode, Projection } from "../../../game/appearance/view.ts";
 import { followCameraAngles, orthoExtents, VIEW_CAMERA } from "../render/camera-math.ts";
 
 /**
- * **How the lab's camera follows the body.** One orbit camera, in one of three ways:
+ * **How the lab's camera follows the body.** One orbit camera, in one of four ways:
  *
  * - **Free**: the pointer orbits, pans and zooms, and the target follows the pelvis softly.
  * - **Isometric**: the classic isometric angle -- a quarter turn off the axes, looking down at
  *   atan(1/sqrt 2), about 35.3 deg -- held, following the pelvis. Orthographic draws it flat, as
  *   isometric art is drawn; Perspective draws the same view in depth.
  * - **Chase**: behind the body's facing, a little above it, turning after it.
+ * - **Side**: beside the body, which faces the right of the frame, turning with it.
  *
- * In Isometric and Chase the pointer does not turn or pan the camera; the wheel zooms in all three.
+ * Only in Free does the pointer turn or pan the camera; the wheel zooms in all four.
  * The body is read from the pelvis node's position and rotation, never a world matrix, whose cache
  * the first reader in a frame freezes; and a replay, which poses the nodes, is followed like the
  * live body.

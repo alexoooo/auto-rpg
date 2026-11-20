@@ -1,10 +1,11 @@
 import "@babylonjs/core/Engines/AbstractEngine/abstractEngine.timeQuery.js";
 import "@babylonjs/core/Engines/Extensions/engine.query.js";
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine.js";
+import { floatingPanel } from "./floating-panel.ts";
 import "./frame-meter.css";
 
 /**
- * A screen's frame counter and timing popover, which say where a frame goes:
+ * A screen's frame counter and its timing panel, which floats by it (`floatingPanel`). They say where a frame goes:
  * - frames and completed physics steps a second, and the mean frame interval;
  * - `physics`: the world's steps a frame took -- the run's plan, the bodies' control and the solver
  *   (`World.advance`) -- with how many (x2 is 60 fps at 120 Hz; more means it is catching up);
@@ -22,31 +23,13 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
   element.className = "frame-meter";
   summary.type = "button";
   summary.title = "Rendered frames and completed physics steps per second; timing details";
-  summary.setAttribute("aria-expanded", "false");
-  output.popover = "auto";
   output.setAttribute("role", "group");
   output.setAttribute("aria-label", "Frame timing");
-  summary.popoverTargetElement = output;
   summary.textContent = "FPS …";
   output.title = "Physics includes world control and simulation. Other includes camera, UI and draw submission. GPU timing depends on browser support.";
   element.append(summary, output);
   for (const type of ["pointerdown", "pointermove"]) element.addEventListener(type, event => event.stopPropagation(), { signal });
-  summary.addEventListener("keydown", event => {
-    if (event.key === " " || event.key === "Enter" || event.key === "Escape" && output.matches(":popover-open")) event.stopPropagation();
-  }, { signal });
-  const place = () => {
-    if (!output.matches(":popover-open")) return;
-    const box = summary.getBoundingClientRect();
-    const below = box.bottom + 6;
-    output.style.top = `${below + output.offsetHeight <= innerHeight - 8 ? below : Math.max(8, box.top - output.offsetHeight - 6)}px`;
-    output.style.right = `${Math.max(8, Math.min(innerWidth - box.right, innerWidth - output.offsetWidth - 8))}px`;
-  };
-  output.addEventListener("toggle", () => {
-    summary.setAttribute("aria-expanded", String(output.matches(":popover-open")));
-    place();
-  }, { signal });
-  window.addEventListener("resize", place, { signal });
-  document.addEventListener("scroll", place, { signal, capture: true });
+  const place = floatingPanel(summary, output, signal);
   const timed = Boolean(engine.getCaps().timerQuery);
   // Other engine readers share this counter and keep their own deltas.
   if (timed) engine.captureGPUFrameTime(true);

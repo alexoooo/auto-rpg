@@ -78,7 +78,8 @@ export async function bootCrowd(context: ScreenContext): Promise<void> {
     }, rotation: still, rest: still };
   };
   const subjects: ArenaSubjects = { left: middle("left"), right: middle("right") };
-  const rig = arenaCameraRig(camera, readArenaView("", null));
+  // A crowd is watched with the Free camera: Side holds two fighters in its frame, not two crowds.
+  const rig = arenaCameraRig(camera, readArenaView("?camera=free", null));
   cameraControls(canvas, { signal: context.signal, enabled: () => true, camera: rig });
 
   // A bar for each body, in its line's order, its side's colour.
