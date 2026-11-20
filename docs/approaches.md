@@ -361,7 +361,13 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   silent 18.9% against 15.8%; and the walker, a valued chooser looking one Option ahead, stopped
   short of its place on a plain hold, a leaf no longer walking on to it. The leaf's time is the
   tail's `line` (held Options priced to the horizon and walks to sites, 22 of its 30 points of a
-  bout) more than its tries run again (8). Dropped on the knockout bar. *Shown.*
+  bout) more than its tries run again (8). Dropped on the knockout bar. With the walks to sites
+  kept at a leaf (a whole leaf reads every pair, a walk run on to its arrived leaf, as the tail
+  does): the 99th-percentile step 16.3 ms against the tail's 30.3, the median 1.47 against 1.35;
+  its mirror knocked out within 60 s in 78.2% (72.3 to 83.2) of 216 bouts against the tail's 91.7%
+  on the same code, standing silent 24.1% against 15.6%. It fought less again, not more. What is
+  left cut, the state each try leaves and the held leaf there, is the tail's own: the speed came from
+  what keeps the mirror fighting. *Shown.*
 - **A value of a state fitted by hand-chosen terms does not stand in for the tail**: fitted to the
   life each side lost from a search's root to the bout's end, it is the two lives and the time
   left (R² 0.62 held out, every term of range or posture under 0.05 of a life); fitted to the
