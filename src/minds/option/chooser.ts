@@ -362,18 +362,6 @@ function again({ horizon, modelAt, child, price, leaf }: Rerun, pair: Pair, at: 
 }
 
 /**
- * **`pair` run again and again from `at` to the horizon, each try ending where it began** (the
- * staying leaf): the life each deals and takes, as many tries as fit in the time left, and
- * its orders once, priced at `at`. -Infinity where a try takes no time.
- */
-function stays({ horizon, modelAt, price }: Rerun, pair: Pair, at: Situation, from: Tally): number {
-  const terms = modelAt(pair, at)!, duration = terms.duration;
-  if (!(duration > 0) || from.seconds >= horizon) return -Infinity;
-  const tries = (horizon - from.seconds) / duration;
-  return price({ dealt: from.dealt + tries * terms.dealt, taken: from.taken + tries * terms.taken, orders: from.orders + Math.min(1, tries) * terms.orders, seconds: horizon }, at);
-}
-
-/**
  * **A kind of leaf** (`TreeConfig.leaf`): its name on the page, whether a whole leaf walks on to
  * each site and takes the best there (`sites`), and what an Option not open is worth run again to
  * the horizon from a leaf (`again`).
@@ -386,12 +374,10 @@ interface LeafKind {
 
 /**
  * **The kinds of leaf**: `tail`, the game's, each try where it ends, the body held where one leaves
- * (`again`), and a walk to each site; `staying`, each try ending where it began, its own model's
- * terms alone (`stays`), and no walk to a site: fewer states made, so a search is quicker.
+ * (`again`), and a walk to each site.
  */
 const LEAVES = Object.freeze({
   tail: Object.freeze({ label: "Tail", sites: true, again }),
-  staying: Object.freeze({ label: "Staying (each try where it began)", sites: false, again: stays }),
 } satisfies Readonly<Record<string, LeafKind>>);
 type LeafName = keyof typeof LEAVES;
 
@@ -661,7 +647,7 @@ interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs
 /** Whether `name` names a kind of leaf (`LEAVES`). */
 const isLeaf = (name: unknown): name is LeafName => typeof name === "string" && Object.hasOwn(LEAVES, name);
 
-/** The tree's kind of leaf (`LEAVES`): a choice, the tail written as none, so a config on the tail equals the preset. */
+/** The tree's kind of leaf (`LEAVES`): a choice, the tail written as none, so a config on the tail equals the preset; shown where there is more than one. */
 const LEAF_FIELD: PartField<TreeConfig> = {
   kind: "choice", key: "leaf", label: "Leaf", options: () => Object.entries(LEAVES).map(([name, kind]) => [name, kind.label] as const),
   read: (config) => config.leaf ?? "tail",
@@ -679,7 +665,7 @@ const LEAF_FIELD: PartField<TreeConfig> = {
  * targets keeps the one it runs at `KEEP` s.
  */
 export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), LEAF_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : []], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "tree" }, keys: { kind: true, runs: true, exploration: true, leaf: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
