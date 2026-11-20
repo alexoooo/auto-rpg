@@ -3,8 +3,8 @@
 **The owner's standard**: "the most important thing is to maintain and even increase the code
 quality of this project. we need to implement everything in the most simple and general way that
 we can"; "I always want everything to be just a skill. I don't want any ad-hoc hard-coded hacks."
-A new capability enters by the config path those already there take. Work not yet kept lives in a
-worktree (`.tmp/worktrees/<name>/`), never on main behind a helper, a preset or a flag.
+A new capability enters by the config path those already there take, on main, where the owner can
+pick it in the game before it is judged: "the first thing I want is to see it".
 
 [README](README.md) says what the game is, the documents below the rest. Work toward the owner's
 goal runs unattended, overnight included. A second session that reviews it reads read-only and
