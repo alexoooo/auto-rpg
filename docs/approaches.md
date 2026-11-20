@@ -320,6 +320,10 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   itself at 100, about 0.473 (0.435 to 0.511) over 576 bouts held out; at 50 against 100, about
   0.507 (0.472 to 0.542), its deciding step's 99th percentile 1.8 times less: the game plays 50
   (`RUNS`). *Shown.*
+- **An open Option's model asked once a state saves no time worth reading**: a held leaf asks the
+  same answer about nine times (436 asks on 56 pairs a search), yet kept per state it read a
+  99th-percentile step of 16.59 ms between the unchanged code's 17.51 and 16.66 in one quiet
+  session. *Shown.*
 - **A kept branch has little to keep**: searches come every 0.2 s, mid-Option; of the previous
   tree's runs, 8.5% and 20.6% (two mirror bouts) lie under states the new tree's same Option
   reaches near, before those are priced again for the new path. Not built. *Counted.*
