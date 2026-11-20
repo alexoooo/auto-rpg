@@ -177,7 +177,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   context.own(flashes.dispose);
   context.signal.throwIfAborted();
 
-  // Setup: a contender panel on each side, each with its character.
+  // Setup: each side has a card over its end of the ring, with its portrait, and a panel of its
+  // choices. One panel shows at a time, under the ring: the one whose card was chosen.
   let matchup: Matchup = readMatchup(location.search), you: Side | null = readYou(location.search);
   let appearances = readAppearances(location.search, matchup);
   let view = readArenaView(location.search, you);
@@ -203,13 +204,25 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const characterOf = (side: Side, character: string, control: string) => ({ model: characterNamed(character).model, character,
     attributes: controlCharacter(control, attributes[side]), ...(skills[side] ? { skills: skills[side] } : {}) });
   const matchupLabel = (side: Side): string => characterNamed(matchup[side]).label;
-  const startPreviews: (() => void)[] = [];
+  const startPreviews: (() => Promise<void>)[] = [];
+  const cards = {} as Record<Side, HTMLButtonElement>, panels = {} as Record<Side, HTMLElement>;
+  /** Shows `chosen`'s panel and marks its card. */
+  const choose = (chosen: Side) => {
+    for (const side of SIDES) { cards[side].setAttribute("aria-pressed", String(side === chosen)); panels[side].hidden = side !== chosen; }
+  };
   for (const side of SIDES) {
-    const panel = document.createElement("section");
-    panel.className = "contender"; panel.dataset.side = side;
+    const panel = panels[side] = document.createElement("section");
+    panel.className = "contender"; panel.dataset.side = side; panel.id = `contender-${side}`;
     const head = document.createElement("header"), title = document.createElement("h2");
     head.className = "contender-head"; title.textContent = ARENA_SIDES[side].label; head.append(title);
     panel.style.setProperty("--side-colour", ARENA_SIDES[side].colour);
+    const card = cards[side] = document.createElement("button"), cardSide = document.createElement("span"), cardName = document.createElement("span");
+    card.type = "button"; card.className = "contender-card"; card.dataset.side = side;
+    card.setAttribute("aria-controls", panel.id);
+    card.style.setProperty("--side-colour", ARENA_SIDES[side].colour);
+    cardSide.className = "contender-side"; cardSide.textContent = ARENA_SIDES[side].label;
+    cardName.className = "contender-name";
+    card.addEventListener("click", () => choose(side), { signal: lifetime.signal });
     const field = document.createElement("label"), name = document.createElement("span"), select = document.createElement("select");
     field.className = "field"; name.className = "field-name"; name.textContent = "Character";
     for (const character of CHARACTERS) {
@@ -233,7 +246,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     refreshAppearance();
     appearanceField.append(appearanceName, appearancePicker);
     const choices = document.createElement("div"); choices.className = "contender-choices";
-    field.append(name, select); choices.append(field, appearanceField); panel.append(head, preview, choices);
+    // The pickers are one group, so they share a row where the screen has room for it.
+    const picks = document.createElement("div"); picks.className = "contender-picks";
+    field.append(name, select); picks.append(field, appearanceField); choices.append(picks); panel.append(head, choices);
+    card.append(cardSide, preview, cardName);
     const attributePanel = attributeEditors[side] = attributeEditor({ model: matchupModels(matchup)[side], attributes: attributes[side] }, {
       change: (draft, resolved) => {
         attributes[side] = draft;
@@ -251,7 +267,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     controller.append(control); controlPickers[side] = control;
     const hands = {} as Record<Side, HTMLSelectElement>, equipment = document.createElement("div");
     equipment.className = "contender-equipment";
-    choices.append(equipment, controller);
+    picks.append(equipment, controller);
     for (const hand of SIDES) {
       const field = document.createElement("label"), picker = document.createElement("select");
       field.className = "field"; field.textContent = `${hand === "left" ? "Left" : "Right"} hand`;
@@ -313,12 +329,13 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     mindOf[side] = () => editor.config;
     mindFaultsOf[side] = () => editor.faults;
     control.addEventListener("change", () => { control.blur(); showSettings(MINDS[control.value]!.config); });
-    // What it holds before how it thinks: the mind's tree is last, and scrolls in what room is left.
+    // What it holds before how it thinks: the mind's tree is last.
     // The minds offered are those the body, holding what it holds, can carry out (`controlsFor`).
     // `fromLink`: the first listing, where the side's mind is the link's.
     let fromLink = true;
     const refresh = refreshChoices[side] = () => {
       refreshAppearance();
+      cardName.textContent = characterNamed(select.value).label;
       const model = bodyOf(), hands = modelHolds(model);
       equipment.hidden = !hands;
       for (const hand of SIDES) {
@@ -343,7 +360,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     };
     for (const hand of SIDES) hands[hand].addEventListener("change", () => { hands[hand].blur(); refresh(); });
     refresh();
-    need("matchup").append(panel);
+    need("contenders").append(card); need("matchup").append(panel);
     pickers[side] = select;
     const previewCharacter = () => ({ model: bodyOf(), attributes: controlCharacter(control.value, attributes[side]) });
     select.addEventListener("change", () => {
@@ -363,7 +380,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     }, { signal: lifetime.signal });
     startPreviews.push(() => {
       const character = previewCharacter(), appearance = appearances[side];
-      void showHeroLineup(preview, [character], lifetime.signal, [appearance], artMissed).then(view => {
+      return showHeroLineup(preview, [character], lifetime.signal, [appearance], artMissed).then(view => {
         context.signal.throwIfAborted();
         previews[side] = view;
         const current = previewCharacter();
@@ -372,6 +389,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       }).catch(previewFailed);
     });
   }
+  choose("left");
 
   const levelPicker = need<HTMLSelectElement>("arena-level"), levelField = levelPicker.closest("label")!;
   for (const [value, definition] of Object.entries(LEVELS)) levelPicker.append(Object.assign(document.createElement("option"), { value, textContent: definition.label }));
@@ -889,9 +907,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   engine.runRenderLoop(() => {
     sync();
     if (context.busy) { firstFrame = true; meter.reset(); return; }
+    // The characters first: the stage's room is asked for once both portraits have drawn or failed.
     if (screen === "setup" && startPreviews.length) {
-      void prepareLevel(level);
-      for (const start of startPreviews.splice(0)) start();
+      void Promise.all(startPreviews.splice(0).map(start => start())).then(() => { if (!context.signal.aborted) void prepareLevel(level); });
     }
     if (firstFrame) meter.reset();
     const shownBefore = shownTime;
@@ -911,7 +929,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     measurement?.record({ ...timing, simulated: shownTime - shownBefore, time: shownTime, hz: bout?.link.hz ?? 0,
       active: !!bout && !paused && !bout.news?.verdict });
   });
-  window.addEventListener("resize", () => engine.resize(), { signal: context.signal });
+  // The stage is a band while the setup shows and the whole screen in a fight, so its own size is watched, not the window's.
+  const stageSize = new ResizeObserver(() => engine.resize());
+  stageSize.observe(canvas);
+  context.own(() => stageSize.disconnect());
   context.own(() => measurement?.dispose());
   /**
    * From a console: the bout's world (`WorldLink`, its tape by `world.tape()`), its verdict, its

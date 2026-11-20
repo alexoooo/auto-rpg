@@ -8,8 +8,11 @@ import type { ArenaSeat as Side } from "../../../game/arena/seat.ts";
 
 export type ArenaSubjects = Readonly<Record<Side, CameraSubject>>;
 
-/** Arena setup framing, set by eye. */
-const OVERVIEW = Object.freeze({ pitch: .78, distance: 39, width: 31 });
+/**
+ * Arena setup framing, set by eye for the band the setup shows the stage in: `distance` where the
+ * band is wide, and farther where it is narrow, so the room stays between the contenders' cards.
+ */
+const OVERVIEW = Object.freeze({ pitch: .78, distance: 32, width: 44 });
 
 /** The Arena supplies its selected fighter, or the fighters' midpoint and the line from the left one to the right, to the common camera. */
 export function arenaCameraRig(camera: FreeCamera, initial: ArenaView) {

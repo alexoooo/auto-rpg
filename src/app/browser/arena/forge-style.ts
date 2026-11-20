@@ -22,15 +22,17 @@ export async function loadForgeStyle(scene: Scene) {
   // Decode image maps to bitmaps before upload: an HTMLImageElement upload converts its
   // pixels synchronously, which costs seconds at startup on an integrated GPU.
   if (typeof createImageBitmap === "function") engine._features.forceBitmapOverHTMLImageElement = true;
+  // The canvas's own size is watched, not the window's: the Arena's stage changes size while the window stays as it is.
+  const canvas = engine.getRenderingCanvas();
   const resize = () => {
-    const canvas = engine.getRenderingCanvas();
     if (!canvas) return;
     engine.setHardwareScalingLevel(Math.max(1, canvas.clientWidth / 1920, canvas.clientHeight / 1080));
     engine.resize();
   };
   resize();
-  window.addEventListener("resize", resize);
-  scene.onDisposeObservable.addOnce(() => window.removeEventListener("resize", resize));
+  const sized = new ResizeObserver(resize);
+  if (canvas) sized.observe(canvas);
+  scene.onDisposeObservable.addOnce(() => sized.disconnect());
   const art = await loadArtAssets();
   const [kit, materials] = await Promise.all([loadTemplates(scene, "forge-kit.glb", art), forgeMaterials(scene, art)]);
   return { materials, kit };

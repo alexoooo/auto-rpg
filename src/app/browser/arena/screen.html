@@ -16,26 +16,33 @@
   <div id="arena-view-controls" role="group" aria-label="View controls"></div>
 </div>
 <!-- Setup covers the arena because no bout exists yet. Pause does not: its compact sibling
-     below leaves the frozen arena visible. -->
+     below leaves the frozen arena visible. While setup shows, the stage is the band at the top,
+     the ring; the same layout serves a phone and a desktop. -->
 <div id="curtain">
   <header class="duel-title">
     <h1>Arena</h1>
   </header>
+  <!-- A card for each side, over its end of the ring. Choosing a card shows that side's panel
+       below. Filled by src/app/browser/arena/main.ts. -->
+  <div id="contenders"></div>
   <div class="bout-actions">
     <label class="field bout-choice">Level <select id="arena-level" aria-label="Arena level"></select></label>
     <button id="begin" data-initial-focus class="action" type="button" disabled>Fight</button>
-  </div>
-  <!-- Filled by src/app/browser/arena/main.ts from the core's models, so an option that is offered is
-       one the core has. Its children are laid straight into this grid. -->
-  <div id="matchup"></div>
-  <footer class="duel-footer">
-    <button id="help-open" class="link" type="button">How to play</button>
-    <a href="?play=ratings&amp;evaluation=tournament">Ratings</a>
-    <!-- Where a case opened from the Ratings returns (src/app/browser/arena/case-link.ts). -->
-    <a id="case-back" hidden>&larr; Back to the case's ratings</a>
     <p class="note" id="boot-note">Loading&hellip;</p>
-    <a href="./">&larr; Main menu</a>
-  </footer>
+  </div>
+  <!-- This part alone scrolls. -->
+  <div class="setup-choices">
+    <!-- Each side's panel. Filled by src/app/browser/arena/main.ts from the core's models, so an
+         option that is offered is one the core has. -->
+    <div id="matchup"></div>
+    <footer class="duel-footer">
+      <button id="help-open" class="link" type="button">How to play</button>
+      <a href="?play=ratings&amp;evaluation=tournament">Ratings</a>
+      <!-- Where a case opened from the Ratings returns (src/app/browser/arena/case-link.ts). -->
+      <a id="case-back" hidden>&larr; Back to the case's ratings</a>
+      <a href="./">&larr; Main menu</a>
+    </footer>
+  </div>
 </div>
 <aside id="pause-menu" class="gone" aria-label="Game paused">
   <div class="pause-copy">

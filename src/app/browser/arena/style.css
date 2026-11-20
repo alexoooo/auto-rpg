@@ -311,57 +311,83 @@
 
 /* ---------- the setup screen ---------- */
 
-/* Standing contenders frame the live ring; the setup owns only its choices and actions. */
+/*
+ * One layout for a phone and a desktop. The ring is a band across the top: the stage, scaled down
+ * to it, with a contender's card standing over each end. Under it are the level and Fight, always
+ * in view, and then the chosen contender's choices, the one part that scrolls.
+ */
+:where(#screen-root[data-screen="arena"]) { --ring: clamp(150px, 40dvh, 520px); }
+:where(#screen-root[data-screen="arena"]):has(#curtain:not(.gone)) #stage { bottom: auto; height: var(--ring); }
 :where(#screen-root[data-screen="arena"]) #curtain {
   --gold: #cfb17d;
+  --floor: #0c0a0b;
   position: fixed;
   inset: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: clamp(220px, 25vw, 420px) minmax(0, 1fr) clamp(220px, 25vw, 420px);
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  column-gap: 20px;
-  padding: 28px 3vw 22px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--ring) auto minmax(0, 1fr);
   font-family: Georgia, "Times New Roman", serif;
-  background: linear-gradient(90deg, #0a0809cf, transparent 37%, transparent 63%, #0a0809cf),
-    linear-gradient(#08080bd9, transparent 23%, transparent 68%, #080609e8);
+  background: linear-gradient(transparent var(--ring), var(--floor) var(--ring));
 }
 :where(#screen-root[data-screen="arena"]) #curtain.gone { visibility: hidden; pointer-events: none; }
 :where(#screen-root[data-screen="arena"]):has(#curtain:not(.gone)) #hud { visibility: hidden; }
-:where(#screen-root[data-screen="arena"]) #matchup { display: contents; }
-:where(#screen-root[data-screen="arena"]) #curtain .duel-title { grid-column: 1 / -1; grid-row: 1; text-align: center; pointer-events: none; }
+:where(#screen-root[data-screen="arena"]) #curtain .duel-title { grid-area: 1 / 1; align-self: start; justify-self: center; z-index: 1; padding-top: 10px; pointer-events: none; }
 :where(#screen-root[data-screen="arena"]) #curtain .duel-title h1 {
-  margin: 0; font-size: clamp(26px, 3vw, 42px); font-weight: 400;
+  margin: 0; padding-left: .24em; font-size: clamp(20px, 3vw, 38px); font-weight: 400;
   letter-spacing: .24em; color: #eadbc2; text-shadow: 0 3px 16px #000;
 }
-:where(#screen-root[data-screen="arena"]) #curtain .contender {
-  position: relative;
-  display: grid;
-  /* Each portrait keeps its space while the editor scrolls below it. */
-  grid-template-rows: auto clamp(144px, 34vh, 340px) minmax(0, 1fr);
-  min-height: 0;
-  padding: 24px 10px 22px;
-  background: radial-gradient(ellipse at 50% 62%, #63221d35, transparent 66%),
-    linear-gradient(180deg, #16131600, #110d117d 65%, #140f10db);
-  border-bottom: 1px solid #a4814d88;
+/* The cards flank the room the stage shows, which is about as wide as the ring is tall; a narrow screen squeezes the gap between them. */
+:where(#screen-root[data-screen="arena"]) #contenders {
+  grid-area: 1 / 1; min-height: 0;
+  display: grid; grid-template-columns: auto minmax(0, calc(var(--ring) * 1.15)) auto; grid-template-rows: minmax(0, 1fr); justify-content: center;
+  background: linear-gradient(90deg, #0a0809cf, transparent 34%, transparent 66%, #0a0809cf),
+    linear-gradient(#08080bd9, transparent 26%, transparent 72%, var(--floor));
 }
-:where(#screen-root[data-screen="arena"]) #curtain .contender::before {
-  content: ""; position: absolute; inset: 0 12px 0; pointer-events: none;
+:where(#screen-root[data-screen="arena"]) .contender-card {
+  position: relative; grid-row: 1; min-height: 0; width: clamp(96px, 26vw, 300px);
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; gap: 2px;
+  margin: 0; padding: 14px 6px 6px;
+  font: inherit; color: #ecddc5; background: none; cursor: pointer;
+  border: 0; border-bottom: 3px solid color-mix(in srgb, var(--side-colour) 28%, transparent); border-radius: 0;
+}
+:where(#screen-root[data-screen="arena"]) .contender-card[data-side="left"] { grid-column: 1; }
+:where(#screen-root[data-screen="arena"]) .contender-card[data-side="right"] { grid-column: 3; }
+:where(#screen-root[data-screen="arena"]) .contender-card::before {
+  content: ""; position: absolute; inset: 0 6px 0; pointer-events: none;
   border: 1px solid #ad885032; border-bottom: 0;
   border-radius: 48% 48% 0 0 / 22% 22% 0 0;
   mask-image: linear-gradient(#000, transparent 88%);
 }
-:where(#screen-root[data-screen="arena"]) #curtain .contender[data-side="left"] { grid-column: 1; grid-row: 2 / -1; }
-:where(#screen-root[data-screen="arena"]) #curtain .contender[data-side="right"] { grid-column: 3; grid-row: 2 / -1; }
+:where(#screen-root[data-screen="arena"]) .contender-card[aria-pressed="true"] {
+  border-bottom-color: var(--side-colour);
+  background: radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--side-colour) 26%, transparent), transparent 68%);
+}
+:where(#screen-root[data-screen="arena"]) .contender-side {
+  font-size: clamp(10px, 1.5vw, 13px); letter-spacing: .14em; white-space: nowrap;
+  text-transform: uppercase; color: var(--side-colour, #bca98c); text-shadow: 0 1px 6px #000;
+}
+:where(#screen-root[data-screen="arena"]) .contender-name { font-size: clamp(13px, 1.7vw, 18px); text-shadow: 0 1px 6px #000; }
+:where(#screen-root[data-screen="arena"]) .setup-choices {
+  grid-area: 3 / 1; min-height: 0; padding: 4px 14px 58px;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #8b7150 #140f10;
+}
+:where(#screen-root[data-screen="arena"]) #curtain .contender {
+  width: min(1080px, 100%); margin: 0 auto; padding: 8px 12px 14px;
+  border-top: 2px solid var(--side-colour);
+  background: linear-gradient(#1b1417d9, #140f10f5);
+}
 :where(#screen-root[data-screen="arena"]) #curtain .contender-head { text-align: center; }
 :where(#screen-root[data-screen="arena"]) #curtain .contender-head h2 {
-  margin: 4px 0 0; font-size: 13px; font-weight: 400; letter-spacing: .24em;
+  margin: 0 0 8px; font-size: 13px; font-weight: 400; letter-spacing: .24em;
   text-transform: uppercase; color: var(--side-colour, #bca98c);
 }
-:where(#screen-root[data-screen="arena"]) .contender-choices { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #8b7150 #140f10; padding-right: 4px; }
-:where(#screen-root[data-screen="arena"]) .contender-choices > * { flex: none; }
-:where(#screen-root[data-screen="arena"]) .contender-equipment { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr)); gap: 8px; }
-:where(#screen-root[data-screen="arena"]) #curtain .contender-choices > details[open] > summary { position: sticky; top: 0; z-index: 1; padding: 2px 0; background: #140f10; }
+/* Where the screen has room, the pickers share a row, and the attributes stand beside the skills. The mind's tree takes the whole width. */
+:where(#screen-root[data-screen="arena"]) .contender-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); align-items: start; gap: 8px 14px; }
+:where(#screen-root[data-screen="arena"]) .contender-choices > :is(.contender-picks, .mind-notes, .settings) { grid-column: 1 / -1; }
+:where(#screen-root[data-screen="arena"]) .contender-picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); align-items: end; gap: 8px 14px; }
+:where(#screen-root[data-screen="arena"]) .contender-equipment { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 96px), 1fr)); gap: 8px; }
+:where(#screen-root[data-screen="arena"]) #curtain .contender-choices > details > summary { padding: 5px 0; }
 :where(#screen-root[data-screen="arena"]) #curtain .settings summary { cursor: pointer; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #b7a790; }
 :where(#screen-root[data-screen="arena"]) #curtain .settings .field { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: center; margin-top: 6px; font-size: 12px; color: #b7a790; }
 :where(#screen-root[data-screen="arena"]) #curtain .settings select, :where(#screen-root[data-screen="arena"]) #curtain .settings input { padding: 6px 8px; font: 13px Georgia, serif; letter-spacing: 0; text-transform: none; }
@@ -376,47 +402,30 @@
 :where(#screen-root[data-screen="arena"]) #curtain .contender .field-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 :where(#screen-root[data-screen="arena"]) #curtain .field-name { color: #b7a790; font-size: 12px; }
 :where(#screen-root[data-screen="arena"]) #curtain select {
-  width: 100%; min-width: 0; padding: 10px 12px; font: 19px Georgia, serif;
+  width: 100%; min-width: 0; padding: 10px 8px; font: clamp(16px, 1.3vw, 19px) Georgia, serif;
   color: #ecddc5; text-align: center; background: #141013df;
   border: 1px solid #8b684861; border-radius: 0; cursor: pointer;
 }
-:where(#screen-root[data-screen="arena"]) .bout-actions { grid-area: 2 / 2; align-self: end; justify-self: center;
-  display: grid; justify-items: center; gap: 16px; width: min(320px, 100%); }
+:where(#screen-root[data-screen="arena"]) .bout-actions { grid-area: 2 / 1; justify-self: center;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px 10px;
+  width: min(560px, 100%); padding: 8px 14px; }
 :where(#screen-root[data-screen="arena"]) .bout-choice { width: 100%; font-size: 12px; color: #b7a790; text-align: center; }
 :where(#screen-root[data-screen="arena"]) .bout-choice[aria-busy="true"] select { opacity: .7; }
+:where(#screen-root[data-screen="arena"]) .bout-actions .note { grid-column: 1 / -1; margin: 0; min-height: 0; }
+:where(#screen-root[data-screen="arena"]) .bout-actions .note:empty { display: none; }
 :where(#screen-root[data-screen="arena"]) #begin {
-  width: min(240px, 100%); margin: 0;
-  padding: 14px 30px; font: 23px Georgia, serif; letter-spacing: .2em; text-transform: uppercase;
+  margin: 0;
+  padding: 10px 22px; font: clamp(17px, 1.5vw, 21px) Georgia, serif; letter-spacing: .2em; text-transform: uppercase;
   color: #f0dfbf; background: linear-gradient(#752c24, #391411); border: 1px solid #b68b57;
   border-radius: 0; box-shadow: inset 0 0 0 3px #1e0f0dcc, 0 5px 30px #0008;
 }
 :where(#screen-root[data-screen="arena"]) #begin:hover { background: linear-gradient(#8b382b, #512017); color: #fff0d4; }
 :where(#screen-root[data-screen="arena"]) #begin:disabled { color: #a09587; background: #221a19; cursor: progress; }
-:where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-column: 2; grid-row: 3; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px; padding-top: 16px; font-size: 12px; }
+:where(#screen-root[data-screen="arena"]) #curtain .duel-footer { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px; padding-top: 16px; font-size: 12px; }
 :where(#screen-root[data-screen="arena"]) #curtain .duel-footer a, :where(#screen-root[data-screen="arena"]) #curtain .link { padding: 0; color: #c9b596; background: none; border: 0; font: inherit; text-decoration: none; cursor: pointer; }
 :where(#screen-root[data-screen="arena"]) #curtain .duel-footer a:hover, :where(#screen-root[data-screen="arena"]) #curtain .link:hover { color: #ffebc9; text-decoration: underline; }
-:where(#screen-root[data-screen="arena"]) #curtain .duel-footer .note { margin: 0; min-height: 0; }
-:where(#screen-root[data-screen="arena"]) #curtain .duel-footer .note:empty { display: none; }
 :where(#screen-root[data-screen="arena"]) #curtain :focus-visible { outline: 2px solid #efd3a3; outline-offset: 4px; }
-@media (max-width: 820px) {
-  :where(#screen-root[data-screen="arena"]) #curtain { grid-template-columns: minmax(0, 540px); grid-template-rows: auto auto auto auto;
-    justify-content: center; align-content: start; padding: 16px 14px 68px; gap: 12px; overflow-y: auto; }
-  :where(#screen-root[data-screen="arena"]) #matchup { display: grid; gap: 14px; }
-  :where(#screen-root[data-screen="arena"]) .bout-actions { grid-area: 2 / 1; position: sticky; top: 0; z-index: 2;
-    grid-template-columns: minmax(0, 1fr) auto; justify-items: stretch; align-items: end; gap: 10px;
-    width: 100%; padding: 8px; border: 1px solid var(--edge); background: #140f10; }
-  :where(#screen-root[data-screen="arena"]) #curtain .contender[data-side] { grid-area: auto; grid-template-rows: auto 144px auto; padding: 12px;
-    background: linear-gradient(#1b1417d9, #140f10f5); }
-  :where(#screen-root[data-screen="arena"]) #curtain .contender-choices { overflow: visible; scrollbar-gutter: auto; padding-right: 0; }
-  :where(#screen-root[data-screen="arena"]) #curtain .contender-choices > details > summary { position: static; padding: 5px 0; }
-  :where(#screen-root[data-screen="arena"]) #curtain #begin { width: auto; padding: 10px 16px; font-size: 17px; }
-  :where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-area: 4 / 1; padding-top: 0; }
-  :where(#screen-root[data-screen="arena"]) #curtain select { font-size: 16px; padding: 10px 6px; }
-}
-@media (max-height: 620px) and (min-width: 821px) {
-  :where(#screen-root[data-screen="arena"]) #curtain { padding-top: 12px; padding-bottom: 16px; }
-  :where(#screen-root[data-screen="arena"]) #curtain .contender { padding: 8px; }
-}
+:where(#screen-root[data-screen="arena"]) #curtain .contender-card:focus-visible { outline-offset: -3px; }
 
 /* A panel taller than the window scrolls itself rather than its overlay: a grid with
    `place-items: center` clips a child taller than its cell at the *top*, so scrolling the overlay
