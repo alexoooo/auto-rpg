@@ -81,8 +81,8 @@ of a test.
 - **A fix adds no flag, cast, optional parameter or second copy.** A field every maker gives is
   required; what two modules need is one export of the module that owns it; a cast a type could
   carry is that type (a generic over the config, a type guard).
-- **An experiment is tried in a worktree** and lands as the general thing or is dropped: nothing
-  stays selectable because it was once tried.
+- **An experiment is a kind behind its contract**, selected by a config, or it is deleted on the
+  owner's word; never a flag, a string or an optional parameter in the code every kind shares.
 - **A list beside a registry is the registry**: what the registered parts offer (a Mind's Options,
   Move's gaits) is read from them, never written again by hand, so a part registered is a part in
   use; a test guards only what structure cannot.
