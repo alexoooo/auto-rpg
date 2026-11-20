@@ -55,7 +55,10 @@ its kind or running those tools.
   server `curl` reads; the look is then made headless with this machine's Edge
   (`msedge.exe --headless=new --remote-debugging-port=<port>`, a `--user-data-dir` under `.tmp/`),
   driven over its debugging protocol with Node's own `WebSocket`: `Runtime.evaluate` and
-  `Page.captureScreenshot`.
+  `Page.captureScreenshot`. A look at a given screen size is made the same way
+  (`Emulation.setDeviceMetricsOverride`, a phone's with `mobile: true`): the tools' own tab can
+  be zoomed, 307 px wide at a device pixel ratio of 2.5, and resizing its window does not change
+  that.
 - **A link that names its matchup starts the bout itself**: clicking Fight again restarts it and
   disposes the running world's worker.
 - **A hidden tab does not render**: check `document.visibilityState` and that `engine.frameId`
@@ -63,6 +66,11 @@ its kind or running those tools.
 - **The Arena's, crowd's and Crypt's worlds are in workers**: `await __arena.step(n)` (or
   `__crowd`, `__dungeon`) steps and draws; `__arena.world.tape()`, `__arena.verdict` and
   `__dungeon.run` read the state.
+- **A file at one address that names hashed files is fetched with `cache: "no-cache"`** (the art
+  list, `assets/generated/manifest.json`): GitHub Pages lets a browser keep a file ten minutes,
+  and a list kept from before a publish names files the publish replaced. Their requests fail,
+  and a body whose skin does not load is drawn as its plain shapes (`dresserFor`), which looks
+  like the Tactical view; the Arena's setup then says so.
 - `Material.isReady(mesh)` is false outside a render pass; use `mesh.material`, not
   `scene.materials`; after a hot reload, navigate.
 

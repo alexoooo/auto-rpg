@@ -63,9 +63,11 @@ function relaxPortrait(body: Puppet): void {
 
 /** The game's skins on bodies drawn from their specs (`puppetBody`). Each column has its own camera, so resizing
  * keeps the characters centred. This scene draws on load, selection and resize, with no animation loop.
- * Its lighting (a warm ivory key, a crimson rim), framing and plinth sizes are set by eye. */
+ * Its lighting (a warm ivory key, a crimson rim), framing and plinth sizes are set by eye.
+ * `shapes` is told when a character's skin did not load and it is drawn as its shapes (`dresserFor`). */
 export async function showHeroLineup(canvas: HTMLCanvasElement,
-  characters: readonly CharacterConfig[], signal: AbortSignal, appearances: readonly Appearance[] = []): Promise<{
+  characters: readonly CharacterConfig[], signal: AbortSignal, appearances: readonly Appearance[] = [],
+  shapes?: (error: unknown) => void): Promise<{
     setCharacter(index: number, character: CharacterConfig, appearance?: Appearance): Promise<void>;
     setAppearance(index: number, appearance: Appearance): Promise<void>;
   }> {
@@ -114,7 +116,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement,
   signal.addEventListener("abort", dispose, { once: true });
   const setAppearance = async (index: number, appearance: Appearance) => {
     const revision = ++revisions[index], model = chosen[index];
-    await skins[index].replace(dresserFor(model, scene, { appearance: appearanceFor(model, appearance) }),
+    await skins[index].replace(dresserFor(model, scene, { appearance: appearanceFor(model, appearance), ...shapes && { shapes } }),
       { clothing: { boots: true, armour: true }, closure: handsOf(bodies[index]!.configurations.state).closure });
     if (!ready || signal.aborted || revision !== revisions[index]) return;
     try { await warmScene(scene, signal); } catch (error) { if (signal.aborted) return; throw error; }

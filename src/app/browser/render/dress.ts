@@ -39,9 +39,10 @@ const ART: Readonly<Record<BodyModel, Art>> = Object.freeze({
 /**
  * `model`'s dresser in `scene`: its own art (`ART`), or its
  * shapes in `SHAPES_TINT` if the skin does not load. `skeletonArt` is asked for only by the skeleton.
+ * `shapes` is told when the skin did not load, so a page can say so and ask again later.
  */
 export function dresserFor(model: BodyModel, scene: Scene,
-  options: { readonly appearance?: Appearance; readonly skeletonArt?: () => Promise<SkeletonArt> } = {}): Promise<Dresser> {
+  options: { readonly appearance?: Appearance; readonly skeletonArt?: () => Promise<SkeletonArt>; readonly shapes?: (error: unknown) => void } = {}): Promise<Dresser> {
   const appearance = appearanceFor(model, options.appearance);
   let skin: Promise<Dresser>;
   switch (appearance) {
@@ -58,6 +59,7 @@ export function dresserFor(model: BodyModel, scene: Scene,
   }
   return skin.catch((error: unknown) => {
     console.warn(`${model} is drawn as its shapes: its skin did not load`, error);
+    options.shapes?.(error);
     return (built: DrawnBody): SkinView => {
       const shapes = drawBody(built, scene, SHAPES_TINT);
       return {
