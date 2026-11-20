@@ -72,7 +72,8 @@ import { damageFlashes } from "../render/damage-flashes.ts";
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
  * of two bodies in it (`Duel`). Setup picks the two models and the side the person fights, if
- * any; a bout runs to its verdict, and can be run again, or again with the right side redrawn.
+ * any; a bout runs to its verdict, and can be run again under a new seed, or again with the right
+ * side redrawn.
  *
  * The bout's world steps in a worker (`duelStage`, `src/app/worker/`): the page draws a puppet of each
  * body between the last two steps it holds, and shows what each step's news tells (`DuelNews`), so
@@ -559,8 +560,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       if (drafted) void previews[side].setCharacter(0, { model: matchupModels(matchup)[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) }, appearances[side]).catch(previewFailed);
     }
   };
-  /** Begins a bout of `next`: the reel's trial `given`, or the one the pickers make. */
-  const begin = async (next: Matchup, given: Trial | null = null) => {
+  /** Begins a bout of `next`: the reel's trial `given`, or the one the pickers make, under a new seed where `reseed`. */
+  const begin = async (next: Matchup, given: Trial | null = null, reseed = false) => {
     if (beginButton.disabled) return;
     if (!given) {
       for (const side of SIDES) {
@@ -586,6 +587,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           for (const side of SIDES) { writeAttributes(query, side, attributes[side]); writeSkills(query, side, skills[side]); }
           query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
           query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
+          // The new seed goes in the address, so the link plays this very bout again.
+          if (reseed) query.set("seed", String(Math.floor(Math.random() * 2 ** 32)));
           for (const side of SIDES) query.set(`${side}.loadout`, SIDES.map((hand) => loadoutPickers[side][hand].value).join(","));
           const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
           context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view));
@@ -680,8 +683,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   }
   /** Plays the reel's trial `k`. */
   const playTrial = (k: number) => { at = k; const one = trials![k]!; void begin({ left: one.world.recipe.left, right: one.world.recipe.right }, one); };
-  /** The bout under way again: the trial, or a new bout of the pickers' choices. */
-  const replay = () => trial ? playTrial(at) : void begin(matchup);
+  /**
+   * The bout under way again: the trial as it was recorded, or a new bout of the pickers' choices
+   * under a new seed. The seed changes the bout only where a mind draws its choices by chance.
+   */
+  const replay = () => trial ? playTrial(at) : void begin(matchup, null, true);
   for (const id of ["restart", "bout-end-replay"]) need(id).addEventListener("click", replay);
   for (const id of ["random-replay", "bout-end-random"]) need(id).addEventListener("click", () => void begin(redrawn()));
   for (const id of ["leave", "bout-end-leave"]) need(id).addEventListener("click", setup);
