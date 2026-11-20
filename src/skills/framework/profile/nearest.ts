@@ -88,7 +88,7 @@ const STILL: readonly [number, number] = Object.freeze([0, 0]) as readonly [numb
  * alike. Tuned: about a stride's worth of neighbours on the range a strike's window spans, a step's
  * change of pace, and a quarter of the depth of a stomp's window.
  */
-export const NEAREST = Object.freeze({ trials: 10, range: .1, speed: .25, place: .1 });
+const NEAREST = Object.freeze({ trials: 10, range: .1, speed: .25, place: .1 });
 
 /** The spans over which a reading takes its trials' starts as alike (`NEAREST`): range and place in the window, m, and velocity, m/s. */
 export const PROFILE_SPANS: { readonly range: number; readonly speed: number; readonly place: number } = Object.freeze({ range: NEAREST.range, speed: NEAREST.speed, place: NEAREST.place });
