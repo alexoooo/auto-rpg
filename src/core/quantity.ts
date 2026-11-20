@@ -30,7 +30,7 @@ type Unit =
   | "kg/m3" | "g/cm3"
   | "m3" | "l"
   | "N m" | "N" | "kN"
-  | "N/m" | "N/mm" | "N/cm"
+  | "N/m" | "N/mm" | "N/cm" | "kN/m"
   | "N s/m"
   | "N m/rad" | "N m s/rad"
   | "rad" | "deg"
@@ -121,6 +121,7 @@ const CONVERSIONS: Readonly<Partial<Record<Unit, { readonly to: Unit; readonly f
   "m/min": { to: "m/s", factor: 1 / 60 },
   "N/mm": { to: "N/m", factor: 1000 },
   "N/cm": { to: "N/m", factor: 100 },
+  "kN/m": { to: "N/m", factor: 1000 },
   "cm min": { to: "m s", factor: 60 / 100 },
 });
 

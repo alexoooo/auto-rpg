@@ -514,11 +514,18 @@ const SOURCES = Object.freeze({
       + "metacarpals of pigs in three-point bending; the intact bones' bending stiffness.",
     link: "https://doi.org/10.1100/2011/465371",
   },
+  "bennett-1990": {
+    kind: "literature",
+    cite: "Bennett MB, Ker RF. The mechanical properties of the human subcalcaneal fat pad in compression. "
+      + "J Anat 1990;171:131-138: heel pads on most of their calcaneus, from 11 amputated limbs, compressed "
+      + "in a testing machine to 2 kN at 0.1 to 70 Hz; Results give the stiffness at a load of body weight.",
+    link: "https://pmc.ncbi.nlm.nih.gov/articles/PMC1257133/",
+  },
   "contact-stiffness-gaps": {
     kind: "tuned",
     for: "A part no study gives a blunt stiffness for takes a neighbour's: the middle trunk the upper's, "
-      + "the lower the middle's, upper arm, forearm and shank the femur's, the foot the hand's, the hand "
-      + "a porcine metacarpal's, the head its face's.",
+      + "the lower the middle's, upper arm, forearm and shank the femur's, the hand a porcine "
+      + "metacarpal's, the head its face's, the foot its heel's.",
   },
 } as const satisfies Readonly<Record<string, Source>>);
 

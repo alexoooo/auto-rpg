@@ -30,6 +30,12 @@ const thigh = derive("N/mm", "the load at failure over the deflection at failure
 /** A second metacarpal, a pig's, bent at mid-shaft (`ochman-2011`). */
 const hand = sourced(122.3, "N/mm", "ochman-2011", "Results, intact metacarpals, bending stiffness, mean");
 
+/**
+ * The heel: its pad with the heel bone it sits under, cut from the leg and pressed flat at a load
+ * of the body's own weight (`bennett-1990`). The foot strikes with it, in a stomp or a kick.
+ */
+const foot = sourced(1160, "kN/m", "bennett-1990", "Results, heel pad stiffness at a load equal to body weight, mean of 5 pads");
+
 const WHOLE = sourced(1, "1", "contact-stiffness-gaps", "a part no study gives takes its neighbour's whole");
 
 /** A part no study gives: the row it borrows, and the decision that it borrows it. */
@@ -49,7 +55,7 @@ function rows(upperTrunk: Quantity<number>): Readonly<Record<DeLevaSegment, Quan
     hand,
     thigh,
     shank: neighbour(thigh),
-    foot: neighbour(hand),
+    foot,
   });
 }
 
@@ -57,9 +63,10 @@ function rows(upperTrunk: Quantity<number>): Readonly<Record<DeLevaSegment, Quan
 export type HumanSubstance = "flesh" | "bone";
 
 /**
- * Each row by what the body is made of. The head's, the limbs', the hand's and the foot's are
- * each a bone's own reading, so a body of flesh and a body of bare bone share them; they differ
- * in the trunk, a chest whole or its rib cage alone.
+ * Each row by what the body is made of. The head's, the limbs' and the hand's are each a bone's
+ * own reading, so a body of flesh and a body of bare bone share them, and they share the heel's,
+ * no heel bone having been read without its pad; they differ in the trunk, a chest whole or its
+ * rib cage alone.
  */
 export const CONTACT_STIFFNESS: Readonly<Record<HumanSubstance, Readonly<Record<DeLevaSegment, Quantity<number>>>>> = Object.freeze({
   flesh: rows(chest),

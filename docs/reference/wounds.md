@@ -21,10 +21,11 @@ Skeleton.
 | upperTrunk, bone | 5.4 | The same three chests under the same hub with their skin, fat and muscle taken off and their organs out, the rib cage alone: 94.9, 36.2 and 31.2 N/cm, 54.1 in the mean. With the flesh off and the organs still in, 99.4. | `kent-2005`, Table 3 |
 | thigh | 247.1 | Fifteen femurs of eight men bent to failure at mid-shaft, three-point, by a 12 mm impactor at about 1.2 m/s: the support load at failure, 4349 (SD 746) N, over the mid-bone deflection at failure, 17.6 (SD 3.8) mm. The division is the table's rule; the paper states no stiffness. | `funk-2004`, Results |
 | hand | 122.3 | Isolated porcine second metacarpals in quasi-static three-point bending: 122.3 (SD 35.0) N/mm. A bone's bending, not a fist's contact stiffness ([Gaps](#gaps)). | `ochman-2011`, Results |
+| foot | 1160 | The heel pads of limbs amputated for vascular disease, each still on most of its heel bone and cut from the leg, compressed in a servo-hydraulic machine to about 2 kN at 0.1 to 70 Hz: the stiffness at a load of the body's weight, 1160 (SD 170) kN/m, n = 5. The rate did not change it. The pad stiffens as it is loaded: one pad read 2.96 to 3.14 kN/mm at 1 kN. | `bennett-1990`, Results |
 
-The other six rows are lent ([Gaps](#gaps)). The head's, the thigh's and the hand's are each a
-bone's own reading, so flesh and bare bone share them, and the two differ in the trunk alone: a
-rib cage bends, so bare it gives three times what the chest its flesh and organs fill does, and
+The other five rows are lent ([Gaps](#gaps)). The head's, the thigh's and the hand's are each a
+bone's own reading, so flesh and bare bone share them, and they share the heel's, no heel bone
+having been read without its pad. The two differ in the trunk alone: a rib cage bends, so bare it gives three times what the chest its flesh and organs fill does, and
 takes the more of a blow.
 
 An item is rigid (a club, a buckler, a sword): it states no stiffness and takes no share of a
@@ -40,11 +41,16 @@ takes a neighbour's whole.
 | middleTrunk | the upper trunk's | the nearest part measured; the abdomen is softer than the chest in every figure seen, none confirmed. On bare bone it is the lumbar spine, which takes the rib cage's |
 | lowerTrunk | the middle trunk's | the same; a pelvis struck on its bone is stiffer, on flesh and on bare bone alike |
 | upperArm, forearm, shank | the femur's | a long bone under flesh, bent across; the one such bone with a load and a deflection read |
-| foot | the hand's | the same kind of bones |
 
-Two rows are a study's value read as something it did not measure: **the hand's is a pig's
-metacarpal in bending** (no human fist's stiffness against a surface was found), and **the head's
-is its face's**, the surface a blow is aimed at.
+Three rows are a study's value read as something it did not measure: **the hand's is a pig's
+metacarpal in bending** (no human fist's stiffness against a surface was found), **the head's
+is its face's**, the surface a blow is aimed at, and **the foot's is its heel's**. For the ball
+of the foot nothing was found at a blow's loads, and no human metatarsal's bending stiffness.
+
+The heel's is the heel alone. A sole struck with the leg behind it gives far more, the ankle and
+the leg giving with it: 54.9 N/mm over the first 7 mm, then 633.8, in one cadaver leg under a
+pendulum (Gallenberger et al. 2013, Figure 3). That give is the body's joints', which the physics
+has, not the surface's.
 
 ## Shares
 
@@ -59,8 +65,9 @@ A bare fist that strikes flesh takes only what its share brings past a threshold
 (`Rulebook.fist`): the energy a hand stores loaded to a knuckle's even chance of injury, F²/2k at
 3.0 kN (`carpanen-2019`) on the hand's 122.3 N/mm, 36.8 J. It is a deductible: a share of 50 J
 costs the hand 13.2 J's worth. Against an item (a club, a blade, armour) the hand takes its whole
-share. A bare foot has the same threshold, so a stomp on a trunk, of which the foot stores 12 %,
-costs it nothing below 300 J; a body that names no foot end, the reptile, spares no foot.
+share. A bare foot has the same threshold, so a stomp on a trunk, of which the foot stores 1.4 %,
+costs it nothing below 2,500 J, and a kick on a leg, of which it stores 18 %, nothing below
+210 J; a body that names no foot end, the reptile, spares no foot.
 
 ## Mechanisms
 
