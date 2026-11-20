@@ -26,7 +26,8 @@ export const QUIET = 3;
 export type Prices = { n: number; taken: number; lost: number; dealing: number; dealt: number; given: number };
 
 /**
- * What one side's decisions came to, by slice: `all`; by what the chosen offer was priced to do
+ * What one side's choices came to, by slice, each Option chosen read over the span it ran (until
+ * another was chosen, at most its priced duration) and priced for its share of that duration: `all`; by what the chosen offer was priced to do
  * (`strike` where it deals, else `move` where it leaves the range further than `ARRIVED` from where
  * it was, as the chooser tells a staying run, else `stay`); by what its mind read the foe doing (`foe <label>`, `Engagement.foe`); and by
  * the range head to head it decided at, in bands `BAND` wide (`range <from>`).
@@ -49,7 +50,8 @@ export type ScorecardReading = BoutReading & {
   readonly grounded: readonly (readonly [number, number])[];
 };
 
-type Decision = { readonly t: number; readonly duration: number; readonly dealt: number; readonly taken: number; readonly slices: readonly string[] };
+/** A decision: when, the Option it chose (`name`), and that Option's priced terms. */
+type Decision = { readonly t: number; readonly name: string; readonly duration: number; readonly dealt: number; readonly taken: number; readonly slices: readonly string[] };
 
 /** A bout's scorecard reader: the contest's, with each side's decisions read as they are made and priced at the end. */
 export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
@@ -79,7 +81,7 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
         if (!terms) return;
         const a = me.body.physical.head, b = foe.body.physical.head, range = hypot(a.x - b.x, a.z - b.z);
         const kind = terms.dealt > 0 ? "strike" : Math.abs(terms.exit.range - range) > ARRIVED ? "move" : "stay";
-        decisions[s]!.push({ t: duel.clock, duration: terms.duration, dealt: terms.dealt, taken: terms.taken, slices: ["all", kind, ...engagement.foe ? [`foe ${engagement.foe}`] : [], `range ${(Math.floor(range / BAND) * BAND).toFixed(2)}`] });
+        decisions[s]!.push({ t: duel.clock, name: engagement.phase, duration: terms.duration, dealt: terms.dealt, taken: terms.taken, slices: ["all", kind, ...engagement.foe ? [`foe ${engagement.foe}`] : [], `range ${(Math.floor(range / BAND) * BAND).toFixed(2)}`] });
       });
       const either = SIDES.some((side) => duel.duelists[side].body.down);
       if (either && groundedSince === null) groundedSince = duel.clock;
@@ -97,15 +99,21 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
         return lives[s]![lo]!;
       };
       const sides = SIDES.map((_, s): SideReading => {
-        const prices: Record<string, Prices> = {};
-        for (const d of decisions[s]!) {
-          const until = d.t + d.duration;
-          if (until > end && !carried) continue;
+        const prices: Record<string, Prices> = {}, own = decisions[s]!;
+        for (let i = 0; i < own.length; i++) {
+          // A choice runs from its decision until another Option is chosen (`Decision.name`), at most its priced duration; its price is
+          // read for the share of that duration it ran, as the life given and lost over the same span.
+          const d = own[i]!;
+          let next = i + 1;
+          while (next < own.length && own[next]!.name === d.name) next++;
+          const ran = Math.min(d.duration, (next < own.length ? own[next]!.t : end) - d.t), until = d.t + ran, share = d.duration > 0 ? ran / d.duration : 1;
+          i = next - 1;
+          if (until >= end && !carried) continue;
           const given = lifeAt(1 - s, d.t) - lifeAt(1 - s, until), lost = lifeAt(s, d.t) - lifeAt(s, until);
           for (const slice of d.slices) {
             const p = prices[slice] ??= { n: 0, taken: 0, lost: 0, dealing: 0, dealt: 0, given: 0 };
-            p.n++; p.taken += d.taken; p.lost += lost;
-            if (d.dealt > 0) { p.dealing++; p.dealt += d.dealt; p.given += given; }
+            p.n++; p.taken += share * d.taken; p.lost += lost;
+            if (d.dealt > 0) { p.dealing++; p.dealt += share * d.dealt; p.given += given; }
           }
         }
         return { decisions: decisions[s]!.length, prices, strikes: strikes[s]!, downs: downs[s]! };
