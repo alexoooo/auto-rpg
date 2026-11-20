@@ -593,7 +593,7 @@ export const VALUED_CHOOSER = deepFreeze<OptionChooserPart<ValuedConfig>>({
 });
 
 /** How many runs the tree chooser makes a decision unless its config says (`TreeConfig.runs`). */
-const RUNS = 50;
+const RUNS = 25;
 
 /**
  * How far the tree chooser looks beyond an Option's worth unless its config says
