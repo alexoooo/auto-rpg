@@ -103,7 +103,7 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
       switch (owner.kind) {
         case "segment": return spec.surface;
         case "region": return owner.region.surface;
-        case "held": return owner.held.item.surface;
+        case "held": return undefined;
         case "held-region": return owner.region.surface;
         default: { const never: never = owner; throw new Error(`unknown material owner ${JSON.stringify(never)}`); }
       }

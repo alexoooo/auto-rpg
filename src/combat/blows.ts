@@ -5,7 +5,7 @@ import { pointsInto } from "./points.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import type { ContactPair } from "../core/physics/engine.ts";
 import type { Vec3 } from "../core/quantity.ts";
-import type { BodySpec, ContactRegionSpec } from "../core/bodies/spec/body.ts";
+import type { BodySpec, FaceSpec } from "../core/bodies/spec/body.ts";
 import { deepFreeze } from "../core/state.ts";
 import { watchTouches, type Part, type Touch, type TouchWatch } from "./touches.ts";
 import type { World } from "../core/world/world.ts";
@@ -129,19 +129,21 @@ const thicknessOf = (spec: BodySpec): ReadonlyMap<string, number> => {
 
 /**
  * Read the blows among `fighters` in `world` under `rules`; `onBlow` hears each as it lands. A
- * fighter with a segment that states no surface, or one not in N/m, is refused.
+ * fighter with a segment that states no surface, or one not in N/m, is refused. What it holds
+ * states none: an item is rigid.
  */
 export function watchBlows(world: World, fighters: readonly Fighter[], rules: Rulebook, onBlow?: (blow: LandedBlow) => void): BlowWatch {
   const blows: LandedBlow[] = [];
   const place = new Map(fighters.map((fighter, at) => [fighter, at]));
   for (const fighter of fighters) {
     for (const segment of fighter.built.segments.values()) {
-      for (const surface of [segment.spec.surface, ...(segment.spec.contacts ?? []).map(c => c.surface), ...segment.rigid.owners.flatMap((owner) =>
-        owner.kind === "held-region" ? [owner.region.surface] : owner.kind === "held" && owner.held.item.surface ? [owner.held.item.surface] : [])]) {
-        if (surface?.stiffness?.unit !== "N/m") throw new Error(`${fighter.id}'s ${segment.spec.name} states no surface in N/m: a blow has nothing to share by`);
-        const depth = surface.directed?.depth;
+      const own = [segment.spec.surface, ...(segment.spec.contacts ?? []).map(c => c.surface)];
+      if (own.some(surface => surface?.stiffness?.unit !== "N/m")) throw new Error(`${fighter.id}'s ${segment.spec.name} states no surface in N/m: a blow has nothing to share by`);
+      const held: readonly FaceSpec[] = segment.rigid.owners.flatMap((owner) => owner.kind === "held-region" ? [owner.region.surface] : []);
+      for (const face of [...own, ...held]) {
+        const depth = face.directed?.depth;
         if (depth && !(depth.unit === "m" && depth.value > 0 && Number.isFinite(depth.value))) throw new Error("a point's depth is a finite length over 0, m");
-        const directed = surface.directed;
+        const directed = face.directed;
         if (directed && ((directed.mechanism !== "point" && directed.mechanism !== "edge")
           || directed.direction.unit !== "1" || directed.alignment.unit !== "1" || directed.direction.value.length !== 3
           || !directed.direction.value.every(Number.isFinite) || !directed.direction.value.some(v => v !== 0)
@@ -150,30 +152,28 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
     }
   }
   for (const fighter of fighters) for (const segment of fighter.built.segments.values()) for (const owner of segment.rigid.owners) {
-    const surface = owner.kind === "held-region" ? owner.region.surface : owner.kind === "held" ? owner.held.item.surface : undefined;
-    if (surface?.directed?.mechanism === "point" && !surface.directed.depth) throw new Error(`${owner.kind === "held" || owner.kind === "held-region" ? owner.held.item.name : ""}'s point states no depth: it has nothing to wound by`);
+    if (owner.kind === "held-region" && owner.region.surface.directed?.mechanism === "point" && !owner.region.surface.directed.depth)
+      throw new Error(`${owner.held.item.name}'s point states no depth: it has nothing to wound by`);
   }
   /** Each fighter's parts' thicknesses, m (`partThickness`). */
   const thickness = new Map(fighters.map((fighter) => [fighter, thicknessOf(fighter.built.spec)]));
   /** Whether `part` can meet in a blow: its fighter's fight has not ended and the part is on. */
   const inFight = ({ body, segment }: Part<Fighter>): boolean => body.pool.ending() === null && body.pool.attached(segment.spec.name);
-  /** The touched shape's owner, stiffness and optional mechanism, in the body's reference frame. */
+  /** The touched shape's owner, stiffness (null for an item, which is rigid) and optional mechanism, in the body's reference frame. */
   const surfaceOf = ({ segment }: Part<Fighter>, shape: number): { readonly item: string | null; readonly region?: string; readonly stiffness: number | null; readonly directed?: { readonly mechanism: "point" | "edge"; readonly direction: Vec3; readonly alignment: number; readonly depth?: number } } => {
     const owner = segment.rigid.owners[shape]!;
-    const read = (surface: ContactRegionSpec["surface"] | undefined) => ({ stiffness: surface?.stiffness.value ?? null,
-      ...(surface?.directed ? { directed: { mechanism: surface.directed.mechanism, direction: surface.directed.direction.value, alignment: surface.directed.alignment.value,
-        ...(surface.directed.depth ? { depth: surface.directed.depth.value } : {}) } } : {}) });
+    const read = (face: FaceSpec) => face.directed ? { directed: { mechanism: face.directed.mechanism, direction: face.directed.direction.value, alignment: face.directed.alignment.value,
+      ...(face.directed.depth ? { depth: face.directed.depth.value } : {}) } } : {};
     switch (owner.kind) {
-      case "segment": return { item: null, ...read(segment.spec.surface) };
-      case "region": return { item: null, region: owner.region.name, ...read(owner.region.surface) };
-      case "held":
+      case "segment": return { item: null, stiffness: segment.spec.surface.stiffness.value, ...read(segment.spec.surface) };
+      case "region": return { item: null, region: owner.region.name, stiffness: owner.region.surface.stiffness.value, ...read(owner.region.surface) };
+      case "held": return { item: owner.held.item.name, stiffness: null };
       case "held-region": {
-        const surface = read(owner.kind === "held" ? owner.held.item.surface : owner.region.surface);
-        const result = { item: owner.held.item.name, ...(owner.kind === "held-region" ? { region: owner.region.name } : {}), ...surface };
-        if (!surface.directed) return result;
-        const frame = heldFrame(owner.held), v = surface.directed.direction;
+        const result = { item: owner.held.item.name, region: owner.region.name, stiffness: null }, face = read(owner.region.surface);
+        if (!face.directed) return result;
+        const frame = heldFrame(owner.held), v = face.directed.direction;
         const direction = [0, 1, 2].map(k => frame.x[k]! * v[0] + frame.y[k]! * v[1] + frame.z[k]! * v[2]) as unknown as Vec3;
-        return { ...result, directed: { ...surface.directed, direction } };
+        return { ...result, directed: { ...face.directed, direction } };
       }
       default: {
         const never: never = owner;

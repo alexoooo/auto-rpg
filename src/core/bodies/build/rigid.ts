@@ -1,4 +1,4 @@
-import { bodyPoint, frameOf, heldBy, localDirection, segmentFrame, type BodySpec, type ContactRegionSpec, type HeldSpec, type ItemShape, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
+import { bodyPoint, frameOf, heldBy, localDirection, segmentFrame, type BodySpec, type ContactRegionSpec, type FaceSpec, type HeldSpec, type ItemShape, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import { derive, type Quantity, type Vec3 } from "../../quantity.ts";
 import { add, cross, dot, scale, sub } from "../spec/vec.ts";
 import { toesRegion } from "./toes.ts";
@@ -20,7 +20,7 @@ type ShapeOwner =
   | { readonly kind: "segment" }
   | { readonly kind: "region"; readonly region: ContactRegionSpec }
   | { readonly kind: "held"; readonly held: HeldSpec }
-  | { readonly kind: "held-region"; readonly held: HeldSpec; readonly region: ContactRegionSpec<ItemShape> };
+  | { readonly kind: "held-region"; readonly held: HeldSpec; readonly region: ContactRegionSpec<ItemShape, FaceSpec> };
 
 export interface Rigid {
   readonly mass: number;

@@ -19,8 +19,8 @@ far it gives, the same at any speed, area or direction.
 | thigh | 247.1 | Fifteen femurs of eight men bent to failure at mid-shaft, three-point, by a 12 mm impactor at about 1.2 m/s: the support load at failure, 4349 (SD 746) N, over the mid-bone deflection at failure, 17.6 (SD 3.8) mm. The division is the table's rule; the paper states no stiffness. | `funk-2004`, Results |
 | hand | 122.3 | Isolated porcine second metacarpals in quasi-static three-point bending: 122.3 (SD 35.0) N/mm. A bone's bending, not a fist's contact stiffness ([Gaps](#gaps)). | `ochman-2011`, Results |
 
-The other six rows are lent ([Gaps](#gaps)). An item with no stated surface is rigid: it takes no
-share of a blow, and the part it strikes takes the whole.
+The other six rows are lent ([Gaps](#gaps)). An item is rigid (a club, a buckler, a sword): it states no stiffness and takes no
+share of a blow, and the part it strikes takes the whole. Two items that meet wound nobody.
 
 ## Gaps
 

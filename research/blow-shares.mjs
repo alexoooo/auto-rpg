@@ -27,7 +27,7 @@ function sourcesOf(quantity, into = new Set()) {
   return into;
 }
 
-/** Each row's stiffness, N/m; a held item with no stated surface is rigid. */
+/** Each row's stiffness, N/m; an item, the club here, is rigid. */
 const K = { ...Object.fromEntries(Object.entries(CONTACT_STIFFNESS).map(([row, k]) => [row, si(k).value])), club: null };
 
 console.log("| Row | N/mm | Sources |\n|---|---|---|");
