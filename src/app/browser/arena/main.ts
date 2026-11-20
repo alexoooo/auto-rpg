@@ -26,7 +26,6 @@ import { GameAudio } from "../audio/game-audio.ts";
 import { isRefused } from "../../../core/refusal.ts";
 import { CHARACTERS, characterNamed, modelHolding, modelHolds, modelLabel, resolveCharacterChecked, type BodyModel } from "../../../core/bodies/models.ts";
 import type { SkillChoices } from "../../../core/bodies/spec/body.ts";
-import { modelLoadout } from "../../../game/model-loadouts.ts";
 import { attributeEditor } from "../ui/attribute-editor.ts";
 import { skillEditor } from "../ui/skill-editor.ts";
 import { writeSkills } from "../../../game/skill-link.ts";
@@ -254,7 +253,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       field.className = "field"; field.textContent = `${hand === "left" ? "Left" : "Right"} hand`;
       picker.setAttribute("aria-label", `${side} fighter's ${hand} hand`);
       for (const value of HELD) picker.append(Object.assign(document.createElement("option"), { value, textContent: heldName(value) }));
-      picker.value = loadoutChoices?.[side][hand] ?? modelLoadout(matchupModels(matchup)[side])[hand];
+      picker.value = loadoutChoices[side][hand];
       field.append(picker); equipment.append(field); hands[hand] = picker;
     }
     loadoutPickers[side] = hands;

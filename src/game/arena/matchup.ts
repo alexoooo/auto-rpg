@@ -46,8 +46,8 @@ export function arenaSkills(search: string): Readonly<Partial<Record<Side, Skill
   return Object.freeze(skills);
 }
 
-/** The Warrior against the Rogue unless a link or a person picks another pair. */
-const DEFAULT_MATCHUP: Matchup = Object.freeze({ left: "warrior", right: "rogue" });
+/** Two Warriors unless a link or a person picks another pair. */
+const DEFAULT_MATCHUP: Matchup = Object.freeze({ left: "warrior", right: "warrior" });
 
 /** The matchup an address names (`readCharacter`); a side it does not name, or names wrongly, is the default's. */
 export function readMatchup(search: string): Matchup {
@@ -100,16 +100,18 @@ export function youSearch(search: string, you: Side | null): string {
   return `?${query.toString().replace(/%2C/g, ",")}`;
 }
 
-/** Each fighter's two hands: `left.loadout=leftHand,rightHand`, and `right.loadout` alike; a side the link leaves out carries its model's (`modelLoadout`). */
-export function readLoadouts(search: string): Readonly<Record<Side, Loadout>> | undefined {
-  const query = new URLSearchParams(search);
-  if (!SIDES.some((side) => query.has(`${side}.loadout`))) return undefined;
-  const models = matchupModels(readMatchup(search)), loadouts = {} as Record<Side, Loadout>;
+/** The hands a link assigns, empty on a fresh setup and the models' own for a named matchup. */
+export function readLoadouts(search: string): Readonly<Record<Side, Loadout>> {
+  const query = new URLSearchParams(search), models = matchupModels(readMatchup(search));
+  const defaults = query.has(MATCHUP_PARAM)
+    ? { left: modelLoadout(models.left), right: modelLoadout(models.right) }
+    : { left: EMPTY_LOADOUT, right: EMPTY_LOADOUT };
+  const loadouts = { ...defaults };
   for (const side of SIDES) {
     const text = query.get(`${side}.loadout`);
-    if (text === null) { loadouts[side] = modelLoadout(models[side]); continue; }
+    if (text === null) continue;
     const loadout = readLoadout(text);
-    if (!loadout) return undefined;
+    if (!loadout) return defaults;
     loadouts[side] = modelHolds(models[side]) ? loadout : EMPTY_LOADOUT;
   }
   return loadouts;
@@ -137,12 +139,6 @@ const readCap = (search: string): number | undefined => readWithin(search, "cap"
 /** A side's choice of mind (`MINDS`), separate from anatomy, equipment and appearance. */
 type Control = string;
 
-/** Both fighters' hands, each its model's (`modelLoadout`) unless the link assigns them. */
-const loadoutsOf = (search: string): Readonly<Record<Side, Loadout>> => {
-  const models = matchupModels(readMatchup(search));
-  return readLoadouts(search) ?? { left: modelLoadout(models.left), right: modelLoadout(models.right) };
-};
-
 /** The link's key for `side`'s mind once a person has changed it from its preset: its whole tree (`writeMind`). */
 const mindKey = (side: Side): string => `${side}.mind`;
 
@@ -167,7 +163,7 @@ export function createMatchup(context: GameContext) {
   /** Per-side controller choices in a shareable arena recipe: the preset the link names, offered or not; where it names none, the side's default among those offered (`controlsFor`). */
   function readControls(search: string): Readonly<Record<Side, Control>> {
     const parts = (new URLSearchParams(search).get("control") ?? "").split(",");
-    const models = matchupModels(readMatchup(search)), loadouts = loadoutsOf(search), attributes = arenaAttributes(search);
+    const models = matchupModels(readMatchup(search)), loadouts = readLoadouts(search), attributes = arenaAttributes(search);
     const read = (s: string | undefined, side: Side): Control => {
       const admitted = modelHoldingChecked(models[side], loadouts[side], attributes[side]);
       const choices = controlsFor(models[side], loadouts[side], isRefused(admitted) ? undefined : attributes[side]);
@@ -203,7 +199,7 @@ export function createMatchup(context: GameContext) {
    */
   function linkedMind(search: string, side: Side): LinkedMind {
     const control = readControls(search)[side], preset = MINDS[control]!.config;
-    const model = matchupModels(readMatchup(search))[side], loadout = loadoutsOf(search)[side];
+    const model = matchupModels(readMatchup(search))[side], loadout = readLoadouts(search)[side];
     const admitted = modelHoldingChecked(model, loadout, controlCharacter(control, arenaAttributes(search)[side]));
     const fallback = isRefused(admitted) ? modelHoldingChecked(model, loadout, controlCharacter(control)) : admitted;
     if (isRefused(fallback)) return { config: preset, faults: [fallback.refused] };
@@ -258,7 +254,7 @@ export function createMatchup(context: GameContext) {
     return {
       left: models.left, right: models.right, ...(Object.keys(characters).length ? { characters } : {}), level, minds: readMinds(search),
       attributes: { left: controlCharacter(controls.left, attributes.left), right: controlCharacter(controls.right, attributes.right) },
-      ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), loadouts: loadoutsOf(search),
+      ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), loadouts: readLoadouts(search),
       ...(senseDelay !== undefined ? { senseDelay } : {}), ...(seed !== undefined ? { seed } : {}), ...(Object.keys(skills).length ? { skills } : {}),
     };
   }
