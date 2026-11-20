@@ -235,6 +235,17 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   mirror stood off (0 of 216 knocked out within 60 s); measured in fights instead, a profile
   measures the Mind as much as the punch (0.212 hit points a punch at 100 runs, 0.159 at 50), not
   built. *Shown* (the plan of 2026-11-19, step 5).
+- **A state's value fitted to what followed reads who is ahead, not which leaf of a search is
+  better**: trees fitted to what each side dealt and took over 3, 8 and 20 s from 644,338 played
+  Warrior mirror states read it held out at R² 0.073, 0.076 and 0.129 where the tree's tail
+  correlates 0.03 to 0.05 at a level five times over; but across one search's leaves the fit spreads
+  0.026 to 0.038 (sd) against the path's price 0.048 and the tail 0.461, and the Option class chosen
+  beside the state adds nothing (R² 0.108 either way at 20 s, the classes 0.004 to 0.006 apart at a
+  state, a state's noise 0.50). As the leaf in place of the tail it halves the step and the mirror
+  ends 64.8 to 75.9 % of its bouts within 60 s at aggression 2 to 5 against the tail's 93 %. A copy
+  of the tail cheaper than it misses the tail's best leaf (59 to 63 % against the one-try rate's
+  71 %): that leaf is worth what repeating the best Option leads to, which only running the models
+  again reads. *Shown* (the plan of 2026-11-19, step 8).
 - **A foe's pressure measured in bouts prices what bouts give; the rate from its strikes did
   not**: priced by its best strike's dealt over its cycle, a Warrior's second in reach with the
   foe throwing nothing was 17 to 20 times what it lost at 0.2 s and 0.8 with a punch committed.
