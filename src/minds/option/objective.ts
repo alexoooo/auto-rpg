@@ -72,12 +72,12 @@ export interface FewTermsConfig { readonly kind: "few-terms"; readonly aggressio
 /**
  * **The few terms' settings**, each a number a person sets from `least` to `most`, and what it is
  * where a config leaves it out (`preset`): aggression, from valuing the focus's life as the body's
- * own to five times it; initiative, a rate a second (`initiativeWeight`), from none to 0.3, where
- * over the chooser's 20 s a blow now counts 6 times its mean and one at the horizon a sixtieth.
+ * own to five times it; initiative, a rate a second (`initiativeWeight`), from none to 0.6, where
+ * over the chooser's 20 s a blow now counts 12 times its mean and one at the horizon almost none.
  */
 const SETTINGS = deepFreeze({
   aggression: { label: "Aggression", least: 1, most: 5, step: .1, unit: "×", preset: AGGRESSION },
-  initiative: { label: "Initiative", least: 0, most: .3, step: .01, unit: "/s", preset: 0 },
+  initiative: { label: "Initiative", least: 0, most: .6, step: .01, unit: "/s", preset: 0 },
 });
 
 /**
