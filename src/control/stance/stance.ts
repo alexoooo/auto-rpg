@@ -192,9 +192,12 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], p
  * ankle, a swinging leg from where its ankle will be when its sole lands, its hip where the plan
  * will have it then (the pendulum about the place, over the swing's time left). Taken from the hip
  * where it is, a long step's leg reaches from behind the bearing foot to a landing ahead of it, and
- * the plan drops the body as the foot lifts. The steps a walk plans are within the legs' reach at
- * the goal's height (`reachableStep`). And no lower than each leg reaches with its ankle at
- * its stop less `STANCE_ANKLE_SPARE`, its foot where it stands or will land: the knee's place is
+ * the plan drops the body as the foot lifts. A leg whose ankle is beyond its reach across the
+ * ground caps no height: none brings the ankle within it, and read as the hip at the ankle's own
+ * height, it sinks the plan to the soles, where the pendulum's rate has no bound. The steps a walk
+ * plans are within the legs' reach at the goal's height (`reachableStep`). And no lower than each
+ * leg reaches with its ankle at its stop less `STANCE_ANKLE_SPARE`, its foot where it stands or
+ * will land: the knee's place is
  * then fixed, and the hip is a thigh from it; each leg's such floor is in `floors`, with the end of
  * the sole whose stop it is: the dorsiflexion stop's, the body over or past the front edge, or
  * the plantar flexion stop's, past the heel (`endPast`), the way the body is going.
@@ -222,7 +225,7 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
     if (swinging) ankleAt.addInPlaceFromFloats(landing.swing.to[0] - foot.middle.x, landingHeight(landing.bearer, foot) - foot.middle.y, landing.swing.to[1] - foot.middle.z);
     if (!s.state.pose) {
       const long = legLength(foot, bend), spread = hypot(hx - ankleAt.x, hz - ankleAt.z);
-      high = Math.min(high, ankleAt.y + Math.sqrt(Math.max(0, long * long - spread * spread)) + rise);
+      if (spread < long) high = Math.min(high, ankleAt.y + Math.sqrt(long * long - spread * spread) + rise);
     }
     if (spare !== null) {
       // The shank's turn is the foot's with the ankle's own undone (rel = D_shank^-1 D_foot).
