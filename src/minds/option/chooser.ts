@@ -733,6 +733,9 @@ const EXPLORATION = 1;
  */
 interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs?: number; readonly exploration?: number; readonly leaf?: LeafName; readonly keeps?: number }
 
+/** The tree's runs a search (`TreeConfig.runs`), `RUNS` written as none. */
+const RUNS_FIELD = number<TreeConfig, "runs">("runs", "Runs", 1, 1000, 1, "", RUNS);
+
 /** The tree's warm start (`TreeConfig.keeps`), the seconds its kept worths fade by half in: none kept written as none (0). */
 const KEEPS_FIELD = number<TreeConfig, "keeps">("keeps", "Warm start (half-life)", 0, 5, .1, "s", 0);
 
@@ -757,7 +760,7 @@ const LEAF_FIELD: PartField<TreeConfig> = {
  * targets keeps the one it runs at `KEEP` s.
  */
 export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], RUNS_FIELD, KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "tree" }, reads: (config) => LEAVES[config.leaf ?? "tail"].reads, keys: { kind: true, runs: true, exploration: true, leaf: true, keeps: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
