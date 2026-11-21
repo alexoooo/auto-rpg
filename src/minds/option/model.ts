@@ -18,7 +18,6 @@ export interface OptionEvaluationInput {
   readonly options: readonly PartConfig[];
   readonly chooser: PartConfig;
   readonly seed: number;
-  readonly phase: number;
   readonly techniques: readonly PartConfig[];
   readonly orders: (sight: Sight) => Orders | null;
 }

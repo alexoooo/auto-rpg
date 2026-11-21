@@ -84,8 +84,8 @@ export type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C
  * The chooser `config` names, as `parts` finds it, over `options`, its chances drawn from `seed`:
  * a part of the role makes a chooser over the options it is given (`ChooserPart`), which Option Mind's are.
  */
-export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number, phase: number): Chooser =>
-  parts.of("chooser", config).make({ config, options, seed, parts, phase }) as Chooser;
+export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number): Chooser =>
+  parts.of("chooser", config).make({ config, options, seed, parts }) as Chooser;
 
 /** How many options deep the valued chooser searches: the one it takes, or that and the best from where it leaves the body (`searching`). */
 const VALUED_DEPTHS: readonly number[] = Object.freeze([1, 2]);
@@ -707,10 +707,10 @@ export const VALUED_CHOOSER = deepFreeze<OptionChooserPart<ValuedConfig>>({
   role: "chooser", model: PROFILE_MODEL, label: "By worth", fields: [obedienceField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config.depth), ...searchFaults(config)],
-  make: ({ config, options, seed, parts, phase }) => {
+  make: ({ config, options, seed, parts }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON;
     const searched = { options, objective, obedience, horizon, depth: config.depth };
-    return chooser({ options, appraise: searching((now) => search(now, searched)), deciding: { rethink: RETHINK, phase, keep: KEEP },
+    return chooser({ options, appraise: searching((now) => search(now, searched)), deciding: { rethink: RETHINK, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: {} });
   },
 });
@@ -764,11 +764,11 @@ export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
     ...config.exploration === undefined || Number.isFinite(config.exploration) && config.exploration >= 0 ? [] : ["exploration: a finite number, not negative"],
     ...config.leaf === undefined || isLeaf(config.leaf) ? [] : [`leaf: one of ${Object.keys(LEAVES).join(", ")}`],
     ...config.keeps === undefined || Number.isFinite(config.keeps) && config.keeps > 0 ? [] : ["keeps: a finite time, more than none"]],
-  make: ({ config, options, seed, parts, phase }) => {
+  make: ({ config, options, seed, parts }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
     const searched = { options, objective, obedience, horizon, runs, exploration, stream, leaf: LEAVES[config.leaf ?? "tail"], start: warm?.start ?? COLD };
-    return chooser({ options, appraise: searching((now) => treeSearch(now, searched)), deciding: { rethink: RETHINK, phase, keep: KEEP },
+    return chooser({ options, appraise: searching((now) => treeSearch(now, searched)), deciding: { rethink: RETHINK, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },
 });
@@ -786,9 +786,9 @@ interface RankedConfig { readonly kind: "ranked" }
 export const RANKED_CHOOSER = deepFreeze<OptionChooserPart<RankedConfig>>({
   role: "chooser", model: PROFILE_MODEL, label: "By rank", offered: false, fields: [], slots: [],
   defaults: { kind: "ranked" }, keys: { kind: true }, fits: anyBody, faults: () => [],
-  make: ({ options, seed, phase }) =>
+  make: ({ options, seed }) =>
     chooser({ options, appraise: (option, i) => ({ name: option.name, kind: option.kind, worth: options.length - i, terms: null, moves: null, letGo: 0 }),
-      deciding: { rethink: RETHINK, phase, keep: 0 }, chance: { margin: 0, seed }, objective: null, holding: null, own: {} }),
+      deciding: { rethink: RETHINK, keep: 0 }, chance: { margin: 0, seed }, objective: null, holding: null, own: {} }),
 });
 
 declare module "./parts.ts" {

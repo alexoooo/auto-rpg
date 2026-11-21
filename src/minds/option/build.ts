@@ -66,7 +66,7 @@ export function buildOptionMind(host: BodyHost, config: ResolvedConfig): OptionM
   const every = everyOf(config.rate, hz);
   const orders = (sight: Sight): Orders | null => host.orders(sight.view.senses);
   const evaluation = parts.of("predictions", config.predictions).make(config.predictions);
-  const decider = evaluation.build({ spec, parts, rules: host.rules, seed: host.seed, phase: host.phase, hz, rate: hz / every, delay: body.delay,
+  const decider = evaluation.build({ spec, parts, rules: host.rules, seed: host.seed, hz, rate: hz / every, delay: body.delay,
     legs, guards: guard, options: config.options, chooser: config.chooser, techniques: named.techniques, orders });
 
   // The decider becomes the body's driver (`Body.drive`): it decides at its pace, and the skills carry each decision out.

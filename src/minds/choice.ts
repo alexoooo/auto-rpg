@@ -70,20 +70,21 @@ export interface Priced<T> {
 }
 
 /**
- * When a selection decides afresh: at once on an event (its cue's change), and else on its body's
- * `phase` of each `rethink` s (`BodyHost.phase`): the first such time at least
- * half a period on, so a body decides at least every one and a half periods and bodies of one
- * fight decide on different steps. A running choice with targets keeps the one it runs at for
- * `keep` s: it, and each choice that claims what it claims, is priced at that
+ * When a selection decides afresh: at once on an event (its cue's change), and else at the start
+ * of a `rethink` s period: the first such time at least half a period on, so a body decides at
+ * least every one and a half periods. Every body's periods start at one time, so the bodies of a
+ * fight decide within a step of one another, each on its own step (`BodyHost.phase`): bodies a
+ * part of a period apart see each other's choices at unlike ages, and a mirror bout leans to one
+ * side. A running choice with targets keeps the one it runs at for `keep` s: it, and each choice
+ * that claims what it claims, is priced at that
  * target alone (by name) where it has it on offer, so two targets near alike are not taken by
  * turns, nor one target and another by two choices with both.
  */
-export interface Deciding { readonly rethink: number; readonly phase: number; readonly keep: number }
+export interface Deciding { readonly rethink: number; readonly keep: number }
 
-/** **When `deciding` next decides with no event**, deciding at `now` s: the first time on its phase at least half a period on (`Deciding`). */
+/** **When `deciding` next decides with no event**, deciding at `now` s: the first period's start at least half a period on (`Deciding`). */
 function nextDecision(deciding: Deciding, now: number): number {
-  const phase = deciding.phase, periods = now / deciding.rethink - phase;
-  return deciding.rethink * (Math.floor(periods + 1 / 2) + 1 + phase);
+  return deciding.rethink * (Math.floor(now / deciding.rethink + 1 / 2) + 1);
 }
 
 /**
