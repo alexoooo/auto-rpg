@@ -108,3 +108,9 @@ its kind or running those tools.
   rung's foe is its body as its character holds its skills (`assets/characters/characters.json`),
   and the key a result is kept by does not hold them. A subject played against a foe holding one
   variation is "found" against a foe holding another and reads the first; play it with `--fresh`.
+- **A tree moved to another commit finds the rows it played there**: a row's key holds the
+  question and the mind data it loads, not the code (`keyOf`, `run.ts`), so a match in a worktree
+  checked out at one commit and then another reads the first commit's rows. The header says it
+  (`0 cases to play, 288 found`; "the oldest row read was played on" another commit, and the four
+  played again "reads differently now"). A reading of code a tree has not played is read where
+  its header says `0 found`, or with `--fresh`.
