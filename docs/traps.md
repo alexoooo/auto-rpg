@@ -66,6 +66,10 @@ its kind or running those tools.
 - **The Arena's, crowd's and Crypt's worlds are in workers**: `await __arena.step(n)` (or
   `__crowd`, `__dungeon`) steps and draws; `__arena.world.tape()`, `__arena.verdict` and
   `__dungeon.run` read the state.
+- **A probe of a page's frames reads the world's time**: `received()` empties on each call and the
+  page's frame meter calls it every frame, so a probe reads none of it; `__arena.world.newest[0]`
+  is the newest step's time in seconds. Headless Edge draws a frame every 18 ms, so a count of
+  frames over 16.7 ms counts them all.
 - **A file at one address that names hashed files is fetched with `cache: "no-cache"`** (the art
   list, `assets/generated/manifest.json`): GitHub Pages lets a browser keep a file ten minutes,
   and a list kept from before a publish names files the publish replaced. Their requests fail,
