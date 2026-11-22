@@ -382,9 +382,11 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   beats a state worth its best line on the tail**: the tree chooser's fitted leaf, each state worth
   its leaf once and each line by its runs (`best` 0), at aggression 4 and initiative 0.3, at 50
   runs: 0.646 (0.606 to 0.686) over 576 bouts held out against the tail leaf's best line, its
-  mirror knocking out within 60 s in 81.0% (91.2%). The game's Mind since 31e863c27, by the
-  owner's word, where its fitted models were fitted (both bodies empty-handed men, `fittedOn`);
-  the Mind before it stays a preset (`option-tail`). *Shown.*
+  mirror knocking out within 60 s in 81.0% (91.2%). By the owner's word, the empty-handed man's
+  default since e5eacbb22 (`DEFAULT_BODIES` by `bodyOf`), the body it was measured on. Every
+  other body keeps the Mind before it (`option-tail`): off the empty-handed man its fitted models
+  stand aside (`fittedOn`), and the mean backup with initiative 0.3 on the tail's leaf knocked out
+  in 0.0% on the Warrior. *Shown.*
 - **An open Option's model asked once a state saves no time worth reading**: a held leaf asks the
   same answer about nine times (436 asks on 56 pairs a search), yet kept per state it read a
   99th-percentile step of 16.59 ms between the unchanged code's 17.51 and 16.66 in one quiet
