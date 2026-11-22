@@ -461,13 +461,13 @@ const UNTRIED = Object.freeze({
 type UntriedName = keyof typeof UNTRIED;
 
 /**
- * **Which of a line's runs its state's mean counts** (`TreeConfig.counts`, `backedUp`): `every` one;
- * or, `past-first`, those past its first, the first being the search's try of every line in turn,
+ * **Which of a line's runs its state's mean counts** (`TreeConfig.counts`, `backedUp`): all but the first
+ * `skipped` of them; `every` one, or, `past-first`, those past its first, the first being the search's try of every line in turn,
  * not what the body would take there, so a state whose lines were each tried once is worth its leaf.
  */
 const COUNTS = Object.freeze({
-  every: Object.freeze({ label: "Every run" }),
-  "past-first": Object.freeze({ label: "Past each line's first" }),
+  every: Object.freeze({ label: "Every run", skipped: 0 }),
+  "past-first": Object.freeze({ label: "Past each line's first", skipped: 1 }),
 });
 type CountsName = keyof typeof COUNTS;
 
@@ -602,14 +602,14 @@ function warmStart(options: readonly Option[], keeps: number): { readonly start:
  * **What a state in the tree is worth** (`TreeNode.worth`): its best line by `best` and the mean of
  * its lines by the rest. Its best line, the more of its floor and its best Option run or kept: the
  * models are the mind's own, so its best line found, never less than its leaf. The mean of its
- * lines: its floor once and each Option by the runs it stood on that `counts` counts (`COUNTS`), a
+ * lines: its floor once and each Option by the runs it stood on past its first `skipped` (`COUNTS`), a
  * kept one's evidence among them.
  */
-function backedUp(node: TreeNode, best: number, counts: CountsName): number {
+function backedUp(node: TreeNode, best: number, skipped: number): number {
   let top = node.floor, sum = node.floor, weight = 1;
-  const edges = node.edges, first = counts === "past-first" ? 1 : 0;
+  const edges = node.edges;
   if (edges) for (let i = 0; i < edges.length; i++) {
-    const edge = edges[i]!, runs = Math.max(0, edge.runs - first) + (edge.kept?.weight ?? 0);
+    const edge = edges[i]!, runs = Math.max(0, edge.runs - skipped) + (edge.kept?.weight ?? 0);
     if (edge.runs > 0 || edge.kept) top = Math.max(top, edge.worth);
     sum += edge.worth * runs; weight += runs;
   }
@@ -632,8 +632,8 @@ function backedUp(node: TreeNode, best: number, counts: CountsName): number {
  * at `root` is run at least once. Its root's Options start from what `start` gives them, as
  * evidence of as many runs as it says.
  */
-function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly best: number; readonly stream: { next(): number }; readonly leaf: LeafKind; readonly prior: PriorKind; readonly untried: UntriedName; readonly counts: CountsName; readonly start: RootStart }): PricedLine[] {
-  const { runs, exploration, best, stream, start, untried, counts } = searched;
+function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly best: number; readonly stream: { next(): number }; readonly leaf: LeafKind; readonly prior: PriorKind; readonly untried: UntriedName; readonly skipped: number; readonly start: RootStart }): PricedLine[] {
+  const { runs, exploration, best, stream, start, untried, skipped } = searched;
   const predictions = root.predictions;
   let pressure: Pressure | undefined;
   root = Object.create(root, { predictions: { value: Object.create(predictions, {
@@ -725,7 +725,7 @@ function treeSearch(root: Situation, searched: Searched & { readonly runs: numbe
       edge.ends[k] = nodeAt(at.child(node.at, step.terms.outcomes[k]!.leaves, step.terms.duration), step);
       break;
     }
-    for (let i = taken.length - 1; i >= 0; i--) { const edge = taken[i]!; edge.runs++; reprice(edge); const node = nodes[i]!; node.worth = backedUp(node, best, counts); }
+    for (let i = taken.length - 1; i >= 0; i--) { const edge = taken[i]!; edge.runs++; reprice(edge); const node = nodes[i]!; node.worth = backedUp(node, best, skipped); }
     for (const visited of nodes) visited.runs++;
   };
   for (let k = 0; k < Math.max(runs, edgesOf(top).length); k++) run();
@@ -1011,7 +1011,7 @@ export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
   make: ({ config, options, seed, parts, body }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
-    const searched = { options, objective, obedience, horizon, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], prior: PRIORS[config.prior ?? "none"], untried: config.untried ?? "floor", counts: config.counts ?? "every", replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
+    const searched = { options, objective, obedience, horizon, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], prior: PRIORS[config.prior ?? "none"], untried: config.untried ?? "floor", skipped: COUNTS[config.counts ?? "every"].skipped, replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
     return chooser({ options, appraise: searching((now) => pricedLines(repliedSearch(now, searched))), deciding: { rethink: RETHINK, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },
