@@ -266,5 +266,8 @@
   },
   "option-tail": {
     "note": "the game's Mind before the fitted mean; 91.2% knockouts within 60 s"
+  },
+  "option-replies": {
+    "note": "scored 0.498 against Option Mind over 576 bouts; 90.7% knockouts within 60 s (that Mind 81.0%); about three searches a decision"
   }
 }
