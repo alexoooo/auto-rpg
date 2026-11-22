@@ -86,6 +86,9 @@ its kind or running those tools.
 - **`git worktree remove` on a worktree with a `node_modules` junction empties the main
   checkout's.** Delete the folder with `npm run clean` (or Node's `rmSync`), then
   `git worktree prune`.
+- **A worktree keeps what it played in its own `.cache/evaluations/`**, not the main checkout's,
+  so deleting the tree deletes every row it played. Copy that folder (and the tree's `.tmp/`) under
+  `research/runs/<task>/` first.
 - **A worktree at a commit before `c8dce4e31` reads three `.blend` files as modified**
   (`chamber.blend`, `forge.blend`, `skeleton-source.blend`: plain blobs there, LFS-tracked by the
   attributes Git applies), so its build is "uncommitted" and `evaluate --write` (and `table
