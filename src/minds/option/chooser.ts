@@ -10,7 +10,7 @@ import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding
 import { placed, placing, type Option, type Situation } from "./option.ts";
 import { FEW_TERMS_PART, type Objective, type Tally } from "./objective.ts";
 import { cachedPressure, graceAt, threatened, type Pressure } from "./percepts.ts";
-import { featuresOf, fittedOver, offeredOf, readingAt, validFitted, type Offered } from "./fitted-value.ts";
+import { featuresOf, fittedOn, fittedOver, offeredOf, readingAt, validFitted, type Offered } from "./fitted-value.ts";
 import { priorsOf, validPrior } from "./move-prior.ts";
 import { dataOf, type DataKey } from "../../core/data/store.ts";
 import { exp, log } from "../../core/math/real.ts";
@@ -82,11 +82,12 @@ const chooser = ({ options, appraise, deciding, chance, objective, holding, own 
 export type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C, Option, Chooser>;
 
 /**
- * The chooser `config` names, as `parts` finds it, over `options`, its chances drawn from `seed`:
- * a part of the role makes a chooser over the options it is given (`ChooserPart`), which Option Mind's are.
+ * The chooser `config` names, as `parts` finds it, over `options`, its chances drawn from `seed`, for
+ * `body` (`bodyOf`): a part of the role makes a chooser over the options it is given
+ * (`ChooserPart`), which Option Mind's are.
  */
-export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number): Chooser =>
-  parts.of("chooser", config).make({ config, options, seed, parts }) as Chooser;
+export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number, body: string): Chooser =>
+  parts.of("chooser", config).make({ config, options, seed, parts, body }) as Chooser;
 
 /** How many options deep the valued chooser searches: the one it takes, or that and the best from where it leaves the body (`searching`). */
 const VALUED_DEPTHS: readonly number[] = Object.freeze([1, 2]);
@@ -147,6 +148,8 @@ interface Searched {
   readonly horizon: number;
   /** The seconds the focus keeps its velocity in the states the search reads (`placing`). */
   readonly carry: number;
+  /** The body it searches for: its model and what it holds (`bodyOf`). */
+  readonly body: string;
 }
 
 /**
@@ -163,7 +166,7 @@ interface Searched {
  * objective weighs it by when it comes (`Objective.weigh`: `dealtWeight`, `takenWeight`), as
  * itself where it weighs none.
  */
-function space(root: Situation, { options, objective, obedience, horizon, carry }: Searched) {
+function space(root: Situation, { options, objective, obedience, horizon, carry, body }: Searched) {
   const place = placing(carry);
   /** What life dealt, and taken, traded evenly over `span` s from `from` s on counts for, a share (`Objective.weigh`); 1 where the objective weighs none. */
   const dealtWeight = (from: number, span: number): number => objective.weigh ? objective.weigh("dealt", from, span, horizon) : 1;
@@ -321,7 +324,7 @@ function space(root: Situation, { options, objective, obedience, horizon, carry 
   };
   /** What an Option run again from a leaf reads of the search (`Rerun`). */
   const rerun: Rerun = { horizon, dealtWeight, takenWeight, modelAt, child, price, leaf };
-  return { horizon, dealtWeight, takenWeight, pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
+  return { horizon, body, dealtWeight, takenWeight, pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
 }
 
 /** **The states a search reads** (`space`). */
@@ -401,11 +404,13 @@ const LEAVES = Object.freeze({
  * leaves to the horizon added to the path's, as if it ran there, each weighed as traded evenly over
  * those seconds (`dealtWeight`, `takenWeight`); the state read with the Options on
  * offer as their models price one try, and the reach's grace its own where its Option reckoned it,
- * else the root's. The tail's where the state has no focus.
+ * else the root's. The tail's where the state has no focus, and through a search whose body or
+ * focus is not one the value was fitted on (`fittedOn`).
  */
 function fittedLeaf(search: Space, root: Situation): (at: Situation, from: Tally) => number {
   const value: unknown = dataOf("fitted-value"), grace = graceAt(root);
   if (!validFitted(value)) throw new Error("fitted-value: not a value over today's features");
+  if (!fittedOn(value.bodies, search.body, root.focus)) return (at, from) => search.leaf(at, "whole", from);
   return (at, from) => {
     const offered: Offered[] = [];
     for (const pair of search.pairsAt(at)) { const terms = search.modelAt(pair, at); if (terms) offered.push(offeredOf(pair.option.kind, pair.option.open === true, terms)); }
@@ -444,11 +449,13 @@ type PriorName = keyof typeof PRIORS;
  * **Shares of a state's runs a move prior reads** (`dataOf("move-prior")`, `priorsOf`): the
  * state read as the fitted leaf reads one (`readingAt`, the reach's grace its own where its Option
  * reckoned it, else the root's), and each Option by its first step from there on a path begun there
- * and what the objective prices that step at. None where the state has no focus.
+ * and what the objective prices that step at. None where the state has no focus, nor through a
+ * search whose body or focus is not one the prior was fitted on (`fittedOn`).
  */
-function fittedPrior(search: Space, root: Situation): (at: Situation, pairs: readonly Pair[]) => readonly number[] | null {
+function fittedPrior(search: Space, root: Situation): ((at: Situation, pairs: readonly Pair[]) => readonly number[] | null) | null {
   const prior: unknown = dataOf("move-prior"), grace = graceAt(root);
   if (!validPrior(prior)) throw new Error("move-prior: not a prior over today's features");
+  if (!fittedOn(prior.bodies, search.body, root.focus)) return null;
   return (at, pairs) => {
     const offered: Offered[] = [];
     for (const pair of pairs) { const terms = search.modelAt(pair, at); if (terms) offered.push(offeredOf(pair.option.kind, pair.option.open === true, terms)); }
@@ -782,9 +789,9 @@ export const VALUED_CHOOSER = deepFreeze<OptionChooserPart<ValuedConfig>>({
   role: "chooser", model: PROFILE_MODEL, label: "By worth", fields: [obedienceField<ValuedConfig>(), horizonField<ValuedConfig>(), carryField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, carry: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config.depth), ...searchFaults(config)],
-  make: ({ config, options, seed, parts }) => {
+  make: ({ config, options, seed, parts, body }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON;
-    const searched = { options, objective, obedience, horizon, carry: config.carry ?? 0, depth: config.depth };
+    const searched = { options, objective, obedience, horizon, carry: config.carry ?? 0, body, depth: config.depth };
     return chooser({ options, appraise: searching((now) => search(now, searched)), deciding: { rethink: RETHINK, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: {} });
   },
@@ -863,10 +870,10 @@ export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
     ...config.prior === undefined || isPrior(config.prior) ? [] : [`prior: one of ${Object.keys(PRIORS).join(", ")}`],
     ...config.keeps === undefined || Number.isFinite(config.keeps) && config.keeps > 0 ? [] : ["keeps: a finite time, more than none"],
     ...config.best === undefined || Number.isFinite(config.best) && config.best >= 0 && config.best <= 1 ? [] : ["best: a number from 0 to 1"]],
-  make: ({ config, options, seed, parts }) => {
+  make: ({ config, options, seed, parts, body }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
-    const searched = { options, objective, obedience, horizon, carry: config.carry ?? 0, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], prior: PRIORS[config.prior ?? "none"], start: warm?.start ?? COLD };
+    const searched = { options, objective, obedience, horizon, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], prior: PRIORS[config.prior ?? "none"], start: warm?.start ?? COLD };
     return chooser({ options, appraise: searching((now) => treeSearch(now, searched)), deciding: { rethink: RETHINK, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },

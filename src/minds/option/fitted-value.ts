@@ -3,6 +3,7 @@ import { hypot } from "../../core/math/real.ts";
 import type { Situation } from "./option.ts";
 import type { Terms } from "./value.ts";
 import { treesAt, validTrees, type Trees } from "./boosted-trees.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 
 /**
  * **What a state is read as for a value fitted to what followed it** (`featuresOf`): how the two
@@ -110,6 +111,8 @@ export function featuresOf(r: Reading): number[] {
  */
 export interface FittedValue {
   readonly origin: string;
+  /** The bodies its bouts played, each its model and what it held (`bodyOf`): it reads a state between two of them alone (`fittedOn`). */
+  readonly bodies: readonly string[];
   readonly features: readonly string[];
   readonly horizons: readonly number[];
   readonly models: readonly { readonly dealt: Trees; readonly taken: Trees }[];
@@ -118,10 +121,24 @@ export interface FittedValue {
 /** **What followed, as fitted**: the life dealt and taken. */
 export interface Fitted { readonly dealt: number; readonly taken: number }
 
+/** Whether `bodies` names bodies (`FittedValue.bodies`). */
+export const validBodies = (bodies: unknown): boolean => Array.isArray(bodies) && bodies.every((body) => typeof body === "string");
+
+/** **A body as a fitted model names it**: its model, and what it holds by name where it holds anything ("man", "man holding sword"). */
+export const bodyOf = (spec: Pick<BodySpec, "model" | "held">): string =>
+  spec.held?.length ? `${spec.model} holding ${spec.held.map((held) => held.item.name).sort().join(" and ")}` : spec.model;
+
+/**
+ * **Whether a model fitted on `bodies`' bouts reads a search** for the body `own` (`bodyOf`)
+ * against `focus`: both bodies it was fitted on. Elsewhere what it reads was never seen.
+ */
+export const fittedOn = (bodies: readonly string[], own: string, focus: Situation["focus"]): boolean =>
+  !!focus && bodies.includes(own) && bodies.includes(bodyOf(focus.spec));
+
 /** Whether `value` is a fitted value over today's `FEATURES`, its horizons rising and dealt and taken fitted at each. */
 export const validFitted = (value: unknown): value is FittedValue => {
   const v = value as FittedValue | null;
-  return !!v && typeof v === "object" && Array.isArray(v.features) && v.features.length === FEATURES.length && v.features.every((name, i) => name === FEATURES[i])
+  return !!v && typeof v === "object" && validBodies(v.bodies) && Array.isArray(v.features) && v.features.length === FEATURES.length && v.features.every((name, i) => name === FEATURES[i])
     && Array.isArray(v.horizons) && v.horizons.length > 0 && v.horizons.every((h, i) => Number.isFinite(h) && h > (v.horizons[i - 1] ?? 0))
     && Array.isArray(v.models) && v.models.length === v.horizons.length && v.models.every((m) => validTrees(m?.dealt) && validTrees(m?.taken));
 };

@@ -9,11 +9,11 @@
  *
  * `collect` plays the match evaluation's `<protocol>` bouts `<from>` to `<to>`, the game's Mind on
  * both sides (`option`), and keeps in `<dir>` each tree search's root as read there
- * (`fitted-value-hook.mjs`), and each bout's lives at each step either changes. `fit` reads them,
+ * (`fitted-value-hook.mjs`), each bout's bodies and its lives at each step either changes. `fit` reads them,
  * holds out the bouts `HELD` names, fits each horizon's dealt and taken on the rest and says each
  * one's held-out R², and that of 2 dealt less taken read from the two beside trees fitted to it
  * alone (not kept): what fitting them apart loses; `--write` puts the models in the game's asset
- * with where they came from.
+ * with where they came from and the bodies its bouts played (`bodiesOf`).
  */
 import { register } from "node:module";
 import { appendFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -41,16 +41,17 @@ async function collect(protocol, from, to, dir) {
   const { DEFAULT_ENGINE } = await import("../../src/core/physics/engines.ts");
   const { isRefused } = await import("../../src/core/refusal.ts");
   const { graceAt } = await import("../../src/minds/option/percepts.ts");
-  const { offeredOf, readingAt } = await import("../../src/minds/option/fitted-value.ts");
+  const { bodyOf, offeredOf, readingAt } = await import("../../src/minds/option/fitted-value.ts");
   const evaluation = EVALUATIONS.match, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects(["option", "option"]);
   if (!cases) throw new Error(`no match protocol ${protocol}`);
   mkdirSync(dir, { recursive: true });
   for (const [i, condition] of cases.conditions.slice(Number(from), Number(to)).entries()) {
     const bout = `${protocol}/${Number(from) + i}`, world = cases.world([subject.value, subject.value], condition, cases.engine ?? DEFAULT_ENGINE, [{}, {}]);
     if (isRefused(world)) throw new Error(world.refused);
-    let duel = null; const states = [], lives = [];
+    let duel = null; const states = [], lives = [], bodies = new Set();
     globalThis.__searchRoot = (root, at) => {
       if (!duel || !root.focus) return;
+      bodies.add(bodyOf(root.focus.spec));
       const offered = [];
       for (const pair of at.pairsAt(root)) { const terms = at.modelAt(pair, root); if (terms) offered.push(offeredOf(pair.option.kind, pair.option.open === true, terms)); }
       states.push({ side: root.focus.side === "left" ? "right" : "left", t: duel.clock, reading: readingAt(root, graceAt(root), offered) });
@@ -64,7 +65,7 @@ async function collect(protocol, from, to, dir) {
       }, get ended() { return reader.ended; }, reading: () => reader.reading() };
     }, {});
     if (isRefused(played)) throw new Error(played.refused);
-    appendFileSync(`${dir}/states-${protocol}-${from}.jsonl`, JSON.stringify({ bout, end: duel.clock, lives, states }) + "\n");
+    appendFileSync(`${dir}/states-${protocol}-${from}.jsonl`, JSON.stringify({ bout, bodies: [...bodies], end: duel.clock, lives, states }) + "\n");
     console.log(`${bout}: ${states.length} states, ${duel.clock.toFixed(1)} s`);
   }
 }
@@ -72,12 +73,12 @@ async function collect(protocol, from, to, dir) {
 /** Fit each horizon to the states in `dirs`, say each one's held-out R², and with `write` keep them in the game's asset. */
 async function fitAll(dirs, write) {
   const { FEATURES, featuresOf } = await import("../../src/minds/option/fitted-value.ts");
-  const F = FEATURES.length, xs = [], after = HORIZONS.map(() => ({ dealt: [], taken: [] })), held = [], bouts = new Set();
+  const F = FEATURES.length, xs = [], after = HORIZONS.map(() => ({ dealt: [], taken: [] })), held = [], bouts = new Set(), bodies = new Set();
   for (const dir of dirs) for (const name of readdirSync(dir).filter((file) => /^states-.*\.jsonl$/.test(file)).sort())
     for (const line of readFileSync(`${dir}/${name}`, "utf8").split("\n")) {
       if (!line) continue;
-      const { bout, end, lives, states } = JSON.parse(line);
-      bouts.add(bout);
+      const { bout, end, lives, states, ...row } = JSON.parse(line);
+      bouts.add(bout); for (const body of await bodiesOf(bout, row.bodies)) bodies.add(body);
       for (const { side, t, reading } of states) {
         xs.push(featuresOf(reading)); held.push(HELD(bout));
         HORIZONS.forEach((h, k) => { const { dealt, taken } = followed(lives, end, side, t, h); after[k].dealt.push(dealt); after[k].taken.push(taken); });
@@ -98,8 +99,16 @@ async function fitAll(dirs, write) {
   if (!write) return;
   const commit = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
   const origin = `${SCRIPT} fit at ${commit}: ${train.length} states of the game's Mind on both sides in ${[...bouts].filter((b) => !HELD(b)).length} bouts (${dirs.join(", ")}), ${test.length} held out`;
-  writeFileSync(OUT, JSON.stringify({ origin, features: FEATURES, horizons: HORIZONS, models }) + "\n");
+  writeFileSync(OUT, JSON.stringify({ origin, bodies: [...bodies].sort(), features: FEATURES, horizons: HORIZONS, models }) + "\n");
   console.log(`wrote ${OUT}: ${origin}`);
+}
+
+/** The bodies `bout` played (`bodyOf`): as it was kept (`recorded`), else every model its protocol plays, a bout kept before they were (the Warrior's protocols hold nothing). */
+async function bodiesOf(bout, recorded) {
+  if (recorded) return recorded;
+  const { EVALUATIONS } = await import("../../src/app/node/evaluation.ts"), protocol = EVALUATIONS.match.protocols[bout.split("/")[0]];
+  if (!protocol) throw new Error(`${bout}: no bodies kept and no match protocol of its name`);
+  return protocol.bodies;
 }
 
 /** What `side` dealt and took over `h` s from `t` (to the bout's `end`), by its lives at each change (`lives`). */

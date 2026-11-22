@@ -9,13 +9,13 @@
  *
  * `collect` plays the match evaluation's `<protocol>` bouts `<from>` to `<to>`, the Mind
  * `<mind.json>` on both sides, and appends to `<rows.jsonl>` each tree search's root
- * (`move-prior-hook.mjs`), one line a bout's root: its bout (`b`), the root as the fitted value
+ * (`move-prior-hook.mjs`), one line a bout's root: its bout (`b`) and focus (`m`, `bodyOf`), the root as the fitted value
  * reads a state (`f`, `featuresOf`), and each Option on offer as [kind, open, seconds, dealt,
  * taken, price, runs] (`l`, `PriorLine`). `fit` reads them, holds out the bouts `HELD` names, and
  * says in nats a root held out (the cross-entropy to its run shares) what uniform shares read, a
  * softmax of the price (its temperature fitted), and the trees every 50 rounds, with how often each
  * one's likeliest Option is the one run most; `--write` keeps the trees in the game's asset with
- * where they came from.
+ * where they came from and the bodies its bouts played.
  */
 import { register } from "node:module";
 import { appendFileSync, createReadStream, readFileSync, writeFileSync } from "node:fs";
@@ -42,7 +42,7 @@ async function collect(mindPath, protocol, from, to, out) {
   const { DEFAULT_ENGINE } = await import("../../src/core/physics/engines.ts");
   const { isRefused } = await import("../../src/core/refusal.ts");
   const { graceAt } = await import("../../src/minds/option/percepts.ts");
-  const { featuresOf, offeredOf, readingAt } = await import("../../src/minds/option/fitted-value.ts");
+  const { bodyOf, featuresOf, offeredOf, readingAt } = await import("../../src/minds/option/fitted-value.ts");
   const mind = JSON.parse(readFileSync(mindPath, "utf8")), evaluation = EVALUATIONS.match, cases = evaluation.protocols[protocol];
   if (!cases) throw new Error(`no match protocol ${protocol}`);
   const [subject] = evaluation.subjects([{ id: "mind", label: "mind", value: mind }, { id: "mind2", label: "mind", value: mind }]);
@@ -57,7 +57,7 @@ async function collect(mindPath, protocol, from, to, out) {
       for (const pair of at.pairsAt(root)) { const terms = at.modelAt(pair, root); if (terms) offered.push(offeredOf(pair.option.kind, pair.option.open === true, terms)); }
       const reading = readingAt(root, graceAt(root), offered);
       if (!reading) return;
-      rows.push({ b: bout, f: featuresOf(reading).map(r4), l: edges.map(({ pair, step, runs }) =>
+      rows.push({ b: bout, m: [bodyOf(root.focus.spec)], f: featuresOf(reading).map(r4), l: edges.map(({ pair, step, runs }) =>
         [pair.option.kind, pair.option.open === true ? 1 : 0, r4(step.terms.duration), r4(step.terms.dealt), r4(step.terms.taken), r4(at.price(step, root)), runs]) });
     };
     const played = await playCase(world, cases.seconds, (built) => {
@@ -75,11 +75,13 @@ async function fitAll(files, write) {
   const { FEATURES } = await import("../../src/minds/option/fitted-value.ts");
   const { LINE_FEATURES, lineFeatures } = await import("../../src/minds/option/move-prior.ts");
   // Each root's run shares beyond the one run each Option has first; a root none of whose runs went further is left out.
-  const roots = [], kindsSeen = new Map();
+  const roots = [], kindsSeen = new Map(), bodies = new Set();
   for (const file of files) for await (const text of createInterface({ input: createReadStream(file), crlfDelay: Infinity })) {
     if (!text) continue;
     const row = JSON.parse(text), extra = row.l.map((line) => Math.max(0, line[6] - 1)), sum = extra.reduce((s, v) => s + v, 0);
     if (sum <= 0) continue;
+    if (!row.m) throw new Error(`${row.b}: no bodies kept`);
+    for (const body of row.m) bodies.add(body);
     for (const line of row.l) kindsSeen.set(line[0], (kindsSeen.get(line[0]) ?? 0) + 1);
     roots.push({ b: row.b, f: row.f, l: row.l, shares: extra.map((v) => v / sum) });
   }
@@ -115,6 +117,6 @@ async function fitAll(files, write) {
   if (!write) return;
   const commit = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
   const origin = `${SCRIPT} fit at ${commit}: ${train.length} roots in ${bouts.size - heldBouts} bouts (${files.join(", ")}), ${test.length} held out`;
-  writeFileSync(OUT, JSON.stringify({ origin, features: [...FEATURES, ...LINE_FEATURES], kinds, trees: { base: TREES.base, trees } }) + "\n");
+  writeFileSync(OUT, JSON.stringify({ origin, bodies: [...bodies].sort(), features: [...FEATURES, ...LINE_FEATURES], kinds, trees: { base: TREES.base, trees } }) + "\n");
   console.log(`wrote ${OUT}: ${origin}`);
 }

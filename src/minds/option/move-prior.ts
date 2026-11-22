@@ -1,5 +1,5 @@
 import { exp } from "../../core/math/real.ts";
-import { FEATURES } from "./fitted-value.ts";
+import { FEATURES, validBodies } from "./fitted-value.ts";
 import { treesAt, validTrees, type Trees } from "./boosted-trees.ts";
 
 /**
@@ -11,6 +11,8 @@ import { treesAt, validTrees, type Trees } from "./boosted-trees.ts";
  */
 export interface MovePrior {
   readonly origin: string;
+  /** The bodies its bouts played, as the fitted value's (`FittedValue.bodies`). */
+  readonly bodies: readonly string[];
   readonly features: readonly string[];
   readonly kinds: readonly string[];
   readonly trees: Trees;
@@ -36,7 +38,7 @@ export function lineFeatures(kinds: readonly string[], line: PriorLine, best: nu
 /** Whether `value` is a move prior over today's `FEATURES` and `LINE_FEATURES`. */
 export const validPrior = (value: unknown): value is MovePrior => {
   const v = value as MovePrior | null, names = [...FEATURES, ...LINE_FEATURES];
-  return !!v && typeof v === "object" && Array.isArray(v.features) && v.features.length === names.length && v.features.every((name, i) => name === names[i])
+  return !!v && typeof v === "object" && validBodies(v.bodies) && Array.isArray(v.features) && v.features.length === names.length && v.features.every((name, i) => name === names[i])
     && Array.isArray(v.kinds) && v.kinds.every((kind) => typeof kind === "string") && validTrees(v.trees);
 };
 

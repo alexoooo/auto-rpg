@@ -1,4 +1,5 @@
 import { chooserOf } from "./chooser.ts";
+import { bodyOf } from "./fitted-value.ts";
 import { intentOfSet } from "../../skills/framework/intent.ts";
 import type { Sight } from "../decider.ts";
 import type { Prospect } from "../report.ts";
@@ -33,7 +34,7 @@ export function profileModel({ strikes, outcomes, others }: { readonly strikes: 
       { spec, hz, rate, delay, parts, walk, legs, guards: input.guards, outcomes, record });
     const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap(option => option.modelled ? [option.modelled] : []), measured: strikes, others,
       ordersOf: input.orders, record, parts, techniques });
-    const chosen = chooserOf(parts, input.chooser, options, input.seed);
+    const chosen = chooserOf(parts, input.chooser, options, input.seed, bodyOf(spec));
     /** Its state; and what it reports: what the focus was doing as it last read it (`foe`), its prospects and its details. */
     const state = { chooser: chosen.state, model: { situation: reader.state, record: record.state }, options: options.map((option) => option.state), prospects: [] as readonly Prospect[],
       details: [] as EngagementDetail[], foe: "clear" };
