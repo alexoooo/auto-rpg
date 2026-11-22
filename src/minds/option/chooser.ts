@@ -461,6 +461,17 @@ const UNTRIED = Object.freeze({
 type UntriedName = keyof typeof UNTRIED;
 
 /**
+ * **Which of a line's runs its state's mean counts** (`TreeConfig.counts`, `backedUp`): `every` one;
+ * or, `past-first`, those past its first, the first being the search's try of every line in turn,
+ * not what the body would take there, so a state whose lines were each tried once is worth its leaf.
+ */
+const COUNTS = Object.freeze({
+  every: Object.freeze({ label: "Every run" }),
+  "past-first": Object.freeze({ label: "Past each line's first" }),
+});
+type CountsName = keyof typeof COUNTS;
+
+/**
  * **Shares of a state's runs a move prior reads** (`dataOf("move-prior")`, `priorsOf`): the
  * state read as the fitted leaf reads one (`readingAt`, the reach's grace its own where its Option
  * reckoned it, else the root's), and each Option by its first step from there on a path begun there
@@ -591,13 +602,14 @@ function warmStart(options: readonly Option[], keeps: number): { readonly start:
  * **What a state in the tree is worth** (`TreeNode.worth`): its best line by `best` and the mean of
  * its lines by the rest. Its best line, the more of its floor and its best Option run or kept: the
  * models are the mind's own, so its best line found, never less than its leaf. The mean of its
- * lines: its floor once and each Option by the runs it stood on, a kept one's evidence among them.
+ * lines: its floor once and each Option by the runs it stood on that `counts` counts (`COUNTS`), a
+ * kept one's evidence among them.
  */
-function backedUp(node: TreeNode, best: number): number {
+function backedUp(node: TreeNode, best: number, counts: CountsName): number {
   let top = node.floor, sum = node.floor, weight = 1;
-  const edges = node.edges;
+  const edges = node.edges, first = counts === "past-first" ? 1 : 0;
   if (edges) for (let i = 0; i < edges.length; i++) {
-    const edge = edges[i]!, runs = edge.runs + (edge.kept?.weight ?? 0);
+    const edge = edges[i]!, runs = Math.max(0, edge.runs - first) + (edge.kept?.weight ?? 0);
     if (edge.runs > 0 || edge.kept) top = Math.max(top, edge.worth);
     sum += edge.worth * runs; weight += runs;
   }
@@ -620,8 +632,8 @@ function backedUp(node: TreeNode, best: number): number {
  * at `root` is run at least once. Its root's Options start from what `start` gives them, as
  * evidence of as many runs as it says.
  */
-function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly best: number; readonly stream: { next(): number }; readonly leaf: LeafKind; readonly prior: PriorKind; readonly untried: UntriedName; readonly start: RootStart }): PricedLine[] {
-  const { runs, exploration, best, stream, start, untried } = searched;
+function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly best: number; readonly stream: { next(): number }; readonly leaf: LeafKind; readonly prior: PriorKind; readonly untried: UntriedName; readonly counts: CountsName; readonly start: RootStart }): PricedLine[] {
+  const { runs, exploration, best, stream, start, untried, counts } = searched;
   const predictions = root.predictions;
   let pressure: Pressure | undefined;
   root = Object.create(root, { predictions: { value: Object.create(predictions, {
@@ -713,7 +725,7 @@ function treeSearch(root: Situation, searched: Searched & { readonly runs: numbe
       edge.ends[k] = nodeAt(at.child(node.at, step.terms.outcomes[k]!.leaves, step.terms.duration), step);
       break;
     }
-    for (let i = taken.length - 1; i >= 0; i--) { const edge = taken[i]!; edge.runs++; reprice(edge); const node = nodes[i]!; node.worth = backedUp(node, best); }
+    for (let i = taken.length - 1; i >= 0; i--) { const edge = taken[i]!; edge.runs++; reprice(edge); const node = nodes[i]!; node.worth = backedUp(node, best, counts); }
     for (const visited of nodes) visited.runs++;
   };
   for (let k = 0; k < Math.max(runs, edgesOf(top).length); k++) run();
@@ -916,7 +928,7 @@ const EXPLORATION = 1;
  * none unless given) and how (`against`, `AGAINST`; its worst unless given), and what every
  * search is given (`SearchConfig`).
  */
-interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs?: number; readonly exploration?: number; readonly leaf?: LeafName; readonly keeps?: number; readonly best?: number; readonly prior?: PriorName; readonly untried?: UntriedName; readonly replies?: number; readonly against?: AgainstName }
+interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs?: number; readonly exploration?: number; readonly leaf?: LeafName; readonly keeps?: number; readonly best?: number; readonly prior?: PriorName; readonly untried?: UntriedName; readonly counts?: CountsName; readonly replies?: number; readonly against?: AgainstName }
 
 /** The tree's runs a search (`TreeConfig.runs`), `RUNS` written as none. */
 const RUNS_FIELD = number<TreeConfig, "runs">("runs", "Runs", 1, 1000, 1, "", RUNS);
@@ -942,8 +954,11 @@ const isAgainst = (name: unknown): name is AgainstName => typeof name === "strin
 /** Whether `name` names what a prior's bound makes of an untried Option (`UNTRIED`). */
 const isUntried = (name: unknown): name is UntriedName => typeof name === "string" && Object.hasOwn(UNTRIED, name);
 
+/** Whether `name` names which of a line's runs its state's mean counts (`COUNTS`). */
+const isCounts = (name: unknown): name is CountsName => typeof name === "string" && Object.hasOwn(COUNTS, name);
+
 /** A choice of the tree's among `kinds` (`LEAVES`, `PRIORS`, `UNTRIED`) at `key`: `none` written as none, so a config on it equals the preset. */
-function kindField(key: "leaf" | "prior" | "untried" | "against", label: string, kinds: Readonly<Record<string, { readonly label: string }>>, none: string): PartField<TreeConfig> {
+function kindField(key: "leaf" | "prior" | "untried" | "counts" | "against", label: string, kinds: Readonly<Record<string, { readonly label: string }>>, none: string): PartField<TreeConfig> {
   return {
     kind: "choice", key, label, options: () => Object.entries(kinds).map(([name, kind]) => [name, kind.label] as const),
     read: (config) => config[key] ?? none,
@@ -964,6 +979,9 @@ const PRIOR_FIELD = kindField("prior", "Prior", PRIORS, "none");
 /** What the prior's bound makes of an untried Option (`UNTRIED`), its state's leaf written as none. */
 const UNTRIED_FIELD = kindField("untried", "Prior's untried", UNTRIED, "floor");
 
+/** Which of a line's runs its state's mean counts (`COUNTS`), every one written as none. */
+const COUNTS_FIELD = kindField("counts", "Runs the mean counts", COUNTS, "every");
+
 /** How many of the foe's replies the tree prices each line against (`TreeConfig.replies`), none written as none. */
 const REPLIES_FIELD = number<TreeConfig, "replies">("replies", "Foe's replies", 0, DIRECTIONS.length, 1, "", 0);
 
@@ -977,14 +995,15 @@ const AGAINST_FIELD = kindField("against", "Against its replies", AGAINST, "wors
  * targets keeps the one it runs at `KEEP` s.
  */
 export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), horizonField<TreeConfig>(), carryField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], PRIOR_FIELD, UNTRIED_FIELD, REPLIES_FIELD, AGAINST_FIELD, RUNS_FIELD, EXPLORATION_FIELD, BEST_FIELD, KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
-  defaults: { kind: "tree" }, reads: (config) => [...LEAVES[config.leaf ?? "tail"].reads, ...PRIORS[config.prior ?? "none"].reads], keys: { kind: true, runs: true, exploration: true, leaf: true, prior: true, untried: true, replies: true, against: true, keeps: true, best: true, horizon: true, carry: true, obedience: true, margin: true, objective: true }, fits: anyBody,
+  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), horizonField<TreeConfig>(), carryField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], PRIOR_FIELD, UNTRIED_FIELD, COUNTS_FIELD, REPLIES_FIELD, AGAINST_FIELD, RUNS_FIELD, EXPLORATION_FIELD, BEST_FIELD, KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  defaults: { kind: "tree" }, reads: (config) => [...LEAVES[config.leaf ?? "tail"].reads, ...PRIORS[config.prior ?? "none"].reads], keys: { kind: true, runs: true, exploration: true, leaf: true, prior: true, untried: true, counts: true, replies: true, against: true, keeps: true, best: true, horizon: true, carry: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
     ...config.exploration === undefined || Number.isFinite(config.exploration) && config.exploration >= 0 ? [] : ["exploration: a finite number, not negative"],
     ...config.leaf === undefined || isLeaf(config.leaf) ? [] : [`leaf: one of ${Object.keys(LEAVES).join(", ")}`],
     ...config.prior === undefined || isPrior(config.prior) ? [] : [`prior: one of ${Object.keys(PRIORS).join(", ")}`],
     ...config.untried === undefined || isUntried(config.untried) ? [] : [`untried: one of ${Object.keys(UNTRIED).join(", ")}`],
+    ...config.counts === undefined || isCounts(config.counts) ? [] : [`counts: one of ${Object.keys(COUNTS).join(", ")}`],
     ...config.replies === undefined || Number.isSafeInteger(config.replies) && config.replies >= 0 && config.replies <= DIRECTIONS.length ? [] : [`replies: a whole number from 0 to ${DIRECTIONS.length}`],
     ...config.against === undefined || isAgainst(config.against) ? [] : [`against: one of ${Object.keys(AGAINST).join(", ")}`],
     ...config.keeps === undefined || Number.isFinite(config.keeps) && config.keeps > 0 ? [] : ["keeps: a finite time, more than none"],
@@ -992,7 +1011,7 @@ export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
   make: ({ config, options, seed, parts, body }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
-    const searched = { options, objective, obedience, horizon, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], prior: PRIORS[config.prior ?? "none"], untried: config.untried ?? "floor", replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
+    const searched = { options, objective, obedience, horizon, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], prior: PRIORS[config.prior ?? "none"], untried: config.untried ?? "floor", counts: config.counts ?? "every", replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
     return chooser({ options, appraise: searching((now) => pricedLines(repliedSearch(now, searched))), deciding: { rethink: RETHINK, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },
