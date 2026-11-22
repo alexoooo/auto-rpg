@@ -5,17 +5,24 @@
  *
  *   node research/minds/foe-placement.mjs collect <mind.json> <protocol> <from> <to> <rows.jsonl>
  *   node research/minds/foe-placement.mjs read <rows.jsonl>...
+ *   node research/minds/foe-placement.mjs own <rows.jsonl>...
  *
  * `collect` plays the match evaluation's `<protocol>` bouts `<from>` to `<to>`, the Mind on both
  * sides, and appends one line a bout: each root's side (`s`), clock (`t`), the body's place and
  * velocity (`w`, `v`), its focus's centre and velocity (`c`, `fv`), and where the first step of its
  * best-worth line and of its best one-step line expect to leave it ([x, z, seconds], `ch`, `st`; each
- * way it ends by its chance, the body's place where it says none). It changes no result.
+ * way it ends by its chance, the body's place where it says none), and the chosen line's first
+ * Option, its name, kind and target (`o`, `k`, `g`). It changes no result.
  * `read` says each model's median, mean and 90th percentile error, m, 0.5 and 1 s on: for the
  * foe (its centre as the same side sees it at its first root then), standing, its velocity kept
  * for at most 0.5 s, and the foe's own root's lines at or before then (within 0.25 s), each first
  * step moved along linearly over its seconds and standing after, offset to the centre seen; for the
  * body (its own place then), the same of its own.
+ * `own` reads the body's own model where the body kept to it: each root whose chosen Option
+ * (name and target) every root of the same side chose again until its first step's seconds were
+ * up, the place that step expects against the body's place at the first root from then (within
+ * 0.25 s), by the Option's kind and by its seconds; with standing's error over the same roots, and
+ * the bias, the mean signed error along the move the step expects (the body further, +) and across it.
  */
 import { register } from "node:module";
 import { appendFileSync, readFileSync } from "node:fs";
@@ -23,7 +30,8 @@ import { appendFileSync, readFileSync } from "node:fs";
 const [mode, ...args] = process.argv.slice(2);
 if (mode === "collect") await collect(...args);
 else if (mode === "read") read(args);
-else throw new Error("usage: foe-placement.mjs collect <mind.json> <protocol> <from> <to> <rows.jsonl> | read <rows.jsonl>...");
+else if (mode === "own") own(args);
+else throw new Error("usage: foe-placement.mjs collect <mind.json> <protocol> <from> <to> <rows.jsonl> | read | own <rows.jsonl>...");
 
 /** Play bouts `from` to `to` of `protocol`, the Mind at `mindPath` on both sides, appending each bout's roots to `out`. */
 async function collect(mindPath, protocol, from, to, out) {
@@ -55,7 +63,8 @@ async function collect(mindPath, protocol, from, to, out) {
       }
       const f = root.focus, v = root.velocity ?? { x: 0, z: 0 };
       rows.push({ s: f.side === "left" ? "right" : "left", t: r3(duel.clock), w: [r3(root.where.x), r3(root.where.z)], v: [r3(v.x), r3(v.z)],
-        c: [r3(f.centre.x), r3(f.centre.z)], fv: [r3(f.velocity.x), r3(f.velocity.z)], ch: endOf(root, chosen.step.terms), st: endOf(root, step.step.terms) });
+        c: [r3(f.centre.x), r3(f.centre.z)], fv: [r3(f.velocity.x), r3(f.velocity.z)], ch: endOf(root, chosen.step.terms), st: endOf(root, step.step.terms),
+        o: chosen.pair.option.name, k: chosen.pair.option.kind, g: chosen.pair.target });
     };
     const played = await playCase(world, cases.seconds, (built) => {
       duel = built.duel; const reader = cases.read(built, cases.conditions[n]);
@@ -99,5 +108,42 @@ function read(files) {
   for (const [key, xs] of [...errors.entries()].sort()) {
     xs.sort((a, b) => a - b);
     console.log(`${key} | ${xs.length} | ${q(xs, .5).toFixed(3)}, ${(xs.reduce((s, v) => s + v, 0) / xs.length).toFixed(3)}, ${q(xs, .9).toFixed(3)}`);
+  }
+}
+
+/** Say the body's own model's error where it kept to the Option it chose, over the roots in `files`, by kind and by seconds. */
+function own(files) {
+  const groups = new Map(), add = (key, row) => (groups.get(key) ?? groups.set(key, []).get(key)).push(row);
+  const bin = (s) => s < .5 ? "under 0.5 s" : s < 1 ? "0.5 to 1 s" : s < 2 ? "1 to 2 s" : "2 s or more";
+  let roots = 0, kept = 0;
+  for (const file of files) for (const line of readFileSync(file, "utf8").split("\n")) {
+    if (!line) continue;
+    const { rows } = JSON.parse(line);
+    for (const side of ["left", "right"]) {
+      const own = rows.filter((r) => r.s === side);
+      for (let i = 0; i < own.length; i++) {
+        const r = own[i];
+        if (r.o === undefined) throw new Error("rows without the chosen Option: collect them again");
+        roots++;
+        const d = r.ch[2], end = r.t + d;
+        let j = i + 1;
+        while (j < own.length && own[j].t < end - 1e-9 && own[j].o === r.o && own[j].g === r.g) j++;
+        if (j >= own.length || own[j].t < end - 1e-9 || own[j].t > end + .25) continue;
+        kept++;
+        const at = own[j].w, mx = r.ch[0] - r.w[0], mz = r.ch[1] - r.w[1], moved = Math.hypot(mx, mz);
+        const ex = at[0] - r.ch[0], ez = at[1] - r.ch[1];
+        const ux = moved > 1e-6 ? mx / moved : 0, uz = moved > 1e-6 ? mz / moved : 0;
+        const row = { model: Math.hypot(ex, ez), standing: Math.hypot(at[0] - r.w[0], at[1] - r.w[1]), along: moved > 1e-6 ? ex * ux + ez * uz : 0, across: moved > 1e-6 ? ex * uz - ez * ux : 0, moved };
+        add(`all`, row); add(`kind ${r.k}`, row); add(`seconds ${bin(d)}`, row);
+      }
+    }
+  }
+  const q = (xs, p) => { const s = [...xs].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; };
+  const mean = (xs) => xs.reduce((s, v) => s + v, 0) / xs.length, sd = (xs) => { const m = mean(xs); return Math.sqrt(xs.reduce((s, v) => s + (v - m) ** 2, 0) / Math.max(1, xs.length - 1)); };
+  console.log(`${kept} of ${roots} roots kept to their Option until its first step's seconds were up`);
+  console.log("group | roots | expected move m, median | model error m: median, 90th | standing's: median, 90th | beyond its end along the move m (+ further): mean ± se, sd | across m: mean ± se, sd");
+  for (const [key, xs] of [...groups.entries()].sort()) {
+    const f = (k) => xs.map((x) => x[k]), n = xs.length, se = (k) => sd(f(k)) / Math.sqrt(n);
+    console.log(`${key} | ${n} | ${q(f("moved"), .5).toFixed(3)} | ${q(f("model"), .5).toFixed(3)}, ${q(f("model"), .9).toFixed(3)} | ${q(f("standing"), .5).toFixed(3)}, ${q(f("standing"), .9).toFixed(3)} | ${mean(f("along")).toFixed(3)} ± ${se("along").toFixed(3)}, ${sd(f("along")).toFixed(3)} | ${mean(f("across")).toFixed(3)} ± ${se("across").toFixed(3)}, ${sd(f("across")).toFixed(3)}`);
   }
 }
