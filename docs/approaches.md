@@ -378,6 +378,13 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   (each Option's prior its one step's worth at the state, a softmax in units of their spread;
   AlphaZero's bound), the root as it was, at 50 runs: about 0.515 (0.479 to 0.550) over 576 bouts
   held out against the game's Mind, its mirror knocking out within 60 s in 93.1%. *Shown.*
+- **A state worth the mean of its lines, its leaf fitted to what followed, a blow now worth more,
+  beats a state worth its best line on the tail**: the tree chooser's fitted leaf, each state worth
+  its leaf once and each line by its runs (`best` 0), at aggression 4 and initiative 0.3, at 50
+  runs: 0.646 (0.606 to 0.686) over 576 bouts held out against the tail leaf's best line, its
+  mirror knocking out within 60 s in 81.0% (91.2%). The game's Mind since 31e863c27, by the
+  owner's word, where its fitted models were fitted (both bodies empty-handed men, `fittedOn`);
+  the Mind before it stays a preset (`option-tail`). *Shown.*
 - **An open Option's model asked once a state saves no time worth reading**: a held leaf asks the
   same answer about nine times (436 asks on 56 pairs a search), yet kept per state it read a
   99th-percentile step of 16.59 ms between the unchanged code's 17.51 and 16.66 in one quiet
