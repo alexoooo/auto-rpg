@@ -2,6 +2,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { hypot } from "../../core/math/real.ts";
 import type { Situation } from "./option.ts";
 import type { Terms } from "./value.ts";
+import { treesAt, validTrees, type Trees } from "./boosted-trees.ts";
 
 /**
  * **What a state is read as for a value fitted to what followed it** (`featuresOf`): how the two
@@ -105,9 +106,7 @@ export function featuresOf(r: Reading): number[] {
  * **A value fitted to what followed a state** (`assets/minds/fitted-value.json`, made by
  * `research/minds/fitted-value.mjs`): for each of its horizons, s, boosted regression trees over
  * `FEATURES` that read the life a body dealt and the life it took over that many seconds after it,
- * each its own (`Fitted`), so its objective prices them as it prices a path. A tree is flat: a node
- * `[worth]` ends it, `[feature, threshold, below, above]` goes to the node at `below` where the
- * feature is at most the threshold, else at `above`.
+ * each its own (`Fitted`), so its objective prices them as it prices a path (`Trees`).
  */
 export interface FittedValue {
   readonly origin: string;
@@ -116,13 +115,8 @@ export interface FittedValue {
   readonly models: readonly { readonly dealt: Trees; readonly taken: Trees }[];
 }
 
-/** **Boosted trees**: what they read at none, and each tree (`FittedValue`). */
-export interface Trees { readonly base: number; readonly trees: readonly (readonly (readonly number[])[])[] }
-
 /** **What followed, as fitted**: the life dealt and taken. */
 export interface Fitted { readonly dealt: number; readonly taken: number }
-
-const validTrees = (t: Trees | undefined) => !!t && Number.isFinite(t.base) && Array.isArray(t.trees);
 
 /** Whether `value` is a fitted value over today's `FEATURES`, its horizons rising and dealt and taken fitted at each. */
 export const validFitted = (value: unknown): value is FittedValue => {
@@ -131,17 +125,6 @@ export const validFitted = (value: unknown): value is FittedValue => {
     && Array.isArray(v.horizons) && v.horizons.length > 0 && v.horizons.every((h, i) => Number.isFinite(h) && h > (v.horizons[i - 1] ?? 0))
     && Array.isArray(v.models) && v.models.length === v.horizons.length && v.models.every((m) => validTrees(m?.dealt) && validTrees(m?.taken));
 };
-
-/** Trees' worth at features `x`. */
-function treesAt(model: Trees, x: readonly number[]): number {
-  let worth = model.base;
-  for (const nodes of model.trees) {
-    let node = nodes[0]!;
-    while (node.length > 1) node = nodes[x[node[0]!]! <= node[1]! ? node[2]! : node[3]!]!;
-    worth += node[0]!;
-  }
-  return worth;
-}
 
 /** A horizon's dealt and taken at features `x`, by `share`. */
 const fittedAt = (model: FittedValue["models"][number], x: readonly number[], share: number): Fitted =>

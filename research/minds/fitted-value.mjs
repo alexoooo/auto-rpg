@@ -18,6 +18,7 @@
 import { register } from "node:module";
 import { appendFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { binned, binsOf, boost, squared } from "./boosted-trees.mjs";
 
 const OUT = "assets/minds/fitted-value.json", SCRIPT = "research/minds/fitted-value.mjs";
 /** The seconds after a state what followed is read over. */
@@ -87,7 +88,7 @@ async function fitAll(dirs, write) {
   const train = [...Array(n).keys()].filter((i) => !held[i]), test = [...Array(n).keys()].filter((i) => held[i]);
   console.log(`${n} states of ${bouts.size} bouts: ${train.length} fitted, ${test.length} held out`);
   const edges = binsOf(X, n, F), B = binned(X, n, F, edges), models = [];
-  const trees = (y) => { const base = mean(train, y), model = fit(B, F, edges, n, train, y, { ...TREES, base }); return { base, trees: model.trees, pred: model.pred }; };
+  const trees = (y) => { const base = mean(train, y), model = boost(B, F, edges, n, train, squared(train, y), { ...TREES, base }); return { base, trees: model.trees, pred: model.pred }; };
   for (const [k, h] of HORIZONS.entries()) {
     const dealtY = Float64Array.from(after[k].dealt), takenY = Float64Array.from(after[k].taken), dealt = trees(dealtY), taken = trees(takenY);
     const tradedY = Float64Array.from(dealtY, (d, i) => 2 * d - takenY[i]), traded = Float64Array.from(dealt.pred, (d, i) => 2 * d - taken.pred[i]), alone = trees(tradedY);
@@ -113,71 +114,3 @@ function followed(lives, end, side, t, h) {
 function mean(idx, y) { return idx.reduce((s, i) => s + y[i], 0) / idx.length; }
 /** The share of `y`'s spread over the states `idx` that `pred` reads. */
 function r2(idx, pred, y) { const m = mean(idx, y); let se = 0, st = 0; for (const i of idx) { se += (pred[i] - y[i]) ** 2; st += (y[i] - m) ** 2; } return 1 - se / st; }
-
-/** Each feature's bin edges: up to `bins - 1` thresholds at its quantiles over a sample of the states. */
-function binsOf(X, n, F, bins = 64, sample = 200000) {
-  const edges = [], step = Math.max(1, Math.floor(n / sample));
-  for (let f = 0; f < F; f++) {
-    const v = []; for (let i = 0; i < n; i += step) v.push(X[i * F + f]);
-    v.sort((a, b) => a - b);
-    const e = []; for (let q = 1; q < bins; q++) { const t = v[Math.floor(q * v.length / bins)]; if (!e.length || t > e[e.length - 1]) e.push(t); }
-    edges.push(Float32Array.from(e));
-  }
-  return edges;
-}
-
-/** Each state's bin of each feature: bin b where the value is at most edge b, the last above every edge. */
-function binned(X, n, F, edges) {
-  const B = new Uint8Array(n * F);
-  for (let i = 0; i < n; i++) for (let f = 0; f < F; f++) {
-    const e = edges[f], x = X[i * F + f]; let lo = 0, hi = e.length;
-    while (lo < hi) { const m = (lo + hi) >> 1; if (x <= e[m]) hi = m; else lo = m + 1; }
-    B[i * F + f] = lo;
-  }
-  return B;
-}
-
-/**
- * Boosted trees on squared error over the states `train` (binned `B`): each round one tree grown
- * level by level on a `subsample` of the states and a `colsample` of the features, split where the
- * gain is most with at least `minLeaf` states a side, its leaves the Newton step shrunk by `lambda`
- * and `rate`. Each tree flat as the asset keeps it (`FittedValue`). The draws are seeded: a fit of
- * the same states is the same.
- */
-function fit(B, F, edges, n, train, y, { rounds, rate, depth, minLeaf, lambda, subsample, colsample, base }) {
-  const pred = new Float64Array(n).fill(base), g = new Float64Array(n), trees = [], bins = 256, GH = new Float64Array(F * bins * 2);
-  let seed = 7; const draw = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
-  for (let round = 0; round < rounds; round++) {
-    for (const i of train) g[i] = pred[i] - y[i];
-    const rows = train.filter(() => draw() < subsample), cols = []; for (let f = 0; f < F; f++) if (draw() < colsample) cols.push(f);
-    const nodes = [], splits = [];
-    const grow = (idx, level) => {
-      const at = nodes.length; nodes.push(null);
-      let G = 0; for (const i of idx) G += g[i];
-      const H = idx.length, leaf = () => { nodes[at] = [-G / (H + lambda) * rate]; return at; };
-      if (level >= depth || H < 2 * minLeaf) return leaf();
-      GH.fill(0);
-      for (const i of idx) { const o = i * F; for (const f of cols) { const k = (f * bins + B[o + f]) * 2; GH[k] += g[i]; GH[k + 1]++; } }
-      const parent = G * G / (H + lambda);
-      let best = 1e-9, bf = -1, bb = -1;
-      for (const f of cols) {
-        let gl = 0, hl = 0;
-        for (let b = 0; b < edges[f].length; b++) {
-          const k = (f * bins + b) * 2; gl += GH[k]; hl += GH[k + 1];
-          if (hl < minLeaf) continue; if (H - hl < minLeaf) break;
-          const gr = G - gl, hr = H - hl, gain = gl * gl / (hl + lambda) + gr * gr / (hr + lambda) - parent;
-          if (gain > best) { best = gain; bf = f; bb = b; }
-        }
-      }
-      if (bf < 0) return leaf();
-      const below = [], above = []; for (const i of idx) (B[i * F + bf] <= bb ? below : above).push(i);
-      const node = [bf, edges[bf][bb], 0, 0]; nodes[at] = node; splits[at] = bb;
-      node[2] = grow(below, level + 1); node[3] = grow(above, level + 1);
-      return at;
-    };
-    grow(rows, 0);
-    trees.push(nodes);
-    for (let i = 0; i < n; i++) { let k = 0; while (nodes[k].length > 1) k = B[i * F + nodes[k][0]] <= splits[k] ? nodes[k][2] : nodes[k][3]; pred[i] += nodes[k][0]; }
-  }
-  return { trees, pred };
-}
