@@ -15,7 +15,7 @@
  * one's held-out R², and that of 2 dealt less taken read from the two beside trees fitted to it
  * alone (not kept): what fitting them apart loses; `--write` puts the models in the game's asset
  * (`assets/minds/fitted-value.json`, or `assets/minds/<name>.json` with `--asset`) with where
- * they came from and the bodies its bouts played (`bodiesOf`).
+ * they came from and the bodies its bouts played (each row's `bodies`).
  */
 import { register } from "node:module";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -83,7 +83,8 @@ async function fitAll(dirs, out) {
     for (const line of readFileSync(`${dir}/${name}`, "utf8").split("\n")) {
       if (!line) continue;
       const { bout, end, lives, states, ...row } = JSON.parse(line);
-      bouts.add(bout); for (const body of await bodiesOf(bout, row.bodies)) bodies.add(body);
+      if (!Array.isArray(row.bodies)) throw new Error(`${bout}: no bodies kept`);
+      bouts.add(bout); for (const body of row.bodies) bodies.add(body);
       for (const { side, t, reading } of states) {
         xs.push(featuresOf(reading)); held.push(HELD(bout));
         HORIZONS.forEach((h, k) => { const { dealt, taken } = followed(lives, end, side, t, h); after[k].dealt.push(dealt); after[k].taken.push(taken); });
@@ -112,14 +113,6 @@ async function fitAll(dirs, out) {
 function mindOf(dir) {
   const mind = existsSync(`${dir}/mind.json`) ? JSON.parse(readFileSync(`${dir}/mind.json`, "utf8")) : "option";
   return mind === "option" ? "the game's Mind (option)" : `the Mind ${JSON.stringify(mind)}`;
-}
-
-/** The bodies `bout` played (`bodyOf`): as it was kept (`recorded`), else every model its protocol plays, a bout kept before they were (the Warrior's protocols hold nothing). */
-async function bodiesOf(bout, recorded) {
-  if (recorded) return recorded;
-  const { EVALUATIONS } = await import("../../src/app/node/evaluation.ts"), protocol = EVALUATIONS.match.protocols[bout.split("/")[0]];
-  if (!protocol) throw new Error(`${bout}: no bodies kept and no match protocol of its name`);
-  return protocol.bodies;
 }
 
 /** What `side` dealt and took over `h` s from `t` (to the bout's `end`), by its lives at each change (`lives`). */
