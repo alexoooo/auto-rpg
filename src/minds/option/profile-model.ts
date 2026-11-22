@@ -22,7 +22,7 @@ import type { OthersModel } from "./percepts.ts";
  * and its reader of the foe reads the foe's measured strikes (`strikes`) and what the others bring
  * (`others`, `OthersModel`); its walks priced as starting at the speed `walkStart` says (`WalkStart`).
  */
-export function profileModel({ strikes, outcomes, others, walkStart }: { readonly strikes: readonly Profile[]; readonly outcomes: OutcomeModel; readonly others: OthersModel; readonly walkStart?: WalkStart }): OptionEvaluation {
+export function profileModel({ strikes, outcomes, others, walkStart }: { readonly strikes: readonly Profile[]; readonly outcomes: OutcomeModel; readonly others: OthersModel; readonly walkStart: WalkStart }): OptionEvaluation {
   return { build(input) {
     const { spec, hz, rate, delay, rules, parts, legs, techniques } = input;
     const walk = walker(spec, walkStart), record = optionRecord();

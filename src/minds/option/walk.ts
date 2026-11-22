@@ -32,7 +32,7 @@ export type WalkStart = "speed" | "along";
  * which way its focus is; and a walk kept clear of what the body must keep clear of; a walk priced
  * as starting at the speed `start` says (`WalkStart`).
  */
-export function walker(_spec: BodySpec, start: WalkStart = "speed") {
+export function walker(_spec: BodySpec, start: WalkStart) {
   /**
    * The speed the rule asks going `forward` and `right` (a direction, in the frame of the way the
    * body faces) with nothing ahead to stop for, m/s: what the gait holds that way (`heldPace`),

@@ -33,7 +33,7 @@ export const MEASURED_PREDICTIONS = deepFreeze<PredictionsPart<MeasuredConfig>>(
   make: config => {
     const tables = deepFreeze({ strikes: dataOf("strike-profiles"), edges: config.edges ?? dataOf("edge-profiles"), steps: dataOf("step-profiles") });
     return profileModel({ strikes: tables.strikes, outcomes: OUTCOMES[config.outcomes ?? "written"](tables),
-      others: config.pressure === "rate" ? RATE_OTHERS : measuredOthers(measuredPressures()), ...(config.walkStart ? { walkStart: config.walkStart } : {}) });
+      others: config.pressure === "rate" ? RATE_OTHERS : measuredOthers(measuredPressures()), walkStart: config.walkStart ?? "speed" });
   },
 });
 
@@ -49,10 +49,10 @@ function measuredPressures() {
   return tables;
 }
 
-/** **The prior alone**: no profile, each model its prior, set by hand. */
+/** **The prior alone**: no profile, each model its prior, set by hand; its walks priced as starting at the body's speed. */
 export const PRIOR_PREDICTIONS = deepFreeze<PredictionsPart<{ readonly kind: "prior" }>>({
   role: "predictions", model: PROFILE_MODEL, label: "The prior alone", fields: [], slots: [], defaults: { kind: "prior" }, keys: { kind: true },
-  fits: anyBody, faults: () => [], make: () => profileModel({ strikes: [], outcomes: nearestTrials({ strikes: [], edges: [] }), others: RATE_OTHERS }),
+  fits: anyBody, faults: () => [], make: () => profileModel({ strikes: [], outcomes: nearestTrials({ strikes: [], edges: [] }), others: RATE_OTHERS, walkStart: "speed" }),
 });
 
 declare module "./parts.ts" {
