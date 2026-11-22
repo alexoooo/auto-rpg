@@ -22,10 +22,17 @@ function ceiling(now: Situation): number {
 }
 
 /**
- * **How a standing option walks** a body of `spec`: what its gaits hold, under its orders' pace;
- * which way its focus is; and a walk kept clear of what the body must keep clear of.
+ * **What speed a walk is priced as starting at** (`Walker.seconds`): the body's (`speed`), whichever
+ * way it goes; or its speed along the walk's first leg (`along`), none where it goes across or away.
  */
-export function walker(_spec: BodySpec) {
+export type WalkStart = "speed" | "along";
+
+/**
+ * **How a standing option walks** a body of `spec`: what its gaits hold, under its orders' pace;
+ * which way its focus is; and a walk kept clear of what the body must keep clear of; a walk priced
+ * as starting at the speed `start` says (`WalkStart`).
+ */
+export function walker(_spec: BodySpec, start: WalkStart = "speed") {
   /**
    * The speed the rule asks going `forward` and `right` (a direction, in the frame of the way the
    * body faces) with nothing ahead to stop for, m/s: what the gait holds that way (`heldPace`),
@@ -51,7 +58,7 @@ export function walker(_spec: BodySpec) {
   /**
    * How long each leg of the way from where the body is through `way` takes by `gait`, s: at the
    * speed the legs are asked all along it (`legSeconds`, the speed rule), from the speed the body
-   * goes (`velocity`), facing `face` where given and else the way each leg goes, under the orders'
+   * goes (`velocity`; under `along`, its part along the first leg), facing `face` where given and else the way each leg goes, under the orders'
    * ceiling; at that ceiling where the legs have no such gait. What an option prices a walk by.
    * Facing the way each leg goes, the body steers as it walks, so a gait is priced no faster than
    * it can steer (`steeredPace`). A walk that cannot turn at its top speed slows itself to a speed
@@ -64,7 +71,7 @@ export function walker(_spec: BodySpec) {
       let at: GroundPoint = where;
       return way.map((point) => { const length = hypot(point.x - at.x, point.z - at.z); at = point; return length > 0 ? length / most : 0; });
     }
-    return legSeconds(limits, { from: { x: where.x, z: where.z }, way, frame: frameOf(face), on: hypot(v.x, v.z), ceiling: most });
+    return legSeconds(limits, { from: { x: where.x, z: where.z }, way, frame: frameOf(face), on: start === "along" ? alongFirst(where, way, v) : hypot(v.x, v.z), ceiling: most });
   };
   return {
     pace,
@@ -131,3 +138,12 @@ export function walker(_spec: BodySpec) {
 }
 
 export type Walker = ReturnType<typeof walker>;
+
+/** The part of `velocity` along the first leg of `way` from `from` that has a length, m/s; none where it goes across or away, or no leg has a length. */
+function alongFirst(from: GroundPoint, way: readonly GroundPoint[], velocity: { readonly x: number; readonly z: number }): number {
+  for (const point of way) {
+    const x = point.x - from.x, z = point.z - from.z, length = hypot(x, z);
+    if (length > 0) return Math.max(0, (velocity.x * x + velocity.z * z) / length);
+  }
+  return 0;
+}

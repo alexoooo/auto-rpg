@@ -12,7 +12,7 @@ import type { OptionEvaluation } from "./model.ts";
 import { PROFILE_MODEL } from "./profile-contract.ts";
 import { optionRecord } from "./record.ts";
 import { situationReader } from "./situation.ts";
-import { walker } from "./walk.ts";
+import { walker, type WalkStart } from "./walk.ts";
 import type { OutcomeModel } from "../../skills/framework/outcomes.ts";
 import type { Profile } from "../../skills/framework/profile/profile.ts";
 import type { OthersModel } from "./percepts.ts";
@@ -20,12 +20,12 @@ import type { OthersModel } from "./percepts.ts";
 /**
  * **The measured-profile model**: its Options ask `outcomes` what each act brings (`OutcomeModel`),
  * and its reader of the foe reads the foe's measured strikes (`strikes`) and what the others bring
- * (`others`, `OthersModel`).
+ * (`others`, `OthersModel`); its walks priced as starting at the speed `walkStart` says (`WalkStart`).
  */
-export function profileModel({ strikes, outcomes, others }: { readonly strikes: readonly Profile[]; readonly outcomes: OutcomeModel; readonly others: OthersModel }): OptionEvaluation {
+export function profileModel({ strikes, outcomes, others, walkStart }: { readonly strikes: readonly Profile[]; readonly outcomes: OutcomeModel; readonly others: OthersModel; readonly walkStart?: WalkStart }): OptionEvaluation {
   return { build(input) {
     const { spec, hz, rate, delay, rules, parts, legs, techniques } = input;
-    const walk = walker(spec), record = optionRecord();
+    const walk = walker(spec, walkStart), record = optionRecord();
     const options = optionsOf(config => {
       const part = parts.of("option", config);
       if (!isProfileOption(part)) throw new Error(`${config.kind} does not implement ${PROFILE_MODEL}`);

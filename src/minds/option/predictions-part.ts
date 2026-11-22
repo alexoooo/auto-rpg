@@ -8,6 +8,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { validPressures } from "./pressure.ts";
 import { measuredOthers, RATE_OTHERS } from "./percepts.ts";
 import { nearestTrials, writtenForms, type OutcomeModel, type Tables } from "../../skills/framework/outcomes.ts";
+import { optionalChoice } from "../../parts/fields.ts";
 
 /**
  * An experiment may supply the ground profiles measured for the skill settings it runs. Its foe's
@@ -15,21 +16,24 @@ import { nearestTrials, writtenForms, type OutcomeModel, type Tables } from "../
  * its strikes' rate where they measured none near; or that rate alone (`rate`). Its Options ask
  * what an act brings of a form fitted to its trials (`written`, the default, `writtenForms`), of
  * its trials nearest the start (`nearest`, `nearestTrials`). Its foe stands where it is as an
- * Option runs.
+ * Option runs. Its walks are priced as starting at the body's speed, or, `along`, at its speed
+ * along the walk's way (`WalkStart`).
  */
-interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly Profile[]; readonly pressure?: "rate" | "measured"; readonly outcomes?: "nearest" | "written" }
+interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly Profile[]; readonly pressure?: "rate" | "measured"; readonly outcomes?: "nearest" | "written"; readonly walkStart?: "along" }
 
 /** **Measured**: supplied ground profiles where given, otherwise the drills' (`dataOf`); each model its own where fresh, else its prior. */
 export const MEASURED_PREDICTIONS = deepFreeze<PredictionsPart<MeasuredConfig>>({
-  role: "predictions", model: PROFILE_MODEL, label: "Measured", fields: [], slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true, pressure: true, outcomes: true }, tuning: ["edges"],
+  role: "predictions", model: PROFILE_MODEL, label: "Measured", slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true, pressure: true, outcomes: true, walkStart: true }, tuning: ["edges"],
+  fields: [optionalChoice<MeasuredConfig, "walkStart">("walkStart", "A walk starts at", "Its speed", () => [["along", "Its speed along its way"]])],
   fits: anyBody, faults: config => [...config.edges === undefined || validProfiles(config.edges) ? [] : ["edges: invalid profiles"],
     ...config.pressure === undefined || config.pressure === "rate" || config.pressure === "measured" ? [] : ["pressure: rate or measured"],
-    ...config.outcomes === undefined || Object.hasOwn(OUTCOMES, config.outcomes) ? [] : ["outcomes: nearest or written"]],
+    ...config.outcomes === undefined || Object.hasOwn(OUTCOMES, config.outcomes) ? [] : ["outcomes: nearest or written"],
+    ...config.walkStart === undefined || config.walkStart === "along" ? [] : ["walkStart: along or none"]],
   reads: config => [...config.edges === undefined ? ["strike-profiles", "edge-profiles", "step-profiles"] as const : ["strike-profiles", "step-profiles"] as const, ...config.pressure !== "rate" ? ["pressure-profiles"] as const : []],
   make: config => {
     const tables = deepFreeze({ strikes: dataOf("strike-profiles"), edges: config.edges ?? dataOf("edge-profiles"), steps: dataOf("step-profiles") });
     return profileModel({ strikes: tables.strikes, outcomes: OUTCOMES[config.outcomes ?? "written"](tables),
-      others: config.pressure === "rate" ? RATE_OTHERS : measuredOthers(measuredPressures()) });
+      others: config.pressure === "rate" ? RATE_OTHERS : measuredOthers(measuredPressures()), ...(config.walkStart ? { walkStart: config.walkStart } : {}) });
   },
 });
 
