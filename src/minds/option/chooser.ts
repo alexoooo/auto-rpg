@@ -10,10 +10,10 @@ import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding
 import { placed, placing, type Option, type Situation } from "./option.ts";
 import { FEW_TERMS_PART, type Objective, type Tally } from "./objective.ts";
 import { cachedPressure, graceAt, threatened, type Pressure } from "./percepts.ts";
-import { featuresOf, fittedOn, fittedOver, offeredOf, readingAt, validFitted, type Offered } from "./fitted-value.ts";
+import { bodyOf, featuresOf, fittedOn, fittedOver, offeredOf, readingAt, validFitted, type Offered } from "./fitted-value.ts";
 import { priorsOf, validPrior } from "./move-prior.ts";
 import { dataOf, type DataKey } from "../../core/data/store.ts";
-import { exp, log } from "../../core/math/real.ts";
+import { exp, hypot, log } from "../../core/math/real.ts";
 import { ARRIVED } from "../../skills/framework/movement.ts";
 import { randomStream } from "../../core/math/random.ts";
 import { OBEDIENCE, RETHINK, STEADY, type Leaves, type Obedience, type ObedienceLevel, type Terms } from "./value.ts";
@@ -496,8 +496,11 @@ const UNBEGUN: Tally = Object.freeze({ dealt: 0, taken: 0, orders: 0, seconds: 0
 /** What a search prices at a decision: each Option at each target its line from the state decided at (`Line`), null where it is not on offer. */
 type Lines = (option: Option, target: number) => Line | null;
 
+/** **A root's line as a search priced it**: its Option at its target (`Pair`), its worth and its model's terms. */
+type PricedLine = Line & { readonly pair: Pair };
+
 /** A completed tree's lookup captures only root prices, without its nodes or search workspace. */
-function pricedLines(prices: readonly (Line & { readonly pair: Pair })[]): Lines {
+function pricedLines(prices: readonly PricedLine[]): Lines {
   return (option, target) => {
     for (let i = 0; i < prices.length; i++) {
       const priced = prices[i]!;
@@ -617,7 +620,7 @@ function backedUp(node: TreeNode, best: number): number {
  * at `root` is run at least once. Its root's Options start from what `start` gives them, as
  * evidence of as many runs as it says.
  */
-function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly best: number; readonly stream: { next(): number }; readonly leaf: LeafKind; readonly prior: PriorKind; readonly untried: UntriedName; readonly start: RootStart }): Lines {
+function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly best: number; readonly stream: { next(): number }; readonly leaf: LeafKind; readonly prior: PriorKind; readonly untried: UntriedName; readonly start: RootStart }): PricedLine[] {
   const { runs, exploration, best, stream, start, untried } = searched;
   const predictions = root.predictions;
   let pressure: Pressure | undefined;
@@ -714,11 +717,85 @@ function treeSearch(root: Situation, searched: Searched & { readonly runs: numbe
     for (const visited of nodes) visited.runs++;
   };
   for (let k = 0; k < Math.max(runs, edgesOf(top).length); k++) run();
-  const edges = top.edges!, prices = new Array<Line & { readonly pair: Pair }>(edges.length);
+  const edges = top.edges!, prices = new Array<PricedLine>(edges.length);
   started.keep(edges);
   for (let i = 0; i < edges.length; i++) { const edge = edges[i]!; prices[i] = { pair: edge.pair, worth: edge.worth, terms: edge.step.terms }; }
-  return pricedLines(prices);
+  return prices;
 }
+
+/** What a tree search is given (`treeSearch`). */
+type TreeSearched = Parameters<typeof treeSearch>[1];
+
+/**
+ * **The tree's search against the foe's replies** (`TreeConfig.replies`, `against`): each line at
+ * `root` worth its worst (`worst`) or the mean (`mean`) of what a tree search prices it at with the
+ * foe standing (`treeSearch`) and with the foe running each of `replies` replies over the line's
+ * first step, a joint step; past it the foe stands, as in any line. A foe of the body's own build
+ * (`bodyOf`) can do what the body's own lines do, roles swapped: two bodies swap by a half turn
+ * about their midpoint, so where a line moves the body by a step, the foe's like move is the step
+ * reversed, over its seconds (`replyOf`). Its replies are those moves that go furthest each way
+ * (`DIRECTIONS`): closing on the body, backing off, and to either side, the first `replies` of
+ * them, so the worst of them is the foe's best reply whatever it prefers. Elsewhere, and where
+ * none moves, the foe stands.
+ */
+function repliedSearch(root: Situation, searched: TreeSearched & { readonly replies: number; readonly against: AgainstName }): PricedLine[] {
+  const own = treeSearch(root, searched), focus = root.focus, where = root.where;
+  if (searched.replies === 0 || !focus || !where || bodyOf(focus.spec) !== searched.body) return own;
+  const apart = hypot(where.x - focus.centre.x, where.z - focus.centre.z);
+  if (!(apart > 0)) return own;
+  // From the foe toward the body, and across.
+  const ux = (where.x - focus.centre.x) / apart, uz = (where.z - focus.centre.z) / apart;
+  const moves = own.map((line) => replyOf(root, line.terms)), worths = own.map((line) => [line.worth]), chosen = new Set<number>();
+  for (const [along, across] of DIRECTIONS.slice(0, searched.replies)) {
+    let best = -1, most = 0;
+    moves.forEach((move, i) => {
+      if (!move || chosen.has(i)) return;
+      const toward = (move.x * ux + move.z * uz) * along + (move.z * ux - move.x * uz) * across;
+      if (toward > most) { most = toward; best = i; }
+    });
+    if (best < 0) continue;
+    chosen.add(best);
+    const reply = moves[best]!, moved = Object.create(root, { focus: { value: Object.create(focus, { velocity: { value: { x: reply.x, y: 0, z: reply.z } } }) } }) as Situation;
+    const replied = treeSearch(moved, { ...searched, carry: reply.seconds, start: COLD });
+    own.forEach((line, i) => {
+      const same = replied.find((other) => other.pair.option === line.pair.option && other.pair.target === line.pair.target);
+      if (same) worths[i]!.push(same.worth);
+    });
+  }
+  return own.map((line, i) => {
+    const all = worths[i]!;
+    return { ...line, worth: searched.against === "mean" ? all.reduce((sum, worth) => sum + worth, 0) / all.length : Math.min(...all) };
+  });
+}
+
+/**
+ * **The foe's reply to a line of model `terms` at `root`**: the velocity that moves the foe by the
+ * line's first step reversed (each way it ends by its chance, `Leaves.where`), over that step's
+ * seconds; none where it does not move the body.
+ */
+function replyOf(root: Situation, terms: Terms): { readonly x: number; readonly z: number; readonly seconds: number } | null {
+  const from = root.where!;
+  let x = 0, z = 0;
+  for (const outcome of terms.outcomes) { const where = outcome.leaves.where ?? from; x += outcome.chance * (where.x - from.x); z += outcome.chance * (where.z - from.z); }
+  if (!(terms.duration > 0) || hypot(x, z) < REPLY_LEAST) return null;
+  return { x: -x / terms.duration, z: -z / terms.duration, seconds: terms.duration };
+}
+
+/** The least a reply moves the foe, m (`replyOf`): a line moving the body less is the foe standing. */
+const REPLY_LEAST = .01;
+
+/** **The ways a foe's replies go** (`repliedSearch`), in order, as [toward the body, across it]: closing, backing off, to one side, to the other. */
+const DIRECTIONS: readonly (readonly [number, number])[] = Object.freeze([[1, 0], [-1, 0], [0, 1], [0, -1]]);
+
+/**
+ * **What a line is worth against the foe's replies** (`TreeConfig.against`): `worst`, the least of
+ * its worths with the foe standing and replying; `mean`, their mean.
+ */
+const AGAINST = Object.freeze({
+  worst: Object.freeze({ label: "Its worst" }),
+  mean: Object.freeze({ label: "Their mean" }),
+});
+type AgainstName = keyof typeof AGAINST;
 
 /**
  * **A chooser's appraisal by a search** (`search`, `treeSearch`), made once a decision for each
@@ -835,9 +912,11 @@ const EXPLORATION = 1;
  * how much a state is worth its best line against the mean of its lines (`best`, its best alone
  * unless given), what guides its runs below the root (`prior`, `PRIORS`, none unless given), what
  * the prior's bound makes of an Option untried there (`untried`, `UNTRIED`, its state's leaf unless
- * given), and what every search is given (`SearchConfig`).
+ * given), how many of the foe's replies it prices each line against (`replies`, `repliedSearch`;
+ * none unless given) and how (`against`, `AGAINST`; its worst unless given), and what every
+ * search is given (`SearchConfig`).
  */
-interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs?: number; readonly exploration?: number; readonly leaf?: LeafName; readonly keeps?: number; readonly best?: number; readonly prior?: PriorName; readonly untried?: UntriedName }
+interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs?: number; readonly exploration?: number; readonly leaf?: LeafName; readonly keeps?: number; readonly best?: number; readonly prior?: PriorName; readonly untried?: UntriedName; readonly replies?: number; readonly against?: AgainstName }
 
 /** The tree's runs a search (`TreeConfig.runs`), `RUNS` written as none. */
 const RUNS_FIELD = number<TreeConfig, "runs">("runs", "Runs", 1, 1000, 1, "", RUNS);
@@ -857,11 +936,14 @@ const isLeaf = (name: unknown): name is LeafName => typeof name === "string" && 
 /** Whether `name` names a kind of prior (`PRIORS`). */
 const isPrior = (name: unknown): name is PriorName => typeof name === "string" && Object.hasOwn(PRIORS, name);
 
+/** Whether `name` names how a line is worth against the foe's replies (`AGAINST`). */
+const isAgainst = (name: unknown): name is AgainstName => typeof name === "string" && Object.hasOwn(AGAINST, name);
+
 /** Whether `name` names what a prior's bound makes of an untried Option (`UNTRIED`). */
 const isUntried = (name: unknown): name is UntriedName => typeof name === "string" && Object.hasOwn(UNTRIED, name);
 
 /** A choice of the tree's among `kinds` (`LEAVES`, `PRIORS`, `UNTRIED`) at `key`: `none` written as none, so a config on it equals the preset. */
-function kindField(key: "leaf" | "prior" | "untried", label: string, kinds: Readonly<Record<string, { readonly label: string }>>, none: string): PartField<TreeConfig> {
+function kindField(key: "leaf" | "prior" | "untried" | "against", label: string, kinds: Readonly<Record<string, { readonly label: string }>>, none: string): PartField<TreeConfig> {
   return {
     kind: "choice", key, label, options: () => Object.entries(kinds).map(([name, kind]) => [name, kind.label] as const),
     read: (config) => config[key] ?? none,
@@ -882,6 +964,12 @@ const PRIOR_FIELD = kindField("prior", "Prior", PRIORS, "none");
 /** What the prior's bound makes of an untried Option (`UNTRIED`), its state's leaf written as none. */
 const UNTRIED_FIELD = kindField("untried", "Prior's untried", UNTRIED, "floor");
 
+/** How many of the foe's replies the tree prices each line against (`TreeConfig.replies`), none written as none. */
+const REPLIES_FIELD = number<TreeConfig, "replies">("replies", "Foe's replies", 0, DIRECTIONS.length, 1, "", 0);
+
+/** How a line is worth against the foe's replies (`AGAINST`), its worst written as none. */
+const AGAINST_FIELD = kindField("against", "Against its replies", AGAINST, "worst");
+
 /**
  * **By tree**: each option worth the mean of its runs in a Monte Carlo tree search over its
  * horizon (`treeSearch`), each path priced by its objective (`Objective.worth`), its orders at its
@@ -889,21 +977,23 @@ const UNTRIED_FIELD = kindField("untried", "Prior's untried", UNTRIED, "floor");
  * targets keeps the one it runs at `KEEP` s.
  */
 export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), horizonField<TreeConfig>(), carryField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], PRIOR_FIELD, UNTRIED_FIELD, RUNS_FIELD, EXPLORATION_FIELD, BEST_FIELD, KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
-  defaults: { kind: "tree" }, reads: (config) => [...LEAVES[config.leaf ?? "tail"].reads, ...PRIORS[config.prior ?? "none"].reads], keys: { kind: true, runs: true, exploration: true, leaf: true, prior: true, untried: true, keeps: true, best: true, horizon: true, carry: true, obedience: true, margin: true, objective: true }, fits: anyBody,
+  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), horizonField<TreeConfig>(), carryField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], PRIOR_FIELD, UNTRIED_FIELD, REPLIES_FIELD, AGAINST_FIELD, RUNS_FIELD, EXPLORATION_FIELD, BEST_FIELD, KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  defaults: { kind: "tree" }, reads: (config) => [...LEAVES[config.leaf ?? "tail"].reads, ...PRIORS[config.prior ?? "none"].reads], keys: { kind: true, runs: true, exploration: true, leaf: true, prior: true, untried: true, replies: true, against: true, keeps: true, best: true, horizon: true, carry: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
     ...config.exploration === undefined || Number.isFinite(config.exploration) && config.exploration >= 0 ? [] : ["exploration: a finite number, not negative"],
     ...config.leaf === undefined || isLeaf(config.leaf) ? [] : [`leaf: one of ${Object.keys(LEAVES).join(", ")}`],
     ...config.prior === undefined || isPrior(config.prior) ? [] : [`prior: one of ${Object.keys(PRIORS).join(", ")}`],
     ...config.untried === undefined || isUntried(config.untried) ? [] : [`untried: one of ${Object.keys(UNTRIED).join(", ")}`],
+    ...config.replies === undefined || Number.isSafeInteger(config.replies) && config.replies >= 0 && config.replies <= DIRECTIONS.length ? [] : [`replies: a whole number from 0 to ${DIRECTIONS.length}`],
+    ...config.against === undefined || isAgainst(config.against) ? [] : [`against: one of ${Object.keys(AGAINST).join(", ")}`],
     ...config.keeps === undefined || Number.isFinite(config.keeps) && config.keeps > 0 ? [] : ["keeps: a finite time, more than none"],
     ...config.best === undefined || Number.isFinite(config.best) && config.best >= 0 && config.best <= 1 ? [] : ["best: a number from 0 to 1"]],
   make: ({ config, options, seed, parts, body }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
-    const searched = { options, objective, obedience, horizon, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], prior: PRIORS[config.prior ?? "none"], untried: config.untried ?? "floor", start: warm?.start ?? COLD };
-    return chooser({ options, appraise: searching((now) => treeSearch(now, searched)), deciding: { rethink: RETHINK, keep: KEEP },
+    const searched = { options, objective, obedience, horizon, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], prior: PRIORS[config.prior ?? "none"], untried: config.untried ?? "floor", replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
+    return chooser({ options, appraise: searching((now) => pricedLines(repliedSearch(now, searched))), deciding: { rethink: RETHINK, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },
 });
