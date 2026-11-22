@@ -62,3 +62,27 @@ export const nearestTrials = (tables: Tables): OutcomeModel => profilesReadBy(ta
 
 /** **The written forms**: an act's profile (`profilesReadBy`) read by a form fitted to its trials (`formReading`). */
 export const writtenForms = (tables: Tables): OutcomeModel => profilesReadBy(tables, formReading);
+
+/**
+ * **`model` with a sway left by its own steps**: where a reading expects its own steps' share of
+ * the move (`Exit.own`, a sway's), it leaves the two that much further apart, all of its trials
+ * (`stays` 0), not by how far apart its trials ended (`moved`), which holds its trials' foe's
+ * moves too: what a body's own act does, beside a foe that stands. Every other reading as `model`'s.
+ */
+export function ownSteps(model: OutcomeModel): OutcomeModel {
+  return {
+    act(table, asked) {
+      const act = model.act(table, asked);
+      return act && {
+        stale: act.stale, read: act.read,
+        reading(struck, spec, postures) {
+          const reading = act.reading(struck, spec, postures);
+          return reading && Object.create(reading, { expect: { value: (at: Parameters<ProfileReading["expect"]>[0], body: BodySpec | null) => {
+            const expected = reading.expect(at, body), own = expected?.exit?.own;
+            return own === undefined ? expected : { ...expected!, exit: { ...expected!.exit, stays: 0, moved: own } };
+          } } }) as ProfileReading;
+        },
+      };
+    },
+  };
+}

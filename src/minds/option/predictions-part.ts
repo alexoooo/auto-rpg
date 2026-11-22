@@ -7,7 +7,7 @@ import { validProfiles, type Profile } from "../../skills/framework/profile/prof
 import { deepFreeze } from "../../core/state.ts";
 import { validPressures } from "./pressure.ts";
 import { measuredOthers, RATE_OTHERS } from "./percepts.ts";
-import { nearestTrials, writtenForms, type OutcomeModel, type Tables } from "../../skills/framework/outcomes.ts";
+import { nearestTrials, ownSteps, writtenForms, type OutcomeModel, type Tables } from "../../skills/framework/outcomes.ts";
 import { optionalChoice } from "../../parts/fields.ts";
 
 /**
@@ -17,22 +17,30 @@ import { optionalChoice } from "../../parts/fields.ts";
  * what an act brings of a form fitted to its trials (`written`, the default, `writtenForms`), of
  * its trials nearest the start (`nearest`, `nearestTrials`). Its foe stands where it is as an
  * Option runs. Its walks are priced as starting at the body's speed, or, `along`, at its speed
- * along the walk's way (`WalkStart`).
+ * along the walk's way (`WalkStart`). A sway leaves the body where its trials ended (`range`, the
+ * default) or by its own steps (`own`, `SWAYS`).
  */
-interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly Profile[]; readonly pressure?: "rate" | "measured"; readonly outcomes?: "nearest" | "written"; readonly walkStart?: "along" }
+interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly Profile[]; readonly pressure?: "rate" | "measured"; readonly outcomes?: "nearest" | "written"; readonly walkStart?: "along"; readonly sways?: "own" }
+
+/** **Where a sway leaves the body** (`MeasuredConfig.sways`): what each makes of an outcome model. */
+const SWAYS: Readonly<Record<"range" | NonNullable<MeasuredConfig["sways"]>, (model: OutcomeModel) => OutcomeModel>> = {
+  range: (model) => model, own: ownSteps,
+};
 
 /** **Measured**: supplied ground profiles where given, otherwise the drills' (`dataOf`); each model its own where fresh, else its prior. */
 export const MEASURED_PREDICTIONS = deepFreeze<PredictionsPart<MeasuredConfig>>({
-  role: "predictions", model: PROFILE_MODEL, label: "Measured", slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true, pressure: true, outcomes: true, walkStart: true }, tuning: ["edges"],
-  fields: [optionalChoice<MeasuredConfig, "walkStart">("walkStart", "A walk starts at", "Its speed", () => [["along", "Its speed along its way"]])],
+  role: "predictions", model: PROFILE_MODEL, label: "Measured", slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true, pressure: true, outcomes: true, walkStart: true, sways: true }, tuning: ["edges"],
+  fields: [optionalChoice<MeasuredConfig, "walkStart">("walkStart", "A walk starts at", "Its speed", () => [["along", "Its speed along its way"]]),
+    optionalChoice<MeasuredConfig, "sways">("sways", "A sway leaves the body", "Where its trials ended", () => [["own", "By its own steps"]])],
   fits: anyBody, faults: config => [...config.edges === undefined || validProfiles(config.edges) ? [] : ["edges: invalid profiles"],
     ...config.pressure === undefined || config.pressure === "rate" || config.pressure === "measured" ? [] : ["pressure: rate or measured"],
     ...config.outcomes === undefined || Object.hasOwn(OUTCOMES, config.outcomes) ? [] : ["outcomes: nearest or written"],
-    ...config.walkStart === undefined || config.walkStart === "along" ? [] : ["walkStart: along or none"]],
+    ...config.walkStart === undefined || config.walkStart === "along" ? [] : ["walkStart: along or none"],
+    ...config.sways === undefined || config.sways === "own" ? [] : ["sways: own or none"]],
   reads: config => [...config.edges === undefined ? ["strike-profiles", "edge-profiles", "step-profiles"] as const : ["strike-profiles", "step-profiles"] as const, ...config.pressure !== "rate" ? ["pressure-profiles"] as const : []],
   make: config => {
     const tables = deepFreeze({ strikes: dataOf("strike-profiles"), edges: config.edges ?? dataOf("edge-profiles"), steps: dataOf("step-profiles") });
-    return profileModel({ strikes: tables.strikes, outcomes: OUTCOMES[config.outcomes ?? "written"](tables),
+    return profileModel({ strikes: tables.strikes, outcomes: SWAYS[config.sways ?? "range"](OUTCOMES[config.outcomes ?? "written"](tables)),
       others: config.pressure === "rate" ? RATE_OTHERS : measuredOthers(measuredPressures()), walkStart: config.walkStart ?? "speed" });
   },
 });
