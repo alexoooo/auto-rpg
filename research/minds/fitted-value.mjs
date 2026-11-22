@@ -5,22 +5,26 @@
  * to those states as the fitted leaf reads one (`readingAt`, `featuresOf`).
  *
  *   node research/minds/fitted-value.mjs collect <protocol> <from> <to> <dir> [<mind.json>]
- *   node research/minds/fitted-value.mjs fit <dir>... [--write]
+ *   node research/minds/fitted-value.mjs fit <dir>... [--write [--asset <name>]]
  *
  * `collect` plays the match evaluation's `<protocol>` bouts `<from>` to `<to>`, the game's Mind on
- * both sides (`option`) or the Mind `<mind.json>` configures, and keeps in `<dir>` each tree search's root as read there
+ * both sides (`option`) or the Mind `<mind.json>` configures, and keeps in `<dir>` the Mind it played
+ * (`mind.json`: its config, or "option"), each tree search's root as read there
  * (`fitted-value-hook.mjs`), each bout's bodies and its lives at each step either changes. `fit` reads them,
  * holds out the bouts `HELD` names, fits each horizon's dealt and taken on the rest and says each
  * one's held-out R², and that of 2 dealt less taken read from the two beside trees fitted to it
  * alone (not kept): what fitting them apart loses; `--write` puts the models in the game's asset
- * with where they came from and the bodies its bouts played (`bodiesOf`).
+ * (`assets/minds/fitted-value.json`, or `assets/minds/<name>.json` with `--asset`) with where
+ * they came from and the bodies its bouts played (`bodiesOf`).
  */
 import { register } from "node:module";
-import { appendFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { binned, binsOf, boost, squared } from "./boosted-trees.mjs";
 
-const OUT = "assets/minds/fitted-value.json", SCRIPT = "research/minds/fitted-value.mjs";
+const SCRIPT = "research/minds/fitted-value.mjs";
+/** The asset `--asset <name>` names, the game's fitted value's where none. */
+const assetOf = (args) => { const at = args.indexOf("--asset"); return `assets/minds/${at < 0 ? "fitted-value" : args[at + 1]}.json`; };
 /** The seconds after a state what followed is read over. */
 const HORIZONS = Object.freeze([3, 8, 20]);
 /** The bouts held out of a fit: the drawn mirror's from its 108th. */
@@ -30,8 +34,8 @@ const TREES = Object.freeze({ rounds: 300, rate: .03, depth: 4, minLeaf: 400, la
 
 const [mode, ...args] = process.argv.slice(2);
 if (mode === "collect") await collect(...args);
-else if (mode === "fit") await fitAll(args.filter((arg) => arg !== "--write"), args.includes("--write"));
-else throw new Error("usage: fitted-value.mjs collect <protocol> <from> <to> <dir> [<mind.json>] | fit <dir>... [--write]");
+else if (mode === "fit") await fitAll(args.filter((arg, k) => arg !== "--write" && arg !== "--asset" && args[k - 1] !== "--asset"), args.includes("--write") ? assetOf(args) : null);
+else throw new Error("usage: fitted-value.mjs collect <protocol> <from> <to> <dir> [<mind.json>] | fit <dir>... [--write [--asset <name>]]");
 
 /** Play bouts `from` to `to` of `protocol`, the game's Mind or the one at `mindPath` on both sides, keeping each search's root and each bout's lives in `dir`. */
 async function collect(protocol, from, to, dir, mindPath) {
@@ -45,6 +49,7 @@ async function collect(protocol, from, to, dir, mindPath) {
   const evaluation = EVALUATIONS.match, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects(mindPath ? [mindPath, mindPath].map((path, k) => ({ id: `mind${k}`, label: "mind", value: JSON.parse(readFileSync(path, "utf8")) })) : ["option", "option"]);
   if (!cases) throw new Error(`no match protocol ${protocol}`);
   mkdirSync(dir, { recursive: true });
+  writeFileSync(`${dir}/mind.json`, JSON.stringify(mindPath ? JSON.parse(readFileSync(mindPath, "utf8")) : "option") + "\n");
   for (const [i, condition] of cases.conditions.slice(Number(from), Number(to)).entries()) {
     const bout = `${protocol}/${Number(from) + i}`, world = cases.world([subject.value, subject.value], condition, cases.engine ?? DEFAULT_ENGINE, [{}, {}]);
     if (isRefused(world)) throw new Error(world.refused);
@@ -70,8 +75,8 @@ async function collect(protocol, from, to, dir, mindPath) {
   }
 }
 
-/** Fit each horizon to the states in `dirs`, say each one's held-out R², and with `write` keep them in the game's asset. */
-async function fitAll(dirs, write) {
+/** Fit each horizon to the states in `dirs`, say each one's held-out R², and keep them in the asset `out` where given. */
+async function fitAll(dirs, out) {
   const { FEATURES, featuresOf } = await import("../../src/minds/option/fitted-value.ts");
   const F = FEATURES.length, xs = [], after = HORIZONS.map(() => ({ dealt: [], taken: [] })), held = [], bouts = new Set(), bodies = new Set();
   for (const dir of dirs) for (const name of readdirSync(dir).filter((file) => /^states-.*\.jsonl$/.test(file)).sort())
@@ -96,11 +101,17 @@ async function fitAll(dirs, write) {
     console.log(`over ${h} s, R² held out (fitted): dealt ${r2(test, dealt.pred, dealtY).toFixed(3)} (${r2(train, dealt.pred, dealtY).toFixed(3)}), taken ${r2(test, taken.pred, takenY).toFixed(3)} (${r2(train, taken.pred, takenY).toFixed(3)}); 2 dealt less taken from the two ${r2(test, traded, tradedY).toFixed(3)}, fitted alone ${r2(test, alone.pred, tradedY).toFixed(3)}`);
     models.push({ dealt: { base: dealt.base, trees: dealt.trees }, taken: { base: taken.base, trees: taken.trees } });
   }
-  if (!write) return;
-  const commit = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
-  const origin = `${SCRIPT} fit at ${commit}: ${train.length} states of the game's Mind on both sides in ${[...bouts].filter((b) => !HELD(b)).length} bouts (${dirs.join(", ")}), ${test.length} held out`;
-  writeFileSync(OUT, JSON.stringify({ origin, bodies: [...bodies].sort(), features: FEATURES, horizons: HORIZONS, models }) + "\n");
-  console.log(`wrote ${OUT}: ${origin}`);
+  if (!out) return;
+  const commit = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim(), minds = [...new Set(dirs.map(mindOf))];
+  const origin = `${SCRIPT} fit at ${commit}: ${train.length} states of ${minds.join(" and ")} on both sides, in ${[...bouts].filter((b) => !HELD(b)).length} bouts (${dirs.join(", ")}), ${test.length} held out`;
+  writeFileSync(out, JSON.stringify({ origin, bodies: [...bodies].sort(), features: FEATURES, horizons: HORIZONS, models }) + "\n");
+  console.log(`wrote ${out}: ${origin}`);
+}
+
+/** The Mind a run directory's rows played, as `collect` kept it (`mind.json`): the game's Mind (`option`) where it kept none, as it did before it kept one. */
+function mindOf(dir) {
+  const mind = existsSync(`${dir}/mind.json`) ? JSON.parse(readFileSync(`${dir}/mind.json`, "utf8")) : "option";
+  return mind === "option" ? "the game's Mind (option)" : `the Mind ${JSON.stringify(mind)}`;
 }
 
 /** The bodies `bout` played (`bodyOf`): as it was kept (`recorded`), else every model its protocol plays, a bout kept before they were (the Warrior's protocols hold nothing). */
