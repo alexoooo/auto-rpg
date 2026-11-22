@@ -4,11 +4,11 @@
  * `HORIZONS` s after the states the game's Mind decided at, each fitted by boosted regression trees
  * to those states as the fitted leaf reads one (`readingAt`, `featuresOf`).
  *
- *   node research/minds/fitted-value.mjs collect <protocol> <from> <to> <dir>
+ *   node research/minds/fitted-value.mjs collect <protocol> <from> <to> <dir> [<mind.json>]
  *   node research/minds/fitted-value.mjs fit <dir>... [--write]
  *
  * `collect` plays the match evaluation's `<protocol>` bouts `<from>` to `<to>`, the game's Mind on
- * both sides (`option`), and keeps in `<dir>` each tree search's root as read there
+ * both sides (`option`) or the Mind `<mind.json>` configures, and keeps in `<dir>` each tree search's root as read there
  * (`fitted-value-hook.mjs`), each bout's bodies and its lives at each step either changes. `fit` reads them,
  * holds out the bouts `HELD` names, fits each horizon's dealt and taken on the rest and says each
  * one's held-out R², and that of 2 dealt less taken read from the two beside trees fitted to it
@@ -31,10 +31,10 @@ const TREES = Object.freeze({ rounds: 300, rate: .03, depth: 4, minLeaf: 400, la
 const [mode, ...args] = process.argv.slice(2);
 if (mode === "collect") await collect(...args);
 else if (mode === "fit") await fitAll(args.filter((arg) => arg !== "--write"), args.includes("--write"));
-else throw new Error("usage: fitted-value.mjs collect <protocol> <from> <to> <dir> | fit <dir>... [--write]");
+else throw new Error("usage: fitted-value.mjs collect <protocol> <from> <to> <dir> [<mind.json>] | fit <dir>... [--write]");
 
-/** Play bouts `from` to `to` of `protocol`, keeping each search's root and each bout's lives in `dir`. */
-async function collect(protocol, from, to, dir) {
+/** Play bouts `from` to `to` of `protocol`, the game's Mind or the one at `mindPath` on both sides, keeping each search's root and each bout's lives in `dir`. */
+async function collect(protocol, from, to, dir, mindPath) {
   register("./fitted-value-hook.mjs", import.meta.url);
   await import("../../tests/harness/preload-data.mjs");
   const { EVALUATIONS, playCase } = await import("../../src/app/node/evaluation.ts");
@@ -42,7 +42,7 @@ async function collect(protocol, from, to, dir) {
   const { isRefused } = await import("../../src/core/refusal.ts");
   const { graceAt } = await import("../../src/minds/option/percepts.ts");
   const { bodyOf, offeredOf, readingAt } = await import("../../src/minds/option/fitted-value.ts");
-  const evaluation = EVALUATIONS.match, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects(["option", "option"]);
+  const evaluation = EVALUATIONS.match, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects(mindPath ? [mindPath, mindPath].map((path, k) => ({ id: `mind${k}`, label: "mind", value: JSON.parse(readFileSync(path, "utf8")) })) : ["option", "option"]);
   if (!cases) throw new Error(`no match protocol ${protocol}`);
   mkdirSync(dir, { recursive: true });
   for (const [i, condition] of cases.conditions.slice(Number(from), Number(to)).entries()) {
