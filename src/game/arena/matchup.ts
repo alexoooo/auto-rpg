@@ -168,7 +168,8 @@ export function createMatchup(context: GameContext) {
       const admitted = modelHoldingChecked(models[side], loadouts[side], attributes[side]);
       const choices = controlsFor(models[side], loadouts[side], isRefused(admitted) ? undefined : attributes[side]);
       // A preset the link names is its side's, offered or not: one the body cannot play is refused where it is built, never replaced.
-      return s !== undefined && Object.hasOwn(MINDS, s) ? s : choices.find(c => MINDS[c]!.config === defaultMind(models[side])) ?? choices[0]!;
+      const own = defaultMind(models[side], loadouts[side]);
+      return s !== undefined && Object.hasOwn(MINDS, s) ? s : choices.find(c => MINDS[c]!.config === own) ?? choices[0]!;
     };
     return { left: read(parts[0], "left"), right: read(parts[1] ?? parts[0], "right") };
   }
@@ -189,8 +190,8 @@ export function createMatchup(context: GameContext) {
 
   /** The choice a side starts on: its model's own mind (`defaultMind`) where it is offered, else the first offered. */
   function defaultControl(model: BodyModel, loadout: Loadout = EMPTY_LOADOUT): Control {
-    const choices = controlsFor(model, loadout);
-    return choices.find((control) => MINDS[control]!.config === defaultMind(model)) ?? choices[0]!;
+    const choices = controlsFor(model, loadout), own = defaultMind(model, loadout);
+    return choices.find((control) => MINDS[control]!.config === own) ?? choices[0]!;
   }
 
   /**

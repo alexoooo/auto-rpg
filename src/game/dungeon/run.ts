@@ -437,9 +437,9 @@ export class DungeonRun {
     return this.options.prepared.specs.get(actor.id)!;
   }
 
-  /** `actor`'s mind: the one the run was given for it, else its model's in the Crypt. */
+  /** `actor`'s mind: the one the run was given for it, else its body's in the Crypt, holding its loadout. */
   private mindOf(actor: DungeonActor): MindConfig {
-    return this.options.mind?.(actor) ?? this.context.defaultMind(actor.model);
+    return this.options.mind?.(actor) ?? this.context.defaultMind(actor.model, this.options.loadout?.(actor) ?? modelLoadout(actor.model));
   }
 
   /**

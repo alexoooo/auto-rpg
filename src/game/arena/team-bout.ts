@@ -109,7 +109,7 @@ export function teamFaults(context: GameContext, recipe: TeamRecipe): readonly s
   return SIDES.flatMap((side) => {
     const { count, model, loadout, mind } = recipe[side];
     if (!Number.isInteger(count) || count < 1 || count > TEAM_MOST) return [`the ${side} side fields 1 to ${TEAM_MOST} bodies, not ${count}`];
-    const refused = modelRefusal({ model, loadout }, mind ?? defaultMind(model), FIGHT_ENTRY);
+    const refused = modelRefusal({ model, loadout }, mind ?? defaultMind(model, loadout), FIGHT_ENTRY);
     return refused === null ? [] : [`the ${side} mind cannot play ${model} carrying ${loadout.left},${loadout.right}: ${refused}`];
   });
 }
@@ -156,7 +156,7 @@ export class TeamBout {
     const members: Member[] = [];
     let order = 0;
     for (const side of SIDES) {
-      const { model, count, mind } = recipe[side], config = mind ?? defaultMind(model);
+      const { model, count, mind, loadout } = recipe[side], config = mind ?? defaultMind(model, loadout);
       const spec = teamSpec(recipe[side]), spawn = levelSpawn(level, side, gap);
       for (let index = 0; index < count; index++) {
         const id = memberId(side, index), across = (index - (count - 1) / 2) * TEAM_SPACING;

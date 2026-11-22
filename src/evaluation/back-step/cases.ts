@@ -23,6 +23,7 @@ import type { Gait } from "../../skills/framework/locomotion-part.ts";
 import { BACK_STEP_SECONDS } from "../../skills/locomotion/back-step/index.ts";
 import { STAGGERED } from "../../skills/locomotion/shared/locomotion.ts";
 import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
+import { EMPTY_LOADOUT } from "../../core/bodies/items/held.ts";
 
 /** Who throws the punches: the drill's walked-in attacker, or the Warrior's own Mind. */
 type Attacker = "drill" | "mind";
@@ -116,7 +117,7 @@ export const createBackStepCases = perContext((context: GameContext) => {
 
   /** The attackers: the drill's, walked in and ordered; the Warrior's own Mind; and the subject's own, its mirror. */
   const DRILL: Side = { mind: () => MINDS["option-drill"]!.config, commander: () => DRILLING };
-  const WARRIOR: Side = { mind: () => context.defaultMind("man"), commander: NONE };
+  const WARRIOR: Side = { mind: () => context.defaultMind("man", EMPTY_LOADOUT), commander: NONE };
   const MIRROR: Side = { mind: OWN, commander: NONE };
 
   const DRILLED: Rung = { attacker: "drill", foe: DRILL, subject: DEFENDER, gaps: range(2, 3, .05), sways: [null], seconds: 12, reads: { after: 3, sways: false, chosen: false } };

@@ -18,9 +18,12 @@ import { loadState } from "../../../../src/core/state.ts";
 import { deserialize } from "node:v8";
 import { readFileSync } from "node:fs";
 
-/** The model's game mind, its way up by recipe playing `recipe`. */
+/** What a fork's bodies hold: nothing, and the Warrior's sword. */
+const BARE = Object.freeze({ left: "empty", right: "empty" }), SWORD = Object.freeze({ left: "empty", right: "sword" });
+
+/** The model's game mind, bare, its way up by recipe playing `recipe`. */
 const withRecipe = (model, recipe) => {
-  const base = defaultMind(model);
+  const base = defaultMind(model, BARE);
   return { ...base, options: optionsOf(base, GAME.partLookup).map((option) => option.skill?.kind === "righting-recipe" ? { ...option, skill: { kind: "righting-recipe", tuning: recipe } } : option) };
 };
 
@@ -29,8 +32,8 @@ export const rightingOf = (mind) => mind.skills.actions.executors.find((executor
 
 /** **The fight a fork is of**: `model`, bare, against the sword Warrior `gap` m away; its mind's righting `recipe` where one is given. */
 export const forkBout = (model, gap, recipe) => ({ left: model, right: "man", gap,
-  loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "sword" } },
-  ...recipe ? { minds: { left: withRecipe(model, recipe), right: defaultMind("man") } } : {} });
+  loadouts: { left: BARE, right: SWORD },
+  ...recipe ? { minds: { left: withRecipe(model, recipe), right: defaultMind("man", SWORD) } } : {} });
 
 const forksRead = new Map();
 /**

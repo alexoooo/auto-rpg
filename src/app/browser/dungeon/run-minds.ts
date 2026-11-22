@@ -18,7 +18,7 @@ interface Row { readonly side: Participant["side"]; readonly model: BodyModel }
 
 /** The minds the start panel offers a body of `model`, by id: its model's own first, then each offered (`offered`) that fits it holding what its model holds (`MINDS`). */
 function presetsFor(model: BodyModel): Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> {
-  return { [OWN]: { label: "Its own", config: defaultMind(model) },
+  return { [OWN]: { label: "Its own", config: defaultMind(model, modelLoadout(model)) },
     ...Object.fromEntries(Object.entries(MINDS).filter(([, mind]) => offered(mind) && modelRefusal({ model, loadout: modelLoadout(model) }, mind.config, FIGHT_ENTRY) === null)) };
 }
 

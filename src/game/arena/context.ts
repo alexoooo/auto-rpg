@@ -21,7 +21,7 @@ export interface GameContext {
   readonly commanders: CommanderRegistry;
   readonly build: string;
   readonly techniques: Readonly<Record<string, TechniquePart>>;
-  defaultMind(model: BodyModel): MindConfig;
+  defaultMind(model: BodyModel, loadout: Loadout): MindConfig;
   modelRefusal(body: BodyAsked, mind: MindConfig, entry: readonly EntryRule[]): string | null;
 }
 

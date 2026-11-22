@@ -21,6 +21,7 @@ import { inspectedOf, type Inspected } from "./inspection.ts";
 import { frameLayout, packFrame, type FramedBody } from "./frame.ts";
 import type { Stage, StageRuntime } from "./stage.ts";
 import { damageCues } from "./damage-cues.ts";
+import { modelLoadout } from "../../game/model-loadouts.ts";
 
 /**
  * **A Crypt run as its page starts it** (`cryptStage`), plain data: the run's options, each
@@ -125,7 +126,7 @@ async function buildCryptRun(context: GameContext, start: CryptStart, { cues, mi
   const mind = (participant: Participant) => start.minds[participant.id] ?? null;
   const prepared = prepareDungeonCharacters(layout, fielded);
   if (isRefused(prepared)) return prepared;
-  await loadData(runParticipants(fielded.layout, fielded).flatMap((participant) => treeData(mind(participant) ?? defaultMind(participant.model))));
+  await loadData(runParticipants(fielded.layout, fielded).flatMap((participant) => treeData(mind(participant) ?? defaultMind(participant.model, start.loadouts[participant.id] ?? modelLoadout(participant.model)))));
   const scope = constructionScope();
   let complete = false;
   try {

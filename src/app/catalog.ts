@@ -1,6 +1,8 @@
 import { isRefused } from "../core/refusal.ts";
 import type { MindConfig } from "../minds/catalog/config.ts";
 import { modelHoldingChecked, type BodyModel } from "../core/bodies/models.ts";
+import type { Loadout } from "../core/bodies/items/held.ts";
+import { bodyOf } from "../minds/option/fitted-value.ts";
 import type { BodyAsked } from "../game/arena/context.ts";
 import { catalogOf, type Catalog, type EntryRule } from "../minds/catalog/catalog.ts";
 import { toolkitLists } from "./toolkit.ts";
@@ -17,13 +19,25 @@ export const { controllers: CONTROLLERS, minds: MINDS, loadData, controllerOf, a
 
 export { FIGHT_ENTRY, type EntryRule, type Offered } from "../minds/catalog/catalog.ts";
 
-/** **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): its Option Mind. */
+/** **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): the Option Mind on the tail's leaf. */
 const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
-  man: "option", woman: "option", skeleton: "option", reptile: "option", rat: "option",
+  man: "option-tail", woman: "option-tail", skeleton: "option-tail", reptile: "option-tail", rat: "option-tail",
 });
 
-/** The mind a body of `model` plays unless its fight or run says otherwise (`DEFAULT_MINDS`). */
-export const defaultMind = (model: BodyModel): MindConfig => MINDS[DEFAULT_MINDS[model]]!.config;
+/**
+ * **The mind a body plays where it is not its model's**, by the body's name (`bodyOf`): the
+ * empty-handed man plays the Option Mind (`option`), measured stronger on him.
+ */
+const DEFAULT_BODIES: Readonly<Record<string, string>> = Object.freeze({ man: "option" });
+
+/**
+ * The mind a body of `model` holding `loadout` plays unless its fight or run says otherwise: its
+ * body's (`DEFAULT_BODIES`), else its model's (`DEFAULT_MINDS`).
+ */
+export function defaultMind(model: BodyModel, loadout: Loadout): MindConfig {
+  const spec = modelHoldingChecked(model, loadout), body = isRefused(spec) ? null : bodyOf(spec);
+  return MINDS[body !== null && Object.hasOwn(DEFAULT_BODIES, body) ? DEFAULT_BODIES[body]! : DEFAULT_MINDS[model]]!.config;
+}
 
 /**
  * **Why `mind` cannot play the body `body` asks** (`BodyAsked`) in a scenario of entry rules

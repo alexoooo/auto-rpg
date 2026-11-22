@@ -62,6 +62,7 @@ import type { Command } from "../../../minds/command/commands.ts";
 import type { CommanderConfig } from "../../../minds/command/kind.ts";
 import { commanderOf } from "../../../minds/command/commander.ts";
 import { COMMANDERS } from "../../registration/commanders.ts";
+import { modelLoadout } from "../../../game/model-loadouts.ts";
 
 /** The pause panel's title for the run's status. */
 function pauseTitle(status: RunStatus): string {
@@ -357,7 +358,7 @@ export function bootDungeon(context: ScreenContext, setup: DungeonSetup): () => 
       stillShown();
       made = new RunView(scene, link, {
         map: layout, visuals: { ...dungeonStone(scene, stone.floor, stone.wall, browserTextures(art)), masonry: reference ? false : stone.masonry },
-        specs: prepared.specs, mind: (card) => page.mind(card) ?? defaultMind(card.model), lead, toward, built: dress, heard: (cue) => audio.cue(cue),
+        specs: prepared.specs, mind: (card) => page.mind(card) ?? defaultMind(card.model, page.loadout(card) ?? modelLoadout(card.model)), lead, toward, built: dress, heard: (cue) => audio.cue(cue),
       });
     } catch (error) { link.dispose(); throw error; }
     const run = page.run = made;

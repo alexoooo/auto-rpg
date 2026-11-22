@@ -24,7 +24,7 @@ import { randomStream } from "../../core/math/random.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
-import { modelInfo } from "../../game/model-loadouts.ts";
+import { modelInfo, modelLoadout } from "../../game/model-loadouts.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { generateLevel } from "../../game/dungeon/level.ts";
 import { findPath, walkable, type DungeonMap, type DungeonObstacle, type Point } from "../../game/dungeon/map.ts";
@@ -211,7 +211,7 @@ export const createCrowdCases = perContext((context: GameContext) => {
   const CROWD_CASES: Readonly<Record<string, Cases<CrowdCondition, CryptReading, BuiltCrypt>>> = Object.freeze({ standard: crowdCases(CROWD) });
 
   /** The members' mind unless another is named: their model's own (`defaultMind`). */
-  const CROWD_MIND = defaultMind(CROWD.model);
+  const CROWD_MIND = defaultMind(CROWD.model, modelLoadout(CROWD.model));
 
   return { CROWD_MIND, CROWD_CASES };
 });

@@ -21,6 +21,7 @@ import { distance, type Door, type DungeonMap, type DungeonObstacle, type Point 
 import { DungeonRun, prepareDungeonCharacters, runParticipants } from "../game/dungeon/run.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
 import { type GameContext, perContext } from "../game/arena/context.ts";
+import { modelLoadout } from "../game/model-loadouts.ts";
 
 /**
  * A level as plain data: its floor as rows (row `z`, a character a cell along `x`: `.` floor, any
@@ -238,7 +239,7 @@ export const createCrypt = perContext((context: GameContext) => {
       const [hero, ...companions] = crypt.party;
       const fielded = runParticipants(cryptMap(crypt.layout), { ...(hero ? { hero: hero.model } : {}), companions: companions.map((member) => member.model) });
       return { models: fielded.map((participant) => participant.model),
-        keys: fielded.flatMap((participant) => context.catalog.treeData(participant.side === "party" && crypt.mind ? crypt.mind : context.defaultMind(participant.model))) };
+        keys: fielded.flatMap((participant) => context.catalog.treeData(participant.side === "party" && crypt.mind ? crypt.mind : context.defaultMind(participant.model, modelLoadout(participant.model)))) };
     },
     traced: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.built] : []),
     clock: (built) => built.world.time,

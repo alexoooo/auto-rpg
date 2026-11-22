@@ -163,9 +163,10 @@ export const boutSeedOf = (recipe: Pick<DuelRecipe, "seed">): number => recipe.s
 /** What a mind must do to enter a bout of `recipe` (`DuelRecipe.entry`): the recipe's rule, or a fight's; a page with no recipe yet plays a fight. */
 export const entryRules = (recipe?: Pick<DuelRecipe, "entry">): readonly EntryRule[] => recipe?.entry ?? FIGHT_ENTRY;
 
-/** Each side's mind in a bout of `recipe`: the recipe's, or its model's (`defaultMind`). */
-export const duelMinds = (recipe: Pick<DuelRecipe, "left" | "right" | "minds">, defaultMind: GameContext["defaultMind"]): Readonly<Record<Side, MindConfig>> =>
-  ({ left: recipe.minds?.left ?? defaultMind(recipe.left), right: recipe.minds?.right ?? defaultMind(recipe.right) });
+/** Each side's mind in a bout of `recipe`: the recipe's, or its body's holding what it carries there, the recipe's loadout or its model's (`loadoutIn`, `defaultMind`). */
+export const duelMinds = (recipe: Pick<DuelRecipe, "left" | "right" | "minds" | "loadouts">, defaultMind: GameContext["defaultMind"]): Readonly<Record<Side, MindConfig>> =>
+  ({ left: recipe.minds?.left ?? defaultMind(recipe.left, recipe.loadouts?.left ?? modelLoadout(recipe.left)),
+    right: recipe.minds?.right ?? defaultMind(recipe.right, recipe.loadouts?.right ?? modelLoadout(recipe.right)) });
 
 /** `spec` with each segment `factors` names as stiff as its own surface times its factor, and each place on it as stiff as that place's times the same. */
 function stiffened(spec: BodySpec, factors: Readonly<Record<string, number>>): BodySpec {

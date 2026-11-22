@@ -73,7 +73,7 @@ export interface TeamStart {
 export async function teamStage(context: GameContext, { recipe, aftermath, engine }: TeamStart, { minds: makeMinds }: StageRuntime): Promise<Stage<TeamCard>> {
   const { defaultMind } = context, { treeData, loadData } = context.catalog;
   const { buildTeamBout } = createBout(context);
-  await loadData(SIDES.flatMap((side) => treeData(recipe[side].mind ?? defaultMind(recipe[side].model))));
+  await loadData(SIDES.flatMap((side) => treeData(recipe[side].mind ?? defaultMind(recipe[side].model, recipe[side].loadout))));
   const scope = constructionScope();
   let complete = false;
   try {
