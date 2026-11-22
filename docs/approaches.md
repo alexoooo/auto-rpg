@@ -378,6 +378,14 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   (each Option's prior its one step's worth at the state, a softmax in units of their spread;
   AlphaZero's bound), the root as it was, at 50 runs: about 0.515 (0.479 to 0.550) over 576 bouts
   held out against the game's Mind, its mirror knocking out within 60 s in 93.1%. *Shown.*
+- **A prior fitted to where searches' runs went does not make the mean's search stronger**: PUCT
+  below the root guided by the move prior (Prior "Fitted to runs", 7f7b33aff; boosted trees over a
+  state's lines, 2.482 nats a root held out against the price's 2.629), on the fitted mean at
+  initiative 0.3 at 50 runs: 0.496 against the tail's best line over 576 bouts held out, below the
+  same Mind without it (0.646), and head to head against that Mind 0.313 to 0.405 at exploration 1
+  to 8. An even prior reads the same, and on the best line PUCT and UCT tie (0.503): the loss is
+  PUCT spending a thin state's runs unevenly under the mean backup. A search costs three times
+  as much. *Shown.*
 - **A state worth the mean of its lines, its leaf fitted to what followed, a blow now worth more,
   beats a state worth its best line on the tail**: the tree chooser's fitted leaf, each state worth
   its leaf once and each line by its runs (`best` 0), at aggression 4 and initiative 0.3, at 50
