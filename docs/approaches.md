@@ -395,6 +395,14 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   other body keeps the Mind before it (`option-tail`): off the empty-handed man its fitted models
   stand aside (`fittedOn`), and the mean backup with initiative 0.3 on the tail's leaf knocked out
   in 0.0% on the Warrior. *Shown.*
+- **A line priced against the foe's replies as well as the foe standing is as strong and quicker
+  to a knockout**: each root line worth the mean of a tree search's price with the foe standing and
+  with the foe running each reply over the line's first step (`repliedSearch`), a foe of the
+  body's build replying as the body's own lines move it, reversed. One reply, the foe closing:
+  0.513 over 1,152 bouts against the Mind above, 88.4% of mirrors knocked out within 60 s (81.0%),
+  its step's 99th percentile 23.01 ms (17.45). Two: 0.498 over 576, 90.7%, 32.56 ms. Four: 0.513
+  over 576, 93.5%, 44.26 ms. By the owner's word, one reply is the empty-handed man's default
+  since f53f66070 (`option-reply`); the Mind above stays pickable (`option`). *Shown.*
 - **An open Option's model asked once a state saves no time worth reading**: a held leaf asks the
   same answer about nine times (436 asks on 56 pairs a search), yet kept per state it read a
   99th-percentile step of 16.59 ms between the unchanged code's 17.51 and 16.66 in one quiet
