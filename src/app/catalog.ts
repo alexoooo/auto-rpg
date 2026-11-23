@@ -26,9 +26,10 @@ const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
 
 /**
  * **The mind a body plays where it is not its model's**, by the body's name (`bodyOf`): the
- * empty-handed man plays the Option Mind (`option`), measured stronger on him.
+ * empty-handed man plays the Option Mind priced against the foe's closing reply (`option-reply`),
+ * measured on him.
  */
-const DEFAULT_BODIES: Readonly<Record<string, string>> = Object.freeze({ man: "option" });
+const DEFAULT_BODIES: Readonly<Record<string, string>> = Object.freeze({ man: "option-reply" });
 
 /**
  * The mind a body of `model` holding `loadout` plays unless its fight or run says otherwise: its

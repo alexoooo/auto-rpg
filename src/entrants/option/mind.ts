@@ -22,8 +22,9 @@ const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: 
  * stand) and the searches measured stronger than that one (the mind plan's Found better), each with
  * what it reads in its note (`assets/minds/notes.json`): the fitted leaf with the mean backup at
  * aggression 4, alone and at horizon 60; the tail's leaf with the mean backup; and the warm start
- * at 100 runs. And this Mind priced against two of the foe's replies at their mean
- * (`option-replies`), as strong as it and quicker to a knockout.
+ * at 100 runs. And this Mind priced against the foe's replies at their mean: one, the foe closing
+ * (`option-reply`), as strong as it, quicker to a knockout and a step about a third slower at its
+ * slowest; two (`option-replies`), quicker to a knockout still and slower a step again.
  */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   option: { label: "Option Mind", config: OPTION_DEFAULTS },
@@ -33,5 +34,6 @@ export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   "option-fitted-horizon": { label: "Option Mind, fitted mean, horizon 60 s", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree", leaf: "fitted", best: 0, horizon: 60, objective: { kind: "few-terms", aggression: 4 } } } },
   "option-mean": { label: "Option Mind, mean", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree", best: 0 } } },
   "option-warm": { label: "Option Mind, warm start, 100 runs", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree", runs: 100, keeps: .5 } } },
+  "option-reply": { label: "Option Mind, foe's closing reply", config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, replies: 1, against: "mean" } } },
   "option-replies": { label: "Option Mind, foe's replies", config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, replies: 2, against: "mean" } } },
 });
