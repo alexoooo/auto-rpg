@@ -11,7 +11,4 @@ export const FITTED_VALUE_DATA = {
   "fitted-value-corrected": () => import("./fitted-value-corrected.ts").then((m) => m.FITTED_VALUE_CORRECTED),
 } satisfies DataLoaders;
 
-/** Where searches' runs went at their roots (`MovePrior`), read by the tree chooser's fitted prior: every body's (no `identity`). */
-export const MOVE_PRIOR_DATA = {
-  "move-prior": () => import("./move-prior.ts").then((m) => m.MOVE_PRIOR),
-} satisfies DataLoaders;
+

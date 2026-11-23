@@ -385,7 +385,8 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   same Mind without it (0.646), and head to head against that Mind 0.313 to 0.405 at exploration 1
   to 8. An even prior reads the same, and on the best line PUCT and UCT tie (0.503): the loss is
   PUCT spending a thin state's runs unevenly under the mean backup. A search costs three times
-  as much. *Shown.*
+  as much. *Shown, then removed: the priors and the prior asset are gone from the game, the fit
+  still read by research/minds/move-prior.mjs.*
 - **A state worth the mean of its lines, its leaf fitted to what followed, a blow now worth more,
   beats a state worth its best line on the tail**: the tree chooser's fitted leaf, each state worth
   its leaf once and each line by its runs (`best` 0), at aggression 4 and initiative 0.3, at 50

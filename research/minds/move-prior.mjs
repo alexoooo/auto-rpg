@@ -1,11 +1,11 @@
 /**
- * **The move prior** (`MovePrior`, `src/minds/option/move-prior.ts`; `assets/minds/move-prior.json`):
- * boosted trees scoring each Option on offer at a tree search's root, a softmax over the root's
- * Options fitted to the shares of the search's runs each went on beyond its first, so a search's
- * own choices teach where its runs go.
+ * **The move prior**: boosted trees scoring each Option on offer at a tree search's root, a softmax
+ * over the root's Options fitted to the shares of the search's runs each went on beyond its first,
+ * so a search's own choices teach where its runs go. The tree chooser's priors it was read by
+ * guided no search stronger and are gone from the game (docs/approaches.md); this reads the fit.
  *
  *   node research/minds/move-prior.mjs collect <mind.json> <protocol> <from> <to> <rows.jsonl>
- *   node --max-old-space-size=12000 research/minds/move-prior.mjs fit <rows.jsonl>... [--write]
+ *   node --max-old-space-size=12000 research/minds/move-prior.mjs fit <rows.jsonl>...
  *
  * `collect` plays the match evaluation's `<protocol>` bouts `<from>` to `<to>`, the Mind
  * `<mind.json>` on both sides, and appends to `<rows.jsonl>` each tree search's root
@@ -14,16 +14,13 @@
  * taken, price, runs] (`l`, `PriorLine`). `fit` reads them, holds out the bouts `HELD` names, and
  * says in nats a root held out (the cross-entropy to its run shares) what uniform shares read, a
  * softmax of the price (its temperature fitted), and the trees every 50 rounds, with how often each
- * one's likeliest Option is the one run most; `--write` keeps the trees in the game's asset with
- * where they came from and the bodies its bouts played.
+ * one's likeliest Option is the one run most.
  */
 import { register } from "node:module";
-import { appendFileSync, createReadStream, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, createReadStream, readFileSync } from "node:fs";
 import { createInterface } from "node:readline";
-import { execSync } from "node:child_process";
 import { binned, binsOf, boost } from "./boosted-trees.mjs";
 
-const OUT = "assets/minds/move-prior.json", SCRIPT = "research/minds/move-prior.mjs";
 /** The bouts held out of a fit: one in five, by a hash of the bout's name. */
 const HELD = (bout) => { let h = 0; for (const c of bout) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % 5 === 0; };
 /** The trees: as many, as deep, at least so many Options a leaf, so shrunk, each on a share of the Options and of the features. */
@@ -31,8 +28,8 @@ const TREES = Object.freeze({ rounds: 200, rate: .1, depth: 5, minLeaf: 200, lam
 
 const [mode, ...args] = process.argv.slice(2);
 if (mode === "collect") await collect(...args);
-else if (mode === "fit") await fitAll(args.filter((arg) => arg !== "--write"), args.includes("--write"));
-else throw new Error("usage: move-prior.mjs collect <mind.json> <protocol> <from> <to> <rows.jsonl> | fit <rows.jsonl>... [--write]");
+else if (mode === "fit") await fitAll(args);
+else throw new Error("usage: move-prior.mjs collect <mind.json> <protocol> <from> <to> <rows.jsonl> | fit <rows.jsonl>...");
 
 /** Play bouts `from` to `to` of `protocol`, the Mind at `mindPath` on both sides, appending each search's root to `out`. */
 async function collect(mindPath, protocol, from, to, out) {
@@ -70,10 +67,23 @@ async function collect(mindPath, protocol, from, to, out) {
   }
 }
 
-/** Fit the trees to the roots in `files`, say each reading's held-out nats, and with `write` keep them in the game's asset. */
-async function fitAll(files, write) {
+/**
+ * **What an Option on offer is read as beside its state's `FEATURES`**: its kind, whether it is
+ * open, its first step's seconds, life dealt and taken and price, its price less the best of its
+ * state's, and twice its dealt less its taken a second.
+ */
+const LINE_FEATURES = Object.freeze(["kind", "open", "seconds", "dealt", "taken", "price", "priceLessBest", "rate"]);
+
+/** `line` read as `LINE_FEATURES`, its kind by its place in `kinds`, beside a state whose best price is `best`. */
+function lineFeatures(kinds, line, best) {
+  const kind = kinds.indexOf(line.kind);
+  return [kind < 0 ? kinds.length : kind, line.open ? 1 : 0, line.duration, line.dealt, line.taken, line.price, line.price - best,
+    line.duration > 0 ? (2 * line.dealt - line.taken) / line.duration : 0];
+}
+
+/** Fit the trees to the roots in `files` and say each reading's held-out nats. */
+async function fitAll(files) {
   const { FEATURES } = await import("../../src/minds/option/fitted-value.ts");
-  const { LINE_FEATURES, lineFeatures } = await import("../../src/minds/option/move-prior.ts");
   // Each root's run shares beyond the one run each Option has first; a root none of whose runs went further is left out.
   const roots = [], kindsSeen = new Map(), bodies = new Set();
   for (const file of files) for await (const text of createInterface({ input: createReadStream(file), crlfDelay: Infinity })) {
@@ -114,9 +124,4 @@ async function fitAll(files, write) {
   const gradients = (z, g, h) => { for (const r of train) { softmax(z, r); for (let i = group[r]; i < group[r + 1]; i++) { g[i] = p[i] - share[i]; h[i] = Math.max(p[i] * (1 - p[i]), 1e-6); } } };
   const edges = binsOf(X, n, F), B = binned(X, n, F, edges);
   const { trees } = boost(B, F, edges, n, trainLines, gradients, TREES, (round, z) => { if ((round + 1) % 50 === 0) console.log(`held out: the trees at ${round + 1} rounds ${read(z, test)}; fitted ${read(z, train)}`); });
-  if (!write) return;
-  const commit = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
-  const origin = `${SCRIPT} fit at ${commit}: ${train.length} roots in ${bouts.size - heldBouts} bouts (${files.join(", ")}), ${test.length} held out`;
-  writeFileSync(OUT, JSON.stringify({ origin, bodies: [...bodies].sort(), features: [...FEATURES, ...LINE_FEATURES], kinds, trees: { base: TREES.base, trees } }) + "\n");
-  console.log(`wrote ${OUT}: ${origin}`);
 }

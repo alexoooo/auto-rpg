@@ -1,6 +1,6 @@
 /**
- * **Boosted trees** (`research/minds/boosted-trees.mjs`), as the fitted value and the move prior
- * keep them (`FittedValue`, `MovePrior`): what they read at none, and each tree, flat: a node
+ * **Boosted trees** (`research/minds/boosted-trees.mjs`), as the fitted value keeps them
+ * (`FittedValue`): what they read at none, and each tree, flat: a node
  * `[worth]` ends it, `[feature, threshold, below, above]` goes to the node at `below` where the
  * feature is at most the threshold, else at `above`.
  */
