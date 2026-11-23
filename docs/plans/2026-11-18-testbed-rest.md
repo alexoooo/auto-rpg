@@ -95,8 +95,8 @@ moved: it is used again by how like the new situation is and how old it is.
 | a table by situation | each rounded situation's worths, across decisions and bouts | a rounding too coarse joins unlike situations |
 | a prior fitted from past searches | each Option's worth, as a model | its fitting, again as skills change |
 
-1. **The search spread over steps**, a chooser kind beside the tree. Taken by [the Warrior's Mind plan](2026-11-19-mind.md).
-2. **The branch kept**, likewise. Taken by [the Warrior's Mind plan](2026-11-19-mind.md).
+1. **The search spread over steps**, a chooser kind beside the tree. Taken by the Warrior's Mind plan (its findings in [the approaches](../approaches.md#minds)).
+2. **The branch kept**, likewise. Taken by the Warrior's Mind plan (its findings in [the approaches](../approaches.md#minds)).
 3. **A table by situation**, likewise.
 4. **A prior fitted from past searches**, likewise.
 5. **The budget handed in as time** as well as runs.
@@ -146,7 +146,7 @@ bout makes again and the bout plays the same without.
     built from half the bouts and read on the rest.
 17. **The strikes' exits split** into the body's own change and the foe's, as the back step's is
     (`exit.own`), the foe's asked of the others' model.
-18. **A line's end written over the state**, taken by [the Warrior's Mind plan](2026-11-19-mind.md); the owner's authored evaluation (the goal): each
+18. **A line's end written over the state**, taken by the Warrior's Mind plan (its findings in [the approaches](../approaches.md#minds)); the owner's authored evaluation (the goal): each
     side's life, range by each one's reach, who is how far into what, who is down, and what the
     back step found (the body's facing, whether a strike is on offer), several weights fitted by
     bouts won and held out. Built of a written line's end: `ByDistance` (three numbers, one scale

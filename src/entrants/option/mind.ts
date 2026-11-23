@@ -19,12 +19,12 @@ const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: 
  * table's cells, their opponents, a skill's search) drives a skill fast and the same each time, and
  * no profile decides what its mind does there. And beside it, to compare in the Arena, the Mind it
  * was before (`option-tail`: the tail's leaf, each state worth its best line, the few terms as they
- * stand) and the searches measured stronger than that one (the mind plan's Found better), each with
- * what it reads in its note (`assets/minds/notes.json`): the fitted leaf with the mean backup at
- * aggression 4, alone and at horizon 60; the tail's leaf with the mean backup; and the warm start
- * at 100 runs. And this Mind priced against the foe's replies at their mean: one, the foe closing
- * (`option-reply`), as strong as it, quicker to a knockout and about as quick a step; two
- * (`option-replies`), quicker to a knockout still and a step about a fifth slower at its slowest.
+ * stand) and the searches measured stronger than that one, each with what it reads in its note
+ * (`assets/minds/notes.json`): the fitted leaf with the mean backup at aggression 4, alone and at
+ * horizon 60; the tail's leaf with the mean backup; and the warm start at 100 runs. And this Mind
+ * priced against the foe's replies at their mean: one, the foe closing (`option-reply`), as strong
+ * as it, quicker to a knockout and about as quick a step; two (`option-replies`), quicker to a
+ * knockout still and a step about a fifth slower at its slowest.
  */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   option: { label: "Option Mind", config: OPTION_DEFAULTS },

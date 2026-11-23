@@ -456,6 +456,24 @@ run teaches nothing.
 - Native-controller tuning under a trained actor is judged only after the actor is retrained on
   it. Without that retraining the reading measures the actor outside the states it learned on.
 
+### A value fitted to bouts
+
+The tree chooser's fitted leaf (`assets/minds/fitted-value.json`, read as `FittedValue`) is
+boosted trees over a state's features (`FEATURES`) fitted to the life dealt and taken over the
+seconds after the states a Mind's bouts reached, by `research/minds/fitted-value.mjs`. `collect`
+plays a Mind's config on both sides and keeps its rows with that config and the bodies they
+played; `fit` holds out bouts, reads R² at 3, 8 and 20 s, and `--write` keeps the trees with
+their origin (`--asset` under another name). What has been found:
+- R² held out does not order leaves by play. A leaf fitted to a Mind with truer own-body models
+  read higher at 8 and 20 s and played worse (0.372 against 0.434). A leaf is read by matches
+  against the game's Mind, as any Mind is.
+- A leaf learns from the play of the Mind whose rows it fits: that Mind's 432 bouts fitted a
+  weaker leaf than the game's Mind's rows of the same bouts (0.440), and 432 bouts read as 1,080
+  did. One round of fitting to a Mind's own play bought nothing; a round from a weaker Mind loses.
+- Its R² is spent on who is ahead: across one search's leaves it spreads 0.026 to 0.038 against
+  the tail's 0.461. What made it play was the mean backup and initiative
+  ([the approaches](../approaches.md#minds)).
+
 ## What to keep
 
 A run's output goes to `.tmp/<task>/`: checkpoints, traces, screens, rejected candidates.

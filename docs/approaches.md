@@ -324,8 +324,19 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
 - **The Option Mind's prices ran over what a fight gives**: in Warrior mirror bouts it expected
   2.4 times the life it lost in reach and 3.0 times what its punches dealt (`aee4b6342`, on one
   draw, its reader counting damage, not life). *Shown.*
+- **The tail's best line prices the danger near right by range and a strike's blows about half
+  again over**: the scorecard over 72 mirror bouts, each choice's price read against what followed
+  over the window it was priced for (11,437 choices): taken 0.89 of what was lost (0.80 to 1.19 from
+  0.5 to 2 m), a strike priced to deal 1.47 times what it gave (1.22 to 1.35 in reach, 2.2 at 1 m,
+  9 at 1.25 m: the written form prices blows that do not land at the reach's edge), a stomp at a
+  downed foe 12 times (17 choices). Each choice is read for the share of its window it held, a
+  Mind choosing again within a fraction of a second. *Shown.*
 - **The tree chooser at 100 runs costs about twice the step budget**; fewer runs fit it and stand up
-  from fewer falls (`7f562d22`). *Shown.*
+  from fewer falls (`7f562d22`). Of a bout of the tail's best line, deciding is 38.7% and the search
+  31.1%, its leaf 97% of that: predictions 49% of the search, making the states a model leaves 17%,
+  the price 14%, the tree's own choosing and backing up 1.5%. So a change to how the tree chooses
+  is judged on strength, not speed. With the fitted leaf the leaf's trees were a third of a bout
+  until they were walked from typed arrays (7dace5cec), 9.3% after. *Shown.*
 - **A whole-fight learned policy (PPO, NEAT, evolution, cloning) never passed a bar against a
   designed mind**; learning won only on single skills (`58afe766`, `c83e592d`). Shown on the earlier
   golem physics; untested on Rapier. *Repeated.*
@@ -404,7 +415,48 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   its step's 99th percentile 17.89 ms (17.38). Two: 0.498 over 576, 90.7%, 20.63 ms. Four: 0.513
   over 576, 93.5%, 20.68 ms. (Before the trees were walked from typed arrays, 7dace5cec: 23.01,
   32.56 and 44.26 against 17.45.) By the owner's word, one reply is the empty-handed man's default
-  since f53f66070 (`option-reply`); the Mind above stays pickable (`option`). *Shown.*
+  since f53f66070 (`option-reply`); the Mind above stays pickable (`option`). Each reply's search
+  cut to a share of the own search's runs, so more replies cost what one does, waits: four at a
+  quarter, about 0.444 (0.403 to 0.485) against one reply over 576, 47.2% within 60 s; two at a
+  third, about 0.460 (0.419 to 0.501), 62.5% (removed, 3717fb776). Each Mind's own bouts give its
+  step's 99.9th percentile as noise (89 and 129 ms for two and four); timed at the same roots
+  instead (7,418 decisions of the default's mirror, each search in turn), a decision's search at
+  the median, 99th and 99.9th percentiles: none 3.3, 7.3 and 11.8 ms; one 6.7, 15.5 and 20.9;
+  two 9.3, 17.0 and 23.3; four 14.6, 29.4 and 45.7. *Shown.*
+- **More runs under the mean drift a state's worth from its leaf toward an even pick of its next
+  Options, and play worse**: the Mind above at 100 runs against itself at 50, 0.368 (0.309 to
+  0.431) on 288, as the tail's best line was at 100 (0.451). The chosen line is about two Options
+  deep at 25, 50 and 100 runs (1.98, 2.05, 2.06): the tree is wide, and more runs go to its
+  breadth. A root Option's worth less its leaves' falls with its runs (-0.11 at 2 to 3 runs, -0.38
+  at 32 or more, at 100), more than the 0.05 the root's Options differ by: below the root each
+  Option is tried once first, so a well-run state's mean nears an even pick of what follows it.
+  None of these recovered it: the mean counting each line past its first run (0.330 at 50 runs,
+  0.417 at 100, against the Mind above), the leaf weighed as 3 or 6 runs (0.392, 0.319 at 100),
+  the best line's weight 0.5 (0.319, 0.285). The first two were removed in the settings' tidy-up
+  (2026-11-22). Untried: the leaf's optimism read directly, a state's leaf against what its bouts
+  brought, by its depth. *Shown.*
+- **Truer own-body models do not make the Mind play better**: a walk starting at its speed along
+  its way, and a sway leaving the body where its own steps took it (not where its trials ended,
+  the trial foe walking in), cut walks' median placement error from 0.066 m (standing) to 0.053 and
+  the back step's bias from -0.241 to -0.058. That Mind read 0.434 (0.378 to 0.490) against the
+  Mind above on 288. The walk's start alone kept the body to the back step at 8,973 roots and ran
+  57 of 144 mirrors to 60 s. A leaf fitted to that Mind's own 432 bouts played it at 0.372 on 288;
+  one fitted to the Mind above's rows of the same bouts read 0.440, so the leaf learned from the
+  weaker play. The objective tuned again on the truer models (aggression 2 or 5, initiative 0 to
+  0.6) reached 0.488 at best. Why truer models play no better is not known. Untried: a second round
+  fitted from a Mind level with the game's. The truer models stay pickable (the measured
+  predictions' `walkStart` and `sways`); the leaf was removed in the settings' tidy-up
+  (2026-11-22). The rows are kept in `research/runs/foe-placement/` and
+  `research/runs/fitted-value/corrected/`. *Shown.*
+- **Two sides deciding a fifth of a period apart lean a mirror to one**: over 7,425 saved match
+  bouts the right side won 0.542 (z 7.2), and the same Mind on both sides 0.541. The chooser's
+  rethink phase (`Deciding.phase`) had the right decide 0.618 of a 0.2 s period after the left
+  (12 to 15 steps). Swapping the phases leaned it to the left (0.465), and both at one phase read
+  0.507 and 0.486; enlisting the right first did not move it (0.573). Since 3bdd5b168 every body's
+  periods start at one time, the decider's step offset alone keeping two bodies on neighbouring
+  steps: the right 0.479 on 288. The duel's mean step rose from 1.77 to 2.17 ms, the crowd's fell
+  from 30.5 to 21.3, and a page drops no frame it did not before. Why a stagger leans, and to which
+  side, is not known. *Shown.*
 - **An open Option's model asked once a state saves no time worth reading**: a held leaf asks the
   same answer about nine times (436 asks on 56 pairs a search), yet kept per state it read a
   99th-percentile step of 16.59 ms between the unchanged code's 17.51 and 16.66 in one quiet
@@ -483,7 +535,10 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   the body does, from bout rows, left the walk's time and the back step's exit to them: standing
   silence 20% with the back step as without them; its velocity carried on had the walker 0.9 m
   past its window and the mirror fell apart (`46d7b4e09`, `c9b5e7b39`). Removed, no Mind taking
-  either. *Shown.*
+  either. Carried on its velocity over a line's first step in a search's states (`carry`, up to
+  2 s), 0.5 s read 0.592 against the game's Mind, below the foe standing's 0.646, and 0.465 head
+  to head; the field was removed in the settings' tidy-up (2026-11-22), the carrying kept for the
+  foe's replies. *Shown.*
 - **A body measured on none fights by another's trials at ranges by stature**: a profile records
   its body's stature; with none on its own body, the nearest body's in stature is read scaled and
   its price says coarse (`acrossBodies`). Held out, the woman's punches answered 1,157 of the
