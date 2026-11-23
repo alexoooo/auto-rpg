@@ -657,9 +657,9 @@ type TreeSearched = Parameters<typeof treeSearch>[1];
  * reversed, over its seconds (`replyOf`). Its replies are those moves that go furthest each way
  * (`DIRECTIONS`): closing on the body, backing off, and to either side, the first `replies` of
  * them, so the worst of them is the foe's best reply whatever it prefers. Elsewhere, and where
- * none moves, the foe stands. Each reply's search runs `replyRuns` of the own search's runs.
+ * none moves, the foe stands.
  */
-function repliedSearch(root: Situation, searched: TreeSearched & { readonly replies: number; readonly against: AgainstName; readonly replyRuns: number }): PricedLine[] {
+function repliedSearch(root: Situation, searched: TreeSearched & { readonly replies: number; readonly against: AgainstName }): PricedLine[] {
   const own = treeSearch(root, searched), focus = root.focus, where = root.where;
   if (searched.replies === 0 || !focus || !where || bodyOf(focus.spec) !== searched.body) return own;
   const apart = hypot(where.x - focus.centre.x, where.z - focus.centre.z);
@@ -677,7 +677,7 @@ function repliedSearch(root: Situation, searched: TreeSearched & { readonly repl
     if (best < 0) continue;
     chosen.add(best);
     const reply = moves[best]!, moved = Object.create(root, { focus: { value: Object.create(focus, { velocity: { value: { x: reply.x, y: 0, z: reply.z } } }) } }) as Situation;
-    const replied = treeSearch(moved, { ...searched, runs: Math.max(1, Math.round(searched.runs * searched.replyRuns)), carry: reply.seconds, start: COLD });
+    const replied = treeSearch(moved, { ...searched, carry: reply.seconds, start: COLD });
     own.forEach((line, i) => {
       const same = replied.find((other) => other.pair.option === line.pair.option && other.pair.target === line.pair.target);
       if (same) worths[i]!.push(same.worth);
@@ -828,11 +828,10 @@ const EXPLORATION = 1;
  * as evidence of as many runs as it stood on, fading by half each so long; none kept unless given),
  * how much a state is worth its best line against the mean of its lines (`best`, its best alone
  * unless given), how many of the foe's replies it prices each line against (`replies`, `repliedSearch`;
- * none unless given), how (`against`, `AGAINST`; its worst unless given) and with what share of
- * its runs each reply's search runs (`replyRuns`; all unless given), and what every
+ * none unless given) and how (`against`, `AGAINST`; its worst unless given), and what every
  * search is given (`SearchConfig`).
  */
-interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs?: number; readonly exploration?: number; readonly leaf?: LeafName; readonly keeps?: number; readonly best?: number; readonly replies?: number; readonly against?: AgainstName; readonly replyRuns?: number }
+interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs?: number; readonly exploration?: number; readonly leaf?: LeafName; readonly keeps?: number; readonly best?: number; readonly replies?: number; readonly against?: AgainstName }
 
 /** The tree's runs a search (`TreeConfig.runs`), `RUNS` written as none. */
 const RUNS_FIELD = number<TreeConfig, "runs">("runs", "Runs", 1, 1000, 1, "", RUNS);
@@ -874,9 +873,6 @@ const REPLIES_FIELD = number<TreeConfig, "replies">("replies", "Foe's replies", 
 /** How a line is worth against the foe's replies (`AGAINST`), its worst written as none. */
 const AGAINST_FIELD = kindField("against", "Against its replies", AGAINST, "worst");
 
-/** The share of the own search's runs each reply's search runs (`TreeConfig.replyRuns`), all written as none. */
-const REPLY_RUNS_FIELD = number<TreeConfig, "replyRuns">("replyRuns", "Reply's runs (share)", .1, 1, .1, "", 1);
-
 /**
  * **By tree**: each option worth the mean of its runs in a Monte Carlo tree search over its
  * horizon (`treeSearch`), each path priced by its objective (`Objective.worth`), its orders at its
@@ -884,21 +880,20 @@ const REPLY_RUNS_FIELD = number<TreeConfig, "replyRuns">("replyRuns", "Reply's r
  * targets keeps the one it runs at `KEEP` s.
  */
 export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), horizonField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], REPLIES_FIELD, AGAINST_FIELD, REPLY_RUNS_FIELD, RUNS_FIELD, EXPLORATION_FIELD, BEST_FIELD, KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
-  defaults: { kind: "tree" }, reads: (config) => LEAVES[config.leaf ?? "tail"].reads, keys: { kind: true, runs: true, exploration: true, leaf: true, replies: true, against: true, replyRuns: true, keeps: true, best: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
+  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), horizonField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], REPLIES_FIELD, AGAINST_FIELD, RUNS_FIELD, EXPLORATION_FIELD, BEST_FIELD, KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  defaults: { kind: "tree" }, reads: (config) => LEAVES[config.leaf ?? "tail"].reads, keys: { kind: true, runs: true, exploration: true, leaf: true, replies: true, against: true, keeps: true, best: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
     ...config.exploration === undefined || Number.isFinite(config.exploration) && config.exploration >= 0 ? [] : ["exploration: a finite number, not negative"],
     ...config.leaf === undefined || isLeaf(config.leaf) ? [] : [`leaf: one of ${Object.keys(LEAVES).join(", ")}`],
     ...config.replies === undefined || Number.isSafeInteger(config.replies) && config.replies >= 0 && config.replies <= DIRECTIONS.length ? [] : [`replies: a whole number from 0 to ${DIRECTIONS.length}`],
     ...config.against === undefined || isAgainst(config.against) ? [] : [`against: one of ${Object.keys(AGAINST).join(", ")}`],
-    ...config.replyRuns === undefined || Number.isFinite(config.replyRuns) && config.replyRuns > 0 && config.replyRuns <= 1 ? [] : ["replyRuns: a share above none, at most all"],
     ...config.keeps === undefined || Number.isFinite(config.keeps) && config.keeps > 0 ? [] : ["keeps: a finite time, more than none"],
     ...config.best === undefined || Number.isFinite(config.best) && config.best >= 0 && config.best <= 1 ? [] : ["best: a number from 0 to 1"]],
   make: ({ config, options, seed, parts, body }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
-    const searched = { options, objective, obedience, horizon, carry: 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], replies: config.replies ?? 0, against: config.against ?? "worst", replyRuns: config.replyRuns ?? 1, start: warm?.start ?? COLD };
+    const searched = { options, objective, obedience, horizon, carry: 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
     return chooser({ options, appraise: searching((now) => pricedLines(repliedSearch(now, searched))), deciding: { rethink: RETHINK, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },
