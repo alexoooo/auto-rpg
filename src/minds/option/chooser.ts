@@ -390,38 +390,34 @@ interface LeafKind {
 /**
  * **The kinds of leaf**: `tail`, the game's, the best of each Option on offer run again to the
  * horizon or held, and of a walk to each site (`space`'s `leaf`, whole); `fitted`, the path's
- * price and a value fitted to what followed the states bouts reached (`fittedLeaf`); `fitted-corrected`,
- * the same of a value fitted to the bouts of a Mind whose own-body models were made truer.
+ * price and a value fitted to what followed the states bouts reached (`fittedLeaf`).
  */
 const LEAVES = Object.freeze({
   tail: Object.freeze({ label: "Tail", reads: Object.freeze([]), leafOf: (search: Space) => (at: Situation, from: Tally) => search.leaf(at, "whole", from) }),
-  fitted: Object.freeze({ label: "Fitted to what followed", reads: Object.freeze(["fitted-value"] as const), leafOf: fittedLeaf("fitted-value") }),
-  "fitted-corrected": Object.freeze({ label: "Fitted to the truer models' bouts", reads: Object.freeze(["fitted-value-corrected"] as const), leafOf: fittedLeaf("fitted-value-corrected") }),
+  fitted: Object.freeze({ label: "Fitted to what followed", reads: Object.freeze(["fitted-value"] as const), leafOf: fittedLeaf }),
 } satisfies Readonly<Record<string, LeafKind>>);
 
 /**
  * **A leaf worth its path priced with what a value fitted to what followed reads there**
- * (`dataOf(key)`, `fittedOver`): the life dealt and taken over the seconds the path
+ * (`dataOf("fitted-value")`, `fittedOver`): the life dealt and taken over the seconds the path
  * leaves to the horizon added to the path's, as if it ran there, each weighed as traded evenly over
  * those seconds (`dealtWeight`, `takenWeight`); the state read with the Options on
  * offer as their models price one try, and the reach's grace its own where its Option reckoned it,
  * else the root's. The tail's where the state has no focus, and through a search whose body or
  * focus is not one the value was fitted on (`fittedOn`).
  */
-function fittedLeaf(key: "fitted-value" | "fitted-value-corrected"): LeafKind["leafOf"] {
-  return (search, root) => {
-    const value: unknown = dataOf(key), grace = graceAt(root);
-    if (!validFitted(value)) throw new Error(`${key}: not a value over today's features`);
-    if (!fittedOn(value.bodies, search.body, root.focus)) return (at, from) => search.leaf(at, "whole", from);
-    return (at, from) => {
-      const offered: Offered[] = [];
-      for (const pair of search.pairsAt(at)) { const terms = search.modelAt(pair, at); if (terms) offered.push(offeredOf(pair.option.kind, pair.option.open === true, terms)); }
-      const reading = readingAt(at, at.grace ?? grace, offered);
-      if (!reading) return search.leaf(at, "whole", from);
-      const left = search.horizon - from.seconds, followed = fittedOver(value, featuresOf(reading), left);
-      const dealt = from.dealt + search.dealtWeight(from.seconds, left) * followed.dealt, taken = from.taken + search.takenWeight(from.seconds, left) * followed.taken;
-      return search.price({ dealt, taken, orders: from.orders, seconds: Math.max(from.seconds, search.horizon) }, at);
-    };
+function fittedLeaf(search: Space, root: Situation): (at: Situation, from: Tally) => number {
+  const value: unknown = dataOf("fitted-value"), grace = graceAt(root);
+  if (!validFitted(value)) throw new Error("fitted-value: not a value over today's features");
+  if (!fittedOn(value.bodies, search.body, root.focus)) return (at, from) => search.leaf(at, "whole", from);
+  return (at, from) => {
+    const offered: Offered[] = [];
+    for (const pair of search.pairsAt(at)) { const terms = search.modelAt(pair, at); if (terms) offered.push(offeredOf(pair.option.kind, pair.option.open === true, terms)); }
+    const reading = readingAt(at, at.grace ?? grace, offered);
+    if (!reading) return search.leaf(at, "whole", from);
+    const left = search.horizon - from.seconds, followed = fittedOver(value, featuresOf(reading), left);
+    const dealt = from.dealt + search.dealtWeight(from.seconds, left) * followed.dealt, taken = from.taken + search.takenWeight(from.seconds, left) * followed.taken;
+    return search.price({ dealt, taken, orders: from.orders, seconds: Math.max(from.seconds, search.horizon) }, at);
   };
 }
 type LeafName = keyof typeof LEAVES;
