@@ -23,8 +23,8 @@ const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: 
  * what it reads in its note (`assets/minds/notes.json`): the fitted leaf with the mean backup at
  * aggression 4, alone and at horizon 60; the tail's leaf with the mean backup; and the warm start
  * at 100 runs. And this Mind priced against the foe's replies at their mean: one, the foe closing
- * (`option-reply`), as strong as it, quicker to a knockout and a step about a third slower at its
- * slowest; two (`option-replies`), quicker to a knockout still and slower a step again.
+ * (`option-reply`), as strong as it, quicker to a knockout and about as quick a step; two
+ * (`option-replies`), quicker to a knockout still and a step about a fifth slower at its slowest.
  */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   option: { label: "Option Mind", config: OPTION_DEFAULTS },
