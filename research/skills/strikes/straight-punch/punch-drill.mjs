@@ -27,7 +27,6 @@
  * the confirmation 120 and 480 Hz.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -35,6 +34,7 @@ import "../../../../tests/harness/preload-data.mjs";
 import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
 import { cmaSearch } from "../../../cma.mjs";
 import { confirmRow, drillTrials, rowOf, scoreOn, subjectOf, trialPool, withTuning } from "../../../drill-trials.mjs";
+import { defaultLanes } from "../../../../scripts/lanes.mjs";
 
 /** The pushed channels: the trunk, both legs and the striking arm; with `wrist`, its wrist's too. */
 export function ceilingChannels(hand, wrist = false) {
@@ -135,7 +135,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" }, sigma: { type: "string" }, tune: { type: "boolean" },
     lambda: { type: "string" }, without: { type: "string" }, fire: { type: "boolean" }, brake: { type: "boolean" }, confirm: { type: "string" }, free: { type: "boolean" },
     chamber: { type: "boolean" }, "chamber-range": { type: "string" } } });
-  const pool = trialPool(Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
+  const pool = trialPool(Number(values.workers ?? defaultLanes()));
   if (values.confirm) {
     const found = JSON.parse(readFileSync(values.confirm, "utf8")), cells = rowOf(found.cell);
     const best = await confirmRow(cells, valuesWith(settingsOf(found.best.x, found.cell)), { play: pool.play });

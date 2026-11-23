@@ -28,7 +28,6 @@
  * the confirmation 120 and 480 Hz.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -37,6 +36,7 @@ import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { cmaSearch } from "../../../cma.mjs";
 import { confirmRow, drillTrials, rowOf, scoreOn, subjectOf, trialPool, withTuning } from "../../../drill-trials.mjs";
 import { recordsOf } from "../../skill-records.mjs";
+import { defaultLanes } from "../../../../scripts/lanes.mjs";
 
 /** The swung channels of `hand`'s swing: the trunk's turn and bends, the striking arm and its wrist. */
 export function swingChannels(hand) {
@@ -130,7 +130,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     console.log(JSON.stringify({ ...record.settings, ...tuningOf(found.best.x, found.cell) }, null, 2));
     process.exit(0);
   }
-  const pool = trialPool(Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
+  const pool = trialPool(Number(values.workers ?? defaultLanes()));
   if (values.confirm) {
     const found = JSON.parse(readFileSync(values.confirm, "utf8")), cells = rowOf(found.cell);
     const best = await confirmRow(cells, valuesWith(tuningOf(found.best.x, found.cell)), { play: pool.play });

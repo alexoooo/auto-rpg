@@ -16,7 +16,8 @@ import { parseArgs } from "node:util";
 import { HUMANOID_MODELS } from "../src/core/bodies/models.ts";
 import { SIDES } from "../src/game/arena/duel.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
-import { defaultLanes, playBouts } from "./bout-pool.mjs";
+import { playBouts } from "./bout-pool.mjs";
+import { defaultLanes } from "../scripts/lanes.mjs";
 
 const { values } = parseArgs({ options: { gaps: { type: "string", default: "4" }, workers: { type: "string" } } });
 const gaps = values.gaps.split(",").map(Number);

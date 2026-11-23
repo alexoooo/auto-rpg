@@ -67,13 +67,13 @@ import { workerJobs } from "../../worker-jobs.mjs";
  *
  * Runs go in parallel on worker threads, one stand at a time in each.
  */
-import { Worker, isMainThread, parentPort } from "node:worker_threads";
+import { isMainThread, parentPort } from "node:worker_threads";
 import { appendFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 import { PERSON_PACE, personStep } from "./person-gait.ts";
 import { WENT } from "../../../src/evaluation/locomotion/acceptance.ts";
 import { SIDES } from "../../../src/core/bodies/bilateral.ts";
+import { defaultLanes, simulationWorker } from "../../../scripts/lanes.mjs";
 
 /**
  * The straight lines a body walks facing +z, each 80 m from the origin: forward, to its right, back
@@ -306,7 +306,7 @@ if (!isMainThread) {
   if (paces.includes("max") && !played) throw new Error("a pace of max needs --played: a body measured has no envelope to take its fastest walk from");
   const physique = arg("physique") ? JSON.parse(arg("physique")) : null;
   const probe = arg("probe") ? JSON.parse(arg("probe")) : null;
-  const out = arg("out"), workers = Math.min(Number(arg("workers", String(Math.max(1, availableParallelism() - 2)))), 64);
+  const out = arg("out"), workers = Math.min(Number(arg("workers", String(defaultLanes()))), 64);
 
   const jobs = [];
   for (const model of models) for (const hold of holds) for (const track of tracks) for (const wind of winds) for (const pace of paces) for (const seed of seeds)
@@ -316,7 +316,7 @@ if (!isMainThread) {
   const results = [];
   const started = Date.now();
   await workerJobs(todo, { lanes: workers,
-    create: () => new Worker(fileURLToPath(import.meta.url)),
+    create: () => simulationWorker(fileURLToPath(import.meta.url)),
     result: ({ result }) => {
       results.push(result);
       if (out) appendFileSync(out, JSON.stringify(result) + "\n");

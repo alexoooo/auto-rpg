@@ -21,7 +21,8 @@
  */
 import { register } from "node:module";
 import { parseArgs } from "node:util";
-import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
+import { isMainThread, parentPort, workerData } from "node:worker_threads";
+import { simulationWorker } from "../scripts/lanes.mjs";
 
 const DT = 1000 / 120;
 
@@ -68,7 +69,7 @@ if (!isMainThread) {
 
   /** `count` copies played at once, started together after each warmed its compiler on a playing of its own. */
   const together = async (count) => {
-    const workers = Array.from({ length: count }, () => new Worker(new URL(import.meta.url), { workerData: { seed, cap, warm } }));
+    const workers = Array.from({ length: count }, () => simulationWorker(new URL(import.meta.url), { workerData: { seed, cap, warm } }));
     const ready = workers.map((worker) => new Promise((resolve, reject) => { worker.once("message", resolve); worker.once("error", reject); }));
     await Promise.all(ready);
     const done = workers.map((worker) => new Promise((resolve, reject) => { worker.once("message", resolve); worker.once("error", reject); }));

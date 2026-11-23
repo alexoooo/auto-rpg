@@ -23,7 +23,8 @@ import { parseArgs } from "node:util";
 import { HUMANOID_MODELS } from "../src/core/bodies/models.ts";
 import { SIDES } from "../src/game/arena/duel.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
-import { defaultLanes, playBouts } from "./bout-pool.mjs";
+import { playBouts } from "./bout-pool.mjs";
+import { defaultLanes } from "../scripts/lanes.mjs";
 
 /** The steadiness both sides have in the shapes table, %. */
 const SHAPE_STEADINESS = 100;

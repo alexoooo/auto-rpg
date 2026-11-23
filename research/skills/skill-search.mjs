@@ -59,7 +59,6 @@
  * 120 Hz, its confirmation 120 and 480 Hz.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -73,6 +72,7 @@ import { cmaSearch, workerPool } from "../cma.mjs";
 import { CONFIRM_RATES, drillTrials, playTrial, rowOf, searchScore, subjectOf, withTuning } from "../drill-trials.mjs";
 import { RECORD_WAYS, stagedValue, tuningOn, wayCells } from "./recovery/way-up-trials.mjs";
 import { recordsOf, writeRecord } from "./skill-records.mjs";
+import { defaultLanes } from "../../scripts/lanes.mjs";
 
 /**
  * A strike's trials on `model`: the drill's trials of each cell of the body's row of `skill`
@@ -286,7 +286,7 @@ if (!isMainThread && workerData?.search) {
   if (!search || !model) throw new Error(`usage: <skill> <model>, skill one of ${Object.keys(SEARCHES).join(", ")}`);
   const recordName = search.record ?? skill;
   if (values.loadout !== undefined && !search.rates) throw new Error(`${skill}'s trials are not a table row's: --loadout is not theirs`);
-  const workers = Number(values.workers ?? Math.max(1, availableParallelism() - 4));
+  const workers = Number(values.workers ?? defaultLanes());
   const pool = workerPool(fileURLToPath(import.meta.url), { search: true, skill }, workers);
   const body = modelSpec(model).model, started = Date.now();
   if (values.confirm) {

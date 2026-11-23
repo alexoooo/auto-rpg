@@ -13,9 +13,9 @@
  *     [--seeds 8] [--evals 1500]
  */
 import { mkdirSync, writeFileSync } from "node:fs";
-import { defaultLanes } from "../../bout-pool.mjs";
 import { bestOf, pictureOf, runJobs } from "./posture-runs.mjs";
 import { AUDITED, ENVELOPES, ROWS, rowName, STATICS_HARNESS, staticBody, TOE, TOES_BENT } from "./posture-trials.mjs";
+import { defaultLanes } from "../../../scripts/lanes.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, otherwise) => { const at = args.indexOf(`--${name}`); return at < 0 ? otherwise : args[at + 1]; };

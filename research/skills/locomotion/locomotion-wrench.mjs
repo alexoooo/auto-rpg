@@ -39,12 +39,12 @@ import { workerJobs } from "../../worker-jobs.mjs";
  * leg-steps a leg joint is within `NEAR_STOP` of its range, and the share whose knee is within
  * `NEAR_STRAIGHT` of straight.
  */
-import { Worker, isMainThread, parentPort } from "node:worker_threads";
+import { isMainThread, parentPort } from "node:worker_threads";
 import { appendFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 import { Quaternion, Vector3 } from "../../../src/core/math/vector.ts";
 import { SIDES } from "../../../src/core/bodies/bilateral.ts";
+import { defaultLanes, simulationWorker } from "../../../scripts/lanes.mjs";
 
 /** A joint within this of a stop, rad, presses it. */
 const NEAR_STOP = 0.02;
@@ -347,12 +347,12 @@ if (!isMainThread) {
   const models = list("models", "man,woman"), paces = list("paces", "0,0.5,1.2").map(Number), legsList = list("legs", "stance");
   const scale = Object.fromEntries((arg("scale", "") || "").split(";").filter(Boolean).map((x) => { const [k, v] = x.split("="); return [k, Number(v)]; }));
   const seconds = Number(arg("seconds", "12")), from = Number(arg("from", "3")), out = arg("out");
-  const workers = Math.min(Number(arg("workers", String(Math.max(1, availableParallelism() - 2)))), 64);
+  const workers = Math.min(Number(arg("workers", String(defaultLanes()))), 64);
   const jobs = [];
   for (const model of models) for (const legs of legsList) for (const pace of paces) jobs.push({ id: jobs.length, model, legs, pace, seconds, from, scale });
   const results = [];
   await workerJobs(jobs, { lanes: workers,
-    create: () => new Worker(fileURLToPath(import.meta.url)),
+    create: () => simulationWorker(fileURLToPath(import.meta.url)),
     result: ({ result }) => {
       results.push(result);
       if (out) appendFileSync(out, JSON.stringify(result) + "\n");

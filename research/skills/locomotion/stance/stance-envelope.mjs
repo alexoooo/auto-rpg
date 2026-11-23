@@ -28,14 +28,13 @@
  * and keeps the others: the asset's grid (speeds, ways, rates, holds and the rest) must be this run's.
  */
 import { readFile, writeFile } from "node:fs/promises";
-import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
-import { Worker } from "node:worker_threads";
 import { HELD } from "../../../../src/core/bodies/items/held.ts";
 import { turnedAsAsked, wentAsAsked } from "../../../../src/evaluation/locomotion/acceptance.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { PHYSICS_HZ } from "../../../../src/core/world/world.ts";
 import { CORE_STANCE_HARNESS } from "./stance-trials.mjs";
+import { defaultLanes, simulationWorker } from "../../../../scripts/lanes.mjs";
 
 /**
  * The battery's speeds, m/s, by the legs it measures: the walk and run's reach past the stance
@@ -100,7 +99,7 @@ const SPEEDS = SPEEDS_OF[legs], RATES = RATES_OF[legs], hz = PHYSICS_HZ.value;
 /** The trials this run has played, by their inputs. */
 const kept = new Map();
 
-const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
+const lanes = Number(values.workers ?? defaultLanes());
 const pool = [];
 const queue = [], counts = { played: 0, reused: 0, skipped: 0 }, started = Date.now();
 let failed = null;
@@ -128,7 +127,7 @@ function feed(worker) {
   worker.postMessage({ ...next.job, id: 0 });
 }
 function startWorker() {
-  const worker = new Worker(new URL("./stance-worker.mjs", import.meta.url));
+  const worker = simulationWorker(new URL("./stance-worker.mjs", import.meta.url));
   pool.push(worker);
   worker.idle = true;
   worker.on("error", fail);

@@ -8,9 +8,11 @@
  */
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
+import { belowNormal } from '../scripts/lanes.mjs';
 
 const [configuration, seconds = '30'] = process.argv.slice(2);
 if (!configuration) throw new Error('usage: node research/learning-speed.mjs <configuration.json> [seconds]');
+belowNormal();
 const server = spawn(process.execPath, ['research/run-learning-server.mjs', configuration], { stdio: ['pipe', 'pipe', 'inherit'] });
 const lines = createInterface({ input: server.stdout })[Symbol.asyncIterator]();
 const next = async () => {

@@ -4,7 +4,7 @@
  * candidate is a point in [0, 1]^n; each is clamped to the cube before it is scored. The search is
  * seeded (mulberry32), so a run can be made again.
  */
-import { Worker } from "node:worker_threads";
+import { simulationWorker } from "../scripts/lanes.mjs";
 
 /**
  * Worker threads of the module at `url`, each started with `workerData`: `evaluate(x)` posts
@@ -12,7 +12,7 @@ import { Worker } from "node:worker_threads";
  */
 export function workerPool(url, workerData, count) {
   if (!Number.isSafeInteger(count) || count < 1) throw new Error('invalid worker count');
-  const workers = Array.from({ length: count }, () => new Worker(url, { workerData }));
+  const workers = Array.from({ length: count }, () => simulationWorker(url, { workerData }));
   let nextId = 0, stopped = null; const waiting = new Map(), idle = [...workers], queue = [];
   const stop = reason => {
     if (stopped) return;

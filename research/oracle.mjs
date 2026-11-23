@@ -35,9 +35,10 @@ import { CAP_SECONDS, SIDES } from "../src/game/arena/duel.ts";
 import { HUMANOID_MODELS } from "../src/core/bodies/models.ts";
 import { buildBout } from "../src/app/node/evaluation.ts";
 import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
-import { defaultLanes, playBouts } from "./bout-pool.mjs";
+import { playBouts } from "./bout-pool.mjs";
 import { rolloutPool } from "./rollout-pool.mjs";
 import { chooseResponse, nudgesOf, poseDigest, responsesAt, valueOf } from "./rollouts.mjs";
+import { defaultLanes } from "../scripts/lanes.mjs";
 
 const { values } = parseArgs({ options: {
   left: { type: "string", default: "man" }, right: { type: "string", default: "woman" },

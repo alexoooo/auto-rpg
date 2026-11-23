@@ -17,11 +17,11 @@
  * `reference: false` silences the reference too.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { availableParallelism } from 'node:os';
 import { parseArgs } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { confirmRow, scoreOn, trialPool } from '../../drill-trials.mjs';
 import { moveRow, valuesWith, walkRunRecord } from './move-drill.mjs';
+import { defaultLanes } from '../../../scripts/lanes.mjs';
 
 const read = path => JSON.parse(readFileSync(path, 'utf8'));
 const { values: o } = parseArgs({ options: { manifest: { type: 'string' }, out: { type: 'string' }, cell: { type: 'boolean' }, workers: { type: 'string' } } });
@@ -41,7 +41,7 @@ function tuningOf(candidate) {
 mkdirSync(o.out, { recursive: true });
 const code = { commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() };
 writeFileSync(`${o.out}/manifest.json`, JSON.stringify({ ...manifest, body, code, cases: o.cell ? 'cell' : 'twin' }) + '\n');
-const pool = trialPool(Number(o.workers ?? Math.max(1, availableParallelism() - 4))), results = [];
+const pool = trialPool(Number(o.workers ?? defaultLanes())), results = [];
 try {
   for (const candidate of manifest.candidates) {
     const valueOf = valuesWith({ gaits: { run: tuningOf(candidate) } });

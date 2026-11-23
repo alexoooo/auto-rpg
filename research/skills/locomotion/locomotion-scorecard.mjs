@@ -23,12 +23,12 @@
  *   (`walk`, `run`, `braking`, `stride`, `learned`); given once a gait.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { loadoutKey } from "../../../src/core/bodies/items/held.ts";
 import { compareValues, unitOf } from "../../../src/evaluation/table/judge.ts";
 import { drillTrials, scoreOn, trialPool } from "../../drill-trials.mjs";
 import { moveRow, valuesWith } from "./move-drill.mjs";
+import { defaultLanes } from "../../../scripts/lanes.mjs";
 
 const { values: o } = parseArgs({ options: {
   out: { type: "string" }, bodies: { type: "string", default: "man,woman" }, skills: { type: "string", default: "walk" },
@@ -45,7 +45,7 @@ const gaits = Object.fromEntries((o.gait ?? []).map((one) => {
 }));
 const settings = { ...(o.legs ? { legs: given(o.legs) } : {}), ...(Object.keys(gaits).length ? { gaits } : {}), ...(o.stance ? { stance: given(o.stance) } : {}) };
 const valueOf = valuesWith(Object.keys(settings).length ? settings : null), hz = Number(o.hz);
-const pool = trialPool(Number(o.workers ?? Math.max(1, availableParallelism() - 4)));
+const pool = trialPool(Number(o.workers ?? defaultLanes()));
 const rows = [], started = Date.now();
 try {
   for (const body of o.bodies.split(",")) for (const skill of o.skills.split(",")) for (const cell of moveRow({ body, skill }).cells) {

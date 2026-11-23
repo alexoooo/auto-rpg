@@ -12,13 +12,13 @@
 // recipe; --write keeps the best as the model's
 // record in assets/skills/recovery/righting/righting.json (`research/skills/skill-records.mjs`). Options: --gens 50 --pop 24 --workers 19 --frames 3 --seconds 9
 // --sigma .4 --seed 1.
-import { Worker } from "node:worker_threads";
 import { workerJobPool } from "../../../../research/worker-jobs.mjs";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { deserialize } from "node:v8";
 import { writeRecord } from "../../../../research/skills/skill-records.mjs";
 import { quadrupedSpec } from "../../../../src/core/bodies/quadruped/spec.ts";
+import { simulationWorker } from "../../../lanes.mjs";
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? fallback : process.argv[i + 1]; };
 const MODEL = arg("model", "rat"), GENS = Number(arg("gens", 50)), POP = Number(arg("pop", 24)), WORKERS = Number(arg("workers", 19));
@@ -53,7 +53,7 @@ const encode = (recipe) => (recipe[PART] ?? recipe.side).flatMap((f) => [...CHAN
   fromUnit((f.hold - HOLD[0]) / (HOLD[1] - HOLD[0])), fromUnit(f.up / MARK)]);
 const scoreOf = (r) => 2 * r.up + 2 * r.height / standing - r.down + (r.handed === null ? 0 : 1 - r.handed / SECONDS);
 
-const pool = workerJobPool({ lanes: WORKERS, create: () => new Worker(new URL("./righting-worker.mjs", import.meta.url)),
+const pool = workerJobPool({ lanes: WORKERS, create: () => simulationWorker(new URL("./righting-worker.mjs", import.meta.url)),
   message: (job, id) => ({ ...job, id }) });
 try {
 const evaluate = async (x) => {

@@ -21,12 +21,13 @@
  * keys override the file's settings. Environment i is seeded `seed + i`. Unset, 8 workers of 4
  * environments.
  */
-import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
+import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { createInterface } from 'node:readline';
 import { readFileSync } from 'node:fs';
 import { learningWorker } from './learning-worker.mjs';
 import { collect, normalDraws } from './rollout.mjs';
 import { generator } from './case-learning-environment.mjs';
+import { simulationWorker } from '../scripts/lanes.mjs';
 
 /**
  * Each kind of environment's maker, by the `kind` its file names: an episode's shape, which its
@@ -115,7 +116,7 @@ if (!isMainThread) {
   if (!Number.isSafeInteger(count) || count < 1 || !Number.isSafeInteger(each) || each < 1) throw new Error("learning workers and environments per worker must be positive integers");
   for (let w = 0; w < count; w++) {
     const configurations = Array.from({ length: each }, (_, k) => ({ ...settings, seed: seed + w * each + k }));
-    const worker = new Worker(new URL(import.meta.url), { workerData: configurations });
+    const worker = simulationWorker(new URL(import.meta.url), { workerData: configurations });
     workers.push(learningWorker(worker));
   }
   const ready = await Promise.all(workers.map((w) => w.ask(null)));

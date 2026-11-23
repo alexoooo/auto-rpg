@@ -1,13 +1,9 @@
 import { workerJobs } from "./worker-jobs.mjs";
 // Many arena bouts, each in a world of its own on a worker thread (`bout-worker.mjs`).
-import { Worker } from "node:worker_threads";
-import { availableParallelism } from "node:os";
 import { BUILD_IDENTITY } from "../src/app/node/build-identity.ts";
 import { ORDERS_PROTOCOL } from "../src/game/arena/duel.ts";
 import { requireRecordingIdentity } from "../src/core/world/recording.ts";
-
-/** The lanes a run takes unless told: all but two of the machine's threads. */
-export const defaultLanes = () => Math.max(1, availableParallelism() - 2);
+import { defaultLanes, simulationWorker } from "../scripts/lanes.mjs";
 
 /**
  * Play every job (`{ recipe, seconds?, shortfall?, blows? }`, as `bout-worker.mjs` reads it) on `lanes`
@@ -16,7 +12,7 @@ export const defaultLanes = () => Math.max(1, availableParallelism() - 2);
  * comes, so a long run keeps what it has played.
  */
 export async function playBouts(jobs, lanes = defaultLanes(), onRow = () => {}) {
-  return workerJobs(jobs, { lanes, create: () => new Worker(new URL("./bout-worker.mjs", import.meta.url)),
+  return workerJobs(jobs, { lanes, create: () => simulationWorker(new URL("./bout-worker.mjs", import.meta.url)),
     message: (job, id) => ({ ...job, id }),
     result: ({ result }, _job, id) => {
       const identity = result?.recording?.identity;

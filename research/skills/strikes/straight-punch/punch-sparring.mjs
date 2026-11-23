@@ -63,7 +63,6 @@
  * Harness: Node, the Strike drill's bout world (`playCase`) on Rapier (`DEFAULT_ENGINE`), 120 Hz.
  */
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -84,6 +83,7 @@ import { dataOf } from "../../../../src/core/data/store.ts";
 import { PUNCH_PART } from "../../../../src/skills/strikes/straight-punch/index.ts";
 import { strikeTrade } from "../../../../src/evaluation/strike/read.ts";
 import { FALL_PRICE, keep, trialValue } from "../../../../src/evaluation/table/judge.ts";
+import { defaultLanes } from "../../../../scripts/lanes.mjs";
 
 const BODY = "man", SKILL = "straight-punch";
 /** The bar: damage dealt per second at least `RATE` times the drive's, the low end of its 95 % interval above `LOW`. */
@@ -500,7 +500,7 @@ if (isMainThread) {
   const { values } = parseArgs({ options: { search: { type: "boolean" }, bar: { type: "string" }, out: { type: "string" }, variation: { type: "string", default: "drive" }, holds: { type: "string", multiple: true, default: [] },
     steer: { type: "string" }, on: { type: "string", default: "held-out" }, draws: { type: "string", default: "sparring" }, starts: { type: "string", default: "80" }, rank: { type: "string", default: "4" },
     lambda: { type: "string", default: "16" }, sigma: { type: "string", default: "0.2" }, step: { type: "string", default: "0.05" }, patience: { type: "string", default: "8" }, hours: { type: "string" },
-    workers: { type: "string", default: String(Math.max(1, availableParallelism() - 2)) }, resume: { type: "boolean" } } });
+    workers: { type: "string", default: String(defaultLanes()) }, resume: { type: "boolean" } } });
   if (values.bar) await bar(values.bar, Number(values.workers), values.on, values.variation, values.holds);
   else if (values.search && values.out) await search({ out: values.out, variation: values.variation, holds: values.holds, steer: values.steer, draws: values.draws, starts: Number(values.starts), rank: Number(values.rank),
     lambda: Number(values.lambda), sigma: Number(values.sigma), step: Number(values.step), patience: Number(values.patience), hours: values.hours === undefined ? Infinity : Number(values.hours),

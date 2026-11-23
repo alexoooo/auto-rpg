@@ -20,11 +20,11 @@
  *   on the row's own cases at 120 and 480 Hz, the worse counting.
  */
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { cmaSearch } from "../../../cma.mjs";
 import { scoreOn, trialPool } from "../../../drill-trials.mjs";
 import { confirmMove, moveRow, valuesWith, walkRunRecord } from "../move-drill.mjs";
+import { defaultLanes } from "../../../../scripts/lanes.mjs";
 
 /** Each setting searched and its range. */
 const DIMS = {
@@ -43,7 +43,7 @@ const { values: o } = parseArgs({ options: {
   "braking-only": { type: "boolean" }, stride: { type: "string" }, generations: { type: "string", default: "60" }, lambda: { type: "string", default: "28" },
   sigma: { type: "string", default: "0.1" }, workers: { type: "string" }, score: { type: "boolean" }, confirm: { type: "string" },
 } });
-const pool = trialPool(Number(o.workers ?? Math.max(1, availableParallelism() - 4)));
+const pool = trialPool(Number(o.workers ?? defaultLanes()));
 /** The walk and run's tuning `point` gives: its cycle as the run (or, braking only, the braking), its `at` and `swerve` the walk's. */
 const tuningOf = (point, braking, stride) => {
   const cycle = Object.fromEntries(Object.entries(point).filter(([key]) => !(key in WALK))), walk = Object.fromEntries(Object.entries(WALK).filter(([key]) => key in point).map(([key, name]) => [name, point[key]]));

@@ -1,7 +1,7 @@
 /** Compare static witnesses with five-second engine holds under each Rapier limit model. */
 import { mkdir, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import { Worker } from "node:worker_threads";
+import { simulationWorker } from "../../../scripts/lanes.mjs";
 
 const { values } = parseArgs({ options: { workers: { type: "string", default: "3" },
   out: { type: "string", default: ".tmp/posture-limits" } }, strict: true });
@@ -15,7 +15,7 @@ const rows = new Array(jobs.length); let next = 0;
 await Promise.all(Array.from({ length: Math.min(workers, jobs.length) }, async () => {
   while (next < jobs.length) {
     const index = next++, job = jobs[index];
-    const worker = new Worker(new URL("./posture-worker.mjs", import.meta.url), { env: { ...process.env, CORE_ENGINE: job.engine } });
+    const worker = simulationWorker(new URL("./posture-worker.mjs", import.meta.url), { env: { ...process.env, CORE_ENGINE: job.engine } });
     const request = (task) => new Promise((resolve, reject) => {
       const cleanup = () => { worker.off("message", message); worker.off("error", failed); worker.off("exit", exited); };
       const failed = (error) => { cleanup(); reject(error); };

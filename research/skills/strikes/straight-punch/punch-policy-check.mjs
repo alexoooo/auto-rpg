@@ -26,10 +26,9 @@ import { workerJobs } from "../../../worker-jobs.mjs";
  * 120 and 480 Hz.
  */
 import { readFileSync } from 'node:fs';
-import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
+import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import '../../../../tests/harness/preload-data.mjs';
 import { recoveryNetwork } from "../../../../src/core/math/learning/recovery-network.ts";
 import { answer, pending } from "../../../../src/core/math/learning/learner.ts";
@@ -38,6 +37,7 @@ import { BOUT_WORLD } from "../../../../src/app/node/evaluation.ts";
 import { FALL_PRICE, keep, trialValue } from "../../../../src/evaluation/table/judge.ts";
 import { learnerIn, owning, subjectFor } from '../../../case-learning-environment.mjs';
 import { CONFIRM_RATES, meanValue, searchScore } from '../../../drill-trials.mjs';
+import { defaultLanes, simulationWorker } from "../../../../scripts/lanes.mjs";
 
 /** The game's rate, research's. */
 const GAME_RATE = 120;
@@ -91,9 +91,9 @@ if (!isMainThread) {
     }
   }
   const results = new Array(jobs.length);
-  const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
+  const count = Math.min(jobs.length, Number(values.workers ?? defaultLanes()));
   await workerJobs(jobs, { lanes: count,
-    create: () => new Worker(fileURLToPath(import.meta.url), { workerData: { o, policy } }),
+    create: () => simulationWorker(fileURLToPath(import.meta.url), { workerData: { o, policy } }),
     result: ({ id, r }) => { results[id] = r; return r; },
   });
   for (const job of jobs) {

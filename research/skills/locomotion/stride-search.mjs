@@ -12,12 +12,12 @@
  *   [--start stride.json] [--generations 8] [--lambda 16] [--workers 8] [--sigma .08] [--resume] [--score] [--confirm <out>-best.json]
  */
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
-import { availableParallelism } from 'node:os';
 import { parseArgs } from 'node:util';
 import { cmaSearch } from '../../cma.mjs';
 import { scoreOn, trialPool } from '../../drill-trials.mjs';
 import { STANCE_GAIT } from '../../../src/control/stance/stance-tuning.ts';
 import { confirmMove, moveRow, valuesWith, walkRunRecord } from './move-drill.mjs';
+import { defaultLanes } from '../../../scripts/lanes.mjs';
 
 /** Each setting searched and its range. */
 const DIMS = {
@@ -33,7 +33,7 @@ const { values: o } = parseArgs({ options: {
 } });
 const row = { body: o.body, skill: 'run', ...(o.loadout ? { loadout: o.loadout } : {}) };
 const settingsOf = (stride) => ({ gaits: { run: { stride } } });
-const pool = trialPool(Number(o.workers ?? Math.max(1, availableParallelism() - 4)));
+const pool = trialPool(Number(o.workers ?? defaultLanes()));
 try {
   if (o.confirm) {
     const found = JSON.parse(readFileSync(o.confirm, 'utf8'));

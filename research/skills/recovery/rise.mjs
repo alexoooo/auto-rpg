@@ -19,11 +19,10 @@ import { workerJobs } from "../../worker-jobs.mjs";
  * turned that many degrees further, a fresh set of falls to replicate a reading on; with `--falls`, a last table
  * has a line for each fall.
  */
-import { Worker } from "node:worker_threads";
 import { HUMANOID_MODELS } from "../../../src/core/bodies/models.ts";
-import { defaultLanes } from "../../bout-pool.mjs";
 import { RISE } from "../../../src/skills/recovery/shared/staged/stages.ts";
 import { LOADOUTS, RISE_HARNESS, UP_SECONDS, WATCH_SECONDS } from "./rise-trials.mjs";
+import { defaultLanes, simulationWorker } from "../../../scripts/lanes.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, otherwise) => { const at = args.indexOf(`--${name}`); return at < 0 ? otherwise : args[at + 1]; };
@@ -49,7 +48,7 @@ cells.push({
 
 /** Every job on `lanes` workers, each worker one fall at a time; the rows in the jobs' order, each back by message. */
 async function run(jobs) {
-  return workerJobs(jobs, { lanes, create: () => new Worker(new URL("./rise-worker.mjs", import.meta.url)),
+  return workerJobs(jobs, { lanes, create: () => simulationWorker(new URL("./rise-worker.mjs", import.meta.url)),
     message: (job, id) => ({ ...job, mind, watch, id }) });
 }
 

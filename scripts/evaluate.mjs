@@ -44,11 +44,9 @@ import "../tests/harness/preload-data.mjs";
  * (`--fresh` plays the others again), so the commit a result names is its code's.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { Worker } from "node:worker_threads";
 import { DEFAULT_ENGINE, isEngineName } from "../src/core/physics/engines.ts";
 import { recordingKey } from "../src/core/world/recording.ts";
 import { EVALUATIONS, loadsOf, tableCells } from "../src/app/node/evaluation.ts";
@@ -67,11 +65,9 @@ import { resultsOf, writeResults } from "./evaluation-results.mjs";
 import { drawFound, originText, rowStore } from "./evaluation-rows.mjs";
 import { resolveSubjects, subjectOf } from "./evaluation-subjects.mjs";
 import { belongsTo } from "../src/evaluation/evaluation.ts";
+import { defaultLanes, simulationWorker } from "./lanes.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-
-/** The lanes a run takes unless told: all but two of the machine's threads. */
-const defaultLanes = () => Math.max(1, availableParallelism() - 2);
 
 const NOTES = join(ROOT, "assets/minds/notes.json");
 
@@ -235,7 +231,7 @@ async function runProtocol({ evaluation, id, protocol, named, values }) {
     return settled.verdict !== null || read === slots.length;
   };
   const spawn = (listen) => {
-    const worker = new Worker(new URL("./evaluate-worker.mjs", import.meta.url));
+    const worker = simulationWorker(new URL("./evaluate-worker.mjs", import.meta.url));
     worker.on("message", listen.answer);
     worker.on("error", (error) => listen.lost(String(error?.stack ?? error)));
     worker.on("exit", (code) => listen.lost(`its worker exited (${code})`));

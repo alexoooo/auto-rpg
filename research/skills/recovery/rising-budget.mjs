@@ -15,10 +15,10 @@ import { footOn } from "../../../src/control/support.ts";
  *
  *   node research/skills/recovery/rising-budget.mjs [--workers 12] [--out <rows.json>]
  */
-import { Worker, isMainThread, parentPort } from "node:worker_threads";
-import { availableParallelism } from "node:os";
+import { isMainThread, parentPort } from "node:worker_threads";
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { defaultLanes, simulationWorker } from "../../../scripts/lanes.mjs";
 
 /** The lies a reading names; the rest are postures off the ground's flat. */
 const LIES = new Set(["back", "front", "left", "right"]);
@@ -89,8 +89,8 @@ if (isMainThread) {
   const { risingJobs } = await import("../../../src/evaluation/rising.ts");
   const jobs = [...risingJobs({ target: true }).map(job => ({ kind: "fall", job })),
     ...["man", "woman"].flatMap(model => ["empty", "club"].flatMap(held => Array.from({ length: 8 }, (_, k) => ({ kind: "squat", job: { model, held, seed: k + 1 } }))))];
-  const count = Number(values.workers ?? Math.max(1, availableParallelism() - 4));
-  const rows = (await workerJobs(jobs, { lanes: count, create: () => new Worker(new URL(import.meta.url)), result: answer => answer })).flat();
+  const count = Number(values.workers ?? defaultLanes());
+  const rows = (await workerJobs(jobs, { lanes: count, create: () => simulationWorker(new URL(import.meta.url)), result: answer => answer })).flat();
   if (values.out) writeFileSync(values.out, JSON.stringify(rows, null, 1) + "\n");
   const median = list => { const s = list.filter(v => v !== null).sort((a, b) => a - b), m = s.length >> 1; return s.length ? (s[m] + s[(s.length - 1) >> 1]) / 2 : null; };
   const f = v => v === null ? "-" : v.toFixed(2);

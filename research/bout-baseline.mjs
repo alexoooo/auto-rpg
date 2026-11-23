@@ -27,7 +27,8 @@ import { lifeTaken } from "../src/combat/blows.ts";
 import { HUMANOID_MODELS } from "../src/core/bodies/models.ts";
 import { sourced } from "../src/core/quantity.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
-import { defaultLanes, playBouts } from "./bout-pool.mjs";
+import { playBouts } from "./bout-pool.mjs";
+import { defaultLanes } from "../scripts/lanes.mjs";
 
 const { values } = parseArgs({ options: {
   gaps: { type: "string", default: "3,4,5" }, workers: { type: "string" }, held: { type: "string", default: "club" },

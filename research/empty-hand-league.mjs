@@ -29,15 +29,15 @@ import { workerJobs } from "./worker-jobs.mjs";
  */
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { isMainThread, parentPort, Worker } from "node:worker_threads";
+import { isMainThread, parentPort } from "node:worker_threads";
 import { buildBout } from "../src/app/node/evaluation.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 import { bradleyTerry } from "../src/evaluation/rating.ts";
 import { BUILD_IDENTITY } from "../scripts/build-identity.mjs";
 import { MINDS } from "../src/app/catalog.ts";
+import { defaultLanes, simulationWorker } from "../scripts/lanes.mjs";
 
 /** Within how far across the ground two centres of mass count as close, m. */
 const CLOSE = 0.5;
@@ -82,7 +82,7 @@ if (!isMainThread) {
   const list = (text) => text ? text.split(",").filter(Boolean) : [];
   const epoch = arg("epoch", "e1"), cap = Number(arg("cap", 120)), store = resolve(arg("store", ".tmp/empty-hand/bouts.jsonl"));
   const gaps = list(arg("gaps", "3,3.2,3.4,3.6,3.8,4,4.2,4.4,4.6,4.8,5")).map(Number);
-  const lanes = Number(arg("lanes", Math.max(1, availableParallelism() - 4)));
+  const lanes = Number(arg("lanes", defaultLanes()));
   const known = Object.fromEntries(Object.entries(MINDS).map(([name, preset]) => [name, preset.config]));
   for (const file of list(arg("modules"))) Object.assign(known, (await import(pathToFileURL(resolve(file)).href)).default);
   const entrants = list(arg("entrants", "option,walker")), against = list(arg("against"));
@@ -111,7 +111,7 @@ if (!isMainThread) {
     console.error(`playing ${jobs.length} bouts on ${Math.min(lanes, jobs.length)} lanes`);
     const started = Date.now();
     let done = 0;
-    await workerJobs(jobs, { lanes, create: () => new Worker(new URL(import.meta.url)),
+    await workerJobs(jobs, { lanes, create: () => simulationWorker(new URL(import.meta.url)),
       message: (job, id) => ({ id, a: job.a, b: job.b, gap: job.gap, cap: job.cap }),
       result: ({ row }, job) => {
         const record = { identity, build: BUILD_IDENTITY, engine: BOUT_ENGINE, hz: 120, epoch, a: job.names[0], b: job.names[1], ha: job.ha, hb: job.hb, gap: job.gap, cap, ...row };

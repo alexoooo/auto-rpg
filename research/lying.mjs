@@ -14,15 +14,15 @@ import { isRefused } from "../src/core/refusal.ts";
  */
 import "../tests/harness/preload-data.mjs";
 import { readFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
-import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
+import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import { performance } from "node:perf_hooks";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { MATCH } from "../src/app/node/evaluation.ts";
 import { MATCH_CASES } from "../src/app/node/evaluation.ts";
 import { WORLD_BUILDERS } from "../src/app/node/evaluation.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
+import { defaultLanes, simulationWorker } from "../scripts/lanes.mjs";
 
 Logger.LogLevels = Logger.NoneLogLevel;
 
@@ -65,10 +65,10 @@ if (isMainThread) {
     workers: { type: "string" }, after: { type: "string", default: "20" }, time: { type: "boolean" } } });
   const [a, b] = MATCH.subjects([mindOf(values.a), mindOf(values.b)]);
   const all = MATCH_CASES.standard.conditions.map((_, k) => k), cases = values.cases ? values.cases.split(",").map(Number) : all;
-  const jobs = cases.flatMap((k) => [[k, "left"], [k, "right"]]), count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
+  const jobs = cases.flatMap((k) => [[k, "left"], [k, "right"]]), count = Math.min(jobs.length, Number(values.workers ?? defaultLanes()));
   const after = Number(values.after), rows = [];
   await Promise.all(Array.from({ length: count }, () => new Promise((done, fail) => {
-    const worker = new Worker(new URL(import.meta.url), { workerData: { a: a.value, b: b.value, after, time: values.time === true } });
+    const worker = simulationWorker(new URL(import.meta.url), { workerData: { a: a.value, b: b.value, after, time: values.time === true } });
     const next = () => { const job = jobs.shift(); if (job) worker.postMessage(job); else worker.terminate().then(done); };
     worker.on("message", (row) => { rows.push(row); next(); });
     worker.on("error", fail);

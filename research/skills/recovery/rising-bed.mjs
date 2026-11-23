@@ -2,8 +2,6 @@
  * Seeded ground starts and the separate, fixed 240-fall target (every body in every rated loadout),
  * on Node/Rapier at 120 Hz.
  */
-import { Worker } from "node:worker_threads";
-import { availableParallelism } from "node:os";
 import { pathToFileURL } from "node:url";
 import { writeFile, appendFile } from "node:fs/promises";
 import { loadoutKey } from "../../../src/core/bodies/items/held.ts";
@@ -14,6 +12,7 @@ import { partLookup } from "../../../src/app/catalog.ts";
 import { risingImplementation } from "./rising-provenance.mjs";
 import { risingJobs } from "../../../src/evaluation/rising.ts";
 import { risingMind, risingReport } from "../../../src/app/node/evaluation.ts";
+import { defaultLanes, simulationWorker } from "../../../scripts/lanes.mjs";
 
 /** The techniques a riser may get up by: the ways up (`isWayUp`). */
 const WAYS_UP = Object.keys(TECHNIQUES).filter((kind) => isWayUp(TECHNIQUES[kind]));
@@ -27,7 +26,7 @@ const list = (text, allowed, name) => {
 /** Parse only explicit supported controls; the target's physical protocol cannot be overridden. */
 export function risingOptions(args) {
   const options = { starts: ["shoved", "dropped"], models: [...HUMANOID_MODELS], held: ["empty", "club"], seeds: [1, 2, 3, 4, 5, 6],
-    techniques: null, technique: null, after: null, steadiness: 0, gusts: false, target: false, obstacles: false, workers: Math.max(1, availableParallelism() - 2), out: null };
+    techniques: null, technique: null, after: null, steadiness: 0, gusts: false, target: false, obstacles: false, workers: defaultLanes(), out: null };
   const specified = new Set();
   for (let i = 0; i < args.length; i++) {
     const key = args[i]; specified.add(key);
@@ -76,7 +75,7 @@ async function run(options) {
   }
   try {
     await Promise.all(Array.from({ length: Math.min(options.workers, jobs.length) }, async () => {
-      const worker = new Worker(new URL("./rising-worker.mjs", import.meta.url)); workers.push(worker);
+      const worker = simulationWorker(new URL("./rising-worker.mjs", import.meta.url)); workers.push(worker);
       while (queue.length) {
         const job = queue.shift();
         const row = await new Promise((resolve, reject) => {

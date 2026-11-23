@@ -34,7 +34,6 @@ import { footOn } from "../../../../src/control/support.ts";
  * With `HANDOVER=1` each replay prints the body as the regain takes it; with `TABLE=1`, the regain's trace.
  */
 import { parentPort, isMainThread, workerData } from "node:worker_threads";
-import { availableParallelism } from "node:os";
 import { mkdir, readFile, writeFile, appendFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
@@ -67,6 +66,7 @@ import { spinBetweenToRef, turnAboutToRef } from "../../../../src/core/math/turn
 import { riseLimbs } from "../../../../src/skills/recovery/shared/staged/limbs.ts";
 import { STAND_CHECK } from "../../../../src/game/lab/ground-mode.ts";
 import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
+import { defaultLanes } from "../../../../scripts/lanes.mjs";
 
 /** A pose phase: its seed posture, and its settings where not `POSE_SEED`. */
 const pose = (seed, settings = {}) => ({ kind: "pose", seed, settings: { ...POSE_SEED, ...settings } });
@@ -354,7 +354,7 @@ if (!isMainThread && workerData.harness === "rise-witness") {
     if (!values.out) throw new Error("--out names the search's files");
     const spec = bodySpec(model, held), [seed] = acceptedSeeds(move, spec, 1), start = seedUnit(move, spec);
     await mkdir(dirname(values.out), { recursive: true });
-    const workers = Number(values.workers ?? Math.max(1, availableParallelism() - 4));
+    const workers = Number(values.workers ?? defaultLanes());
     const pool = workerPool(new URL(import.meta.url), { harness: "rise-witness", move, model, held, seed, cap }, workers), t0 = Date.now();
     try {
       const result = await cmaSearch({ n: start.length, start, sigma: Number(values.sigma ?? .15), lambda: workers, generations: Number(values.generations ?? 100), seed: 7,

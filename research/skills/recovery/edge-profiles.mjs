@@ -26,13 +26,13 @@ import { workerJobs } from "../../worker-jobs.mjs";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname } from "node:path";
-import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
-import { Worker, isMainThread, parentPort } from "node:worker_threads";
+import { isMainThread, parentPort } from "node:worker_threads";
 import { BUILD_IDENTITY } from "../../../scripts/build-identity.mjs";
 
 const OUT = new URL("../../../assets/skills/recovery/edge-profiles.json", import.meta.url);
 import { edgeTrial, edgeProfiles } from "./edge-profile-trial.mjs";
+import { defaultLanes, simulationWorker } from "../../../scripts/lanes.mjs";
 
 if (isMainThread) {
   const { values } = parseArgs({ options: { model: { type: "string" }, offsets: { type: "string", default: "5.625,16.875" }, workers: { type: "string" }, rows: { type: "string" }, write: { type: "boolean", default: false } } });
@@ -44,7 +44,7 @@ if (isMainThread) {
   if (!jobs.length) throw new Error(`no profile falls for ${values.model}`);
   const retained = values.model ? JSON.parse(readFileSync(OUT, "utf8")) : null;
   if (retained && JSON.stringify(retained.source.offsets) !== JSON.stringify(offsets)) throw new Error("a body's profile refresh keeps the existing offsets");
-  const count = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
+  const count = Number(values.workers ?? defaultLanes());
   // Each fall's trials kept by its place among the falls, so the profiles do not depend on which worker ends first.
   const cacheId = createHash("sha256").update(JSON.stringify([values.model ?? null, offsets])).digest("hex").slice(0, 20);
   const rowsFile = values.rows ?? `.tmp/edge-profiles/${cacheId}.jsonl`, cached = new Map();
@@ -60,7 +60,7 @@ if (isMainThread) {
     else queue.push([i, job]);
   }
   const reused = jobs.length - queue.length;
-  await workerJobs(queue, { lanes: count, create: () => new Worker(new URL(import.meta.url)),
+  await workerJobs(queue, { lanes: count, create: () => simulationWorker(new URL(import.meta.url)),
     result: ([i, result]) => {
       byFall[i] = result;
       played[i] = { build: BUILD_IDENTITY, date: new Date().toISOString() };

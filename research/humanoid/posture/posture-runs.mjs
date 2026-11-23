@@ -3,11 +3,11 @@
  * (`posture-worker.mjs`), the best of a row's records, and a record drawn.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
-import { Worker } from "node:worker_threads";
 import { workerJobs } from "../../worker-jobs.mjs";
 import { Vector3 } from "../../../src/core/math/vector.ts";
 import { pointOfToRef } from "../../../src/core/bodies/read-motion.ts";
 import { posed } from "./posture-trials.mjs";
+import { simulationWorker } from "../../../scripts/lanes.mjs";
 
 /**
  * Every job on `lanes` workers, each worker one posture at a time, each job a trial's
@@ -16,7 +16,7 @@ import { posed } from "./posture-trials.mjs";
  */
 export async function runJobs(jobs, { lanes, out, defaults = {} }) {
   return workerJobs(jobs, { lanes,
-    create: () => new Worker(new URL("./posture-worker.mjs", import.meta.url)),
+    create: () => simulationWorker(new URL("./posture-worker.mjs", import.meta.url)),
     message: (job, id) => ({ trial: "audit", ...defaults, ...job, id }),
     onError: ({ error, programme }, job) => {
       mkdirSync(out, { recursive: true });

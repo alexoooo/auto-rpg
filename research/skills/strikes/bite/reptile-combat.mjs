@@ -1,4 +1,4 @@
-import { Worker, isMainThread, parentPort } from "node:worker_threads";
+import { isMainThread, parentPort } from "node:worker_threads";
 import { pathToFileURL } from "node:url";
 import { buildBout } from "../../../../src/app/node/evaluation.ts";
 import { lifeTaken } from "../../../../src/combat/blows.ts";
@@ -6,6 +6,7 @@ import { BOUT_ENGINE } from "../../../bout.mjs";
 import { sourced } from "../../../../src/core/quantity.ts";
 import { rulebook } from "../../../../src/combat/rulebook.ts";
 import { mouthOf } from "../../../../src/skills/strikes/shared/jaw.ts";
+import { simulationWorker } from "../../../../scripts/lanes.mjs";
 
 export const DEVELOPMENT_GAPS = Object.freeze([1.5, 2, 3, 4]);
 export const CONFIRMATION_GAPS = Object.freeze([1.75, 2.5, 3.5, 4.5]);
@@ -50,7 +51,7 @@ export async function combatTrial({ opponent = "reptile", gap = 2, side = "left"
 
 /** One sequential bout loop per worker; failures close every worker before rejecting the run. */
 export async function combatTrials(jobs, lanes = 4) {
-  const rows = new Array(jobs.length), workers = Array.from({ length: Math.min(lanes, jobs.length) }, () => new Worker(new URL(import.meta.url)));
+  const rows = new Array(jobs.length), workers = Array.from({ length: Math.min(lanes, jobs.length) }, () => simulationWorker(new URL(import.meta.url)));
   let next = 0;
   try {
     await Promise.all(workers.map(worker => new Promise((resolve, reject) => {

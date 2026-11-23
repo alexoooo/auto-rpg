@@ -42,7 +42,6 @@ import { footOn } from "../../../../src/control/support.ts";
  * within 5 s counted at 6.
  */
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
-import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import "../../../../tests/harness/preload-data.mjs";
 import poses from "../../../../assets/research/posture-holds.json" with { type: "json" };
@@ -61,6 +60,7 @@ import { clockSenses } from "../../../../src/core/world/senses.ts";
 import { groundPlacement } from "../../../../src/game/lab/ground-starts.ts";
 import { STAND_CHECK } from "../../../../src/game/lab/ground-mode.ts";
 import { crouchRegain, traceRow } from "./climb.mjs";
+import { defaultLanes } from "../../../../scripts/lanes.mjs";
 
 /** The cap, and a failure's score, s. */
 const CAP = 5, FAIL = 6;
@@ -143,7 +143,7 @@ if (!isMainThread && workerData.harness === "crouch-regain") {
     console.log(`at 95 % ${fmt(r.climbed)} s, handed back ${fmt(r.handBack)} s, verified ${fmt(r.verified)} s${r.fell ? ", fell" : ""}`);
   } else if (values.search) {
     const { cmaSearch, workerPool } = await import("../../../cma.mjs");
-    const pool = workerPool(new URL(import.meta.url), { harness: "crouch-regain", model, held }, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
+    const pool = workerPool(new URL(import.meta.url), { harness: "crouch-regain", model, held }, Number(values.workers ?? defaultLanes()));
     let result;
     try {
     result = await cmaSearch({ n: START.length, start: START, sigma: .15, lambda: 12, generations: Number(values.generations ?? 40), seed: 7,

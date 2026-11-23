@@ -30,9 +30,8 @@ import { rulebook } from "../src/combat/rulebook.ts";
  */
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
-import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
-import { Worker, isMainThread, parentPort } from "node:worker_threads";
+import { isMainThread, parentPort } from "node:worker_threads";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
@@ -77,6 +76,7 @@ import {
 import { CORE_ENGINE, coreStand, freshEngine } from "../tests/harness/core-stand.mjs";
 import { traceOf } from "../src/evaluation/trace.ts";
 import { losslessModelPath } from "./art/paths.mjs";
+import { defaultLanes, simulationWorker } from "./lanes.mjs";
 
 // An engine announces itself with the time of day, which no two runs share.
 Logger.LogLevels = Logger.NoneLogLevel;
@@ -471,10 +471,10 @@ if (isMainThread) {
   const only = values.only === undefined ? null : new RegExp(values.only);
   const chosen = CASES.keys().filter((id) => !!CASES[id].character === !!values.character && (!only || only.test(CASES[id].name))).toArray();
   console.log(`engine ${CORE_ENGINE}, ${chosen.length} cases`);
-  const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
+  const lanes = Number(values.workers ?? defaultLanes());
   const lines = new Array(CASES.length);
   await workerJobs(chosen, { lanes,
-    create: () => new Worker(new URL(import.meta.url), { argv: process.argv.slice(2) }),
+    create: () => simulationWorker(new URL(import.meta.url), { argv: process.argv.slice(2) }),
     result: ({ told }, id) => { lines[id] = told; return told; } });
   for (const id of chosen) console.log(`${CASES[id].name}: ${lines[id].line}`);
   const cases = Object.fromEntries(chosen.map((id) => [CASES[id].name, lines[id].record]));

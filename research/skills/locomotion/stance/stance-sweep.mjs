@@ -28,13 +28,12 @@
  *   and with `--shoves 10,20` shoved at a third of its orders by each impulse, N s, level, a random
  *   way at the middle trunk; the trials that fell by pace and impulse, and the catch steps a trial.
  */
-import { Worker } from "node:worker_threads";
 import { workerJobs } from "../../../worker-jobs.mjs";
-import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { CORE_STANCE_HARNESS } from "./stance-trials.mjs";
 import { CORE_ENGINE } from "../../../../tests/harness/core-stand.mjs";
 import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
+import { defaultLanes, simulationWorker } from "../../../../scripts/lanes.mjs";
 
 const { values } = parseArgs({ options: {
   variants: { type: "string", default: "[{}]" }, batteries: { type: "string", default: "stand,edge,step,walk,shove" },
@@ -47,7 +46,7 @@ const variants = JSON.parse(values.variants), batteries = values.batteries.split
 /** The winds the stop battery's walks are walked in: calm, and the gusts on each seed of `--gusts rate:strength:seeds`. */
 const winds = [null, ...(values.gusts ? (([rate, strength, seeds]) => seeds.split(",").map((seed) => ({ rate: Number(rate), strength: Number(strength), seed: Number(seed) })))(values.gusts.split(":")) : [])];
 const top = Number(values.top), steadiness = values.steadiness === undefined ? null : Number(values.steadiness);
-const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
+const lanes = Number(values.workers ?? defaultLanes());
 
 const jobs = [];
 variants.forEach((stance, v) => { for (const model of models) {
@@ -70,7 +69,7 @@ variants.forEach((stance, v) => { for (const model of models) {
 const started = Date.now();
 let done = 0;
 await workerJobs(jobs, { lanes,
-  create: () => new Worker(new URL("./stance-worker.mjs", import.meta.url)),
+  create: () => simulationWorker(new URL("./stance-worker.mjs", import.meta.url)),
   message: (job, id) => ({ ...job, id }),
   result: ({ result }, job) => {
     job.result = result;

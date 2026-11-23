@@ -36,14 +36,14 @@
  * A bout whose body's control throws is a fault: named and counted, and left out of what is saved
  * and read; the others play on.
  */
-import { Worker, isMainThread, parentPort } from "node:worker_threads";
-import { availableParallelism } from "node:os";
+import { isMainThread, parentPort } from "node:worker_threads";
 import { writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { BOUT_SCHEMA, savedBouts } from "./bout-save.mjs";
 import { workerJobs } from "../../worker-jobs.mjs";
 import { medianOf } from "../../../src/evaluation/stats.ts";
+import { defaultLanes, simulationWorker } from "../../../scripts/lanes.mjs";
 
 /** A completed action's wound correlation includes a quarter second after its last interval. */
 const AFTER = .25;
@@ -69,7 +69,7 @@ if (isMainThread) {
   const mindsOf = (left, right) => sets.length === 0 ? null : Object.fromEntries(["left", "right"].map((side) =>
     [side, sets.filter((one) => one.side === null || one.side === side).reduce((mind, { path, value }) => replacedAt(mind, path, value), CONTEXT.defaultMind(side === "left" ? left : right))]));
   const models = values.models?.split(",") ?? HUMANOID_MODELS, gaps = values.gaps.split(",").map(Number), seconds = Number(values.seconds);
-  const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), helds = values.held.split(",");
+  const lanes = Number(values.workers ?? defaultLanes()), helds = values.held.split(",");
   if (!models.length || models.some(model => !HUMANOID_MODELS.includes(model)) || gaps.some(gap => !Number.isFinite(gap) || gap <= 0)
     || !Number.isFinite(seconds) || seconds <= 0 || !Number.isSafeInteger(lanes) || lanes < 1 || helds.some(held => !["club", "empty"].includes(held)))
     throw new Error("invalid models, gaps, seconds, workers or held selection");
@@ -80,7 +80,7 @@ if (isMainThread) {
   const loaded = new Map(values.load ? savedBouts(values.load) : []);
   for (const job of jobs) job.result = loaded.get(key(job));
   const played = jobs.filter(job => !job.result), started = Date.now();
-  await workerJobs(played, { lanes, create: () => new Worker(new URL(import.meta.url)),
+  await workerJobs(played, { lanes, create: () => simulationWorker(new URL(import.meta.url)),
     message: ({ result: _, ...settings }) => settings,
     result: ({ result, fault }, job) => {
       // A bout whose body's control threw is a fault: counted and named, kept out of what is saved and read, the rest played on.
