@@ -461,9 +461,15 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   above itself none (0.524), and 1 s read 0.444. A start going on away for the gait's lag
   (`signed`) read 0.458 alone, `along` 0.465 (`1c7e0a2df`). Signed, own sways and carry 0.5
   together read 0.451 on draws 9 to 14 and 0.497 on 3 to 8: level with the Mind above, not
-  better. Untried: a second round fitted from a Mind level with the game's.
-  The truer models stay pickable (the measured predictions' `walkStart` and `sways`); the leaf was
-  removed in the settings' tidy-up (2026-11-22). The rows are kept in
+  better. With walks braking for the place (`30fc95f23`) they read 0.542 (0.483 to 0.601) on 3 to
+  8 and 0.462 (0.406 to 0.517) on 9 to 14, about 0.50 pooled. Level, correct models win the tie:
+  they are the empty-handed man's Mind (`option-truer`). Its bar 2 is 80.1 % of bouts knocked out
+  within 60 s against the Mind above's 88.4 %, 1.20 downs a bout against 0.75, and standing
+  silence 12.5 % against 14.2 %. At the same roots its step times the same (5.8 against 5.7 ms
+  median) and allocates the same; in its own bouts it allocates about twice as much a step, from
+  the states it plays into. Untried: a second round fitted from a Mind level with the game's.
+  The Mind above stays pickable (`option-reply`); the leaf was removed in the settings' tidy-up
+  (2026-11-22). The rows are kept in
   `research/runs/foe-placement/` and `research/runs/fitted-value/corrected/`. *Shown.*
 - **Two sides deciding a fifth of a period apart lean a mirror to one**: over 7,425 saved match
   bouts the right side won 0.542 (z 7.2), and the same Mind on both sides 0.541. The chooser's

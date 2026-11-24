@@ -272,5 +272,8 @@
   },
   "option-replies": {
     "note": "scored 0.498 against Option Mind over 576 bouts; 90.7% knockouts within 60 s (that Mind 81.0%); about three searches a decision, its step's 99th percentile 20.63 ms (that Mind 17.38)"
+  },
+  "option-truer": {
+    "note": "scored 0.502 against Option Mind, foe's closing reply over 576 bouts (0.542 and 0.462 on the two halves); 80.1% knockouts within 60 s (that Mind 88.4%), 1.20 downs a bout (0.75); its step as that Mind's at the same roots"
   }
 }

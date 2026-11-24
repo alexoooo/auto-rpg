@@ -24,7 +24,10 @@ const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: 
  * horizon 60; the tail's leaf with the mean backup; and the warm start at 100 runs. And this Mind
  * priced against the foe's replies at their mean: one, the foe closing (`option-reply`), as strong
  * as it, quicker to a knockout and about as quick a step; two (`option-replies`), quicker to a
- * knockout still and a step about a fifth slower at its slowest.
+ * knockout still and a step about a fifth slower at its slowest. And that one with its own body
+ * priced truer (`option-truer`): a walk starting at its speed along its way, going on away for its
+ * gait's lag (`walkStart` signed), a sway leaving the body by its own steps (`sways` own), and the
+ * foe kept moving over a line's first half second (`carry`), as strong as `option-reply`.
  */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   option: { label: "Option Mind", config: OPTION_DEFAULTS },
@@ -36,4 +39,8 @@ export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   "option-warm": { label: "Option Mind, warm start, 100 runs", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree", runs: 100, keeps: .5 } } },
   "option-reply": { label: "Option Mind, foe's closing reply", config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, replies: 1, against: "mean" } } },
   "option-replies": { label: "Option Mind, foe's replies", config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, replies: 2, against: "mean" } } },
+  "option-truer": {
+    label: "Option Mind, truer own-body models",
+    config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, replies: 1, against: "mean", carry: .5 }, predictions: { kind: "measured", walkStart: "signed", sways: "own" } },
+  },
 });
