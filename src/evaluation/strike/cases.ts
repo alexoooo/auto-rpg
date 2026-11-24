@@ -5,7 +5,7 @@
  * carried past on a rail (`moving`), at one walked to from farther (`walk`), at a drill opponent stepping in and out (`stepping`), guarding
  * (`guarding`) or punching back (`punching`), in a fight's moment (`fight`, over many fights,
  * `fights`, and in fights drawn at random, `fights-twin`), or from starts drawn at random at a foe that fights back (`sparring`, and at one laid
- * down, `sparring-laid`). The rungs at a target ask how well the body throws the strike; what the
+ * down, `sparring-laid`, and with the feet, `sparring-feet`). The rungs at a target ask how well the body throws the strike; what the
  * strike brings against a foe fighting back is another question, and a profile is that one's
  * answer, measured on the sparring rungs. The striker is the
  * subject's mind as given, holding what its subject names (`StrikeSubject.held`), its side led by
@@ -437,6 +437,15 @@ const SPARRING_STANCES = deepFreeze({ ...SPARRING, models: ["man"] as BodyModel[
   trials: (SPARRING_DRAWN.trials + SPARRING_JUDGE.trials) / SPARRING.targets.length * PAIRINGS.length, pairings: PAIRINGS });
 
 /**
+ * **Sparring with the feet**, the `sparring-feet` rung: sparring's starts on a stream of their own,
+ * thrown with each foot at the middle mark, where a kick at a standing foe aims, as many as
+ * `sparring-drawn` and `sparring-judge` together, which a profile the Mind fights by rests on. Its
+ * own rung, so the hands' draws stay as they were.
+ */
+const SPARRING_FEET = deepFreeze({ ...SPARRING, hands: [] as Hand[], feet: [...SIDES] as Hand[], marks: ["middle"] as Mark[], seed: 6,
+  trials: SPARRING_DRAWN.trials + SPARRING_JUDGE.trials });
+
+/**
  * **Sparring at a foe laid down**, the `sparring-laid` rung: the stomping rung's sampled starts
  * (`STOMPING_SAMPLED`), with each foot, at each of the game's foes laid down and fighting back
  * (`SPARRING_FOE`), which rises as it would. A foe that keeps its balance is shoved four times as
@@ -592,6 +601,7 @@ export const createStrikeCases = perContext((context: GameContext) => {
     "sparring-judge": stillCases(SPARRING_JUDGE, sampledConditions(SPARRING_JUDGE)),
     "sparring-stances": stillCases(SPARRING_STANCES, sampledConditions(SPARRING_STANCES)),
     "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
+    "sparring-feet": stillCases(SPARRING_FEET, sampledConditions(SPARRING_FEET)),
     "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), ...twinned("middle", MIDDLE), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT, fightGrid(FIGHT)), fights: fightCases(FIGHTS, fightGrid(FIGHTS)),

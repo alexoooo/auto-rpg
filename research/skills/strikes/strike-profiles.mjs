@@ -1,7 +1,7 @@
 /**
  * **The strikes' profiles** (`src/skills/framework/profile/profile.ts`, `assets/skills/strikes/strike-profiles/strike-profiles.json`): from
  * the Strike drill's sparring rungs (`npm run evaluate -- strike <subject> --protocol sparring --json <run.json>`,
- * and `sparring-laid` for a strike at a body lying), where each strike is thrown from starts drawn
+ * `sparring-laid` for a strike at a body lying, and `sparring-feet` for a foot's at one standing), where each strike is thrown from starts drawn
  * at random against Option Mind fighting back. A profile says what a strike brings against a foe
  * that fights back, so no trial at a drill's still target makes one: how well a body throws a
  * strike there is another question, and a run of another rung is refused. Each
@@ -45,8 +45,8 @@
  * `--write` puts the runs' profiles in the asset, each in place of the one measured on the same
  * body, skill and limb; the asset's others stay while a preset still throws their skill on a body
  * the game builds (`profileKeys`), so one skill is measured again without the rest. The asset names
- * the rungs its profiles were measured on (`source.protocols`): those of an asset that names others
- * are not kept beside these.
+ * the rungs its profiles were measured on (`source.protocols`): those of an asset that names a rung
+ * not among these are not kept beside these.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { duelSpec } from "../../../src/game/arena/duel.ts";
@@ -58,8 +58,8 @@ import { rulebook } from "../../../src/combat/rulebook.ts";
 import { medianOf } from "../../../src/evaluation/stats.ts";
 
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
-/** The Strike drill's rungs a profile is measured on: a strike thrown from drawn starts at a foe fighting back (`SPARRING`, `SPARRING_LAID`, `src/evaluation/strike/cases.ts`). */
-const PROTOCOLS = Object.freeze(["sparring", "sparring-laid"]);
+/** The Strike drill's rungs a profile is measured on: a strike thrown from drawn starts at a foe fighting back (`SPARRING`, `SPARRING_LAID`, `SPARRING_FEET`, `src/evaluation/strike/cases.ts`). */
+const PROTOCOLS = Object.freeze(["sparring", "sparring-laid", "sparring-feet"]);
 /** Sparring's starts drawn from its other streams (`SPARRING_TWIN`, `SPARRING_DRAWN`, `SPARRING_JUDGE`, and `SPARRING_STANCES`, each body square or staggered): the same rung on another draw, which a profile may be measured on in its place. */
 const DRAWS = Object.freeze(["sparring-twin", "sparring-drawn", "sparring-judge", "sparring-stances"]);
 const write = process.argv.includes("--write");
@@ -143,8 +143,8 @@ if (write) {
   const keyOf = ({ measured }) => JSON.stringify(measured), current = profileKeys().strike;
   const named = (m) => `${m.body}, ${m.skill}${m.limb ? ` with ${m.limb}` : ""}`;
   const remade = new Map(made.map((profile) => [keyOf(profile), profile])), kept = [], asset = JSON.parse(readFileSync(OUT, "utf8"));
-  // An asset measured on other rungs holds no profile to keep beside these.
-  const measuredOnRungs = JSON.stringify(asset.source?.protocols ?? null) === JSON.stringify(PROTOCOLS);
+  // An asset measured on other rungs holds no profile to keep beside these; one measured on some of these rungs does.
+  const measuredOnRungs = Array.isArray(asset.source?.protocols) && asset.source.protocols.every((protocol) => PROTOCOLS.includes(protocol));
   const others = measuredOnRungs ? asset.profiles : [];
   if (others.length < asset.profiles.length) console.log(`dropped: the asset's ${asset.profiles.length} profiles, measured on ${asset.source?.protocols?.join(" and ") ?? "a drill's targets"}, not on ${PROTOCOLS.join(" and ")}`);
   for (const profile of others) {
