@@ -24,7 +24,8 @@ in the simplest and most general form the stance can hold.
   worktree with `idleGoal` hooked).
 - **Most falls in those bouts take no blow.** 536 of the 768 had no life lost in the 2 s before.
   By what the Mind was doing 0.3 s before: a back step 270, a way up 183, a strike 135, holding
-  107; by the stance's phase, standing 383 and stepping 372.
+  107; by the stance's phase, standing 383 and stepping 372. The "back step" there is a kick's
+  set-down, which the Mind reads as one.
 - **The kick's falls are the stance's catch failing.** On sparring-feet its set-down is the
   largest share of the kicker's falls (82 of 131 in 392 trials): the drive turns the pelvis about
   40°, and as the leg comes back the standing foot leaves the ground and the body runs backward,
@@ -40,7 +41,16 @@ in the simplest and most general form the stance can hold.
 
 1. **Where the falls begin.** Trace the falls without a blow by the doing that precedes them, the
    back step first, as the kick's were traced: the stance's capture point against its feet, its
-   own steps and where they land.
+   own steps and where they land. *Read*, on the Warrior's own Mind with the push kick (144
+   warrior-drawn bouts, `research/runs/capture/falls-by-action-truer.jsonl`): 661 falls in 326
+   side-minutes, 329 with no blow in the 2 s before; of those, a kick in the 1.5 s before 178 (its
+   set-down last seen in 136), a way up 91, a strike or holding then a brace 55, a back step 5.
+   The Option Mind with its kick taken out falls 75 times without a blow in 144 bouts, against 536
+   with it (`falls-by-action-no-kick.jsonl`). Traced (`trace-push-set-down.txt`): at the drive's end
+   the kicking foot is in the air about 0.46 m ahead and the body goes back at about 0.6 m/s; the
+   only foot that can catch it is that one, swung from ahead to behind while the capture point
+   runs on, each re-aim landing shorter as the hips sink (0.94 to 0.65 m). The catch to make is
+   the one from a foot far forward, the way up's falls next.
 2. **One standing rule.** Whether the three footings and the catch can be one rule of the stance,
    and the idle footing's place in it, read by the fingerprint and the falls.
 3. **Capture steps.** The catch made to stop what the traces show, read by the falls in the
