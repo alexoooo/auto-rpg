@@ -317,7 +317,9 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     }
     const corners = cornersOf(here, way);
     update("moving", remaining, goal);
-    const walk = steered(next.x - here.x, next.z - here.z, going(next.x - here.x, next.z - here.z, remaining - near, corners));
+    // It brakes for the place itself and arrives once within `near` on the way: braked for the edge of
+    // its reach, a walk that stops a little short of that edge is outside it, and steps again.
+    const walk = steered(next.x - here.x, next.z - here.z, going(next.x - here.x, next.z - here.z, remaining, corners));
     return { move: walk.move, face: walk.face ?? atan2(next.x - here.x, next.z - here.z), destination: remaining };
   };
   return { state, get report() { return reported(); }, ...stockClearance(spec),
