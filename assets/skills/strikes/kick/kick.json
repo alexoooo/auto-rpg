@@ -8,6 +8,7 @@
       "transferSeconds": 0.19341444561168442,
       "transferSlow": 0.12,
       "lean": -0.5447640381828,
+      "ahead": 0,
       "hold": 0.03,
       "lower": 0.06376746401157056,
       "follow": 0.08,

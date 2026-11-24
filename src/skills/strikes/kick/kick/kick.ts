@@ -10,7 +10,7 @@ import { channelName } from "../../../../core/bodies/muscle/driver.ts";
 import { supportReadiness, plantedSupport } from "../../shared/support-readiness.ts";
 import { stepShare, timedPushes, type TimedPush } from "../../shared/timed-push.ts";
 import { STANCE_GAIT } from "../../../../control/stance/stance-tuning.ts";
-import { hypot } from "../../../../core/math/real.ts";
+import { cos, hypot, sin } from "../../../../core/math/real.ts";
 import type { Vec3 } from "../../../../core/quantity.ts";
 import { segmentOf, type BearingEnd } from "../../../../core/bodies/spec/body.ts";
 import type { Pose } from "../../../../core/bodies/spec/pose.ts";
@@ -54,6 +54,12 @@ export const KICK_PATH = Object.freeze({
   transferSeconds: .2, transferSlow: .12,
   /** The root's pitch held on the one foot through the drive, rad (the supported pose's). */
   lean: 0,
+  /**
+   * How far ahead of the standing sole's middle, along the kick's heading, the centre is held, m:
+   * the contact pushes the body back about the standing foot, and a centre held ahead is carried
+   * back over the foot rather than past its heel.
+   */
+  ahead: 0,
   /** How long a stage's end holds before the next. */
   hold: .03,
   /** How far the pelvis is lowered on the standing leg. */
@@ -263,7 +269,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`kick executor has no instance ${id}`);
       const foot = live.foot, other = otherSide(foot), both = live.stage !== "drive", centred = live.stage === "recenter";
-      const standing: LegsGoal = { walk: null, feet: both ? [nameOf("left"), nameOf("right")] : [nameOf(other)], centre: centred ? null : [live.bearing.sole[0], live.bearing.sole[2]],
+      const standing: LegsGoal = { walk: null, feet: both ? [nameOf("left"), nameOf("right")] : [nameOf(other)], centre: centred ? null : [live.bearing.sole[0] + tuning.ahead * sin(live.heading), live.bearing.sole[2] + tuning.ahead * cos(live.heading)],
         height: live.height, heading: live.heading,
         // The set-down is the stance's own step back to where the foot stood, and the recentre its own standing, which steps
         // to catch what the kick left moving: a pose holds a body only on planted feet, and takes no step.

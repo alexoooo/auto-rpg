@@ -312,6 +312,13 @@ input.
     38.8 HP to the foe's 91.0, most of it the foe's foot on its trunk while both kicked; its own
     foot meeting a body costs it almost nothing, as the fist's (`research/runs/kick-look/`).
     *Shown.*
+  - *The push kick's falls are set before its set-down's catch; holding its centre ahead cuts them
+    without a gain*: at the set-down's start the capture point is past the standing heel, by more
+    than the longest catch reaches, where the kicker goes down (`research/runs/capture/`). The
+    centre held 0.1 m ahead of the standing sole (`ahead`) left the kicker down after 44 of 94
+    kicks in fights against 68 of 103, but the drill's search placed it at 0.02 m for no gain
+    (0.254 against 0.251), and in 288 warrior-drawn bouts the Mind with it scored 0.469 (0.420 to
+    0.517) against the Mind without; the records hold 0 (`research/runs/kick/`). *Shown.*
 
 ### 4. A learned actor over it
 
