@@ -61,12 +61,13 @@ export const KICK_PATH = Object.freeze({
   /** How long the drive runs on after the foot touches, and its longest. */
   follow: .08, longest: .8,
   /**
-   * The aimed drive: from `lead` s into the drive, the leg driven toward its contact pose, its
-   * strike point `through` m past the target on the line from the hip, each freedom at the speed
-   * that stops it there slowing at `decel` rad/s² (`driven`); the knee drawn straight from `knee` s
-   * after `lead`.
+   * The aimed drive: from `lead` s into the drive, the leg driven first to its chamber, its strike
+   * point at the target's height `chamber` m out from the hip with the knee folded, and from `knee`
+   * s after `lead` toward its contact pose, the strike point `through` m past the target on the
+   * line from the hip with the knee straight; each freedom at the speed that stops it there slowing
+   * at `decel` rad/s² (`driven`).
    */
-  lead: 0, knee: .1, through: .15, decel: 150,
+  lead: 0, chamber: .3, knee: .1, through: .15, decel: 150,
   /**
    * The window: the target this far ahead of the body's centre and within `across` either side of
    * its line, m, its height from `low` to `high` over the kicking sole as shares of the leg's reach
@@ -82,7 +83,7 @@ export type KickTuning = { readonly [K in keyof typeof KICK_PATH]: number };
 export function validKickTuning(tuning: KickTuning): boolean {
   return Object.values(tuning).every(Number.isFinite)
     && [tuning.transferLimit, tuning.setLimit, tuning.recenterLimit, tuning.transferSeconds, tuning.transferSlow, tuning.longest, tuning.across, tuning.facing].every((v) => v > 0)
-    && [tuning.hold, tuning.lower, tuning.follow, tuning.admitSpeed, tuning.low, tuning.lead, tuning.knee, tuning.through].every((v) => v >= 0) && tuning.decel > 0
+    && [tuning.hold, tuning.lower, tuning.follow, tuning.admitSpeed, tuning.low, tuning.lead, tuning.chamber, tuning.knee, tuning.through].every((v) => v >= 0) && tuning.decel > 0
     && tuning.alongFar > tuning.alongNear && tuning.high > tuning.low
     && (Object.keys(KICK_PUSHES) as PushName[]).every((name) => Math.abs(tuning[`${name}Level`]) <= 1 && tuning[`${name}From`] >= 0 && tuning[`${name}Length`] >= 0);
 }
@@ -127,27 +128,29 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
    */
   const legOf = (side: Side) => {
     const effector = bodyEffectors(body.built).find((one) => one.segment.spec.name === `foot.${side}`)!;
-    const late = effector.free.filter((f) => /flexion$|abduction$/.test(f.name)), early = late.filter((f) => !/^knee/.test(f.name));
-    const freedoms = (moved: typeof late) => ({ free: copyFreedoms(moved), work: reachWork(moved.length) });
-    return { chain: effector.chain, early: freedoms(early), late: freedoms(late), point: effector.points.get("strike")!,
+    const moved = effector.free.filter((f) => /flexion$|abduction$/.test(f.name));
+    return { chain: effector.chain, free: copyFreedoms(moved), work: reachWork(moved.length), point: effector.points.get("strike")!,
       angles: effector.chain.map((joint) => joint.dofs.map(() => 0)), hip: effector.chain[0]!.spec.centre.value, scheduled: new Set(schedules[side].map((push) => push.channel)) };
   };
   const legs = { left: legOf("left"), right: legOf("right") };
   const target = new Vector3();
   /**
    * The aimed drive's step `since` s into the drive onto `posture` and `pushes`: the leg solved for
-   * its strike point `through` m past `at` on the line from the hip, each freedom its schedule does
-   * not push driven toward it (`driven`). The knee is held as it stands until
-   * `knee` s after `lead` and then drawn straight: a knee opened with the foot still on the ground
-   * shoves the body about the standing foot.
+   * its chamber, its strike point at `at`'s height `chamber` m out from the hip toward it with the
+   * knee folded, and from `knee` s after `lead` for its strike point `through` m past `at` on the
+   * line from the hip with the knee straight; each freedom its schedule does not push driven toward
+   * it (`driven`). A foot driven straight at the target from the ground rises into it from below,
+   * meeting the thigh before the mark.
    */
   const aimed = (view: BodyView, side: Side, at: Vec3, since: number, step: number, posture: Record<string, number>, pushes: MusclePush[]): void => {
-    const leg = legs[side], { chain, angles, hip } = leg, { free, work } = since >= tuning.lead + tuning.knee ? leg.late : leg.early;
+    const leg = legs[side], { chain, angles, hip, free, work } = leg, chambered = since < tuning.lead + tuning.knee;
     chain.forEach((joint, j) => joint.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(joint, k)] ?? 0; }));
     intoFrameToRef(view.root, at, target);
     const dx = target.x - hip[0], dy = target.y - hip[1], dz = target.z - hip[2], apart = hypot(dx, dy, dz) || 1, out = (apart + tuning.through) / apart;
-    for (const f of free) f.preferred = /^knee/.test(f.name) ? f.min : angles[f.joint]![f.k]!;
-    solveReach(chain, angles, free, [{ point: leg.point, target: [hip[0] + dx * out, hip[1] + dy * out, hip[2] + dz * out] }], undefined, work);
+    const level = hypot(dx, dz) || 1, toward = tuning.chamber / level;
+    const goal: Vec3 = chambered ? [hip[0] + dx * toward, target.y, hip[2] + dz * toward] : [hip[0] + dx * out, hip[1] + dy * out, hip[2] + dz * out];
+    for (const f of free) f.preferred = /^knee/.test(f.name) ? (chambered ? f.max : f.min) : angles[f.joint]![f.k]!;
+    solveReach(chain, angles, free, [{ point: leg.point, target: goal }], undefined, work);
     const part = stepShare(since, step, tuning.lead, Infinity);
     for (const f of free) driven(view, f.name, angles[f.joint]![f.k]!, leg.scheduled.has(f.name) ? 0 : part, posture, pushes);
   };

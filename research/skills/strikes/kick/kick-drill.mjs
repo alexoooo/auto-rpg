@@ -10,7 +10,7 @@
  * recipe's step 2, what the leg can do: a scale for the kick, not a gate. `--confirm` plays a
  * search's best on the `middle` rung's own conditions at 120 and 480 Hz.
  *
- *   node research/skills/strikes/kick/kick-drill.mjs --out <file.json> [--workers N] [--lambda 16] [--generations 40] [--seed 1] [--from <file.json> [--sigma 0.15]] [--lower <m>]
+ *   node research/skills/strikes/kick/kick-drill.mjs --out <file.json> [--workers N] [--lambda 16] [--generations 40] [--seed 1] [--from <file.json> [--sigma 0.15]]
  *   node research/skills/strikes/kick/kick-drill.mjs --confirm <file.json> [--workers N]
  *
  * Harness: Node, the Strike drill's bout world (`playCase`) on Rapier (`DEFAULT_ENGINE`), 120 Hz;
@@ -41,8 +41,8 @@ const PUSHES = Object.keys(KICK_PUSHES), LEVEL = [-1, 1], FROM = [0, 0.4], LENGT
  * lands about one distance, so the Mind walks there first where the window is narrow.
  */
 const NEAR = [0.4, 1.0], DEPTH = [0.03, 0.4];
-/** Then the aimed drive's (`KICK_PATH`): when it begins, s, when its knee opens after that, s, how far through the target it aims, m, and how hard it slows onto its goal, rad/s². */
-const AIMED = { lead: [0, 0.3], knee: [0, 0.4], through: [0, 0.4], decel: [20, 600] };
+/** Then the aimed drive's (`KICK_PATH`): when it begins, s, how far out its chamber is, m, when it leaves the chamber after that, s, how far through the target it aims, m, and how hard it slows onto its goal, rad/s². */
+const AIMED = { lead: [0, 0.3], chamber: [0, 0.6], knee: [0, 0.4], through: [0, 0.4], decel: [20, 600] };
 /** Then how it stands on the one foot (`KICK_PATH`): the root's pitch held, rad, the stance's response, s, and how far the pelvis is lowered, m. */
 const STANDING = { lean: [-0.6, 0.6], transferSeconds: [0.05, 0.4], lower: [0, 0.15] };
 
@@ -53,13 +53,23 @@ function subjectWith(settings) {
   return { id: "kick", label: "the kick", value: { mind: { ...mind, options }, skill: "kick", variations: ["kick/kick"] } };
 }
 
-/** The schedule `x` holds, each push's level (none under 0.05), start and length, and its window. */
+/** Each searched dimension, a setting of `KICK_PATH` (the window's `depth` its far edge less its near) and its range. */
+const DIMS = [...PUSHES.flatMap((name) => [[`${name}Level`, ...LEVEL], [`${name}From`, ...FROM], [`${name}Length`, ...LENGTH]]),
+  ["alongNear", ...NEAR], ["depth", ...DEPTH], ...Object.entries({ ...AIMED, ...STANDING }).map(([key, range]) => [key, ...range])];
+
+/** The settings the point `x` holds: a push's level under 0.05 none, its length at least none, the window's far edge its near edge and depth. */
 function settingsOf(x) {
-  const n = 3 * PUSHES.length, near = x[n] ?? KICK_PATH.alongNear, depth = x[n + 1] ?? KICK_PATH.alongFar - KICK_PATH.alongNear;
-  const aimed = Object.fromEntries(Object.keys({ ...AIMED, ...STANDING }).map((key, i) => [key, x[n + 2 + i] ?? KICK_PATH[key]]));
-  return { ...Object.fromEntries(PUSHES.flatMap((name, i) => [[`${name}Level`, Math.abs(x[3 * i]) > 0.05 ? x[3 * i] : 0], [`${name}From`, x[3 * i + 1]], [`${name}Length`, Math.max(0, x[3 * i + 2])]])),
-    alongNear: near, alongFar: near + depth, ...aimed };
+  const named = Object.fromEntries(DIMS.map(([key], i) => [key, x[i]]));
+  for (const name of PUSHES) {
+    if (Math.abs(named[`${name}Level`]) <= 0.05) named[`${name}Level`] = 0;
+    named[`${name}Length`] = Math.max(0, named[`${name}Length`]);
+  }
+  const { depth, ...settings } = named;
+  return { ...settings, alongFar: named.alongNear + depth };
 }
+
+/** `settings` as a point: each dimension's setting where they name it, else the kick's defaults' (its schedule pushing nothing). */
+const pointOf = (settings) => DIMS.map(([key]) => key === "depth" ? (settings.alongFar ?? KICK_PATH.alongFar) - (settings.alongNear ?? KICK_PATH.alongNear) : settings[key] ?? KICK_PATH[key]);
 
 /** Every foot condition of `protocol`, as trials of the strike judge with the subject the kick's defaults give. */
 function trialsOf(protocol) {
@@ -71,24 +81,21 @@ function trialsOf(protocol) {
 }
 
 const { values } = parseArgs({ options: { out: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" },
-  from: { type: "string" }, sigma: { type: "string" }, lambda: { type: "string" }, confirm: { type: "string" }, lower: { type: "string" } } });
+  from: { type: "string" }, sigma: { type: "string" }, lambda: { type: "string" }, confirm: { type: "string" } } });
 const pool = trialPool(Number(values.workers ?? defaultLanes()));
 if (values.confirm) {
-  const found = JSON.parse(readFileSync(values.confirm, "utf8")), settings = settingsOf(found.best.x), trials = trialsOf("middle"), byRate = {};
+  const found = JSON.parse(readFileSync(values.confirm, "utf8")), settings = found.best.settings, trials = trialsOf("middle"), byRate = {};
   for (const hz of [120, 480]) { const r = await scoreOn(trials, (trial) => withTuning(trial.subject.value, { ...KICK_PATH, ...settings }), { play: pool.play, hz }); byRate[hz] = { ...r, each: undefined }; }
   console.log(JSON.stringify({ settings, byRate }));
   pool.terminate();
   process.exit(0);
 }
 if (!values.out) throw new Error("--out <file.json>");
-const trials = trialsOf("middle-twin"), lo = [], hi = [];
-for (const _ of PUSHES) for (const [low, high] of [LEVEL, FROM, LENGTH]) { lo.push(low); hi.push(high); }
-for (const [low, high] of [NEAR, DEPTH, ...Object.values(AIMED), ...Object.values(STANDING)]) { lo.push(low); hi.push(high); }
+const trials = trialsOf("middle-twin"), lo = DIMS.map(([, low]) => low), hi = DIMS.map(([, , high]) => high);
 const toX = (u) => u.map((v, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, v)));
-const from = values.from ? JSON.parse(readFileSync(values.from, "utf8")).best.x : null;
-// With no start, the schedule pushes nothing (its levels at none) and the window and the aimed drive are the defaults'.
-const defaults = [...PUSHES.flatMap(() => [0, 0, 0]), KICK_PATH.alongNear, KICK_PATH.alongFar - KICK_PATH.alongNear, ...Object.keys({ ...AIMED, ...STANDING }).map((key) => KICK_PATH[key])];
-const start = lo.map((l, i) => ((from?.[i] ?? (values.lower !== undefined && i === lo.length - 1 ? Number(values.lower) : defaults[i])) - l) / (hi[i] - l));
+// From a search's best settings, by name, so a dimension added since starts at its default; with none, from the defaults.
+const from = values.from ? JSON.parse(readFileSync(values.from, "utf8")).best.settings : null;
+const start = pointOf(from ?? {}).map((x, i) => (x - lo[i]) / (hi[i] - lo[i]));
 console.error(`kick on man: ${trials.length} trials of middle-twin a candidate`);
 const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 16),
   generations: Number(values.generations ?? 40), seed: Number(values.seed ?? 1),

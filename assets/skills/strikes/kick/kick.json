@@ -1,6 +1,6 @@
 {
   "man": {
-    "made": "Searched on the man at fda1d70e (research/skills/strikes/kick/kick-drill.mjs: CMA over each push's level, start and length, the window, the aimed drive's lead, knee, through and decel, and the lean, transferSeconds and lower, from the defaults with lower 0.08, 60 generations of 16, on the Strike drill's middle-twin rung, 14 foot trials a candidate, 120 Hz), its best at generation 59. On the middle rung's 32 trials (Node, bout world, Rapier) against the record before it (the defaults, lower 0.08): 120 Hz search score 0.256 (1 landed, 0 falls) against 0.042 (2 landed, 5 falls); 480 Hz 0.038 (5 landed, 4 falls) against 0.079 (3 landed, 3 falls). At 120 Hz it felled the target in 4 of 32 against 0, its one blow on the mark 1.42 s from the order at 4.8 m/s, 33 J.",
+    "made": "Searched on the man at fda1d70e (research/skills/strikes/kick/kick-drill.mjs: CMA over each push's level, start and length, the window, the aimed drive's lead, knee, through and decel, and the lean, transferSeconds and lower, from the defaults with lower 0.08, 60 generations of 16, on the Strike drill's middle-twin rung, 14 foot trials a candidate, 120 Hz), its best at generation 59. On the middle rung's 32 trials (Node, bout world, Rapier) against the record before it (the defaults, lower 0.08): 120 Hz search score 0.256 (1 landed, 0 falls) against 0.042 (2 landed, 5 falls); 480 Hz 0.038 (5 landed, 4 falls) against 0.079 (3 landed, 3 falls). At 120 Hz it felled the target in 4 of 32 against 0, its one blow on the mark 1.42 s from the order at 4.8 m/s, 33 J. The chamber (`chamber`, added after the search) is the kick's default, 0.3 m: the record's schedule pushes the hip's and the knee's flexions itself, so the aimed drive moves the hip's abduction alone and the record reads the same with it.",
     "settings": {
       "transferLimit": 2,
       "setLimit": 3,
@@ -13,6 +13,7 @@
       "follow": 0.08,
       "longest": 0.8,
       "lead": 0.23892187534576448,
+      "chamber": 0.3,
       "knee": 0.1698882204533546,
       "through": 0.32929821434403955,
       "decel": 493.39727748000865,
