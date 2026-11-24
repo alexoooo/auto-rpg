@@ -186,6 +186,13 @@ const LETTING_GO_PUNCHED = deepFreeze({ ...PUNCHING, letGo: [0, .05, .1, .15] })
 const LAID = deepFreeze({ segment: "middleTrunk", speed: .5 });
 
 /**
+ * **The middle, every limb**: the still rung's trials on the Warrior's body at a standing Warrior's
+ * middle mark, thrown with each hand and each foot (`feet`), so a blow by hand and one by foot are
+ * read on the same trials, each strike at the limbs it is offered with (`caseFaults`).
+ */
+const MIDDLE = deepFreeze({ ...STILL, models: ["man"] as BodyModel[], marks: ["middle"] as Mark[], feet: [...SIDES] as Hand[] });
+
+/**
  * Stomping: the opponent rungs' trials thrown with each foot (`feet`), no hand, at the middle mark
  * of a target lying on its back: each of the game's foes (`FOES`) under the bare mind
  * with no network, which pulls no muscle, laid down (`laid`) and lying still before the striker,
@@ -586,7 +593,7 @@ export const createStrikeCases = perContext((context: GameContext) => {
     "sparring-stances": stillCases(SPARRING_STANCES, sampledConditions(SPARRING_STANCES)),
     "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
     "swing-motion": stillCases(SWING_MOTION),
-    moving: stillCases(MOVING), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),
+    moving: stillCases(MOVING), ...twinned("middle", MIDDLE), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT, fightGrid(FIGHT)), fights: fightCases(FIGHTS, fightGrid(FIGHTS)),
     "fights-twin": fightCases(FIGHTS_TWIN, drawnFights(FIGHTS_TWIN)), "fights-drawn": fightCases(FIGHTS_DRAWN, drawnFights(FIGHTS_DRAWN)),
     "fights-judge": fightCases(FIGHTS_JUDGE, drawnFights(FIGHTS_JUDGE)),

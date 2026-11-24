@@ -366,6 +366,12 @@ export type StrikeReading = {
    */
   readonly exit: { readonly range: number; readonly apart?: number } | null;
   readonly down: boolean;
+  /**
+   * Whether the target went down from its action's start to the trial's end, having stood at that
+   * start: the fall a blow brings about, read through the settle after it (`Ending.settle`); null
+   * where its action did not begin or the target was already down.
+   */
+  readonly felled: boolean | null;
   readonly seconds: number;
 };
 
@@ -503,6 +509,8 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   const times = { began: null as number | null, committed: null as number | null, released: null as number | null, ended: null as number | null };
   const coneCosine = cos(bar.cone * Math.PI / 180), alongCosine = cos(bar.along * Math.PI / 180), bend = bar.bend * Math.PI / 180, lean = bar.lean * Math.PI / 180;
   let id: number | null = null, phase: DrillPhase = "lost", reason = "", down = false, handed: number | null = null, fought = false, ready: number | null = null;
+  /** Whether the target has gone down since the action began, standing at its start (`StrikeReading.felled`). */
+  let felled: boolean | null = null;
   /** When the drill let its action go; when the watch for the limb back at its guard (`BACK`) began where it did not, at the action's end; and when it was back. */
   let letAt: number | null = null, watching: number | null = null, again: number | null = null, nearest: number | null = null;
   /** The laid target's middle trunk, its height as built, and whether it lay by the drill's first moment: null before that moment, or with no `laid`. */
@@ -623,7 +631,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
         : skills.report.actions.find((one) => !before.has(one.id) && one.effector === effector && one.target.kind === "body")
           ?? (drill.phase === "under way" ? [...skills.report.actions].reverse().find((one) => one.effector === effector && one.target.kind === "body") : undefined);
       if (action && id === null) {
-        id = action.id; times.began = world.time; asked = footing(); foeBegan ??= sensed();
+        id = action.id; times.began = world.time; asked = footing(); foeBegan ??= sensed(); felled = struck.body.down ? null : false;
         const kind = skillOf(skills.actions.kit, action.action);
         const registered = kind !== null && catalog.isKind(kind) && catalog.partOf({ kind }).role === "executor";
         meets = (registered ? catalog.partLookup.of("executor", { kind: kind! }).meets : undefined) ?? "blunt";
@@ -682,6 +690,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
         }
       }
       down ||= striker.body.down;
+      if (felled === false && struck.body.down) felled = true;
     },
     get ended() {
       const watched = letAt ?? watching;
@@ -742,7 +751,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       for (const { contact } of touches) if (striking.has(contact.by) && live(contact.time)) dealt[contact.on] = (dealt[contact.on] ?? 0) + contact.damage;
       return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, inWindow: foe?.window ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, bar, dealt, taken,
         ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }),
-        recovers: watching !== null && again !== null ? again - watching : null, nearest, exit, down, seconds: world.time,
+        recovers: watching !== null && again !== null ? again - watching : null, nearest, exit, down, felled, seconds: world.time,
         ...(motion ? { motion: motion.reading() } : {}) };
     },
   };

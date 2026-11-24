@@ -143,6 +143,7 @@ export const createStrikeIndex = perContext((context: GameContext) => {
       { name: "energy", unit: "J on the mark, the median", kind: "median", better: "higher", of: (r) => r.hit?.energy ?? null },
       { name: "return", unit: "s from the release, the median", kind: "median", better: "lower", of: (r) => r.released !== null && r.ended !== null ? r.ended - r.released : null },
       { name: "fell", unit: "share of trials", kind: "rate", better: "lower", of: (r) => r.down },
+      { name: "felled", unit: "share of actions begun at a standing target, the target down by the trial's end", kind: "rate", better: "higher", of: (r) => r.felled ?? null },
       { name: "taken", unit: "hit points the striker lost in its contacts with the target, the mean", kind: "mean", better: "lower", of: (r) => r.taken ?? null },
       { name: "unobstructed wrist chatter", unit: "share of observed swings", kind: "rate", better: "lower", of: (r) => r.motion?.chatter ?? null },
       { name: "settled at ownership release", unit: "share of observed releases", kind: "rate", better: "higher", of: (r) => r.motion?.guard.settledAtRelease ?? null },
