@@ -443,11 +443,18 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   57 of 144 mirrors to 60 s. A leaf fitted to that Mind's own 432 bouts played it at 0.372 on 288;
   one fitted to the Mind above's rows of the same bouts read 0.440, so the leaf learned from the
   weaker play. The objective tuned again on the truer models (aggression 2 or 5, initiative 0 to
-  0.6) reached 0.488 at best. Why truer models play no better is not known. Untried: a second round
-  fitted from a Mind level with the game's. The truer models stay pickable (the measured
-  predictions' `walkStart` and `sways`); the leaf was removed in the settings' tidy-up
-  (2026-11-22). The rows are kept in `research/runs/foe-placement/` and
-  `research/runs/fitted-value/corrected/`. *Shown.*
+  0.6) reached 0.488 at best. Why: each old error stood in for the foe walking in, which a line's
+  states leave out (the foe stands where it is). The old back step expected the range to close
+  0.24 to 0.33 m where it held, and the walk's whole-speed start charged a stance gait's lag going
+  away. Made true, nothing carries the foe's approach, and `along`, forgetting a body going away,
+  priced a braced walk 0.50 s ahead of the run there, where walked it was not ahead
+  (`research/runs/movement-fault/`). On draws 9 to 14 against the Mind above, the truer models
+  read 0.396 and with the foe carried 0.5 s (`carry`) 0.479 (0.417 to 0.538); carry gave the Mind
+  above itself none (0.524). A start going on away for the gait's lag (`signed`) read 0.458 alone,
+  `along` 0.465 (`1c7e0a2df`). Untried: a second round fitted from a Mind level with the game's.
+  The truer models stay pickable (the measured predictions' `walkStart` and `sways`); the leaf was
+  removed in the settings' tidy-up (2026-11-22). The rows are kept in
+  `research/runs/foe-placement/` and `research/runs/fitted-value/corrected/`. *Shown.*
 - **Two sides deciding a fifth of a period apart lean a mirror to one**: over 7,425 saved match
   bouts the right side won 0.542 (z 7.2), and the same Mind on both sides 0.541. The chooser's
   rethink phase (`Deciding.phase`) had the right decide 0.618 of a 0.2 s period after the left
@@ -537,8 +544,9 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   past its window and the mirror fell apart (`46d7b4e09`, `c9b5e7b39`). Removed, no Mind taking
   either. Carried on its velocity over a line's first step in a search's states (`carry`, up to
   2 s), 0.5 s read 0.592 against the game's Mind, below the foe standing's 0.646, and 0.465 head
-  to head; the field was removed in the settings' tidy-up (2026-11-22), the carrying kept for the
-  foe's replies. *Shown.*
+  to head, on own-body models whose errors already carried the foe's approach. The field was
+  removed in the settings' tidy-up (2026-11-22) and is back (`1c7e0a2df`): on the truer models it
+  repairs most of their loss (above). *Shown.*
 - **A body measured on none fights by another's trials at ranges by stature**: a profile records
   its body's stature; with none on its own body, the nearest body's in stature is read scaled and
   its price says coarse (`acrossBodies`). Held out, the woman's punches answered 1,157 of the
