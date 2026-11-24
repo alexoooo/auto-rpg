@@ -74,7 +74,7 @@ export const subjectOf = (trial) => EVALUATIONS[trial.drill].subjects([trial.sub
  */
 export async function playTrial(trial, value, { hz } = {}) {
   const evaluation = EVALUATIONS[trial.drill], cases = evaluation.protocols[trial.protocol], subject = subjectOf(trial);
-  const world = cases.world([value], trial.condition, cases.engine ?? DEFAULT_ENGINE, [subject.character ?? {}]);
+  const world = cases.world([value], trial.condition, cases.engine ?? DEFAULT_ENGINE, [subject]);
   if (isRefused(world)) throw new Error(`${trial.drill}/${trial.protocol} ${trial.name}: ${world.refused}`);
   const played = await playCase(world, cases.seconds, (built) => cases.read(built, trial.condition), hz === undefined ? {} : { hz });
   if (isRefused(played)) throw new Error(`${trial.drill}/${trial.protocol} ${trial.name}: ${played.refused}`);

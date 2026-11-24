@@ -11,6 +11,7 @@ import { isRefused } from "../../core/refusal.ts";
  * other parts are the mind's.
  */
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
+import type { SkillChoices } from "../../core/bodies/spec/body.ts";
 import { BODY_MODELS, modelHoldingChecked } from "../../core/bodies/models.ts";
 import { HELD, loadoutFaults, loadoutKey, type Held, type Loadout } from "../../core/bodies/items/held.ts";
 import { recordingKey } from "../../core/world/recording.ts";
@@ -32,11 +33,11 @@ const DRILLED = ["option/straight-punch"];
 
 /**
  * A subject given whole (a file or JSON): its mind and skill, and the character its bodies take
- * where it names one (`character`, as a preset's).
+ * and the skills' variations they hold where it names them (`character`, `variations`, as a preset's).
  */
 function givenSubject(one: Exclude<SubjectChoice[number], string>): Subject {
-  const value = one.value as { readonly mind: Json; readonly character?: AttributeOverrides };
-  const subject = mindSubject(one.id, one.label, value.mind, { ...one, character: one.character ?? value.character });
+  const value = one.value as { readonly mind: Json; readonly character?: AttributeOverrides; readonly variations?: SkillChoices };
+  const subject = mindSubject(one.id, one.label, value.mind, { ...one, character: one.character ?? value.character, variations: one.variations ?? value.variations });
   return { ...subject, value: one.value };
 }
 

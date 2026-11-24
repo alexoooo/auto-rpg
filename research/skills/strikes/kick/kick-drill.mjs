@@ -46,11 +46,11 @@ const AIMED = { lead: [0, 0.3], knee: [0, 0.4], through: [0, 0.4], decel: [20, 6
 /** Then how it stands on the one foot (`KICK_PATH`): the root's pitch held, rad, the stance's response, s, and how far the pelvis is lowered, m. */
 const STANDING = { lean: [-0.6, 0.6], transferSeconds: [0.05, 0.4], lower: [0, 0.15] };
 
-/** The drills' Mind with its one kick tuned whole, `KICK_PATH` under `settings`, as a subject given whole. */
+/** The drills' Mind with its one kick tuned whole, `KICK_PATH` under `settings`, as a subject given whole, its body holding the kick (not the Warrior's own). */
 function subjectWith(settings) {
   const mind = OPTION_PRESETS["option-drill"].config;
   const options = optionsOf(mind, partLookup).map((option) => option.kind === "strike-kick" ? { ...option, skill: { kind: "kick", tuning: { ...KICK_PATH, ...settings } } } : option);
-  return { id: "kick", label: "the kick", value: { mind: { ...mind, options }, skill: "kick" } };
+  return { id: "kick", label: "the kick", value: { mind: { ...mind, options }, skill: "kick", variations: ["kick/kick"] } };
 }
 
 /** The schedule `x` holds, each push's level (none under 0.05), start and length, and its window. */
