@@ -8,9 +8,10 @@
  * the game's rate, 120 Hz, and scored by the mean of its trials' search scores (`searchScore`: the
  * table's strike value, a fall at its price, a blow short of the bar graded below it). This is the
  * recipe's step 2, what the leg can do: a scale for the kick, not a gate. `--confirm` plays a
- * search's best on the `middle` rung's own conditions at 120 and 480 Hz.
+ * search's best on the `middle` rung's own conditions at 120 and 480 Hz. `--fix` holds the settings
+ * it names (a JSON object) out of the search, at those values.
  *
- *   node research/skills/strikes/kick/kick-drill.mjs --out <file.json> [--workers N] [--lambda 16] [--generations 40] [--seed 1] [--from <file.json> [--sigma 0.15]]
+ *   node research/skills/strikes/kick/kick-drill.mjs --out <file.json> [--workers N] [--lambda 16] [--generations 40] [--seed 1] [--from <file.json> [--sigma 0.15]] [--fix '{"hipLevel":0}']
  *   node research/skills/strikes/kick/kick-drill.mjs --confirm <file.json> [--workers N]
  *
  * Harness: Node, the Strike drill's bout world (`playCase`) on Rapier (`DEFAULT_ENGINE`), 120 Hz;
@@ -59,7 +60,7 @@ const DIMS = [...PUSHES.flatMap((name) => [[`${name}Level`, ...LEVEL], [`${name}
 
 /** The settings the point `x` holds: a push's level under 0.05 none, its length at least none, the window's far edge its near edge and depth. */
 function settingsOf(x) {
-  const named = Object.fromEntries(DIMS.map(([key], i) => [key, x[i]]));
+  const named = { ...Object.fromEntries(SEARCHED.map(([key], i) => [key, x[i]])), ...FIXED };
   for (const name of PUSHES) {
     if (Math.abs(named[`${name}Level`]) <= 0.05) named[`${name}Level`] = 0;
     named[`${name}Length`] = Math.max(0, named[`${name}Length`]);
@@ -69,7 +70,7 @@ function settingsOf(x) {
 }
 
 /** `settings` as a point: each dimension's setting where they name it, else the kick's defaults' (its schedule pushing nothing). */
-const pointOf = (settings) => DIMS.map(([key]) => key === "depth" ? (settings.alongFar ?? KICK_PATH.alongFar) - (settings.alongNear ?? KICK_PATH.alongNear) : settings[key] ?? KICK_PATH[key]);
+const pointOf = (settings) => SEARCHED.map(([key]) => key === "depth" ? (settings.alongFar ?? KICK_PATH.alongFar) - (settings.alongNear ?? KICK_PATH.alongNear) : settings[key] ?? KICK_PATH[key]);
 
 /** Every foot condition of `protocol`, as trials of the strike judge with the subject the kick's defaults give. */
 function trialsOf(protocol) {
@@ -81,7 +82,10 @@ function trialsOf(protocol) {
 }
 
 const { values } = parseArgs({ options: { out: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" },
-  from: { type: "string" }, sigma: { type: "string" }, lambda: { type: "string" }, confirm: { type: "string" } } });
+  from: { type: "string" }, sigma: { type: "string" }, lambda: { type: "string" }, confirm: { type: "string" }, fix: { type: "string" } } });
+/** The settings held out of the search, and the dimensions searched. */
+const FIXED = JSON.parse(values.fix ?? "{}"), SEARCHED = DIMS.filter(([key]) => !(key in FIXED));
+for (const key of Object.keys(FIXED)) if (!DIMS.some(([dim]) => dim === key)) throw new Error(`--fix: ${key} is not a searched setting`);
 const pool = trialPool(Number(values.workers ?? defaultLanes()));
 if (values.confirm) {
   const found = JSON.parse(readFileSync(values.confirm, "utf8")), settings = found.best.settings, trials = trialsOf("middle"), byRate = {};
@@ -91,7 +95,7 @@ if (values.confirm) {
   process.exit(0);
 }
 if (!values.out) throw new Error("--out <file.json>");
-const trials = trialsOf("middle-twin"), lo = DIMS.map(([, low]) => low), hi = DIMS.map(([, , high]) => high);
+const trials = trialsOf("middle-twin"), lo = SEARCHED.map(([, low]) => low), hi = SEARCHED.map(([, , high]) => high);
 const toX = (u) => u.map((v, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, v)));
 // From a search's best settings, by name, so a dimension added since starts at its default; with none, from the defaults.
 const from = values.from ? JSON.parse(readFileSync(values.from, "utf8")).best.settings : null;
@@ -104,7 +108,7 @@ const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(val
     return { ...r, score: r.score ?? -1e3, each: undefined }; },
   onGeneration(entry, { best, mean, log }) {
     console.error(JSON.stringify(entry));
-    writeFileSync(values.out, JSON.stringify({ pushes: PUSHES, from: values.from ?? null, trials: trials.length, best: { ...best, x: toX(best.u), settings: settingsOf(toX(best.u)) }, mean: toX(mean), log }));
+    writeFileSync(values.out, JSON.stringify({ pushes: PUSHES, from: values.from ?? null, fixed: FIXED, trials: trials.length, best: { ...best, x: toX(best.u), settings: settingsOf(toX(best.u)) }, mean: toX(mean), log }));
   } });
 pool.terminate();
 console.log(JSON.stringify({ best: { score: found.score, g: found.g, r: found.r } }));
