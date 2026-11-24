@@ -221,7 +221,10 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       switch (live.stage) {
         case "transfer": {
           live.held = bearingReady && support.state.speed <= tuning.transferSlow ? live.held + dt : 0;
-          if (live.time >= tuning.transferLimit) release({ kind: "stalled", reason: "support transfer deadline" }, "recenter");
+          // A centre carried out over neither foot (a blow, as a rule) is caught by the stance's own standing, which steps.
+          const base = withinSupport(feet, centre.x, centre.z, 0);
+          if (base[0] !== centre.x || base[1] !== centre.z) release({ kind: "interrupted", reason: "centre left its base" }, "recenter");
+          else if (live.time >= tuning.transferLimit) release({ kind: "stalled", reason: "support transfer deadline" }, "recenter");
           else if (live.held >= tuning.hold) {
             stage("drive"); live.phase = "commit";
             // The kicking leg's freedoms, its hip's, knee's and ankle's, and those the drive pushes, held where the drive finds them.
