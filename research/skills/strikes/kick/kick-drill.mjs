@@ -9,9 +9,10 @@
  * table's strike value, a fall at its price, a blow short of the bar graded below it). This is the
  * recipe's step 2, what the leg can do: a scale for the kick, not a gate. `--confirm` plays a
  * search's best on the `middle` rung's own conditions at 120 and 480 Hz. `--fix` holds the settings
- * it names (a JSON object) out of the search, at those values.
+ * it names (a JSON object) out of the search, at those values. `--on-mark` scores only blows that
+ * land on the mark (`onMark`): a foot that meets the thighs from below gains nothing.
  *
- *   node research/skills/strikes/kick/kick-drill.mjs --out <file.json> [--workers N] [--lambda 16] [--generations 40] [--seed 1] [--from <file.json> [--sigma 0.15]] [--fix '{"hipLevel":0}']
+ *   node research/skills/strikes/kick/kick-drill.mjs --out <file.json> [--workers N] [--lambda 16] [--generations 40] [--seed 1] [--from <file.json> [--sigma 0.15]] [--fix '{"hipLevel":0}'] [--on-mark]
  *   node research/skills/strikes/kick/kick-drill.mjs --confirm <file.json> [--workers N]
  *
  * Harness: Node, the Strike drill's bout world (`playCase`) on Rapier (`DEFAULT_ENGINE`), 120 Hz;
@@ -82,7 +83,18 @@ function trialsOf(protocol) {
 }
 
 const { values } = parseArgs({ options: { out: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" },
-  from: { type: "string" }, sigma: { type: "string" }, lambda: { type: "string" }, confirm: { type: "string" }, fix: { type: "string" } } });
+  from: { type: "string" }, sigma: { type: "string" }, lambda: { type: "string" }, confirm: { type: "string" }, fix: { type: "string" }, "on-mark": { type: "boolean" } } });
+
+/**
+ * `--on-mark`'s score of a candidate's trials: each trial's search score, less what it traded
+ * where its blow did not land on the mark (its score less its value's gain), so a blow elsewhere
+ * gains nothing and is graded by how near it came, a loss kept; null where none counts.
+ */
+function onMark(each) {
+  const counted = each.filter((one) => one.score !== null);
+  if (counted.length === 0) return null;
+  return counted.reduce((sum, one) => sum + (one.outcome === "landed" ? one.score : one.score - Math.max(one.value ?? 0, 0)), 0) / counted.length;
+}
 /** The settings held out of the search, and the dimensions searched. */
 const FIXED = JSON.parse(values.fix ?? "{}"), SEARCHED = DIMS.filter(([key]) => !(key in FIXED));
 for (const key of Object.keys(FIXED)) if (!DIMS.some(([dim]) => dim === key)) throw new Error(`--fix: ${key} is not a searched setting`);
@@ -105,10 +117,10 @@ const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(val
   generations: Number(values.generations ?? 40), seed: Number(values.seed ?? 1),
   // A candidate none of whose trials counts scores below every one that has one.
   score: async (u) => { const settings = settingsOf(toX(u)), r = await scoreOn(trials, (trial) => withTuning(trial.subject.value, { ...KICK_PATH, ...settings }), { play: pool.play });
-    return { ...r, score: r.score ?? -1e3, each: undefined }; },
+    return { ...r, score: (values["on-mark"] ? onMark(r.each) : r.score) ?? -1e3, each: undefined }; },
   onGeneration(entry, { best, mean, log }) {
     console.error(JSON.stringify(entry));
-    writeFileSync(values.out, JSON.stringify({ pushes: PUSHES, from: values.from ?? null, fixed: FIXED, trials: trials.length, best: { ...best, x: toX(best.u), settings: settingsOf(toX(best.u)) }, mean: toX(mean), log }));
+    writeFileSync(values.out, JSON.stringify({ pushes: PUSHES, from: values.from ?? null, fixed: FIXED, onMark: !!values["on-mark"], trials: trials.length, best: { ...best, x: toX(best.u), settings: settingsOf(toX(best.u)) }, mean: toX(mean), log }));
   } });
 pool.terminate();
 console.log(JSON.stringify({ best: { score: found.score, g: found.g, r: found.r } }));
