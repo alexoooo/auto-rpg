@@ -25,6 +25,13 @@ const LEG_STRENGTH = 2, LEG_SPEED = 40;
  * tips back onto its hind pair: docs/reference/reptile.md#the-rat.
  */
 const WEIGHTS = { head: 1, jaw: 0.2, "tail.base": 0.2, "tail.tip": 0.1 };
+/**
+ * How far the lower incisors' tips stand outside the skull's capsule, mm of the art. The capsule's
+ * rounded end is as wide as the skull behind the eyes, wider than the snout, and would hold the
+ * incisors inside it: it is drawn back along its axis until they stand this far out, the soft nose
+ * ahead of them left out of it, so the teeth reach what the snout presses on.
+ */
+const INCISORS_CLEAR = 1;
 const authored = JSON.parse(readFileSync(resolve(ROOT, "assets/quadruped/authored-body.json"), "utf8"));
 const body = structuredClone(authored);
 const segment = (name) => body.segments.find((s) => s.name === name), joint = (name) => body.joints.find((j) => j.name === name);
@@ -33,6 +40,14 @@ const round = (v) => Array.isArray(v) ? v.map(round) : typeof v === "number" ? M
 // The trunk.
 const trunk = segment("trunk");
 trunk.proximal = round(at(ART.trunk.from)); trunk.distal = round(at(ART.trunk.to)); trunk.radius = round(mm(ART.trunk.radius));
+
+/** The skull's capsule's snout end, drawn back along its axis until the incisors stand `INCISORS_CLEAR` outside it. */
+function skullEnd({ from, to, radius }, incisors) {
+  const axis = to.map((v, i) => v - from[i]), long = Math.hypot(...axis), way = axis.map((v) => v / long);
+  const off = incisors.map((v, i) => v - to[i]), along = off.reduce((sum, v, i) => sum + v * way[i], 0);
+  const back = Math.max(0, -along + Math.sqrt(along * along - off.reduce((sum, v) => sum + v * v, 0) + (radius + INCISORS_CLEAR) ** 2));
+  return to.map((v, i) => v - back * way[i]);
+}
 
 // The head is the skull's capsule, behind the eyes to the snout; the jaw hinges under the ear and
 // reaches the incisors. Its teeth and the mouth are the authored quadruped's, scaled and tipped about the
@@ -46,7 +61,7 @@ const k = length(now) / length(was), tip = Math.atan2(now[1], now[2]) - Math.ata
 const rotate = ([x, y, z]) => { const a = Math.atan2(y, z) + tip, r = Math.sqrt(y * y + z * z); return [x, r * Math.sin(a), r * Math.cos(a)]; };
 const place = (p) => { const d = rotate([(p[0] - fromNeck[0]) * k, (p[1] - fromNeck[1]) * k, (p[2] - fromNeck[2]) * k]); return round([neck[0] + d[0], neck[1] + d[1], neck[2] + d[2]]); };
 const head = segment("head"), jaw = segment("jaw");
-head.proximal = round(at(ART.skull.from)); head.distal = round(at(ART.skull.to)); head.radius = round(mm(ART.skull.radius));
+head.proximal = round(at(ART.skull.from)); head.distal = round(at(skullEnd(ART.skull, ART.incisors))); head.radius = round(mm(ART.skull.radius));
 head.points = { mouth: place(head.points.mouth), "eye.left": round(at(ART.eye)), "eye.right": round(at([-ART.eye[0], ART.eye[1], ART.eye[2]])) };
 const jawTip = place(jaw.distal);
 jaw.proximal = round(at(ART.hinge)); jaw.distal = jawTip;

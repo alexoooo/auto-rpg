@@ -51,13 +51,17 @@ where the posed art's are. Where the fit departs from the scan or the authored q
 The rat is fitted to Poly Haven's Street Rat (`scripts/rat/fit.mjs`,
 [its art](../art/rat.md#the-body-fitted-to-the-art)). Its teeth, paw footprint and joint ranges
 are the authored quadruped's but for its girdles', knees' and elbows'; its controller settings are
-the reptile's but for its righting. What is its own is set for a trot at 1 m/s, each constant's
-comment saying why:
+the reptile's but for its righting and its bite's, searched on its biting rung. What is its own
+is set for a trot at 1 m/s, each constant's comment saying why:
 
 - **Legs raised** (`LEG_RAISE`, `scripts/rat/landmarks.mjs`): the art holds its hips where a trot
   at 1 m/s is a gallop's pace.
 - **The head carried above the art's** (`HEAD_RAISE`), so the jaw opened to the bite's gape clears
   the floor.
+- **The lower incisors clear of the snout** (`INCISORS_CLEAR`): the skull's capsule, as wide as the
+  skull behind the eyes, held the incisors inside its rounded end, so the snout met a shin with
+  the teeth short of it and the bite closed on nothing; drawn back, the teeth reach what the snout
+  presses on.
 - **Legs' muscles twice the authored quadruped's, at 40 rad/s** (`LEG_STRENGTH`, `LEG_SPEED`): a
   trot at 1 m/s swings each paw at about twice that, its stance on two legs.
 - **Its weight carried forward** (`WEIGHTS`: a heavier head, a lighter tail), or the trot tips

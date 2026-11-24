@@ -246,8 +246,9 @@ function drillCommander(config: DrillCommanderConfig): Commander {
         // slow enough inside the window, while it sways no further than `SWAY` out of it and until it stands settled outside it.
         const arrived = arrivedIn(state.arrival, window, at.x, at.z, h, distance, settled);
         state.held = state.held ? within(widened(window, SWAY)) && !(settled && !within(window)) : arrived && within(window);
-        // Held beside a body lying, it faces as its spot does; else at the foe.
-        if (state.held) state.set ??= state.spot ? spot.face : toward;
+        // Held beside a body lying, it faces as its spot does; else at the foe, where its window still holds facing so, and
+        // as its spot does where turning to the foe would carry the window's target out of the window (a short reach beside a leg).
+        if (state.held) state.set ??= state.spot || !windowHolds(window, at.x, at.z, toward) ? spot.face : toward;
         if (config.pace === undefined || state.held || arrived) return decided(member, stay(state.set ?? spot.face));
         state.walked = true;
         const move = spot.route ? { kind: "place" as const, points: spot.route.map((point) => ({ x: point.x, z: point.z })), near: ARRIVED, ...(spot.by === undefined ? {} : { by: spot.by }) }

@@ -110,8 +110,8 @@ interface Live {
  *
  * - **Ready** where its aim gives a point (the first surface along the jaw's arc, for the stock
  *   one); else the body walks into its window: the target's nearest surface at the mouth's height
- *   (`biteElevation`) ahead of the mouth by the jaw's entry (the half-open bite point's reach from
- *   the lips and `biteEntry`), within `biteShift` either way.
+ *   (`biteElevation`) where the half-open bite point, ahead of the lips, stands `biteEntry` inside
+ *   it, within `biteShift` either way.
  * - **The chamber** opens the jaw and brings the mouth over its aim, the body crouched no lower than
  *   standing on the crawl, leaning toward it within the paws' support (`biteShift`); **the stroke**
  *   closes the jaw, the head and the lean still driving the mouth onto the aim held from the launch;
@@ -138,9 +138,9 @@ export function biteExecutor(body: Body, actions: readonly string[], T: BiteTuni
   const offset = new Vector3(), mouth = new Vector3(), lips = jaw.mouth;
   const chamberPoint = pointAtToRef([hinge], [[T.open]], tip, new Vector3()), chamber: Vec3 = [chamberPoint.x, chamberPoint.y, chamberPoint.z];
   const strikePoint = new Vector3(), gape = gapePoints(lower, hinge, T.open);
-  // The jaw's entry: how far ahead of the lips the half-open bite point meets a surface, and `biteEntry` past it.
+  // The jaw's reach: how far ahead of the lips the half-open bite point is, which the chamber brings `biteEntry` past a surface.
   const contact = pointAtToRef([hinge], [[T.open * T.contactAt]], tip, new Vector3());
-  const entry = hypot(contact.x - lips[0], contact.z - lips[2]) + T.biteEntry;
+  const reach = hypot(contact.x - lips[0], contact.z - lips[2]);
   const touching = (part: ReadSegment) => built.physics.contactsOf(part.body).some((c) => (!c.other || !own.has(c.other)) && c.impulse > 0);
   const state = { live: null as Live | null, launched: 0, returned: 0, failed: 0, aborted: 0, feedback: feedback.state };
   const accept = (y: number) => (at: Vec3) => Math.abs(at[1] - y) <= T.biteElevation;
@@ -184,7 +184,9 @@ export function biteExecutor(body: Body, actions: readonly string[], T: BiteTuni
       const distance = Math.sqrt(live.shift[0] * live.shift[0] + live.shift[1] * live.shift[1]);
       if (distance > T.biteShift) { live.shift[0] *= T.biteShift / distance; live.shift[1] *= T.biteShift / distance; }
     } else if (cycle.phase !== "chamber" && cycle.phase !== "swing") live.shift.fill(0);
-    const prepared = openingFloor > ground + T.biteEntry && angle >= T.open - T.jawError && dx * dx + dy * dy + dz * dz <= T.biteAlign * T.biteAlign;
+    // Prepared, the jaw open and the mouth over its aim, or pressed against the target already: the head can come no nearer.
+    const pressed = headFeedback?.contacts?.some((one) => one.kind === "body" && one.body === live.request.target.body) ?? false;
+    const prepared = openingFloor > ground + T.biteEntry && angle >= T.open - T.jawError && (pressed || dx * dx + dy * dy + dz * dz <= T.biteAlign * T.biteAlign);
     const complete = cycle.phase === "swing" && cycle.time >= T.snap && angle < T.jawClosed;
     const foe = live.request.target.body, touch = jawFeedback?.contact, identity = touch?.target, obstruction = jawFeedback?.obstruction?.target;
     const blocked = unintendedContact(jawFeedback, foe) || unintendedContact(headFeedback, foe)
@@ -233,8 +235,9 @@ export function biteExecutor(body: Body, actions: readonly string[], T: BiteTuni
       const near = aimed ? null : target.kind === "body" ? nearestSurface(view.senses, [mouth.x, mouth.y, mouth.z], accept(mouth.y), target.body, target.region) : null;
       const surface = aimed?.at ?? near?.at;
       if (!surface) return { kind: "blocked", reason: "no surface of the target at the jaw's height" };
-      // The window: the surface ahead of the mouth by the jaw's entry, within its shift either way, faced within the angle the shift makes there.
-      const along = ahead + entry;
+      // The window: the surface where the half-open bite point stands `biteEntry` inside it, within the lean (`biteShift`) either way,
+      // faced within the angle the lean makes there.
+      const along = ahead + reach - T.biteEntry;
       const window: Window = { at: surface, along: [along - T.biteShift, along + T.biteShift], across: [across - T.biteShift, across + T.biteShift],
         facing: atan2(T.biteShift, along), speed: T.biteSlow, ...(target.body === undefined ? {} : { on: target.body }) };
       return aimed ? { kind: "ready", window } : { kind: "position", window };
