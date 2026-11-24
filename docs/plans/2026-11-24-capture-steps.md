@@ -50,9 +50,23 @@ in the simplest and most general form the stance can hold.
    the kicking foot is in the air about 0.46 m ahead and the body goes back at about 0.6 m/s; the
    only foot that can catch it is that one, swung from ahead to behind while the capture point
    runs on, each re-aim landing shorter as the hips sink (0.94 to 0.65 m). The catch to make is
-   the one from a foot far forward, the way up's falls next.
+   the one from a foot far forward, the way up's falls next. Then read by the set-down's start
+   (`set-down-catch.jsonl`, 101 set-downs): the capture point's distance from the standing foot
+   then tells the fall (under 0.2 m 9 of 28 down, over 0.5 m 21 of 25), and the swing a catch
+   would need (0.9 m) is past the longest step (0.8 of the leg): the fall is set before the catch
+   begins, by the drive's recoil carrying the centre past the standing heel. The kick's answer is
+   its own: where it holds the centre over the standing foot (`ahead`, searched). The way up's 91
+   are its rises failing (staged-down 50, front-sit-back 26), the way up's own work (bar 2).
 2. **One standing rule.** Whether the three footings and the catch can be one rule of the stance,
-   and the idle footing's place in it, read by the fingerprint and the falls.
+   and the idle footing's place in it, read by the fingerprint and the falls. *Read*: the idle
+   footing is the square carriage's (`width: null`, the feet where they stand) footing at the
+   spacing the body is built with (`standingFooting`), placed about the sole that stays after 1 s
+   still and stepped only when off by a quarter sole or 0.2 rad; a carriage with a width sets its
+   footing about the centre as soon as the body is still and holds it (`footingOf`, `state.stood`);
+   `settleStep` puts a walk's last foot the built width across from the other at once. One rule:
+   each carriage names its footing (square's the built one), placed about the sole that stays,
+   stepped to once still and off by those tolerances; the walk's end then needs no step of its
+   own. The idle option and the arbiter's `idleSettle` become the carriage's footing held or not.
 3. **Capture steps.** The catch made to stop what the traces show, read by the falls in the
    game's Mind's bouts and on the kick's sparring-feet falls, and a match of the game's Mind
    against itself before the change.
