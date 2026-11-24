@@ -148,15 +148,15 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
       memory.unmet.fields = ALL_MET.fields; memory.unmet.centre = 0; memory.unmet.height = 0;
       now().resume(view);
     },
-    goal(view, goal, dt, context) {
+    goal(view, goal, dt) {
       if (goal.footing) {
         choose(view, false, undefined, goal.gait);
         memory.driven = false;
-        return report(goal, now().goal(view, goal, dt, context), true);
+        return report(goal, now().goal(view, goal, dt), true);
       }
       // Not yet the gait wanted: one driving the legs stands, giving them back to the stance, whose walk goes no faster than the one wanted holds.
       const chosen = choose(view, goal.walk !== null, goal.destination, goal.gait);
-      const drive = now().goal(view, chosen ? goal : { ...goal, walk: memory.driven ? null : within(goal.walk, gaits[memory.wants]!.legs.envelope) }, dt, context);
+      const drive = now().goal(view, chosen ? goal : { ...goal, walk: memory.driven ? null : within(goal.walk, gaits[memory.wants]!.legs.envelope) }, dt);
       memory.driven = drive.kind === "drive";
       return report(goal, drive, chosen);
     },

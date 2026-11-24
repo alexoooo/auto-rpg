@@ -45,8 +45,8 @@ const PUSHES = Object.keys(KICK_PUSHES), LEVEL = [-1, 1], FROM = [0, 0.4], LENGT
 const NEAR = [0.4, 1.0], DEPTH = [0.03, 0.4];
 /** Then the aimed drive's (`KICK_PATH`): when it begins, s, how far out its chamber is, m, when it leaves the chamber after that, s, how far through the target it aims, m, and how hard it slows onto its goal, rad/s². */
 const AIMED = { lead: [0, 0.3], chamber: [0, 0.6], knee: [0, 0.4], through: [0, 0.4], decel: [20, 600] };
-/** Then how it stands on the one foot (`KICK_PATH`): the root's pitch held, rad, the stance's response, s, and how far the pelvis is lowered, m. */
-const STANDING = { lean: [-0.6, 0.6], transferSeconds: [0.05, 0.4], lower: [0, 0.15] };
+/** Then how it stands on the one foot (`KICK_PATH`): the root's pitch held, rad, the centre held ahead of the sole, m, the stance's response, s, and how far the pelvis is lowered, m. */
+const STANDING = { lean: [-0.6, 0.6], ahead: [-0.05, 0.15], transferSeconds: [0.05, 0.4], lower: [0, 0.15] };
 
 /** The drills' Mind with its one kick tuned whole, `KICK_PATH` under `settings`, as a subject given whole, its body holding the kick (not the Warrior's own). */
 function subjectWith(settings) {

@@ -24,7 +24,8 @@ in the simplest and most general form the stance can hold.
   worktree with `idleGoal` hooked).
 - **Most falls in those bouts take no blow.** 536 of the 768 had no life lost in the 2 s before.
   By what the Mind was doing 0.3 s before: a back step 270, a way up 183, a strike 135, holding
-  107; by the stance's phase, standing 383 and stepping 372.
+  107; by the stance's phase, standing 383 and stepping 372. The "back step" there is a kick's
+  set-down, which the Mind reads as one.
 - **The kick's falls are the stance's catch failing.** On sparring-feet its set-down is the
   largest share of the kicker's falls (82 of 131 in 392 trials): the drive turns the pelvis about
   40°, and as the leg comes back the standing foot leaves the ground and the body runs backward,
@@ -33,19 +34,57 @@ in the simplest and most general form the stance can hold.
   set-down: a better catch is read on it again.
 - **Three places pick where standing feet go**: a walk's end back to rest width
   (`settleStep`, `src/control/stance/gait.ts`), a carriage's footing (`footingOf`) and the idle
-  footing (`idleGoal`, `src/skills/locomotion/shared/locomotion.ts`, with its `idleFooting` option
-  and the arbiter's `idleSettle` flag). The stance's own catch steps are `ownStep` in `gait.ts`.
+  footing (`idleGoal`, `src/skills/locomotion/shared/locomotion.ts`, with the body's
+  `builtFooting`). The stance's own catch steps are `ownStep` in `gait.ts`.
 
 ## Steps
 
 1. **Where the falls begin.** Trace the falls without a blow by the doing that precedes them, the
    back step first, as the kick's were traced: the stance's capture point against its feet, its
-   own steps and where they land.
+   own steps and where they land. *Read*, on the Warrior's own Mind with the push kick (144
+   warrior-drawn bouts, `research/runs/capture/falls-by-action-truer.jsonl`): 661 falls in 326
+   side-minutes, 329 with no blow in the 2 s before; of those, a kick in the 1.5 s before 178 (its
+   set-down last seen in 136), a way up 91, a strike or holding then a brace 55, a back step 5.
+   The Option Mind with its kick taken out falls 75 times without a blow in 144 bouts, against 536
+   with it (`falls-by-action-no-kick.jsonl`). Traced (`trace-push-set-down.txt`): at the drive's end
+   the kicking foot is in the air about 0.46 m ahead and the body goes back at about 0.6 m/s; the
+   only foot that can catch it is that one, swung from ahead to behind while the capture point
+   runs on, each re-aim landing shorter as the hips sink (0.94 to 0.65 m). The catch to make is
+   the one from a foot far forward, the way up's falls next. Then read by the set-down's start
+   (`set-down-catch.jsonl`, 101 set-downs): the capture point's distance from the standing foot
+   then tells the fall (under 0.2 m 9 of 28 down, over 0.5 m 21 of 25), and the swing a catch
+   would need (0.9 m) is past the longest step (0.8 of the leg): the fall is set before the catch
+   begins, by the drive's recoil carrying the centre past the standing heel. The kick's answer is
+   its own: where it holds the centre over the standing foot (`ahead`, searched). The way up's 91
+   are its rises failing (staged-down 50, front-sit-back 26), the way up's own work (bar 2).
 2. **One standing rule.** Whether the three footings and the catch can be one rule of the stance,
-   and the idle footing's place in it, read by the fingerprint and the falls.
+   and the idle footing's place in it, read by the fingerprint and the falls. *Read*: the idle
+   footing is the square carriage's (`width: null`, the feet where they stand) footing at the
+   spacing the body is built with (`standingFooting`), placed about the sole that stays after 1 s
+   still and stepped only when off by a quarter sole or 0.2 rad; a carriage with a width sets its
+   footing about the centre as soon as the body is still and holds it (`footingOf`, `state.stood`);
+   `settleStep` puts a walk's last foot the built width across from the other at once. *Tried*:
+   the idle footing's rule for every carriage (not kept:
+   `research/runs/capture/locomotion-rule-tried.ts`) moved only the bouts where a Mind takes the
+   back step, the falls held (2.10 a minute against 2.03), but the back step's
+   evaluation fell in 6 of 24 trials against 1. The carriage's footing needs the centre mid-stagger
+   at once: anchored about the centre and taken without waiting it fell in 3 of 24 and was hit
+   more (27 of 100 against 14 of 81), each fix one more field saying which old rule a carriage
+   keeps. So the two stay apart. What went: the built footing is given to every legs (`builtFooting`,
+   regain asking its own feet to keep them planted) and the arbiter's `idleSettle` flag, which
+   no case needed (the fingerprint unmoved). `settleStep` is the stance's, under every skill.
 3. **Capture steps.** The catch made to stop what the traces show, read by the falls in the
    game's Mind's bouts and on the kick's sparring-feet falls, and a match of the game's Mind
    against itself before the change.
+   *Tried, none kept* (`research/runs/capture/`, each on the Warrior's Mind's bouts 0..23 against
+   72 of 106 kicks ending with the kicker down): the set-down's foot put down where it is (79 of
+   107); the drive's other pushes not driven back (56 of 92); the set-down's capture point asked
+   over the standing foot (64 of 95); the stance's catch taking over any step a goal asked once
+   in the air, when its landing will not hold the body (70 of 100; all falls 2.06 a minute
+   against 2.03). Only the kick's centre held ahead of its standing sole spared the kicker (44 of
+   94) and it won nothing (0.469 in 288 bouts). A step cannot catch what the drive's recoil set
+   going before the set-down began; what is left is the drive's own balance, and the way up's
+   rises (bar 2).
 4. **The kick again**: its set-down on the better catch, and s10's aimed leg searched again on it.
 
 ## After it

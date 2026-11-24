@@ -10,4 +10,4 @@ export interface StanceWalkSettings { readonly turnLimit?: number; readonly turn
 /** **The walk in the stance** (`locomotion`) of `body`, by the stance's own steps or by `steps`: what the stance walk's variations and the gaits built on it walk by. */
 export const stanceWalk = (body: Body, settings: StanceWalkSettings, steps?: GaitTuning) => locomotion(stanceFeetOf(body.built.spec), body.envelope, {
   turnLimit: settings.turnLimit, turnStartup: settings.turnStartup, carriage: settings.carriage, segments: stanceSegmentsOf(body.built.spec),
-  idleFooting: standingFooting(body.built), ...(steps ? { gait: () => steps } : {}) });
+  builtFooting: standingFooting(body.built), ...(steps ? { gait: () => steps } : {}) });

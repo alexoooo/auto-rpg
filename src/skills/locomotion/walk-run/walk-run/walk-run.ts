@@ -194,7 +194,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
   const may = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
   const held = may ? runEnvelope : body.envelope;
-  const feet = stanceFeetOf(body.built.spec), legs = locomotion(feet, held, { segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built),
+  const feet = stanceFeetOf(body.built.spec), legs = locomotion(feet, held, { segments: stanceSegmentsOf(body.built.spec), builtFooting: standingFooting(body.built),
     gait: () => travelStride });
   /** Whether the ground bore the foot on `side` in the last step (`StanceEnd.touching`). */
   const ends = { left: footOn(body.built.spec, "left"), right: footOn(body.built.spec, "right") };
@@ -264,16 +264,16 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     get placed() { return !memory.running && legs.placed; },
     get unmet() { return memory.running ? memory.unmet : legs.unmet; },
     resume: walkOn,
-    goal(view, goal, dt, context): LegsDrive {
+    goal(view, goal, dt): LegsDrive {
       const inputHeading = memory.running ? memory.heading : legs.heading;
       const s = view.stance, v = s.velocity, asked = goal.walk, face = goal.face;
       if (goal.footing) {
         if (memory.running) walkOn(view);
-        return legs.goal(view, goal, dt, context);
+        return legs.goal(view, goal, dt);
       }
       if (view.down) {
         if (memory.running) walkOn(view);
-        return legs.goal(view, { ...goal, walk: null }, dt, context);
+        return legs.goal(view, { ...goal, walk: null }, dt);
       }
       if (!memory.running) {
         const h = legs.heading, along = v.x * sin(h) + v.z * cos(h), speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0;
@@ -297,7 +297,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         if (memory.bearing !== null && !touching(view, memory.bearing)) { memory.swinging = memory.bearing; memory.bearing = null; }
         if (memory.capped === 0) memory.bearing = null;
         if (memory.bearing !== null && !touching(view, otherSide(memory.bearing))) { runFrom(view, memory.bearing, way); memory.bearing = null; }
-        else return legs.goal(view, { ...goal, walk: walkable(asked), face: way }, dt, context);
+        else return legs.goal(view, { ...goal, walk: walkable(asked), face: way }, dt);
       }
       // Running: along the heading, turning toward the way asked, at what the run's envelope holds; braking to turn round past
       // `RUN_ROUND`, and, asked to stand or a way it does not run, along the heading as it is.
@@ -316,7 +316,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
       if (landing) { memory.landed = driven.landed!; memory.ran += 1; }
       if (landing && memory.ran >= RUN_SWITCH.landings && memory.pace <= settings.run - RUN_SWITCH.below && Math.sqrt(v.x * v.x + v.z * v.z) <= settings.run) {
         walkOn(view);
-        return legs.goal(view, goal, dt, context);
+        return legs.goal(view, goal, dt);
       }
       // What the body's steadiness gives the run (`gaitAssist`): its pelvis as its stance hip last held it.
       aim.heading = h;

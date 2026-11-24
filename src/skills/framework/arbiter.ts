@@ -265,7 +265,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
           support.tick(view, goal.height, !!goal.walk, dt);
           goal = support.lay(view, goal);
         }
-        const drive = legs.goal(view, goal, dt, { idleSettle: !legOwner });
+        const drive = legs.goal(view, goal, dt);
         if (drive.kind !== "drive" && drive.goal) for (let i = 0; i < legsSlots.length; i++) if (available(legsSlots[i]!)) owned(legsSlots[i]!, LOCOMOTION);
         switch (drive.kind) {
           case "stance": stance = drive.goal; break;

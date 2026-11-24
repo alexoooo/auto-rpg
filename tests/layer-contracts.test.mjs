@@ -327,7 +327,7 @@ test("walking preserves requested world velocity while facing turns", () => {
     stance: { phase: "stand", centre: new Vector3(0, 1, 0), support: new Vector3(),
       place: new Vector3(), plan: new Vector3(0, 1, 0), velocity: new Vector3() } };
   legs.resume(view);
-  const result = legs.goal(view, { walk: [1, 0], face: Math.PI / 2, height: 1 }, dt, { idleSettle: false });
+  const result = legs.goal(view, { walk: [1, 0], face: Math.PI / 2, height: 1 }, dt);
   assert.ok(legs.heading > 0, "fixture must turn its facing during a moving step");
   assert.deepEqual(result, { kind: "stance", goal: { feet: ["foot.left", "foot.right"], centre: null,
     height: 1, heading: dt, walk: [0, 1] } });
