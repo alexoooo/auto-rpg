@@ -86,6 +86,10 @@ its kind or running those tools.
 - **`git worktree remove` on a worktree with a `node_modules` junction empties the main
   checkout's.** Delete the folder with `npm run clean` (or Node's `rmSync`), then
   `git worktree prune`.
+- **`npm ci` cannot run while a dev server holds the native bindings** (`EPERM` unlinking
+  `rolldown-binding.win32-x64-msvc.node`), and port 5180's is the owner's: restore a gutted
+  `node_modules` with `npm install --no-save`, which installs the lockfile's versions around the
+  held files, then check each package's version against `package-lock.json`.
 - **A worktree keeps what it played in its own `.cache/evaluations/`**, not the main checkout's,
   so deleting the tree deletes every row it played. Copy that folder (and the tree's `.tmp/`) under
   `research/runs/<task>/` first.
