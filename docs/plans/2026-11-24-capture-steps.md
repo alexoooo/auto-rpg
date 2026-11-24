@@ -76,6 +76,15 @@ in the simplest and most general form the stance can hold.
 3. **Capture steps.** The catch made to stop what the traces show, read by the falls in the
    game's Mind's bouts and on the kick's sparring-feet falls, and a match of the game's Mind
    against itself before the change.
+   *Tried, none kept* (`research/runs/capture/`, each on the Warrior's Mind's bouts 0..23 against
+   72 of 106 kicks ending with the kicker down): the set-down's foot put down where it is (79 of
+   107); the drive's other pushes not driven back (56 of 92); the set-down's capture point asked
+   over the standing foot (64 of 95); the stance's catch taking over any step a goal asked once
+   in the air, when its landing will not hold the body (70 of 100; all falls 2.06 a minute
+   against 2.03). Only the kick's centre held ahead of its standing sole spared the kicker (44 of
+   94) and it won nothing (0.469 in 288 bouts). A step cannot catch what the drive's recoil set
+   going before the set-down began; what is left is the drive's own balance, and the way up's
+   rises (bar 2).
 4. **The kick again**: its set-down on the better catch, and s10's aimed leg searched again on it.
 
 ## After it
