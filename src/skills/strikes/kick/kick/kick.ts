@@ -3,7 +3,7 @@ import { supportHeight } from "../../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
 import type { Body, BodyView } from "../../../../control/body.ts";
 import type { MusclePush } from "../../../../control/motor.ts";
-import { footStatesOf, withinSupport } from "../../../../control/support.ts";
+import { footStatesOf, readSupport, withinSupport } from "../../../../control/support.ts";
 import { intoFrameToRef, reachWork, solveReach } from "../../../../control/kinematics.ts";
 import { bodyEffectors, copyFreedoms } from "../../../../control/effectors.ts";
 import { channelName } from "../../../../core/bodies/muscle/driver.ts";
@@ -105,7 +105,7 @@ function scheduleOf(tuning: KickTuning, kick: Side): TimedPush[] {
  */
 export function kickExecutor(body: Body, actions: readonly string[], tuning: KickTuning, resolve: TargetResolver): Executor {
   if (!validKickTuning(tuning)) throw new Error("invalid kick executor settings");
-  const feet = footStatesOf(body.built), support = supportReadiness(body.built);
+  const feet = footStatesOf(body.built), support = supportReadiness(body.built), middle = new Vector3();
   const nameOf = (side: Side): BearingEnd => feet.find((foot) => foot.side === side)!.name;
   const schedules = { left: scheduleOf(tuning, "left"), right: scheduleOf(tuning, "right") };
   const footprints = { left: Object.freeze([segmentResource("foot.left"), LEG_RESOURCE, TRUNK_RESOURCE]), right: Object.freeze([segmentResource("foot.right"), LEG_RESOURCE, TRUNK_RESOURCE]) };
@@ -206,7 +206,8 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
     update(view, continued, _around, dt) {
       const live = state.live;
       if (!live) return [];
-      support.read(view.stance.centre, view.stance.velocity, dt);
+      // The feet read where they stand now: the standing sole's outline the centre is held over moves as the body does.
+      support.read(view.stance.centre, view.stance.velocity, dt); readSupport(feet, feet, middle);
       if (view.down) return [finish({ kind: "interrupted", reason: "body is down" })];
       const request = continued.find((one) => one.id === live.request.id);
       if (!request) live.withdrawn = true;
