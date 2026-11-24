@@ -132,6 +132,8 @@ export const createTableCells = perContext((context: GameContext) => {
       value: `${BLOW}; the fist's speed over its last 0.1 m beside it` },
     { name: "stomp", has: struck("stomp"), readings: (body, loadout) => [strikeRung("stomping", "foot", "stomp", body, loadout)],
       value: `${BLOW}; the foot's speed into the contact beside it` },
+    { name: "kick", has: struck("kick"), readings: (body, loadout) => [strikeRung("middle", "foot", "kick", body, loadout)],
+      value: `${BLOW}; the foot's speed over its last 0.1 m beside it` },
     { name: "bonk", has: struck("bonk"),
       readings: (body, loadout) => ["bonk", "walk"].map((rung) => strikeRung(rung, "energy", "bonk", body, loadout)),
       value: `${BLOW}; the blow's energy on the head beside it` },
