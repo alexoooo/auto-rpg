@@ -49,9 +49,27 @@ in the simplest and most general form the stance can hold.
 
 ## After it
 
-The order, the owner's, 2026-11-24: then modelling the foe, then the game's Mind's knockouts
-within 60 s (80.1 % against the bar's 90 %) if they are still short. Numbers and the testbed's rest
-stay parked. Each gets its own plan when begun.
+The order, the owner's, 2026-11-24: modelling the foe, then striking a foe who is down, then the
+game's Mind's knockouts within 60 s (80.1 % against the bar's 90 %) if they are still short.
+Numbers and the testbed's rest stay parked. Each gets its own plan when begun.
+
+### Striking a foe who is down
+
+The owner, 2026-11-24, on a fight with the kick: "i do like that the rate of falls increases,
+because it sets us up to work on the ability to hit an opponent that's not upright (the current
+stomp doesn't really work but we needed more falls to be able to work on that, and i think the new
+kick does get us there)". On its place: "i think we can do that after the modelling. the modelling
+will make thinking cheaper which will speed up the rest of the work that follows."
+
+### The knockouts within 60 s, by the skills
+
+The owner, 2026-11-24: "for the pace bar, i think we might need to iterate on the stand-up skills
+and maybe other skills to get there, because right now they are spending most of their time
+tangled on the ground. in other words, i think it will take more than just hyperparameter tuning,
+it wmight require significant skill iteration (which is fine)." So the bar is reached by iterating
+the skills, the way up first, not by tuning the Mind's settings. The readings so far agree: of the
+536 falls without a blow above, 183 came during a way up, and the way-up cells replayed for the man
+read worse on shoved falls (the skill recipe's way-up section).
 
 ### Modelling the foe
 
