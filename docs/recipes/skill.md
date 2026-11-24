@@ -259,9 +259,10 @@ input.
 - **The kick, a strike on one foot**: the front push kick at the middle, the owner's choice as the
   kick likeliest to fell (2026-11-23: "dynamic and strong, not like today's slow and awkward
   stomp"); on sparring-feet it fells the foe after 26 % of its starts. The weight shifted onto
-  the standing foot, the leg driven on a searched schedule with an aim through the mark, the foot
-  set down by the stance's own step and the body recentred by its own standing
-  (`src/skills/strikes/kick/`). The game's Mind with it beat
+  the standing foot, the leg folded up to the mark's height and driven out level at it (the push
+  kick, `kick/push`) or on a searched schedule (`kick/kick`), the foot set down by the stance's own
+  step and the body recentred by its own standing (`src/skills/strikes/kick/`). The figures that
+  follow, to the findings, are the schedule's kick. The game's Mind with it beat
   the same Mind without it in 0.590 of 288 warrior-drawn bouts (`7b2e9dc9f`). Its table cell, on
   the Strike drill's `middle` rung: 0.776 hp a second empty-handed against the punch's 1.563, 2 of
   32 on the mark at 15 m/s, 4 fallen (`776e9c06e`). Dynamic, the owner's first bar: on that rung
@@ -291,6 +292,23 @@ input.
   - *A man's kick profile changes every Mind that prices a man*, since a foe is modelled by every
     strike measured on its body (`foeModel`); measured, they made the Mind with the kick win less
     (0.543), so they are kept out of the asset (`020532cf9`). *Shown.*
+  - *The table's value pays a foot that meets the thighs*, so a search on it finds a leg that sweeps
+    up. The owner, looking at it in the Arena: "the leg sweeps up mostly (not really straight
+    toward the opponent)". In the Warrior's own bouts the foot rose above his own head in 42 % of
+    kicks and came no nearer the foe's middle than 0.55 m (`research/runs/kick-look/`). The aimed
+    drive made a push kick, chambered until the foot is up and then driven out level
+    (`466c57285`), and searched on the table's value, still landed on the mark in none of 32
+    trials. Searched with only blows on the mark counting (`--on-mark`, `effcac59c`), it lands
+    in 11 of 32 at 120 and at 480 Hz against the old kick's 2 and 0; it falls more (10 and 15
+    against 4 and 6), and its foot goes over the kicker's head in 13 % of kicks. The Warrior holds it
+    (`kick/push`); the old kick is the variation `kick/kick` (`ecf5182ef`). The owner, looking at
+    it: "the kick looks better now". Its table cells read worse in every loadout, 0.19 to 0.30 hp a
+    second against 0.40 to 0.78, landing on the mark in 7 to 13 of 32 where the old kick landed in
+    2: the old kick's value was traded off the mark. *Shown.*
+  - *The kicker's own loss is the foe's trades, not its own kick*: over 93 kicks the kicker lost
+    38.8 HP to the foe's 91.0, most of it the foe's foot on its trunk while both kicked; its own
+    foot meeting a body costs it almost nothing, as the fist's (`research/runs/kick-look/`).
+    *Shown.*
 
 ### 4. A learned actor over it
 
