@@ -18,7 +18,7 @@ const forks = [];
 for (const gap of GAPS) {
   const { duel, world, dispose } = await buildBout(forkBout(MODEL, gap));
   try {
-  const righting = rightingOf(duel.duelists.left.minded.state);
+  const righting = rightingOf(duel.duelists.left.minded);
   let was = righting.phase;
   while (duel.clock < 40 && !duel.verdict) {
     world.step();
