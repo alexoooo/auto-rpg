@@ -17,7 +17,8 @@ in the simplest and most general form the stance can hold.
 
 ## What is known before it starts
 
-- **The idle footing does not cost balance in a fight.** In the game's Mind's 144 warrior-drawn
+- **The idle footing does not cost balance in a fight.** In the Option Mind's (`option`, not
+  the Warrior's own `option-truer`; to be read again on his) 144 warrior-drawn
   bouts (394 side-minutes) it placed the feet 20 times, once in about 20 minutes standing, and
   no fall of 768 began within 2 s of a placement (`research/runs/capture/idle-falls.mjs`, a
   worktree with `idleGoal` hooked).

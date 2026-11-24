@@ -250,19 +250,19 @@
     }
   },
   "option-fitted": {
-    "note": "scored 0.665 against Classic over 576 bouts; 50.0% knockouts within 60 s (that Mind 91.2%)"
+    "note": "scored 0.665 against Rushes in over 576 bouts; 50.0% knockouts within 60 s (that Mind 91.2%)"
   },
   "option-fitted-horizon": {
-    "note": "scored 0.653 against Classic over 576 bouts; 62.0% knockouts within 60 s (that Mind 91.2%)"
+    "note": "scored 0.653 against Rushes in over 576 bouts; 62.0% knockouts within 60 s (that Mind 91.2%)"
   },
   "option-mean": {
-    "note": "scored 0.596 against Classic over 576 bouts; 69.4% knockouts within 60 s (that Mind 91.2%)"
+    "note": "scored 0.596 against Rushes in over 576 bouts; 69.4% knockouts within 60 s (that Mind 91.2%)"
   },
   "option-warm": {
-    "note": "scored 0.582 against Classic over 576 bouts; 74.1% knockouts within 60 s (that Mind 91.2%)"
+    "note": "scored 0.582 against Rushes in over 576 bouts; 74.1% knockouts within 60 s (that Mind 91.2%)"
   },
   "option": {
-    "note": "scored 0.646 against Classic over 576 bouts; 81.0% knockouts within 60 s (that Mind 91.2%)"
+    "note": "scored 0.646 against Rushes in over 576 bouts; 81.0% knockouts within 60 s (that Mind 91.2%)"
   },
   "option-tail": {
     "note": "the game's Mind before the fitted mean; 91.2% knockouts within 60 s"
