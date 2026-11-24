@@ -469,7 +469,14 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   median) and allocates the same; in its own bouts it allocates about twice as much a step, from
   the states it plays into. Untried: a second round fitted from a Mind level with the game's.
   The Mind above stays pickable (`option-reply`); the leaf was removed in the settings' tidy-up
-  (2026-11-22). The rows are kept in
+  (2026-11-22). Its extra downs, read over 40 mirrors each (`research/runs/movement-fault/falls/`):
+  it falls 1.22 a bout against 0.97 (16 against 15 with a blow in the 1.5 s before, 23 against
+  16 with none; those are not read to a cause). Over all blows taken standing the two fall
+  alike, 36 of 512 against 34 of 523, but a blow mid back step fells it more: 10 of 84 down
+  within 2 s against 2 of 51, the stance's catch stepping a second or more as the body runs back
+  to 2.3 m/s. The blow's size does not tell (7 % of the smallest, 10 % of the largest); the speed
+  it leaves does (0.50 m/s against 0.26 for those that stood). It is the stance's limit under a
+  push (Travel, above), met more often: this Mind is struck mid back step 122 times against 69. The rows are kept in
   `research/runs/foe-placement/` and `research/runs/fitted-value/corrected/`. *Shown.*
 - **Two sides deciding a fifth of a period apart lean a mirror to one**: over 7,425 saved match
   bouts the right side won 0.542 (z 7.2), and the same Mind on both sides 0.541. The chooser's
