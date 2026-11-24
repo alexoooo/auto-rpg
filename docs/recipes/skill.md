@@ -256,6 +256,36 @@ input.
   installed punch in the same 48 bouts: 202 landed to 7, a median 1.05 hp. The landed count is as
   much the Mind's as the stroke's: the same networks landed half as often before the Mind valued
   the life it takes over the life it loses (`aee4b6342`). *Shown.*
+- **The kick, a strike on one foot**: the front push kick at the middle, the owner's choice as the
+  kick likeliest to fell (2026-11-23: "dynamic and strong, not like today's slow and awkward
+  stomp"); on sparring-feet it fells the foe after 26 % of its starts. The weight shifted onto
+  the standing foot, the leg driven on a searched schedule with an aim through the mark, the foot
+  set down by the stance's own step and the body recentred by its own standing
+  (`src/skills/strikes/kick/`). The game's Mind with it beat
+  the same Mind without it in 0.590 of 288 warrior-drawn bouts (`7b2e9dc9f`). Its table cell, on
+  the Strike drill's `middle` rung: 0.776 hp a second empty-handed against the punch's 1.563, 2 of
+  32 on the mark at 15 m/s, 4 fallen (`776e9c06e`). What it found:
+  - *A skill on one foot reads its feet every step.* The kick read its soles' outline once, when it
+    was made; after any walk its centre was never over the stale sole, so every kick the Mind walked
+    in for stalled at its transfer's deadline. Read every step, and searched again, the Mind with
+    the kick went from winning 0.024 of its bouts against the Mind without it to 0.590
+    (`0b6886eac`, `5b6b53f2f`). *Shown.*
+  - *A strike that holds the legs gives them back to the stance when it is knocked.* A blow during
+    the weight shift carried the centre off both feet while the kick held them planted; 103 of 217
+    sparring falls began there. Released to the stance's own standing, which steps, none did
+    (`6a339ee8f`). *Shown.*
+  - *A schedule's channels are not aimed*, so a schedule that drives the hip and knee early decides
+    where the foot goes: the kick meets the target's thighs from below (0.65 to 0.9 m against the
+    mark's 1.19 m) before its aimed chamber has begun. With those pushes held at none the aim owns
+    the leg and lands on the mark more often (14 of 32 at 480 Hz), but falls in half its trials,
+    in the set-down (`89f39640b`). *Shown.*
+  - *Its set-down falls are the stance's catch failing*: the drive turns the pelvis about 40°, and
+    as the leg comes back the standing foot leaves the ground and the body runs backward. A
+    set-down timed by its way, one left to the stance's catch, and a re-chamber before it each
+    fell as often or more (`6a339ee8f`, `89f39640b`). *Shown.*
+  - *A man's kick profile changes every Mind that prices a man*, since a foe is modelled by every
+    strike measured on its body (`foeModel`); measured, they made the Mind with the kick win less
+    (0.543), so they are kept out of the asset (`020532cf9`). *Shown.*
 
 ### 4. A learned actor over it
 
