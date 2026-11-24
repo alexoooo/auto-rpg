@@ -51,6 +51,14 @@ steps and walks to about 1.7 m/s straight (`af46f126`, `62c7a814`).
   not foreseen by a second. Given 1 m/s by no muscle of its own the body is caught at once and
   stands half a metre off in half a second; given 1.5 m/s it falls in 4 trials of 21
   (`fd8ec9d56`). *Shown.*
+- **A walk braked for the edge of its reach stops outside it and steps again**: navigation asked
+  the speed rule to stop at the place's distance less its reach. The braced walk stops about 5 cm
+  out, and each braced step swings the centre 0.1 to 0.24 m across first, so a 0.3 m braced walk
+  never came within 5 cm in 3 s. Braked for the place (`30fc95f23`) it arrives at 1.76 s; the run
+  0.15 s sooner; staggered alike. The game's Mind braking so read 0.439 (0.392 to 0.490) against
+  itself braking for the edge on draws 3 to 8 and 0.507 (0.451 to 0.563) on 9 to 14. A back step
+  falls within 1.5 s about as often under either (5 of 51 against 4 of 53 over 6 mirrors). What
+  else leant on the old braking is not known. *Shown.*
 - **A gait is in the game only when the game chooses it**: an installed run went unchosen until the
   Braced walk's price and the lowering wrapper were fixed (`b61f11d6`). The Dungeon's and the
   Lab's gait choice shows it. *Shown.*
