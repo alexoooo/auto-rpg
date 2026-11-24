@@ -64,8 +64,9 @@ in the simplest and most general form the stance can hold.
    still and stepped only when off by a quarter sole or 0.2 rad; a carriage with a width sets its
    footing about the centre as soon as the body is still and holds it (`footingOf`, `state.stood`);
    `settleStep` puts a walk's last foot the built width across from the other at once. *Tried*:
-   the idle footing's rule for every carriage (`.tmp`-tried, not kept) moved only the bouts where
-   a Mind takes the back step, the falls held (2.10 a minute against 2.03), but the back step's
+   the idle footing's rule for every carriage (not kept:
+   `research/runs/capture/locomotion-rule-tried.ts`) moved only the bouts where a Mind takes the
+   back step, the falls held (2.10 a minute against 2.03), but the back step's
    evaluation fell in 6 of 24 trials against 1. The carriage's footing needs the centre mid-stagger
    at once: anchored about the centre and taken without waiting it fell in 3 of 24 and was hit
    more (27 of 100 against 14 of 81), each fix one more field saying which old rule a carriage
