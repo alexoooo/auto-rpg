@@ -9,6 +9,7 @@ import { validPressures } from "./pressure.ts";
 import { measuredOthers, RATE_OTHERS } from "./percepts.ts";
 import { nearestTrials, ownSteps, writtenForms, type OutcomeModel, type Tables } from "../../skills/framework/outcomes.ts";
 import { optionalChoice } from "../../parts/fields.ts";
+import { WALK_STARTS, type WalkStart } from "./walk.ts";
 
 /**
  * An experiment may supply the ground profiles measured for the skill settings it runs. Its foe's
@@ -16,11 +17,14 @@ import { optionalChoice } from "../../parts/fields.ts";
  * its strikes' rate where they measured none near; or that rate alone (`rate`). Its Options ask
  * what an act brings of a form fitted to its trials (`written`, the default, `writtenForms`), of
  * its trials nearest the start (`nearest`, `nearestTrials`). Its foe stands where it is as an
- * Option runs. Its walks are priced as starting at the body's speed, or, `along`, at its speed
- * along the walk's way (`WalkStart`). A sway leaves the body where its trials ended (`range`, the
+ * Option runs. Its walks are priced as starting at the body's speed, or as another walk start
+ * says (`WALK_STARTS`). A sway leaves the body where its trials ended (`range`, the
  * default) or by its own steps (`own`, `SWAYS`).
  */
-interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly Profile[]; readonly pressure?: "rate" | "measured"; readonly outcomes?: "nearest" | "written"; readonly walkStart?: "along"; readonly sways?: "own" }
+interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly Profile[]; readonly pressure?: "rate" | "measured"; readonly outcomes?: "nearest" | "written"; readonly walkStart?: Exclude<WalkStart, "speed">; readonly sways?: "own" }
+
+/** The walk starts a config names (`MeasuredConfig.walkStart`), each with its label: all but the body's speed, the default. */
+const STARTED = Object.entries(WALK_STARTS).filter(([start]) => start !== "speed").map(([start, rule]) => [start as Exclude<WalkStart, "speed">, rule.label] as const);
 
 /** **Where a sway leaves the body** (`MeasuredConfig.sways`): what each makes of an outcome model. */
 const SWAYS: Readonly<Record<"range" | NonNullable<MeasuredConfig["sways"]>, (model: OutcomeModel) => OutcomeModel>> = {
@@ -30,12 +34,12 @@ const SWAYS: Readonly<Record<"range" | NonNullable<MeasuredConfig["sways"]>, (mo
 /** **Measured**: supplied ground profiles where given, otherwise the drills' (`dataOf`); each model its own where fresh, else its prior. */
 export const MEASURED_PREDICTIONS = deepFreeze<PredictionsPart<MeasuredConfig>>({
   role: "predictions", model: PROFILE_MODEL, label: "Measured", slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true, pressure: true, outcomes: true, walkStart: true, sways: true }, tuning: ["edges"],
-  fields: [optionalChoice<MeasuredConfig, "walkStart">("walkStart", "A walk starts at", "Its speed", () => [["along", "Its speed along its way"]]),
+  fields: [optionalChoice<MeasuredConfig, "walkStart">("walkStart", "A walk starts at", WALK_STARTS.speed.label, () => STARTED),
     optionalChoice<MeasuredConfig, "sways">("sways", "A sway leaves the body", "Where its trials ended", () => [["own", "By its own steps"]])],
   fits: anyBody, faults: config => [...config.edges === undefined || validProfiles(config.edges) ? [] : ["edges: invalid profiles"],
     ...config.pressure === undefined || config.pressure === "rate" || config.pressure === "measured" ? [] : ["pressure: rate or measured"],
     ...config.outcomes === undefined || Object.hasOwn(OUTCOMES, config.outcomes) ? [] : ["outcomes: nearest or written"],
-    ...config.walkStart === undefined || config.walkStart === "along" ? [] : ["walkStart: along or none"],
+    ...config.walkStart === undefined || STARTED.some(([start]) => start === config.walkStart) ? [] : [`walkStart: ${STARTED.map(([start]) => start).join(", ")} or none`],
     ...config.sways === undefined || config.sways === "own" ? [] : ["sways: own or none"]],
   reads: config => [...config.edges === undefined ? ["strike-profiles", "edge-profiles", "step-profiles"] as const : ["strike-profiles", "step-profiles"] as const, ...config.pressure !== "rate" ? ["pressure-profiles"] as const : []],
   make: config => {

@@ -21,11 +21,41 @@ function ceiling(now: Situation): number {
   return Math.min(orders?.pace ?? Infinity, orders?.walk && envelope ? envelope.ways.forward.value : Infinity);
 }
 
+/** Where a walk's way is timed from, at what speed, and the seconds it takes before that (`WalkStartRule`). */
+interface WalkFrom { readonly from: GroundPoint; readonly on: number; readonly before: number }
+
 /**
- * **What speed a walk is priced as starting at** (`Walker.seconds`): the body's (`speed`), whichever
- * way it goes; or its speed along the walk's first leg (`along`), none where it goes across or away.
+ * **A rule for how a walk starts**, as `Walker.seconds` prices it: of the body at `where` going at
+ * `velocity`, about to walk `way` (some point of which is off `where`) by a gait that goes on at its
+ * speed for `lag` s once asked to change it (`Locomotion.lag`), where its way is timed from and at what
+ * speed (`legSeconds`), and the seconds before that.
  */
-export type WalkStart = "speed" | "along";
+interface WalkStartRule {
+  readonly label: string;
+  readonly start: (where: GroundPoint, way: readonly GroundPoint[], velocity: { readonly x: number; readonly z: number }, lag: number) => WalkFrom;
+}
+
+/**
+ * **How a walk is priced as starting** (`Walker.seconds`): at the body's speed, whichever way it goes
+ * (`speed`); at its speed along the walk's first leg, none where it goes across or away (`along`);
+ * or at that speed, a body going away first going on away for its gait's lag, back along the first
+ * leg, as a gait's step under way lands where it was planned (`signed`).
+ */
+export const WALK_STARTS = {
+  speed: { label: "Its speed", start: (where, _way, velocity) => ({ from: where, on: hypot(velocity.x, velocity.z), before: 0 }) },
+  along: { label: "Its speed along its way", start: (where, way, velocity) => ({ from: where, on: Math.max(0, alongFirst(where, way, velocity)), before: 0 }) },
+  signed: {
+    label: "Its speed along its way, going on away",
+    start: (where, way, velocity, lag) => {
+      const on = alongFirst(where, way, velocity);
+      if (on >= 0 || lag === 0) return { from: where, on: Math.max(0, on), before: 0 };
+      const first = way.find((point) => point.x !== where.x || point.z !== where.z)!, length = hypot(first.x - where.x, first.z - where.z), back = -on * lag;
+      return { from: { x: where.x - (first.x - where.x) / length * back, z: where.z - (first.z - where.z) / length * back }, on: 0, before: lag };
+    },
+  },
+} as const satisfies Readonly<Record<string, WalkStartRule>>;
+
+export type WalkStart = keyof typeof WALK_STARTS;
 
 /**
  * **How a standing option walks** a body of `spec`: what its gaits hold, under its orders' pace;
@@ -71,7 +101,10 @@ export function walker(_spec: BodySpec, start: WalkStart) {
       let at: GroundPoint = where;
       return way.map((point) => { const length = hypot(point.x - at.x, point.z - at.z); at = point; return length > 0 ? length / most : 0; });
     }
-    return legSeconds(limits, { from: { x: where.x, z: where.z }, way, frame: frameOf(face), on: start === "along" ? alongFirst(where, way, v) : hypot(v.x, v.z), ceiling: most });
+    const { from, on, before } = WALK_STARTS[start].start({ x: where.x, z: where.z }, way, v, limits.lag);
+    const legs = legSeconds(limits, { from, way, frame: frameOf(face), on, ceiling: most });
+    if (before > 0) legs[0]! += before;
+    return legs;
   };
   return {
     pace,
@@ -139,11 +172,11 @@ export function walker(_spec: BodySpec, start: WalkStart) {
 
 export type Walker = ReturnType<typeof walker>;
 
-/** The part of `velocity` along the first leg of `way` from `from` that has a length, m/s; none where it goes across or away, or no leg has a length. */
+/** The part of `velocity` along the first leg of `way` from `from` that has a length, m/s, below 0 going away; none where no leg has a length. */
 function alongFirst(from: GroundPoint, way: readonly GroundPoint[], velocity: { readonly x: number; readonly z: number }): number {
   for (const point of way) {
     const x = point.x - from.x, z = point.z - from.z, length = hypot(x, z);
-    if (length > 0) return Math.max(0, (velocity.x * x + velocity.z * z) / length);
+    if (length > 0) return (velocity.x * x + velocity.z * z) / length;
   }
   return 0;
 }
