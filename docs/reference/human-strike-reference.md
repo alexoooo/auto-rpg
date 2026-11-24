@@ -98,6 +98,19 @@ hilt's accelerometer. The table gives the mean, the 95th percentile and the maxi
   contact (`Bar.foot`, `src/evaluation/strike/read.ts`). Schirmer's force is not read: the rules
   price a contact's energy, not a plate's peak.
 
+## 3c. Front kick
+
+| Quantity | Novice | Sub-elite | Elite | Source |
+|---|---|---|---|---|
+| Front kick at a solid target, middle distance and height, the foot's maximum speed | 7.7 ± 1.2 m/s (1 result, 16 men) | 8.56 ± 1.08 m/s (11, 127) | 9.61 ± 1.05 m/s (10, 103) | Vagner, Cleather, Olah, Vacek & Stastny 2023, Sports 11(8):141, https://doi.org/10.3390/sports11080141, Table 1 (a review: its studies' means and SDs weighted by participants, men; in brackets the results and participants pooled) |
+| The same kick into the air, the foot's maximum speed | -- | 10.74 ± 1.01 m/s (2, 22) | 12.25 ± 0.18 m/s (1, 1) | the same |
+| Front kick at a target, its total execution time | -- | 1.140 ± 0.221 s (1, 12) | 1.076 ± 0.099 s (3, 29) | the same; into the air, elite, 0.950 s (1, 1) |
+
+- **A scale, not a bar**: the kick's time is read from the action's start, the order, to contact
+  on the mark; the review's from the kick's start to the target, as each study defined it. No
+  bar reads them: the kick is valued as every blow is, its foot's speed over its last 0.1 m
+  reported beside it (`src/evaluation/table/cells.ts`).
+
 ## 8. The human models
 
 Measurements of this repository's assets for the core's human spec (`src/core/bodies/human/`).

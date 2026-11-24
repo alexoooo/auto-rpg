@@ -264,7 +264,12 @@ input.
   (`src/skills/strikes/kick/`). The game's Mind with it beat
   the same Mind without it in 0.590 of 288 warrior-drawn bouts (`7b2e9dc9f`). Its table cell, on
   the Strike drill's `middle` rung: 0.776 hp a second empty-handed against the punch's 1.563, 2 of
-  32 on the mark at 15 m/s, 4 fallen (`776e9c06e`). What it found:
+  32 on the mark at 15 m/s, 4 fallen (`776e9c06e`). Dynamic, the owner's first bar: on that rung
+  the record lands 1.03 s from the order at a median 9.1 m/s (`5b6b53f2f`), against the punch's
+  0.22 s, the stomp's 2.60 s at a body lying, and a person's front kick at a target, 1.08 to
+  1.14 s and 8.6 to 9.6 m/s for trained men (sub-elite and elite)
+  ([the reference](../reference/human-strike-reference.md#3c-front-kick)): a person's pace,
+  though it lands on the mark in few trials. What it found:
   - *A skill on one foot reads its feet every step.* The kick read its soles' outline once, when it
     was made; after any walk its centre was never over the stale sole, so every kick the Mind walked
     in for stalled at its transfer's deadline. Read every step, and searched again, the Mind with
