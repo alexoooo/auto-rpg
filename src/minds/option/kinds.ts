@@ -272,6 +272,12 @@ export const SWORD_THRUST_OPTION = strikeKind("sword-thrust", "Sword thrust", { 
  */
 export const STOMP_OPTION = strikeKind("stomp", "Stomp", { limbs: "either-foot", regions: MIDDLE, aim: CENTRE });
 
+/**
+ * **The kick** (`kick`, `assets/skills/strikes/kick/kick.json`): with either foot at the trunk's
+ * middle, aimed at its centre: a drive ahead at a body standing.
+ */
+export const KICK_OPTION = strikeKind("kick", "Kick", { limbs: "either-foot", regions: MIDDLE, aim: CENTRE });
+
 /** **The bite** (`bite`), with the jaw, at any part of a foe, aimed at the first surface its teeth meet as the jaw closes (`first-exposed`). */
 export const BITE_OPTION = strikeKind("bite", "Bite", { limbs: "jaw", regions: [{ kind: "mark", mark: "any" }], aim: { kind: "first-exposed" } });
 
@@ -355,6 +361,7 @@ declare module "./parts.ts" {
     readonly "strike-bonk": StrikeConfig<"bonk">;
     readonly "strike-sword-thrust": StrikeConfig<"sword-thrust">;
     readonly "strike-stomp": StrikeConfig<"stomp">;
+    readonly "strike-kick": StrikeConfig<"kick">;
     readonly "strike-bite": StrikeConfig<"bite">;
     readonly walk: WalkConfig;
     readonly "hold-at-place": PlaceConfig;
