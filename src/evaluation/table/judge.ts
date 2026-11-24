@@ -184,13 +184,13 @@ function figuresOf(reading: Judged, trials: readonly Trial[]): string {
 
 /**
  * What a hit gives the figure `figure` reads (`HitFigure`): a limb's speed over its last run in;
- * the contact's energy; its closing speed.
+ * the contact's energy; its closing speed, a point's or teeth's.
  */
 function figureOf(figure: HitFigure, hit: Hit): number {
   switch (figure) {
     case "fist": case "foot": return hit.speed ?? 0;
     case "energy": return hit.energy;
-    case "point": return hit.closing;
+    case "point": case "teeth": return hit.closing;
     default: { const never: never = figure; throw new Error(`no hit figure ${String(never)}`); }
   }
 }
@@ -202,6 +202,7 @@ export function personOf(figure: HitFigure): string {
     case "foot": return `${BAR.foot} m/s`;
     case "energy": return `${BAR.held.energy} J`;
     case "point": return `${BAR.held.point} m/s`;
+    case "teeth": return "none: a person does not bite";
     default: { const never: never = figure; throw new Error(`no hit figure ${String(never)}`); }
   }
 }

@@ -42,7 +42,7 @@ export function releasedScore(reading: StrikeReading): number {
 }
 
 /**
- * A trial's score, `hand` the hand it struck with, null a foot: a landed
+ * A trial's score, `hand` the hand it struck with, null a foot or another effector: a landed
  * blow 9, and a hand's above 9 by how far inside each of the bar's tests it is, each
  * margin a share of its limit's room up to the test's best, so a search moves off every test's
  * edge, the ones its blows scatter most across included; else up to 8 by how
@@ -50,7 +50,9 @@ export function releasedScore(reading: StrikeReading): number {
  * another's margin, the mass counted `heavier` times within those 8 (8 for another limb's on the mark),
  * less 0.5 where its action did not end; -1 nothing on the mark; -3 a fall. A foot's blow, which the
  * bar tests by its speed (`Bar.foot`, `StrikeHit.foot`), scores alike: landed, 9 and up to 1 more as
- * the speed goes from the bar to 1.5 times it; else up to 8 by its share of the bar. A held item's blow,
+ * the speed goes from the bar to 1.5 times it; else up to 8 by its share of the bar. Another
+ * effector's (a rat's bite), which no person's bar reads: landed, 9; else 8 where it met the mark
+ * with what it strikes with and 4 where not. A held item's blow,
  * which the bar tests by its energy, a point's by its closing speed, and its face (`Bar.held`,
  * `StrikeHit.held`, `StrikeHit.faced`), scores a landed action as 8 plus its share of the
  * bar, capped at 2; else up to 8, half by its share of the bar and half for meeting with its face. A bonk's scores
@@ -63,7 +65,8 @@ export function barScore(reading: StrikeReading, hand: Hand | null, heavier = 1)
   const hit = reading.hit;
   if (!hit) return reading.outcome === "elsewhere" || reading.outcome === "guarded" ? -0.5 : -1;
   if (hand === null) {
-    const share = hit.foot ? hit.foot.speed / hit.foot.bar : 0;
+    // A foot's share of its bar; another effector's, which no bar reads, whole where it met the mark with what it strikes with and half where not.
+    const share = hit.foot ? hit.foot.speed / hit.foot.bar : hit.faced === false ? .5 : 1;
     return reading.outcome === "landed" ? 9 + Math.min(1, Math.max(0, (share - 1) / .5)) : 8 * Math.min(1, share) - (reading.ended === null ? 0.5 : 0);
   }
   if (hit.overhead) return overheadScore(reading, hit.overhead, hit.bend!);

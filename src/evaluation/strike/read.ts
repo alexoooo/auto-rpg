@@ -17,7 +17,7 @@ import { effectorAim } from "../../control/effectors.ts";
 import { sensedPosture } from "../../skills/perception/threat.ts";
 import { ownStance, sensedStance } from "../../skills/perception/stance-numbers.ts";
 import { acos, asin, cos } from "../../core/math/real.ts";
-import { skillOf } from "../../skills/framework/menu.ts";
+import { covers, skillOf } from "../../skills/framework/menu.ts";
 import { faceOf } from "../../skills/strikes/shared/held-face.ts";
 import type { Mechanism } from "../../combat/rulebook.ts";
 import type { BuiltBout } from "../bout.ts";
@@ -83,14 +83,18 @@ function limbAbove(spec: BodySpec, segment: string, steps: number): string | und
 }
 export type Hand = Side;
 
-/** The limb a trial strikes with: a hand, read against the bar's fist or held blow, or a foot, read against its stomp (`Bar.foot`). */
-export type Limb = { readonly hand: Hand } | { readonly foot: Hand };
+/**
+ * The limb a trial strikes with: a hand, read against the bar's fist or held blow; a foot, read
+ * against its stomp (`Bar.foot`); or another of the body's effectors by its segment (a rat's
+ * `head`, whose jaw bites), which no bar of a person's reads.
+ */
+export type Limb = { readonly hand: Hand } | { readonly foot: Hand } | { readonly effector: string };
 
-/** The hand `limb` names; null for a foot. */
+/** The hand `limb` names; null for a foot or another effector. */
 export const handOf = (limb: Limb): Hand | null => "hand" in limb ? limb.hand : null;
 
-/** The effector's segment `limb` names: `hand.right`, `foot.left`. */
-export const effectorOf = (limb: Limb): string => "hand" in limb ? `hand.${limb.hand}` : `foot.${limb.foot}`;
+/** The effector's segment `limb` names: `hand.right`, `foot.left`, `head`. */
+export const effectorOf = (limb: Limb): string => "hand" in limb ? `hand.${limb.hand}` : "foot" in limb ? `foot.${limb.foot}` : limb.effector;
 
 /** What a blow is judged by (`BAR`, `barOf`). */
 type Bar = {
@@ -246,7 +250,8 @@ export type Overhead = {
 /**
  * How the asked limb's touch on the mark measured against the bar: a bare hand's against each of
  * its fist's tests; a hand's holding an item against `hard` alone; a foot's against `fast` alone,
- * by its stomp's speed (`Bar.foot`), its arm's form null.
+ * by its stomp's speed (`Bar.foot`), its arm's form null; another effector's (a rat's head) by none, only
+ * whether it met the mark with what its action strikes with (`faced`).
  */
 type StrikeHit = StrikeContact & {
   /** Its strike point's speed over its last `run` m, m/s; null where it travelled less. */
@@ -332,14 +337,15 @@ export type StrikeReading = {
   /** When the action began, committed, released and ended, s; null where it did not. */
   readonly began: number | null; readonly committed: number | null; readonly released: number | null; readonly ended: number | null;
   readonly ending: string | null;
-  /** A hand's first touch on the mark with the intended mechanism, or else its fastest; a foot's fastest; null where none. */
+  /** A hand's first touch on the mark with the intended mechanism, or else its fastest; a foot's fastest; another effector's as a hand's, its end's touch (the effector and what it carries, a rat's jaw); null where none. */
   readonly hit: StrikeHit | null;
   /** The bar the striker's blow was judged by (`barOf` its body). */
   readonly bar: Bar;
   /**
-   * The hit points each of the target's segments lost to the striking limb's touches (its effector
-   * and the two segments above it, as a target's arm is read) while its action ran, by the segment
-   * touched: a touch after, or by another limb, is what came next, not the strike's.
+   * The hit points each of the target's segments lost to the striking limb's touches (its effector,
+   * what it carries, and the segments up to its base, as a target's arm is read) and to its teeth's
+   * presses held (`load` blows) while its action ran, by the segment touched: a touch after, or by
+   * another limb, is what came next, not the strike's.
    */
   readonly dealt: Readonly<Record<string, number>>;
   /** The hit points the striker lost in its contacts with the target over the trial (from `handed`, as `dealt`), any part on any part. */
@@ -396,9 +402,10 @@ export function strikeTrade(r: Pick<StrikeReading, "began" | "ended" | "recovers
 }
 
 /**
- * **The hand back at its guard**, as the body reads it: its strike point within `within` m of where
- * it was, against the chest and turned with it, when its action began, and moving against the
- * chest at no more than `still` m/s.
+ * **The limb back at its guard**, as the body reads it: its strike point within `within` m of where
+ * it was when its action began, against the segment it is carried from (`EffectorSpec.base`: a
+ * hand's chest, a foot's lower trunk) and turned with it, and moving against that at no more than
+ * `still` m/s.
  */
 const BACK = Object.freeze({ within: .05, still: .3 });
 
@@ -465,16 +472,21 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   /** The skill its drill Commander asks. */
   const drilled = thrown.by === "fight" ? undefined : (duel.recipe.commanders?.left as { readonly skill?: string } | undefined)?.skill;
   const spec = striker.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3(), bar = barOf(spec);
-  /** The striking limb: its effector and the two segments above it, as a target's arm is read (`arms`). */
-  const striking = new Set([0, 1, 2].map((steps) => limbAbove(spec, effector, steps)).filter((name) => name !== undefined));
+  /** The segment the effector is carried from (`EffectorSpec.base`): a hand's upper trunk, a foot's lower trunk, a rat's head's trunk. */
+  const baseName = spec.effectors?.find((one) => one.segment === effector)?.base;
+  /** The striking end: the effector and what it carries (a rat's head, its jaw); what a hit is read from. */
+  const end = new Set([effector, ...spec.joints.filter((joint) => joint.parent === effector).map((joint) => joint.child)]);
+  /** The striking limb: its end and the segments above it up to its base, as a target's arm is read (`arms`): a hand to its upper arm, a foot to its thigh. */
+  const striking = new Set(end);
+  for (let at = limbAbove(spec, effector, 1); at !== undefined && at !== baseName; at = limbAbove(spec, at, 1)) striking.add(at);
   /** Whether the asked hand holds an item, its blow judged by the held item's bar (`Bar.held`) and its strike point the item's. */
   const armed = hand !== null && heldAt(spec, effector) !== undefined;
   /** What the action asked meets the target with (`ExecutorPart.meets`), read where it begins: blunt where its executor says none. */
   let meets: Mechanism = "blunt";
   /** The strike point: a hand's fist, or the face of what it holds its action meets with (`faceOf`), its item's aim where it has none such; a foot's own. */
   let aim = points.get(hand === null ? effectorAim(spec, effector) : aimOf(spec, hand))!.value;
-  const chest = striker.built.segments.get("upperTrunk");
-  if (!chest) throw new Error("the striker has no chest to read its limb against");
+  const base = baseName === undefined ? undefined : striker.built.segments.get(baseName);
+  if (!base) throw new Error(`the striker's ${effector} has no base to read it against`);
   /** A hand's arm, what a punch's form is read by: its shoulder, its elbow and the elbow's straight end; null for a foot. */
   const arm = hand === null ? null : (() => {
     const shoulderJoint = spec.joints.find((joint) => joint.child === limbAbove(spec, effector, 2)), upperArm = shoulderJoint && striker.built.segments.get(shoulderJoint.child);
@@ -495,13 +507,13 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   const foeSegments = new Map([...struck.built.segments].map(([name, one]) => [one.body.id, name]));
   let touch: { readonly time: number; readonly swell: boolean; readonly on: string } | null = null;
   const angles: number[] = [];
-  const shoulder = new Vector3(), turn = new Quaternion(), up = new Vector3(), chestAt = new Vector3(), ORIGIN = [0, 0, 0] as const;
-  /** The strike point against the chest, turned with it, where its action began; and as the last step left it. */
+  const shoulder = new Vector3(), turn = new Quaternion(), up = new Vector3(), baseAt = new Vector3(), ORIGIN = [0, 0, 0] as const;
+  /** The strike point against its base, turned with it, where its action began; and as the last step left it. */
   const rest = new Vector3(), held = new Vector3(), was = new Vector3();
-  /** The strike point against the chest, in the chest's turn, into `out`. */
-  const againstChest = (out: Vector3): Vector3 => {
-    pointOfToRef(limb, aim, point); pointOfToRef(chest, ORIGIN, chestAt); turnOfToRef(chest, turn);
-    return point.subtractToRef(chestAt, out).applyRotationQuaternionToRef(Quaternion.InverseToRef(turn, turn), out);
+  /** The strike point against its base, in the base's turn, into `out`. */
+  const againstBase = (out: Vector3): Vector3 => {
+    pointOfToRef(limb, aim, point); pointOfToRef(base, ORIGIN, baseAt); turnOfToRef(base, turn);
+    return point.subtractToRef(baseAt, out).applyRotationQuaternionToRef(Quaternion.InverseToRef(turn, turn), out);
   };
   /** The strike point's path, world, a step at a time: time, the strike point's x, y, z, and a hand's shoulder's x, y, z (0 for a foot), its elbow's bend and the chest's lean, rad (0 for a foot). */
   const path: number[] = [];
@@ -535,7 +547,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   /** Where the striker stands now in the window of the drill's choice (`placeInWindow`), as its menu reads it; null where it names none. */
   const placed = (): StrikeReading["inWindow"] => {
     if (!view) return null;
-    const entry = skills.actions.menu().find((one) => one.limb === effector && one.foe === struck.id && one.region?.kind === "mark" && one.region.mark === mark
+    const entry = skills.actions.menu().find((one) => one.limb === effector && one.foe === struck.id && covers(one.region, { kind: "mark", mark })
       && (drilled === undefined || one.skill === drilled));
     const ready = entry?.readiness;
     return (ready?.kind === "ready" || ready?.kind === "position") && ready.window
@@ -638,7 +650,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
         const face = armed && hand !== null ? faceOf(spec, hand, meets) : null;
         if (face) aim = points.get(face.point)!.value;
         bonked = armed && mark === "high" && meets === "blunt" && swells.size > 0 && headOf !== undefined && crown !== undefined && shaftEnds.every((one) => one !== undefined);
-        againstChest(rest);
+        againstBase(rest);
       }
       if (action && action.id === id) {
         if (action.phase === "commit" && times.committed === null) times.committed = world.time;
@@ -652,10 +664,10 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
         const dx = tip.x - aimed[0], dy = tip.y - aimed[1], dz = tip.z - aimed[2], apart = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (nearest === null || apart < nearest) nearest = apart;
       }
-      if (drill.phase === "let go" && letAt === null && watching === null) { letAt = world.time; againstChest(was); }
-      else if (letAt === null && watching === null && times.ended !== null) { watching = times.ended; againstChest(was); }
+      if (drill.phase === "let go" && letAt === null && watching === null) { letAt = world.time; againstBase(was); }
+      else if (letAt === null && watching === null && times.ended !== null) { watching = times.ended; againstBase(was); }
       else if ((letAt ?? watching) !== null && again === null) {
-        againstChest(held);
+        againstBase(held);
         const moved = Vector3.Distance(held, was) / world.dt;
         if (Vector3.Distance(held, rest) <= BACK.within && moved <= BACK.still) { again = world.time; if (letAt === null) { const there = sensed().at; exit = { range: range(), ...(there ? { apart: there.apart } : {}) }; } }
         was.copyFrom(held);
@@ -669,7 +681,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
         pointOfToRef(limb, aim, point);
         if (arm) {
           pointOfToRef(arm.upperArm, arm.shoulderJoint.centre.value, shoulder);
-          up.set(0, 1, 0).applyRotationQuaternionToRef(turnOfToRef(chest, turn), up);
+          up.set(0, 1, 0).applyRotationQuaternionToRef(turnOfToRef(base, turn), up);
           path.push(world.time, point.x, point.y, point.z, shoulder.x, shoulder.y, shoulder.z,
             jointAngles(arm.elbow, angles)[0]! - arm.straight, acos(Math.max(-1, Math.min(1, up.y))));
         } else {
@@ -716,10 +728,15 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
           mechanism: on.mechanism ?? "blunt" }, normal }];
       });
       const live = (time: number) => times.began !== null && time >= times.began && time <= (times.ended ?? world.time);
-      const byLimb = touches.filter(({ contact }) => contact.by === effector && live(contact.time));
+      const byLimb = touches.filter(({ contact }) => end.has(contact.by) && live(contact.time));
       const hits = byLimb.filter(({ contact }) => marked.has(contact.on)).map(({ contact, normal }): StrikeHit => {
         const travel = approach(contact.time), at = stepBefore(contact.time);
         const straight = travel && travel.direction[0] * normal[0] + travel.direction[1] * normal[1] + travel.direction[2] * normal[2];
+        if (!("hand" in limbAsked || "foot" in limbAsked)) {
+          // Another effector (a rat's head): no person's bar reads it; it meets the mark with what its action strikes with (its teeth's point), or not.
+          return { ...contact, speed: travel?.speed ?? null, straight, along: null, bend: null, lean: null, foot: null, held: null,
+            fast: null, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: null, faced: contact.mechanism === meets, overhead: null };
+        }
         if (hand === null) {
           const foot = { speed: travel?.speed ?? 0, bar: bar.foot };
           return { ...contact, speed: travel?.speed ?? null, straight, along: null, bend: null, lean: null, foot, held: null,
@@ -741,7 +758,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
           lined: along !== null && along >= alongCosine, extended: bent <= bend, upright: leaning <= lean, hard: null, faced: null, overhead: null };
       });
       const fastest = hits.reduce<StrikeHit | null>((best, one) => best === null || (one.speed ?? 0) > (best.speed ?? 0) ? one : best, null);
-      const hit = hand === null ? fastest : hits.find(hit => hit.faced !== false) ?? fastest;
+      const hit = "foot" in limbAsked ? fastest : hits.find(hit => hit.faced !== false) ?? fastest;
       const ledger = id === null ? undefined : skills.report.ledger.find((record) => record.id === id);
       const outcome: StrikeOutcome = handed === null ? "unreached" : lay === false ? "unlaid" : down ? "fell" : hit ? hit.faced !== false && times.ended !== null && (hit.overhead === null || hit.overhead.short.length === 0) ? "landed" : "weak"
         : byLimb.length ? byLimb.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
@@ -749,6 +766,12 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       const foe = foeBegan ?? atHand;
       const dealt: Record<string, number> = {};
       for (const { contact } of touches) if (striking.has(contact.by) && live(contact.time)) dealt[contact.on] = (dealt[contact.on] ?? 0) + contact.damage;
+      // A tooth's press held on the target (a `load`, `readLoads`) wounds as it holds, past the touch that began it.
+      for (const blow of duel.blows) {
+        if (blow.kind !== "load" || !live(blow.time)) continue;
+        const by = blow.sides.find((side) => side.fighter === striker.id), on = blow.sides.find((side) => side.fighter === struck.id);
+        if (by && on && on.item === null && striking.has(by.segment)) dealt[on.segment] = (dealt[on.segment] ?? 0) + on.damage;
+      }
       return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, inWindow: foe?.window ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, bar, dealt, taken,
         ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }),
         recovers: watching !== null && again !== null ? again - watching : null, nearest, exit, down, felled, seconds: world.time,

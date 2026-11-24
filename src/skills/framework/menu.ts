@@ -48,9 +48,17 @@ const SELF: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });
 export const sameRegion = (a: Region | null, b: Region | null): boolean => a !== null && b !== null
   && (a.kind === "mark" ? b.kind === "mark" && a.mark === b.mark : b.kind === "segment" && a.segment === b.segment);
 
-/** **Whether `kit` offers `skill` with `limb` at `region`**: whether its menu holds that choice at a foe (`menuOf`), read from the kit alone. */
+/**
+ * Whether a choice offered at `offered` takes an order at `asked`: the same region, or any region
+ * where it is offered at the mark `any` (a bite takes whatever its teeth meet, so an order at the
+ * legs is one it can carry out).
+ */
+export const covers = (offered: Region | null, asked: Region | null): boolean =>
+  offered !== null && asked !== null && (offered.kind === "mark" && offered.mark === "any" || sameRegion(offered, asked));
+
+/** **Whether `kit` offers `skill` with `limb` at `region`**: whether its menu holds a choice at a foe that takes that order (`covers`), read from the kit alone. */
 export const kitOffers = (kit: readonly KitEntry[], skill: string, limb: string, region: Region): boolean =>
-  kit.some((entry) => entry.kind === skill && entry.limbs.includes(limb) && entry.regions.some((one) => sameRegion(one, region)));
+  kit.some((entry) => entry.kind === skill && entry.limbs.includes(limb) && entry.regions.some((one) => covers(one, region)));
 
 /** The kit `actions` make with `executors`: each action with its executor's kind and variation, its limbs and its regions. */
 export function kitOf(executors: readonly Pick<ExecutorBinding, "name" | "kind" | "variation">[], actions: readonly ActionBinding[]): readonly KitEntry[] {

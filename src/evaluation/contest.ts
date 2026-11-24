@@ -65,9 +65,32 @@ export function readBout(built: BuiltBout): Reader<BoutReading> {
 /** The left's score for a bout won by `winner`: 1, a half for a draw, 0. */
 export const scoreOf = (winner: Side | null): number => winner === null ? 0.5 : winner === "left" ? 1 : 0;
 
-/** A contest's figures for a side: its score, its margin, and whether it won. */
+/** How soon a bout should end by a body's life, s: the pace a fight is read against. */
+export const KNOCKOUT_WITHIN = 60;
+
+/** The other side's bar at a bout's end: the right's for the left, the left's for the right. */
+const foeBar = (r: BoutReading, side: Side): number => r.bars[side === "left" ? 1 : 0];
+
+/**
+ * The other side's bar at `KNOCKOUT_WITHIN` s, or at the end where the bout ended sooner, from the
+ * bout's series (`SERIES_SECONDS` apart); null for a bout with none. The game's drain begins only
+ * then (`DRAIN_END`), so what it lost by then it lost to blows.
+ */
+function foeBarWithin(r: BoutReading, side: Side): number | null {
+  if (!r.series?.length) return null;
+  return r.series[Math.min(KNOCKOUT_WITHIN / SERIES_SECONDS, r.series.length) - 1]![side === "left" ? 1 : 0];
+}
+
+/**
+ * A contest's figures for a side: its score, its margin, whether it won, how much of the other
+ * side's life it took within `KNOCKOUT_WITHIN`, and whether it took all of it.
+ */
 export const CONTEST_FIGURES: readonly Figure<BoutReading>[] = [
   { name: "score", unit: "a win 1, a draw a half", kind: "mean", better: "higher", of: (r, side) => side === "left" ? r.score : 1 - r.score },
   { name: "margin", unit: "own bar less the other's", kind: "mean", better: "higher", of: (r, side) => side === "left" ? r.margin : -r.margin },
   { name: "won", unit: "share of bouts", kind: "rate", better: "higher", of: (r, side) => r.winner === side },
+  { name: `taken within ${KNOCKOUT_WITHIN} s`, unit: `share of the other side's life taken by ${KNOCKOUT_WITHIN} s, or by the end where sooner`, kind: "mean", better: "higher",
+    of: (r, side) => { const bar = foeBarWithin(r, side); return bar === null ? null : 1 - bar; } },
+  { name: `knockout within ${KNOCKOUT_WITHIN} s`, unit: `share of bouts the other side's bar is empty within ${KNOCKOUT_WITHIN} s`, kind: "rate", better: "higher",
+    of: (r, side) => foeBar(r, side) <= 0 && r.seconds <= KNOCKOUT_WITHIN },
 ];
