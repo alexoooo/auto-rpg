@@ -34,8 +34,8 @@ in the simplest and most general form the stance can hold.
   set-down: a better catch is read on it again.
 - **Three places pick where standing feet go**: a walk's end back to rest width
   (`settleStep`, `src/control/stance/gait.ts`), a carriage's footing (`footingOf`) and the idle
-  footing (`idleGoal`, `src/skills/locomotion/shared/locomotion.ts`, with its `idleFooting` option
-  and the arbiter's `idleSettle` flag). The stance's own catch steps are `ownStep` in `gait.ts`.
+  footing (`idleGoal`, `src/skills/locomotion/shared/locomotion.ts`, with the body's
+  `builtFooting`). The stance's own catch steps are `ownStep` in `gait.ts`.
 
 ## Steps
 
@@ -63,10 +63,15 @@ in the simplest and most general form the stance can hold.
    spacing the body is built with (`standingFooting`), placed about the sole that stays after 1 s
    still and stepped only when off by a quarter sole or 0.2 rad; a carriage with a width sets its
    footing about the centre as soon as the body is still and holds it (`footingOf`, `state.stood`);
-   `settleStep` puts a walk's last foot the built width across from the other at once. One rule:
-   each carriage names its footing (square's the built one), placed about the sole that stays,
-   stepped to once still and off by those tolerances; the walk's end then needs no step of its
-   own. The idle option and the arbiter's `idleSettle` become the carriage's footing held or not.
+   `settleStep` puts a walk's last foot the built width across from the other at once. *Tried*:
+   the idle footing's rule for every carriage (`.tmp`-tried, not kept) moved only the bouts where
+   a Mind takes the back step, the falls held (2.10 a minute against 2.03), but the back step's
+   evaluation fell in 6 of 24 trials against 1. The carriage's footing needs the centre mid-stagger
+   at once: anchored about the centre and taken without waiting it fell in 3 of 24 and was hit
+   more (27 of 100 against 14 of 81), each fix one more field saying which old rule a carriage
+   keeps. So the two stay apart. What went: the built footing is given to every legs (`builtFooting`,
+   regain asking its own feet to keep them planted) and the arbiter's `idleSettle` flag, which
+   no case needed (the fingerprint unmoved). `settleStep` is the stance's, under every skill.
 3. **Capture steps.** The catch made to stop what the traces show, read by the falls in the
    game's Mind's bouts and on the kick's sparring-feet falls, and a match of the game's Mind
    against itself before the change.

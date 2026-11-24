@@ -1,6 +1,7 @@
 import type { StanceGoal } from "../../../../control/stance/goal.ts";
 import type { MotorAndGuard } from "../../../framework/motor-and-guard.ts";
 import { supportHeight } from "../../../../control/support-reference.ts";
+import { standingFooting } from "../../../../control/support.ts";
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "../../../locomotion/shared/stance-feet.ts";
 import { carrying } from "../../../../control/motor.ts";
@@ -30,7 +31,7 @@ const CLIMB = deepFreeze({ seconds: .6, response: .08, below: .9 });
  */
 export function regaining(own: OwnBody, view: BodyView, fitted: MotorAndGuard) {
   const motor = carrying(fitted.motor.make(own.built, own.muscles, SERVO_SECONDS, fitted.posture, undefined, own.assist), ["stance"], "the regain");
-  const feet = stanceFeetOf(own.spec), legs = locomotion(feet, null, { segments: stanceSegmentsOf(own.spec) }), both = Object.keys(feet);
+  const feet = stanceFeetOf(own.spec), legs = locomotion(feet, null, { segments: stanceSegmentsOf(own.spec), builtFooting: standingFooting(own.built) }), both = Object.keys(feet);
   const state = {
     begun: null as number | null,
     climb: { on: false, done: false, time: 0, centre: [0, 0], velocity: [0, 0], to: [0, 0], height: 0, rise: 0, pitch: 0,
@@ -78,7 +79,7 @@ export function regaining(own: OwnBody, view: BodyView, fitted: MotorAndGuard) {
     step(control: BodyControl, dt: number): boolean {
       state.begun ??= view.time;
       motor.stance.read();
-      const goal = stanceOf(legs.goal({ ...view, born: Math.min(view.born, state.begun ?? view.born), stance: motor.stance.reading }, { walk: null, face: legs.heading }, dt));
+      const goal = stanceOf(legs.goal({ ...view, born: Math.min(view.born, state.begun ?? view.born), stance: motor.stance.reading }, { walk: null, face: legs.heading, feet: both }, dt));
       motor.setStance(goal && climbing(goal, dt));
       motor.control(own.muscles, control, dt);
       return state.climb.on;

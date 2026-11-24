@@ -90,7 +90,7 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
     inference.referenceAction = reference(inference.referenceObservation);
     for (let i = 0; i < observation.length; i++) learner.inputs[i] = observation[i]!;
   };
-  const goal: Locomotion["goal"] = (view, asked, dt, context) => {
+  const goal: Locomotion["goal"] = (view, asked, dt) => {
     const forwardOrder = asked.walk?.[0] ?? 0, sideOrder = asked.walk?.[1] ?? 0;
     const command = Math.sqrt(forwardOrder * forwardOrder + sideOrder * sideOrder), moving = command > 0;
     const inputHeading = motion.heading;
@@ -103,7 +103,7 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
     inference.moving = moving; inference.face = asked.face; inference.command = command;
     const answer = act(learner, steered ? undefined : travel);
     if (answer.length) for (let i = 0; i < inference.action.length; i++) inference.action[i] = answer[i]!;
-    const driven = motion.goal(view, asked, dt, context);
+    const driven = motion.goal(view, asked, dt);
     const s = view.stance, phase = motion.state.run.phase, h = motion.state.walkRun.heading;
     const fx = sin(h), fz = cos(h), rx = fz, rz = -fx;
     const side = phase < .5 ? "left" : "right", opposite = side === "left" ? "right" : "left", mirror = side === "left" ? 1 : -1;

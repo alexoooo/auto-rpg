@@ -1,5 +1,5 @@
 import type { StanceGoal, SwingGoal } from "../../../control/stance/goal.ts";
-import type { LegsDrive, Locomotion, LocomotionContext } from "../../framework/locomotion-part.ts";
+import type { LegsDrive, Locomotion } from "../../framework/locomotion-part.ts";
 import { supportHeight } from "../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
 
@@ -163,7 +163,7 @@ export type Footing = Readonly<Record<Side, readonly [number, number]>>;
 const PLACING = { near: 0.02 } as const;
 
 
-/** Construction settings; recovery legs omit idleFooting to keep their supports planted. */
+/** Construction settings. */
 interface WalkOptions {
   /** A configured gait's current stride; omitted leaves stride planning to the motor. */
   readonly gait?: () => GaitTuning | undefined;
@@ -171,7 +171,11 @@ interface WalkOptions {
   readonly turnLimit?: number;
   readonly turnStartup?: TurnStartup;
   readonly carriage?: Carriage;
-  readonly idleFooting?: { readonly offsets: Footing; readonly length: number };
+  /**
+   * The footing the body is built standing in (`standingFooting`): each sole's middle about their
+   * midpoint, across and ahead, m, and a sole's length, m; what the square carriage settles to.
+   */
+  readonly builtFooting: { readonly offsets: Footing; readonly length: number };
 }
 
 
@@ -277,7 +281,7 @@ export function validTurnStartup(startup?: TurnStartup): boolean {
     && Number.isFinite(startup.limit) && startup.limit > 0);
 }
 
-export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (() => StanceEnvelope | null), { gait, turnLimit, turnStartup, carriage = CARRIAGES.square, idleFooting, segments }: WalkOptions): StanceWalk {
+export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (() => StanceEnvelope | null), { gait, turnLimit, turnStartup, carriage = CARRIAGES.square, builtFooting, segments }: WalkOptions): StanceWalk {
   const envelopeNow = (): StanceEnvelope | null => typeof limits === "function" ? limits() : limits;
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
@@ -368,7 +372,7 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
       state.unmet.fields = ALL_MET.fields; state.unmet.centre = 0; state.unmet.height = 0;
       state.rising = { from: view.stance.centre.y - view.stance.support.y, at: view.time };
     },
-    goal(view, given, dt, context) {
+    goal(view, given, dt) {
       // The goal's ends made the stance's feet; an end the stance does not stand on is unmet.
       const { goal, refused } = onStanceFeet(given, feet);
       // What the last goal asked, as the stance held it standing; and the gait by name, which the stance walk has none of.
@@ -383,7 +387,7 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
       if (carriage !== undefined && carriage !== state.carriage) { state.carriage = carriage; state.stood = null; state.idle.target = null; state.idle.centre = null; state.idle.seconds = 0; state.placing = null; }
       const held = state.carriage;
       let stance: StanceGoal | null;
-      const settles = idleGoal(view, goal, dt, context);
+      const settles = idleGoal(view, goal, dt);
       if (settles) { stance = settles; state.stood = null; state.placed = false; }
       else if (goal.footing) { state.stood = null; stance = place(view, goal.footing, goal.height); }
       else if (goal.walk === null && held.width !== null && goal.feet === undefined && goal.pose === undefined && goal.swing === undefined && (state.stood || still(view))) {
@@ -408,14 +412,14 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
    * 0.2 rad, else the soles' midpoint); off by a quarter sole length or 0.2 rad, the feet step
    * there, each step aimed within 0.05 rad.
    */
-  function idleGoal(view: BodyView, goal: SidedAsk, dt: number, context?: LocomotionContext): StanceGoal | null {
+  function idleGoal(view: BodyView, goal: SidedAsk, dt: number): StanceGoal | null {
     const idle = state.idle, s = view.stance;
-    const free = idleFooting && state.carriage.width === null && !view.down && context?.idleSettle !== false && goal.footing === undefined
+    const free = state.carriage.width === null && !view.down && goal.footing === undefined
       && goal.feet === undefined && goal.height === undefined && goal.heading === undefined && goal.centre === undefined
       && goal.pose === undefined && goal.swing === undefined && !goal.halt;
     const reset = (): void => { if (idle.target) state.placing = null; idle.target = null; idle.centre = null; idle.seconds = 0; };
     const boundedPlacement = (): StanceGoal | null => {
-      const result = place(view, idle.target!, undefined, Math.min(PLACING.near, idleFooting!.length / 8), 0.05);
+      const result = place(view, idle.target!, undefined, Math.min(PLACING.near, builtFooting.length / 8), 0.05);
       if (!result) return null;
       idle.centre ??= [s.plan.x, s.plan.z];
       if (s.phase !== "stand") { idle.centre[0] = s.plan.x; idle.centre[1] = s.plan.z; }
@@ -438,7 +442,7 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
       reset(); return null;
     }
     if (goal.walk !== null) {
-      if (idle.target && s.phase === "swing" && state.placing?.step) return place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05);
+      if (idle.target && s.phase === "swing" && state.placing?.step) return place(view, idle.target, undefined, Math.min(PLACING.near, builtFooting.length / 8), 0.05);
       reset(); return null;
     }
     if (idle.target) {
@@ -455,14 +459,14 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
     const nearer = (side: Side): number => hypot(soleOf(view, side).x - s.centre.x, soleOf(view, side).z - s.centre.z);
     const level = SIDES.filter(side => turned(view, side, h) <= 0.2);
     const stays: Side | null = level.length === 2 ? (nearer("left") <= nearer("right") ? "left" : "right") : level[0] ?? null;
-    const [ax, az] = stays ? idleFooting.offsets[stays] : [0, 0];
+    const [ax, az] = stays ? builtFooting.offsets[stays] : [0, 0];
     const c = stays ? soleOf(view, stays) : s.support;
     const at = (side: Side): readonly [number, number] => {
-      const x = idleFooting.offsets[side][0] - ax, z = idleFooting.offsets[side][1] - az;
+      const x = builtFooting.offsets[side][0] - ax, z = builtFooting.offsets[side][1] - az;
       return [c.x + rx * x + fx * z, c.z + rz * x + fz * z];
     };
     const target = { left: at("left"), right: at("right") };
-    if (SIDES.every(side => apart(sole(side), target[side]) <= idleFooting.length / 4 && turned(view, side, h) <= 0.2)) return null;
+    if (SIDES.every(side => apart(sole(side), target[side]) <= builtFooting.length / 4 && turned(view, side, h) <= 0.2)) return null;
     // A catch can turn the pelvis: settle under its current facing rather than twisting back over planted feet.
     state.heading = h;
     idle.target = target;

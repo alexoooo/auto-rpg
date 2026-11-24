@@ -68,9 +68,6 @@ declare module "../../parts/lookup.ts" {
   }
 }
 
-/** Whether discrete skills leave the stance available for default settling this step. */
-export interface LocomotionContext { readonly idleSettle: boolean }
-
 /**
  * **Legs**: what every locomotion part makes, and all a mind's skills ask of its legs. Each
  * control step the legs complete the legs goal (`goal`) as the legs' command, and say which way
@@ -88,7 +85,7 @@ export interface Locomotion extends Skill {
    * step; or, for legs that drive themselves, their own drive (`LegsDrive`), which carries out
    * none of the stance's fields. Asked a `footing`, legs that place no feet stand.
    */
-  goal(view: BodyView, goal: LegsAsked, dt: number, context?: LocomotionContext): LegsDrive;
+  goal(view: BodyView, goal: LegsAsked, dt: number): LegsDrive;
   /**
    * The body back as `view` shows it (`Skill.resume`); with `heading`, taken over on the move from
    * other legs that walked by that heading, rad, which it walks by in place of the pelvis's facing.

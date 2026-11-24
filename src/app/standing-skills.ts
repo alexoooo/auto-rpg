@@ -10,4 +10,4 @@ import { stockClearance } from "../skills/locomotion/shared/navigation/clear-ste
 
 /** Continuous locomotion and the guard, with no action, for stock standing probes. */
 export const standingSkills = (body: Body): Skills =>
-  skillSet(body, { legs: locomotion(stanceFeetOf(body.built.spec), body.envelope, { segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built) }), navigation: null, clearance: stockClearance(body.built.spec), spot: windowSpotFinder, guard: guardSkill(body.built.spec), executors: [], actions: [] });
+  skillSet(body, { legs: locomotion(stanceFeetOf(body.built.spec), body.envelope, { segments: stanceSegmentsOf(body.built.spec), builtFooting: standingFooting(body.built) }), navigation: null, clearance: stockClearance(body.built.spec), spot: windowSpotFinder, guard: guardSkill(body.built.spec), executors: [], actions: [] });

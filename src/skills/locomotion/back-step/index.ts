@@ -91,7 +91,6 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
   /** Where the centre is asked out and back, world (x, z), m, and how long since the sway began, s; whether it waits for the stance to stand square; its step in and its follow's step under way; the heading it has turned to. */
   const state = { aim: null as readonly [number, number] | null, from: null as readonly [number, number] | null, seconds: 0, armed: false, walk: walk.state,
     step: null as FootStep | null, stepped: false, waited: 0, follow: null as FootStep | null, facing: null as number | null };
-  type Context = Parameters<Locomotion["goal"]>[3];
   /** `goal` asked of the walk while it sways, facing the heading it has turned to (`BackStepConfig.turn`); itself where it turns none. */
   const swaying = (goal: LegsAsked, dt: number): LegsAsked => {
     if (!config.turn) return goal;
@@ -100,21 +99,21 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
     return { ...goal, heading: state.facing };
   };
   /** The follow's legs goal, steps of `length` m (`BackStepConfig.follow`): the step under way, else the next where a walk forward is asked and the stance stands, else a stand where the feet are. */
-  const following = (view: BodyView, goal: LegsAsked, dt: number, context: Context, length: number) => {
+  const following = (view: BodyView, goal: LegsAsked, dt: number, length: number) => {
     const going = state.follow;
     if (going) {
-      if (!stepOver(going, view, dt)) return walk.goal(view, stepping(goal, going), dt, context);
+      if (!stepOver(going, view, dt)) return walk.goal(view, stepping(goal, going), dt);
       state.follow = null;
     }
     if ((goal.walk?.[0] ?? 0) > STEP.asked && squared(view)) {
       const h = walk.heading, ends = endsAlong(view, h), lead = ends[0]!, rear = ends[ends.length - 1]!;
       const [moving, bearing] = lead.along - rear.along < stagger + length / 2 ? [lead, rear] : [rear, lead];
       state.follow = { foot: moving.name, bearing: bearing.name, to: [moving.middle.x + length * sin(h), moving.middle.z + length * cos(h)], lifted: false, seconds: 0 };
-      return walk.goal(view, stepping(goal, state.follow), dt, context);
+      return walk.goal(view, stepping(goal, state.follow), dt);
     }
     // Standing where the follow left the feet: the walk's own footing would step them back into the carriage.
     const footing = Object.fromEntries(Object.entries(view.stance.ends).map(([name, end]) => [name, [end.middle.x, end.middle.z]])) as Record<BearingEnd, readonly [number, number]>;
-    return walk.goal(view, { ...goal, walk: null, footing }, dt, context);
+    return walk.goal(view, { ...goal, walk: null, footing }, dt);
   };
   /**
    * The step in's legs goal once the body is back (`BackStepConfig.stepIn`): the centre brought in
@@ -139,9 +138,9 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
     return swaying(stepping(goal, state.step), dt);
   };
   /** The back step's legs goal. */
-  const legsGoal = (view: BodyView, goal: LegsAsked, dt: number, context: Context) => {
+  const legsGoal = (view: BodyView, goal: LegsAsked, dt: number) => {
     // A skill that sets the footing itself (the bearing feet, a root pose or a step) holds the legs: its goal goes to the walk as asked.
-    if (goal.feet !== undefined || goal.pose !== undefined || goal.swing !== undefined) return walk.goal(view, goal, dt, context);
+    if (goal.feet !== undefined || goal.pose !== undefined || goal.swing !== undefined) return walk.goal(view, goal, dt);
     const over = state.aim !== null && state.seconds >= out + back;
     // The sway over, the walk takes up the heading it turned to.
     if (state.facing !== null && over) { const facing = state.facing; state.facing = null; walk.resume(view, facing); }
@@ -150,14 +149,14 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
       const rear = endsAlong(view, walk.heading).at(-1)!.middle, h = walk.heading;
       state.aim = [rear.x - BEYOND * sin(h), rear.z - BEYOND * cos(h)]; state.from = [view.stance.centre.x, view.stance.centre.z];
     }
-    if (state.armed) return walk.goal(view, { ...goal, walk: null }, dt, context);
-    if (over && config.follow) return following(view, goal, dt, context, config.follow);
-    if (!state.aim || over) return walk.goal(view, goal, dt, context);
+    if (state.armed) return walk.goal(view, { ...goal, walk: null }, dt);
+    if (over && config.follow) return following(view, goal, dt, config.follow);
+    if (!state.aim || over) return walk.goal(view, goal, dt);
     const stepped = steppingIn(view, goal, dt);
-    if (stepped) return walk.goal(view, stepped, dt, context);
+    if (stepped) return walk.goal(view, stepped, dt);
     const centre = state.seconds < out ? state.aim : state.from!;
     state.seconds += dt;
-    return walk.goal(view, swaying({ ...goal, walk: null, swing: null, centre }, dt), dt, context);
+    return walk.goal(view, swaying({ ...goal, walk: null, swing: null, centre }, dt), dt);
   };
   return {
     state,
