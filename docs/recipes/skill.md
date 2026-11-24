@@ -304,7 +304,10 @@ input.
     (`kick/push`); the old kick is the variation `kick/kick` (`ecf5182ef`). The owner, looking at
     it: "the kick looks better now". Its table cells read worse in every loadout, 0.19 to 0.30 hp a
     second against 0.40 to 0.78, landing on the mark in 7 to 13 of 32 where the old kick landed in
-    2: the old kick's value was traded off the mark. *Shown.*
+    2: the old kick's value was traded off the mark. In the game's Mind it costs nothing measured:
+    with it the Mind beat the Mind without a kick in 0.613 of 288 warrior-drawn bouts (the old
+    kick 0.590), and scored 0.455 (0.396 to 0.510) against the Mind with the old kick
+    (`research/runs/kick/match/`). *Shown.*
   - *The kicker's own loss is the foe's trades, not its own kick*: over 93 kicks the kicker lost
     38.8 HP to the foe's 91.0, most of it the foe's foot on its trunk while both kicked; its own
     foot meeting a body costs it almost nothing, as the fist's (`research/runs/kick-look/`).
