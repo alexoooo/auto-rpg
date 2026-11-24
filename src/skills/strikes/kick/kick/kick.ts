@@ -61,11 +61,11 @@ export const KICK_PATH = Object.freeze({
   /** How long the drive runs on after the foot touches, and its longest. */
   follow: .08, longest: .8,
   /**
-   * The aimed drive: from `lead` s into the drive, the leg driven first to its chamber, its strike
-   * point at the target's height `chamber` m out from the hip with the knee folded, and from `knee`
-   * s after `lead` toward its contact pose, the strike point `through` m past the target on the
-   * line from the hip with the knee straight; each freedom at the speed that stops it there slowing
-   * at `decel` rad/s² (`driven`).
+   * The aimed drive, a push kick: from `lead` s into the drive, the leg driven first to its chamber,
+   * its strike point at the target's height `chamber` m out from the hip toward it with the knee
+   * folded; once the strike point is up at the target's height, or `knee` s after `lead` at the
+   * latest, driven out level at that height, the strike point `through` m past the target with
+   * the knee straight; each freedom at the speed that stops it there slowing at `decel` rad/s² (`driven`).
    */
   lead: 0, chamber: .3, knee: .1, through: .15, decel: 150,
   /**
@@ -133,25 +133,28 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       angles: effector.chain.map((joint) => joint.dofs.map(() => 0)), hip: effector.chain[0]!.spec.centre.value, scheduled: new Set(schedules[side].map((push) => push.channel)) };
   };
   const legs = { left: legOf("left"), right: legOf("right") };
-  const target = new Vector3();
+  const target = new Vector3(), hipAt = new Vector3(), strikeAt = new Vector3();
   /**
-   * The aimed drive's step `since` s into the drive onto `posture` and `pushes`: the leg solved for
-   * its chamber, its strike point at `at`'s height `chamber` m out from the hip toward it with the
-   * knee folded, and from `knee` s after `lead` for its strike point `through` m past `at` on the
-   * line from the hip with the knee straight; each freedom its schedule does not push driven toward
-   * it (`driven`). A foot driven straight at the target from the ground rises into it from below,
-   * meeting the thigh before the mark.
+   * The aimed drive's step `since` s into `live`'s drive onto `posture` and `pushes`, a push kick:
+   * the leg solved for its chamber, its strike point at the target's height `chamber` m out from
+   * the hip toward it with the knee folded; then, once the strike point has risen to that height or
+   * `knee` s after `lead`, for its strike point `through` m past the target, level at its height,
+   * with the knee straight; each freedom its schedule does not push driven toward it (`driven`).
+   * Out level from the chamber, the sole meets the target with the leg behind it; a foot driven
+   * at the target from below meets the thighs before the mark.
    */
-  const aimed = (view: BodyView, side: Side, at: Vec3, since: number, step: number, posture: Record<string, number>, pushes: MusclePush[]): void => {
-    const leg = legs[side], { chain, angles, hip, free, work } = leg, chambered = since < tuning.lead + tuning.knee;
+  const aimed = (view: BodyView, live: Motion, since: number, posture: Record<string, number>, pushes: MusclePush[]): void => {
+    const side = live.foot, at = live.aim, leg = legs[side], { chain, angles, hip, free, work } = leg;
     chain.forEach((joint, j) => joint.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(joint, k)] ?? 0; }));
-    intoFrameToRef(view.root, at, target);
-    const dx = target.x - hip[0], dy = target.y - hip[1], dz = target.z - hip[2], apart = hypot(dx, dy, dz) || 1, out = (apart + tuning.through) / apart;
-    const level = hypot(dx, dz) || 1, toward = tuning.chamber / level;
-    const goal: Vec3 = chambered ? [hip[0] + dx * toward, target.y, hip[2] + dz * toward] : [hip[0] + dx * out, hip[1] + dy * out, hip[2] + dz * out];
-    for (const f of free) f.preferred = /^knee/.test(f.name) ? (chambered ? f.max : f.min) : angles[f.joint]![f.k]!;
-    solveReach(chain, angles, free, [{ point: leg.point, target: goal }], undefined, work);
-    const part = stepShare(since, step, tuning.lead, Infinity);
+    // The hip and the strike point, each in the root's frame, in the world.
+    hipAt.set(hip[0], hip[1], hip[2]).applyRotationQuaternionToRef(view.root.rotation, hipAt).addInPlace(view.root.position);
+    view.effectors[`foot.${side}`]!.points.strike!.applyRotationQuaternionToRef(view.root.rotation, strikeAt).addInPlace(view.root.position);
+    if (!live.out && (since >= tuning.lead + tuning.knee || strikeAt.y >= at[1])) live.out = true;
+    const dx = at[0] - hipAt.x, dz = at[2] - hipAt.z, level = hypot(dx, dz) || 1, reach = live.out ? level + tuning.through : tuning.chamber;
+    intoFrameToRef(view.root, [hipAt.x + dx / level * reach, at[1], hipAt.z + dz / level * reach], target);
+    for (const f of free) f.preferred = /^knee/.test(f.name) ? (live.out ? f.min : f.max) : angles[f.joint]![f.k]!;
+    solveReach(chain, angles, free, [{ point: leg.point, target: [target.x, target.y, target.z] }], undefined, work);
+    const part = stepShare(since, live.step, tuning.lead, Infinity);
     for (const f of free) driven(view, f.name, angles[f.joint]![f.k]!, leg.scheduled.has(f.name) ? 0 : part, posture, pushes);
   };
   /**
@@ -174,7 +177,8 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
   };
   type Motion = { request: ActionRequest; foot: Side; stage: "transfer" | "drive" | "set" | "recenter"; phase: "prepare" | "commit" | "release";
     time: number; step: number; held: number; heading: number; height: number; bearing: ReturnType<typeof footing>; stood: readonly [number, number]; posture: Pose; aim: Vec3;
-    touched: number | null; withdrawn: boolean; ending: ActionEnding };
+    /** Whether the aimed drive has left its chamber. */
+    out: boolean; touched: number | null; withdrawn: boolean; ending: ActionEnding };
   const state = { live: null as Motion | null };
   const stage = (next: Motion["stage"]) => { const live = state.live!; live.stage = next; live.time = 0; live.held = 0; };
   const release = (ending: ActionEnding, next: "set" | "recenter") => { const live = state.live!; live.ending = ending; live.phase = "release"; stage(next); };
@@ -201,7 +205,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       const foot = sideOf(request.effector);
       state.live = { request: { ...request }, foot, stage: "transfer", phase: "prepare", time: 0, step: 0, held: 0, heading: around.heading,
         height: supportHeight(view) - around.lower - tuning.lower, bearing: footing(view, otherSide(foot)), stood: [footing(view, foot).sole[0], footing(view, foot).sole[2]], posture: {}, aim: [0, 0, 0],
-        touched: null, withdrawn: false, ending: { kind: "completed" } };
+        out: false, touched: null, withdrawn: false, ending: { kind: "completed" } };
     },
     update(view, continued, _around, dt) {
       const live = state.live;
@@ -276,7 +280,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       if (live.stage !== "drive") return { legs: standing };
       const pushes: MusclePush[] = [], posture = { ...live.posture }, since = live.time - live.step;
       timedPushes(schedules[foot], since, live.step, pushes);
-      if (since + live.step >= tuning.lead) aimed(view, foot, live.aim, since, live.step, posture, pushes);
+      if (since + live.step >= tuning.lead) aimed(view, live, since, posture, pushes);
       return { legs: standing, posture, pushes };
     },
   };
