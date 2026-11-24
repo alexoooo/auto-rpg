@@ -450,8 +450,10 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   priced a braced walk 0.50 s ahead of the run there, where walked it was not ahead
   (`research/runs/movement-fault/`). On draws 9 to 14 against the Mind above, the truer models
   read 0.396 and with the foe carried 0.5 s (`carry`) 0.479 (0.417 to 0.538); carry gave the Mind
-  above itself none (0.524). A start going on away for the gait's lag (`signed`) read 0.458 alone,
-  `along` 0.465 (`1c7e0a2df`). Untried: a second round fitted from a Mind level with the game's.
+  above itself none (0.524), and 1 s read 0.444. A start going on away for the gait's lag
+  (`signed`) read 0.458 alone, `along` 0.465 (`1c7e0a2df`). Signed, own sways and carry 0.5
+  together read 0.451 on draws 9 to 14 and 0.497 on 3 to 8: level with the Mind above, not
+  better. Untried: a second round fitted from a Mind level with the game's.
   The truer models stay pickable (the measured predictions' `walkStart` and `sways`); the leaf was
   removed in the settings' tidy-up (2026-11-22). The rows are kept in
   `research/runs/foe-placement/` and `research/runs/fitted-value/corrected/`. *Shown.*
