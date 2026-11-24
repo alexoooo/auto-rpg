@@ -31,6 +31,9 @@ const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
  */
 const DEFAULT_BODIES: Readonly<Record<string, string>> = Object.freeze({ man: "option-truer" });
 
+/** **The game's own minds**, by preset id: those some body plays unless its fight or run says otherwise, the few the Arena's menu lists. */
+export const GAME_MINDS: ReadonlySet<string> = new Set([...Object.values(DEFAULT_MINDS), ...Object.values(DEFAULT_BODIES)]);
+
 /**
  * The mind a body of `model` holding `loadout` plays unless its fight or run says otherwise: its
  * body's (`DEFAULT_BODIES`), else its model's (`DEFAULT_MINDS`).

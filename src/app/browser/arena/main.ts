@@ -47,8 +47,7 @@ import { caseSearch, readReel, reelHash, unshown } from "./case-link.ts";
 import { reelTrials, type Trial } from "./reel.ts";
 import { MATCHUP_PARAM, arenaAttributes, arenaSkills, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, readLoadouts, readMatchup, readYou, youSearch, matchupModels, type Matchup } from "../../../game/arena/matchup.ts";
 import { CONTROLS, controllerLabel, controlCharacter, controlName, controlsFor, defaultControl, readControls, recipeOf, linkedMind, mindsSearch, unreadMinds } from "../setup.ts";
-import { offered } from "../../../minds/catalog/controller.ts";
-import { allParts, partOf, skillsFor, treeObeys, MINDS, defaultMind } from "../../catalog.ts";
+import { allParts, partOf, skillsFor, treeObeys, MINDS, defaultMind, GAME_MINDS } from "../../catalog.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
 import { notesOf, type NoteLevel } from "../ui/mind-notes.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -281,19 +280,17 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     // The mind's tree (`mindEditor`), its preset's until changed; the linked mind as the link carries it, with any fault.
     const settings = document.createElement("details"), summary = document.createElement("summary");
     settings.className = "settings"; summary.textContent = "Mind";
-    // Each mind's notes for this side's character and loadout (`notesOf`), the most particular first.
+    // A side the person leads under a mind that takes no orders (`treeObeys`) is said to, under the picker: its mind plays it as its own.
+    const warning = document.createElement("p"); warning.className = "mind-notes";
+    // The chosen mind's notes for this side's character and loadout (`notesOf`), the most particular first, inside the mind's settings.
     const notes = document.createElement("p"); notes.className = "mind-notes";
-    // The chosen preset is named as the mind now stands (`controlName`): custom once it is changed. Each
-    // is followed by its most particular note, and the chosen one's notes are listed under the picker.
-    // A side the person leads under a mind that takes no orders (`treeObeys`) is said to: its mind plays it as its own.
+    // The chosen preset is named as the mind now stands (`controlName`): custom once it is changed.
     const nameControl = renameControl[side] = () => {
       const model = bodyOf(), holds = loadout();
-      for (const option of control.options) {
-        const note = notesOf(option.value, model, holds)[0]?.note;
-        option.textContent = `${option.value === control.value ? controlName(option.value, editor.config) : CONTROLS[option.value]!}${note ? ` · ${note}` : ""}`;
-      }
+      for (const option of control.options) option.textContent = option.value === control.value ? controlName(option.value, editor.config) : CONTROLS[option.value]!;
+      warning.textContent = youPicker.value === side && !treeObeys(editor.config) ? "Takes no orders: it fights on its own while you lead its side" : "";
+      warning.hidden = warning.textContent === "";
       const all = notesOf(control.value, model, holds).map(({ level, note }) => `${levelName(level, model, holds)}: ${note}`);
-      if (youPicker.value === side && !treeObeys(editor.config)) all.unshift("Takes no orders: it fights on its own while you lead its side");
       notes.replaceChildren(...all.map((textContent) => Object.assign(document.createElement("span"), { textContent })));
       notes.hidden = all.length === 0;
     };
@@ -308,7 +305,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     });
     // The minds are checked by the entry rule of the bout the page opens with: a trial's own, or a fight's.
     const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), entry: entryRules(trials?.[at]!.world.recipe), onFault: "the bout is not played until it is fixed", onChange: () => nameControl() });
-    settings.append(summary, editor.element); choices.append(attributePanel.element, skillPanel.element, notes, settings);
+    settings.append(summary, notes, editor.element); choices.append(attributePanel.element, skillPanel.element, warning, settings);
     // The chosen mind's character is the attributes' base (`controlCharacter`): the panel shows it, and a person's draft goes over it.
     let shownBase = "{}";
     const based = () => {
@@ -346,9 +343,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const holds = loadout(), previous = control.value;
       let choices: readonly string[];
       try { choices = controlsFor(model, holds, attributes[side]); } catch { choices = controlsFor(model, holds); }
-      // The menu lists the offered minds (`offered`), and the one the link chose if it is another,
-      // offered or not: its panel says why the body cannot play it, and the bout is not played.
-      const listed = choices.filter(value => offered(MINDS[value]!) || value === previous);
+      // The menu lists the game's own minds (`GAME_MINDS`), and the one the link chose if it is another,
+      // listed or not: its panel says why the body cannot play it, and the bout is not played.
+      const listed = choices.filter(value => GAME_MINDS.has(value) || value === previous);
       if (fromLink && !listed.includes(previous) && Object.hasOwn(MINDS, previous)) listed.push(previous);
       fromLink = false;
       control.replaceChildren(...listed.map(value => Object.assign(document.createElement("option"), { value, textContent: CONTROLS[value] })));
