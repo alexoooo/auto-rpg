@@ -85,6 +85,17 @@ in the simplest and most general form the stance can hold.
    94) and it won nothing (0.469 in 288 bouts). A step cannot catch what the drive's recoil set
    going before the set-down began; what is left is the drive's own balance, and the way up's
    rises (bar 2).
+   *The blown falls*, read by shoves (`shove.mjs`: every segment given 0.8 to 2.0 m/s by no
+   muscle whenever a side of the Warrior's Mind stands still in its bouts; 1,857 shoves): 29.5 %
+   down within 2 s. With nothing under way 151 of 926 (13 % at 1.2 to 1.6 m/s), under the kick
+   146 of 198, the stomp 70 of 114. The catch fails where a skill holds the legs: a pose
+   (`StanceGoal.pose`) takes no step, so the kick's transfer stands through a shove until the
+   kick ends. The catch landing past the capture point changed nothing (28.5 %). *Tried*, a pose
+   on all the stance's feet let go once its capture point runs away past what they hold
+   (`pose-catch.diff`): kick shoves 84 of 270 down, all 24.3 %, natural falls the same (2.04 a
+   minute), but the game's Mind with it scored 0.472 (0.406 to 0.531) against itself without a
+   kick, 0.613 before. Let go on one foot too, the kick's drive was let go and its leg pressed
+   down, and it no longer reached. Not kept.
 4. **The kick again**: its set-down on the better catch, and s10's aimed leg searched again on it.
 
 ## After it
