@@ -6,7 +6,7 @@
  * `withTuning`), given whole, so the man's record plays no part. It is played on every foot condition of the Strike drill's `middle-twin` rung at
  * the game's rate, 120 Hz, and scored by the mean of its trials' search scores (`searchScore`: the
  * table's strike value, a fall at its price, a blow short of the bar graded below it). This is the
- * recipe's step 2, what the leg can do: a scale for the kick, not a gate. `--confirm` plays a
+ * recipe's step 1, what the leg can do: a scale for the kick, not a gate. `--confirm` plays a
  * search's best on the `middle` rung's own conditions at 120 and 480 Hz. `--fix` holds the settings
  * it names (a JSON object) out of the search, at those values. `--on-mark` scores only blows that
  * land on the mark (`onMark`): a foot that meets the thighs from below gains nothing. `--rung` names
@@ -123,7 +123,7 @@ const toX = (u) => u.map((v, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.ma
 const from = values.from ? JSON.parse(readFileSync(values.from, "utf8")).best.settings : null;
 const start = pointOf(from ?? {}).map((x, i) => (x - lo[i]) / (hi[i] - lo[i]));
 console.error(`kick on man: ${trials.length} trials of ${RUNG} a candidate`);
-const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 16),
+const { best: found } = await cmaSearch({ look: { body: "man", variation: "kick/push" }, n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 16),
   generations: Number(values.generations ?? 40), seed: Number(values.seed ?? 1),
   // A candidate none of whose trials counts scores below every one that has one.
   score: async (u) => { const settings = settingsOf(toX(u)), r = await scoreOn(trials, (trial) => withTuning(trial.subject.value, { ...KICK_PATH, ...settings }), { play: pool.play });

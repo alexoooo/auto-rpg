@@ -42,7 +42,7 @@ export const STANCE_BALANCE = deepFreeze<BalancePart<StanceBalanceConfig>>({
   make: (config) => (built, tuning, assist) =>
     stanceControl(built, { ...stanceCalibration(built.spec.model), ...heldVariation(built.spec, "stance", config, VARIATIONS), ...config.tuning, ...tuning }, assist),
   envelope: (spec, config, experiment) => !experiment.measuring && !tuned(config) && Object.keys(experiment.stance ?? {}).length === 0 ? stanceEnvelope(spec) : null,
-  skillGroup: "Balance", variations: Object.keys(VARIATIONS),
+  asSkill: { group: "Balance", ends: ["standing"] }, variations: Object.keys(VARIATIONS),
 });
 
 declare module "../../../control/balance-part.ts" {

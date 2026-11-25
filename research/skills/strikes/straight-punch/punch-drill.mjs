@@ -10,11 +10,11 @@
  * the body's row of the skill (`rowOf`; `--loadout` one cell), the drill's own admission giving
  * each its places, marks and hands, at the game's rate, 120 Hz, and scored by the mean of its
  * trials' search scores (`searchScore`: the cell's value, a blow short of the bar graded below it)
- * ([the skill recipe](../../../../docs/recipes/skill.md#an-options-code): research scores on its
+ * ([the skill recipe](../../../../docs/recipes/skill.md#research-scores-on-its-drill): research scores on its
  * drill). `--confirm` plays a search's best and the record the body plays now on the row's cells'
  * own cases at 120 and 480 Hz, the worse counting (`confirmRow`).
  *
- * Feasibility (the recipe's step 2) is searched the same way with the channels pushed free
+ * Feasibility (the recipe's step 1) is searched the same way with the channels pushed free
  * (`--free`: a channel pushed under `FREE` leaves the schedule) or some left off it (`--without`);
  * with `--fire`, `--brake` and `--chamber`, the drive's fire, brake and chamber are searched too;
  * with `--tune`, only a schedule's time scale and shift and its aim and posture, over `--from`'s.
@@ -162,7 +162,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   if (values.tune) { if (!from) throw new Error("--tune tunes --from's schedule"); cell.base = [...from]; const n = 3 * channels.length; from.length = 0; from.push(1, 0, ...cell.base.slice(n, n + 5)); }
   const start = from ? lo.map((l, i) => from[i] === undefined || hi[i] === l ? 0.5 : (from[i] - l) / (hi[i] - l)) : undefined;
   console.error(`${cell.skill} on ${cell.body}: ${trials.length} trials of the twin a candidate`);
-  const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 16), generations, seed: Number(values.seed ?? 1),
+  const { best: found } = await cmaSearch({ look: { body: values.body, variation: { punch: "straight-punch/moving", thrust: "sword-thrust/drive" }[values.skill] }, n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 16), generations, seed: Number(values.seed ?? 1),
     // A candidate none of whose trials counts scores below every one that has one.
     score: async (u) => { const r = await scoreOn(trials, valuesWith(settingsOf(toX(u), cell)), { play: pool.play }); return { ...r, score: r.score ?? -1e3, each: undefined }; },
     onGeneration(entry, { best, mean, log }) {

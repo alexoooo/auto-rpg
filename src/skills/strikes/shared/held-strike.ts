@@ -114,6 +114,6 @@ export function heldStrikePart<K extends string, S>(strike: HeldStrike<K, S>): E
     faults: (config) => config.tuning === undefined || settings.validPart(config.tuning) ? [] : [`invalid ${named} tuning`],
     reads: () => [strike.data], effectors: ["hand.left", "hand.right"], aims: true, meets: mechanism,
     strikesWith: (spec, _config, effector) => heldFace(spec, effector, item, mechanism) !== null,
-    skillGroup: "Strikes",
+    asSkill: { group: "Strikes", ends: ["standing"] },
   };
 }

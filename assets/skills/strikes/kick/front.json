@@ -1,0 +1,35 @@
+{
+  "man": {
+    "made": "Authored on the man, not searched: the push kick's transfer, set-down and recentre, its drive the authored chamber, extension and retraction (KICK_PATH), the window from the leg's reach, a straight leg's sole at a target about hip height.",
+    "settings": {
+      "transferLimit": 2,
+      "setLimit": 3,
+      "recenterLimit": 3,
+      "transferSeconds": 0.2,
+      "transferSlow": 0.12,
+      "lean": -0.3,
+      "ahead": 0,
+      "hold": 0.03,
+      "lower": 0.03,
+      "follow": 0.08,
+      "decel": 365.34234963655666,
+      "alongNear": 0.8,
+      "alongFar": 1.0,
+      "across": 0.25,
+      "low": 0.6,
+      "high": 1.4,
+      "facing": 0.5,
+      "admitSpeed": 0.6,
+      "chamberSeconds": 0.2,
+      "chamberLift": 0.2,
+      "chamberKnee": 2.1,
+      "extendSeconds": 0.12,
+      "extendKnee": 0.1,
+      "extendAnkle": 0.2,
+      "retractSeconds": 0.15,
+      "counter": 0,
+      "pathSeconds": 0.03,
+      "aimAbove": 0.17
+    }
+  }
+}

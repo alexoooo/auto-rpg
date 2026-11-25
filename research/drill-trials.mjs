@@ -1,5 +1,5 @@
 /**
- * **A skill's drill trials, for research** ([the skill recipe](../docs/recipes/skill.md#an-options-code):
+ * **A skill's drill trials, for research** ([the skill recipe](../docs/recipes/skill.md#research-scores-on-its-drill):
  * research scores on its drill). A table cell's trials (`cell`) or those of its readings' training
  * twins (`twin`, `Cases.twin`): the conditions the drill's own admission gives the cell's subject on
  * the cell's body and loadout (`casesOf`, `casesOn`), each a plain record a worker can take. A trial
@@ -19,7 +19,8 @@ import { fileURLToPath } from "node:url";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../tests/harness/preload-data.mjs";
 import { workerPool } from "./cma.mjs";
-import { graded } from "../src/evaluation/strike/score.ts";
+import { graded, SHORT } from "../src/evaluation/strike/score.ts";
+import { ATTEMPT_CAP } from "../src/evaluation/way-up/read.ts";
 import { isRefused } from "../src/core/refusal.ts";
 import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
@@ -29,6 +30,27 @@ import { optionsOf } from "../src/minds/option/config.ts";
 import { casesOf } from "../src/evaluation/run.ts";
 import { caseName } from "../src/evaluation/results.ts";
 import { casesOn, FALL_PRICE, keep, trialValue, unitOf } from "../src/evaluation/table/judge.ts";
+
+/**
+ * **What doing nothing scores**, by judge: what a trial whose actor ends outside its skill's ends
+ * (`AsSkill.ends`) is held to, no better. A strike not thrown is worth nothing, graded as low as
+ * `SHORT` below it (`searchScore`); a way up not made is an attempt at `ATTEMPT_CAP`. A walk's
+ * orders and a cover price where the body ends in their own values (its seconds down, the rise).
+ */
+const NOTHING = Object.freeze({ strike: -SHORT, "way-up": ATTEMPT_CAP });
+
+/** Where `skill` leaves its body (`AsSkill.ends`); a thrown error where it is no skill, as a skill that names none has no floor. */
+export function endsOf(skill) {
+  const ends = partLookup.any({ kind: skill })?.asSkill?.ends;
+  if (!ends) throw new Error(`${skill} names no ends (AsSkill, src/parts/parts.ts): a drill cannot tell where its trials must end`);
+  return ends;
+}
+
+/** Where a body is: standing while it is not down, else what bears it (`Position`). */
+const positionOf = (view) => !view.down ? "standing" : view.ground?.position ?? "between";
+
+/** The actor of a played case, the one its drill drills: a bout's left side, a fall's riser, a lone body. */
+const actorView = (built) => (built.duel?.duelists.left.body ?? built.combatant?.body ?? built.body?.body ?? null)?.view ?? null;
 
 /** The rates a confirmation plays the cell's cases at, Hz: the game's and a finer one, the worse counting. */
 export const CONFIRM_RATES = Object.freeze([120, 480]);
@@ -60,7 +82,8 @@ export function drillTrials(cell, held) {
     const [subject] = evaluation.subjects([reading.subject]);
     const scheduled = casesOf(evaluation, protocol, [subject], { engine: cases.engine ?? DEFAULT_ENGINE, schedule: { kind: "all" } });
     if (isRefused(scheduled)) throw new Error(`${reading.drill}/${protocol}: ${scheduled.refused}`);
-    return casesOn(cell, reading, scheduled.units.flat()).map(({ condition }) => ({ drill: reading.drill, protocol, subject: reading.subject,
+    const skill = subject.value?.skill ?? cell.skill;
+    return casesOn(cell, reading, scheduled.units.flat()).map(({ condition }) => ({ drill: reading.drill, protocol, subject: reading.subject, skill,
       judge: { judge: reading.judge, ...(reading.hit === undefined ? {} : { hit: reading.hit }) }, condition, name: caseName(condition) }));
   });
 }
@@ -70,16 +93,21 @@ export const subjectOf = (trial) => EVALUATIONS[trial.drill].subjects([trial.sub
 
 /**
  * **`trial` played with the subject's value `value`**, at `hz` steps a second (the game's where not
- * given): its reading, what its judge keeps, its outcome and its value as the cell values it.
+ * given): its reading, what its judge keeps, its outcome and its value as the cell values it, and
+ * where its actor ended (`ended`, a `Position`). `watch(built)` where given sees the case after each step (`look.mjs`).
  */
-export async function playTrial(trial, value, { hz } = {}) {
-  const evaluation = EVALUATIONS[trial.drill], cases = evaluation.protocols[trial.protocol], subject = subjectOf(trial);
+export async function playTrial(trial, value, { hz, watch } = {}) {
+  let ended = null;
+  const seen = (built) => { const view = actorView(built); if (view) ended = positionOf(view); watch?.(built); };
+  // The variations a value names are its bodies' (`variations`, as a subject given whole has them), over its subject's own.
+  const evaluation = EVALUATIONS[trial.drill], cases = evaluation.protocols[trial.protocol], own = subjectOf(trial);
+  const subject = value?.variations ? { ...own, variations: value.variations } : own;
   const world = cases.world([value], trial.condition, cases.engine ?? DEFAULT_ENGINE, [subject]);
   if (isRefused(world)) throw new Error(`${trial.drill}/${trial.protocol} ${trial.name}: ${world.refused}`);
-  const played = await playCase(world, cases.seconds, (built) => cases.read(built, trial.condition), hz === undefined ? {} : { hz });
+  const played = await playCase(world, cases.seconds, (built) => cases.read(built, trial.condition), { ...(hz === undefined ? {} : { hz }), watch: seen });
   if (isRefused(played)) throw new Error(`${trial.drill}/${trial.protocol} ${trial.name}: ${played.refused}`);
   const kept = keep(trial.judge, played.reading), outcome = evaluation.outcome?.(played.reading).label ?? null;
-  return { name: trial.name, reading: played.reading, kept, outcome, value: trialValue(trial.judge.judge, { kept, outcome }, FALL_PRICE) };
+  return { name: trial.name, reading: played.reading, kept, outcome, ended, value: trialValue(trial.judge.judge, { kept, outcome }, FALL_PRICE) };
 }
 
 /** The mean value of `played` trials that count (a fall not made, a blow whose fixture did not reach its case, does not), null where none does. */
@@ -138,18 +166,25 @@ export function withTuning(value, tuning) {
 }
 
 /**
- * **A trial's score in a search**, the skill's value graded ([the skill recipe](../docs/recipes/skill.md#1-the-reader-and-its-score)):
+ * **A trial's score in a search**, the skill's value graded ([the skill recipe](../docs/recipes/skill.md#a-skills-value)):
  * its value as the cell values it (`playTrial`), a blow that did not land graded below it by how far
  * short of the drill's bar it came (`graded`, the strike drill's `value` term, which training is
- * rewarded by). Any other judge's, its value alone. Null where the trial does not count.
+ * rewarded by). Any other judge's, its value alone. Null where the trial does not count. Where the
+ * trial's actor ended outside where its skill leaves its body (`endsOf`), it scores
+ * no better than doing nothing (`NOTHING`): a kick that lands and leaves the kicker down is worth
+ * less than one not thrown.
  */
-export function searchScore(trial, { value, reading, outcome }) {
-  if (value === null || trial.judge.judge !== "strike") return value;
-  return graded(value, reading, "hand" in trial.condition ? trial.condition.hand : null, outcome === "landed");
+export function searchScore(trial, { value, reading, outcome, ended }) {
+  if (value === null) return null;
+  const judge = trial.judge.judge, score = judge === "strike" ? graded(value, reading, "hand" in trial.condition ? trial.condition.hand : null, outcome === "landed") : value;
+  const ends = endsOf(trial.skill), floor = NOTHING[judge];
+  if (floor === undefined || ended === null || ends.includes(ended)) return score;
+  return unitOf(judge).better === "higher" ? Math.min(score, floor) : Math.max(score, floor);
 }
 
-/** A played trial as a worker sends it back: its name, outcome, value and search score, and whether it ended down (a blow's or a cover's `down`, a move's `fell`). */
-const brief = (trial, played) => ({ name: played.name, outcome: played.outcome, value: played.value, score: searchScore(trial, played), down: !!(played.reading?.down || played.reading?.fell) });
+/** A played trial as a worker sends it back: its name, outcome, value and search score, where its actor ended (`Position`), and whether it went down (a blow's or a cover's `down`, a move's `fell`). */
+const brief = (trial, played) => ({ name: played.name, outcome: played.outcome, value: played.value, score: searchScore(trial, played), ended: played.ended,
+  down: !!(played.reading?.down || played.reading?.fell) });
 
 /**
  * **Trials played on worker threads**, `count` of them: `play(trial, value, { hz })` as `playTrial`

@@ -48,7 +48,7 @@ export const PAW_MOVE = deepFreeze<LocomotionPart<PawMoveConfig>>({
       return parts.of("paw-gait", gait).fits(spec, gait, parts) === null;
     }) ? null : "has no enabled paw gait"] }), faults: () => [],
   gaits: (config) => GAIT_NAMES.map((name) => ({ name, label: LABELS[name], legs: gaitOf(config, name) })),
-  skillGroup: "Travel",
+  asSkill: { group: "Travel", ends: ["standing"] },
 });
 
 declare module "../../config.ts" {

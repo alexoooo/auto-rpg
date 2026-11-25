@@ -102,7 +102,7 @@ export function pawGaitPart<K extends string, S extends Readonly<Record<string, 
     role: "paw-gait", label, icon, travels: true, gait, fields: [], slots: [], defaults: { kind }, keys: { kind: true, variation: true, tuning: true },
     tuning: Object.keys(settings), ...varied({ skill: kind, label: label.toLowerCase(), variations, of: (body, config) => [body.built.spec, config],
       fits: [fitsPaws, (_spec, config) => faults(config)[0] ?? null] }),
-    faults, skillGroup: "Travel",
+    faults, asSkill: { group: "Travel", ends: ["standing"] },
   });
 }
 

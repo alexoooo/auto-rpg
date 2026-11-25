@@ -1,6 +1,6 @@
 /**
  * Search one body's loadout-specific recovery settings with immutable technique overrides, scored
- * on its drill ([research scores on its drill](../../../../../docs/recipes/skill.md#an-options-code)):
+ * on its drill ([research scores on its drill](../../../../../docs/recipes/skill.md#research-scores-on-its-drill)):
  * the twin of the body's way-up cells holding the loadout (the way-up drill's fresh falls
  * and bouts, `research/skills/recovery/way-up-trials.mjs`), every staged way up played on the candidate's
  * tuning, which holds both the step-up's and the sit-back's stages, so every way up's cell reads
@@ -103,7 +103,7 @@ try {
     base,baseline,dimensions,trials:trials.length,seconds:(Date.now()-started)/1000,log,best:kept,checkpoint},null,1));
   save(previous?.log??[],resume??null);
   let generationStarted=Date.now();
-  const result=await cmaSearch({n:dimensions.length,start,sigma:Number(values.sigma),lambda,generations,seed:13,resume,
+  const result=await cmaSearch({ look: { body: values.model ?? "man", variation: "staged-roll/staged-roll" }, n:dimensions.length,start,sigma:Number(values.sigma),lambda,generations,seed:13,resume,
     score:unit=>score(decode(base,unit)),
     onGeneration(entry,search) {
       if(search.best.score>kept.score) kept={tuning:decode(base,search.best.u),...search.best.r};

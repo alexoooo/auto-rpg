@@ -5,6 +5,7 @@
  * seeded (mulberry32), so a run can be made again.
  */
 import { simulationWorker } from "../scripts/lanes.mjs";
+import { requireLook } from "./look-gate.mjs";
 
 /**
  * Worker threads of the module at `url`, each started with `workerData`: `evaluate(x)` posts
@@ -50,9 +51,13 @@ export function workerPool(url, workerData, count) {
  * candidates a generation for `generations`, each scored by `score(u)` (a promise of an object
  * with a `score`, the higher the better). `onGeneration(entry, search)` hears each generation's
  * best, median and step, with the search's best so far and its mean. Returns the best
- * (`{ score, u, r, g }`), the last mean and the log.
+ * (`{ score, u, r, g }`), the last mean and the log. `look` names the movement it tunes, `{ body,
+ * variation }`: a search starts only on a skill whose look at its code now says it looks like the
+ * motion and works some of the time (`requireLook`; [the skill recipe](../docs/recipes/skill.md#the-procedure)).
  */
-export async function cmaSearch({ n, start, sigma = 0.25, spread, lambda, generations, seed = 1, score, onGeneration, resume }) {
+export async function cmaSearch({ n, start, sigma = 0.25, spread, lambda, generations, seed = 1, score, onGeneration, resume, look }) {
+  if (!look) throw new Error("a search names the movement it tunes (look: { body, variation }), and starts only once a look at it says it looks like the motion and works some of the time");
+  requireLook(look);
   if (!Number.isSafeInteger(n) || n < 1 || !Number.isSafeInteger(lambda) || lambda < 2
     || !Number.isSafeInteger(generations) || generations < 0 || !(sigma > 0) || !Number.isFinite(sigma)
     || (start && (!Array.isArray(start) || start.length !== n || Array.from(start).some(v => !Number.isFinite(v))))

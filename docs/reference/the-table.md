@@ -14,7 +14,7 @@ game's own terms. The cells and their readings are `src/evaluation/table/cells.t
 
 - **A cell reads its skill on its own merit**, in a drill built for it, never in a fight, and no
   profile decides anything in it: a change to a skill is read without rebuilding its profiles
-  ([the skill recipe](../recipes/skill.md#an-options-code)).
+  ([the skill recipe](../recipes/skill.md#research-scores-on-its-drill)).
 - **A way up has a cell of its own**, its Mind ranking it first among its ways up, so a way up
   that fails is not masked by one that works. How a mind chains its ways up after a fall is read
   on the owner's target in research ([getting up](rising.md)), never in a cell.
@@ -36,7 +36,7 @@ game's own terms. The cells and their readings are `src/evaluation/table/cells.t
   bootstrap interval of the mean difference leaves zero on that side, else within noise.
 - **Every protocol a cell reads names its training twin** (`Cases.twin`,
   `src/evaluation/twin.ts`), its situations drawn halfway between the cell's, which research
-  scores on ([the skill recipe](../recipes/skill.md#an-options-code)). The table itself reads
+  scores on ([the skill recipe](../recipes/skill.md#research-scores-on-its-drill)). The table itself reads
   120 Hz only.
 - **A reading stands as it was read**, shown with its commit and date, until its cell is asked
   for again: a change to the code asks for no replay. The fingerprint names the readings a change

@@ -216,7 +216,7 @@ export const BACK_STEP_PART = deepFreeze<GaitPart<BackStepConfig>>({
     ...(config.stepIn === undefined || Number.isFinite(config.stepIn) && config.stepIn >= 0 && config.stepIn <= .5 ? [] : ["back step: stepIn from 0 to 0.5 m"]),
     ...(["out", "back"] as const).flatMap((key) => config[key] === undefined || Number.isFinite(config[key]) && config[key]! > 0 && config[key]! <= 3 ? [] : [`back step: ${key} from 0 to 3 s`]),
   ],
-  skillGroup: "Travel",
+  asSkill: { group: "Travel", ends: ["standing"] },
 });
 
 declare module "../../config.ts" {

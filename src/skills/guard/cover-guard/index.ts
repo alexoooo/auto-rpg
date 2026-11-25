@@ -65,7 +65,7 @@ export const COVER_GUARD: GuardPart<CoverGuardConfig> = {
   role: "guard", label: "Guard and cover", fields: [], slots: [], defaults: { kind: "cover-guard" }, keys: { kind: true, variation: true, tuning: true },
   tuning: ["covering", "hold"], faults: coverFaults,
   supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined).map(({ segment }) => segment),
-  skillGroup: "Guard", ...guardVariations({ skill: "cover-guard", label: "guard and cover", variations: VARIATIONS, fits: [coverFit,
+  asSkill: { group: "Guard", ends: ["standing"] }, ...guardVariations({ skill: "cover-guard", label: "guard and cover", variations: VARIATIONS, fits: [coverFit,
     fitsWhen((spec: BodySpec) => handsOf(spec).length > 0, "needs a hand that covers: one with knuckles, or holding an item that says how it covers"),
     (spec: BodySpec) => wardingHands(spec).length > 0 ? soleRefusal(spec) : null] }),
 };

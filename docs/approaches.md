@@ -3,8 +3,8 @@
 What each approach to travel, standing up, weapon strikes, guarding and minds has done and has
 not, and why. Each entry names the mechanism, what it could not do, the cause and the commits
 that show it (`git show <commit>` reads the story). An entry changes only when new evidence
-contradicts it, cited the same way. What holds for every skill, for judging one and for unarmed
-strikes is in [the skill recipe](recipes/skill.md), at the step it informs.
+contradicts it, cited the same way. How a skill is made and judged is
+[the skill recipe](recipes/skill.md); this holds what was found on the way.
 
 Confidence: *repeated* (shown three or more times), *shown* (once or twice, plainly), *suspected*
 (the cause inferred, not isolated).
@@ -150,6 +150,145 @@ ward (below).
   edge onto its path through the stroke, the grip lays the blade square to the hand
   (`13ad8999`, `8b2fee9e`, `9ca0a63d`). The game strikes with the sword by the thrust alone. The
   thrust is suspected of failing on the same grip. *Suspected.*
+
+## Unarmed strikes
+
+Works: **A strike made apart from the legs** is the first strike the owner accepted in a fight
+(`straight-punch/moving`, 2026-11-16: "this is the first time we've made real progress on any
+strike skill"). Its own record, begun as the installed strike's with the legs let go
+(`e6ac1afc2`); a learned steer of its stroke (`c6f963ccb`), trained on blows thrown while the
+walk goes on, its episodes from the moment it is ready (`f2b22de19`); its window set where the
+fighters stand (`2c10a7fbe`); the walk asked into the blow through its Option's site, no gait's
+code changed (`deeper`, `e29d81e7d`); a narrower window for the weight (`8f55482d5`). Against the
+installed punch in the same 48 bouts: 202 landed to 7, a median 1.05 hp. The landed count is as
+much the Mind's as the stroke's: the same networks landed half as often before the Mind valued
+the life it takes over the life it loses (`aee4b6342`). *Shown.*
+
+- **A tracking controller cannot throw a blow at a person's speed**: a tracker following a
+  declared course runs behind it by its response time, and at a blow's speed that lag is the
+  stroke. Effector paths, whole-body and greedy solves, an arm-tracking layer and a point-driven
+  fist reached 4 to 6 m/s against 6.8 (`13439495`, `62420987`, `127eb165`, `7d9ee206`,
+  `a340fbac`, `87d13005`). *Repeated.*
+- **A controller tuned to one strength or speed cannot use more of either**: its activations
+  overdrive or mistime the larger muscle. Grit as a strength surge and Haste as faster muscles add
+  nothing to a controller that was not searched or trained across the attribute's range
+  (`94a3f567`, `b21d6687`, `e8d6c775`, `1f6b963b`). *Repeated.*
+- **A light body cannot meet a mass-scaled strike bar by more speed**: the Skeleton's fist meets
+  0.09 to 0.22 kg whatever its speed (`0c3b4599`, `168a82e6`, `2793a30c`, `ed11435a`).
+  *Repeated.*
+- **The learned punch's window (0.89 to 1.01 m) is not where fighters stand** (about 0.6 m, the
+  foe's guard over the mark); training on fight moments failed twice (`d664e869`, `d11e7e9d`,
+  `843a8f8b`). *Suspected.*
+- **A profile the Mind fights by rests on twenty times sparring's starts**: on `sparring`'s 480 the
+  draw decided whether two Warriors fought at aggression 2 (91 % of a bout silent on one draw, 37 %
+  on its twin), and either large draw alone moved a reading at one range by half; `sparring-drawn`
+  and `sparring-judge` together fought in 46 of 48 bouts (`54dc338cc`). *Shown.*
+- **A strike's setting read on twelve bouts moves by a third between neighbouring settings** and
+  replays of one record (6.28 and 7.32 landed a bout-minute); the best of several read on one set
+  of bouts fell on fresh gaps (`moving`'s band 0.15: 10.95 on the choosing bouts, 5.97 on fresh
+  ones, `8f55482d5`). A checkpoint read by another's profiles at 12.11 landed a bout-minute read
+  6.96 with its own (`8f55482d5`). *Shown.*
+
+**The kick, a strike on one foot**: the front push kick at the middle, the owner's choice as the
+kick likeliest to fell (2026-11-23: "dynamic and strong, not like today's slow and awkward
+stomp"); on sparring-feet it fells the foe after 26 % of its starts. The weight shifted onto
+the standing foot, the leg folded up to the mark's height and driven out level at it (the push
+kick, `kick/push`) or on a searched schedule (`kick/kick`), the foot set down by the stance's own
+step and the body recentred by its own standing (`src/skills/strikes/kick/`). The figures that
+follow, to the findings, are the schedule's kick. The game's Mind with it beat
+the same Mind without it in 0.590 of 288 warrior-drawn bouts (`7b2e9dc9f`). Its table cell, on
+the Strike drill's `middle` rung: 0.776 hp a second empty-handed against the punch's 1.563, 2 of
+32 on the mark at 15 m/s, 4 fallen (`776e9c06e`). Dynamic, the owner's first bar: on that rung
+the record lands 1.03 s from the order at a median 9.1 m/s (`5b6b53f2f`), against the punch's
+0.22 s, the stomp's 2.60 s at a body lying, and a person's front kick at a target, 1.08 to
+1.14 s and 8.6 to 9.6 m/s for trained men (sub-elite and elite)
+([the reference](reference/human-strike-reference.md#3c-front-kick)): a person's pace,
+though it lands on the mark in few trials. What it found:
+
+- **A skill on one foot reads its feet every step.** The kick read its soles' outline once, when it
+  was made; after any walk its centre was never over the stale sole, so every kick the Mind walked
+  in for stalled at its transfer's deadline. Read every step, and searched again, the Mind with
+  the kick went from winning 0.024 of its bouts against the Mind without it to 0.590
+  (`0b6886eac`, `5b6b53f2f`). *Shown.*
+- **A strike that holds the legs gives them back to the stance when it is knocked.** A blow during
+  the weight shift carried the centre off both feet while the kick held them planted; 103 of 217
+  sparring falls began there. Released to the stance's own standing, which steps, none did
+  (`6a339ee8f`). *Shown.*
+- **A schedule's channels are not aimed**, so a schedule that drives the hip and knee early decides
+  where the foot goes: the kick meets the target's thighs from below (0.65 to 0.9 m against the
+  mark's 1.19 m) before its aimed chamber has begun. With those pushes held at none the aim owns
+  the leg and lands on the mark more often (14 of 32 at 480 Hz), but falls in half its trials,
+  in the set-down (`89f39640b`). *Shown.*
+- **Its set-down falls are the stance's catch failing**: the drive turns the pelvis about 40°, and
+  as the leg comes back the standing foot leaves the ground and the body runs backward. For that
+  kick a set-down timed by its way, one left to the stance's catch, and a re-chamber before it
+  each fell as often or more on the drill (`6a339ee8f`, `89f39640b`); for the push kick in
+  fights the stance's catch is the better set-down (below). *Shown.*
+- **A man's kick profile changes every Mind that prices a man**, since a foe is modelled by every
+  strike measured on its body (`foeModel`); measured, they made the Mind with the kick win less
+  (0.543), so they are kept out of the asset (`020532cf9`). *Shown.*
+- **The table's value pays a foot that meets the thighs**, so a search on it finds a leg that sweeps
+  up. The owner, looking at it in the Arena: "the leg sweeps up mostly (not really straight
+  toward the opponent)". In the Warrior's own bouts the foot rose above his own head in 42 % of
+  kicks and came no nearer the foe's middle than 0.55 m (`research/runs/kick-look/`). The aimed
+  drive made a push kick, chambered until the foot is up and then driven out level
+  (`466c57285`), and searched on the table's value, still landed on the mark in none of 32
+  trials. Searched with only blows on the mark counting (`--on-mark`, `effcac59c`), it lands
+  in 11 of 32 at 120 and at 480 Hz against the old kick's 2 and 0; it falls more (10 and 15
+  against 4 and 6), and its foot goes over the kicker's head in 13 % of kicks. The Warrior holds it
+  (`kick/push`); the old kick is the variation `kick/kick` (`ecf5182ef`). The owner, looking at
+  it: "the kick looks better now". Its table cells read worse in every loadout, 0.19 to 0.30 hp a
+  second against 0.40 to 0.78, landing on the mark in 7 to 13 of 32 where the old kick landed in
+  2: the old kick's value was traded off the mark. In the game's Mind it costs nothing measured:
+  with it the Mind beat the Mind without a kick in 0.613 of 288 warrior-drawn bouts (the old
+  kick 0.590), and scored 0.455 (0.396 to 0.510) against the Mind with the old kick
+  (`research/runs/kick/match/`). *Shown.*
+- **The kicker's own loss is the foe's trades, not its own kick**: over 93 kicks the kicker lost
+  38.8 HP to the foe's 91.0, most of it the foe's foot on its trunk while both kicked; its own
+  foot meeting a body costs it almost nothing, as the fist's (`research/runs/kick-look/`).
+  *Shown.*
+- **The push kick's falls are set before its set-down's catch; holding its centre ahead cuts them
+  without a gain**: at the set-down's start the capture point is past the standing heel, by more
+  than the longest catch reaches, where the kicker goes down (`research/runs/capture/`). The
+  centre held 0.1 m ahead of the standing sole (`ahead`) left the kicker down after 44 of 94
+  kicks in fights against 68 of 103, but the drill's search placed it at 0.02 m for no gain
+  (0.254 against 0.251), and in 288 warrior-drawn bouts the Mind with it scored 0.469 (0.420 to
+  0.517) against the Mind without; the records hold 0 (`research/runs/kick/`). *Shown.*
+- **The push kick's falls are its own drive's, and its hard brake is its value**: in fights a kick
+  that misses falls as often as one that lands (13 of 13 against 63 of 81); the standing foot
+  leaves the ground late in the drive as the leg is braked onto its goal. Braked at 100 rad/s²
+  against the record's 365, the kicker was down after 57 % of kicks against 68 % but its foot came
+  no nearer the foe's middle than 0.52 m against 0.43, and in 288 warrior-drawn bouts it scored
+  0.347 (0.299 to 0.399) against the record (`a5fff57da`). A schedule's pushes on the standing
+  leg never acted while the stance stood on it, the stance driving its own legs over a push
+  (`src/control/motor.ts`), and are gone from the kick's schedule and its search. *Shown.*
+- **The low kick takes more from a body lying than the stomp and gives it back in falls**: the
+  owner on the low attack, "it doesn't have to be a stomp, it can be like kicking a football or
+  anything". The stomp lands 2.7 s from the order and a foe laid down who fights back is mostly
+  up by then (`sparring-laid`: landed 0.148, 0.004 hp a second of its cycle). The kick's
+  executor with the push kick's record, its height band lowered to a lying trunk and the rest
+  searched on `stomping-twin`, is the stomp's variation `stomp/kick` (`4f8a6dbf1`): on the same
+  trials 0.082 hp a second, 1.00 s to contact at 38 J, landed 0.158, fell 0.315 against 0.277.
+  In the game's Mind's bouts a downed foe lost 1.11 hp a minute against 0.67, but the kicker went
+  down more, and the Mind holding it scored 0.517 (0.472 to 0.563) against the Mind with the
+  stomp and knocked out within 60 s in 22.6 % (15.7 to 31.5) of its mirror bouts against 34.8 %;
+  the Warrior does not hold it. Searched again at a foe that fights back (48 of `sparring-laid`'s
+  trials), the schedule read flat for twenty generations (`research/runs/low/`). *Shown.*
+- **The drill's falls are not the fights', and the set-down is the stance's own catch**: the owner,
+  "reducing falls of the kicker should be the main priority now they basically work". On the
+  drill's middle rung every push kick throws the pelvis back as the hip drives (its forward
+  vector 0.56 high) and puts the standing hip on its extension stop; leaning the trunk forward
+  in the drive cut its falls from 10 of 32 to 2 (lean 0.45), but in fights it changed nothing:
+  3.94 downs a mirror bout against 3.88, and 0.477 against the game's Mind. In fights 97 % of
+  the game's Mind's kicks meet the foe, from 0.8 m centre to centre, and the kicker was down
+  after 77.6 % of those that drove (304 of 392); the falls come in the set-down, a third after a
+  blow. The set-down stepped the foot back to where it stood, wherever the body was going;
+  aimed at the capture point instead it read flat (308 of 400), and a re-chamber under the pose
+  before it fell in 24 and 32 of 32 drill trials. Left to the stance's own standing, which
+  steps to catch the body as the recentre does, the kicker was down after 65.7 % (286 of 435),
+  the Mind knocked out within 60 s in 38.9 % (32.6 to 45.5) of its mirror bouts at 3.64 downs a
+  bout against 34.7 % and 3.88, and scored 0.483 (0.434 to 0.531) against the Mind before it.
+  The set-down is that (`research/runs/falls/`). *Shown.*
 
 ## Guarding
 
@@ -659,12 +798,28 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   the fitted leaf already reads the same quantities. Deciding 10 times a second with no reply
   searched (`option-lean`) thinks 135 ms a simulated second against 251 and plays as well: a
   decision costs more as decisions get rarer, so the rate halves the thinking, not divides it by
-  six. On the scorecard it knocks out within 60 s in 34.7 % of its mirror bouts against 34.8 %;
-  it is the empty-handed man's Mind. Its decision lands in the one step it is made in: with the
+  six. On the scorecard it knocks out within 60 s in 45.1 % of its mirror bouts against 38.6 %
+  (`b207cee32`); it is the empty-handed man's Mind. Its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of
   a bout's CPU against the physics' 22 %, the profiles' nearest lookup the largest part
   (`research/runs/lean-time/`). *Shown.*
+- **A bar's two halves are one command's protocols.** The back step's bar 1 was written met for two
+  days against a standing defender read by a research script on another set-up (33.6 %); the
+  evaluation's own standing defender read 20.4 % there, so the bar had never been met. Its baseline
+  is now the evaluation's protocol beside the skill's (`mind-held-standing`), a Mind without a
+  skill named by a setting's path (`--ablate options.steps-back=null`). *Shown.*
+- **A drill's own orders may make its figure.** In the back step's drill the sway took 9.8 % of the
+  punches thrown while it went back, against standing's 19.7 %; the drill's Commander then held the
+  order 1.6 s more, stepping it in and following, and 71 of the 127 punches taken landed there.
+  *Shown.*
+- **A value fitted to bouts** (`assets/minds/fitted-value.json`, `FittedValue`, fitted by
+  `research/minds/fitted-value.mjs`): R² held out does not order leaves by play (a leaf of a Mind
+  with truer own-body models read higher at 8 and 20 s and played worse, 0.372 against 0.434); a
+  leaf learns from the play of the Mind whose rows it fits (that Mind's 432 bouts fitted a weaker
+  leaf than the game's Mind's rows of the same bouts, 0.440; one round of fitting to a Mind's own
+  play bought nothing); its R² is spent on who is ahead (0.026 to 0.038 across one search's leaves
+  against the tail's 0.461). What made it play was the mean backup and initiative. *Shown.*
 - **Not yet read**: the search spread over steps and the branch kept (each rests on a kept worth
   standing for a situation since moved, as the warm start's does); a value read from bouts is the
   Minds' that fought them, and how a table stays true as the Mind reading it changes is not

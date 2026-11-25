@@ -73,7 +73,7 @@ try {
       console.log(`lost ${r.value?.toFixed(3) ?? "-"} s a trial; fell ${r.falls} of ${r.trials}`);
     } else {
       if (!o.out) throw new Error("--out names the search's files");
-      const { best } = await cmaSearch({ n: keys.length, start: toUnit(start), sigma: Number(o.sigma), lambda: Number(o.lambda), generations: Number(o.generations), seed: 1, score,
+      const { best } = await cmaSearch({ look: { body: o.body ?? "man", variation: "walk-run/walk-run" }, n: keys.length, start: toUnit(start), sigma: Number(o.sigma), lambda: Number(o.lambda), generations: Number(o.generations), seed: 1, score,
         onGeneration: (entry, { best }) => {
           const line = { ...entry, lost: best.r?.value, falls: best.r?.falls };
           console.log(JSON.stringify(line));

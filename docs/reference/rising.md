@@ -21,7 +21,7 @@ npm run evaluate -- way-up [option-drill/<way up> ...] [--protocol fresh | bouts
 - **The riser and the value** (`attemptsValue`, `ATTEMPT_CAP`) are [the table](the-table.md)'s:
   the drills' Mind with the way up read ranked first, seconds an attempt.
 - **`fresh` and `bouts-fresh`** are the training twins
-  ([the skill recipe](../recipes/skill.md#an-options-code)).
+  ([the skill recipe](../recipes/skill.md#research-scores-on-its-drill)).
 - **One record, two ways up**: the step-up record drives staged-roll and staged-down, the
   sit-back record sit-back and front-sit-back, so a search of one record reads the cells of both.
 
@@ -70,10 +70,10 @@ node research/skills/skill-search.mjs <sit-back | roll> <model> --confirm .tmp/s
   pose angles and each pose's time. The Skeleton has roll poses of its own; the Warrior's and the
   Rogue's are the game's (`ROLL_POSES`).
 - **It plays the twins** of the cells the record drives, one body at a time, and ends as
-  [the skill recipe's search](../recipes/skill.md#3-a-native-controller-that-succeeds-on-some-cases)
+  [the skill recipe's search](../recipes/skill.md#4-tune-its-timings-and-gains)
   does.
 - **`--confirm`** plays the record as it stands and the search's best on the cells' own falls;
   `--write` installs a best that is kept. The body's profiles are then stale: rebuild them in the
-  same change ([the skill recipe](../recipes/skill.md#traps)).
+  same change ([the skill recipe](../recipes/skill.md#5-install-and-confirm)).
 - **A loadout's staged settings** (the step-up's stage times and poses, the climb) are searched
   the same way by `research/skills/recovery/implementations/staged/rise-search.mjs`.

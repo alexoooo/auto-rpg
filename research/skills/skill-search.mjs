@@ -13,7 +13,7 @@
  *   `--loadout` one cell), each the Strike drill's `stomping` rung (each foot at the middle of each
  *   of the game's foes lying limp), searched on the rung's training twin at 120 Hz and confirmed on
  *   the cells' own cases at 120 and 480 Hz, the worse counting ([the skill
- *   recipe](../../docs/recipes/skill.md#an-options-code): research scores on its drill). A candidate
+ *   recipe](../../docs/recipes/skill.md#research-scores-on-its-drill): research scores on its drill). A candidate
  *   is the cell's subject, the drills' Option Mind, its stomp so tuned (`withTuning`); a trial scores
  *   its value as the cell values it, a blow short of the bar graded below it (`searchScore`), and the
  *   confirmation keeps a record on the value.
@@ -352,7 +352,7 @@ if (!isMainThread && workerData?.search) {
   const unit = search.dims.map(([key, lo, hi]) => Math.min(1, Math.max(0, ((search.get ? search.get(start, key) : start[key]) - lo) / (hi - lo))));
   let raised = resume?.best.g ?? 0, bestSoFar = resume?.best.score ?? -Infinity, ended = null;
   console.error(`${skill} on ${body}: ${trials.length} trials a candidate, ${lambda} candidates a generation, ${values.generations === undefined && values.patience !== undefined ? `until ${patience} generations raise nothing` : `${generations} generations`}, ${workers} workers`);
-  const { best } = await cmaSearch({ n: search.dims.length, start: unit, sigma: Number(values.sigma ?? .2), lambda, generations, seed: Number(values.seed ?? 1), resume,
+  const { best } = await cmaSearch({ look: { body, variation: recordName.includes("/") ? recordName : `${recordName}/${recordName}` }, n: search.dims.length, start: unit, sigma: Number(values.sigma ?? .2), lambda, generations, seed: Number(values.seed ?? 1), resume,
     // A candidate none of whose trials counts scores as one that threw.
     score: async (u) => { const r = await scored(pool, decode(search, start, u), trials); return { ...r, score: r.score ?? search.error }; },
     onGeneration(entry, { best, checkpoint }) {

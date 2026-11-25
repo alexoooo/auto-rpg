@@ -5,4 +5,5 @@ import type { DataLoaders } from "../../../../core/data/store.ts";
 export const KICK_DATA = {
   "kick/kick": bodyRecords(() => import("./kick.ts").then((m) => m.KICK_RECORDS)),
   "kick/push": bodyRecords(() => import("./push.ts").then((m) => m.PUSH_KICK_RECORDS)),
+  "kick/front": bodyRecords(() => import("./front.ts").then((m) => m.FRONT_KICK_RECORDS)),
 } satisfies DataLoaders;

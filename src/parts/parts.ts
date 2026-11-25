@@ -48,6 +48,18 @@ export interface Supplied {
 }
 
 /**
+ * **A part as a skill**: the heading under which it is offered in the character editor (`group`),
+ * and where it leaves its body (`ends`): the positions (`Position`, `src/control/ground-reading.ts`)
+ * a body may be in once an action of it is done, a strike's, a walk's and a way up's standing, a
+ * fall's own anywhere. A drill's research score holds a trial that ends elsewhere to what doing
+ * nothing is worth (`research/drill-trials.mjs`).
+ */
+export interface AsSkill {
+  readonly group: string;
+  readonly ends: readonly string[];
+}
+
+/**
  * **A kind of part**: what every part has, whatever its role. What it is; the config it takes;
  * the parts that config holds; whether a body fits it and what is wrong with a config of it; and
  * the data it reads. What the mind editor shows of it is beside (`Edited`). What a part of one
@@ -75,10 +87,11 @@ export interface Part<C extends PartConfig = PartConfig> extends Edited<C> {
   /**
    * **A skill's variations** by name (`Variations`): a part with them is a skill a character
    * chooses (`BodySpec.skills`), and a body runs only those its character holds (`variationFault`).
+   * A skill says what it is as one (`asSkill`); a part with one and not the other is a catalog fault.
    */
   readonly variations?: readonly string[];
-  /** The heading under which a skill is offered in the character editor. */
-  readonly skillGroup?: string;
+  /** What it is as a skill a character chooses, for a part that is one (`AsSkill`). */
+  readonly asSkill?: AsSkill;
 
   // The parts its config holds (`heldBy`).
   readonly slots: readonly Slot[];

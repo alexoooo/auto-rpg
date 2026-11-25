@@ -16,7 +16,7 @@ const VARIATIONS = { "support-fold": (body: Body, _config: SupportFoldConfig) =>
 /** Fighting from low support. */
 export const SUPPORT_FOLD: LowSupportPart<SupportFoldConfig> = {
   role: "support", requires: [SUPPORT_REFERENCE], label: "Fight from low support", fields: [], slots: [], defaults: { kind: "support-fold" }, keys: { kind: true, variation: true },
-  ...varied({ skill: "support-fold", label: "low support", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [soleRefusal] }), faults: () => [], skillGroup: "Balance",
+  ...varied({ skill: "support-fold", label: "low support", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [soleRefusal] }), faults: () => [], asSkill: { group: "Balance", ends: ["standing"] },
 };
 
 
