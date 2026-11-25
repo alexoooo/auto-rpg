@@ -55,7 +55,11 @@ The owner, 2026-11-24, on a fight with the kick: "i do like that the rate of fal
 because it sets us up to work on the ability to hit an opponent that's not upright (the current
 stomp doesn't really work but we needed more falls to be able to work on that, and i think the new
 kick does get us there)". On its place: "i think we can do that after the modelling. the modelling
-will make thinking cheaper which will speed up the rest of the work that follows."
+will make thinking cheaper which will speed up the rest of the work that follows." On the strike:
+"Re the low attack, it doesn't have to be a stomp, it can be like kicking a football or anything".
+So its strike is chosen by what lands and takes life from a body lying down (a stomp, a low
+swinging kick like a football kick, or another), as the push kick was chosen for falls, and a new
+skill or variation enters pickable, as the kick did.
 
 ### The kicker's falls after kicking
 
