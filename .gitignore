@@ -50,3 +50,6 @@ __pycache__/
 
 # Research runs: what a later run reads, each folder's README.md naming it (docs/recipes/skill.md, What to keep).
 /research/runs/
+
+# A look's strips: redrawn from the code at its hash by `npm run look`; its look.json and verdict.md are the record (research/look.mjs).
+/research/looks/**/*.png

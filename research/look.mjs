@@ -7,7 +7,7 @@
  * strip of frames of a few of them, drawn from the side at each change of the skill's stage and
  * every 0.1 s while it acts (`look-image.mjs`). It is kept in `research/looks/<body>/<variation>/<code>/`,
  * `<code>` the hash of the skill's code and records (`lookCode`, `look-gate.mjs`): `look.json` (the counts and each
- * strip's frames, their time and stage) and `strip-<k>.png`. Beside them, `verdict.md`, written by
+ * strip's frames, their time and stage) and `strip-<k>.png`, which Git does not keep: this redraws it. Beside them, `verdict.md`, written by
  * whoever reads the strips, says whether the movement looks like the motion and works some of the
  * time; a search reads it before it starts (`requireLook`), and a change to the skill's code is a new
  * `<code>` with no verdict.

@@ -23,6 +23,8 @@ one look at it you would see that it doesn't look liek a kick at all".
 2. **Look at its frames** at its key moments: `npm run look -- <body> <skill/variation>`
    (`research/look.mjs`) plays it on its drill and draws its strips in
    `research/looks/<body>/<variation>/<code>/`; read them and write the `verdict.md` beside them.
+   Git keeps the verdict and `look.json`, not the strips: the same command redraws them from the
+   code at that hash.
 3. **Make it work some of the time**, by hand: it lands (or reaches what its drill asks) and ends
    where the skill says it leaves its body (`AsSkill.ends`, `src/parts/parts.ts`).
 4. **Then tune only timings and gains** by search, never its shape.
