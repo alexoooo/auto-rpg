@@ -124,6 +124,23 @@ above happened.
    *Held by* the report being the tools' own output: the inventory's and the fingerprint's
    comparisons (`--compare`), in the commit message as they print.
 
+## One Mind already, in three configs
+
+Every body runs the one Option Mind (`kind: "option"`): the same code, offering each body the
+registered Options it fits. No body has a Mind of its own. What differs by body is the config
+it plays by default, three today (`src/app/catalog.ts`, `src/entrants/option/mind.ts`):
+
+| Config | The default of | Its settings |
+| --- | --- | --- |
+| `option-tail` | the woman, the skeleton, the reptile, and the man holding anything | the tail's leaf, a state worth its best line, the objective's own defaults, decided at 60 Hz |
+| `option-lean` | the empty-handed man | the fitted leaf, a state worth its lines' mean, aggression 4, initiative 0.3, the foe carried on 0.5 s, decided at 10 Hz, a walk's start signed and a sway by its own steps |
+| `option-presses` | the rat | a state worth its best line, aggression 5, initiative 0.3, decided at 60 Hz; it asks the fitted leaf, which stands aside for the rat |
+
+They are three because each was read on one body and installed for that body alone. "The
+general Mind" below is not another Mind. It is one config with each mechanism's kind set, the
+one a body with no entry of its own plays. The plan ends with the three back to one, or with
+each exception that is left named and read (bar 4).
+
 ## The inventory
 
 A script that plays nothing. For each body, empty-handed and as the game arms it, and for the
