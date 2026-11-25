@@ -31,10 +31,10 @@ const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
 
 /**
  * **The mind a body plays where it is not its model's**, by the body's name (`bodyOf`): the
- * empty-handed man plays the Option Mind priced against the foe's closing reply with its own body
- * priced truer (`option-truer`), measured on him.
+ * empty-handed man plays the Option Mind with its own body priced truer, deciding ten times a
+ * second with no reply searched (`option-lean`), measured on him.
  */
-const DEFAULT_BODIES: Readonly<Record<string, string>> = Object.freeze({ man: "option-truer" });
+const DEFAULT_BODIES: Readonly<Record<string, string>> = Object.freeze({ man: "option-lean" });
 
 /** **The game's own minds**, by preset id: those some body plays unless its fight or run says otherwise, the few the Arena's menu lists. */
 export const GAME_MINDS: ReadonlySet<string> = new Set([...Object.values(DEFAULT_MINDS), ...Object.values(DEFAULT_BODIES)]);

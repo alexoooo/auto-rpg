@@ -1,23 +1,22 @@
-import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../../framework/action.ts";
-import { supportHeight } from "../../../../control/support-reference.ts";
-import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
-import type { Body, BodyView } from "../../../../control/body.ts";
-import type { MusclePush } from "../../../../control/motor.ts";
-import { footStatesOf, readSupport, withinSupport } from "../../../../control/support.ts";
-import { intoFrameToRef, reachWork, solveReach } from "../../../../control/kinematics.ts";
-import { bodyEffectors, copyFreedoms } from "../../../../control/effectors.ts";
-import { channelName } from "../../../../core/bodies/muscle/driver.ts";
-import { supportReadiness, plantedSupport } from "../../shared/support-readiness.ts";
-import { stepShare, timedPushes, type TimedPush } from "../../shared/timed-push.ts";
-import { STANCE_GAIT } from "../../../../control/stance/stance-tuning.ts";
-import { cos, hypot, sin } from "../../../../core/math/real.ts";
-import type { Vec3 } from "../../../../core/quantity.ts";
-import { segmentOf, type BearingEnd } from "../../../../core/bodies/spec/body.ts";
-import type { Pose } from "../../../../core/bodies/spec/pose.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../../../framework/action.ts";
-import type { LegsGoal } from "../../../framework/skill.ts";
-import { withinActionWindow } from "../../../intent/action-window.ts";
-import { type Side, otherSide } from "../../../../core/bodies/bilateral.ts";
+import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../framework/action.ts";
+import { supportHeight } from "../../../control/support-reference.ts";
+import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
+import type { Body, BodyView } from "../../../control/body.ts";
+import type { MusclePush } from "../../../control/motor.ts";
+import { footStatesOf, readSupport, soleRefusal, withinSupport } from "../../../control/support.ts";
+import { intoFrameToRef, reachWork, solveReach } from "../../../control/kinematics.ts";
+import { bodyEffectors, copyFreedoms } from "../../../control/effectors.ts";
+import { channelName } from "../../../core/bodies/muscle/driver.ts";
+import { supportReadiness, plantedSupport } from "./support-readiness.ts";
+import { stepShare, timedPushes, type TimedPush } from "./timed-push.ts";
+import { cos, hypot, sin } from "../../../core/math/real.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
+import { segmentOf, type BearingEnd, type BodySpec } from "../../../core/bodies/spec/body.ts";
+import type { Pose } from "../../../core/bodies/spec/pose.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../../framework/action.ts";
+import type { LegsGoal } from "../../framework/skill.ts";
+import { withinActionWindow } from "../../intent/action-window.ts";
+import { SIDES, type Side, otherSide } from "../../../core/bodies/bilateral.ts";
 
 /**
  * **What a kick pushes**, by name: each a channel of the kicking leg (`{kick}`) or the trunk, driven
@@ -43,10 +42,10 @@ const UNPUSHED = Object.fromEntries((Object.keys(KICK_PUSHES) as PushName[]).fla
  * over the standing foot, both feet bearing, until it is quiet there; drive stands on that foot
  * alone, anchored where it stands, and drives the leg at the target (the aimed drive, below) and
  * on its schedule (`KICK_PUSHES`), each freedom neither moves held where the drive found it, until `follow` s after the foot first
- * touches the target or `longest` s after the drive began; set-down is the stance's step of the
- * kicking foot back to where it stood, each other freedom the drive pushed driven back to where
- * the drive found it, until the foot bears; recentre is the stance's standing, stepping where it
- * must, until both feet bear and are quiet.
+ * touches the target or `longest` s after the drive began; set-down is the stance's standing, which
+ * steps the kicking foot down where it catches what the drive left moving, each other freedom the
+ * drive pushed driven back to where the drive found it, until the foot bears; recentre is the
+ * stance's standing, stepping where it must, until both feet bear and are quiet.
  */
 export const KICK_PATH = Object.freeze({
   /** The deadlines to bring the centre over the standing foot, to set the kicking one down, and to stand quiet on both feet again. */
@@ -93,6 +92,25 @@ export function validKickTuning(tuning: KickTuning): boolean {
     && [tuning.hold, tuning.lower, tuning.follow, tuning.admitSpeed, tuning.low, tuning.lead, tuning.chamber, tuning.knee, tuning.through].every((v) => v >= 0) && tuning.decel > 0
     && tuning.alongFar > tuning.alongNear && tuning.high > tuning.low
     && (Object.keys(KICK_PUSHES) as PushName[]).every((name) => Math.abs(tuning[`${name}Level`]) <= 1 && tuning[`${name}From`] >= 0 && tuning[`${name}Length`] >= 0);
+}
+
+/** Whether each setting `tuning` names is a known one, and finite. */
+export const validKickPart = (tuning: Partial<KickTuning>): boolean =>
+  !!tuning && typeof tuning === "object" && !Array.isArray(tuning) && Object.entries(tuning).every(([key, value]) => key in KICK_PATH && Number.isFinite(value));
+
+/** Whether `tuning` holds every kick setting, each valid (`validKickTuning`). */
+export const wholeKick = (tuning: Partial<KickTuning>): boolean => validKickPart(tuning) && Object.keys(KICK_PATH).every((key) => Object.hasOwn(tuning, key)) && validKickTuning(tuning as KickTuning);
+
+/** The soles, hips and foot effectors a kick reads. */
+export function kickRefusal(spec: BodySpec): string | null {
+  const soles = soleRefusal(spec);
+  if (soles) return soles;
+  for (const side of SIDES) {
+    const segment = spec.segments.find((one) => one.name === "foot." + side);
+    if (!spec.joints.some((joint) => joint.name === "hip." + side) || !segment?.points?.sole || !spec.effectors?.some((effector) => effector.segment === segment.name))
+      return "the kick needs bilateral named hips and foot effectors with sole points";
+  }
+  return null;
 }
 
 /** `tuning`'s schedule for a kick with the `kick` foot, standing on the other. */
@@ -183,7 +201,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
     return { sole: [world.x, world.y, world.z] as Vec3, rotation: [turn.x, turn.y, turn.z, turn.w] as const };
   };
   type Motion = { request: ActionRequest; foot: Side; stage: "transfer" | "drive" | "set" | "recenter"; phase: "prepare" | "commit" | "release";
-    time: number; step: number; held: number; heading: number; height: number; bearing: ReturnType<typeof footing>; stood: readonly [number, number]; posture: Pose; aim: Vec3;
+    time: number; step: number; held: number; heading: number; height: number; bearing: ReturnType<typeof footing>; posture: Pose; aim: Vec3;
     /** Whether the aimed drive has left its chamber. */
     out: boolean; touched: number | null; withdrawn: boolean; ending: ActionEnding };
   const state = { live: null as Motion | null };
@@ -211,7 +229,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       if (state.live) throw new Error("kick executor already owns an instance");
       const foot = sideOf(request.effector);
       state.live = { request: { ...request }, foot, stage: "transfer", phase: "prepare", time: 0, step: 0, held: 0, heading: around.heading,
-        height: supportHeight(view) - around.lower - tuning.lower, bearing: footing(view, otherSide(foot)), stood: [footing(view, foot).sole[0], footing(view, foot).sole[2]], posture: {}, aim: [0, 0, 0],
+        height: supportHeight(view) - around.lower - tuning.lower, bearing: footing(view, otherSide(foot)), posture: {}, aim: [0, 0, 0],
         out: false, touched: null, withdrawn: false, ending: { kind: "completed" } };
     },
     update(view, continued, _around, dt) {
@@ -269,13 +287,13 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
     command(view, id) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`kick executor has no instance ${id}`);
-      const foot = live.foot, other = otherSide(foot), both = live.stage !== "drive", centred = live.stage === "recenter";
-      const standing: LegsGoal = { walk: null, feet: both ? [nameOf("left"), nameOf("right")] : [nameOf(other)], centre: centred ? null : [live.bearing.sole[0] + tuning.ahead * sin(live.heading), live.bearing.sole[2] + tuning.ahead * cos(live.heading)],
+      const foot = live.foot, other = otherSide(foot), both = live.stage !== "drive", own = live.stage === "set" || live.stage === "recenter";
+      const standing: LegsGoal = { walk: null, feet: both ? [nameOf("left"), nameOf("right")] : [nameOf(other)], centre: own ? null : [live.bearing.sole[0] + tuning.ahead * sin(live.heading), live.bearing.sole[2] + tuning.ahead * cos(live.heading)],
         height: live.height, heading: live.heading,
-        // The set-down is the stance's own step back to where the foot stood, and the recentre its own standing, which steps
-        // to catch what the kick left moving: a pose holds a body only on planted feet, and takes no step.
-        ...(live.stage === "set" ? { swing: { foot: nameOf(foot), to: live.stood, seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift } }
-          : live.stage === "recenter" ? {}
+        // The set-down and the recentre are the stance's own standing, which steps the kicking foot down where it catches
+        // what the kick left moving: a pose holds a body only on planted feet, and takes no step; a step back to where the
+        // foot stood lands where the body is no longer going.
+        ...(own ? {}
           : { pose: { pitch: live.stage === "drive" ? tuning.lean : 0, seconds: tuning.transferSeconds,
             ...(both ? {} : { anchors: { [nameOf(other)]: { position: live.bearing.sole, rotation: live.bearing.rotation } } }) } }) };
       if (live.stage === "set") {

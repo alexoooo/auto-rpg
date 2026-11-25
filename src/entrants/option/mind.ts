@@ -27,9 +27,11 @@ const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: 
  * knockout still and a step about a fifth slower at its slowest. And that one with its own body
  * priced truer (`option-truer`): a walk starting at its speed along its way, going on away for its
  * gait's lag (`walkStart` signed), a sway leaving the body by its own steps (`sways` own), and the
- * foe kept moving over a line's first half second (`carry`), as strong as `option-reply`. And
- * the Mind that presses its attack (`option-presses`): each state worth its best line (`best` 1),
- * at aggression 5 and initiative 0.3, the rat's, which bites the Warrior more often than it waits.
+ * foe kept moving over a line's first half second (`carry`), as strong as `option-reply`. And that
+ * one deciding ten times a second with no reply searched (`option-lean`): as strong, at about half
+ * its thinking. And the Mind that presses its attack (`option-presses`): each state worth its
+ * best line (`best` 1), at aggression 5 and initiative 0.3, the rat's, which bites the Warrior more
+ * often than it waits.
  */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   option: { label: "Option Mind", config: OPTION_DEFAULTS },
@@ -43,7 +45,11 @@ export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   "option-reply": { label: "Option Mind, foe's closing reply", config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, replies: 1, against: "mean" } } },
   "option-replies": { label: "Option Mind, foe's replies", config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, replies: 2, against: "mean" } } },
   "option-truer": {
-    label: "Thinks ahead",
+    label: "Thinks ahead, foe's reply",
     config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, replies: 1, against: "mean", carry: .5 }, predictions: { kind: "measured", walkStart: "signed", sways: "own" } },
+  },
+  "option-lean": {
+    label: "Thinks ahead",
+    config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, carry: .5 }, rate: 10, predictions: { kind: "measured", walkStart: "signed", sways: "own" } },
   },
 });
