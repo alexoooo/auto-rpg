@@ -93,13 +93,44 @@ game's own pairings read none.
 - A step that reads flat is still kept if it removes a guess and makes neither body worse. That is
   the goal: the same Mind, priced from measurement.
 
+## At the game's scale
+
+The owner, 2026-11-25: "This game will have dozens of bodies and items, with hundreds of skills.
+Will the plan allow us to scale up to this while maintaining fast development velocity?"
+
+So a new body, item or skill must fight sensibly the day it is added, with nothing measured for
+it yet, and be measured later by one unattended command. Four rules keep the cost growing with
+what is added, not with every pairing of it:
+
+- **Nothing is fitted per pairing.** With dozens of bodies, each holding several items, the
+  pairings run to thousands. Each fit reads the two bodies, and what they hold, as numbers: weight,
+  height, reach, speed, and the measured strikes' damage and timing. One fit then covers every
+  pairing, and a pairing never played is read between the nearest ones. The pressure tables
+  already work this way: three tables, matched by the nearest body's height and weight.
+- **What is measured is measured per thing, against a few foes.** A skill's profile is measured on
+  its own body against a small fixed set of foes, so a new skill costs a fixed number of trials.
+  The foe's pressure on a body is read from the foe's own strike profiles and the struck body's
+  numbers, not from a table for each pair.
+- **The record samples pairings.** Each collection plays pairings drawn at random from what the
+  game offers, weighted toward what was added or changed since the last fit, not every pairing.
+- **One command keeps it current.** It finds what changed since each asset was fitted (each asset
+  names its commit), plays the drills and the sampled bouts for that, refits, and writes a report.
+  It runs overnight on the workers. A skill whose data is stale is priced by the nearest-body rule
+  meanwhile, and the report names it, so working on a skill never waits on its measurement.
+
+The search's own cost grows with the Options a body has: hundreds of skills mean a body with dozens
+on offer. Whether the tree's 50 runs still find the strong line among them is read at step 9 on
+the body with the most skills; if not, the Options are narrowed by what the measured models say
+can matter from the state, which is mechanism 2's to give.
+
 ## Steps
 
 1. **The baselines and the report of guesses.** The readings above, taken at one commit. A script
    lists each hand-set prior the game's own pairings read, and how often, by body.
-2. **The fight record**, for the pairings the game's Arena and Crypt play: the decision states
-   `fitted-value.mjs` keeps, with the Option run, what followed, and where the foe went, in one
-   format that each fit reads.
+2. **The fight record**: the decision states `fitted-value.mjs` keeps, with the Option run, what
+   followed, and where the foe went, in one format that each fit reads, over pairings sampled
+   from what the game offers. The one command that keeps the record and the fits current starts
+   here, with what exists, and grows a fit at a time.
 3. **The end of every line priced** (mechanism 4, first half): the fitted value read at cut lines
    and open Options, through the fitted leaf the man already uses. Judged on the man; the rat
    still reads the tail.
@@ -110,7 +141,8 @@ game's own pairings read none.
    pairing; and the foe's turning comes from the same fit where nothing else measured it.
 6. **A second down** priced as a second standing is: the foe's measured pressure at the distance
    the foe will be, on a lying body, from the record's moments down. `Pressure.peak` is no longer
-   read for it.
+   read for it. The pressure is read from the foe's strike profiles and the struck body's numbers,
+   so no new table is needed for each pairing.
 7. **What each Option does** (mechanism 2), one kind at a time, each step its own commit: the
    walks' falls and the clinch together (`CLINCH` and the walk's no-fall go); then the ways up,
    the regain, the settle and the brace; then the cover; then where a fall leaves the body; then
@@ -128,7 +160,10 @@ game's own pairings read none.
   of the same reach, waiting at the edge of reach is about as safe for both, so pricing it better
   moves little. The rat's reach is far shorter than his. Step 5 may read flat on the man, and is
   judged on both bodies.
-- **The fitted value took 1044 bouts and 623767 states of the man** (fit at `33be0e76f`). Step 4
-  multiplies that by the pairings, so the record keeps only what the fits read.
+- **The fitted value took 1044 bouts and 623767 states of the man** (fit at `33be0e76f`). It was
+  fitted on one pairing; a fit over sampled pairings, read by the bodies' numbers, must reach the
+  man's figures without that many bouts for each body.
+- **Measured today**: 18 strike profiles, by body and skill; 3 pressure tables, matched by the
+  nearest body.
 - **The rat's time down, measured**: up 0.997 of its time at steadiness 25, its downs in fights
   costing about 0.004 of its life a second (the rat plan).
