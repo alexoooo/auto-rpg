@@ -62,6 +62,25 @@ steps and walks to about 1.7 m/s straight (`af46f126`, `62c7a814`).
 - **A gait is in the game only when the game chooses it**: an installed run went unchosen until the
   Braced walk's price and the lowering wrapper were fixed (`b61f11d6`). The Dungeon's and the
   Lab's gait choice shows it. *Shown.*
+- **The stance's catch holds a shove while no skill holds the legs; a catch let take over a pose
+  cost the game's kick its value**: shoves of 0.8 to 2.0 m/s given the Warrior's Mind standing
+  still in its bouts felled 151 of 926 with nothing under way, 146 of 198 during the kick and 70
+  of 114 during the stomp, since a skill's supported pose takes no step. A pose on both feet let
+  go once its capture point ran away past them felled 84 of 270 during the kick, but the bouts'
+  falls held (2.04 a minute against 2.03) and the Mind with it scored 0.472 (0.406 to 0.531)
+  against itself without a kick, where it had scored 0.613; let go on one foot too, the kick's
+  drive was let go and its leg pressed down (`4db78ac2f`). *Shown.*
+- **A longer catch holds more shoves and spares none of the bouts' falls**: 78 % of the catch's
+  landings are cut short of their aim, half at its longest step and half by the leg's reach from
+  hips it plans 0.1 m lower than the stance holds them. Hips asked down while a catch runs changed
+  nothing; the longest catch 1.4 of the leg, not 1.2, felled 25.9 % of shoves against 29.5 % and
+  the bouts' falls held (2.08 a minute against 2.03). The bouts' falls after a blow follow light
+  blows taken during the own kick, not shoves (`0dfed461f`). *Shown.*
+- **Where standing feet go stays two rules**: the idle footing (the square carriage's, about the
+  sole that stays, after a second still) and a carriage's footing about the centre at once. One
+  rule for both moved the back step's evaluation from 1 fall in 24 to 3 to 9 (`855e15b25`,
+  `c060d7472`). The idle footing does not cost balance: in 768 falls none began within 2 s of a
+  placement. *Shown.*
 
 ## Standing up
 
