@@ -434,12 +434,12 @@ the file that holds it imports the contract; else it is imported as a type.
 
 Three commits, each green.
 
-### 2a: the command layers say their steps
+### 2a: the command layers say their steps (landed)
 
 **Purpose.** A Mind that owns its layers can call them a step at a time. The driver's path is
 rewritten through the same three steps, so they have a caller from this commit.
 
-In `src/minds/motor-layers.ts`, `think` and `act` become:
+In `src/minds/motor-layers.ts`, `think` and `act` are:
 
 ```ts
   /** Queue what was decided this step. A null keeps the command the body already has. */
@@ -471,10 +471,9 @@ In `src/minds/motor-layers.ts`, `think` and `act` become:
   };
 ```
 
-`decided`, `take` and `apply` are returned beside `look` and `observe`. Nothing else changes.
-Both reviewers read this against `motor-layers.ts:200` to `:219` step for step and it held.
-
-**Done when** the checks pass and the fingerprint compares clean.
+The three are the layers' own until 2b, whose `CommandingMind` is their first caller from
+outside: 2b declares them on `CommandLayers`, exports that interface and returns them beside
+`look` and `observe`.
 
 ### 2b: the two classes
 

@@ -171,7 +171,6 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   const feel = (time: number): void => {
     moved();
     state.time = time;
-    // At a delay the body is born on the first step its driver's decision is carried out.
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
     for (let i = 0; i < points.length; i++) points[i]!.sample.update();
     rootFrameToRef(motor.root, state.root);
@@ -197,25 +196,33 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     state.felt = false;
     view.senses = senses;
   };
-  const think = (): void => {
-    const dt = clock.dt;
-    state.pending.push(driver ? driver.decide(view, dt) : null);
+  /** Queue what was decided this step. A null keeps the command the body already has. */
+  const decided = (decision: unknown): void => {
+    state.pending.push(decision);
     state.resumed = false;
     moved();
   };
-  const act = (control: BodyControl): void => {
+  /** Read the body for this step and hand back the decision that is now due. Null where none is due yet, or the one due keeps the command. */
+  const take = (control: BodyControl): unknown => {
     current = control;
-    const dt = clock.dt;
     feel(clock.time);
     state.felt = true;
-    if (state.pending.length >= own.delay) {
-      const due = state.pending.shift();
-      if (due !== null && due !== undefined) state.born ??= clock.time;
-      const next = due === null || due === undefined ? null : driver?.carry(view, due, dt);
-      if (next) obey(next, control);
-    }
-    motor.control(muscles, control, dt);
+    if (state.pending.length < own.delay) return null;
+    const due = state.pending.shift() ?? null;
+    // At a delay the body is born on the first step its driver's decision is carried out.
+    if (due !== null) state.born ??= clock.time;
+    return due;
+  };
+  /** Obey `command` where there is one, then have the motor write the muscles for this step. */
+  const apply = (command: BodyCommand | null, control: BodyControl): void => {
+    if (command) obey(command, control);
+    motor.control(muscles, control, clock.dt);
     moved();
+  };
+  const think = (): void => decided(driver ? driver.decide(view, clock.dt) : null);
+  const act = (control: BodyControl): void => {
+    const due = take(control);
+    apply(due === null ? null : driver?.carry(view, due, clock.dt) ?? null, control);
   };
   const drive: Body["drive"] = (next, onRelease) => {
     const split = typeof next === "function" ? { state: {}, decide: next, carry: carried } : next;
