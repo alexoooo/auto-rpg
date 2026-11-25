@@ -333,6 +333,18 @@ input.
     0.347 (0.299 to 0.399) against the record (`a5fff57da`). A schedule's pushes on the standing
     leg never acted while the stance stood on it, the stance driving its own legs over a push
     (`src/control/motor.ts`), and are gone from the kick's schedule and its search. *Shown.*
+  - *The low kick takes more from a body lying than the stomp and gives it back in falls*: the
+    owner on the low attack, "it doesn't have to be a stomp, it can be like kicking a football or
+    anything". The stomp lands 2.7 s from the order and a foe laid down who fights back is mostly
+    up by then (`sparring-laid`: landed 0.148, 0.004 hp a second of its cycle). The kick's
+    executor with the push kick's record, its height band lowered to a lying trunk and the rest
+    searched on `stomping-twin`, is the stomp's variation `stomp/kick` (`4f8a6dbf1`): on the same
+    trials 0.082 hp a second, 1.00 s to contact at 38 J, landed 0.158, fell 0.315 against 0.277.
+    In the game's Mind's bouts a downed foe lost 1.11 hp a minute against 0.67, but the kicker went
+    down more, and the Mind holding it scored 0.517 (0.472 to 0.563) against the Mind with the
+    stomp and knocked out within 60 s in 22.6 % (15.7 to 31.5) of its mirror bouts against 34.8 %;
+    the Warrior does not hold it. Searched again at a foe that fights back (48 of `sparring-laid`'s
+    trials), the schedule read flat for twenty generations (`research/runs/low/`). *Shown.*
 
 ### 4. A learned actor over it
 
