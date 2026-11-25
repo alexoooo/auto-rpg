@@ -106,6 +106,14 @@ in the simplest and most general form the stance can hold.
    better are not the bouts' falls: the bouts' blown falls follow light blows taken during the own
    kick (`blows/`: under 0.4 m/s, 110 of 145 while striking), the kick's own balance.
 4. **The kick again**: its set-down on the better catch, and s10's aimed leg searched again on it.
+   No catch was better (step 3), so the kick's falls were read in its drive. In fights a missed
+   kick falls as often as one that lands (13 of 13 missed, 63 of 81 touching): the fall is the
+   kick's own motion, not the foe's recoil. Traced, the standing foot leaves the ground late in the
+   drive as the leg is braked onto its goal. *Tried* (`research/runs/kick/balance/`): the brake at
+   100 rad/s² against the record's 365 left the kicker down after 57 % of kicks against 68 %, but
+   reached less (0.52 m from the foe's middle against 0.43) and lost the match, 0.347 (0.299 to
+   0.399). The standing leg's pushes in the schedule (`standKnee`, `standHip`) never act: the
+   stance drives its own legs over a push.
 
 ## After it
 
