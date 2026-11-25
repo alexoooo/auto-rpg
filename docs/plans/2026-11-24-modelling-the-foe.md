@@ -33,7 +33,20 @@ as one, a stronger one as one.
 1. **The baseline.** On recorded warrior-drawn bouts of the game's Mind, how well carrying the foe
    on its velocity predicts where it is over the next second and whether it strikes; what a
    decision costs with the reply search and without; and a match of the Mind with replies against
-   it without.
+   it without. *Read* (`research/runs/modelling/`, 288 warrior-drawn bouts a match): the game's
+   Mind scored 0.498 (0.437 to 0.552) against itself with no reply searched, 0.474 (0.417 to
+   0.533) against itself with the foe standing still in the states searched (`carry` 0), and
+   0.469 and 0.477 against itself deciding 30 and 20 times a second against 60: none of them
+   moves its play. Its search's runs do: at 10 runs, not 50, it lost 0.299 (0.250 to 0.351).
+   Thinking is 31 % of a bout's CPU, 251 ms a simulated second, about 60 decisions a side a
+   second; the reply search is about 13 % of it. Deciding 10 times a second with no reply
+   searched thinks 135 ms a simulated second and scored 0.486 (0.431 to 0.542) against the
+   game's Mind; it is in the game as `option-lean` ("Thinks ahead, lean"), a cheaper copy, not a
+   stronger Mind. Carrying the foe 0.5 s on its velocity is the best simple predictor of where
+   it goes: 0.03 m off at 0.25 s, 0.10 m at 0.5 s, 0.23 m at 1 s, where standing still is
+   0.09, 0.17 and 0.32. Within a second a standing foe begins a straight punch in 10 % of moments
+   and a kick in 6 %. So a better motion model has nothing to win where the search reads it; what
+   the search cannot see is when the foe strikes.
 2. **A predictor from what a Mind sees**: the foe's motion over the next second and whether it
    strikes, fitted with boosted trees on rows from those bouts, read against the baseline on bouts
    held out.
