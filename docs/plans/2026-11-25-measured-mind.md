@@ -86,10 +86,11 @@ above happened.
    it has any, holding what it holds, against the foe nearest the one it faces. Measuring is
    adding: rows to a profile, or one more fit beside those already there. So adding rows moves
    only what was borrowed there. A body with its own rows, against a foe it had measured, reads
-   as it did when another body's rows are added. (Its own rows made again do move it: rule 4.) A reading that pools every row does not keep this (the written form does so today,
-   below). A reading borrowed from the nearest body is coarse (the approaches: three measured
-   bodies do not price a fourth as its own trials do). It is there so a new body fights on the
-   day it is added, not so it fights well.
+   as it did when another body's rows are added. (Its own rows made again do move it: rule 4.)
+   A reading that pools every row does not keep this (the written form does so today, below). A
+   reading borrowed from the nearest body is coarse (the approaches: three measured bodies do
+   not price a fourth as its own trials do). It is there so a new body fights on the day it is
+   added, not so it fights well.
    *Held by* the measuring command: it reads every body and foe that had their own rows before
    it adds and after, and writes nothing if one moved. It plays nothing to do so.
 3. **Every reading says where it came from**, of the body and of the foe: its own, borrowed
@@ -398,7 +399,8 @@ Each names its scope and follows the procedure. A step measures nothing outside 
    read through it; a reading's source in its type, of the body and of the foe; each asset
    naming what it was measured from (the body, the skill, the Minds that played and what they
    read), compared when the inventory runs, so how stale it is costs nothing to know; the
-   script, its check, and its first listing for the five bodies. It plays nothing. The baselines are those in the procedure's step 4, read before this plan.
+   script, its check, and its first listing for the five bodies. It plays nothing. The
+   baselines are those in the procedure's step 4, read before this plan.
 2. **The fight record and the measuring command, which holds rules 2 and 4.** One row format
    that each fit and profile reads: the decision states `fitted-value.mjs` keeps, with every
    Option on offer and its model (as `move-prior.mjs` keeps them), the share of the search's
