@@ -21,12 +21,12 @@ export { FIGHT_ENTRY, type EntryRule, type Offered } from "../minds/catalog/cata
 
 /**
  * **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): the
- * Option Mind on the tail's leaf. The rat plays the Option Mind as configured by default (`option`),
- * which values the Warrior's life more against its own and bites him far more often in the
- * tournament's `gaps` protocol.
+ * Option Mind on the tail's leaf. The rat plays the Mind that presses its attack (`option-presses`),
+ * which values the Warrior's life five times its own and a blow sooner more than one later, so it
+ * goes back in to bite him where the tail's Mind waits at the edge of his reach.
  */
 const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
-  man: "option-tail", woman: "option-tail", skeleton: "option-tail", reptile: "option-tail", rat: "option",
+  man: "option-tail", woman: "option-tail", skeleton: "option-tail", reptile: "option-tail", rat: "option-presses",
 });
 
 /**

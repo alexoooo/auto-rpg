@@ -27,11 +27,14 @@ const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: 
  * knockout still and a step about a fifth slower at its slowest. And that one with its own body
  * priced truer (`option-truer`): a walk starting at its speed along its way, going on away for its
  * gait's lag (`walkStart` signed), a sway leaving the body by its own steps (`sways` own), and the
- * foe kept moving over a line's first half second (`carry`), as strong as `option-reply`.
+ * foe kept moving over a line's first half second (`carry`), as strong as `option-reply`. And
+ * the Mind that presses its attack (`option-presses`): each state worth its best line (`best` 1),
+ * at aggression 5 and initiative 0.3, the rat's, which bites the Warrior more often than it waits.
  */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   option: { label: "Option Mind", config: OPTION_DEFAULTS },
   "option-drill": { label: "Option Mind for drills", config: { ...OPTION_DEFAULTS, chooser: { kind: "ranked" }, predictions: { kind: "prior" } }, offered: false },
+  "option-presses": { label: "Presses in", config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, best: 1, objective: { kind: "few-terms", aggression: 5, initiative: .3 } } } },
   "option-tail": { label: "Rushes in", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree" } } },
   "option-fitted": { label: "Option Mind, fitted mean", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree", leaf: "fitted", best: 0, objective: { kind: "few-terms", aggression: 4 } } } },
   "option-fitted-horizon": { label: "Option Mind, fitted mean, horizon 60 s", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree", leaf: "fitted", best: 0, horizon: 60, objective: { kind: "few-terms", aggression: 4 } } } },
