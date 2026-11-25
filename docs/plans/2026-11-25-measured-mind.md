@@ -47,6 +47,11 @@ like dynamcics). so really it's fundamentally a best effort, what i want is for 
 measurements to go gradually stale as new measurements are made, and from time to time we can
 refresh them."
 
+**A fix is every body's** (2026-11-25): "if the change is fixing something that's broken, then it
+should apply to all minds -- we don't want to knowingly keep broken or bad code. same goes for a
+change that improves scalability or performance. but if the change is specific to one particular
+situation that we're working on, that it doesn't really make sense to apply it to all bodies."
+
 **Done meaning done** (2026-11-25): "we've had a repeated pattern: I ask for a general and
 scalable implementation, the agent tells me it's done, and later i learn that what was done is an
 ad-hoc hard-coded hack that doesn't scale." Of the numbers step built for a body's stature alone,
@@ -56,12 +61,14 @@ at it (2026-11-25, [the kick's plan](2026-11-25-kicker-falls.md)): "i don't want
 multiple days again, how do we change teh skill development process to force you to follow the
 instructions?"
 
-So four things at once. Every number the Option Mind predicts with comes from fights the game's
+So five things at once. Every number the Option Mind predicts with comes from fights the game's
 bodies have played, read by a few mechanisms that are the same for every body. What the game
 needs measured grows with the bodies, items and skills added, never with their pairings. Work on
 one body never waits on another, and never measures another again. And no measurement is taken
 for correct: each is of the game as it was when it was made, grows stale as the game moves on,
-and is made again when someone chooses to, never because something else was.
+and is made again when someone chooses to, never because something else was. A fix, or a gain
+in scale or speed, is every body's on the day it lands, read on them or not; only what is one
+situation's stays one body's.
 
 ## The rules every mechanism keeps
 
@@ -136,15 +143,17 @@ it plays by default, three today (`src/app/catalog.ts`, `src/entrants/option/min
 | `option-lean` | the empty-handed man | the fitted leaf, a state worth its lines' mean, aggression 4, initiative 0.3, the foe carried on 0.5 s, decided at 10 Hz, a walk's start signed and a sway by its own steps |
 | `option-presses` | the rat | a state worth its best line, aggression 5, initiative 0.3, decided at 60 Hz; it asks the fitted leaf, which stands aside for the rat |
 
-They are three because each was read on one body and installed for that body alone. "The
-general Mind" below is not another Mind. It is one config with each mechanism's kind set, the
-one a body with no entry of its own plays. The plan ends with the three back to one, or with
-each exception that is left named and read (bar 4).
+They are three because each was read on one body and installed for that body alone, the fixes
+among its settings with the rest. By the owner's rule (the goal) a fix, or a gain in scale or
+speed, belongs to every body, and only what is one situation's is a body's own. So the plan
+ends with one set of settings every body shares, a body's own config holding only what was
+chosen for its situation, each such setting named with its reading (bar 4). Sorting today's
+three is step 2.
 
 ## The inventory
 
 A script that plays nothing. For each body, empty-handed and as the game arms it, and for the
-Mind named (the body's default, or the general Mind), it lists each thing that Mind reads and
+config named (the body's default where none is), it lists each thing the Mind reads by it and
 where the reading comes from: its own, borrowed (from which body), stale, by hand, or a table
 that had to be measured for the pairing. What depends on the foe is listed against each foe
 named, the empty-handed man where none is. It is built from the assets, the registry of numbers
@@ -156,8 +165,8 @@ name or by a pairing something that is not on its list of those known today. It 
 staleness: it says how stale each reading is and can list the stalest first, which is what a
 refresh is chosen from.
 
-This is what catches a mechanism called general that was built for one body. On the general
-Mind every body's rows must say "its own" or "borrowed"; one that says "by hand" or "none" is
+This is what catches a mechanism called general that was built for one body. On its default
+config every body's rows must say "its own" or "borrowed"; one that says "by hand" or "none" is
 the hack, found without a bout played. It is what is looked at first when work starts on a
 body. It replaces any reading taken across every body.
 
@@ -165,7 +174,7 @@ body. It replaces any reading taken across every body.
 
 | Added | It fights at once by | Measuring it asks | It never asks |
 | --- | --- | --- | --- |
-| A body | the general Mind, on the nearest body's profiles, value and prior, each marked borrowed | its own skills' drills, and its bouts against the foes in hand | another body measured again; a table for each foe |
+| A body | the settings every body shares, on the nearest body's profiles, value and prior, each marked borrowed | its own skills' drills, and its bouts against the foes in hand | another body measured again; a table for each foe |
 | An item | its mass and reach, read from its spec; the trials nearest in those numbers | trials holding it, of the skills that use it | a table for each loadout |
 | A skill | its kind and its model, which the action prior reads; its outcomes by hand, listed, until its drill | its drill, on the body that has it | another skill measured again |
 
@@ -266,7 +275,7 @@ The numbers plan's census, as the code stands. Rules 1 and 2 ask each of these m
 | The edges a body gets up by (`edge-profiles.json`) | the model | 17: the man's 5 techniques, the woman's and the skeleton's 6 | by numbers, as a strike's |
 | A profile's written form (`src/skills/framework/form.ts`) | least squares over all of a profile's trials in a phase, what was held among its terms | the edges' forms fit every loadout's falls at once | read from the rows nearest in the numbers, so rows of one loadout do not move another that has its own (rule 2) |
 | The fitted value (`fitted-value.json`) | the names of the body and of its foe (`bodyOf`, `fittedOn`) | 1, the empty-handed man against himself | mechanism 4 |
-| A body's default Mind (`DEFAULT_MINDS`, `DEFAULT_BODIES`, `src/app/catalog.ts`) | the model, and the body's name | the empty-handed man `option-lean`, the rat `option-presses`, every other `option-tail` | a body with no entry plays the general Mind; an entry is an exception, gone when that body is read on it (step 12 for the rat) |
+| A body's default Mind (`DEFAULT_MINDS`, `DEFAULT_BODIES`, `src/app/catalog.ts`) | the model, and the body's name | the empty-handed man `option-lean`, the rat `option-presses`, every other `option-tail` | one set of settings every body shares, a body's entry holding only what is its situation's (the owner's rule; steps 2 and 13) |
 
 What a body holds is already numbers on a trial (the mass held and its reach past the hand,
 `Start.held`), and no loadout finds a profile. But no trial crosses a loadout with a skill
@@ -288,6 +297,10 @@ scope.** 5. **Install and confirm.**
 
 - **The row it replaces**, from the two tables above, and the numbers that will find it.
 - **What one more body, item or skill costs to measure**, as a count.
+- **Its sort**, by the owner's rule, with the reason: a fix of something broken, or a gain in
+  scale or speed, which is every body's; or one situation's, which is that body's alone. This
+  plan's mechanisms are fixes: each stands where a guess prices every body. A setting chosen by
+  reading it on one body (an aggression, a backup, a run count) is a situation's.
 - **Its scope**: the bodies it will be read on, which is what the work is on. Today that is the
   empty-handed Warrior, and the rat against him where the step is about what the rat showed.
   Nothing is played for another body or loadout unless the work is on it or the owner asks.
@@ -327,10 +340,15 @@ scope.** 5. **Install and confirm.**
 
 ### 5. Install and confirm
 
-- **It joins the general Mind**, and becomes the default of the bodies it was read on where it
-  does not make them worse, as `option-lean` became the empty-handed man's. A body not read
-  keeps the Mind it has until it is read or the owner says to move it.
-- **The inventory clean on the general Mind for every body**: with the kind set, no body reads
+- **A fix, or a gain in scale or speed, is set for every body** in the commit that installs it.
+  The bodies outside its scope move unread: nothing is played for them, the fingerprint names
+  each of their cases it moved, and the report lists them as moved and not read. The config a
+  body played before stays pickable.
+- **One situation's change is set for that body alone**, as its own config's setting.
+- **A fix that makes a body in its scope worse is installed for none.** It goes back to step 1,
+  to find what the old error was paying for. (A punch priced right once stood off and was
+  walked into: its overprice had been paying for a stay that nothing priced.)
+- **The inventory clean for every body on its default config**: with the kind set, no body reads
   what this mechanism prices by hand, by a name, or from a table of a pairing. It plays nothing.
 - **Shown once on a body with nothing of its own**: one body that has no measurement for this
   mechanism plays a few bouts with the kind set, and must close and throw on readings the
@@ -346,19 +364,21 @@ scope.** 5. **Install and confirm.**
 
 The agent's bar, from the owner's words above; the owner's to change.
 
-1. **Each row of the two tables above**: on the general Mind its mechanism stands in its place,
+1. **Each row of the two tables above**: for every body its mechanism stands in the row's place,
    under the five rules, or the owner has struck the row by name. A row written down as not
    built is not met. What a row's mechanism stood in for is listed for the owner's word to
    remove.
-2. **On the general Mind, the inventory is clean for every body**: nothing read by hand, by a
+2. **The inventory is clean for every body on its default config**: nothing read by hand, by a
    name, or from a table that had to be measured for a pairing. Borrowed is allowed, and listed.
 3. **Each mechanism was shown once on a body with nothing of its own** (the procedure's step 5).
-4. **The bodies read play the general Mind by default.** Every other body is listed with the
-   Mind it keeps. Reading them is not a bar of this plan: each is read when the work is on it.
+4. **The bodies' default configs differ only by what is one situation's**, each such setting
+   listed with the body it was chosen for and its reading. No body is left without a fix
+   because it was not read. Reading every body is not a bar of this plan: each is read when the
+   work is on it.
 5. **The counts in "What a new thing costs"** hold in the code: a sixth body, a new weapon and a
    new skill each ask what the table says, and nothing of a pairing.
 6. **The action prior** is read each way "tried properly" lists, each variant pickable.
-7. **The rat fights on the Mind every body uses** (step 12).
+7. **The rat's own config holds only what is the rat's situation's** (step 13).
 8. **The five rules are each held by what refuses** (their "held by"), not by this document.
 9. **A step's report** is the procedure's step 5. A step is called done only with it, and only
    of the bodies it was read on.
@@ -401,7 +421,7 @@ where it is needed least.
   bodies did in the record.
 - **The bound.** Exploration 0.5 to 8; an untried Option valued at its prior's chance of its
   parent's worth, at the floor, or at the mean; the prior at the root as well as below it.
-- **Its other uses, each read on its own**: the foe predicted by it (step 7), a wide body's Options
+- **Its other uses, each read on its own**: the foe predicted by it (step 8), a wide body's Options
   narrowed to those carrying most of its chance before the search, and a body deciding by it alone,
   its strength and its thinking against `option-lean`'s.
 
@@ -418,7 +438,18 @@ Each names its scope and follows the procedure. A step measures nothing outside 
    read), compared when the inventory runs, so how stale it is costs nothing to know; the
    script, its check, and its first listing for the five bodies. It plays nothing. The
    baselines are those in the procedure's step 4, read before this plan.
-2. **The fight record and the measuring command, which holds rules 2 and 4.** One row format
+2. **Today's three configs sorted by the owner's rule** (the goal: a fix is every body's). Each
+   setting `option-lean` and `option-presses` hold apart from `option-tail` is named a fix, a
+   gain in scale or speed, or one situation's, with its reason. The first two are set for every
+   body; the third stays where it was read. The agent's sorting to start from, each checked in
+   the code first: a walk's start signed, a sway by its own steps, the foe carried on and the
+   fitted leaf are prices made truer, so fixes (off the man the fitted leaf stands aside until
+   step 5); deciding at 10 Hz halves the thinking, so speed, if `staleness` shows each body's
+   profiles hold at that rate; the backup, the aggression and the initiative were chosen by
+   reading one body, so a situation's. Scope: the empty-handed Warrior and the rat against him,
+   by the procedure's step 4. Nothing is played for the other bodies: the fingerprint names
+   each case moved, and the report lists them as moved and not read.
+3. **The fight record and the measuring command, which holds rules 2 and 4.** One row format
    that each fit and profile reads: the decision states `fitted-value.mjs` keeps, with every
    Option on offer and its model (as `move-prior.mjs` keeps them), the share of the search's
    runs each took, the Option run, what followed, and where the foe went. The measuring command
@@ -426,49 +457,50 @@ Each names its scope and follows the procedure. A step measures nothing outside 
    as rules 2 and 4 say. Scope: the empty-handed Warrior's mirror. Its first rows are a new
    collection, its price said from its first chunk: the fitted value's 1044 bouts are in
    `research/runs/`, outside Git and not on every machine, and were not `option-lean`'s.
-3. **The end of every line priced** (mechanism 4): the fitted value read at cut lines and open
+4. **The end of every line priced** (mechanism 4): the fitted value read at cut lines and open
    Options, through the fitted leaf the man already uses. Scope: the empty-handed Warrior.
-4. **The fitted value by the nearest-fit rule** (mechanism 4), as a kind beside `fittedOn`'s
+5. **The fitted value by the nearest-fit rule** (mechanism 4), as a kind beside `fittedOn`'s
    standing aside: a fit naming its bodies and foes, a state read by the nearest. With it set,
    the Warrior against the rat reads his mirror's fit, marked borrowed, where he read the tail's
    leaf. Then a fit from the rat's bouts against the Warrior, both sides' decisions in it, its
    cost said first against the man's 1044 bouts. Scope: the rat against the Warrior; the
    Warrior's mirror shown unmoved.
-5. **The action prior** (mechanism 5): fitted on the record, both targets; read in the game as an
+6. **The action prior** (mechanism 5): fitted on the record, both targets; read in the game as an
    asset, as the fitted value is. Its held-out nats against the price's softmax, by how many
-   Options were on offer. Scope: the empty-handed Warrior's record, step 2's.
-6. **PUCT with the prior**, tried as the section above says: the prior-weighted mean first, then
+   Options were on offer. Scope: the empty-handed Warrior's record, step 3's.
+7. **PUCT with the prior**, tried as the section above says: the prior-weighted mean first, then
    the run counts, the wide body, the refits on its own runs and the bound. Each variant
    pickable. Kept as a body's search if it plays as well for less thinking, or better. Scope: the
    empty-handed Warrior, and him offered every Option that fits him.
-7. **Where the foe goes** (mechanism 3): the foe's Options built from his own body and weighted by
+8. **Where the foe goes** (mechanism 3): the foe's Options built from his own body and weighted by
    the prior, read along every line where `carry` and the same-body reply search are read now;
    the direct placement fit beside it; the foe's turning from the same where nothing else
    measured it. Scope: the rat against the Warrior. It may read flat on the Warrior's mirror
    (below), which is read only before it becomes his default.
-8. **What the foe deals** (mechanism 3): his strikes' measured outcomes on the struck body's
+9. **What the foe deals** (mechanism 3): his strikes' measured outcomes on the struck body's
    numbers, weighted by the prior, standing or lying, where the pressure tables, `Pressure.peak`
    for a second down, and the rate are read now. Read first against the three tables there are,
    on the pairings they measured, with nothing new played. The tables stay pickable
    (`pressure: "measured"`). Scope: the rat against the Warrior, then the Warrior's mirror before
    it becomes his default.
-9. **What each Option does** (mechanism 2), one kind at a time, each its own commit and its own
-   scope: the walks' falls and the clinch together (where `CLINCH` and the walk's no-fall are
-   read now); then the ways up, the regain, the settle and the brace; then the cover; then where
-   a fall leaves the body; then the unmeasured blows; then the stances.
-10. **The prior's other uses at scale**: a wide body's Options narrowed by the prior before the
+10. **What each Option does** (mechanism 2), one kind at a time, each its own commit and its own
+    scope: the walks' falls and the clinch together (where `CLINCH` and the walk's no-fall are
+    read now); then the ways up, the regain, the settle and the brace; then the cover; then where
+    a fall leaves the body; then the unmeasured blows; then the stances.
+11. **The prior's other uses at scale**: a wide body's Options narrowed by the prior before the
     search, and a body deciding by the prior alone, each read for strength and thinking. Scope:
     the empty-handed Warrior offered every Option that fits him. A Crypt room of many is armed
     bodies, read on the owner's word (parked, below).
-11. **What a name or a pooled reading still finds** (its table above): the striker's side, the
+12. **What a name or a pooled reading still finds** (its table above): the striker's side, the
     foe's strikes across bodies, the sways and the edges found by numbers, and the written form
     read from the rows nearest in the numbers. This is code, and it plays nothing new; the
     struck body held out is read again over the assets' trials
     (`research/skills/strikes/struck-held-out.mjs`), which plays nothing either. Scope: the
     empty-handed Warrior, read where the form's change moves him.
-12. **The rat on the general Mind.** The general Mind on the rat, against `option-presses`, by
-    the rat's reading. If it is as good, the rat's default becomes the general Mind, and retiring
-    `option-presses` waits on the owner's word.
+13. **The rat's own config, read again.** `option-presses` pushes past wrong prices. With the
+    prices measured, the rat on the settings every body shares is read against it, by the rat's
+    reading. If it is as good, that becomes the rat's default, and retiring `option-presses`
+    waits on the owner's word. If not, what the rat keeps is named as its situation's.
 
 ## Parked by the owner
 
@@ -495,7 +527,7 @@ hold for them meanwhile: they fight on what they borrow, and the inventory lists
 
 **Not a bar of every fit.** The numbers plan's bar 4 read each body by leaving it out. Over the
 trials in the assets it was read once and not met (the approaches), and it is read again when a
-body's trials are added (step 11); by bouts it was parked with what is held. A reading of every
+body's trials are added (step 12); by bouts it was parked with what is held. A reading of every
 body left out in turn was put to the owner as the bar for every fit on 2026-11-25 and refused
 (the goal: "there is no single type of measurement that holds up in general").
 
