@@ -93,9 +93,15 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   and trades 0.577, by throwing its trunk back and driving its folded leg into the foe, who steps
   back. The front kick is guarded in 12 of 28, its foot meeting the foe's low hands before its
   belly, and touches more than drives where it meets (`research/looks/man/kick-front/`).
-- **Next, by hand**: the front kick's drive into what it meets, the hips through behind the foot,
-  as a person's push kick moves the foe, and its way past the low hands; then what it does when
-  offered closer, by look. Reported before any search.
+- **Offered closer, the front kick lands on the base and falls on the middle.** Its window 0.7 to
+  0.9 m ahead (from 0.8 to 1.0), 14 trials a rung: on the base, landed 7 (one 0.77 of a life),
+  guarded 5, down after none; on the middle, landed 0, down after 5 (from 1). Its neighbours on the
+  base, 0.6 to 0.85 and 0.75 to 0.95, landed 5 and 6 and fell once each. The hips driven through
+  behind the foot (the centre held 0.1 and 0.2 m further ahead through the extension) landed 4 and
+  3, lighter, and fell 2 and 3: not kept.
+- **Next**: the front kick's mark declared with its variation (the base), the Option aiming at it,
+  so the closer window never throws it at the middle; then that window, by look. Reported before
+  any search.
 - **When the front kick is the one the Warrior holds**: its mark is declared with the variation,
   as its ends are, and the Option aims at it, one source; so the drive's goal and what the Mind's
   strike profile measures for it agree with where it lands (the reviewing session, 2026-11-25).
