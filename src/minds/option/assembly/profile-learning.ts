@@ -2,7 +2,7 @@ import type { Refused } from "../../../core/refusal.ts";
 import type { PartLookup } from "../../../parts/lookup.ts";
 import type { MindConfig } from "../../catalog/config.ts";
 import { optionsOf, type OptionMindConfig } from "./config.ts";
-import { strikesIn, type StrikeConfig } from "../options/kinds.ts";
+import { strikesIn, type StrikeConfig } from "../options/strike-kinds.ts";
 
 /** An Option Mind's training adapter: `preset` with one configured strike, by `request.skill`, its executor steered where asked. */
 export function profileLearningMind(parts: PartLookup, preset: MindConfig, request: { readonly skill: string; readonly steered?: true }): MindConfig | Refused {

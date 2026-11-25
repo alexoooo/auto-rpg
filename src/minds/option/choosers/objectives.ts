@@ -4,7 +4,7 @@ import { number } from "../../../parts/fields.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import type { Situation } from "../contract/situation.ts";
 import type { ObjectivePart } from "../contract/parts.ts";
-import { FIRST } from "../options/outcomes.ts";
+import { FIRST } from "./obedience.ts";
 import type { Obedience, Objective, Path } from "../contract/objective.ts";
 
 /** The lead, life, past which a wider one is worth less and less at the clock's verdict (`verdict`). */

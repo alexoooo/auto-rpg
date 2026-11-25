@@ -3,10 +3,9 @@ import { cos, sin } from "../../../core/math/real.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { coveringHand } from "./cover-hand.ts";
 import { STOPS } from "../predictions/by-hand.ts";
-import { blocked, READY } from "../situation/imagined.ts";
+import { blocked, READY, NOTHING } from "./readiness.ts";
 import type { Situation } from "../contract/situation.ts";
 import type { Option } from "../contract/option.ts";
-import { NOTHING } from "../choosers/select-set.ts";
 import { GUARDING, holding } from "./rest.ts";
 import { type Side, pairedSegment, sidesWith } from "../../../core/bodies/bilateral.ts";
 

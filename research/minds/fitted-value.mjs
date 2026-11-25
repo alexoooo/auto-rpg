@@ -44,7 +44,7 @@ async function collect(protocol, from, to, dir, mindPath) {
   const { EVALUATIONS, playCase } = await import("../../src/app/node/evaluation.ts");
   const { DEFAULT_ENGINE } = await import("../../src/core/physics/engines.ts");
   const { isRefused } = await import("../../src/core/refusal.ts");
-  const { graceAt } = await import("../../src/minds/option/situation/percepts.ts");
+  const { graceAt } = await import("../../src/minds/option/situation/reach-memory.ts");
   const { bodyOf, offeredOf, readingAt } = await import("../../src/minds/option/predictions/value/fitted-value.ts");
   const evaluation = EVALUATIONS.match, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects(mindPath ? [mindPath, mindPath].map((path, k) => ({ id: `mind${k}`, label: "mind", value: JSON.parse(readFileSync(path, "utf8")) })) : ["option", "option"]);
   if (!cases) throw new Error(`no match protocol ${protocol}`);

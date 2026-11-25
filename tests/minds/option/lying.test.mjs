@@ -4,7 +4,9 @@ import { Vector3 } from "../../../src/core/math/vector.ts";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
 import { rulebook } from "../../../src/combat/rulebook.ts";
 import { BY_HAND } from "../../../src/minds/option/predictions/by-hand.ts";
-import { perceiver, ProfileExchange, reachMemory } from "../../../src/minds/option/situation/percepts.ts";
+import { perceiver } from "../../../src/minds/option/situation/percepts.ts";
+import { ProfileExchange } from "../../../src/minds/option/predictions/exchange/profile.ts";
+import { reachMemory } from "../../../src/minds/option/situation/reach-memory.ts";
 import { brace, hold } from "../../../src/minds/option/options/rest.ts";
 
 /**

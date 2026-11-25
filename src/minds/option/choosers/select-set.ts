@@ -5,6 +5,7 @@ import type { Offer } from "../../engagement.ts";
 import type { Chooser, Chosen } from "../contract/chooser.ts";
 import type { Option } from "../contract/option.ts";
 import type { Situation } from "../contract/situation.ts";
+import { NOTHING, onOffer } from "../options/readiness.ts";
 
 /**
  * When a selection decides afresh: at once on an event (its cue's change), and else at the start
@@ -18,6 +19,9 @@ import type { Situation } from "../contract/situation.ts";
  * turns, nor one target and another by two choices with both.
  */
 export interface Deciding { readonly rethink: number; readonly keep: number }
+
+/** How often an Option Mind's chooser rethinks (`Deciding.rethink`), s. A foe's mind is taken for one like it (`Pressure.latency`). */
+export const RETHINK = .2;
 
 /** **When `deciding` next decides with no event**, deciding at `now` s: the first period's start at least half a period on (`Deciding`). */
 function nextDecision(deciding: Deciding, now: number): number {
@@ -64,18 +68,9 @@ interface Selecting {
 /** How a selection prices the choice at `i` of its choices, now, at the target at `target` of its targets (0 for one with none); null where it is not on offer there. */
 export type Appraise = (choice: Option, i: number, now: Situation, target: number) => Offer | null;
 
-/** What a choice that holds nothing holds. */
-export const NOTHING: readonly Resource[] = Object.freeze([]);
-
-/** All the resources as a claim: it overlaps every other (`overlaps`). */
-export const WHOLE: readonly Resource[] = Object.freeze([BODY_RESOURCE]);
-
 /** Whether two claims share a resource, the whole sharing every one. */
 const overlaps = (a: readonly Resource[], b: readonly Resource[]): boolean =>
   hasResource(a, BODY_RESOURCE) && b.length > 0 || hasResource(b, BODY_RESOURCE) && a.length > 0 || a.some((resource) => hasResource(b, resource));
-
-/** Whether `choice` is on offer now: its entry admits. */
-export const onOffer = (choice: Option, now: Situation): boolean => choice.entry(now).kind === "ready";
 
 /**
  * **The one policy**: of `choices`, the set that runs, by worth as `appraise` prices each. Once a

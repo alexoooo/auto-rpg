@@ -4,14 +4,14 @@ import { deepFreeze } from "../../../core/state.ts";
 import { legsReadiness } from "../../../skills/locomotion/shared/locomotion.ts";
 import { facedHands } from "../../../core/bodies/items/held.ts";
 import type { Cover } from "../../../skills/framework/intent.ts";
-import { along, asking, blocked, READY, standing } from "../situation/imagined.ts";
+import { along, AS_IS, STILL, UNMOVED, upOrDown } from "./outcomes.ts";
+import { asking, blocked, READY, standing, NOTHING, WHOLE } from "./readiness.ts";
 import type { Ask, Terms } from "../contract/terms.ts";
 import type { Option, Site, Status } from "../contract/option.ts";
 import type { Situation } from "../contract/situation.ts";
-import { NOTHING, WHOLE } from "../choosers/select-set.ts";
-import { inReach, startOf, threatened } from "../situation/percepts.ts";
+import { inReach, threatened } from "../situation/reach-memory.ts";
+import { startOf } from "../situation/start.ts";
 import { clinched } from "../predictions/by-hand.ts";
-import { AS_IS, STILL, UNMOVED, upOrDown } from "./outcomes.ts";
 import type { Walker } from "../contract/context.ts";
 import { atan2, hypot } from "../../../core/math/real.ts";
 

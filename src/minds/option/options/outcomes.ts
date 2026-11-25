@@ -1,11 +1,10 @@
-import { deepFreeze } from "../../../core/state.ts";
-import type { Obedience, ObedienceLevel } from "../contract/objective.ts";
 import type { Ground, Leaves, Outcome } from "../contract/terms.ts";
 import type { Position } from "../../../control/ground-reading.ts";
 import { FALLEN } from "../predictions/by-hand.ts";
-
-/** How often an Option Mind's chooser rethinks (`Deciding.rethink`), s. A foe's mind is taken for one like it (`Pressure.latency`). */
-export const RETHINK = .2;
+import type { Spot } from "../../../skills/framework/menu.ts";
+import type { Exit } from "../../../skills/framework/profile/profile.ts";
+import type { Situation } from "../contract/situation.ts";
+import { atan2, cos, sin } from "../../../core/math/real.ts";
 
 /** Leaving the body as it is: nothing changed. */
 export const AS_IS: Leaves = Object.freeze({});
@@ -26,19 +25,31 @@ export function upOrDown(up: Leaves, down: number, posture: Position = FALLEN): 
   return down >= 1 ? [fallen] : [{ leaves: up, chance: 1 - down }, fallen];
 }
 
+/** Whether `leaves` changes nothing (`AS_IS`). */
+export const unchanged = (leaves: Leaves): boolean => leaves.where === undefined && leaves.around === undefined && leaves.posture === undefined && leaves.velocity === undefined && leaves.grace === undefined;
+
 /**
- * **How far a person's orders are carried out through blows coming**, a player's choice and the
- * one weight of an option's worth, by its value and name, each set for the play it gives: its own
- * judgement (a metre 1/60 of a life, a named foe's life a third more), steady (orders obeyed past
- * a one-two at hand and a weak blow coming, not into a heavy one: a metre 0.075 of a life, a named
- * foe's life one and a half times more) and orders first (a metre a third of a life, a named foe's
- * life twenty thirds more). Without orders it changes nothing.
+ * **Where the body stands `range` m head to head from the focus of `at`**: on the line from the
+ * focus through where it stands at `at` (the way it faces, back, where it stands on the focus's
+ * centre), facing the focus.
  */
-export const OBEDIENCE: readonly (readonly [value: ObedienceLevel, name: string, worth: Obedience])[] = deepFreeze([
-  ["own", "Own judgement", { metre: 1 / 60, foe: 1 / 3 }], ["steady", "Steady", { metre: .075, foe: 1.5 }], ["orders", "Orders first", { metre: 1 / 3, foe: 20 / 3 }]]);
+export function along(at: Situation, range: number): Spot {
+  const focus = at.focus!, where = at.where, apart = at.apart, to = Math.max(0, range + apart - at.range);
+  const x = apart > 0 ? (where.x - focus.centre.x) / apart : -sin(where.face), z = apart > 0 ? (where.z - focus.centre.z) / apart : -cos(where.face);
+  return { x: focus.centre.x + x * to, z: focus.centre.z + z * to, face: atan2(-x, -z) };
+}
 
-/** The steady level: the valued chooser's own. */
-export const STEADY: Obedience = OBEDIENCE[1]![2];
-
-/** Orders first: the level firm orders are carried out at (`Orders.firm`), whatever the chooser's own. */
-export const FIRST: Obedience = OBEDIENCE[2]![2];
+/**
+ * **Where an Option leaves the body by its trials' exit** (`Expected.exit`) from `at`, as `leaves`
+ * says but for where: where it stands in the share of its trials that ended within `ARRIVED` of
+ * where they began centre to centre (`stays`), else as much further from the focus as the rest
+ * moved (`moved`, m), on the line from the focus through it (`along`); where its trials do not
+ * say, where it stands. Down in the share `down` (`upOrDown`).
+ */
+export function exitOutcomes(at: Situation, exit: Exit | undefined, down: number, leaves: Omit<Leaves, "where"> = {}): readonly Outcome[] {
+  const stays = exit?.stays ?? 1, here = { ...leaves, where: along(at, at.range) };
+  if (!(stays < 1)) return upOrDown(here, down);
+  const there = { ...leaves, where: along(at, at.range + (exit?.moved ?? 0)) };
+  if (!(stays > 0)) return upOrDown(there, down);
+  return upOrDown(here, down).flatMap((one) => one.leaves === here ? [{ leaves: here, chance: one.chance * stays }, { leaves: there, chance: one.chance * (1 - stays) }] : [one]);
+}

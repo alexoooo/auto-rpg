@@ -1,42 +1,12 @@
-import type { Spot } from "../../../skills/framework/menu.ts";
-import type { Exit } from "../../../skills/framework/profile/profile.ts";
-import { hasResource, type Readiness, type Resource } from "../../../skills/framework/action.ts";
 import { SETTLED } from "../../../skills/intent/action-window.ts";
 import type { Sight } from "../../decider.ts";
-import { bearingAround, graceAt, inReach } from "./percepts.ts";
-import type { Asked } from "../contract/option.ts";
+import { bearingAround } from "./percepts.ts";
+import { graceAt, inReach } from "./reach-memory.ts";
 import type { ExchangePredictor } from "../contract/predictors.ts";
 import type { Predictions, Situation } from "../contract/situation.ts";
-import { atan2, cos, hypot, sin } from "../../../core/math/real.ts";
+import { hypot } from "../../../core/math/real.ts";
 import type { BodySense } from "../../../core/bodies/senses.ts";
-import { upOrDown } from "../options/outcomes.ts";
-import type { Leaves, Outcome } from "../contract/terms.ts";
-
-/**
- * **Where the body stands `range` m head to head from the focus of `at`**: on the line from the
- * focus through where it stands at `at` (the way it faces, back, where it stands on the focus's
- * centre), facing the focus.
- */
-export function along(at: Situation, range: number): Spot {
-  const focus = at.focus!, where = at.where, apart = at.apart, to = Math.max(0, range + apart - at.range);
-  const x = apart > 0 ? (where.x - focus.centre.x) / apart : -sin(where.face), z = apart > 0 ? (where.z - focus.centre.z) / apart : -cos(where.face);
-  return { x: focus.centre.x + x * to, z: focus.centre.z + z * to, face: atan2(-x, -z) };
-}
-
-/**
- * **Where an Option leaves the body by its trials' exit** (`Expected.exit`) from `at`, as `leaves`
- * says but for where: where it stands in the share of its trials that ended within `ARRIVED` of
- * where they began centre to centre (`stays`), else as much further from the focus as the rest
- * moved (`moved`, m), on the line from the focus through it (`along`); where its trials do not
- * say, where it stands. Down in the share `down` (`upOrDown`).
- */
-export function exitOutcomes(at: Situation, exit: Exit | undefined, down: number, leaves: Omit<Leaves, "where"> = {}): readonly Outcome[] {
-  const stays = exit?.stays ?? 1, here = { ...leaves, where: along(at, at.range) };
-  if (!(stays < 1)) return upOrDown(here, down);
-  const there = { ...leaves, where: along(at, at.range + (exit?.moved ?? 0)) };
-  if (!(stays > 0)) return upOrDown(there, down);
-  return upOrDown(here, down).flatMap((one) => one.leaves === here ? [{ leaves: here, chance: one.chance * stays }, { leaves: there, chance: one.chance * (1 - stays) }] : [one]);
-}
+import type { Leaves } from "../contract/terms.ts";
 
 /** No action under way: a state an Option leaves the body in (`placed`). */
 const NO_ACTIONS: Sight["report"]["actions"] = Object.freeze([]);
@@ -142,32 +112,4 @@ export function placing(exchange: ExchangePredictor, carry: number): typeof plac
     }
     return placedWith(at, leaves, seconds, sight, predicted, at.focus && exchange.later(at.focus, Math.min(seconds, carry)));
   };
-}
-
-/**
- * **Whether the body stands at `at`**: not down, and borne by its feet with no rise of its own
- * holding it otherwise (`posture` standing): where an Option that begins standing is on offer.
- */
-export const standing = (at: Situation): boolean => !at.down && at.posture === "standing";
-
-/**
- * **Whether the body stands still at `at`**: its stance standing, not in a step (`stride`), and its
- * centre moving no faster than a standing body's once its sway has died out (`SETTLED`).
- */
-export const still = (at: Situation): boolean => at.stride === "stand" && hypot(at.velocity.x, at.velocity.z) <= SETTLED;
-
-/** An entry or exit that admits. */
-export const READY: Readiness = Object.freeze({ kind: "ready" });
-
-/** An entry or exit that does not admit, for `reason`: made once, as the options are. */
-export const blocked = (reason: string): Readiness => Object.freeze({ kind: "blocked", reason });
-
-/** What a step's asks hold (`SkillsActions.needs`): each blow continued, what it holds; each asked anew, what it will. */
-export function asking(now: Situation, asked: Asked): readonly Resource[] {
-  const held: Resource[] = [];
-  for (const request of asked.actions) {
-    const live = now.sight.report.actions.find((action) => action.id === request.id);
-    for (const resource of live ? live.holds : now.sight.actions.needs(request.action, request.effector)) if (!hasResource(held, resource)) held.push(resource);
-  }
-  return held;
 }

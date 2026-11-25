@@ -2,10 +2,10 @@ import { sameResource, LEG_RESOURCE, LEGS } from "../../../skills/framework/acti
 import { NO_COVER } from "../../../skills/framework/intent.ts";
 import { orderedIntent } from "../../ordered.ts";
 import { legsReadiness } from "../../../skills/locomotion/shared/locomotion.ts";
-import { asking, blocked, READY, standing } from "../situation/imagined.ts";
+import { asking, blocked, READY, standing } from "./readiness.ts";
 import type { Option } from "../contract/option.ts";
 import type { Situation } from "../contract/situation.ts";
-import { threatened } from "../situation/percepts.ts";
+import { threatened } from "../situation/reach-memory.ts";
 import { UNMOVED } from "./outcomes.ts";
 import type { Walker } from "../contract/context.ts";
 import type { GaitName } from "../../../skills/framework/skill.ts";

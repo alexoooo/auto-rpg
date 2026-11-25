@@ -7,10 +7,9 @@ import { tumbling, type GroundReading, type Position } from "../../../control/gr
 import { isWayUp, type TechniqueName, type TechniquePart } from "../../../skills/recovery/shared/technique.ts";
 import { edgeExpected } from "../../../skills/recovery/data/profiles.ts";
 import { anyBody, slotSkill, type KeysOf, type PartConfig } from "../../../parts/parts.ts";
-import { WHOLE } from "../choosers/select-set.ts";
+import { WHOLE, asking, blocked, READY } from "./readiness.ts";
 import type { Status, Option, Step } from "../contract/option.ts";
 import { brace } from "./rest.ts";
-import { asking, blocked, READY } from "../situation/imagined.ts";
 import type { Situation } from "../contract/situation.ts";
 import { onFeet } from "../situation/rise-memory.ts";
 import type { OptionContext, Tried } from "../contract/context.ts";

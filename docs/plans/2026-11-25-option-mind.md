@@ -767,69 +767,82 @@ stronger with its guesses than without, as it stands. Allocation is not moved, K
 step: `option-lean` 476.1 to 485.6 over eight readings, beside 476.5 to 479.6 of a copy of the
 tree before chunk 2b; `option-measured` 523.3.
 
-## Chunk 4: one idea a file, six folders
+## Chunk 4: one idea a file, six folders (landed)
 
 **Purpose.** A reader finds a thing by what it is.
 
-Two commits: the moves, then the splits. The moves go first, so that each is a rename Git
-follows, and a split then happens inside the folder its parts stay in.
+Two commits: the moves, then the splits. The moves went first, so that each is a rename Git
+follows, and a split then happened inside the folder its parts stay in. No line of code changed
+but import paths, `export` on a name another file now reads, and one name: the controller's
+factory `optionMind` is `optionController`, so "Option Mind" names the class alone.
 
-**The moves (landed).** `src/minds/option/` holds `index.ts`, `option-mind.ts` and six
-folders:
+`src/minds/option/` holds `index.ts` (what the folder publishes), `option-mind.ts` (the class)
+and six folders:
 
-- `contract/`, as it was.
-- `assembly/`: `controller.ts` (was `mind.ts`; its `optionMind` is `optionController`, so the
-  name is the class's alone), `build.ts`, `config.ts`, `description.ts`, `skills.ts`,
-  `pace.ts`, `gait-learning.ts`, `profile-learning.ts`.
-- `situation/`: `reader.ts` (was `situation.ts`), `percepts.ts`, `imagined.ts` (was
-  `option.ts`), `record.ts`, `rise-memory.ts`.
-- `options/`: `kinds.ts`, `strike.ts`, `walk.ts`, `places.ts`, `rest.ts`, `cover.ts`,
-  `cover-hand.ts`, `back-step.ts`, `orders.ts`, `rise.ts`, `limbs.ts`, `selection.ts`,
-  `outcomes.ts` (was `value.ts`).
-- `predictions/`: `part.ts` (was `predictions-part.ts`), `by-hand.ts`, `damage.ts`,
-  `exchange/pressure-table.ts` (was `pressure.ts`), `value/fitted-value.ts`,
-  `value/boosted-trees.ts`, `data/`.
-- `choosers/`: `chooser.ts`, `select-set.ts`, `objectives.ts` (was `objective.ts`).
-
-Every importer was repointed (77 files of `src`, `research`, `scripts` and `tests`), and the
-two research hooks find `choosers/chooser.ts`.
-
-**The splits**, each along a seam the file already has:
-
-| File | Becomes |
+| Folder | Holds |
 | --- | --- |
-| `choosers/chooser.ts` | `chooser.ts` (`chooser`, `chooserOf`, `watching`, `searching`, `FOE_HOLDING`), `space.ts` (`space`, `Searched`, `Pair`, `Reach`, a line's steps), `again.ts` (`again`, `Rerun`), `search.ts` (`search`, `Lines`), `tree-search.ts` (`treeSearch`, `warmStart`, `pricedLines`), `replies.ts` (`repliedSearch`, `AGAINST`, `DIRECTIONS`), `leaves.ts` (`LEAVES`, `tailLeaf`, `predictedLeaf`), `parts.ts` (`OptionChooserPart`, the three parts, their configs and editor fields) |
-| `choosers/select-set.ts` | itself (`selectSet` and its argument types, and `RETHINK` beside `Deciding`), `options/readiness.ts` (`onOffer`, `NOTHING`, `WHOLE`) |
-| `situation/percepts.ts` | itself (`PERCEPTS`, `perceiver`, `Cues`' implementation), `situation/reach-memory.ts` (`reachMemory`, `graceAt`, `inReach`, `threatened`), `predictions/exchange/model.ts` (`modelOf`, `pooled`, `strikesOf`), `predictions/exchange/pressure.ts` (`ProfilePressure`, `pressureBy`, `startOf`), `predictions/exchange/profile.ts` (`ProfileExchange`, `measuredReach`) |
-| `options/kinds.ts` | `options/strike-kinds.ts` (`strikeKind` and the seven strikes), itself (the rest and `optionsOf`) |
-| `situation/imagined.ts` | itself (`placed`, `placing`, `placedWith`), `options/readiness.ts` (`standing`, `still`, `asking`, `READY`, `blocked`), `options/outcomes.ts` (`along`, `exitOutcomes`) |
-| `options/outcomes.ts` | itself (`upOrDown`, `AS_IS`, `UNMOVED`, `STILL`), `choosers/obedience.ts` (`OBEDIENCE`, `STEADY`, `FIRST`), `RETHINK` to `choosers/select-set.ts` |
+| `contract/` | the interfaces everything else is written against. It imports nothing from the other five |
+| `assembly/` | what makes a Mind from a config: `controller.ts` (was `mind.ts`), `config.ts`, `build.ts`, `description.ts`, `skills.ts`, `pace.ts`, and the two learning Minds |
+| `situation/` | what the body reads: `reader.ts` (was `situation.ts`), `percepts.ts` (`PERCEPTS`, `perceiver`, and what a prediction reads of a percept: `reactionOf`, `carriedStances`, `bearingAround`), `imagined.ts` (`placed`, `placing`: a state an Option leaves the body in), `reach-memory.ts` (`reachMemory`, `graceAt`, `inReach`, `within`, `threatened`), `start.ts` (`startOf`), `record.ts`, `rise-memory.ts`. It imports nothing from the other four below the contract |
+| `options/` | the Options: `kinds.ts` (the kinds but the strikes, and `optionsOf`), `strike-kinds.ts` (`StrikeConfig`, `strikeKind`, `strikesIn`, `limbAction` and the seven strikes), `readiness.ts` (`onOffer`, `standing`, `still`, `asking`, `READY`, `blocked`, `NOTHING`, `WHOLE`), `outcomes.ts` (`upOrDown`, `along`, `exitOutcomes`, `AS_IS`, `UNMOVED`, `STILL`, `unchanged`), and a file an Option or what several share: `strike.ts`, `walk.ts`, `places.ts`, `rest.ts`, `cover.ts`, `cover-hand.ts`, `back-step.ts`, `orders.ts`, `rise.ts`, `limbs.ts`, `selection.ts` |
+| `predictions/` | `part.ts` (the three kinds of predictions), `by-hand.ts`, `damage.ts`, `data/`; `exchange/profile.ts` (`ProfileExchange`), `exchange/pressure.ts` (`ProfilePressure`, `pressureBy`), `exchange/model.ts` (the strikes a body is modelled by: `modelOf`, `pooled`, `strikesOf`, `measuredReach`), `exchange/pressure-table.ts` (was `pressure.ts`); `value/fitted-value.ts`, `value/boosted-trees.ts` |
+| `choosers/` | `parts.ts` (the three chooser parts, their configs, editor fields and defaults), `chooser.ts` (`chooser`, `chooserOf`, `watching`, `searching`), `select-set.ts` (`selectSet`, its argument types, `RETHINK`), `space.ts` (`space`: the states a search reads and a line's steps), `again.ts` (`again`), `search.ts` (the valued chooser's `search`, and `Lines`, `PricedLine`), `tree-search.ts` (`treeSearch`, `warmStart`, `COLD`, `pricedLines`), `replies.ts` (`repliedSearch`, `AGAINST`, `DIRECTIONS`), `leaves.ts` (`LEAVES`, `tailLeaf`, `predictedLeaf`), `obedience.ts` (`OBEDIENCE`, `STEADY`, `FIRST`), `objectives.ts` (the two objective parts) |
 
-Not as first written: `again` gets its own file, since `space` calls it and it reads `space`'s
-types, and in `search.ts` the two files would import each other's code. The strikes a body is
-modelled by get `model.ts`, since both the pressure and the exchange predictor read them.
-`RETHINK` goes beside `Deciding` in `select-set.ts` and not into `chooser.ts`: a pressure
-reads it as the foe's latency, and `chooser.ts` imports what reads a pressure.
+The largest file is `rise.ts` at 379 lines, which no split touched; `chooser.ts` was 913 and
+`percepts.ts` 693.
 
-**Consequences.**
+Not as first written:
 
-- **Importers of a name that moves** in a split are repointed, as the checks say of research
-  scripts.
-- **The two research hooks** resolve `choosers/chooser.ts` by the end of its URL and rewrite it
-  by a regular expression, and throw where their anchor is missing:
-  `research/minds/fitted-value-hook.mjs` on `const at = space(root, searched), leafAt = ...`
-  and `research/minds/move-prior-hook.mjs` on `started.keep(edges);`. Both anchors are in
-  `treeSearch`: with the splits the hooks are repointed to `choosers/tree-search.ts`, and each
-  is run once on one bout.
-- **`scripts/source-boundary.mjs`**: `PUBLISHED` keeps `src/minds/option/index.ts`, and the
-  folder's rank covers its subfolders. `tests/core-boundary.test.mjs` names no Option Mind path.
-- **Documents**: every document naming a moved file is corrected in the same commit
-  (`node --test tests/documents.test.mjs` holds the links), the measured Mind plan and
-  [the testbed's rest](2026-11-18-testbed-rest.md) among them.
+- `again` has its own file. `space` calls it and it reads `space`'s types, so in `search.ts`
+  the two files would import each other's code.
+- The strikes a body is modelled by have `exchange/model.ts`: both the pressure and the
+  exchange predictor read them.
+- `RETHINK` is in `select-set.ts` beside `Deciding`, whose `rethink` it fills, not in
+  `chooser.ts`. The three chooser parts read it, and a pressure reads it as its foe's latency.
+- `startOf` is `situation/start.ts` and the reach test `within` is in
+  `situation/reach-memory.ts`, not in `exchange/pressure.ts`: both read a situation alone, and
+  there `situation/` would import from `predictions/`.
+- `KEEP`, `HORIZON`, `RUNS`, `EXPLORATION`, `HELD_FOE` and `FOE_HOLDING` are in
+  `choosers/parts.ts`, which alone reads them: a default is in the file of the part it is a
+  default of.
+- Everything else is filed by what it is, whoever reads it. `unchanged` is beside `AS_IS` in
+  `options/outcomes.ts` and `onOffer` is in `options/readiness.ts`, though only choosers read
+  them; `PricedLine` is beside `Line`, which it is made of, though the tree search reads it;
+  `measuredReach` is beside `strikesOf` in `exchange/model.ts`, though an evaluation reads it and
+  no predictor.
+- `options/kinds.ts` and `options/strike-kinds.ts` each declare the configs of the kinds they
+  hold (`OptionConfigs`).
 
-**Done when** the checks pass, the fingerprint compares clean, `src/minds/option/` holds two
-files and six folders, and no file of `contract/` imports from the rest of the folder (read off
-its import lines: each path leaves `src/minds/option/` or stays in `contract/`).
+**Which folder imports which** (`contract/` is imported by all and imports none). The order is
+`situation/`, `predictions/`, `options/`, `choosers/`, `assembly/`, each importing those
+before it:
+
+- `situation/` imports only the contract.
+- `predictions/` imports `situation/` (`percepts.ts`, `reach-memory.ts`, `rise-memory.ts`).
+- `options/` imports `situation/` and, of `predictions/`, `by-hand.ts` alone (`pricedBy`
+  and numbers set by hand, from six files).
+- `choosers/` imports `situation/`, `options/` (`readiness.ts`, `outcomes.ts`) and
+  `predictions/` (`value/fitted-value.ts`).
+- `assembly/` imports all, and `option-mind.ts`; `option-mind.ts` imports the contract and a
+  type of `assembly/pace.ts`.
+
+Three imports run against that order and are left: `options/kinds.ts` reads `optionApplies` of
+`assembly/config.ts`; `predictions/part.ts` reads `WALK_STARTS` of `options/walk.ts`;
+`predictions/exchange/pressure.ts` reads `RETHINK` of `choosers/select-set.ts`. So three pairs
+of folders import each other, and no files do: no files import each other's code in a ring, and
+two pairs import each other's types (`again.ts` and `space.ts`; `contract/context.ts` and
+`contract/predictors.ts`).
+
+**What followed the files.**
+
+- Every importer in `src`, `research`, `scripts` and `tests` (77 files with the moves; with the splits 23 more
+  beside the six divided), and the two scripts that import a split file by `await import`
+  (`research/minds/fitted-value.mjs`, `research/minds/move-prior.mjs`: `graceAt`).
+- The two research hooks rewrite `choosers/tree-search.ts`, where both their anchors are. Each
+  was run on one bout.
+- `scripts/source-boundary.mjs` needed no change: `PUBLISHED` keeps
+  `src/minds/option/index.ts`, and the folder's rank covers its subfolders.
+- Every document and comment that named a moved file names the new one.
 
 ## Chunk 5: the relay, and the documents
 
@@ -847,7 +860,7 @@ its import lines: each path leaves `src/minds/option/` or stays in `contract/`).
    reproduces an observed regression).
 2. **What it holds, and what it does not.**
    - A fresh bout drops everything a Mind keeps in its own fields and closures. It does not drop
-     a module's maps (`PRIORS`, `POOLS`, `REACHES` and their like, eleven on 2026-11-25), which
+     a module's maps (`POOLS`, `REACHES` and their like, twelve on 2026-11-25), which
      outlive a bout. Those are listed once, by
      `grep -rnE "^const [A-Z_]+.*new (Weak)?Map" src/minds/option`, and each is read: one keyed
      by a value that never changes (a spec, a data table, a frozen config) stays, its comment

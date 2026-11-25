@@ -4,7 +4,7 @@ import { anyBody } from "../../../parts/parts.ts";
 import { validProfiles, type Profile } from "../../../skills/framework/profile/profile.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { validPressures } from "./exchange/pressure-table.ts";
-import { ProfileExchange } from "../situation/percepts.ts";
+import { ProfileExchange } from "./exchange/profile.ts";
 import { BY_HAND } from "./by-hand.ts";
 import type { Guesses } from "../contract/predictors.ts";
 import { nearestTrials, ownSteps, writtenForms, type OutcomeModel, type Tables } from "../../../skills/framework/outcomes.ts";
