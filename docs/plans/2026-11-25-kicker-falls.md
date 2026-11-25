@@ -93,17 +93,20 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   and trades 0.577, by throwing its trunk back and driving its folded leg into the foe, who steps
   back. The front kick is guarded in 12 of 28, its foot meeting the foe's low hands before its
   belly, and touches more than drives where it meets (`research/looks/man/kick-front/`).
-- **The front kick strikes at the base only, from closer, and stands every time.** A variation
-  says the marks it strikes at (`ExecutorPart.strikesAt`, the kick's `marks`), and a strike's
-  action aims only at those of its Option's regions (`strikeAction`), so the front kick's
-  middle-then-base Option aims it at the base, and a drill or a look offers it no middle trial
-  (`offered`, `research/drill-trials.mjs`). Its window 0.7 to 0.9 m ahead (from 0.8 to 1.0): landed
-  7 of 14 (one 0.77 of a life, most 0.04 to 0.15), guarded 5, down after none, value 0.035; at the
-  old window it went down after 5 of 14 at the middle. Its neighbours, 0.6 to 0.85 and 0.75 to
-  0.95, landed 5 and 6 and fell once each; `aimAbove` 0.12 and 0.22 there landed 4 and 3. The hips
-  driven through behind the foot (the centre 0.1 and 0.2 m further ahead through the extension)
-  landed 4 and 3, lighter, and fell 2 and 3: not kept. The push kick on that rung: landed 11, down
-  after 2, value 0.577 (`research/looks/man/`).
+- **What a kick strikes is its height band, one source.** The owner: "what if the opponent is very
+  short or tall, or not even humanoid -- how does that work in a simple and general way?" A kick
+  strikes a target from `low` to `high` over its kicking sole as shares of its own leg's reach, and
+  refuses one outside it as `beyond` (`Readiness`); a strike Option takes its regions in order at
+  the first its skill does not refuse so, and a drill does not count a trial so refused
+  (`strikeOffered`). Its window is in shares of the leg's reach too. The front kick's band, 0.9 to
+  1.15 of the man's leg, holds his base and not his middle; set by hand from where its foot meets.
+- **The front kick, from closer, stands every time.** Its window 0.7 to 0.9 m ahead (from 0.8 to
+  1.0): landed 7 of 14 (one 0.77 of a life, most 0.04 to 0.15), guarded 5, down after none, value
+  0.035; at the old window it went down after 5 of 14 at the middle. Its neighbours, 0.6 to 0.85
+  and 0.75 to 0.95, landed 5 and 6 and fell once each; `aimAbove` 0.12 and 0.22 there landed 4
+  and 3. The hips driven through behind the foot (the centre 0.1 and 0.2 m further ahead through
+  the extension) landed 4 and 3, lighter, and fell 2 and 3: not kept. The push kick on that rung:
+  landed 11, down after 2, value 0.577 (`research/looks/man/`).
 - **Next**: step 4 of [the procedure](../recipes/skill.md#the-procedure), the front kick's timings
   and gains searched on its base rung (its verdict passes the gate); then, its value nearer the
   push kick's, its own profiles and a match of the Warrior holding it against holding the push kick,

@@ -65,7 +65,13 @@ export interface Window {
  * be walked to, an action that has a window names it (`window`): where the body stands for it.
  */
 export type Readiness = { readonly kind: "ready"; readonly window?: Window } | { readonly kind: "position"; readonly window: Window }
-  | { readonly kind: "waiting" | "blocked"; readonly reason: string };
+  | { readonly kind: "waiting"; readonly reason: string }
+  /**
+   * Refused; `beyond` where the target lies outside what the skill strikes at all, as its body is
+   * now and wherever it stands (a kick's height band): an Option takes its next region, and a drill
+   * does not count the trial (`strikeOffered`).
+   */
+  | { readonly kind: "blocked"; readonly reason: string; readonly beyond?: true };
 
 /** A request's identity and anatomical choice remain fixed for its lifetime. */
 export interface ActionRequest {

@@ -59,11 +59,9 @@ export const orderAllows = (orders: Orders | null, foe: string, skill: string, l
 const orderedRegions = (orders: Orders | null, foe: string, regions: readonly Region[]): readonly Region[] =>
   orders?.foe === foe && orders.region !== undefined ? [orders.region] : regions;
 
-/** Where to strike `foe` with an action aimed at `regions`: the first of its ordered regions (`orderedRegions`) the foe's body has; null where it has none. */
-export function orderedTarget(orders: Orders | null, foe: { readonly id: string; readonly spec: BodySpec }, regions: readonly Region[]): TargetRef | null {
-  const region = orderedRegions(orders, foe.id, regions).find((r) => regionSegments(foe.spec, r).length > 0);
-  return region ? { kind: "body", body: foe.id, region } : null;
-}
+/** Where `foe` may be struck by an action aimed at `regions`: each of its ordered regions (`orderedRegions`) the foe's body has, in order. */
+export const orderedTargets = (orders: Orders | null, foe: { readonly id: string; readonly spec: BodySpec }, regions: readonly Region[]): readonly TargetRef[] =>
+  orderedRegions(orders, foe.id, regions).filter((r) => regionSegments(foe.spec, r).length > 0).map((region) => ({ kind: "body", body: foe.id, region }));
 
 /** Whether `value` is a region: a mark of the body, or one of its segments by name. */
 export function isRegion(value: unknown): value is Region {

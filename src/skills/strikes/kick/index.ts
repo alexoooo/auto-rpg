@@ -9,7 +9,7 @@ import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { chosenVariation, executorOf, makersOf, varied, variationReads, variationRecordFault, type RecordedVariation, type Varied, type Variations } from "../../framework/variations.ts";
 import { tunedSettings, type SkillRecords } from "../../framework/records.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import type { Executor, RegionMark, TargetResolver } from "../../framework/action.ts";
+import type { Executor, TargetResolver } from "../../framework/action.ts";
 import type { Body } from "../../../control/body.ts";
 import { FRONT_KICK_PATH, frontKickExecutor, kickExecutor, kickRefusal, KICK_PATH, validFrontKickPart, validFrontKickTuning, validKickPart, validKickTuning, wholeFrontKick, wholeKick,
   type FrontKickTuning, type KickTuning } from "../shared/kick.ts";
@@ -40,11 +40,9 @@ interface Config extends Varied {
 /**
  * A variation of the kick: its executor (`executor`) made with the settings of the record of `key`
  * (`S`) on each of `bodies`, a research tuning over them; whether a research tuning names only its
- * settings (`part`), is whole (`whole`), and its settings are valid (`valid`); and the marks it
- * strikes at (`marks`), every mark where it names none.
+ * settings (`part`), is whole (`whole`), and its settings are valid (`valid`).
  */
 interface KickVariation extends RecordedVariation<(making: ExecutorMaking, config: Config, actions: readonly ActionConfig[]) => Executor> {
-  readonly marks?: readonly RegionMark[];
   readonly part: (tuning: Config["tuning"]) => boolean;
   readonly whole: (tuning: Config["tuning"]) => boolean;
   readonly valid: (spec: BodySpec, config: Config) => boolean;
@@ -62,13 +60,13 @@ function variation<S>(key: KickRecordKey, bodies: readonly string[], executor: (
  * The kick's variations, each by its own record: the kick (`kick/kick`), its leg thrown up on its
  * schedule; the push kick (`kick/push`), its leg the aimed drive's, folded up and driven out
  * level at the foe's middle; and the front kick (`kick/front`), its leg carried along authored paths,
- * chambered, extended at the target and retracted (`frontKickExecutor`), at the trunk's base, the
- * belly, where a person's push kick meets a body.
+ * chambered, extended at the target and retracted (`frontKickExecutor`), its height band about
+ * its own hip's, where a person's push kick meets a body.
  */
 const VARIATIONS: Variations<KickVariation> = {
   kick: variation("kick/kick", deepFreeze(meta.bodies), kickExecutor, validKickPart, wholeKick, validKickTuning),
   push: variation("kick/push", deepFreeze(pushMeta.bodies), kickExecutor, validKickPart, wholeKick, validKickTuning),
-  front: { ...variation("kick/front", deepFreeze(frontMeta.bodies), frontKickExecutor, validFrontKickPart, wholeFrontKick, validFrontKickTuning), marks: ["base"] },
+  front: variation("kick/front", deepFreeze(frontMeta.bodies), frontKickExecutor, validFrontKickPart, wholeFrontKick, validFrontKickTuning),
 };
 
 /** The variation of the kick a body of `spec` runs as `config` names it (`chosenVariation`), or null where it runs no one. */
@@ -91,7 +89,6 @@ export const KICK_PART: ExecutorPart<Config> = {
     (spec, config) => { const variation = variationOf(spec, config); return variation === null || variation.valid(spec, config) ? null : "invalid kick executor settings"; }] }),
   faults: (config) => config.tuning === undefined || (config.variation === undefined ? Object.values(VARIATIONS) : Object.hasOwn(VARIATIONS, config.variation) ? [VARIATIONS[config.variation]!] : [])
     .some((variation) => variation.part(config.tuning)) ? [] : ["invalid kick tuning"],
-  strikesAt: (spec, config, region) => { const marks = variationOf(spec, config)?.marks; return marks === undefined || region.kind === "mark" && marks.includes(region.mark); },
   fitReads: ["kick/kick", "kick/push", "kick/front"], reads: variationReads(VARIATIONS), effectors: ["foot.left", "foot.right"], aims: true,
   asSkill: { group: "Strikes", ends: ["standing"] },
 };

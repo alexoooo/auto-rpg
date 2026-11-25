@@ -1,9 +1,9 @@
 {
  "body": "man",
  "variation": "kick/front",
- "code": "2a7d25c79df4",
+ "code": "21761baf12d7",
  "tuning": null,
- "cell": "man kick strike/base-twin",
+ "cell": "man kick strike/middle-twin",
  "trials": 14,
  "landed": 7,
  "down": 0,
@@ -12,6 +12,7 @@
  ],
  "endedAsItMust": 14,
  "outcomes": {
+  "beyond": 14,
   "landed": 7,
   "elsewhere": 1,
   "guarded": 5,

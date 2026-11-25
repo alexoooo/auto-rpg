@@ -70,11 +70,13 @@ const KICK_STAGES = Object.freeze({
   /** How fast a freedom driven to a goal slows onto it, rad/s² (`driven`): the set-down's drive back, and the pushed drive's. */
   decel: 150,
   /**
-   * The window: the target this far ahead of the body's centre and within `across` either side of
-   * its line, m, its height from `low` to `high` over the kicking sole as shares of the leg's reach
-   * (hip to sole); its facing, rad, and the most ground speed it admits, m/s.
+   * The window, each a share of the kicking leg's reach (hip to sole), so a body of any size kicks
+   * alike: the target from `alongNear` to `alongFar` ahead of the body's centre and within `across`
+   * either side of its line, and from `low` to `high` over the kicking sole, a target outside that
+   * band one the kick does not strike (`Readiness`' `beyond`); its facing, rad, and the most ground
+   * speed it admits, m/s.
    */
-  alongNear: .5, alongFar: 1.1, across: .25, low: .6, high: 1.4, facing: .5, admitSpeed: .6,
+  alongNear: .5178, alongFar: 1.1391, across: .2589, low: .6, high: 1.4, facing: .5, admitSpeed: .6,
 });
 
 /**
@@ -342,8 +344,9 @@ function kick(body: Body, actions: readonly string[], resolve: TargetResolver, d
       const at = resolve(view, target, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       const side = sideOf(effector), sole = view.stance.ends[nameOf(side)]!.middle.y;
-      if (at[1] < sole + tuning.low * reaches[side] || at[1] > sole + tuning.high * reaches[side]) return { kind: "blocked", reason: "target is outside the kick's height band" };
-      const window = { at, along: [tuning.alongNear, tuning.alongFar] as const, across: [-tuning.across, tuning.across] as const,
+      const reach = reaches[side];
+      if (at[1] < sole + tuning.low * reach || at[1] > sole + tuning.high * reach) return { kind: "blocked", reason: "target is outside the kick's height band", beyond: true };
+      const window = { at, along: [tuning.alongNear * reach, tuning.alongFar * reach] as const, across: [-tuning.across * reach, tuning.across * reach] as const,
         facing: tuning.facing, speed: tuning.admitSpeed, ...(target.kind === "body" ? { on: target.body } : {}) };
       return withinActionWindow(view, window, around.heading) ? { kind: "ready", window } : { kind: "position", window };
     },
