@@ -1,5 +1,6 @@
 import { deepFreeze } from "../../core/state.ts";
 import { hypot } from "../../core/math/real.ts";
+import type { Followed, Offered, ValuePredictor, ValueReader } from "./contract/predictors.ts";
 import type { Situation } from "./contract/situation.ts";
 import type { Terms } from "./contract/terms.ts";
 import { treesAt, validTrees, type Trees } from "./boosted-trees.ts";
@@ -42,9 +43,6 @@ export interface Reading {
   readonly foeAt: readonly [number, number];
   readonly offered: readonly Offered[];
 }
-
-/** **An Option on offer as one try of it is modelled** (`Terms`): its kind, whether it is open, and its seconds and the life it deals and takes. */
-export interface Offered { readonly kind: string; readonly open: boolean; readonly duration: number; readonly dealt: number; readonly taken: number }
 
 /** The longest a reading's seconds are read, s: past it, as long; so a reading is finite throughout. */
 const LONGEST = 5;
@@ -107,7 +105,7 @@ export function featuresOf(r: Reading): number[] {
  * **A value fitted to what followed a state** (`assets/minds/fitted-value.json`, made by
  * `research/minds/fitted-value.mjs`): for each of its horizons, s, boosted regression trees over
  * `FEATURES` that read the life a body dealt and the life it took over that many seconds after it,
- * each its own (`Fitted`), so its objective prices them as it prices a path (`Trees`).
+ * each its own (`Followed`), so its objective prices them as it prices a path (`Trees`).
  */
 export interface FittedValue {
   readonly origin: string;
@@ -118,11 +116,8 @@ export interface FittedValue {
   readonly models: readonly { readonly dealt: Trees; readonly taken: Trees }[];
 }
 
-/** **What followed, as fitted**: the life dealt and taken. */
-export interface Fitted { readonly dealt: number; readonly taken: number }
-
 /** Whether `bodies` names bodies (`FittedValue.bodies`). */
-export const validBodies = (bodies: unknown): boolean => Array.isArray(bodies) && bodies.every((body) => typeof body === "string");
+const validBodies = (bodies: unknown): boolean => Array.isArray(bodies) && bodies.every((body) => typeof body === "string");
 
 /** **A body as a fitted model names it**: its model, and what it holds by name where it holds anything ("man", "man holding sword"). */
 export const bodyOf = (spec: Pick<BodySpec, "model" | "held">): string =>
@@ -132,11 +127,11 @@ export const bodyOf = (spec: Pick<BodySpec, "model" | "held">): string =>
  * **Whether a model fitted on `bodies`' bouts reads a search** for the body `own` (`bodyOf`)
  * against `focus`: both bodies it was fitted on. Elsewhere what it reads was never seen.
  */
-export const fittedOn = (bodies: readonly string[], own: string, focus: Situation["focus"]): boolean =>
+const fittedOn = (bodies: readonly string[], own: string, focus: Situation["focus"]): boolean =>
   !!focus && bodies.includes(own) && bodies.includes(bodyOf(focus.spec));
 
 /** Whether `value` is a fitted value over today's `FEATURES`, its horizons rising and dealt and taken fitted at each. */
-export const validFitted = (value: unknown): value is FittedValue => {
+const validFitted = (value: unknown): value is FittedValue => {
   const v = value as FittedValue | null;
   return !!v && typeof v === "object" && validBodies(v.bodies) && Array.isArray(v.features) && v.features.length === FEATURES.length && v.features.every((name, i) => name === FEATURES[i])
     && Array.isArray(v.horizons) && v.horizons.length > 0 && v.horizons.every((h, i) => Number.isFinite(h) && h > (v.horizons[i - 1] ?? 0))
@@ -144,7 +139,7 @@ export const validFitted = (value: unknown): value is FittedValue => {
 };
 
 /** A horizon's dealt and taken at features `x`, by `share`. */
-const fittedAt = (model: FittedValue["models"][number], x: readonly number[], share: number): Fitted =>
+const fittedAt = (model: FittedValue["models"][number], x: readonly number[], share: number): Followed =>
   ({ dealt: share * treesAt(model.dealt, x), taken: share * treesAt(model.taken, x) });
 
 /**
@@ -152,11 +147,27 @@ const fittedAt = (model: FittedValue["models"][number], x: readonly number[], sh
  * first horizon that horizon's by the share of it; between two, the two weighed by where it falls;
  * past the last, the last's.
  */
-export function fittedOver(value: FittedValue, x: readonly number[], seconds: number): Fitted {
+function fittedOver(value: FittedValue, x: readonly number[], seconds: number): Followed {
   if (!(seconds > 0)) return { dealt: 0, taken: 0 };
   const { horizons, models } = value, k = horizons.findIndex((h) => h >= seconds);
   if (k === 0) return fittedAt(models[0]!, x, seconds / horizons[0]!);
   if (k < 0) return fittedAt(models[models.length - 1]!, x, 1);
   const a = horizons[k - 1]!, b = horizons[k]!, t = (seconds - a) / (b - a), low = fittedAt(models[k - 1]!, x, 1 - t), high = fittedAt(models[k]!, x, t);
   return { dealt: low.dealt + high.dealt, taken: low.taken + high.taken };
+}
+
+/**
+ * **A fitted value as a search asks it** (`ValuePredictor`), for the body `body` (`bodyOf`):
+ * `value` read at a state as its features (`readingAt`, `featuresOf`) over the seconds asked
+ * (`fittedOver`). It has a reader for a search whose body and focus are both bodies it was
+ * fitted on (`fittedOn`), and no reading of a state without a focus. An error where `value` is
+ * no fitted value over today's features (`validFitted`).
+ */
+export function fittedValue(value: unknown, body: string): ValuePredictor {
+  if (!validFitted(value)) throw new Error("fitted-value: not a value over today's features");
+  const read: ValueReader = (at, grace, offered, seconds) => {
+    const reading = readingAt(at, grace, offered);
+    return reading ? fittedOver(value, featuresOf(reading), seconds) : null;
+  };
+  return { from: (root) => fittedOn(value.bodies, body, root.focus) ? read : null };
 }

@@ -48,3 +48,23 @@ export interface Predictors {
   /** The speed a walk is priced as starting at. */
   readonly walkStart: WalkStart;
 }
+
+/** **An Option on offer as one try of it is modelled** (`Terms`): its kind, whether it is open, and its seconds and the life it deals and takes. */
+export interface Offered { readonly kind: string; readonly open: boolean; readonly duration: number; readonly dealt: number; readonly taken: number }
+
+/** **What followed a state**: the life dealt and taken. */
+export interface Followed { readonly dealt: number; readonly taken: number }
+
+/** **What a state is worth where a line of a search stops.** */
+export interface ValuePredictor {
+  /** A reader for one search begun at `root`. Null where it has no reading of this body against this foe. */
+  from(root: Situation): ValueReader | null;
+}
+
+/**
+ * The life expected to be dealt and taken over the `seconds` after `at`, read with the Options on
+ * offer there as their models price one try (`offered`) and the body's `grace` there (`graceAt`).
+ * Null where it has no reading of this state. A search asks it at every leaf, so it takes its
+ * arguments by place and no argument object is made.
+ */
+export type ValueReader = (at: Situation, grace: number, offered: readonly Offered[], seconds: number) => Followed | null;

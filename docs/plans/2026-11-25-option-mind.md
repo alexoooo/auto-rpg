@@ -37,8 +37,8 @@ hard-coded hacks."
 ## What was wrong at the start
 
 Each line was read in the code on 2026-11-25 at `878c17a24`, and cites the code as it was then.
-Put right so far: 5, 6 and 10 (chunk 1); 1, 3 and 4 (2b); 2 (2b and 2c); 7 in part (3a: the
-exchange is one interface; 3b: a pressure is one; a line's end follows in 3c).
+Put right so far: 5, 6 and 10 (chunk 1); 1, 3 and 4 (2b); 2 (2b and 2c); 7 (3a: the exchange is
+one interface; 3b: a pressure is one; 3c: a line's end is one).
 
 1. **Nothing named Option Mind is a `Mind`.** `OptionMind` (`src/minds/option/build.ts:28`) is
    the receipt the build hands the fight (`MindMade`). The `Mind` (`src/minds/mind.ts:15`) is made
@@ -641,45 +641,32 @@ Allocation is not moved, KiB a body a step: `option-lean` 476.6 to 484.3 over tw
 beside 477.9 to 484.7 of a copy of the tree before chunk 2b, with two stray readings of 514.1
 and 525.4 among seven taken earlier; `option-tail` 539.9, 542.1 and 543.1.
 
-### 3c: what a line's end is worth
+### 3c: what a line's end is worth (landed)
 
 **Purpose.** The search does not know what the fitted value is made of.
 
-```ts
-/** What a state is worth where a line of the search stops. */
-export interface ValuePredictor {
-  /** A reader for one search begun at `root`. Null where it has no reading of this body against this foe. */
-  from(root: Situation): ValueReader | null;
-}
+What is there now:
 
-/**
- * The life expected to be dealt and taken over the `seconds` after `at`, read with the Options on
- * offer there as their models price one try and the body's `grace` there. Null where it has no
- * reading of this state.
- */
-export type ValueReader = (at: Situation, grace: number, offered: readonly Offered[], seconds: number) => Followed | null;
-```
+- **`contract/predictors.ts`**: `ValuePredictor` has one member, `from(root)`, which answers a
+  `ValueReader` for one search or null where it has no reading of this body against this foe.
+  A `ValueReader` answers the life expected to be dealt and taken over some seconds after a
+  state (`Followed`), or null where it has no reading of that state. `Offered` is beside them.
+- **`fitted-value.ts`**: `fittedValue(value, body)` makes the predictor of the fitted asset and
+  refuses data that is no fitted value over today's features. `fittedOn`, `fittedOver` and
+  `validFitted` are private to the file. `readingAt`, `featuresOf`, `offeredOf`, `FEATURES`
+  and `bodyOf` stay exported: the two research fits read by them.
+- **`chooser.ts`**: a kind of leaf makes its leaf once a chooser (`LeafKind.make(body)`). The
+  `fitted` kind reads `dataOf("fitted-value")` there and hands `predictedLeaf` (was
+  `fittedLeaf`; it knows nothing fitted) a `ValuePredictor`. `predictedLeaf` keeps the
+  search's half: the root's grace, the offers at each leaf, the weights and the price, and the
+  tail (`tailLeaf`) where the predictor has no reading. `chooser.ts` imports from
+  `fitted-value.ts` only `fittedValue`, `bodyOf` and `offeredOf`. The body's name is no
+  longer carried through the search's states: the reply search alone is given it.
 
-**Steps.**
+The check that the data is a fitted value was thrown at each search and is now thrown once, as
+the chooser is made.
 
-1. **`fitted-value.ts` exports `fittedValue(value, body): ValuePredictor`.** `from` answers null
-   where `fittedOn` does today, once a search; the reader answers null where `readingAt` does.
-   `Offered` (`fitted-value.ts:47`) and `Followed` (today `Fitted`, `:122`) move to
-   `contract/predictors.ts`. `readingAt`, `featuresOf`, `offeredOf`, `FEATURES` and `bodyOf` stay
-   exported: `research/minds/fitted-value.mjs` and `move-prior.mjs` fit by them.
-2. **`fittedLeaf` (`chooser.ts:409`) keeps only the search's half.** Once a search it reads the
-   body's grace at the root first, as now (`graceAt(root)`, `:410`, which writes the reach
-   memory), then asks `from(root)` and, with no reader, ends every line as the tail does,
-   gathering nothing, as now. With one, at each leaf it gathers the offers, asks the reader, and
-   prices the path with what it answers, weighed as now; where the reader answers null the line
-   ends by the search's own Options run again (`search.leaf`), as now.
-3. **The tree chooser's part makes the predictor it selected**: `leaf: "fitted"` reads
-   `dataOf("fitted-value")` and calls `fittedValue`, as its `reads` already declares. The asset is
-   1.4 MB, so it stays read only by a config that names it. The check that the data is a fitted
-   value, thrown today at each search (`:411`), is thrown where the part makes the predictor.
-
-**Done when** the checks pass, the fingerprint compares clean, and `chooser.ts` imports from
-`fitted-value.ts` only `fittedValue`, `bodyOf` and `offeredOf`.
+**Read on landing** (2026-11-25): the fingerprint moves no pose on any of the 299 cases.
 
 ### 3d: by hand has one home, and a kind without the fallbacks
 
@@ -791,7 +778,7 @@ Files move with `git mv` so history follows. Two commits: the splits, then the m
 
 | File | Becomes |
 | --- | --- |
-| `chooser.ts` | `choosers/chooser.ts` (`chooser`, `chooserOf`, `watching`, `searching`, `FOE_HOLDING`), `choosers/space.ts` (`space`, `Searched`, `Pair`, `Reach`), `choosers/search.ts` (`search`, `again`), `choosers/tree-search.ts` (`treeSearch`, `warmStart`), `choosers/replies.ts` (`repliedSearch`, `AGAINST`, `DIRECTIONS`), `choosers/leaves.ts` (`LEAVES`, `fittedLeaf`), `choosers/parts.ts` (`OptionChooserPart`, the three parts, their configs and editor fields) |
+| `chooser.ts` | `choosers/chooser.ts` (`chooser`, `chooserOf`, `watching`, `searching`, `FOE_HOLDING`), `choosers/space.ts` (`space`, `Searched`, `Pair`, `Reach`), `choosers/search.ts` (`search`, `again`), `choosers/tree-search.ts` (`treeSearch`, `warmStart`), `choosers/replies.ts` (`repliedSearch`, `AGAINST`, `DIRECTIONS`), `choosers/leaves.ts` (`LEAVES`, `tailLeaf`, `predictedLeaf`), `choosers/parts.ts` (`OptionChooserPart`, the three parts, their configs and editor fields) |
 | `select-set.ts` | `choosers/select-set.ts` (`selectSet` and its argument types), `options/readiness.ts` (`onOffer`, `NOTHING`, `WHOLE`) |
 | `percepts.ts` | `situation/percepts.ts` (`PERCEPTS`, `perceiver`, `Cues`' implementation), `situation/reach-memory.ts` (`reachMemory`, `graceAt`, `inReach`, `threatened`), `predictions/exchange/pressure.ts` (`ProfilePressure`, `pressureBy`, `pooled`, `startOf`), `predictions/exchange/profile.ts` (`ProfileExchange`, `measuredReach`) |
 | `kinds.ts` | `options/strike-kinds.ts` (`strikeKind` and the seven strikes), `options/kinds.ts` (the rest and `optionsOf`) |
@@ -879,8 +866,6 @@ Each is settled by the chunk that meets it, with the tool named.
 - **What a fresh bout every 120 steps costs** on every arena case (5). If the whole fingerprint
   under `--relay` takes over ten minutes, `--only` picks one fight a body and the plan's bar is
   those.
-- **Whether 3b's class moves what a body allocates a step.** The harness says; a rise is
-  reworked before the chunk lands (what must not move).
 
 ## What this plan does not do
 

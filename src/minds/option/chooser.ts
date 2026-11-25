@@ -6,14 +6,14 @@ import { anyBody, slotOne, type PartConfig, type Supplied } from "../../parts/pa
 import { whenEmpty } from "../../parts/tree.ts";
 import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding, type Holding } from "./select-set.ts";
 import type { Chooser } from "./contract/chooser.ts";
-import type { ExchangePredictor } from "./contract/predictors.ts";
+import type { ExchangePredictor, Offered, ValuePredictor } from "./contract/predictors.ts";
 import { placed, placing } from "./option.ts";
 import type { Option } from "./contract/option.ts";
 import type { Situation, Pressure } from "./contract/situation.ts";
 import { FEW_TERMS_PART } from "./objective.ts";
 import type { Objective, Tally, Obedience, ObedienceLevel } from "./contract/objective.ts";
 import { graceAt, threatened } from "./percepts.ts";
-import { bodyOf, featuresOf, fittedOn, fittedOver, offeredOf, readingAt, validFitted, type Offered } from "./fitted-value.ts";
+import { bodyOf, fittedValue, offeredOf } from "./fitted-value.ts";
 import { dataOf, type DataKey } from "../../core/data/store.ts";
 import { exp, hypot, log } from "../../core/math/real.ts";
 import { ARRIVED } from "../../skills/framework/movement.ts";
@@ -101,7 +101,7 @@ export interface Pair { readonly option: Option; readonly target: number; readon
 interface Line { readonly worth: number; readonly terms: Terms }
 
 /**
- * **What a leaf weighs** (`Leaf`): `whole`, where a line's last Option ends, every Option held or
+ * **What a leaf weighs** (`space`'s `leaf`): `whole`, where a line's last Option ends, every Option held or
  * run again and a walk to a site; `arrived`, where that walk ends, all but another walk; `held`,
  * where a run again leaves the body, the open Options only.
  */
@@ -142,8 +142,6 @@ interface Searched {
   readonly exchange: ExchangePredictor;
   /** The seconds of the focus's motion the states the search reads take in (`placing`): the config's `carry`, or a reply's seconds in its search (`repliedSearch`). */
   readonly carry: number;
-  /** The body it searches for: its model and what it holds (`bodyOf`). */
-  readonly body: string;
 }
 
 /**
@@ -160,7 +158,7 @@ interface Searched {
  * objective weighs it by when it comes (`Objective.weigh`: `dealtWeight`, `takenWeight`), as
  * itself where it weighs none.
  */
-function space(root: Situation, { options, objective, obedience, horizon, exchange, carry, body }: Searched) {
+function space(root: Situation, { options, objective, obedience, horizon, exchange, carry }: Searched) {
   const place = placing(exchange, carry);
   /** What life dealt, and taken, traded evenly over `span` s from `from` s on counts for, a share (`Objective.weigh`); 1 where the objective weighs none. */
   const dealtWeight = (from: number, span: number): number => objective.weigh ? objective.weigh("dealt", from, span, horizon) : 1;
@@ -318,7 +316,7 @@ function space(root: Situation, { options, objective, obedience, horizon, exchan
   };
   /** What an Option run again from a leaf reads of the search (`Rerun`). */
   const rerun: Rerun = { horizon, dealtWeight, takenWeight, modelAt, child, price, leaf };
-  return { horizon, body, dealtWeight, takenWeight, pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
+  return { horizon, dealtWeight, takenWeight, pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
 }
 
 /** **The states a search reads** (`space`). */
@@ -372,47 +370,55 @@ function again({ horizon, dealtWeight, takenWeight, modelAt, child, price, leaf 
 }
 
 /**
- * **A kind of leaf** (`TreeConfig.leaf`): its name on the page, the mind data it reads, and what a
- * search's leaf is worth at a state, after what the path to it brought (`leafOf`, made once a
- * search at its root).
+ * **What a search's leaf is worth**, made once a search at its `root` over the states it reads
+ * (`search`): the worth of a state, after what the path to it brought.
+ */
+type Leaf = (search: Space, root: Situation) => (at: Situation, from: Tally) => number;
+
+/**
+ * **A kind of leaf** (`TreeConfig.leaf`): its name on the page, the mind data it reads, and the
+ * leaf it makes for a chooser's `body` (`bodyOf`), once a chooser.
  */
 interface LeafKind {
   readonly label: string;
   readonly reads: readonly DataKey[];
-  leafOf(search: Space, root: Situation): (at: Situation, from: Tally) => number;
+  make(body: string): Leaf;
 }
 
+/** **The tail**: the best of each Option on offer run again to the horizon or held, and of a walk to each site (`space`'s `leaf`, whole). */
+const tailLeaf: Leaf = (search) => (at, from) => search.leaf(at, "whole", from);
+
 /**
- * **The kinds of leaf**: `tail`, the game's, the best of each Option on offer run again to the
- * horizon or held, and of a walk to each site (`space`'s `leaf`, whole); `fitted`, the path's
- * price and a value fitted to what followed the states bouts reached (`fittedLeaf`).
+ * **The kinds of leaf**: `tail`, the game's (`tailLeaf`); `fitted`, the path's price and a
+ * value fitted to what followed the states bouts reached (`predictedLeaf` of `fittedValue`).
+ * The `fitted` kind reads its data (`dataOf("fitted-value")`) as the chooser is made.
  */
 const LEAVES = Object.freeze({
-  tail: Object.freeze({ label: "Tail", reads: Object.freeze([]), leafOf: (search: Space) => (at: Situation, from: Tally) => search.leaf(at, "whole", from) }),
-  fitted: Object.freeze({ label: "Fitted to what followed", reads: Object.freeze(["fitted-value"] as const), leafOf: fittedLeaf }),
+  tail: Object.freeze({ label: "Tail", reads: Object.freeze([]), make: () => tailLeaf }),
+  fitted: Object.freeze({ label: "Fitted to what followed", reads: Object.freeze(["fitted-value"] as const), make: (body: string) => predictedLeaf(fittedValue(dataOf("fitted-value"), body)) }),
 } satisfies Readonly<Record<string, LeafKind>>);
 
 /**
- * **A leaf worth its path priced with what a value fitted to what followed reads there**
- * (`dataOf("fitted-value")`, `fittedOver`): the life dealt and taken over the seconds the path
- * leaves to the horizon added to the path's, as if it ran there, each weighed as traded evenly over
- * those seconds (`dealtWeight`, `takenWeight`); the state read with the Options on
- * offer as their models price one try, and the reach's grace its own where its Option reckoned it,
- * else the root's. The tail's where the state has no focus, and through a search whose body or
- * focus is not one the value was fitted on (`fittedOn`).
+ * **A leaf worth its path priced with what `value` says follows there** (`ValuePredictor`): the
+ * life dealt and taken over the seconds the path leaves to the horizon added to the path's, as if
+ * it ran there, each weighed as traded evenly over those seconds (`dealtWeight`, `takenWeight`);
+ * the state read with the Options on offer as their models price one try, and the reach's grace
+ * its own where its Option reckoned it, else the root's. The tail's where `value` has no reading
+ * of the state, and through a search it has no reader for.
  */
-function fittedLeaf(search: Space, root: Situation): (at: Situation, from: Tally) => number {
-  const value: unknown = dataOf("fitted-value"), grace = graceAt(root);
-  if (!validFitted(value)) throw new Error("fitted-value: not a value over today's features");
-  if (!fittedOn(value.bodies, search.body, root.focus)) return (at, from) => search.leaf(at, "whole", from);
-  return (at, from) => {
-    const offered: Offered[] = [];
-    for (const pair of search.pairsAt(at)) { const terms = search.modelAt(pair, at); if (terms) offered.push(offeredOf(pair.option.kind, pair.option.open === true, terms)); }
-    const reading = readingAt(at, at.grace ?? grace, offered);
-    if (!reading) return search.leaf(at, "whole", from);
-    const left = search.horizon - from.seconds, followed = fittedOver(value, featuresOf(reading), left);
-    const dealt = from.dealt + search.dealtWeight(from.seconds, left) * followed.dealt, taken = from.taken + search.takenWeight(from.seconds, left) * followed.taken;
-    return search.price({ dealt, taken, orders: from.orders, seconds: Math.max(from.seconds, search.horizon) }, at);
+function predictedLeaf(value: ValuePredictor): Leaf {
+  return (search, root) => {
+    // The root's grace is read at every search, one with no reader too: reading it counts the reach memory to now.
+    const grace = graceAt(root), read = value.from(root), tail = tailLeaf(search, root);
+    if (!read) return tail;
+    return (at, from) => {
+      const offered: Offered[] = [];
+      for (const pair of search.pairsAt(at)) { const terms = search.modelAt(pair, at); if (terms) offered.push(offeredOf(pair.option.kind, pair.option.open === true, terms)); }
+      const left = search.horizon - from.seconds, followed = read(at, at.grace ?? grace, offered, left);
+      if (!followed) return tail(at, from);
+      const dealt = from.dealt + search.dealtWeight(from.seconds, left) * followed.dealt, taken = from.taken + search.takenWeight(from.seconds, left) * followed.taken;
+      return search.price({ dealt, taken, orders: from.orders, seconds: Math.max(from.seconds, search.horizon) }, at);
+    };
   };
 }
 type LeafName = keyof typeof LEAVES;
@@ -551,14 +557,14 @@ function backedUp(node: TreeNode, best: number): number {
  * at `root` is run at least once. Its root's Options start from what `start` gives them, as
  * evidence of as many runs as it says.
  */
-function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly best: number; readonly stream: { next(): number }; readonly leaf: LeafKind; readonly start: RootStart }): PricedLine[] {
+function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly best: number; readonly stream: { next(): number }; readonly leaf: Leaf; readonly start: RootStart }): PricedLine[] {
   const { runs, exploration, best, stream, start } = searched;
   const predictions = root.predictions;
   let pressure: Pressure | undefined;
   root = Object.create(root, { predictions: { value: Object.create(predictions, {
     pressure: { get: () => pressure ??= predictions.pressure.cached() },
   }) } }) as Situation;
-  const at = space(root, searched), leafAt = searched.leaf.leafOf(at, root);
+  const at = space(root, searched), leafAt = searched.leaf(at, root);
   const nodeAt = (state: Situation, from: Tally): TreeNode => {
     const floor = leafAt(state, from);
     return { at: state, dealt: from.dealt, taken: from.taken, orders: from.orders, seconds: from.seconds, floor, runs: 0, worth: floor, edges: null };
@@ -647,12 +653,12 @@ type TreeSearched = Parameters<typeof treeSearch>[1];
  * `root` worth its worst (`worst`) or the mean (`mean`) of what a tree search prices it at with the
  * foe standing (`treeSearch`) and with the foe running each of `replies` replies over the line's
  * first step, a joint step; past it the foe stands, as in any line. It asks a reply only of a foe
- * of the body's own build (`bodyOf`), one reply a line (`ExchangePredictor.reply`). Its replies are those moves that go furthest each way
+ * of the body's own build (`body`, `bodyOf`), one reply a line (`ExchangePredictor.reply`). Its replies are those moves that go furthest each way
  * (`DIRECTIONS`): closing on the body, backing off, and to either side, the first `replies` of
  * them, so the worst of them is the foe's best reply whatever it prefers. Elsewhere, and where
  * none moves, the foe stands.
  */
-function repliedSearch(root: Situation, searched: TreeSearched & { readonly replies: number; readonly against: AgainstName }): PricedLine[] {
+function repliedSearch(root: Situation, searched: TreeSearched & { readonly replies: number; readonly against: AgainstName; readonly body: string }): PricedLine[] {
   const own = treeSearch(root, searched), focus = root.focus, where = root.where;
   if (searched.replies === 0 || !focus || !where || bodyOf(focus.spec) !== searched.body) return own;
   const apart = hypot(where.x - focus.centre.x, where.z - focus.centre.z);
@@ -785,9 +791,9 @@ export const VALUED_CHOOSER = deepFreeze<ChooserPart<ValuedConfig>>({
   role: "chooser", label: "By worth", fields: [obedienceField<ValuedConfig>(), horizonField<ValuedConfig>(), carryField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, carry: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config.depth), ...searchFaults(config)],
-  make: ({ config, options, seed, parts, body, exchange }) => {
+  make: ({ config, options, seed, parts, exchange }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON;
-    const searched = { options, objective, obedience, horizon, exchange, carry: config.carry ?? 0, body, depth: config.depth };
+    const searched = { options, objective, obedience, horizon, exchange, carry: config.carry ?? 0, depth: config.depth };
     return chooser({ options, appraise: searching((now) => search(now, searched)), deciding: { rethink: RETHINK, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: {} });
   },
@@ -804,7 +810,7 @@ const EXPLORATION = 1;
 
 /**
  * **The tree chooser's config**: its runs a search (`RUNS` unless given), how far it explores
- * (`EXPLORATION` unless given), how its leaves read an Option run again (`Leaf`, the tail unless
+ * (`EXPLORATION` unless given), what its leaves are worth (`LEAVES`, the tail unless
  * given), whether it keeps its work (`keeps`, s: each Option's worth at its last search's root,
  * as evidence of as many runs as it stood on, fading by half each so long; none kept unless given),
  * how much a state is worth its best line against the mean of its lines (`best`, its best alone
@@ -874,7 +880,7 @@ export const TREE_CHOOSER = deepFreeze<ChooserPart<TreeConfig>>({
   make: ({ config, options, seed, parts, body, exchange }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
-    const searched = { options, objective, obedience, horizon, exchange, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
+    const searched = { options, objective, obedience, horizon, exchange, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"].make(body), replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
     return chooser({ options, appraise: searching((now) => pricedLines(repliedSearch(now, searched))), deciding: { rethink: RETHINK, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },
