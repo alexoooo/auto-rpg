@@ -1,4 +1,4 @@
-# The Option Mind is a Mind: one contract, one class, predictions behind interfaces
+# The Option Mind is a Mind: one contract, two classes, predictions behind interfaces
 
 **Begun 2026-11-25, by the owner's order** ("ok, yes i want to refactor the code along these
 lines. please write a plan."), after a discussion of why
@@ -6,11 +6,14 @@ lines. please write a plan."), after a discussion of why
 place where a prediction, or the Mind itself, is stated.
 
 This is a refactor. Every chunk leaves every fingerprint line as it was. No existing config
-changes shape or meaning; 3c adds one kind of predictions and one preset to pick.
+changes shape or meaning; 3d adds one kind of predictions and one preset to pick.
 
-A fresh agent given this plan and the code, and not the session that wrote it, tried to refute
-it on 2026-11-25. What it found wrong is corrected below; what it could not settle by reading is
-listed under "Not settled by reading".
+Two fresh agents, each given this plan and the code and not the session that wrote it, tried to
+refute it on 2026-11-25: the first the whole plan, the second the sections rewritten in answer.
+What they found wrong is corrected below; what reading could not settle is listed under "Not
+settled by reading". The two classes of chunk 2 and the move of `choice.ts` were written after
+both, in answer to the owner, and have had no such reader yet: the reader of chunks 1 and 2
+is their first.
 
 ## The goal, in the owner's words
 
@@ -25,8 +28,11 @@ listed under "Not settled by reading".
 
 Of the shell that calls a registered decider: "that is a basic violation -- the general code is
 hard-coding specific implementation logic". Of the folder: "src/minds/option/ has a large number
-of source files, it's difficult to review". Standing: "I always want everything to be just a
-skill. I don't want any ad-hoc hard-coded hacks."
+of source files, it's difficult to review". Of the first draft of this plan: "for the OptionMind
+making use of CommandLayers, is there a cleaner separation that we can do by using an abstract
+class (or something else)?" and "i noticed src/minds/choice.ts -- does that belong in
+minds/option/?". Standing: "I always want everything to be just a skill. I don't want any ad-hoc
+hard-coded hacks."
 
 ## What is wrong today
 
@@ -55,24 +61,31 @@ Each line was read in the code on 2026-11-25 at `878c17a24`.
    holds `Terms` and the damage arithmetic. `option.ts` imports `percepts.ts` and `value.ts`, and
    both import `option.ts`. `Percepts` and `Predictions` are not written anywhere: they are derived
    from two object literals (`percepts.ts:660`, `:707`).
-6. **Predictions are spread over the reader, the imagined state and the search.** Six named
+6. **Half of `Option` is declared outside the folder, as a generic with one use.**
+   `Option extends Choice<Situation>` (`option.ts:66`): its entry, its status, what it claims and
+   its targets are in `src/minds/choice.ts`, which is generic over a situation, terms and a
+   choice and is used once (`Chooser = Selection<Situation, OfferTerms, Option>`,
+   `chooser.ts:49`). Seven Option Mind files import it; outside them `engagement.ts` reads one
+   type (`Priced`), and `src/minds/index.ts` re-exports four names nobody imports.
+7. **Predictions are spread over the reader, the imagined state and the search.** Six named
    readings (`PREDICTIONS`, `percepts.ts:707`) are a closed literal whose tables ride on what the
    reader sees (`Seen.strikes`, `Seen.measured`, `Seen.others`); one of the six can be swapped
    (`OthersModel`, `percepts.ts:359`). The foe keeping his velocity is `carried` inside
    `placedWith` (`option.ts`). The foe's reply is `replyOf` (`chooser.ts:697`). The fitted value
    is read by `fittedLeaf` (`chooser.ts:409`).
-7. **By-hand numbers are branches inside the measured code.** `strike.ts:215` prices
-   `measured ?? priorOf(at)`, and `:218` and `:327` branch the same way. The foe's pressure prices
-   a limb with no fresh profile by `prior` at `RATE` (`percepts.ts:309`), and a blow coming from
-   an unmodelled limb at `LANDS` (`:593`). `PRIOR_PREDICTIONS` is the measured model given empty
-   tables, so "by hand" has no code of its own to point at.
-8. **36 files and a `data/` folder of 3, 5,781 lines, one flat folder.** `chooser.ts` (930) holds
+8. **By-hand numbers are branches inside the measured code.** `strike.ts:215` prices
+   `measured ?? priorOf(at)`, and `:218` and `:327` branch the same way; `rise.ts:169` prices a
+   way up `measured(from) ?? { ...prior }`. The foe's pressure prices a limb with no fresh
+   profile by `prior` at `RATE` (`percepts.ts:309`), and a blow coming from an unmodelled limb at
+   `LANDS` (`:593`). `PRIOR_PREDICTIONS` is the measured model given empty tables, so "by hand"
+   has no code of its own to point at.
+9. **36 files and a `data/` folder of 3, 5,781 lines, one flat folder.** `chooser.ts` (930) holds
    three choosers, two searches, the reply search and the editor fields; `percepts.ts` (842) the
    percepts, the foe's pressure, reach memory and the prediction registry; `kinds.ts` (389) every
    kind's registration.
-9. **`Situation.perceive` and `Situation.predict`, and the part roles `profile-percept` and
-   `profile-prediction` behind them, have no caller and no registered part** in `src`, `research`,
-   `scripts` or `tests`.
+10. **`Situation.perceive` and `Situation.predict`, and the part roles `profile-percept` and
+    `profile-prediction` behind them, have no caller and no registered part** in `src`,
+    `research`, `scripts` or `tests`.
 
 ## The target
 
@@ -92,20 +105,75 @@ seam, hardening or declaration for a consumer that does not exist"). A predictor
 the body would take (the measured Mind plan's action prior) is declared by the step of that plan
 that builds it, in `contract/predictors.ts`.
 
-### The class
+### Two classes: a Mind that commands a body, and the Option Mind
 
-`src/minds/option/option-mind.ts`, written out so `think` and `act` read top to bottom. Tests
-import `src/` with Node's type stripping, which has no parameter properties
-([the test rules](../../tests/README.md)), so fields are declared and assigned.
+Running a body through the command layers is a protocol with an order: read the senses, queue
+what was decided, wait out the reaction time, turn the decision now due into a command, let the
+motor write the muscles. That protocol is not about Options, and a scripted body follows it too.
+So it is written once, in an abstract class in `src/minds/commanding-mind.ts`, and the Option
+Mind says only what is its own. Tests import `src/` with Node's type stripping, which has no
+parameter properties ([the test rules](../../tests/README.md)), so fields are declared and
+assigned; an abstract class with an abstract field and a generic does load and run that way
+(tried on Node 24.15, 2026-11-25).
+
+```ts
+/** What every commanding Mind remembers: its command layers' memory, and whether its body is away from it. */
+export interface Commanding { readonly layers: object; idle: boolean }
+
+/**
+ * A Mind that runs its body through the command layers. Each step it reads the body's senses
+ * into the layers and queues what it decides; when a decision comes due, after the body's
+ * reaction time, it turns the decision into a body command and has the motor carry it out.
+ * A subclass says what it decides, how a decision becomes a command, and what it lets go of
+ * when its body is taken from it.
+ */
+export abstract class CommandingMind<D> implements Mind {
+  protected readonly layers: CommandLayers;
+  abstract readonly state: Commanding;
+
+  /** A subclass's fields are not yet set while this runs, so it calls none of the three methods below. */
+  constructor(layers: CommandLayers) { this.layers = layers; }
+
+  think(senses: Senses): void {
+    const { layers, state } = this;
+    layers.look(senses);
+    if (state.idle) { layers.resume(); state.idle = false; }
+    layers.decided(this.decide(layers.view, layers.body.dt));
+  }
+
+  act(control: BodyControl): void {
+    const { layers } = this;
+    layers.observe(control);
+    if (this.state.idle) return;
+    const due = layers.take(control) as D | null;
+    layers.apply(due === null ? null : this.carry(layers.view, due, layers.body.dt), control);
+  }
+
+  interrupt(): void {
+    if (this.state.idle) return;
+    this.released(this.layers.view, "idle");
+    this.layers.release("idle");
+    this.state.idle = true;
+  }
+
+  /** What it wants as of this step. Null keeps the command its body already has. */
+  protected abstract decide(view: BodyView, dt: number): D | null;
+  /** The body command that carries out a decision now due. */
+  protected abstract carry(view: BodyView, decision: D, dt: number): BodyCommand | null;
+  /** Its body is being taken from it: let go of what it holds. */
+  protected abstract released(view: BodyView, reason: "idle" | "takeover"): void;
+}
+```
+
+`src/minds/option/option-mind.ts` then holds Option ideas only:
 
 ```ts
 /**
  * An Option Mind. Each decision it reads its situation, chooses among its Options by what they
  * are predicted to bring, and asks its skills to carry out what the chosen Options ask.
  */
-export class OptionMind implements Mind {
+export class OptionMind extends CommandingMind<Intent> {
   // The parts it is made of. None is replaced after the Mind is built.
-  private readonly layers: CommandLayers;
   private readonly skills: Skills;
   private readonly reader: SituationReader;
   private readonly options: readonly Option[];
@@ -127,63 +195,62 @@ export class OptionMind implements Mind {
   get prospects(): readonly Prospect[] { return this.state.said.prospects; }
 
   constructor(parts: OptionMindParts) {
+    super(parts.layers);
     // One assignment a field, and `state` gathered from the parts' own memories.
   }
 
-  think(senses: Senses): void {
-    const { layers, skills, state } = this;
-    layers.look(senses);
-    if (state.idle) { layers.resume(); state.idle = false; }
-    const view = layers.view;
-    if (view.resumed) skills.resume(view);
-    const since = this.pace.since(view, layers.body.dt, lastEnded(skills.report.ledger));
-    if (since !== null) state.asked = this.decide(since);
-    layers.decided(state.asked);
+  /** Asked every step it has its body. It chooses anew only when its pace says a decision is due. */
+  protected decide(view: BodyView, dt: number): Intent | null {
+    if (view.resumed) this.skills.resume(view);
+    const since = this.pace.since(view, dt, lastEnded(this.skills.report.ledger));
+    if (since !== null) this.state.asked = this.choose(since);
+    return this.state.asked;
   }
 
-  act(control: BodyControl): void {
-    const { layers, skills, state } = this;
-    layers.observe(control);
-    if (state.idle) return;
-    const due = layers.take(control) as Intent | null;
-    layers.apply(due === null ? null : skills.command(layers.view, due, layers.body.dt), control);
+  protected carry(view: BodyView, intent: Intent, dt: number): BodyCommand {
+    return this.skills.command(view, intent, dt);
   }
 
-  interrupt(): void {
-    if (this.state.idle) return;
-    this.skills.release(this.layers.view, "idle");
-    this.layers.release("idle");
-    this.state.idle = true;
+  protected released(view: BodyView, reason: "idle" | "takeover"): void {
+    this.skills.release(view, reason);
   }
 
   /** One decision: what I know, what I do, and what that asks of the skills. */
-  private decide(dt: number): Intent {
+  private choose(dt: number): Intent {
+    const said = this.state.said;
     const read = this.reader.read(this.sight);
+    said.foe = read.phase;
     let priced: readonly Situation[] = NONE;
     const chosen = this.chooser.decide(read, () => priced = this.reader.others());
+    if (chosen.fresh) said.prospects = this.prospectsAt(read, priced);
     this.reader.keep(chosen.at);
     const intent = intentOfSet(chosen.set.map((option) => ({ claims: option.claims, ...option.step(chosen.at, dt) })),
       () => ({ move: null, face: this.facing(chosen.at) }));
-    this.publish(read, priced, chosen);
+    said.details = this.detailsAt(chosen.at);
     return intent;
   }
 }
 ```
 
-`publish` holds what `profileModel` does today around choosing, in today's order: the foe's
-phase as `read` saw it; where the decision was fresh, the prospects at `read` and at each
-situation the chooser priced (`priced`, which the chooser fills only when it prices the other
-foes); and, after the Options' steps, the two details (`unmetDetail`, `profileDetail`).
-`lastEnded` is the last ended action's sequence, as `driveBy` reads it. `SituationReader` is
-what `situationReader` returns today with no name (`state`, `read`, `others`, `keep`); chunk 2b
-writes it as an interface in `contract/situation.ts`, where the class is its first reader.
+`choose` is `profileModel`'s `decide` line for line (`profile-model.ts:53` to `:60`): the foe's
+phase, the choice, the prospects where it was fresh (at `read` and at each situation the chooser
+priced, which it fills only when it prices the other foes), the focus kept, the Options' steps,
+the two details. `prospectsAt` and `detailsAt` hold `prospect`, `unmetDetail` and
+`profileDetail`. `lastEnded` is the last ended action's sequence, as `driveBy` reads it.
+`SituationReader` is what `situationReader` returns today with no name (`state`, `read`,
+`others`, `keep`); chunk 2b writes it as an interface in `contract/situation.ts`.
+
+**Why this is not the shell it replaces.** The base knows nothing of skills, a pace or Options;
+its three hooks are methods the compiler checks, where today a driver object is registered on
+the body after the Mind is made; and the Option Mind is the `Mind` its body runs. At run time
+the path is nearly today's (think asks for a decision, act carries the one due), which is why
+it can move no fight.
 
 **On `interrupt`.** Today the layers clear their queue, then the driver's release runs (the
-skills'), then the motor resets. The class releases the skills, then the layers. The skills'
-release (`src/skills/framework/arbiter.ts:202`) reads the view and its own memory, neither of
-which the layers' queue or `released` flag reaches, and the motor resets after it either way.
-The fingerprint and the test "takeover clears a paced ward and staged toe support restores into
-a fresh player" (`tests/skills/boundaries.test.mjs`) judge it.
+skills'), then the motor resets. The base lets its subclass go first, then releases the layers.
+The skills' release (`src/skills/framework/arbiter.ts:202`) reads the view and its own memory,
+neither of which the layers' queue or `released` flag reaches, and the motor resets after it
+either way; both reviewers tried to break this and could not.
 
 ### Three kinds of memory
 
@@ -192,7 +259,7 @@ sits, and one check holds it.
 
 | Kind | Where | Rule |
 | --- | --- | --- |
-| parts | the `private readonly` fields | made once, never replaced |
+| parts | the `readonly` fields | made once, never replaced |
 | memory | `state`, one plain object | saved, loaded, forked (`src/core/state.ts`); `saveState` refuses a function or a getter in it |
 | caches | a Mind's fields named as caches in their comment; module maps keyed by a value that never changes (a body's spec, a data table) | dropping one changes no result |
 
@@ -208,9 +275,23 @@ src/minds/option/
   assembly/          the config, its checks, the controller and the build
   situation/         what the body reads each step, and the imagined states
   options/           each kind of Option
-  choosers/          the choosers, the searches, the objectives
-  predictions/       the predictor implementations, their data, the by-hand kind
+  choosers/          the choosers, the selection among claims, the searches, the objectives
+  predictions/       the predictor implementations, their data, the numbers set by hand
 ```
+
+## Decisions the owner may want to reverse
+
+Each is one commit's worth and is reversed by editing that chunk before it runs.
+
+1. **An abstract class under the Option Mind** (the owner's question). The other way is the
+   Option Mind holding the layers and calling their steps itself: `think` and `act` are then in
+   `option-mind.ts`, and the same six calls are written again in the scripted body's seat.
+2. **`choice.ts` loses its generics** as it moves in (the owner's question). The other way moves
+   it as it is; `Option` then still inherits half its members from a generic `Choice<S>`.
+3. **The `measured` kind keeps its by-hand fallbacks, and a kind without them is added beside
+   it**, where the discussion first proposed removing them (3d says why).
+4. **`Pressure` becomes an interface with methods** (3b). The other way writes its record out in
+   the contract as it is; any other predictor must then answer in profile readings.
 
 ## What must not move
 
@@ -240,7 +321,7 @@ node scripts/fingerprint.mjs --workers 12 --compare .tmp/option-mind/before.json
 npm run build                                                                    # browser code moves in every chunk
 ```
 
-A chunk that changes what a config resolves to, or moves a file the pages import (2b, 3c, 4), is
+A chunk that changes what a config resolves to, or moves a file the pages import (2b, 3d, 4), is
 also opened headless at the Arena with the mind editor open, on `npm run preview` at a port that
 is not 5180, the server killed by PID after.
 
@@ -249,11 +330,14 @@ is not 5180, the server killed by PID after.
 (`node --check`); a script that reads a path of the Mind's state is run once on one bout, since
 a wrong path there reads `undefined` and says nothing.
 
+**A grep is an aid and not a bar.** Where a chunk's end can be held by the type checker it is;
+where it cannot, the chunk's reader is told what to look for.
+
 **The reader of each chunk.** No chunk waits on the owner. Before a chunk is committed, a fresh
 agent is given the diff, this plan's section for the chunk and the code, not the session that
 wrote it, and is told to refute two claims: "this chunk moved no behaviour" and "this chunk left
 no second path beside the new one". What it finds, and what was done about each finding, goes in
-the commit message. The owner can read `contract/` after chunk 1 and `option-mind.ts` after
+the commit message. The owner can read `contract/` after chunk 1 and the two classes after
 chunk 2 whenever they choose; a change they ask for then is an edit to an interface with its
 implementations already behind it.
 
@@ -268,9 +352,9 @@ direction, with no implementation in the way.
 | --- | --- | --- |
 | `contract/terms.ts` | `Ground`, `Leaves`, `Outcome`, `Terms`, `Ask` | `value.ts`, `option.ts` |
 | `contract/situation.ts` | `Situation`, `Percepts`, `Predictions`, `Cues`, `Pressure`, `ReachMemory`, `Bearing`, `ModelledStrike` | `option.ts`, `percepts.ts` |
-| `contract/option.ts` | `Option`, `Step`, `Asked`, `Site`, `Sites` | `option.ts` |
+| `contract/option.ts` | `Option` whole, `Status`, `Step`, `Asked`, `Site`, `Sites` | `option.ts`, `src/minds/choice.ts` |
 | `contract/objective.ts` | `Objective`, `Tally`, `Path`, `Obedience`, `ObedienceLevel` | `objective.ts`, `value.ts` |
-| `contract/chooser.ts` | `Chooser` (over `OfferTerms`, which stays in `src/minds/engagement.ts`) | `chooser.ts` |
+| `contract/chooser.ts` | `Chooser`, `Chosen` | `chooser.ts`, `src/minds/choice.ts` |
 | `contract/parts.ts` | `OptionPart`, `OptionBody`, `ChooserPart`, `ObjectivePart`, `PredictionsPart`, the four config registries and their `declare module` | `parts.ts` |
 
 Imports run one way: `terms` <- `situation` <- `option` <- `objective`, `chooser`, `parts`.
@@ -283,11 +367,26 @@ contract (a cycle for the reader); else it is imported as a type and listed here
 2026-11-25: `NamedSkills` (`skills.ts`), `Walker` (`walk.ts`), `OptionRecord` (`record.ts`) and
 `RiseMemory` (`rise-memory.ts`) are named by the contract and their files import it, so they
 move; `PressureTable` (`pressure.ts`, which imports nothing of the Option Mind) is imported
-until 3a narrows `Pressure`; `OptionEvaluation` (`model.ts`) is imported until 2b deletes it.
+until 3b narrows `Pressure`; `OptionEvaluation` (`model.ts`) is imported until 2b deletes it.
 
 **Steps.**
 
-1. **`Percepts` and `Predictions` are written out**, a field a line with its sentence, taken from
+1. **`choice.ts` moves in and loses its generics** (wrong, 6).
+   - `Option` is written out whole in `contract/option.ts`: the members it inherits today from
+     `Choice<Situation>` (`choice.ts:20` on: its name, kind, memory, claims, `rest`, targets,
+     `aim`, entry, status), each with its comment, then its own. `Status` moves beside it.
+   - `Chooser` and `Chosen` are written out in `contract/chooser.ts` as `Selection`'s and
+     `Chosen`'s members (`choice.ts:134`, `:144`) over `Situation` and `Option`.
+   - `Priced<OfferTerms>` is written out as `Offer` in `src/minds/engagement.ts`, where it is
+     already an alias of that name (`:21`) and which stays below the Option Mind: it is the
+     report every Mind publishes and Commanders read.
+   - The rest is the mechanism: `git mv src/minds/choice.ts src/minds/option/select-set.ts`
+     (`selection.ts` there is another thing, an Option by a named skill), holding `selectSet`, `onOffer`, `NOTHING`, `WHOLE` and `selectSet`'s own argument types
+     (`Selecting`, `Appraise`, `Deciding`, `Chance`, `Holding`, `Cue`), each over `Situation`,
+     `Offer` and `Option` where it had `S`, `T` and `C`. No line of `selectSet`'s body changes.
+   - `src/minds/index.ts` loses its re-export of `selectSet`, `Choice`, `Selection`, `Chosen`:
+     nothing imports it.
+2. **`Percepts` and `Predictions` are written out**, a field a line with its sentence, taken from
    the comment above `PERCEPTS` and `PREDICTIONS`. The literals say they meet them, and one line
    each says they hold nothing more, since `satisfies` on a frozen object checks one way only:
 
@@ -297,24 +396,25 @@ until 3a narrows `Pressure`; `OptionEvaluation` (`model.ts`) is imported until 2
    ```
 
    `ReachMemory` is written out the same way, where today it is `ReturnType<typeof reachMemory>`.
-2. **`Situation.perceive`, `Situation.predict`, `ProfilePerceptPart`, `ProfilePredictionPart`,
+3. **`Situation.perceive`, `Situation.predict`, `ProfilePerceptPart`, `ProfilePredictionPart`,
    the `parts` argument of `perceiver`, the memo of part readings and their exports from
-   `index.ts` are deleted** (wrong, 9). Nothing selectable goes: no part of either role is
+   `index.ts` are deleted** (wrong, 10). Nothing selectable goes: no part of either role is
    registered. The comments that name a `uses` field (`option.ts:19`, `parts.ts:75`) are
    corrected: no such field exists.
-3. **The functions leave the contract's old files without changing.** `placed`, `placing`,
+4. **The functions leave the contract's old files without changing.** `placed`, `placing`,
    `placedWith`, `along`, `exitOutcomes`, `standing`, `still`, `asking`, `READY`, `blocked` stay in
    `option.ts`; `upOrDown`, `AS_IS`, `UNMOVED`, `STILL`, `CLINCH`, `clinched`, `blowLife`,
    `limbReach`, `record`, `RETHINK`, `OBEDIENCE`, `STEADY`, `FIRST` stay in `value.ts`. Chunk 4
    moves them. Each old file re-exports nothing: every importer is repointed to `contract/`.
-4. **`optionApplies`** (the one function in `parts.ts`) moves to `config.ts`, which reads it.
-5. **Every importer is repointed**, inside the folder and outside (`src/app/registration/*`,
+5. **`optionApplies`** (the one function in `parts.ts`) moves to `config.ts`, which reads it.
+6. **Every importer is repointed**, inside the folder and outside (`src/app/registration/*`,
    `src/app/catalog.ts`, `src/app/option-controller.ts`, `src/entrants/*`, `src/evaluation/*`,
-   `research/*`, `tests/*`): `grep -rn "minds/option/" src research scripts tests` before and
-   after, and `npm run check` finds what a grep misses in `src`.
+   `research/*`, `tests/*`): `grep -rn "minds/option/\|minds/choice" src research scripts tests`
+   before and after, and `npm run check` finds what a grep misses in `src`.
 
 **Consequences.** `index.ts` publishes the contract's types from their new files.
-`scripts/source-boundary.mjs` needs no change: the rank is the folder's, by its longest prefix.
+`scripts/source-boundary.mjs` needs no change: the rank is the folder's, by its longest prefix,
+and `engagement.ts` imports nothing from above it.
 
 **Done when** the checks pass, the fingerprint compares clean, and
 `grep -rnE "^(export )?(function|const|class|let) " src/minds/option/contract` prints nothing.
@@ -361,16 +461,19 @@ In `src/minds/motor-layers.ts`, `think` and `act` become:
 ```
 
 `decided`, `take` and `apply` are returned beside `look` and `observe`. Nothing else changes.
+Both reviewers read this against `motor-layers.ts:200` to `:219` step for step and it held.
 
 **Done when** the checks pass and the fingerprint compares clean.
 
-### 2b: the class
+### 2b: the two classes
 
 **Purpose.** `OptionMind` is the `Mind` its body runs. The loop leaves the predictions part.
 
 **Steps.**
 
-1. **`src/minds/option/pace.ts`** holds what `driveBy` does about when to decide, as a class with
+1. **`src/minds/commanding-mind.ts`** is the abstract class above, with the Option Mind its
+   first subclass in the same commit.
+2. **`src/minds/option/pace.ts`** holds what `driveBy` does about when to decide, as a class with
    its memory in `state`:
 
    ```ts
@@ -407,13 +510,14 @@ In `src/minds/motor-layers.ts`, `think` and `act` become:
 
    `everyOf` moves here from `decider.ts`. The intent held between decisions is the Mind's
    (`OptionMindState.asked`), where `driveBy` kept it in the pace's state.
-2. **`option-mind.ts`** is the class above. `OptionMindState` is
-   `{ layers, skills, situation, record, chooser, options, aims, pace, asked, idle, said }`:
-   the layers' memory, the skills', the reader's, the Options' record of their tries, the
-   chooser's, each Option's, the aims', the pace's, the intent it last decided, whether it is
-   idle, and what it last published (`{ prospects, details, foe }`).
-3. **`build.ts`** makes everything inside the one `host.take`, in today's order (layers, first
-   look, ground skills, aims, skills, Options, reader, chooser), and returns `MindMade`:
+3. **`option-mind.ts`** is the class above. `OptionMindState` is
+   `{ layers, idle, skills, situation, record, chooser, options, aims, pace, asked, said }`:
+   the layers' memory, whether its body is away, the skills', the reader's, the Options' record
+   of their tries, the chooser's, each Option's, the aims', the pace's, the intent it last
+   decided, and what it last published (`{ prospects, details, foe }`).
+4. **`build.ts`** makes everything inside the one `host.take`, in today's order (layers, first
+   look, ground skills, aims, skills, Options, reader, chooser), and returns `MindMade`. `take`
+   hands back the construction it was given, as it hands back `body` today.
 
    ```ts
    export function buildOptionMind(host: BodyHost, config: ResolvedConfig): MindMade {
@@ -437,11 +541,11 @@ In `src/minds/motor-layers.ts`, `think` and `act` become:
    ```
 
    The scope is `commandedMind`'s own pattern (`sub-mind.ts:63`): a part that throws while the
-   Mind is built disposes the layers already made. `dispose` releases the skills as `replaced`,
-   which is what disposing the layers does today through the driver (`drive(null)`,
+   Mind is built disposes the layers already made. `dispose` releases the skills as `replaced`
+   once, which is what disposing the layers does today through the driver (`drive(null)`,
    `motor-layers.ts:262`). The interface `OptionMind extends MindMade` is deleted; `mind.ts`
    reads `MindMade`.
-4. **The predictions part makes predictors and nothing else.** `PredictionsPart.make(config)`
+5. **The predictions part makes predictors and nothing else.** `PredictionsPart.make(config)`
    returns what `profileModel` is called with today, under its own name in
    `contract/predictors.ts`:
 
@@ -460,9 +564,9 @@ In `src/minds/motor-layers.ts`, `think` and `act` become:
    ```
 
    `profile-model.ts` is deleted: its build moves into `build.ts`, its decision into the class,
-   and `profileDetail`, `prospect`, `unmetDetail` into `option-mind.ts` beside `publish`.
-   `model.ts` (`OptionEvaluation`, `OptionEvaluationInput`) is deleted.
-5. **`"profiles/1"` goes** (wrong, 4): `PROFILE_MODEL`; the `model` field of the three part
+   and `profileDetail`, `prospect`, `unmetDetail` into `option-mind.ts`. `model.ts`
+   (`OptionEvaluation`, `OptionEvaluationInput`) is deleted.
+6. **`"profiles/1"` goes** (wrong, 4): `PROFILE_MODEL`; the `model` field of the three part
    contracts that carry it (`OptionPart`, `ChooserPart`, `PredictionsPart`) and of every
    registered part; the three checks (`isProfileOption` in `kinds.ts`, `profile-learning.ts:12`,
    `config.ts:112` to `:114`); and their exports from `index.ts`. `ProfileOptionPart` folds into
@@ -473,7 +577,7 @@ In `src/minds/motor-layers.ts`, `think` and `act` become:
    `grep -rn "PROFILE_MODEL\|profiles/1" src research tests scripts` and confirm no part carries
    another string (none did on 2026-11-25). A Mind built wholly otherwise is another kind of
    mind (`controller`), as the bare entrant is.
-6. **`driveBy`, `Driven` and the `Pace` interface are deleted from `src/minds/decider.ts`.**
+7. **`driveBy`, `Driven` and the `Pace` interface are deleted from `src/minds/decider.ts`.**
    `Sight`, `sightOf` and `Script` stay; `Decider` stays only if `Script` is not its one use,
    else its fields fold into `Script`. Its callers:
    - `scripts/fingerprint.mjs:184`, `tests/harness/garbage.mjs:30`, `research/rest-probe.mjs:118`
@@ -496,16 +600,15 @@ In `src/minds/motor-layers.ts`, `think` and `act` become:
    - `tests/layer-contracts.test.mjs` ("pacing detects changed orders from a provider reusing its
      object") tests the pace: it makes `new Pace(10, 0, () => orders)` and asks `since` twice with
      the one orders object changed between, and expects a decision both times.
-7. **Research scripts read the Mind's state by path**, and each is repointed and run once.
+8. **Research scripts read the Mind's state by path**, and each is repointed and run once.
    The Mind's own, under `minded.state.mind`: `.decider.model.record` becomes `.record`
    (`research/skills/recovery/edge-profile-trial.mjs:36`), `.decider.options` becomes `.options`
    (`research/skills/recovery/implementations/staged/rise-trace.mjs:41`), `.skills` keeps its
    name (`rise-trace.mjs:61`, `research/skills/locomotion/travel-environment.mjs:78`). The
    body's, under `body.state.mind`: `.host.motor` becomes `.layers.motor`
    (`research/step-time.mjs:57`, `research/skills/locomotion/locomotion-run.mjs:181`,
-   `locomotion-wrench.mjs:298`). Then
-   `grep -rnE "mind\??\.(host|decider)\b" research scripts tests` prints nothing that reads an
-   Option Mind.
+   `locomotion-wrench.mjs:298`). Then `grep -rnE "mind\??\.(host|decider)\b" research scripts
+   tests` is read hit by hit for one that reads an Option Mind.
 
 **Consequences.** The Mind's saved state has another shape, so the fingerprint names a state
 difference on every fight and fails on none. No bout's save is kept in a file (only forks in
@@ -516,49 +619,90 @@ that runs its minds apart (`mindApart`, `src/minds/seat/create-mind.ts`) makes t
 the same `Controller.create`, and is opened once in the browser's Arena for this commit.
 
 **Done when** the checks pass, the fingerprint's pose lines compare clean, allocation is read,
-and `grep -rn "driveBy\|OptionEvaluation\|profiles/1" src research scripts tests` prints nothing.
+and `driveBy`, `OptionEvaluation` and `PROFILE_MODEL` are declared nowhere (the type checker
+refuses a use left behind in `src`; `grep -rn "driveBy\|OptionEvaluation\|profiles/1" research
+scripts tests` for the rest).
 
-### 2c: the driver's seat leaves the command layers
+### 2c: the scripted Mind is the second subclass
 
-**Purpose.** General code calls a registered driver only where a body is scripted. The Option
-Mind's layers have no `drive` that would be ignored without a word.
+**Purpose.** A registered driver exists only on a scripted body's Mind. The command layers are a
+tool with steps and no seat, and no `drive` reaches a body under an Option Mind.
 
 **Steps.**
 
-1. In `motor-layers.ts`: `driver`, `released`, `drive`, `state.driver`, `think`, `act`,
+1. **`git mv src/minds/sub-mind.ts src/minds/scripted-mind.ts`**, and in it
+   `ScriptedMind extends CommandingMind<unknown>` replaces `hosting`:
+   - `drive(next, onRelease)` is the layers' `drive` moved as it is (`motor-layers.ts:220`): a
+     function driver wrapped with `carried`; a driver replaced has the old one's
+     `released(view, "replaced")` called and the decisions queued and not yet carried out
+     dropped, without the motor released (`layers.forget()`, new, which does that and nothing
+     else).
+   - `decide` is `driver ? driver.decide(view, dt) : null`, `carry` is the driver's, `released`
+     calls what `drive` was given.
+   - Its state is `{ layers, idle, driver, has, subs }`. `BodyDriver` and `SplitDriver` move
+     here from `src/control/body.ts` unless `grep -rn "SplitDriver\|BodyDriver" src/control`
+     finds a reader there.
+   - **Sub-minds stay its own.** A sub-mind takes the body between the senses being read and
+     the host thinking, so `ScriptedMind` overrides `think`, `act` and `interrupt` with
+     `hosting`'s bodies (`sub-mind.ts:30` to `:52`). For that the base's three methods are each
+     split after their first line into a protected step, in this commit where the split has
+     its reader:
+
+     ```ts
+       think(senses: Senses): void { this.layers.look(senses); this.thinks(); }
+       act(control: BodyControl): void { this.layers.observe(control); this.acts(control); }
+       interrupt(): void { this.gives("idle"); }
+       /** Its own turn to think, its body's senses already read. */
+       protected thinks(): void { /* resume where idle, then queue what it decides */ }
+       /** Its own turn to act, its body already observed. */
+       protected acts(control: BodyControl): void { /* nothing where idle, else carry out what is due */ }
+       /** Give its body up, to nobody or to another holder. */
+       protected gives(reason: "idle" | "takeover"): void { /* nothing where idle, else released, layers.release, idle */ }
+     ```
+
+     A sub-mind taking the body is `gives("takeover")` and its `begin`; one giving it back is
+     its `end`, and the host's next `thinks` resumes. While a sub-mind holds the body, `idle` is
+     true and `state.has` is its index; `has()` names it.
+   - `commandedMind(own, options, clock, subs)` builds one and returns
+     `MindConstruction & { readonly body: Body; readonly drive: Drive }`; its `dispose` calls
+     `drive(null)` before the layers'.
+2. In `motor-layers.ts`: `driver`, `released`, `drive`, `state.driver`, `think`, `act`,
    `interrupt` and `carried` leave; `release` loses its call of `released`; `dispose` clears its
-   listeners. The layers gain `forget()`, which drops the decisions queued and not yet carried
-   out and nothing else: a driver replaced does that today without releasing the motor
-   (`motor-layers.ts:222`). `LayersMind` is deleted: `CommandLayers` is the layers' one type and
-   is no `Mind`.
-2. In `src/control/body.ts`: `Body` loses `drive`. `BodyDriver` and `SplitDriver` move to
-   `src/minds/sub-mind.ts` unless `grep -rn "SplitDriver\|BodyDriver" src/control` finds a
-   reader there.
-3. In `src/minds/sub-mind.ts`: `commandedMind` owns the seat, with today's behaviour moved, not
-   rewritten. `drive(next, onRelease)` wraps a function driver with `carried` as now; a driver
-   replaced calls the old one's `released(view, "replaced")` and `layers.forget()`; the driver's
-   state is `state.driver`, beside `has`, `host` and `subs`. The host's think is
-   `layers.decided(driver ? driver.decide(view, dt) : null)`, its act is `take` then `apply` of
-   the driver's `carry`, giving up the host calls `released?.(view, reason)` then
-   `layers.release(reason)`, and its `dispose` calls `drive(null)` before the layers'.
-   `CommandedMind` is `MindConstruction & { readonly body: Body; readonly drive: Drive }`.
+   listeners; `forget` is added. `LayersMind` is deleted: `CommandLayers` is the layers' one type
+   and is no `Mind`.
+3. In `src/control/body.ts`: `Body` loses `drive`. Two callers drive the commanded `Body` and not
+   the hosted one, and call the hosted body's instead:
+   `tests/skills/locomotion/learned-run.test.mjs:43` and
+   `research/skills/locomotion/residual-environment.mjs:297` (`host.commanded.drive` becomes
+   `host.drive`).
 4. In `src/minds/seat/`: `takeBody` assigns `view`, `envelope`, `afterPhysics` and `commanded`
    where the construction has a `body`; `commandedBody` adds `drive` from its construction.
    `hosted-body.ts` holds two types: `CommandedBody`, a `PhysicalBody` with the layers' `view`,
-   `envelope`, `afterPhysics` and `commanded`, which a body under any Mind that owns command
-   layers is; and `HostedBody`, a `CommandedBody` with `drive`. The Lab's actor
-   (`src/game/lab/actor.ts:114`) reads the first and is typed so; it calls no `drive`.
+   `envelope`, `afterPhysics` and `commanded`, which a body under any commanding Mind is; and
+   `HostedBody`, a `CommandedBody` with `drive`, which a scripted one is.
+   - Stay `HostedBody`: `host.ts:38`, `:40`, `src/app/stock-body.ts:17`.
+   - Become `CommandedBody`, since they take an actor's or a duelist's body and read no `drive`:
+     `src/game/lab/actor.ts:43`, `:83`, `:112`; `src/game/lab/stance-mode.ts:64`,
+     `locomotion-mode.ts:94`, `ground-meter.ts:9`; `src/app/browser/lab/mind-log.ts:54`, `:66`,
+     `sound-log.ts:81`; and the casts at `src/evaluation/fall.ts:323`,
+     `back-step/read.ts:31`, `:162`, `strike/read.ts:535`.
 5. Tests that reach `construction.body.drive` (`tests/layer-contracts.test.mjs:178`,
    `tests/minds/contract.test.mjs:145`, `tests/minds/stance-ownership.test.mjs:27`) call
-   `construction.drive`.
+   `construction.drive`. `contract.test.mjs:155` reads the driver's memory at
+   `construction.mind.state`, where it now is `.driver`. A script that reads a scripted body's
+   `state.mind.host` reads `.layers` (the grep of 2b step 8, again).
 
 **Consequences.** `drive` on a scripted body is where it was for every `stockBody` and
-`commandedBody` caller. A body under an Option Mind has no `drive`; nothing in `src`, `research`
-or `tests` called it (`grep -rn "\.drive(" src`, read on 2026-11-25).
+`commandedBody` caller. The order on a release changes for a scripted driver as it did for the
+Option Mind in 2b (its callback first, then the layers): each callback handed to `drive` in
+`src`, `research` and `tests` is read for one that reads the layers' queue or the motor.
 
-**Done when** the checks pass and the fingerprint compares clean.
+**Done when** the checks pass, the fingerprint compares clean, and `Body` has no `drive` (the
+type checker refuses every use left in `src`).
 
 ## Chunk 3: predictions behind interfaces
+
+Four commits.
 
 ### 3a: the exchange
 
@@ -591,79 +735,100 @@ export interface ExchangePredictor {
 }
 ```
 
-Its first six members are `Predictions`' six fields, each read from what the reader sees.
-`FoeMove` names what `replyOf` returns today (`{ x, z, seconds }`). A
-predictor reads `Seen` and not the `Situation`: a percept read through the situation counts as
-watched by the chooser (`Cues`), and a prediction must not add to what the chooser watches.
+Its first six members are `Predictions`' six fields. They take what the reader sees (`Seen`)
+because the perceiver asks them while it is building the situation; the last two are asked by
+the search of a state already built. `FoeMove` names what `replyOf` returns today
+(`{ x, z, seconds }`).
 
 **Steps.**
 
 1. **`Seen` moves to `contract/situation.ts` as what a predictor reads**: the sight, the spec,
-   the rates, the delay, the rules, the orders, the focus and the blow coming. The reader's own
-   (`SeenAt`, `situation.ts`) extends it with the ward, the threat reader and its two memories.
-   `Seen.strikes`, `Seen.measured` and `Seen.others` go: the code that reads them (`modelOf`,
-   `foeModel`, `ownModel`, `lifeOf`, `PREDICTIONS`; `percepts.ts:202` to `:258`, `:592`, `:708`)
-   is all inside the predictor, which is built with those tables.
+   the rates, the delay, the rules, the focus and the blow coming, which is all the six readers
+   and their helpers read today. The reader's own (`SeenAt`, `situation.ts:57`) extends it with
+   the orders, the ward, the threat reader and its two memories. `Seen.strikes`, `Seen.measured`
+   and `Seen.others` go: the code that reads them (`modelOf`, `foeModel`, `ownModel`, `lifeOf`,
+   `PREDICTIONS`; `percepts.ts:202` to `:258`, `:592`, `:708`) is all inside the predictor,
+   which is built with those tables.
 2. **The profile predictor is `PREDICTIONS` made an object.** `profileExchange(given)` returns an
    `ExchangePredictor` built with the measured strikes, the body's own modelled strikes, the
    pressure tables or none, and the body's constants. `Predictors.others` becomes
    `Predictors.exchange`, a function from what a Mind gives (its spec, rates, delay, rules and
    its Options' modelled strikes, known once its Options are made) to its predictor. `perceiver`
    reads each of a situation's six predictions from the predictor on what it sees, lazily, as it
-   reads the literal today. `OthersModel`, `RATE_OTHERS` and `measuredOthers` become the two
-   ways `profileExchange` is given its tables; `danger` is 0 where the measured table reads, as
+   reads the literal today; the imagined states overlay them with `Object.create`, which a lazy
+   getter survives. `OthersModel`, `RATE_OTHERS` and `measuredOthers` become the two ways
+   `profileExchange` is given its tables; `danger` is 0 where the measured table reads, as
    `holdsBlow` selects today.
-3. **`later` replaces `carried`** (`option.ts:181`), as it is, the identity kept: `placedWith`
+3. **The search is given the predictor.** `ChooserPart.make`'s `making` (`parts.ts:21`) gains
+   `exchange`, `chooserOf` passes it, and the two searching parts put it in `Searched`
+   (`chooser.ts:813`, `:900`).
+4. **`later` replaces `carried`** (`option.ts:179`), as it is, the identity kept: `placedWith`
    branches on whether the foe is the same object. `placing` takes the predictor's `later`
    where it takes `carry` seconds today, and the search asks it for `Math.min(seconds, carry)`:
    the chooser's `carry` stays the seconds of the foe's motion a search reads.
-4. **`reply` replaces `replyOf`** (`chooser.ts:697`), as it is. `repliedSearch` keeps what is
+5. **`reply` replaces `replyOf`** (`chooser.ts:697`), as it is. `repliedSearch` keeps what is
    the search's: which replies it prices each line against (`replies`, `DIRECTIONS`), how
-   (`against`), and the imagined root in which the foe makes the predicted move
-   (`chooser.ts:679`).
-5. **`Pressure` becomes what is asked of it.** Today it is a record of the implementation's
-   fields, read by free functions that the search and the imagined state call
-   (`chooser.ts:564`, `option.ts:159`), so no other predictor could answer with its own. The
-   contract's `Pressure` is:
+   (`against`), the test that the foe is the body's own kind (`:664`), and the imagined root in
+   which the foe makes the predicted move (`:679`).
 
-   ```ts
-   /** What one body's strikes are expected to take from another as the two stand. */
-   export interface Pressure {
-     /** The seconds before a blow not yet begun reaches the struck body once it is within reach. */
-     readonly latency: number;
-     /** The most it takes in a second, for a report. */
-     readonly peak: number;
-     /** How it was priced, as a sentence for a report. */
-     readonly priced: string;
-     /** The share of the struck body's life it takes over a span from `now`. */
-     dealt(now: Situation, span: Span): number;
-     /** How far from the striker its blows begin to land, m. */
-     edge(now: Pick<Situation, "range" | "apart">): number;
-     /** The same pressure with one of the two bodies standing otherwise. */
-     stanced(body: keyof Stances, own: StanceNumbers): Pressure;
-     /** The same pressure keeping scratch for one search's repeated questions. */
-     cached(): Pressure;
-   }
-   ```
+**Consequences.** No config changes. `tests/minds/option/lying.test.mjs` builds a `Seen` with
+the three tables and calls `perceiver()` bare: its fixture is rebuilt on a rate predictor.
+`src/evaluation/back-step/read.ts` imports `measuredReach`, and `research/minds/move-prior.mjs`
+and `fitted-value.mjs` call `graceAt`; each is repointed in chunk 4, where those move.
 
-   `ProfilePressure` is a class in the implementation's file whose fields are today's (`model`,
-   `phase`, `struck`, `stance`, `rateAt`, `measured`) and whose methods are today's functions
-   (`dealtAt`, `edgeOf`, `stancedPressure`, `cachedPressure`), bodies unchanged. Methods sit on
-   the prototype, so a pressure allocates no closures. Where today a pressure is copied with a
-   spread (`percepts.ts:381`), the class copies by a constructor. `inReach` and `threatened`
-   read a situation's pressure and stay functions over the interface. `contract/situation.ts`
-   then imports nothing from the rest of the folder.
+**Done when** the checks pass, the fingerprint compares clean, allocation is read, and `Seen`
+has no table (the type checker refuses a reader left behind).
 
-**Consequences.** No config changes. `tests/minds/option/lying.test.mjs` imports `RATE_OTHERS`
-and is repointed; `src/evaluation/back-step/` calls `inReach` and `measuredReach` and is repointed.
-The `edgeOf` of `src/control/support.ts` and of `src/evaluation/rise/cases.ts` are other
-functions of the same name and are left alone.
+### 3b: a pressure is asked, not taken apart
 
-**Done when** the checks pass, the fingerprint compares clean, allocation is read, and
-`grep -rnE "\.(model|struck|rateAt|measured)\b" src/minds/option --include=*.ts` shows a
-pressure's fields read only in the file that holds `ProfilePressure`.
+**Purpose.** Today a `Pressure` is a record of one implementation's fields, read by free
+functions that the search, the imagined state and three Options call (`chooser.ts:564`,
+`option.ts:159`, `places.ts:60`, `:83`, `rest.ts`), so no other predictor could answer with its
+own. The contract's `Pressure` becomes what is asked of one:
 
-### 3b: what a line's end is worth
+```ts
+/** What one body's strikes are expected to take from another as the two stand. */
+export interface Pressure {
+  /** The seconds before a blow not yet begun reaches the struck body once it is within reach. */
+  readonly latency: number;
+  /** The most it takes in a second, for a report. */
+  readonly peak: number;
+  /** How it was priced, as a sentence for a report. */
+  readonly priced: string;
+  /** The share of the struck body's life it takes over a span from `now`. */
+  dealt(now: Situation, span: Span): number;
+  /** How far from the striker its blows begin to land, m. */
+  edge(now: Pick<Situation, "range" | "apart">): number;
+  /** The same pressure with one of the two bodies standing otherwise. */
+  stanced(body: keyof Stances, own: StanceNumbers): Pressure;
+  /** The same pressure keeping scratch for one search's repeated questions. */
+  cached(): Pressure;
+}
+```
+
+**Steps.**
+
+1. **`ProfilePressure` is a class** in the implementation's file, its fields today's (`model`,
+   `phase`, `struck`, `stance`, `rateAt`, `measured`), its methods today's `dealtAt`, `edgeOf`,
+   `stancedPressure` and `cachedPressure`. Methods sit on the prototype, so a pressure allocates
+   no closure it does not allocate today.
+2. **Every place a pressure is made or copied makes a `ProfilePressure` by its constructor.** A
+   spread of a class instance copies its fields and drops its methods, and there are seven such
+   places in `percepts.ts`: the literals `NO_PRESSURE` (`:292`) and `pressureBy`'s (`:312`), and
+   the spreads at `:348`, `:381`, `:395`, `:442` (the whole of `cachedPressure`) and `:479` (the
+   whole of `stancedPressure`). The last two are not moved unchanged: each builds its copy by
+   the constructor with the one field changed.
+3. **Inside the implementation's file a pressure is typed `ProfilePressure`, never `Pressure`.**
+   The type checker then refuses a spread assigned where a pressure is wanted (a spread of a
+   class has no methods in its type), which it would not of a value typed as the interface.
+4. `inReach` and `threatened` read a situation's pressure and stay functions over the
+   interface. `contract/situation.ts` then imports nothing from the rest of the folder.
+
+**Done when** the checks pass, the fingerprint compares clean, allocation is read, and the
+contract's `Pressure` has no field but the three (the type checker refuses a reader of another
+outside the implementation).
+
+### 3c: what a line's end is worth
 
 **Purpose.** The search does not know what the fitted value is made of.
 
@@ -686,52 +851,69 @@ export type ValueReader = (at: Situation, grace: number, offered: readonly Offer
 
 1. **`fitted-value.ts` exports `fittedValue(value, body): ValuePredictor`.** `from` answers null
    where `fittedOn` does today, once a search; the reader answers null where `readingAt` does.
-   `Offered` and `Followed` (today `Fitted`) move to `contract/predictors.ts`. `readingAt`,
-   `featuresOf`, `offeredOf`, `FEATURES` and `bodyOf` stay exported: `research/minds/fitted-value.mjs`
-   and `move-prior.mjs` fit by them.
-2. **`fittedLeaf` (`chooser.ts:409`) keeps only the search's half**: once a search it asks
-   `from(root)` and, with no reader, ends every line as the tail does, gathering nothing, as
-   now. With one, at each leaf it gathers the offers, asks the reader, and prices the path with
-   what it answers, weighed as now; where the reader answers null the line ends by the search's
-   own Options run again (`search.leaf`), as now.
+   `Offered` (`fitted-value.ts:47`) and `Followed` (today `Fitted`, `:122`) move to
+   `contract/predictors.ts`. `readingAt`, `featuresOf`, `offeredOf`, `FEATURES` and `bodyOf` stay
+   exported: `research/minds/fitted-value.mjs` and `move-prior.mjs` fit by them.
+2. **`fittedLeaf` (`chooser.ts:409`) keeps only the search's half.** Once a search it reads the
+   body's grace at the root first, as now (`graceAt(root)`, `:410`, which writes the reach
+   memory), then asks `from(root)` and, with no reader, ends every line as the tail does,
+   gathering nothing, as now. With one, at each leaf it gathers the offers, asks the reader, and
+   prices the path with what it answers, weighed as now; where the reader answers null the line
+   ends by the search's own Options run again (`search.leaf`), as now.
 3. **The tree chooser's part makes the predictor it selected**: `leaf: "fitted"` reads
    `dataOf("fitted-value")` and calls `fittedValue`, as its `reads` already declares. The asset is
-   1.4 MB, so it stays read only by a config that names it.
+   1.4 MB, so it stays read only by a config that names it. The check that the data is a fitted
+   value, thrown today at each search (`:411`), is thrown where the part makes the predictor.
 
 **Done when** the checks pass, the fingerprint compares clean, and `chooser.ts` imports from
 `fitted-value.ts` only `fittedValue`, `bodyOf` and `offeredOf`.
 
-### 3c: by hand has one home, and a kind without it
+### 3d: by hand has one home, and a kind without the fallbacks
 
-**Purpose.** A number set by hand that stands in for a measurement has one file and one
-interface, the measured code reaches it only through that interface, and a kind of predictions
-built without it can be picked. This is the place the measured Mind plan's registry of numbers
-set by hand (its step 1) reads. `GuessedStrike` names what `priorOf` reads of a strike today
-(`strike.ts`); `Placing` is `percepts.ts:299`'s, exported.
+**Purpose.** Every number set by hand that prices something is in one file. Those that stand in
+where a measurement is missing are behind one interface, the measured code reaches them only
+through it, and a kind of predictions built without them can be picked. This is the place the
+measured Mind plan's registry of numbers set by hand (its step 1) reads.
 
 Said plainly, since it differs from what the discussion first proposed: the fallbacks are not
 removed from the game's Mind here, and no existing config gains a key. A body facing a foe with
 no measured strikes would predict no harm at all and walk in, and how to predict a foe never met
-is the measured Mind plan's question. And a key added to the game's configs would orphan every
-saved row of theirs (what must not move). So the `measured` kind stays what it is
-today (the comment at `predictions-part.ts:34`: "each model its own where fresh, else its
-prior"), now built as the measured code given
-the guesses; and a kind given none is added beside it.
+is the measured Mind plan's question. And a key added to the game's configs could orphan their
+saved rows (what must not move). So the `measured` kind stays what it is today (the comment at
+`predictions-part.ts:34`: "each model its own where fresh, else its prior"), now built as the
+measured code given the guesses; and a kind given none is added beside it.
+
+The measured Mind plan's table "What is guessed now, and what replaces it" has two sorts of
+hand-set number, and they are treated apart:
+
+- **A fallback** stands beside a measurement and is read where the measurement is missing: a
+  strike's prior, a limb's, a coming blow's, a way up's. These are `Guesses`.
+- **A number with no measurement to fall from** is read always: the clinch (`CLINCH`,
+  `clinched`), the cover (`STOPS`), a blow's speed (`BLOW_SPEED`), where a fall leaves the body
+  (`FALLEN`), the brace (`BRACED`). These move to the same file as plain exports under their own
+  heading, read where they are read today by every kind. Each waits for its mechanism in the
+  measured Mind plan; none is hidden behind an interface that has one answer.
 
 ```ts
 /**
- * Numbers set by hand that stand in where nothing is measured. A Mind has them only where its
- * predictions part gives them.
+ * Numbers set by hand that stand in where a measurement is missing. A Mind has them only where
+ * its predictions part gives them.
  */
 export interface Guesses {
-  /** What a strike of the body's is expected to bring from `at`, by hand, its chance of ending down with it. */
+  /** What a strike of the body's is expected to bring from `at`, its chance of ending down with it. */
   strike(at: Situation, strike: GuessedStrike): Expected;
   /** A limb with no profile of its own, as a reading of what it deals a body it can reach. */
   limb(seen: Seen, striker: BodySpec, struck: BodySpec, limb: string, placing: Placing): ProfileReading;
   /** A blow already coming from a limb with no profile of its own, as a reading of what it deals. */
   blow(seen: Seen, blow: NonNullable<Seen["blow"]>, range: number): ProfileReading;
+  /** How long a way up, a regain or a brace takes and how often it succeeds, where no drill measured it. */
+  way(kind: "way" | "regain" | "settle"): Prior;
 }
 ```
+
+`GuessedStrike` names what the strike's prior reads of it today (`strike.ts:215` to `:234`: its
+action, what it throws, its target and the blow's progress); `Placing` is `percepts.ts:299`'s,
+exported; `Prior` is `record.ts`'s.
 
 **Steps.**
 
@@ -740,40 +922,51 @@ export interface Guesses {
 
    | Member | Today's code |
    | --- | --- |
-   | `strike` | `priorOf(at)` (`strike.ts:215`, `:327`) and the clinch read where nothing is measured (`:218`, `clinched`) |
-   | `limb` | the `prior(...)` call in `pressureBy` with its `RATE` and its landing rate (`percepts.ts:309`), which prices a foe's limb, the body's own unmeasured strike (`pressingOf`) and the down rate alike |
+   | `strike` | `priorOf(at)` (`strike.ts:215`, `:327`) and the clinch read where nothing is measured (`:218`) |
+   | `limb` | the `prior(...)` call in `pressureBy` with its `RATE` and its landing rate (`percepts.ts:306` to `:309`), which prices a foe's limb, the body's own unmeasured strike (`pressingOf`) and the down rate alike |
    | `blow` | the `priorOf(...)` call in `lifeOf` with its `LANDS` (`percepts.ts:593`) |
+   | `way` | `WAY_PRIOR`, `REGAIN_PRIOR`, `SETTLE_PRIOR` (`rise.ts:30` to `:36`), read at `rise.ts:169` |
 
-   `prior`, `LANDS`, `RATE`, and `PRIOR` with `record` (`value.ts:206`, `:214`, read only by the
-   two by-hand sites) move into `by-hand.ts` as its own, not as members. Then each row of the
-   measured Mind plan's table "What is guessed now, and what replaces it" is read: a row that
-   stands in for a measurement and is not above is added as a member with its call site; a row
-   that plan sorts as a preference or as the Mind's own stays where it is.
+   `prior`, `LANDS`, `RATE`, and `PRIOR` with `record` (`value.ts:206`, `:214`) move in as its
+   own. `record` stays exported: `tests/skills/profiles.test.mjs:14` reads it and is repointed.
+   The always-read numbers named above move in beside them.
 2. **`Predictors` gains `readonly guesses: Guesses | null`**, and `OptionContext` and
    `profileExchange` are built with it. The measured code reaches a guess only as
-   `guesses?.strike(...) ?? null`: with none, a strike with no reading at a state models null
-   there and is not offered, its `rate` says nothing of that foe, its `priced` says "not
-   measured here", and a limb with no profile adds nothing to a pressure.
+   `guesses?.strike(...) ?? null`. With none: a strike with no reading at a state models null
+   there and is not offered, its `rate` says nothing of that foe and its `priced` says "not
+   measured here"; a limb with no profile adds nothing to a pressure; a blow coming from one is
+   no danger; and a way up with no drill from a posture is not offered from it, so a body down
+   with no measured way up stays down. Both reviewers looked for a caller that assumes a strike
+   model or a pressure and found an empty pressure and a null strike model already handled
+   (`NO_PRESSURE`, `strike.ts:314`); the way up was not read (not settled, below).
 3. **The two kinds of today are built from it and resolve as before**: `measured` gives the
    guesses with its tables; `prior` gives the guesses with empty tables. Neither config changes.
-4. **A kind with no guesses is added**: `measured-only`, "Measured only", the `measured` part's
-   config and tables with `guesses: null`, registered beside the other two
+4. **A kind with no guesses is added**: `measured-only`, "Measured, no fallback", the `measured`
+   part's config and tables with `guesses: null`, registered beside the other two
    (`src/app/registration/option-predictions.ts`). The `measured` part's label becomes
    "Measured, by hand where nothing is".
-5. **A preset is added to pick**: `option-measured`, "Option Mind, measured only", the default
-   config with `predictions: { kind: "measured-only" }`. It is read once against the game's,
-   empty-handed man (`npm run match -- option option-measured`), and the digest goes in the
-   commit message and first in the report. It stays pickable whatever it reads; which the
-   game's default should be is the measured Mind plan's bar ("the inventory is clean for every
-   body on its default config").
+5. **A preset is added**: `option-measured`, "Option Mind, measured only", which is
+   `option-lean` (the empty-handed man's default, `src/app/catalog.ts:37`) with
+   `predictions.kind: "measured-only"`. It is read once against it
+   (`npm run match -- option-lean option-measured`), and the digest goes in the commit message
+   and first in the report. It stays pickable whatever it reads; which the game's default should
+   be is the measured Mind plan's bar ("the inventory is clean for every body on its default
+   config").
 
-**Consequences.** The mind editor offers a third kind of predictions. `option-drill` is
-unchanged: it is the `prior` kind. The fingerprint plays every mind, so it gains the new
-preset's lines and moves none.
+**Consequences.**
+
+- **Where it is picked.** The kind is in the mind editor's predictions menu on any Mind. The
+  preset joins the Crypt's and the Lab's menus and the evaluations' entrants by enumeration; the
+  Arena's menu lists the game's own minds and one a link names (`arena/main.ts:348`), so there
+  it is reached by link or by the editor, as `option-truer` is.
+- The fingerprint and `tests/core-step-cost.test.mjs:34` play every mind, so each gains the new
+  preset's case and moves no other.
+- `option-drill` is unchanged: it is the `prior` kind.
 
 **Done when** the checks pass, the fingerprint compares clean on every existing case,
-`grep -rnE "\b(LANDS|RATE|PRIOR|priorOf|prior)\b" src/minds/option --include=*.ts` finds them
-only in `by-hand.ts`, and the Arena opens headless with `option-measured` picked.
+`option-measured` plays its match to the end, the Arena opens headless with it picked, and the
+chunk's reader, told to find a number set by hand outside `by-hand.ts` that prices something,
+finds none that the measured Mind plan does not sort as a preference or as the Mind's own.
 
 ## Chunk 4: one idea a file, six folders
 
@@ -786,10 +979,11 @@ Files move with `git mv` so history follows. Two commits: the splits, then the m
 | File | Becomes |
 | --- | --- |
 | `chooser.ts` | `choosers/chooser.ts` (`chooser`, `chooserOf`, `watching`, `searching`, `FOE_HOLDING`), `choosers/space.ts` (`space`, `Searched`, `Pair`, `Reach`), `choosers/search.ts` (`search`, `again`), `choosers/tree-search.ts` (`treeSearch`, `warmStart`), `choosers/replies.ts` (`repliedSearch`, `AGAINST`, `DIRECTIONS`), `choosers/leaves.ts` (`LEAVES`, `fittedLeaf`), `choosers/parts.ts` (`OptionChooserPart`, the three parts, their configs and editor fields) |
+| `select-set.ts` | `choosers/select-set.ts` (`selectSet` and its argument types), `options/readiness.ts` (`onOffer`, `NOTHING`, `WHOLE`) |
 | `percepts.ts` | `situation/percepts.ts` (`PERCEPTS`, `perceiver`, `Cues`' implementation), `situation/reach-memory.ts` (`reachMemory`, `graceAt`, `inReach`, `threatened`), `predictions/exchange/pressure.ts` (`ProfilePressure`, `pressureBy`, `pooled`, `startOf`), `predictions/exchange/profile.ts` (`profileExchange`, the strike models, `measuredReach`) |
 | `kinds.ts` | `options/strike-kinds.ts` (`strikeKind` and the seven strikes), `options/kinds.ts` (the rest and `optionsOf`) |
 | `option.ts` | `situation/imagined.ts` (`placed`, `placing`, `placedWith`), `options/readiness.ts` (`standing`, `still`, `asking`, `READY`, `blocked`), `options/outcomes.ts` (`along`, `exitOutcomes`) |
-| `value.ts` | `options/outcomes.ts` (`upOrDown`, `AS_IS`, `UNMOVED`, `STILL`, `CLINCH`, `clinched`), `predictions/damage.ts` (`blowLife`, `limbReach`), `choosers/obedience.ts` (`OBEDIENCE`, `STEADY`, `FIRST`), `RETHINK` to `choosers/chooser.ts` |
+| `value.ts` | `options/outcomes.ts` (`upOrDown`, `AS_IS`, `UNMOVED`, `STILL`), `predictions/damage.ts` (`blowLife`, `limbReach`), `choosers/obedience.ts` (`OBEDIENCE`, `STEADY`, `FIRST`), `RETHINK` to `choosers/chooser.ts` |
 | `objective.ts` | `choosers/objectives.ts` (the two objective parts) |
 
 **The moves**: `mind.ts` to `assembly/controller.ts` (its `optionMind` renamed
@@ -797,9 +991,9 @@ Files move with `git mv` so history follows. Two commits: the splits, then the m
 `skills.ts`, `pace.ts`, `gait-learning.ts`, `profile-learning.ts` to `assembly/`; `situation.ts`
 to `situation/reader.ts`, `record.ts`, `rise-memory.ts` to `situation/`; `strike.ts`, `walk.ts`,
 `places.ts`, `rest.ts`, `cover.ts`, `cover-hand.ts`, `back-step.ts`, `orders.ts`, `rise.ts`,
-`limbs.ts`, `selection.ts` to `options/`; `predictions-part.ts` to `predictions/part.ts`,
-`pressure.ts` to `predictions/exchange/pressure-table.ts`, `fitted-value.ts`, `boosted-trees.ts`
-to `predictions/value/`, `by-hand.ts` and `data/` to `predictions/`.
+`limbs.ts`, `selection.ts` to `options/`; `predictions-part.ts` to `predictions/part.ts`, `pressure.ts` to
+`predictions/exchange/pressure-table.ts`, `fitted-value.ts`, `boosted-trees.ts` to
+`predictions/value/`, `by-hand.ts` and `data/` to `predictions/`.
 
 **Consequences.**
 
@@ -818,9 +1012,8 @@ to `predictions/value/`, `by-hand.ts` and `data/` to `predictions/`.
   [the testbed's rest](2026-11-18-testbed-rest.md) among them.
 
 **Done when** the checks pass, the fingerprint compares clean, `src/minds/option/` holds two
-files and six folders, and no file of `contract/` imports from outside `contract/` within the
-folder (`grep -rn "from \"\.\./" src/minds/option/contract` shows only paths that leave
-`src/minds/option/`).
+files and six folders, and no file of `contract/` imports from the rest of the folder (read off
+its import lines: each path leaves `src/minds/option/` or stays in `contract/`).
 
 ## Chunk 5: the relay, and the documents
 
@@ -829,24 +1022,31 @@ folder (`grep -rn "from \"\.\./" src/minds/option/contract` shows only paths tha
 1. **`node scripts/fingerprint.mjs --relay <steps>`**: each arena fight is also played as a relay.
    Every `<steps>` steps the bout is saved (`duel.save()`), a fresh bout of the same recipe is
    built (`buildBout`) and loads it (`duel.load`), and play goes on in the fresh one, whose Minds
-   are new. At the fight's end the relay's whole save must digest as the straight play's does
-   (the fingerprint's own digest of a saved state, `stateDigest`), and the command fails naming the case. A
-   pose trace follows one bout's bodies (`traceOf`), so the relay compares saves and not traces.
-   It is a mode of the fingerprint and no test ([the test rules](../../tests/README.md): a new
-   test reproduces an observed regression).
-2. **What it holds, and what it does not.** A fresh bout drops everything a Mind keeps in its
-   own fields and closures. It does not drop a module's maps (`PRIORS`, `POOLS`, `REACHES` and
-   their like, eleven on 2026-11-25), which outlive a bout. Those are listed once, by
-   `grep -rnE "^const [A-Z_]+.*new (Weak)?Map" src/minds/option`, and each is read: one keyed
-   by a value that never changes (a spec, a data table, a frozen config) stays, its comment
-   saying it is a cache; one keyed otherwise moves into the Mind.
-3. It is run at 120 steps on every arena case. A case that differs has memory outside `state`:
-   it is moved into `state` and the case named in the commit.
+   are new. At the fight's end the relay's whole save must be deeply equal to the straight
+   play's (`isDeepStrictEqual`, `node:util`), and the command fails naming the case. It does not
+   compare digests: the fingerprint's digest of a state (`stateDigest`) also encodes which slots
+   share one object, and a load puts a copy where a frozen constant was (`src/core/state.ts`), so
+   two equal saves can digest apart. Nor traces: a pose trace follows one bout's bodies. It is a
+   mode of the fingerprint and no test ([the test rules](../../tests/README.md): a new test
+   reproduces an observed regression).
+2. **What it holds, and what it does not.**
+   - A fresh bout drops everything a Mind keeps in its own fields and closures. It does not drop
+     a module's maps (`PRIORS`, `POOLS`, `REACHES` and their like, eleven on 2026-11-25), which
+     outlive a bout. Those are listed once, by
+     `grep -rnE "^const [A-Z_]+.*new (Weak)?Map" src/minds/option`, and each is read: one keyed
+     by a value that never changes (a spec, a data table, a frozen config) stays, its comment
+     saying it is a cache; one keyed otherwise moves into the Mind.
+   - It plays the fingerprint's arena fights. The crypt fight, the Lab's run, the stand and the
+     table's trials are not built by `buildBout` and are outside it, and with them a Mind's
+     path through an interrupt.
+3. It is run at 120 steps on every arena case. A case that differs has memory outside `state`
+   or a load that does not restore what was saved; the difference is found by comparing the two
+   saves, fixed where it lies, and the case named in the commit.
 4. **[The architecture](../architecture.md)** is corrected: its "Option Mind" section says the
-   five ideas and the six folders, and its "Adding an entrant" step 4 stands as it is.
-   **[The code recipe](../recipes/code.md)** gains the three kinds of memory and the relay
-   beside its checks; `AGENTS.md`'s "Checks by change" names `--relay` for a change to what a
-   Mind remembers.
+   five ideas, the two classes and the six folders, and its "Adding an entrant" step 4 stands as
+   it is. **[The code recipe](../recipes/code.md)** gains the three kinds of memory and the
+   relay beside its checks; `AGENTS.md`'s "Checks by change" names `--relay` for a change to
+   what a Mind remembers.
 5. This plan is deleted, with what worked in those two documents.
 
 **Done when** the relay compares clean on every arena case and the documents' test passes.
@@ -855,16 +1055,20 @@ folder (`grep -rn "from \"\.\./" src/minds/option/contract` shows only paths tha
 
 Each is settled by the chunk that meets it, with the tool named.
 
-- **Whether the "Profiles" detail reads anything an Option's step writes** (2b). The class
-  keeps today's order, details after steps, so nothing rests on it.
+- **Whether a rise can be left unoffered from a posture** (3d). `rise.ts:169` takes a way as
+  given. If a way up cannot model null without reshaping the rise, `way` leaves `Guesses`, its
+  three priors join the always-read numbers in `by-hand.ts`, and the commit says so.
+- **Whether a scripted driver's release callback reads the layers' queue or the motor** (2c).
+  The skills' does not; the others are read one by one.
 - **Whether a relay equals a straight play today on every arena case** (5).
-  `tests/minds/contract.test.mjs:211` shows it for two men under Option Minds over 180 steps;
-  other bodies and Commanders were not read. A case that differs before chunk 2 is a finding
-  about today's code, reported as one and fixed where the memory lies.
+  `tests/minds/contract.test.mjs:211` shows it for two men under Option Minds with a drill
+  Commander, one load, 180 steps; other bodies and more loads were not read. A case that differs
+  before chunk 2 is a finding about today's code, reported as one and fixed where the memory
+  lies.
 - **What a fresh bout every 120 steps costs** on every arena case (5). If the whole fingerprint
   under `--relay` takes over ten minutes, `--only` picks one fight a body and the plan's bar is
   those.
-- **Whether 3a's class moves what a body allocates a step.** The harness says; a rise is
+- **Whether 3b's class moves what a body allocates a step.** The harness says; a rise is
   reworked before the chunk lands (what must not move).
 
 ## What this plan does not do
@@ -873,16 +1077,18 @@ Each is settled by the chunk that meets it, with the tool named.
   and left: the interfaces are settled by meaning first, and allocation is held where it is.
   [The step cost](../reference/step-cost.md) drops a rewrite that saves allocation and runs
   slower, so that work wants a timing in hand.
-- **A prediction of a foe never met**, the measured strike profiles read across bodies, and
-  which predictions the game defaults to. Those are the measured Mind plan's.
+- **A prediction of a foe never met**, the measured strike profiles read across bodies, a
+  measurement for any always-read number, and which predictions the game defaults to. Those are
+  the measured Mind plan's.
 - **The action prior.** Its interface is declared with its first reader, by the measured Mind
   plan.
 
 ## Beside the measured Mind plan
 
 That plan's rules 3 and 6 ("every reading says where it came from", "every term of a price says
-where it came from") are held there by an inventory script and a registry. After 3c a by-hand
-number has one file and one interface, and a Mind's config says whether it is built with them,
-so most of that tooling reads `by-hand.ts` and a config. Its mechanisms keep their order; each
-lands as a kind behind `Option.model` or an interface of `contract/predictors.ts`, by its own
-procedure. Its steps that name files in `src/minds/option/` are repointed by chunk 4.
+where it came from") are held there by an inventory script and a registry. After 3d a number set
+by hand has one file, a fallback has one interface, and a Mind's config says whether it is built
+with the fallbacks, so most of that tooling reads `by-hand.ts` and a config. Its mechanisms keep
+their order; each lands as a kind behind `Option.model` or an interface of
+`contract/predictors.ts`, by its own procedure. Its steps that name files in
+`src/minds/option/` are repointed by chunk 4.
