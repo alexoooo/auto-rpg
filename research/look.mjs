@@ -3,7 +3,7 @@
  * body's skill, as one of its variations, played on its table cell's research trials (its drill's
  * training twin; `--cell` names the table's skill where it is not the skill's own, `punch` for
  * `straight-punch`), how many landed (or reached what the drill asks), went down, and ended where the
- * skill says it leaves its body (`AsSkill.ends`), and a
+ * skill says it leaves its body (`AsSkill.ends`), each rung's apart with its mean value, and a
  * strip of frames of a few of them, drawn from the side at each change of the skill's stage and
  * every 0.1 s while it acts (`look-image.mjs`). It is kept in `research/looks/<body>/<variation>/<code>/`,
  * `<code>` the hash of the skill's code and records (`lookCode`, `look-gate.mjs`): `look.json` (the counts and each
@@ -99,9 +99,11 @@ async function main() {
   const ends = endsOf(trials[0].skill), rungs = {};
   // Each rung's own counts, a cell reading more than one (the kick's middle and base).
   played.forEach((one, k) => {
-    const rung = rungs[trials[k].protocol] ??= { trials: 0, landed: 0, down: 0, endedAsItMust: 0 };
-    rung.trials++; rung.landed += one.outcome === "landed" ? 1 : 0; rung.down += one.down ? 1 : 0; rung.endedAsItMust += ends.includes(one.ended) ? 1 : 0;
+    const rung = rungs[trials[k].protocol] ??= { trials: 0, landed: 0, down: 0, endedAsItMust: 0, value: 0, counted: 0 };
+    rung.trials++; if (one.value !== null) { rung.value += one.value; rung.counted++; } rung.landed += one.outcome === "landed" ? 1 : 0; rung.down += one.down ? 1 : 0; rung.endedAsItMust += ends.includes(one.ended) ? 1 : 0;
   });
+  // Each rung's mean value as its cell values a trial (`trialValue`), over the trials that count.
+  for (const rung of Object.values(rungs)) { rung.value = rung.counted ? +(rung.value / rung.counted).toFixed(3) : null; delete rung.counted; }
   const look = { body, variation, code, tuning, cell: `${cell.body} ${cell.skill} ${trials[0].drill}/${trials[0].protocol}`, trials: count,
     landed: played.filter((one) => one.outcome === "landed").length, down: played.filter((one) => one.down).length,
     ends, endedAsItMust: played.filter((one) => ends.includes(one.ended)).length, outcomes, rungs, strips: shown };

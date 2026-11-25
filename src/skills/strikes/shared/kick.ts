@@ -39,17 +39,16 @@ type ScheduleKey = `${PushName}${"Level" | "From" | "Length"}`;
 const UNPUSHED = Object.fromEntries((Object.keys(KICK_PUSHES) as PushName[]).flatMap((name) => [[`${name}Level`, 0], [`${name}From`, 0], [`${name}Length`, 0]])) as Record<ScheduleKey, number>;
 
 /**
- * **The kick's settings**: the keys every body's record holds, each record whole. Control data,
- * not anatomy; seconds, metres, radians and m/s. A kick runs in stages: transfer moves the centre
- * over the standing foot, both feet bearing, until it is quiet there; drive stands on that foot
- * alone, anchored where it stands, and drives the leg at the target (the aimed drive, below) and
- * on its schedule (`KICK_PUSHES`), each freedom neither moves held where the drive found it, until `follow` s after the foot first
- * touches the target or `longest` s after the drive began; set-down is the stance's standing, which
- * steps the kicking foot down where it catches what the drive left moving, each other freedom the
- * drive pushed driven back to where the drive found it, until the foot bears; recentre is the
- * stance's standing, stepping where it must, until both feet bear and are quiet.
+ * **A kick's stages' settings**, every kick's whatever drives its leg (`KICK_PATH`,
+ * `FRONT_KICK_PATH`). Control data, not anatomy; seconds, metres, radians and m/s. A kick runs in
+ * stages: transfer moves the centre over the standing foot, both feet bearing, until it is quiet
+ * there; then it stands on that foot alone, anchored where it stands, as its drive drives the leg
+ * at the target, each freedom neither moves held where the drive found it; set-down is the
+ * stance's standing, which steps the kicking foot down where it catches what the drive left moving,
+ * each other freedom the drive moved driven back to where the drive found it, until the foot
+ * bears; recentre is the stance's standing, stepping where it must, until both feet bear and are quiet.
  */
-export const KICK_PATH = Object.freeze({
+const KICK_STAGES = Object.freeze({
   /** The deadlines to bring the centre over the standing foot, to set the kicking one down, and to stand quiet on both feet again. */
   transferLimit: 2, setLimit: 3, recenterLimit: 3,
   /** How fast the trunk is brought over the standing foot and held there, s, and the most the centre may move at the transfer's end, m/s. */
@@ -66,8 +65,28 @@ export const KICK_PATH = Object.freeze({
   hold: .03,
   /** How far the pelvis is lowered on the standing leg. */
   lower: .03,
-  /** How long the drive runs on after the foot touches, and its longest. */
-  follow: .08, longest: .8,
+  /** How long the drive runs on after the foot touches. */
+  follow: .08,
+  /** How fast a freedom driven to a goal slows onto it, rad/s² (`driven`): the set-down's drive back, and the pushed drive's. */
+  decel: 150,
+  /**
+   * The window: the target this far ahead of the body's centre and within `across` either side of
+   * its line, m, its height from `low` to `high` over the kicking sole as shares of the leg's reach
+   * (hip to sole); its facing, rad, and the most ground speed it admits, m/s.
+   */
+  alongNear: .5, alongFar: 1.1, across: .25, low: .6, high: 1.4, facing: .5, admitSpeed: .6,
+});
+
+/**
+ * **The push kick's settings** (`kickExecutor`): its stages' (`KICK_STAGES`) and its drive's, the
+ * keys every body's record of it holds, each record whole. The drive pushes the leg flat out at the
+ * target (the aimed drive, below) and on its schedule (`KICK_PUSHES`), until `follow` s after the
+ * foot first touches the target or `longest` s after the drive began.
+ */
+export const KICK_PATH = Object.freeze({
+  ...KICK_STAGES,
+  /** The drive's longest. */
+  longest: .8,
   /**
    * The aimed drive, a push kick: from `lead` s into the drive, the leg driven first to its chamber,
    * its strike point at the target's height `chamber` m out from the hip toward it with the knee
@@ -75,45 +94,60 @@ export const KICK_PATH = Object.freeze({
    * latest, driven out level at that height, the strike point `through` m past the target with
    * the knee straight; each freedom at the speed that stops it there slowing at `decel` rad/s² (`driven`).
    */
-  lead: 0, chamber: .3, knee: .1, through: .15, decel: 150,
-  /**
-   * The authored drive, a front kick (`KickDrive`): the kicking leg carried along timed paths, the
-   * stance on the standing leg solving for what they ask of it. Chamber: the knee brought up at the
-   * target, the hip flexed `chamberLift` past where it points the leg at the target, and the knee
-   * folded to `chamberKnee`, over `chamberSeconds`; extend: the knee opened to `extendKnee` along the
-   * line at the target, the hip pointing the leg at it, the ankle to `extendAnkle`, over `extendSeconds`, held until `follow` s after the foot touches or after the extension; retract:
-   * back to the chamber over `retractSeconds`. Throughout, the trunk counters the leg: the lumbar
-   * extended by `counter` of the hip's flexion. Each path is followed at `pathSeconds`' response: at
-   * the motor's own, the stance's solve holds a leg reaching forward short of its path.
-   */
-  chamberSeconds: .2, chamberLift: .2, chamberKnee: 2.1, extendSeconds: .12, extendKnee: .1, extendAnkle: .2, retractSeconds: .15, counter: .1, pathSeconds: .03,
-  /**
-   * The window: the target this far ahead of the body's centre and within `across` either side of
-   * its line, m, its height from `low` to `high` over the kicking sole as shares of the leg's reach
-   * (hip to sole); its facing, rad, and the most ground speed it admits, m/s.
-   */
-  alongNear: .5, alongFar: 1.1, across: .25, low: .6, high: 1.4, facing: .5, admitSpeed: .6,
+  lead: 0, chamber: .3, knee: .1, through: .15,
   ...UNPUSHED,
 });
 
-export type KickTuning = { readonly [K in keyof typeof KICK_PATH]: number };
+/**
+ * **The front kick's settings** (`frontKickExecutor`): its stages' (`KICK_STAGES`) and its authored
+ * drive's, the keys every body's record of it holds, each record whole. The kicking leg is carried
+ * along timed paths, the stance on the standing leg solving for what they ask of it. Chamber: the
+ * knee brought up at the target, the hip flexed `chamberLift` past where it points the leg at the
+ * target, and the knee folded to `chamberKnee`, over `chamberSeconds`; extend: the knee opened to
+ * `extendKnee` along the line at the target, the hip pointing the leg at it, the ankle to
+ * `extendAnkle`, over `extendSeconds`, held until `follow` s after the foot touches or after the
+ * extension; retract: back to the chamber over `retractSeconds`. Throughout, the trunk counters the
+ * leg: the lumbar extended by `counter` of the hip's flexion. Each path is followed at
+ * `pathSeconds`' response: at the motor's own, the stance's solve holds a leg reaching forward short
+ * of its path. The leg's line is aimed `aimAbove` m over the target: the foot meets a body with the
+ * knee still bent, under that line.
+ */
+export const FRONT_KICK_PATH = Object.freeze({
+  ...KICK_STAGES,
+  aimAbove: 0, chamberSeconds: .2, chamberLift: .2, chamberKnee: 2.1, extendSeconds: .12, extendKnee: .1, extendAnkle: .2, retractSeconds: .15, counter: .1, pathSeconds: .03,
+});
 
-/** Whether `tuning` is a kick's: each setting finite, its times and window positive where they must be, each push's level within -1 and 1 and its window not negative. */
+type StageTuning = { readonly [K in keyof typeof KICK_STAGES]: number };
+export type KickTuning = { readonly [K in keyof typeof KICK_PATH]: number };
+export type FrontKickTuning = { readonly [K in keyof typeof FRONT_KICK_PATH]: number };
+
+/** Whether `tuning`'s stages are a kick's: each setting finite, its times and window positive where they must be. */
+const validStages = (tuning: StageTuning): boolean => Object.values(tuning).every(Number.isFinite)
+  && [tuning.transferLimit, tuning.setLimit, tuning.recenterLimit, tuning.transferSeconds, tuning.transferSlow, tuning.across, tuning.facing, tuning.decel].every((v) => v > 0)
+  && [tuning.hold, tuning.lower, tuning.follow, tuning.admitSpeed, tuning.low].every((v) => v >= 0)
+  && tuning.alongFar > tuning.alongNear && tuning.high > tuning.low;
+
+/** Whether `tuning` is a push kick's: its stages' (`validStages`), its drive's longest positive and its reach not negative, each push's level within -1 and 1 and its window not negative. */
 export function validKickTuning(tuning: KickTuning): boolean {
-  return Object.values(tuning).every(Number.isFinite)
-    && [tuning.transferLimit, tuning.setLimit, tuning.recenterLimit, tuning.transferSeconds, tuning.transferSlow, tuning.longest, tuning.across, tuning.facing,
-      tuning.chamberSeconds, tuning.extendSeconds, tuning.retractSeconds, tuning.pathSeconds].every((v) => v > 0)
-    && [tuning.hold, tuning.lower, tuning.follow, tuning.admitSpeed, tuning.low, tuning.lead, tuning.chamber, tuning.knee, tuning.through].every((v) => v >= 0) && tuning.decel > 0
-    && tuning.alongFar > tuning.alongNear && tuning.high > tuning.low
+  return validStages(tuning) && tuning.longest > 0 && [tuning.lead, tuning.chamber, tuning.knee, tuning.through].every((v) => v >= 0)
     && (Object.keys(KICK_PUSHES) as PushName[]).every((name) => Math.abs(tuning[`${name}Level`]) <= 1 && tuning[`${name}From`] >= 0 && tuning[`${name}Length`] >= 0);
 }
 
-/** Whether each setting `tuning` names is a known one, and finite. */
-export const validKickPart = (tuning: Partial<KickTuning>): boolean =>
-  !!tuning && typeof tuning === "object" && !Array.isArray(tuning) && Object.entries(tuning).every(([key, value]) => key in KICK_PATH && Number.isFinite(value));
+/** Whether `tuning` is a front kick's: its stages' (`validStages`), and its paths' times positive. */
+export function validFrontKickTuning(tuning: FrontKickTuning): boolean {
+  return validStages(tuning) && [tuning.chamberSeconds, tuning.extendSeconds, tuning.retractSeconds, tuning.pathSeconds].every((v) => v > 0);
+}
 
-/** Whether `tuning` holds every kick setting, each valid (`validKickTuning`). */
-export const wholeKick = (tuning: Partial<KickTuning>): boolean => validKickPart(tuning) && Object.keys(KICK_PATH).every((key) => Object.hasOwn(tuning, key)) && validKickTuning(tuning as KickTuning);
+/** Whether each setting `tuning` names is one of `path`'s, and finite. */
+const partOf = <T>(path: T) => (tuning: Partial<T>): boolean =>
+  !!tuning && typeof tuning === "object" && !Array.isArray(tuning) && Object.entries(tuning).every(([key, value]) => key in (path as object) && Number.isFinite(value));
+
+/** Whether `tuning` holds every one of `path`'s settings, each valid (`valid`). */
+const wholeOf = <T>(path: T, valid: (tuning: T) => boolean) => (tuning: Partial<T>): boolean =>
+  partOf(path)(tuning) && Object.keys(path as object).every((key) => Object.hasOwn(tuning, key)) && valid(tuning as T);
+
+export const validKickPart = partOf<KickTuning>(KICK_PATH), wholeKick = wholeOf<KickTuning>(KICK_PATH, validKickTuning);
+export const validFrontKickPart = partOf<FrontKickTuning>(FRONT_KICK_PATH), wholeFrontKick = wholeOf<FrontKickTuning>(FRONT_KICK_PATH, validFrontKickTuning);
 
 /** The soles, hips and foot effectors a kick reads. */
 export function kickRefusal(spec: BodySpec): string | null {
@@ -136,26 +170,38 @@ function scheduleOf(tuning: KickTuning, kick: Side): TimedPush[] {
 }
 
 /**
- * **How a kick drives its leg**: `pushed`, flat out toward its contact pose and on its schedule
- * (`KICK_PUSHES`), in one stage, `drive`; `authored`, along timed paths through a chamber, an
- * extension at the target and a retraction, each its own stage (`KICK_PATH`'s authored drive).
+ * **How a kick drives its leg**, with its settings: `pushed`, flat out toward its contact pose and
+ * on its schedule (`KICK_PUSHES`), in one stage, `drive`; `authored`, along timed paths through a
+ * chamber, an extension at the target and a retraction, each its own stage.
  */
-export type KickDrive = "pushed" | "authored";
+type Drive = { readonly kind: "pushed"; readonly tuning: KickTuning } | { readonly kind: "authored"; readonly tuning: FrontKickTuning };
 
 /** The stages a kick stands on its one foot through. */
 const ONE_FOOT: ReadonlySet<string> = new Set(["drive", "chamber", "extend", "retract"]);
 
+/** **The push kick** (`kick`): the kick, its leg pushed flat out (`Drive`), on `tuning` (`KICK_PATH`). */
+export function kickExecutor(body: Body, actions: readonly string[], tuning: KickTuning, resolve: TargetResolver): Executor {
+  if (!validKickTuning(tuning)) throw new Error("invalid kick executor settings");
+  return kick(body, actions, resolve, { kind: "pushed", tuning });
+}
+
+/** **The front kick** (`kick`): the kick, its leg carried along authored paths (`Drive`), on `tuning` (`FRONT_KICK_PATH`). */
+export function frontKickExecutor(body: Body, actions: readonly string[], tuning: FrontKickTuning, resolve: TargetResolver): Executor {
+  if (!validFrontKickTuning(tuning)) throw new Error("invalid front kick executor settings");
+  return kick(body, actions, resolve, { kind: "authored", tuning });
+}
+
 /**
- * **The kick** (`kick`): a drive of either foot ahead at a target about hip height, from where the
- * body stands, with no step to square up. Its weight goes onto the other foot; the kicking leg is
- * driven as `drive` says (`KickDrive`); the stance then steps it down. A transfer, a set-down or a
+ * **The kick**: a drive of either foot ahead at a target about hip height, from where the body
+ * stands, with no step to square up. Its weight goes onto the other foot; the kicking leg is
+ * driven as `drive` says (`Drive`); the stance then steps it down. A transfer, a set-down or a
  * recentre past its deadline ends it `stalled`; the body down ends it `interrupted`.
  */
-export function kickExecutor(body: Body, actions: readonly string[], tuning: KickTuning, resolve: TargetResolver, drive: KickDrive = "pushed"): Executor {
-  if (!validKickTuning(tuning)) throw new Error("invalid kick executor settings");
+function kick(body: Body, actions: readonly string[], resolve: TargetResolver, drive: Drive): Executor {
+  const tuning: StageTuning = drive.tuning, pushed = drive.kind === "pushed" ? drive.tuning : null, paced = drive.kind === "authored" ? drive.tuning : null;
   const feet = footStatesOf(body.built), support = supportReadiness(body.built), middle = new Vector3();
   const nameOf = (side: Side): BearingEnd => feet.find((foot) => foot.side === side)!.name;
-  const schedules = { left: scheduleOf(tuning, "left"), right: scheduleOf(tuning, "right") };
+  const schedules = { left: pushed ? scheduleOf(pushed, "left") : [], right: pushed ? scheduleOf(pushed, "right") : [] };
   const footprints = { left: Object.freeze([segmentResource("foot.left"), LEG_RESOURCE, TRUNK_RESOURCE]), right: Object.freeze([segmentResource("foot.right"), LEG_RESOURCE, TRUNK_RESOURCE]) };
   /** Each leg's reach, hip to sole, m. */
   const reachOf = (side: Side): number => {
@@ -206,12 +252,13 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
     // The hip and the strike point, each in the root's frame, in the world.
     hipAt.set(hip[0], hip[1], hip[2]).applyRotationQuaternionToRef(view.root.rotation, hipAt).addInPlace(view.root.position);
     view.effectors[`foot.${side}`]!.points.strike!.applyRotationQuaternionToRef(view.root.rotation, strikeAt).addInPlace(view.root.position);
-    if (!live.out && (since >= tuning.lead + tuning.knee || strikeAt.y >= at[1])) live.out = true;
-    const dx = at[0] - hipAt.x, dz = at[2] - hipAt.z, level = hypot(dx, dz) || 1, reach = live.out ? level + tuning.through : tuning.chamber;
+    const push = pushed!;
+    if (!live.out && (since >= push.lead + push.knee || strikeAt.y >= at[1])) live.out = true;
+    const dx = at[0] - hipAt.x, dz = at[2] - hipAt.z, level = hypot(dx, dz) || 1, reach = live.out ? level + push.through : push.chamber;
     intoFrameToRef(view.root, [hipAt.x + dx / level * reach, at[1], hipAt.z + dz / level * reach], target);
     for (const f of free) f.preferred = /^knee/.test(f.name) ? (live.out ? f.min : f.max) : angles[f.joint]![f.k]!;
     solveReach(chain, angles, free, [{ point: leg.point, target: [target.x, target.y, target.z] }], undefined, work);
-    const part = stepShare(since, live.step, tuning.lead, Infinity);
+    const part = stepShare(since, live.step, push.lead, Infinity);
     for (const f of free) driven(view, f.name, angles[f.joint]![f.k]!, leg.scheduled.has(f.name) ? 0 : part, posture, pushes);
   };
   /**
@@ -231,18 +278,18 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
    * stage's goal over the stage's seconds.
    */
   const authored = (live: Motion): Record<string, FreedomPath> => {
-    const foot = live.foot, extend = live.stage === "extend";
-    const hip = extend ? live.aimHip : Math.min(live.aimHip + tuning.chamberLift, hipsMost[foot]), seconds = live.stage === "chamber" ? tuning.chamberSeconds : extend ? tuning.extendSeconds : tuning.retractSeconds;
+    const foot = live.foot, extend = live.stage === "extend", path = paced!;
+    const hip = extend ? live.aimHip : Math.min(live.aimHip + path.chamberLift, hipsMost[foot]), seconds = live.stage === "chamber" ? path.chamberSeconds : extend ? path.extendSeconds : path.retractSeconds;
     const goals: Record<string, number> = {
-      [`hip.${foot} flexion`]: hip, [`knee.${foot} flexion`]: extend ? tuning.extendKnee : tuning.chamberKnee,
-      [`ankle.${foot} dorsiflexion`]: extend ? tuning.extendAnkle : live.posture[`ankle.${foot} dorsiflexion`] ?? 0,
-      "lumbar flexion": (live.posture["lumbar flexion"] ?? 0) - tuning.counter * hip,
+      [`hip.${foot} flexion`]: hip, [`knee.${foot} flexion`]: extend ? path.extendKnee : path.chamberKnee,
+      [`ankle.${foot} dorsiflexion`]: extend ? path.extendAnkle : live.posture[`ankle.${foot} dorsiflexion`] ?? 0,
+      "lumbar flexion": (live.posture["lumbar flexion"] ?? 0) - path.counter * hip,
     };
     const paths: Record<string, FreedomPath> = {};
     for (const [channel, goal] of Object.entries(goals)) {
       const from = live.from[channel] ?? [goal, 0];
       scalarPathToRef(from[0], from[1], goal, live.time, seconds, sampled);
-      paths[channel] = { angle: sampled[0], rate: sampled[1], acceleration: sampled[2], seconds: tuning.pathSeconds };
+      paths[channel] = { angle: sampled[0], rate: sampled[1], acceleration: sampled[2], seconds: path.pathSeconds };
     }
     live.paths = paths;
     return paths;
@@ -255,7 +302,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
     if (next !== "retract") {
       // The hip's flexion that points the leg, hip to sole, at the target: in the body frame's sagittal plane, less the leg's own at rest.
       const hip = legs[foot].hip;
-      intoFrameToRef(view.root, live.aim, target);
+      intoFrameToRef(view.root, [live.aim[0], live.aim[1] + paced!.aimAbove, live.aim[2]], target);
       live.aimHip = Math.min(Math.max(atan2(target.z - hip[2], hip[1] - target.y) - rests[foot], 0), hipsMost[foot]);
     }
     stage(next);
@@ -331,7 +378,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
           if (base[0] !== centre.x || base[1] !== centre.z) release({ kind: "interrupted", reason: "centre left its base" }, "recenter");
           else if (live.time >= tuning.transferLimit) release({ kind: "stalled", reason: "support transfer deadline" }, "recenter");
           else if (live.held >= tuning.hold) {
-            if (drive === "authored") nextPaths(view, "chamber"); else stage("drive");
+            if (paced) nextPaths(view, "chamber"); else stage("drive");
             live.phase = "commit";
             // The kicking leg's freedoms, its hip's, knee's and ankle's, and those the drive pushes, held where the drive finds them.
             const joints = [`hip.${foot} `, `knee.${foot} `, `ankle.${foot} `], pushed = new Set(schedules[foot].map((push) => push.channel));
@@ -341,17 +388,17 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
         }
         case "drive":
           touches(view, live);
-          if (live.time >= tuning.longest || live.touched !== null && live.time >= live.touched + tuning.follow) release({ kind: "completed" }, "set");
+          if (live.time >= pushed!.longest || live.touched !== null && live.time >= live.touched + tuning.follow) release({ kind: "completed" }, "set");
           break;
         case "chamber":
-          if (live.time >= tuning.chamberSeconds) nextPaths(view, "extend");
+          if (live.time >= paced!.chamberSeconds) nextPaths(view, "extend");
           break;
         case "extend":
           touches(view, live);
-          if (live.time >= (live.touched ?? tuning.extendSeconds) + tuning.follow) { nextPaths(view, "retract"); live.phase = "release"; }
+          if (live.time >= (live.touched ?? paced!.extendSeconds) + tuning.follow) { nextPaths(view, "retract"); live.phase = "release"; }
           break;
         case "retract":
-          if (live.time >= tuning.retractSeconds) stage("set");
+          if (live.time >= paced!.retractSeconds) stage("set");
           break;
         case "set": {
           live.held = view.stance.phase === "stand" && support.state.loads[foot] > 0 ? live.held + dt : 0;
@@ -390,7 +437,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       if (live.stage !== "drive") return { legs: standing };
       const pushes: MusclePush[] = [], posture = { ...live.posture }, since = live.time - live.step;
       timedPushes(schedules[foot], since, live.step, pushes);
-      if (since + live.step >= tuning.lead) aimed(view, live, since, posture, pushes);
+      if (since + live.step >= pushed!.lead) aimed(view, live, since, posture, pushes);
       return { legs: standing, posture, pushes };
     },
   };

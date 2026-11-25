@@ -1,35 +1,36 @@
 {
  "body": "man",
- "variation": "kick/front",
- "code": "c162519e7f76",
+ "variation": "kick/push",
+ "code": "72bccc7b548a",
  "tuning": null,
  "cell": "man kick strike/middle-twin",
  "trials": 28,
- "landed": 2,
+ "landed": 18,
  "down": 5,
  "ends": [
   "standing"
  ],
  "endedAsItMust": 23,
  "outcomes": {
-  "guarded": 10,
   "fell": 5,
-  "elsewhere": 7,
-  "missed": 4,
-  "landed": 2
+  "guarded": 3,
+  "landed": 18,
+  "elsewhere": 2
  },
  "rungs": {
   "middle-twin": {
    "trials": 14,
-   "landed": 0,
-   "down": 1,
-   "endedAsItMust": 13
+   "landed": 7,
+   "down": 3,
+   "endedAsItMust": 11,
+   "value": 0.479
   },
   "base-twin": {
    "trials": 14,
-   "landed": 2,
-   "down": 4,
-   "endedAsItMust": 10
+   "landed": 11,
+   "down": 2,
+   "endedAsItMust": 12,
+   "value": 0.577
   }
  },
  "strips": [
@@ -37,64 +38,60 @@
    "strip": "strip-0.png",
    "trial": "ef760e88",
    "rung": "middle-twin",
-   "outcome": "guarded",
-   "down": false,
+   "outcome": "fell",
+   "down": true,
    "frames": [
     {
-     "time": 5.358,
+     "time": 4.617,
      "stage": "kick:admitting"
     },
     {
+     "time": 4.625,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 4.725,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 5.025,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 5.267,
+     "stage": "kick:drive"
+    },
+    {
      "time": 5.367,
-     "stage": "kick:transfer"
+     "stage": "kick:drive"
     },
     {
-     "time": 5.467,
-     "stage": "kick:transfer"
+     "time": 5.667,
+     "stage": "kick:drive"
     },
     {
-     "time": 5.867,
-     "stage": "kick:transfer"
-    },
-    {
-     "time": 6.058,
-     "stage": "kick:chamber"
-    },
-    {
-     "time": 6.267,
-     "stage": "kick:extend"
-    },
-    {
-     "time": 6.367,
-     "stage": "kick:extend"
-    },
-    {
-     "time": 6.417,
-     "stage": "kick:retract"
-    },
-    {
-     "time": 6.567,
+     "time": 5.692,
      "stage": "kick:set"
     },
     {
-     "time": 6.867,
+     "time": 5.992,
      "stage": "kick:set"
     },
     {
-     "time": 6.958,
-     "stage": "kick:recenter"
+     "time": 6.292,
+     "stage": "kick:set"
     },
     {
-     "time": 7.358,
-     "stage": "kick:recenter"
+     "time": 6.592,
+     "stage": "kick:set"
     },
     {
-     "time": 7.867,
-     "stage": "standing"
+     "time": 6.992,
+     "stage": "down"
     },
     {
-     "time": 8.567,
-     "stage": "standing"
+     "time": 7.692,
+     "stage": "down"
     }
    ]
   },
@@ -102,63 +99,63 @@
    "strip": "strip-1.png",
    "trial": "2b4e249b",
    "rung": "middle-twin",
-   "outcome": "elsewhere",
+   "outcome": "landed",
    "down": false,
    "frames": [
     {
-     "time": 5.358,
+     "time": 4.617,
      "stage": "kick:admitting"
     },
     {
-     "time": 5.367,
+     "time": 4.625,
      "stage": "kick:transfer"
     },
     {
-     "time": 5.467,
+     "time": 4.725,
      "stage": "kick:transfer"
     },
     {
-     "time": 5.867,
+     "time": 5.025,
      "stage": "kick:transfer"
     },
     {
-     "time": 6.075,
-     "stage": "kick:chamber"
+     "time": 5.292,
+     "stage": "kick:drive"
     },
     {
-     "time": 6.275,
-     "stage": "kick:chamber"
+     "time": 5.392,
+     "stage": "kick:drive"
     },
     {
-     "time": 6.283,
-     "stage": "kick:extend"
+     "time": 5.692,
+     "stage": "kick:drive"
     },
     {
-     "time": 6.45,
-     "stage": "kick:retract"
-    },
-    {
-     "time": 6.6,
+     "time": 5.725,
      "stage": "kick:set"
     },
     {
-     "time": 6.8,
+     "time": 6.025,
      "stage": "kick:set"
     },
     {
-     "time": 7.2,
+     "time": 6.325,
      "stage": "kick:set"
     },
     {
-     "time": 7.383,
+     "time": 6.35,
      "stage": "kick:recenter"
     },
     {
-     "time": 7.792,
+     "time": 6.65,
+     "stage": "kick:recenter"
+    },
+    {
+     "time": 6.992,
      "stage": "standing"
     },
     {
-     "time": 8.492,
+     "time": 7.692,
      "stage": "standing"
     }
    ]
@@ -167,60 +164,56 @@
    "strip": "strip-2.png",
    "trial": "d529beb4",
    "rung": "base-twin",
-   "outcome": "fell",
-   "down": true,
+   "outcome": "landed",
+   "down": false,
    "frames": [
     {
-     "time": 5.275,
+     "time": 4.883,
      "stage": "kick:admitting"
     },
     {
-     "time": 5.283,
+     "time": 4.892,
      "stage": "kick:transfer"
     },
     {
-     "time": 5.383,
+     "time": 4.992,
      "stage": "kick:transfer"
     },
     {
-     "time": 5.783,
+     "time": 5.292,
      "stage": "kick:transfer"
     },
     {
-     "time": 5.975,
-     "stage": "kick:chamber"
+     "time": 5.542,
+     "stage": "kick:drive"
     },
     {
-     "time": 6.183,
-     "stage": "kick:extend"
+     "time": 5.642,
+     "stage": "kick:drive"
     },
     {
-     "time": 6.283,
-     "stage": "kick:extend"
+     "time": 5.942,
+     "stage": "kick:drive"
     },
     {
-     "time": 6.367,
-     "stage": "kick:retract"
-    },
-    {
-     "time": 6.517,
+     "time": 5.958,
      "stage": "kick:set"
     },
     {
-     "time": 6.817,
+     "time": 6.258,
      "stage": "kick:set"
     },
     {
-     "time": 7.217,
-     "stage": "kick:set"
+     "time": 6.525,
+     "stage": "kick:recenter"
     },
     {
-     "time": 7.725,
-     "stage": "down"
+     "time": 6.867,
+     "stage": "standing"
     },
     {
-     "time": 8.425,
-     "stage": "down"
+     "time": 7.567,
+     "stage": "standing"
     }
    ]
   },
@@ -232,59 +225,51 @@
    "down": false,
    "frames": [
     {
-     "time": 5.275,
+     "time": 4.883,
      "stage": "kick:admitting"
     },
     {
-     "time": 5.283,
+     "time": 4.892,
      "stage": "kick:transfer"
     },
     {
-     "time": 5.383,
+     "time": 4.992,
      "stage": "kick:transfer"
     },
     {
-     "time": 5.783,
+     "time": 5.292,
      "stage": "kick:transfer"
     },
     {
-     "time": 5.992,
-     "stage": "kick:chamber"
+     "time": 5.558,
+     "stage": "kick:drive"
     },
     {
-     "time": 6.192,
-     "stage": "kick:chamber"
+     "time": 5.658,
+     "stage": "kick:drive"
     },
     {
-     "time": 6.2,
-     "stage": "kick:extend"
+     "time": 5.958,
+     "stage": "kick:drive"
     },
     {
-     "time": 6.425,
-     "stage": "kick:retract"
-    },
-    {
-     "time": 6.575,
+     "time": 5.983,
      "stage": "kick:set"
     },
     {
-     "time": 6.675,
+     "time": 6.283,
      "stage": "kick:set"
     },
     {
-     "time": 6.892,
+     "time": 6.567,
      "stage": "kick:recenter"
     },
     {
-     "time": 7.092,
-     "stage": "kick:recenter"
-    },
-    {
-     "time": 7.617,
+     "time": 6.9,
      "stage": "standing"
     },
     {
-     "time": 8.317,
+     "time": 7.6,
      "stage": "standing"
     }
    ]

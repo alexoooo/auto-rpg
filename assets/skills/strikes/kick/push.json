@@ -42,16 +42,7 @@
       "ankleLength": 0.2950788838582495,
       "trunkLevel": 0.8539499778578326,
       "trunkFrom": 0.4,
-      "trunkLength": 0.12953454084830107,
-      "chamberSeconds": 0.2,
-      "chamberLift": 0.2,
-      "chamberKnee": 2.1,
-      "extendSeconds": 0.12,
-      "extendKnee": 0.1,
-      "extendAnkle": 0.2,
-      "retractSeconds": 0.15,
-      "counter": 0.1,
-      "pathSeconds": 0.03
+      "trunkLength": 0.12953454084830107
     }
   }
 }

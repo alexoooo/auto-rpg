@@ -68,8 +68,8 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   in 11. The flat-out pushes at the hip and knee toward a goal in the root's frame make the
   reaction, and the one-foot pose cannot hold it. Its searches are refused (`requireLook`).
 - **The authored kick, `kick/front`: looks like the motion, lands nothing yet.** Pickable beside
-  `kick/push`, in no Mind. The kicking leg is carried along timed joint paths (`KickDrive`, the
-  kick's executor), through a chamber with the knee brought up at the target, an extension along
+  `kick/push`, in no Mind. The kicking leg is carried along timed joint paths (`frontKickExecutor`,
+  its own settings `FRONT_KICK_PATH`), through a chamber with the knee brought up at the target, an extension along
   the line at it and a retraction, the stance on the standing leg solving for what the paths ask,
   and the stance's own set-down. Its look (`research/looks/man/kick-front/`): a push kick, the
   pelvis and trunk leaning back against the leg as a person's do, the standing foot down; on the
@@ -87,9 +87,15 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   (light blows) and falls in 4, against 1 aimed at the middle: the leg's line has to be aimed
   above where the foot meets, which bends under it. A chamber and extension solved to put the foot
   at the middle mark's height tucked the kicker and laid the trunk back about 45°: reverted.
-- **Next, by hand**: the leg's line aimed above the mark it meets, on the base rung; then what it
-  does when offered closer (the Option's range, or a step back first), by look. Reported before
-  any search.
+- **The front kick works some of the time, and trades far less than the push kick.** Its leg's
+  line aimed 0.17 m over the mark (`aimAbove`), on the base rung it lands 3 of 14 (two of them
+  0.37 and 0.45 of a life), is down after 1 and trades 0.018 a second; the push kick there lands 11
+  and trades 0.577, by throwing its trunk back and driving its folded leg into the foe, who steps
+  back. The front kick is guarded in 12 of 28, its foot meeting the foe's low hands before its
+  belly, and touches more than drives where it meets (`research/looks/man/kick-front/`).
+- **Next, by hand**: the front kick's drive into what it meets, the hips through behind the foot,
+  as a person's push kick moves the foe, and its way past the low hands; then what it does when
+  offered closer, by look. Reported before any search.
 - **When the front kick is the one the Warrior holds**: its mark is declared with the variation,
   as its ends are, and the Option aims at it, one source; so the drive's goal and what the Mind's
   strike profile measures for it agree with where it lands (the reviewing session, 2026-11-25).
