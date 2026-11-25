@@ -55,8 +55,24 @@ was chosen for falls, and a new skill or variation enters pickable, as the kick 
    in 61 %.
 2. **The strike chosen**: the stomp mended where step 1 shows it fails, or a low kick at a lying
    body, read on the same drill by life taken a second; the one that does most enters pickable.
+   *Read* (`4f8a6dbf1`): the low kick, a variation of the stomp (`stomp/kick`), the kick's
+   executor with the push kick's record as its start, its height band lowered to a lying trunk
+   and the rest searched on `stomping-twin`. At a foe laid down that fights back
+   (`sparring-laid`, the same 480 trials) it takes 0.082 hp a second of its cycle against the
+   stomp's 0.004 (95 hp in all against 9), lands in 15.8 % against 14.8 %, 1.00 s from the order
+   against 2.73 at 38 J against 3, and falls in 31.5 % against 27.7 %; at a man lying still,
+   0.141 hp a second against 0.036, falling in 41 % against 10 %. Pickable under Stomp; no
+   character holds it yet.
 3. **Into the game's Mind**: its price against what it gives, then a match of the Mind with it
    against the game's Mind, and its knockouts within 60 s.
+   *Read* (`research/runs/low/`). The game's Mind holding the low kick scored 0.517 (0.472 to
+   0.563) against it over 288 warrior-drawn bouts, level. In its mirror bouts a downed foe lost
+   1.11 hp a minute against 0.67, the low strike's own share 96 hp against the stomp's 44; but
+   the kicker went down in 84 of the 214 stretches it struck in, against 47 of 146, and on the
+   scorecard it knocked out within 60 s in 22.6 % (15.7 to 31.5) of its mirror bouts with 5.05
+   downs a bout, against 34.8 % and 4.17. It takes more from a foe lying down and gives it back
+   in its own falls; the Mind prices it by the prior, having no profile of it (`stomp/kick`).
+   Not held by the Warrior.
 
 ## After it
 
