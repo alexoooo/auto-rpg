@@ -52,6 +52,10 @@ should apply to all minds -- we don't want to knowingly keep broken or bad code.
 change that improves scalability or performance. but if the change is specific to one particular
 situation that we're working on, that it doesn't really make sense to apply it to all bodies."
 
+And of a fix that reads worse being held back (2026-11-25): "no, if a fix does worse, that's an
+indicator that something else is broken -- how does it make sense that fixing something that's
+broken would make fighting worse?"
+
 **Done meaning done** (2026-11-25): "we've had a repeated pattern: I ask for a general and
 scalable implementation, the agent tells me it's done, and later i learn that what was done is an
 ad-hoc hard-coded hack that doesn't scale." Of the numbers step built for a body's stature alone,
@@ -345,9 +349,12 @@ scope.** 5. **Install and confirm.**
   each of their cases it moved, and the report lists them as moved and not read. The config a
   body played before stays pickable.
 - **One situation's change is set for that body alone**, as its own config's setting.
-- **A fix that makes a body in its scope worse is installed for none.** It goes back to step 1,
-  to find what the old error was paying for. (A punch priced right once stood off and was
-  walked into: its overprice had been paying for a stay that nothing priced.)
+- **A fix that reads worse has found something else broken** (the goal). Its prices were looked
+  at in step 3 and are right, so it stays, set for every body. One bout where it lost is traced
+  to what the old error was covering for, and that is named in the report and mended next, as
+  a fix of its own. (A punch priced right once stood off and was walked into: its overprice had
+  been paying for a stay that nothing priced. The punch's price was put back, and the stay is
+  still not priced.) Only a trace that shows the fix's own prices wrong sends it back to step 1.
 - **The inventory clean for every body on its default config**: with the kind set, no body reads
   what this mechanism prices by hand, by a name, or from a table of a pairing. It plays nothing.
 - **Shown once on a body with nothing of its own**: one body that has no measurement for this
@@ -357,8 +364,8 @@ scope.** 5. **Install and confirm.**
 - **A headless look at the Arena** with the mind editor open, where a config changes.
 - **The report** (rule 5): its scope, its readings with their spreads, the fingerprint's and the
   inventory's comparisons as they print, and each case moved and not read.
-- A mechanism that reads flat is still kept if it removes a guess and makes no body in its scope
-  worse. That is the goal: the same Mind, priced from measurement.
+- A mechanism that reads flat is kept: it removes a guess. That is the goal, the same Mind
+  priced from measurement.
 
 ## What done is
 
