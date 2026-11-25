@@ -1,7 +1,6 @@
 /**
  * **The kick's schedule searched on its rung's twin**: each push the kick makes (`KICK_PUSHES`: the
- * kicking hip's drive and brake, its knee's chamber and opening, its ankle, the trunk and the
- * standing leg) a level, a start and a length into the drive, one schedule for either foot; the
+ * kicking hip's drive and brake, its knee's chamber and opening, its ankle and the trunk) a level, a start and a length into the drive, one schedule for either foot; the
  * window it is thrown from; the aimed drive's timing and reach; and how it stands on the one foot. A candidate is those settings over the kick's defaults
  * (`KICK_PATH`) as the research tuning of the drills' Option Mind's kick (`option-drill`,
  * `withTuning`), given whole, so the man's record plays no part. It is played on every foot condition of the Strike drill's `middle-twin` rung at

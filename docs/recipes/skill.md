@@ -319,6 +319,14 @@ input.
     kicks in fights against 68 of 103, but the drill's search placed it at 0.02 m for no gain
     (0.254 against 0.251), and in 288 warrior-drawn bouts the Mind with it scored 0.469 (0.420 to
     0.517) against the Mind without; the records hold 0 (`research/runs/kick/`). *Shown.*
+  - *The push kick's falls are its own drive's, and its hard brake is its value*: in fights a kick
+    that misses falls as often as one that lands (13 of 13 against 63 of 81); the standing foot
+    leaves the ground late in the drive as the leg is braked onto its goal. Braked at 100 rad/s²
+    against the record's 365, the kicker was down after 57 % of kicks against 68 % but its foot came
+    no nearer the foe's middle than 0.52 m against 0.43, and in 288 warrior-drawn bouts it scored
+    0.347 (0.299 to 0.399) against the record (`a5fff57da`). A schedule's pushes on the standing
+    leg never acted while the stance stood on it, the stance driving its own legs over a push
+    (`src/control/motor.ts`), and are gone from the kick's schedule and its search. *Shown.*
 
 ### 4. A learned actor over it
 

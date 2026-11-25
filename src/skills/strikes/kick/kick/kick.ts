@@ -20,14 +20,15 @@ import { withinActionWindow } from "../../../intent/action-window.ts";
 import { type Side, otherSide } from "../../../../core/bodies/bilateral.ts";
 
 /**
- * **What a kick pushes**, by name: each a channel of the kicking leg (`{kick}`), the standing leg
- * (`{stand}`) or the trunk, driven flat out over its own window of the drive (`TimedPush`) by the
- * settings `<name>Level`, `<name>From` and `<name>Length`. The hip is pushed twice, to drive and to
- * brake, and the knee twice, to chamber and to open; a level's sign is the push's sense.
+ * **What a kick pushes**, by name: each a channel of the kicking leg (`{kick}`) or the trunk, driven
+ * flat out over its own window of the drive (`TimedPush`) by the settings `<name>Level`, `<name>From`
+ * and `<name>Length`. The hip is pushed twice, to drive and to brake, and the knee twice, to chamber
+ * and to open; a level's sign is the push's sense. The standing leg is the stance's, which drives a
+ * leg it stands on over any push.
  */
 export const KICK_PUSHES = Object.freeze({
   hip: "hip.{kick} flexion", hipBrake: "hip.{kick} flexion", chamber: "knee.{kick} flexion", extend: "knee.{kick} flexion", ankle: "ankle.{kick} dorsiflexion",
-  trunk: "lumbar flexion", standKnee: "knee.{stand} flexion", standHip: "hip.{stand} flexion",
+  trunk: "lumbar flexion",
 });
 
 type PushName = keyof typeof KICK_PUSHES;
@@ -97,7 +98,7 @@ export function validKickTuning(tuning: KickTuning): boolean {
 /** `tuning`'s schedule for a kick with the `kick` foot, standing on the other. */
 function scheduleOf(tuning: KickTuning, kick: Side): TimedPush[] {
   return (Object.keys(KICK_PUSHES) as PushName[]).map((name) => ({
-    channel: KICK_PUSHES[name].replace("{kick}", kick).replace("{stand}", otherSide(kick)),
+    channel: KICK_PUSHES[name].replace("{kick}", kick),
     level: tuning[`${name}Level`], from: tuning[`${name}From`], length: tuning[`${name}Length`],
   })).filter((push) => push.level !== 0 && push.length > 0);
 }
