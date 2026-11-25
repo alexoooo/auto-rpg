@@ -136,8 +136,9 @@ function aimFor(parts: PartLookup, config: StrikeConfig): ConfigFor<"aim"> | und
 /**
  * **What a strike of `config` named `name` (`strikeName`) asks of `executor` on a body of
  * `spec`**: an action of that name, struck with the body's limbs of its role that the executor
- * strikes with (`strikeLimbs`), at its regions by its aim (`aimFor`); null where the executor does
- * not fit the body or it has no such limb.
+ * strikes with (`strikeLimbs`), at those of its regions the executor strikes at (`ExecutorPart.strikesAt`)
+ * by its aim (`aimFor`); null where the executor does not fit the body, it has no such limb, or
+ * none of its regions is one the executor strikes at.
  */
 function strikeAction(parts: PartLookup, spec: BodySpec, config: StrikeConfig, executor: ExecutorEntry, name: string): ActionConfig | null {
   let bySpec = ACTIONS.get(config);
@@ -147,9 +148,10 @@ function strikeAction(parts: PartLookup, spec: BodySpec, config: StrikeConfig, e
   let byName = byExecutor.get(executor);
   if (!byName) byExecutor.set(executor, byName = new Map());
   if (byName.has(name)) return byName.get(name)!;
-  const effectors = strikeLimbs(parts, spec, config, executor), aim = aimFor(parts, config);
-  const action: ActionConfig | null = effectors.length === 0 ? null : Object.freeze({ name, executor: executor.name, effectors,
-    ...config.regions === undefined ? {} : { regions: config.regions }, ...aim === undefined ? {} : { aim } });
+  const effectors = strikeLimbs(parts, spec, config, executor), aim = aimFor(parts, config), part = parts.of("executor", executor);
+  const regions = config.regions?.filter((region) => part.strikesAt?.(spec, executor, region) ?? true);
+  const action: ActionConfig | null = effectors.length === 0 || regions?.length === 0 ? null : Object.freeze({ name, executor: executor.name, effectors,
+    ...regions === undefined ? {} : { regions }, ...aim === undefined ? {} : { aim } });
   byName.set(name, action);
   return action;
 }

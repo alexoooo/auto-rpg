@@ -1,7 +1,7 @@
 import type { Body, BodyView } from "../../control/body.ts";
 import type { Clock } from "../../core/world/clock.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Executor, TargetRef, TargetResolver } from "./action.ts";
+import type { Executor, Region, TargetRef, TargetResolver } from "./action.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import type { ActionConfig } from "../config.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
@@ -39,6 +39,8 @@ export interface ExecutorPart<C extends PartConfig = PartConfig> extends Part<C>
   readonly meets?: Mechanism;
   /** Whether it strikes with `effector` of `spec`, as it holds what it holds; with each of its `effectors` unless it says. A mind reads it to throw only the blows its body can (`limbsOf`). */
   strikesWith?(spec: BodySpec, config: C, effector: string): boolean;
+  /** Whether it strikes at `region` on a body of `spec`, as `config` names its variation; at every region unless it says. A mind aims it only where it strikes (`strikeAction`). */
+  strikesAt?(spec: BodySpec, config: C, region: Region): boolean;
   /** How many blows an action of it throws; one unless it says. */
   blows?(config: C): number;
   make(making: ExecutorMaking, config: C, actions: readonly ActionConfig[]): Executor;

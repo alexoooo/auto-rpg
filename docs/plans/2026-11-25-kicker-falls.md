@@ -93,18 +93,21 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   and trades 0.577, by throwing its trunk back and driving its folded leg into the foe, who steps
   back. The front kick is guarded in 12 of 28, its foot meeting the foe's low hands before its
   belly, and touches more than drives where it meets (`research/looks/man/kick-front/`).
-- **Offered closer, the front kick lands on the base and falls on the middle.** Its window 0.7 to
-  0.9 m ahead (from 0.8 to 1.0), 14 trials a rung: on the base, landed 7 (one 0.77 of a life),
-  guarded 5, down after none; on the middle, landed 0, down after 5 (from 1). Its neighbours on the
-  base, 0.6 to 0.85 and 0.75 to 0.95, landed 5 and 6 and fell once each. The hips driven through
-  behind the foot (the centre held 0.1 and 0.2 m further ahead through the extension) landed 4 and
-  3, lighter, and fell 2 and 3: not kept.
-- **Next**: the front kick's mark declared with its variation (the base), the Option aiming at it,
-  so the closer window never throws it at the middle; then that window, by look. Reported before
-  any search.
-- **When the front kick is the one the Warrior holds**: its mark is declared with the variation,
-  as its ends are, and the Option aims at it, one source; so the drive's goal and what the Mind's
-  strike profile measures for it agree with where it lands (the reviewing session, 2026-11-25).
+- **The front kick strikes at the base only, from closer, and stands every time.** A variation
+  says the marks it strikes at (`ExecutorPart.strikesAt`, the kick's `marks`), and a strike's
+  action aims only at those of its Option's regions (`strikeAction`), so the front kick's
+  middle-then-base Option aims it at the base, and a drill or a look offers it no middle trial
+  (`offered`, `research/drill-trials.mjs`). Its window 0.7 to 0.9 m ahead (from 0.8 to 1.0): landed
+  7 of 14 (one 0.77 of a life, most 0.04 to 0.15), guarded 5, down after none, value 0.035; at the
+  old window it went down after 5 of 14 at the middle. Its neighbours, 0.6 to 0.85 and 0.75 to
+  0.95, landed 5 and 6 and fell once each; `aimAbove` 0.12 and 0.22 there landed 4 and 3. The hips
+  driven through behind the foot (the centre 0.1 and 0.2 m further ahead through the extension)
+  landed 4 and 3, lighter, and fell 2 and 3: not kept. The push kick on that rung: landed 11, down
+  after 2, value 0.577 (`research/looks/man/`).
+- **Next**: step 4 of [the procedure](../recipes/skill.md#the-procedure), the front kick's timings
+  and gains searched on its base rung (its verdict passes the gate); then, its value nearer the
+  push kick's, its own profiles and a match of the Warrior holding it against holding the push kick,
+  where its falls are the question.
 
 ## After it
 

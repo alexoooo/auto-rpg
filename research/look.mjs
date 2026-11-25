@@ -18,7 +18,7 @@ import "../tests/harness/preload-data.mjs";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cellOf, drillTrials, endsOf, playTrial, subjectOf, trialPool, withTuning } from "./drill-trials.mjs";
+import { cellOf, drillTrials, endsOf, offered, playTrial, subjectOf, trialPool, withTuning } from "./drill-trials.mjs";
 import { bodyShape, drawBodies, stripPng } from "./look-image.mjs";
 import { belowNormal, defaultLanes } from "../scripts/lanes.mjs";
 import { lookCode, lookDir } from "./look-gate.mjs";
@@ -80,7 +80,7 @@ async function main() {
   belowNormal();
   const tuningPath = flag("tuning", null), tuning = tuningPath ? JSON.parse(readFileSync(tuningPath, "utf8")) : null;
   const cell = cellOf({ body, skill: flag("cell", variation.split("/")[0]), loadout: flag("loadout", "empty,empty") });
-  const all = drillTrials(cell, "twin"), count = Math.min(all.length, Number(flag("trials", 32)));
+  const all = drillTrials(cell, "twin").filter((trial) => offered(trial, valueOf(trial, variation, tuning))), count = Math.min(all.length, Number(flag("trials", 32)));
   const trials = Array.from({ length: count }, (_, k) => all[Math.floor(k * all.length / count)]);
   const code = lookCode(variation, tuning), dir = lookDir(body, variation, code);
   mkdirSync(dir, { recursive: true });
