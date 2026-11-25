@@ -30,19 +30,27 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   (`research/runs/low/`).
 - **No catch spares these falls**: at the set-down's start the capture point is already past the
   standing heel by more than the longest catch reaches (the approaches' Travel).
-- **Untried**: the stance on the standing leg bracing for the jolt of the braked leg, so the
-  standing foot stays down through the brake.
+- **Untried before it**: the stance on the standing leg bracing for the jolt of the braked leg, so
+  the standing foot stays down through the brake. The whole-body solve already carries the drive's
+  pushes, so the stance braces as far as its strength lets it; a faster pose (0.05 s) stalls the
+  transfer, a slower one (0.3 s) fell in 21 of 32.
 
-## Steps
+## Where it stands
 
-1. **Where the standing foot leaves the ground**: in the game's Mind's kicks, the standing foot's
-   load, the centre against its sole and the brake's torque over the drive, for kicks that end
-   down and kicks that stay up; and the same on the drill's middle rung.
-2. **The standing leg braced for the brake**: the stance's ankle, knee and hip on the standing
-   side held firm through the drive's brake (by the stance's own stiffness or a counter-push timed
-   to the brake), read on the middle rung for falls and what lands, then in fights.
-3. **Into the game's Mind**: a match against the game's Mind, and its knockouts within 60 s on
-   the scorecard.
+- **Step 1, where the standing foot leaves the ground: read.** On the drill's middle rung every
+  push kick throws the pelvis back as the hip drives and puts the standing hip on its extension
+  stop, kicks that end down and kicks that stay up alike. Leaning forward in the drive cut the
+  drill's falls from 10 of 32 to 2, and changed nothing in fights: the drill's falls are not the
+  fights'. In fights 97 % of the game's Mind's kicks meet the foe, from 0.8 m centre to centre,
+  and the kicker was down after 77.6 % of those that drove, in the set-down, a third after a blow
+  (`research/runs/falls/`).
+- **Step 2, the set-down: landed.** The set-down's step back to where the foot stood is gone; the
+  stance's own standing catches the body, as in the recentre: down after 65.7 % of kicks, the
+  scorecard's knockouts within 60 s 38.9 % against 34.7 %, level in the match. A step aimed at the
+  capture point read flat; a re-chamber under the pose before the step fell more.
+- **Next**: the falls left, read by the same probe (`bout-kicks.mjs`), each kick's kicker
+  against whether the foe's blow came first, the trades the kick's findings name; then the low
+  kick's falls on the same set-down; then a match and the scorecard for each change.
 
 ## After it
 

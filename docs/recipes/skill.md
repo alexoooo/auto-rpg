@@ -292,9 +292,10 @@ input.
     the leg and lands on the mark more often (14 of 32 at 480 Hz), but falls in half its trials,
     in the set-down (`89f39640b`). *Shown.*
   - *Its set-down falls are the stance's catch failing*: the drive turns the pelvis about 40°, and
-    as the leg comes back the standing foot leaves the ground and the body runs backward. A
-    set-down timed by its way, one left to the stance's catch, and a re-chamber before it each
-    fell as often or more (`6a339ee8f`, `89f39640b`). *Shown.*
+    as the leg comes back the standing foot leaves the ground and the body runs backward. For that
+    kick a set-down timed by its way, one left to the stance's catch, and a re-chamber before it
+    each fell as often or more on the drill (`6a339ee8f`, `89f39640b`); for the push kick in
+    fights the stance's catch is the better set-down (below). *Shown.*
   - *A man's kick profile changes every Mind that prices a man*, since a foe is modelled by every
     strike measured on its body (`foeModel`); measured, they made the Mind with the kick win less
     (0.543), so they are kept out of the asset (`020532cf9`). *Shown.*
@@ -345,6 +346,21 @@ input.
     stomp and knocked out within 60 s in 22.6 % (15.7 to 31.5) of its mirror bouts against 34.8 %;
     the Warrior does not hold it. Searched again at a foe that fights back (48 of `sparring-laid`'s
     trials), the schedule read flat for twenty generations (`research/runs/low/`). *Shown.*
+  - *The drill's falls are not the fights', and the set-down is the stance's own catch*: the owner,
+    "reducing falls of the kicker should be the main priority now they basically work". On the
+    drill's middle rung every push kick throws the pelvis back as the hip drives (its forward
+    vector 0.56 high) and puts the standing hip on its extension stop; leaning the trunk forward
+    in the drive cut its falls from 10 of 32 to 2 (lean 0.45), but in fights it changed nothing:
+    3.94 downs a mirror bout against 3.88, and 0.477 against the game's Mind. In fights 97 % of
+    the game's Mind's kicks meet the foe, from 0.8 m centre to centre, and the kicker was down
+    after 77.6 % of those that drove (304 of 392); the falls come in the set-down, a third after a
+    blow. The set-down stepped the foot back to where it stood, wherever the body was going;
+    aimed at the capture point instead it read flat (308 of 400), and a re-chamber under the pose
+    before it fell in 24 and 32 of 32 drill trials. Left to the stance's own standing, which
+    steps to catch the body as the recentre does, the kicker was down after 65.7 % (286 of 435),
+    the Mind knocked out within 60 s in 38.9 % (32.6 to 45.5) of its mirror bouts at 3.64 downs a
+    bout against 34.7 % and 3.88, and scored 0.483 (0.434 to 0.531) against the Mind before it.
+    The set-down is that (`research/runs/falls/`). *Shown.*
 
 ### 4. A learned actor over it
 
