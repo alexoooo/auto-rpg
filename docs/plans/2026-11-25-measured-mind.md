@@ -39,6 +39,14 @@ vs the empty-handed warrior. there is no single type of measurement that holds u
 purely depends on what we're working on. we've had a lot of problems with wasting days upon days
 on pointless re-calculation -- i don't want to bring that back."
 
+**Best effort, going stale** (2026-11-25): "re the different measurements, it's impossible to
+have "correct" values because it's circular -- for example we can measure the skill profiles,
+play with the new profiles, and that will change the fights -- so we'd need to keep going until
+we reach some kind of fixed point (and that might not even be possible with rock-paper-scissors
+like dynamcics). so really it's fundamentally a best effort, what i want is for existing
+measurements to go gradually stale as new measurements are made, and from time to time we can
+refresh them."
+
 **Done meaning done** (2026-11-25): "we've had a repeated pattern: I ask for a general and
 scalable implementation, the agent tells me it's done, and later i learn that what was done is an
 ad-hoc hard-coded hack that doesn't scale." Of the numbers step built for a body's stature alone,
@@ -48,10 +56,12 @@ at it (2026-11-25, [the kick's plan](2026-11-25-kicker-falls.md)): "i don't want
 multiple days again, how do we change teh skill development process to force you to follow the
 instructions?"
 
-So three things at once. Every number the Option Mind predicts with comes from fights the game's
+So four things at once. Every number the Option Mind predicts with comes from fights the game's
 bodies have played, read by a few mechanisms that are the same for every body. What the game
-needs measured grows with the bodies, items and skills added, never with their pairings. And
-work on one body never waits on another, and never measures another again.
+needs measured grows with the bodies, items and skills added, never with their pairings. Work on
+one body never waits on another, and never measures another again. And no measurement is taken
+for correct: each is of the game as it was when it was made, grows stale as the game moves on,
+and is made again when someone chooses to, never because something else was.
 
 ## The rules every mechanism keeps
 
@@ -76,15 +86,17 @@ above happened.
    it has any, holding what it holds, against the foe nearest the one it faces. Measuring is
    adding: rows to a profile, or one more fit beside those already there. So adding rows moves
    only what was borrowed there. A body with its own rows, against a foe it had measured, reads
-   as it did. A reading that pools every row does not keep this (the written form does so today,
+   as it did when another body's rows are added. (Its own rows made again do move it: rule 4.) A reading that pools every row does not keep this (the written form does so today,
    below). A reading borrowed from the nearest body is coarse (the approaches: three measured
    bodies do not price a fourth as its own trials do). It is there so a new body fights on the
    day it is added, not so it fights well.
    *Held by* the measuring command: it reads every body and foe that had their own rows before
    it adds and after, and writes nothing if one moved. It plays nothing to do so.
 3. **Every reading says where it came from**, of the body and of the foe: its own, borrowed
-   (from which, and how far off in the numbers), stale (what has changed since it was measured),
-   or by hand. The game plays on borrowed and stale readings. Nothing waits on a measurement.
+   (from which, and how far off in the numbers), or by hand; and how stale it is, which is what
+   has changed since it was measured: the body, the skill, the Minds that fought, and what they
+   in turn read. Stale is a degree, not a fault. The game plays on borrowed and stale readings.
+   Nothing waits on a measurement.
    Today a strike profile says when it was measured at other settings (`staleness`) and when it
    is read for another body (`ProfileReading.scaled`), and keeps digests of the body and skill
    it was measured on (`from`) that nothing compares; the fitted value keeps one line of where
@@ -92,11 +104,15 @@ above happened.
    *Held by* a reading's type: none is built without its source. Every number set by hand is in
    one registry and read through it alone, so the inventory lists them from the code that reads
    them, never from a search of the source.
-4. **Nothing is measured again unless it is asked for.** A measuring command is given what is in
-   hand (a body, a skill, a foe) and measures that alone. No command looks for what is stale and
-   refits it. A change to the Mind makes the fitted value and the action prior stale, since both
-   are fitted to how the Mind played; they stay in use, marked stale, until a reading on the
-   body in hand says a refit is worth its cost.
+4. **Nothing is measured again unless it is asked for, and nothing is chased to a fixed point.**
+   A measuring command is given what is in hand (a body, a skill, a foe) and measures that
+   alone. A new measurement changes the fights, so it makes staler everything measured in the
+   fights before it. That is written on those measurements and nothing more: none is made again
+   because another was. A change to the Mind makes the fitted value and the action prior staler
+   the same way, since both are fitted to how the Mind played. From time to time a measurement
+   is refreshed, by choice, the inventory listing the stalest. Where rows of the same thing are
+   made again, the old ones are kept and count for less as newer ones arrive (the agent's
+   reading of "go gradually stale"; the owner's to correct).
    *Held by* the measuring command: it has no way to run on everything, refuses to start without
    what is in hand, and says its price from its first chunk before it plays the rest.
 5. **A step is read on what it is about, and reported so.** Each step names the bodies it is read
@@ -118,7 +134,9 @@ set by hand, and the lookups the Mind itself uses.
 
 It is used as the fingerprint is: written before a change (`--json`), compared after
 (`--compare`), each row that changed named. Its check fails where a body reads by hand, by a
-name or by a pairing something that is not on its list of those known today.
+name or by a pairing something that is not on its list of those known today. It never fails on
+staleness: it says how stale each reading is and can list the stalest first, which is what a
+refresh is chosen from.
 
 This is what catches a mechanism called general that was built for one body. On the general
 Mind every body's rows must say "its own" or "borrowed"; one that says "by hand" or "none" is
@@ -145,8 +163,9 @@ for every body.
 
 1. **The fight record.** Every bout and drill played for the work in hand writes rows in one
    format: the state, the Option chosen, and what followed (the life dealt and taken, falls, the
-   posture each body ended in, where the foe went), both bodies as numbers on each row. Each fit
-   and each profile is read from rows. Nothing is played to fill the record: it holds what the
+   posture each body ended in, where the foe went), both bodies as numbers on each row, and
+   what the game was when it was played (the bodies, the skills, the Minds). Each fit and each
+   profile is read from rows. Nothing is played to fill the record: it holds what the
    work in hand played, so a pairing reads better the more it has been worked on. It grows from
    what exists: `research/minds/fitted-value.mjs collect` (decision states),
    `research/skills/strikes/strike-bouts.mjs --save` (a bout's decisions, each with its offers,
@@ -326,6 +345,9 @@ The agent's bar, from the owner's words above; the owner's to change.
 9. **A step's report** is the procedure's step 5. A step is called done only with it, and only
    of the bodies it was read on.
 
+No bar asks that a measurement be fresh or correct. A mechanism is done when it reads what was
+measured by the rules; how stale that is, is the inventory's to say and the owner's to refresh.
+
 The plan is deleted when each of 1 to 8 is met or struck by the owner by name. What was found
 moves into the approaches; the rules and the procedure move into a recipe, so they bind the work
 after this plan is gone.
@@ -357,7 +379,8 @@ where it is needed least.
   reading is where scale will be. The body with the most Options the game offers is armed, and
   is read on the owner's word (parked, below).
 - **Two targets.** Fitted to where the search's runs went (the search taught by itself, refitted on
-  the guided search's runs for two or three rounds), and fitted to what bodies did in the record.
+  the guided search's runs for two or three rounds, and no further: rule 4), and fitted to what
+  bodies did in the record.
 - **The bound.** Exploration 0.5 to 8; an untried Option valued at its prior's chance of its
   parent's worth, at the floor, or at the mean; the prior at the root as well as below it.
 - **Its other uses, each read on its own**: the foe predicted by it (step 7), a wide body's Options
@@ -373,9 +396,9 @@ Each names its scope and follows the procedure. A step measures nothing outside 
 
 1. **The inventory, and what holds rules 1 and 3.** The registry of numbers set by hand, each
    read through it; a reading's source in its type, of the body and of the foe; each asset
-   naming what it was measured from (the body, the skill, the Mind that played), compared when
-   the inventory runs; the script, its check, and its first listing for the five bodies. It
-   plays nothing. The baselines are those in the procedure's step 4, read before this plan.
+   naming what it was measured from (the body, the skill, the Minds that played and what they
+   read), compared when the inventory runs, so how stale it is costs nothing to know; the
+   script, its check, and its first listing for the five bodies. It plays nothing. The baselines are those in the procedure's step 4, read before this plan.
 2. **The fight record and the measuring command, which holds rules 2 and 4.** One row format
    that each fit and profile reads: the decision states `fitted-value.mjs` keeps, with every
    Option on offer and its model (as `move-prior.mjs` keeps them), the share of the search's

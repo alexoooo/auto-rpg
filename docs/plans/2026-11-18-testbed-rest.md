@@ -197,6 +197,8 @@ Carried so they are not lost; none is a bar here.
 - **What the chosen moments hold that a start does not**: the foe's action and its progress, the
   seconds since the body's own last action ended and since it last decided.
 - **A value read from bouts is the Minds' that fought them.** How a table is kept true as the Mind
-  that reads it changes what it does is not answered.
+  that reads it changes what it does: it is not, by the owner's word (2026-11-25, in
+  [the measured Mind plan](2026-11-25-measured-mind.md)'s goal). A measurement is a best effort
+  that goes stale as others are made, and is refreshed from time to time.
 - **Whether a long price is made of short ones**: the next 0.2 s by the foe's state, and the
   chance the foe begins a strike.
