@@ -1,7 +1,7 @@
 import { skillName, type Varied } from "../../skills/framework/variations.ts";
 import type { Service } from "../../skills/framework/intent.ts";
 import type { PartConfig } from "../../parts/parts.ts";
-import type { Option } from "./option.ts";
+import type { Option } from "./contract/option.ts";
 
 /**
  * **`option` by the skill of `service` that `config` names**: each step asks that skill of its

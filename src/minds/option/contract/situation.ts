@@ -1,0 +1,179 @@
+import type { GroundReading, Position } from "../../../control/ground-reading.ts";
+import type { MotorUnmet } from "../../../control/motor.ts";
+import type { StancePhase } from "../../../control/stance/goal.ts";
+import type { BodySense } from "../../../core/bodies/senses.ts";
+import type { BearingEnd, BodySpec } from "../../../core/bodies/spec/body.ts";
+import type { Cover } from "../../../skills/framework/intent.ts";
+import type { Spot } from "../../../skills/framework/menu.ts";
+import type { Profile, Stances } from "../../../skills/framework/profile/profile.ts";
+import type { ProfileReading } from "../../../skills/framework/profile/reading.ts";
+import type { LegsUnmet } from "../../../skills/framework/skill.ts";
+import type { FoePhase } from "../../../skills/perception/threat.ts";
+import type { Sight } from "../../decider.ts";
+import type { Orders } from "../../orders.ts";
+import type { PressureTable } from "../pressure.ts";
+import type { Ground } from "./terms.ts";
+
+/**
+ * **What a decision reads**, once a control step: the body and its skills as the last step left
+ * them, and each percept (`Percepts`) and prediction (`Predictions`), read the first time it is
+ * asked and kept for the step. Which cued percepts were asked for is counted for its chooser
+ * (`cues`).
+ */
+export interface Situation extends Percepts {
+  readonly sight: Sight;
+  readonly time: number;
+  readonly predictions: Predictions;
+  /** At a state an Option leaves the body in (`placed`), the seconds before the focus's pressure reaches it there (`graceAt`); absent at the state now. */
+  readonly grace?: number;
+  /** What its chooser watches: the cued percepts asked for of any situation its reader made (`Cues`). */
+  readonly cues: Cues;
+}
+
+/** The stance's feet the ground bears (`StanceEnd.touching`), by name, in the stance's order. */
+export type Bearing = readonly BearingEnd[];
+
+/**
+ * **Every percept an Option Mind reads**, by name: what it reads of the senses and its own body
+ * with fixed geometry and kinematics, the same whatever a drill or the rules give. Those with a
+ * cue (the body going down or getting up, another posture, orders asking for something else,
+ * another focus, a blow coming) make a chooser decide at once when the cue changes (`Cues`).
+ */
+export interface Percepts {
+  /** Whether the body is down, by its spec's rule. */
+  readonly down: boolean;
+  /** How the body lies (what bears it, as the ground reading's label settles): standing on its feet. */
+  readonly posture: Position;
+  /** Whether its rise runs, as its reader keeps it (`riseMemory`). */
+  readonly rising: boolean;
+  /** The ground as its rise reads it; null where no rise runs. */
+  readonly ground: GroundReading | null;
+  /** The seconds the body has been braced tumbling in its rise. */
+  readonly tumbled: number;
+  /** The seconds its regain has held it in its try. */
+  readonly regained: number;
+  /** Where on the ground it stands and the way it faces: its stance's centre and its heading. */
+  readonly where: Spot;
+  /** What its reader keeps of the stretches it has spent within each foe's reach (`ReachMemory`). */
+  readonly reached: ReachMemory;
+  /** Its orders; null with none. */
+  readonly orders: Orders | null;
+  /** The foe it fights; null with none. */
+  readonly focus: BodySense | null;
+  /** How far off the focus is, centre to centre across the ground, m; Infinity with none. */
+  readonly apart: number;
+  /** The cover a foe's blow predicted to reach the head asks for; null with none. */
+  readonly incoming: Cover | null;
+  /** A foe's weapon near enough to ward off, at the hand that holds it; null with none. */
+  readonly ward: Cover | null;
+  /** How far off the focus is, head to head, m; Infinity with none. */
+  readonly range: number;
+  /** Its bearing around the focus, rad from the focus's forward (its `marks.base`'s +z), positive to its right; 0 with none. */
+  readonly around: number;
+  /** How late the senses show the focus, s; null with no focus, or one sensed without its time. */
+  readonly reaction: number | null;
+  /** Its own life less the focus's; 0 with none. */
+  readonly lead: number;
+  /** How late in the bout it is: the share of the clock's time from its start to its verdict that has passed; 0 where no clock ends the bout. */
+  readonly lateness: number;
+  /** Where the stance is in a step. */
+  readonly stride: StancePhase;
+  /** Which feet the ground bears (`Bearing`). */
+  readonly bearing: Bearing;
+  /** The centre of mass's velocity over the ground, m/s. */
+  readonly velocity: Ground;
+  /** What the legs did not carry out (`LegsReport.unmet`). */
+  readonly legsUnmet: LegsUnmet;
+  /** What the motor did not carry out (`BodyView.unmet`). */
+  readonly motorUnmet: MotorUnmet;
+  /** What the focus is doing (`FoePhase`). */
+  readonly phase: FoePhase;
+  /** The focus's posture as sensed; standing with no focus. */
+  readonly foePosture: Position;
+  /** How the body and the focus stand toward each other, each in its carriage (`Stances`); neither read with no focus. */
+  readonly stances: Stances;
+  /** The time to contact of the blow the focus strikes with, s; Infinity with none. */
+  readonly contact: number;
+}
+
+/**
+ * **Every prediction an Option Mind reads**, by name: what data a drill, a training run or the
+ * rules make says of the situation, stale with that data; read when an Option or the objective
+ * asks for it, once a step at most.
+ */
+export interface Predictions {
+  /** The own life the blow coming is expected to take; 0 with none, or where the focus's pressure holds it already. */
+  readonly danger: number;
+  /** What the focus's fighting is expected to deal the body (`Pressure`). */
+  readonly pressure: Pressure;
+  /** What the body's own strikes are expected to deal the focus (`Pressure`). */
+  readonly pressing: Pressure;
+  /** What a second down in each posture is expected to cost the body, own life. */
+  readonly downRate: (posture: Position) => number;
+  /** How fast the focus turns to face, rad/s; Infinity with none. */
+  readonly turns: number;
+  /** The focus's life a blow of a limb of the body's takes at a segment of the focus's, by the rules; 0 with no focus. */
+  readonly blows: (limb: string, segment: string) => number;
+}
+
+/**
+ * **What a chooser watches of a body's situations** (`Situation.cues`): the cued percepts asked
+ * for since it last cleared them, of any situation its reader made, and the event those cues make.
+ */
+export interface Cues {
+  /** **What changes the situation enough to decide at once**: the cue of each of the percepts `watched` names at `now`, as one text a chooser compares with the last; reading them is not asking. */
+  event(now: Situation, watched: readonly string[]): string;
+  /** Count the cued percepts asked for afresh. */
+  clear(): void;
+  /** The cued percepts asked for since `clear`, by name, in their order. */
+  asked(): string[];
+}
+
+/**
+ * **What one body's strikes are expected to deal another**: the strikes it is modelled by
+ * (`model`, each read through its profile at how the two stand, `ProfileReading`), read at the
+ * struck body's phase (`phase`) and in its life (`struck`), the most of them a second at any range
+ * (`peak`, the struck body's life), and how it is priced (`priced`, a sentence). Its latency
+ * (`latency`), s: how long a blow not yet begun takes to reach the struck body once it is within
+ * reach. The focus's on this body (`Predictions.pressure`), and this body's on the focus
+ * (`Predictions.pressing`); none with no focus.
+ */
+export interface Pressure {
+  readonly model: readonly ProfileReading[];
+  readonly phase: string;
+  readonly struck: BodySpec | null;
+  readonly peak: number;
+  readonly latency: number;
+  readonly priced: string;
+  /** How the striker and the struck body stand toward each other (`Stances`), at which its model is read; absent, read as alike any. */
+  readonly stance?: Stances;
+  /** The rate at an exact start, where a search keeps query scratch (`cachedPressure`). */
+  readonly rateAt?: (range: number, velocity: readonly [number, number]) => number;
+  /** What bouts measured the focus's fighting took from the body (`PressureTable`), read where it reads (`pressureCurve`), the focus in `doing` as now. */
+  readonly measured?: { readonly table: PressureTable; readonly doing: string };
+}
+
+/**
+ * **What a body's reader keeps of the focus's reach** (`reachMemory`): for each foe, the seconds a
+ * blow it has not begun would still take to reach the body (its grace), and when that was counted.
+ */
+export interface ReachMemory {
+  /** Its memory: each foe's grace and the time it was counted at, by the foe's id. */
+  readonly state: Record<string, { grace: number; at: number }>;
+  /** The grace at `now`'s focus, counted to `now`. */
+  grace(now: Situation): number;
+}
+
+/**
+ * **A strike a body is modelled by**: its name, the limbs it is thrown with (effector segments,
+ * `hand.right`), and its profiles measured on that body as it is read, its senses' reaction time
+ * aside, one a body it was measured against (none where none is). It is read by the one against
+ * the body it strikes (`profileAgainst`); one whose profile is not fresh at the senses' reaction
+ * time is read by its limbs' prior, so a strike left unmeasured is priced by hand while the others
+ * are measured.
+ */
+export interface ModelledStrike {
+  readonly name: string;
+  readonly limbs: readonly string[];
+  readonly profiles: readonly Profile[];
+}

@@ -399,83 +399,36 @@ the commit message. The owner can read `contract/` after chunk 1 and the two cla
 chunk 2 whenever they choose; a change they ask for then is an edit to an interface with its
 implementations already behind it.
 
-## Chunk 1: the contract
+## Chunk 1: the contract (landed)
 
-**Purpose.** Everything the Mind is made of can be read in one folder of interfaces, in one
-direction, with no implementation in the way.
+`src/minds/option/contract/` holds the Mind's interfaces and nothing else, importing one way
+(`terms` <- `situation` <- `option` <- `objective`, `chooser`, `parts`):
 
-**Files made**, each holding types only (`interface`, `type`, `import type`):
+| File | Holds |
+| --- | --- |
+| `contract/terms.ts` | `Ground`, `Leaves`, `Outcome`, `Terms`, `Ask` |
+| `contract/situation.ts` | `Situation`, `Percepts`, `Predictions`, `Cues`, `Pressure`, `ReachMemory`, `Bearing`, `ModelledStrike` |
+| `contract/option.ts` | `Option` whole, `Status`, `Step`, `Asked`, `Site`, `Sites` |
+| `contract/objective.ts` | `Objective`, `Tally`, `Path`, `Obedience`, `ObedienceLevel` |
+| `contract/chooser.ts` | `Chooser`, `Chosen` |
+| `contract/parts.ts` | `OptionPart`, `OptionBody`, `NamedSkills`, `ChooserPart`, `ObjectivePart`, `PredictionsPart`, the four config registries and their `declare module` |
 
-| File | Holds | Moved from |
-| --- | --- | --- |
-| `contract/terms.ts` | `Ground`, `Leaves`, `Outcome`, `Terms`, `Ask` | `value.ts`, `option.ts` |
-| `contract/situation.ts` | `Situation`, `Percepts`, `Predictions`, `Cues`, `Pressure`, `ReachMemory`, `Bearing`, `ModelledStrike` | `option.ts`, `percepts.ts` |
-| `contract/option.ts` | `Option` whole, `Status`, `Step`, `Asked`, `Site`, `Sites` | `option.ts`, `src/minds/choice.ts` |
-| `contract/objective.ts` | `Objective`, `Tally`, `Path`, `Obedience`, `ObedienceLevel` | `objective.ts`, `value.ts` |
-| `contract/chooser.ts` | `Chooser`, `Chosen` | `chooser.ts`, `src/minds/choice.ts` |
-| `contract/parts.ts` | `OptionPart`, `OptionBody`, `ChooserPart`, `ObjectivePart`, `PredictionsPart`, the four config registries and their `declare module` | `parts.ts` |
+`src/minds/choice.ts` is `src/minds/option/select-set.ts`, over `Situation`, `Offer` and
+`Option`; `Offer` is written out in `src/minds/engagement.ts`. The functions the old files held
+stay in them (`option.ts`, `value.ts`, `percepts.ts`, `objective.ts`, `chooser.ts`) until
+chunk 4 moves them.
 
-Imports run one way: `terms` <- `situation` <- `option` <- `objective`, `chooser`, `parts`.
+**The rule for a type the contract names and does not hold**, which later chunks keep: a
+contract file imports types from below the Option Mind (`src/core`, `src/control`,
+`src/skills`, `src/minds/*.ts`) and from `contract/`. A type it needs from the rest of the
+folder is moved into `contract/`, written out as an interface where it is a `ReturnType`, when
+the file that holds it imports the contract; else it is imported as a type.
 
-**The rule for a type the contract names and does not hold.** A contract file imports types
-from below the Option Mind (`src/core`, `src/control`, `src/skills`, `src/minds/*.ts`) and from
-`contract/`. A type it needs from the rest of the folder is moved into `contract/`, written out
-as an interface where today it is a `ReturnType`, when the file that holds it imports the
-contract (a cycle for the reader); else it is imported as a type and listed here. Read on
-2026-11-25: `NamedSkills` (`skills.ts`), `Walker` (`walk.ts`), `OptionRecord` (`record.ts`) and
-`RiseMemory` (`rise-memory.ts`) are named by the contract and their files import it, so they
-move; `PressureTable` (`pressure.ts`, which imports nothing of the Option Mind) is imported
-until 3b narrows `Pressure`; `OptionEvaluation` (`model.ts`) is imported until 2b deletes it.
-
-**Steps.**
-
-1. **`choice.ts` moves in and loses its generics** (wrong, 6).
-   - `Option` is written out whole in `contract/option.ts`: the members it inherits today from
-     `Choice<Situation>` (`choice.ts:20` on: its name, kind, memory, claims, `rest`, targets,
-     `aim`, entry, status), each with its comment, then its own. `Status` moves beside it.
-   - `Chooser` and `Chosen` are written out in `contract/chooser.ts` as `Selection`'s and
-     `Chosen`'s members (`choice.ts:134`, `:144`) over `Situation` and `Option`.
-   - `Priced<OfferTerms>` is written out as `Offer` in `src/minds/engagement.ts`, where it is
-     already an alias of that name (`:21`) and which stays below the Option Mind: it is the
-     report every Mind publishes and Commanders read.
-   - The rest is the mechanism: `git mv src/minds/choice.ts src/minds/option/select-set.ts`
-     (`selection.ts` there is another thing, an Option by a named skill), holding `selectSet`, `onOffer`, `NOTHING`, `WHOLE` and `selectSet`'s own argument types
-     (`Selecting`, `Appraise`, `Deciding`, `Chance`, `Holding`, `Cue`), each over `Situation`,
-     `Offer` and `Option` where it had `S`, `T` and `C`. No line of `selectSet`'s body changes.
-   - `src/minds/index.ts` loses its re-export of `selectSet`, `Choice`, `Selection`, `Chosen`:
-     nothing imports it.
-2. **`Percepts` and `Predictions` are written out**, a field a line with its sentence, taken from
-   the comment above `PERCEPTS` and `PREDICTIONS`. The literals say they meet them, and one line
-   each says they hold nothing more, since `satisfies` on a frozen object checks one way only:
-
-   ```ts
-   const PERCEPTS = Object.freeze({ ... }) satisfies { readonly [K in keyof Percepts]: Percept<Percepts[K]> };
-   const EVERY_PERCEPT: keyof typeof PERCEPTS extends keyof Percepts ? true : never = true;
-   ```
-
-   `ReachMemory` is written out the same way, where today it is `ReturnType<typeof reachMemory>`.
-3. **`Situation.perceive`, `Situation.predict`, `ProfilePerceptPart`, `ProfilePredictionPart`,
-   the `parts` argument of `perceiver`, the memo of part readings and their exports from
-   `index.ts` are deleted** (wrong, 10). Nothing selectable goes: no part of either role is
-   registered. The comments that name a `uses` field (`option.ts:19`, `parts.ts:75`) are
-   corrected: no such field exists.
-4. **The functions leave the contract's old files without changing.** `placed`, `placing`,
-   `placedWith`, `along`, `exitOutcomes`, `standing`, `still`, `asking`, `READY`, `blocked` stay in
-   `option.ts`; `upOrDown`, `AS_IS`, `UNMOVED`, `STILL`, `CLINCH`, `clinched`, `blowLife`,
-   `limbReach`, `record`, `RETHINK`, `OBEDIENCE`, `STEADY`, `FIRST` stay in `value.ts`. Chunk 4
-   moves them. Each old file re-exports nothing: every importer is repointed to `contract/`.
-5. **`optionApplies`** (the one function in `parts.ts`) moves to `config.ts`, which reads it.
-6. **Every importer is repointed**, inside the folder and outside (`src/app/registration/*`,
-   `src/app/catalog.ts`, `src/app/option-controller.ts`, `src/entrants/*`, `src/evaluation/*`,
-   `research/*`, `tests/*`): `grep -rn "minds/option/\|minds/choice" src research scripts tests`
-   before and after, and `npm run check` finds what a grep misses in `src`.
-
-**Consequences.** `index.ts` publishes the contract's types from their new files.
-`scripts/source-boundary.mjs` needs no change: the rank is the folder's, by its longest prefix,
-and `engagement.ts` imports nothing from above it.
-
-**Done when** the checks pass, the fingerprint compares clean, and
-`grep -rnE "^(export )?(function|const|class|let) " src/minds/option/contract` prints nothing.
+**Left for the chunk that first names them in the contract:** `Walker` (`walk.ts`) and
+`OptionRecord` (`record.ts`) move in 2b, with `OptionContext`, which names them;
+`RiseMemory` (`rise-memory.ts`) moves only if a contract file comes to name it (none does:
+3a's `Seen` stays outside). `PressureTable` (`pressure.ts`) is imported until 3b narrows
+`Pressure`; `OptionEvaluation` (`model.ts`) until 2b deletes it.
 
 ## Chunk 2: the Option Mind is a `Mind`
 

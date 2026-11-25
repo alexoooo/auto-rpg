@@ -1,15 +1,16 @@
-import { GUARD_RESOURCE } from "../../skills/framework/action.ts";
-import type { Resource, TargetRef } from "../../skills/framework/action.ts";
+import { GUARD_RESOURCE, type Resource, type TargetRef, LEGS } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
 import { facedHands } from "../../core/bodies/items/held.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
-import { along, asking, blocked, READY, standing, type Ask, type Option, type Site, type Situation } from "./option.ts";
-import { LEGS } from "../../skills/framework/action.ts";
-import { NOTHING, WHOLE, type Status } from "../choice.ts";
+import { along, asking, blocked, READY, standing } from "./option.ts";
+import type { Ask, Terms } from "./contract/terms.ts";
+import type { Option, Site, Status } from "./contract/option.ts";
+import type { Situation } from "./contract/situation.ts";
+import { NOTHING, WHOLE } from "./select-set.ts";
 import { edgeOf, inReach, startOf, threatened } from "./percepts.ts";
-import { AS_IS, clinched, STILL, UNMOVED, upOrDown, type Terms } from "./value.ts";
+import { AS_IS, clinched, STILL, UNMOVED, upOrDown } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
 

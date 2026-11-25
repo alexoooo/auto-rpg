@@ -2,20 +2,24 @@ import { PROFILE_MODEL } from "./profile-contract.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { number, type PartField } from "../../parts/fields.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
-import type { ChooserPart } from "./parts.ts";
+import type { ChooserPart } from "./contract/parts.ts";
 import { anyBody, slotOne, type PartConfig, type Supplied } from "../../parts/parts.ts";
 import { whenEmpty } from "../../parts/tree.ts";
-import type { OfferTerms } from "../engagement.ts";
-import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding, type Holding, type Selection } from "../choice.ts";
-import { placed, placing, type Option, type Situation } from "./option.ts";
-import { FEW_TERMS_PART, type Objective, type Tally } from "./objective.ts";
-import { cachedPressure, graceAt, threatened, type Pressure } from "./percepts.ts";
+import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding, type Holding } from "./select-set.ts";
+import type { Chooser } from "./contract/chooser.ts";
+import { placed, placing } from "./option.ts";
+import type { Option } from "./contract/option.ts";
+import type { Situation, Pressure } from "./contract/situation.ts";
+import { FEW_TERMS_PART } from "./objective.ts";
+import type { Objective, Tally, Obedience, ObedienceLevel } from "./contract/objective.ts";
+import { cachedPressure, graceAt, threatened } from "./percepts.ts";
 import { bodyOf, featuresOf, fittedOn, fittedOver, offeredOf, readingAt, validFitted, type Offered } from "./fitted-value.ts";
 import { dataOf, type DataKey } from "../../core/data/store.ts";
 import { exp, hypot, log } from "../../core/math/real.ts";
 import { ARRIVED } from "../../skills/framework/movement.ts";
 import { randomStream } from "../../core/math/random.ts";
-import { OBEDIENCE, RETHINK, STEADY, type Leaves, type Obedience, type ObedienceLevel, type Terms } from "./value.ts";
+import { OBEDIENCE, RETHINK, STEADY } from "./value.ts";
+import type { Leaves, Terms } from "./contract/terms.ts";
 
 
 /**
@@ -32,7 +36,7 @@ const KEEP = 1;
 const HELD_FOE = Object.freeze({ moved: .3, rethink: .6 });
 
 /** The valued chooser's hold of each other foe's situation (`HELD_FOE`), by the foe. */
-const FOE_HOLDING: Holding<Situation> = Object.freeze({
+const FOE_HOLDING: Holding = Object.freeze({
   rethink: HELD_FOE.rethink,
   key: (other: Situation) => other.focus?.id ?? "",
   drift: (other: Situation) => {
@@ -42,17 +46,10 @@ const FOE_HOLDING: Holding<Situation> = Object.freeze({
 });
 
 /**
- * **A chooser**: of a body's options, the set it runs, whose claims (`Option.claims`) do not
- * overlap: the toolkit's set selection (`selectSet`) over options, priced in a body's terms
- * (`OfferTerms`), each decision's event the cues of the percepts its last decision read (`watching`).
- */
-export type Chooser = Selection<Situation, OfferTerms, Option>;
-
-/**
  * **What a chooser watches** (`Cue`): the cues of the cued percepts its last decision asked for
  * (`Cues`), counted afresh as each decision begins. Its memory is their names.
  */
-function watching(): Cue<Situation> & { readonly state: { watched: string[] } } {
+function watching(): Cue & { readonly state: { watched: string[] } } {
   const state = { watched: [] as string[] };
   return {
     state,
@@ -69,11 +66,11 @@ function watching(): Cue<Situation> & { readonly state: { watched: string[] } } 
  * it prices by, where that keeps one (`Objective.state`), and the chooser's `own`.
  */
 const chooser = ({ options, appraise, deciding, chance, objective, holding, own }: {
-  readonly options: readonly Option[]; readonly appraise: Appraise<Situation, OfferTerms, Option>; readonly deciding: Deciding; readonly chance: Chance;
-  readonly objective: Objective | null; readonly holding: Holding<Situation> | null; readonly own: Readonly<Record<string, object>>;
+  readonly options: readonly Option[]; readonly appraise: Appraise; readonly deciding: Deciding; readonly chance: Chance;
+  readonly objective: Objective | null; readonly holding: Holding | null; readonly own: Readonly<Record<string, object>>;
 }): Chooser => {
   const cue = watching();
-  return selectSet<Situation, OfferTerms, Option>({ choices: options, appraise, deciding, cue, chance,
+  return selectSet({ choices: options, appraise, deciding, cue, chance,
     memory: { cue: cue.state, ...(objective?.state ? { objective: objective.state } : {}), ...own }, holding });
 };
 
@@ -726,7 +723,7 @@ type AgainstName = keyof typeof AGAINST;
  * (`moves`), and what letting it go costs (`letGo`: the life it loses while it comes back beyond
  * what holding as long costs, `threatened`, none below nothing).
  */
-function searching(make: (now: Situation) => Lines): Appraise<Situation, OfferTerms, Option> {
+function searching(make: (now: Situation) => Lines): Appraise {
   const searches = new Map<Situation, Lines>();
   let time = NaN;
   return (option, _i, now, target) => {
@@ -908,7 +905,7 @@ interface RankedConfig { readonly kind: "ranked" }
 
 /**
  * **Ranked**, the drills' chooser: each option worth its place in its mind's options, the first the
- * most, at its first target. Firm orders are carried out first (`Choice.bound`); else the first
+ * most, at its first target. Firm orders are carried out first (`Option.bound`); else the first
  * option on offer runs, then the first of the rest whose claims are still free. Nothing is priced,
  * searched or drawn, so a drill drives its skills by a fixed order, fast and the same each time;
  * which option a fight should choose is the valued and tree choosers' question. Not offered.
@@ -921,7 +918,7 @@ export const RANKED_CHOOSER = deepFreeze<OptionChooserPart<RankedConfig>>({
       deciding: { rethink: RETHINK, keep: 0 }, chance: { margin: 0, seed }, objective: null, holding: null, own: {} }),
 });
 
-declare module "./parts.ts" {
+declare module "./contract/parts.ts" {
   interface ChooserConfigs {
     readonly valued: ValuedConfig;
     readonly tree: TreeConfig;

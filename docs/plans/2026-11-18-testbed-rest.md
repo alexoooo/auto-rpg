@@ -63,8 +63,8 @@ Built of the testbed, in [the approaches](../approaches.md#minds): the scorecard
 (`src/evaluation/match/cases.ts`), both the Warrior empty-handed against itself alone, and since
 then the rat against him (the tournament's `gaps`, `src/evaluation/tournament/cases.ts`); the
 contracts (`OutcomeModel`, `src/skills/framework/outcomes.ts`; `OthersModel`,
-`src/minds/option/percepts.ts`; the search's leaf, `src/minds/option/chooser.ts`; a chooser, `Selection`,
-`src/minds/choice.ts`). Their kinds:
+`src/minds/option/percepts.ts`; the search's leaf, `src/minds/option/chooser.ts`; a chooser, `Chooser`,
+`src/minds/option/contract/chooser.ts`). Their kinds:
 
 | Contract | Built | Named and not built |
 | --- | --- | --- |

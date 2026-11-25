@@ -1,51 +1,22 @@
-import { heldAt } from "../../core/bodies/spec/body.ts";
-import type { Spot } from "../../skills/framework/menu.ts";
-import type { FoePhase } from "../../skills/perception/threat.ts";
+import { heldAt, type BodySpec, segmentOf } from "../../core/bodies/spec/body.ts";
 import { impactEnergy } from "../../combat/impact.ts";
 import { lifeFactor } from "../../combat/pool.ts";
 import { sideDamage, type Rulebook } from "../../combat/rulebook.ts";
 import { secondShare } from "../../combat/share.ts";
 import { landed } from "../../skills/framework/action-instances.ts";
 import type { Ended } from "../../skills/framework/action.ts";
-import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/quantity.ts";
 import { distance } from "../../core/bodies/spec/vec.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { effectorAim } from "../../control/effectors.ts";
 import { deepFreeze } from "../../core/state.ts";
-import type { Situation } from "./option.ts";
-import type { StanceNumbers } from "../../skills/framework/profile/profile.ts";
+import type { Obedience, ObedienceLevel } from "./contract/objective.ts";
+import type { Situation } from "./contract/situation.ts";
+import type { Ground, Leaves, Outcome } from "./contract/terms.ts";
 import type { Position } from "../../control/ground-reading.ts";
-import { segmentOf } from "../../core/bodies/spec/body.ts";
 
 /** How often an Option Mind's chooser rethinks (`Deciding.rethink`), s. A foe's mind is taken for one like it (`Pressure.latency`). */
 export const RETHINK = .2;
-
-/**
- * **Where an Option leaves the body**: what of the situation it changes, each a percept by its name
- * (`PERCEPTS`): where on the ground the body stands and the way it faces (`where`), its bearing
- * around the focus where the focus has not turned to face it there (`around`; else as `where`
- * reads it), what bears it (`posture`; down unless standing) and its velocity over the ground,
- * m/s (`velocity`); and, where it reckons it, the seconds before the focus's pressure reaches the
- * body there (`grace`, `Situation.grace`); and how it stands there (`stance`, `StanceNumbers`),
- * where its Option knows. What it does not name is as it was, the foe included (`placed`).
- */
-export interface Leaves {
-  readonly where?: Spot;
-  readonly around?: number;
-  readonly posture?: Position;
-  readonly grace?: number;
-  readonly velocity?: Ground;
-  readonly stance?: StanceNumbers;
-  /** What the focus is doing as it leaves it (`FoePhase`), where its trials say; as at the decision where none do. */
-  readonly phase?: FoePhase;
-}
-
-/** **One way an Option ends**: where it leaves the body (`Leaves`), and the chance it ends so. */
-export interface Outcome {
-  readonly leaves: Leaves;
-  readonly chance: number;
-}
 
 /** Leaving the body as it is: nothing changed. */
 export const AS_IS: Leaves = Object.freeze({});
@@ -68,32 +39,6 @@ export function upOrDown(up: Leaves, down: number, posture: Position = FALLEN): 
   const fallen: Outcome = { leaves: { posture, velocity: STILL }, chance: Math.min(1, down) };
   return down >= 1 ? [fallen] : [{ leaves: up, chance: 1 - down }, fallen];
 }
-
-/**
- * **What running an Option from a state is expected to bring**, over its run, in life (a share of
- * a body's full life, the verdict's unit) where it is a payoff: how long it runs, s; the focus's
- * life its blows take; its own life the blows it takes take, the blow coming included; the metres
- * it walks as ordered; the ways it ends (`Outcome`), whose chances sum to one; and, where it runs
- * and may be let go now, before its point of no return, what letting it go leaves: the seconds
- * until its body could begin it again, and its own life lost meanwhile.
- */
-export interface Terms {
-  readonly duration: number;
-  readonly dealt: number;
-  readonly taken: number;
-  readonly orders: number;
-  readonly outcomes: readonly Outcome[];
-  readonly letGo?: { readonly seconds: number; readonly taken: number };
-}
-
-/**
- * **What carrying out the orders is worth**, life: a metre walked as ordered (`metre`), and how
- * much more than another's a foe's life is worth where the orders name it (`foe`, a share of it).
- */
-export interface Obedience { readonly metre: number; readonly foe: number }
-
-/** An obedience level's value (`OBEDIENCE`). */
-export type ObedienceLevel = "own" | "steady" | "orders";
 
 /**
  * **How far a person's orders are carried out through blows coming**, a player's choice and the
@@ -231,6 +176,3 @@ export const CLINCH = deepFreeze({ within: .65, falls: .2 });
 
 /** The chance of going down in `seconds` s of a clinch, if the body is in one `apart` m centre to centre from the focus (as it stands at `now` unless given). */
 export const clinched = (now: Situation, seconds: number, apart = now.apart): number => now.focus && apart < CLINCH.within ? Math.min(1, CLINCH.falls * seconds) : 0;
-
-/** A point on the ground, or a motion over it: x and z, m or m/s. */
-export interface Ground { readonly x: number; readonly z: number }

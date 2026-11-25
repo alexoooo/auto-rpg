@@ -5,19 +5,6 @@ import type { PartConfig } from "../../parts/parts.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { selectsVariation, skillName, type Varied } from "../../skills/framework/variations.ts";
 
-/**
- * **What an Option's config names of its body's skills** (`OptionPart.skills`), where the body
- * fits what it names: the executors it strikes by and what it asks of each (`ActionConfig`), the
- * ground technique it runs, the low support it strikes from and the navigation its walk goes by.
- */
-export interface NamedSkills {
-  readonly executors?: readonly ExecutorEntry[];
-  readonly actions?: readonly ActionConfig[];
-  readonly technique?: ConfigFor<"technique">;
-  readonly support?: ConfigFor<"support">;
-  readonly navigation?: ConfigFor<"navigation">;
-}
-
 /** **The skills a body builds of its Options** (`skillsOf`): its executors and their actions, its ground techniques, its low support and its navigation, each once. */
 export interface OptionSkills {
   readonly executors: readonly ExecutorEntry[];

@@ -6,10 +6,10 @@ import type { Profile } from "../../skills/framework/profile/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
 import { READINGS, threatReader } from "../../skills/perception/threat.ts";
-import type { Situation } from "./option.ts";
+import type { Situation, ModelledStrike } from "./contract/situation.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
-import { perceiver, reachMemory, type ModelledStrike, type OthersModel, type Seen } from "./percepts.ts";
+import { perceiver, reachMemory, type OthersModel, type Seen } from "./percepts.ts";
 import { optionRecord, type OptionRecord } from "./record.ts";
 import { riseMemory } from "./rise-memory.ts";
 
@@ -18,7 +18,7 @@ import { riseMemory } from "./rise-memory.ts";
  * (`BodyHost.rules`), its own strikes (`strikes`, each with its profiles, its options' `Option.modelled`) and every striker's
  * (`measured`, `dataOf("strike-profiles")`), its orders read
  * through `ordersOf`, its Options' record of their tries (`record`; absent, none), whose ending a try its rise memory
- * reads (`riseMemory`), and the lookup its percept and prediction parts are found by (`parts`).
+ * reads (`riseMemory`) with the ground techniques (`techniques`) found by the lookup (`parts`).
  */
 interface Reading {
   readonly spec: BodySpec;
@@ -69,7 +69,7 @@ type SeenAt = { -readonly [K in "sight" | "orders" | "focus"]: Seen[K] } & { ste
 export function situationReader(reading: Reading) {
   const { spec, hz, rate, delay, rules, strikes, measured, ordersOf } = reading, others = reading.others;
   const risen = riseMemory(reading.record ?? optionRecord(), reading.parts, reading.techniques), reach = reachMemory();
-  const threats = threatReader(), state = { focus: null as string | null, risen: risen.state, reach: reach.state }, perceiving = perceiver(reading.parts);
+  const threats = threatReader(), state = { focus: null as string | null, risen: risen.state, reach: reach.state }, perceiving = perceiver();
   /** What every `Seen` it makes holds of the reader: one prototype, its step's lazy inputs read through `SeenAt.step`. */
   const base = Object.defineProperties({ spec, hz, rate, delay, rules, strikes, measured, others, threats, risen, reach }, {
     blow: { get(this: SeenAt): Seen["blow"] {

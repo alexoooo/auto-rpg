@@ -1,6 +1,5 @@
 import type { Estimate } from "../skills/framework/estimate.ts";
 import type { Readiness, TargetRef } from "../skills/framework/action.ts";
-import type { Priced } from "./choice.ts";
 
 /**
  * What an offer was weighed from, as a readout shows it, each in life (a share of a body's full
@@ -17,8 +16,20 @@ export interface OfferTerms {
   readonly exit: { readonly range: number; readonly down: number };
 }
 
-/** **An option's worth at a decision** (`Engagement.offers`), weighed from a body's terms (`Priced`, `OfferTerms`). */
-type Offer = Priced<OfferTerms>;
+/**
+ * **An option's worth at a decision** (`Engagement.offers`): the terms it was weighed from
+ * (`OfferTerms`), how much it changes the position and what letting it go costs, running; no
+ * terms for a fixed worth, which costs nothing to let go.
+ */
+export interface Offer {
+  readonly name: string;
+  /** Its option's kind (a strike, a walk, a hold, …). */
+  readonly kind: string;
+  readonly worth: number;
+  readonly terms: OfferTerms | null;
+  readonly moves: number | null;
+  readonly letGo: number;
+}
 
 /**
  * **A candidate action a decider weighed** (`Engagement.candidates`): its key, the action, the limb
@@ -57,7 +68,7 @@ export interface EngagementDetail {
  */
 export interface Engagement {
   readonly phase: string;
-  /** What kind of course its phase is (a chooser's: the running choice's, `Choice.kind`), where it says. */
+  /** What kind of course its phase is (a chooser's: the running option's, `Offer.kind`), where it says. */
   readonly kind?: string;
   readonly focus?: string | null;
   /** What the focus is doing as the mind last read it (an Option Mind's `FoePhase`), where it reads so. */

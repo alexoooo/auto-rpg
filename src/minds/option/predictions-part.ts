@@ -1,7 +1,7 @@
 import { PROFILE_MODEL } from "./profile-contract.ts";
 import { profileModel } from "./profile-model.ts";
 import { dataOf } from "../../core/data/store.ts";
-import type { PredictionsPart } from "./parts.ts";
+import type { PredictionsPart } from "./contract/parts.ts";
 import { anyBody } from "../../parts/parts.ts";
 import { validProfiles, type Profile } from "../../skills/framework/profile/profile.ts";
 import { deepFreeze } from "../../core/state.ts";
@@ -67,7 +67,7 @@ export const PRIOR_PREDICTIONS = deepFreeze<PredictionsPart<{ readonly kind: "pr
   fits: anyBody, faults: () => [], make: () => profileModel({ strikes: [], outcomes: nearestTrials({ strikes: [], edges: [] }), others: RATE_OTHERS, walkStart: "speed" }),
 });
 
-declare module "./parts.ts" {
+declare module "./contract/parts.ts" {
   interface PredictionsConfigs {
     readonly measured: MeasuredConfig;
     readonly prior: { readonly kind: "prior" };

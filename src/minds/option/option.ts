@@ -1,119 +1,15 @@
 import type { Spot } from "../../skills/framework/menu.ts";
 import type { Exit } from "../../skills/framework/profile/profile.ts";
-import { hasResource } from "../../skills/framework/action.ts";
-import type { Readiness, Resource } from "../../skills/framework/action.ts";
+import { hasResource, type Readiness, type Resource } from "../../skills/framework/action.ts";
 import { SETTLED } from "../../skills/intent/action-window.ts";
-import type { SelectedAsk } from "../../skills/framework/intent.ts";
 import type { Sight } from "../decider.ts";
-import type { Choice } from "../choice.ts";
-import { bearingAround, graceAt, inReach, stancedPressure, type Cues, type ModelledStrike, type Percepts, type Predictions } from "./percepts.ts";
+import { bearingAround, graceAt, inReach, stancedPressure } from "./percepts.ts";
+import type { Asked } from "./contract/option.ts";
+import type { Predictions, Situation } from "./contract/situation.ts";
 import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
-import type { PartConfig } from "../../parts/parts.ts";
-import { upOrDown, type Leaves, type Outcome, type Terms } from "./value.ts";
-
-/**
- * **What a decision reads**, once a control step: the body and its skills as the last step left
- * them, and each percept (`PERCEPTS`) and prediction (`PREDICTIONS`), read the first time it is
- * asked and kept for the step; and, by its config, a percept or prediction part's reading, read as
- * it is asked: one an option kind or an objective names in its `uses`. Those parts have no cue,
- * and a predicted state (`placed`) leaves them as they are now. Which cued percepts were asked for
- * is counted for its chooser (`cues`).
- */
-export interface Situation extends Percepts {
-  readonly sight: Sight;
-  readonly time: number;
-  readonly predictions: Predictions;
-  /** At a state an Option leaves the body in (`placed`), the seconds before the focus's pressure reaches it there (`graceAt`); absent at the state now. */
-  readonly grace?: number;
-  /** What its chooser watches: the cued percepts asked for of any situation its reader made (`Cues`). */
-  readonly cues: Cues;
-  /** What the percept part `config` names reads now (`ProfilePerceptPart`). */
-  perceive<V>(config: PartConfig): V;
-  /** What the prediction part `config` names predicts now (`ProfilePredictionPart`). */
-  predict<V>(config: PartConfig): V;
-}
-
-/** What an option asks of the skills in a step, the hands' cover aside. */
-export type Asked = SelectedAsk["asked"];
-
-/** **An option's step**: what it asks, and what its asks hold (`SkillsActions.needs`, `asking`), by resource. */
-export interface Step {
-  readonly asked: Asked;
-  readonly holds: readonly Resource[];
-}
-
-/**
- * **What an Option is asked to price** besides the state: the target it runs at, by its place in
- * its `targets` (its first unless given), so a search prices each without aiming it (`Choice.aim`);
- * and the chooser's horizon in seconds. An Option that runs as long as it is held (`Option.open`)
- * is priced over that time (as an instant unless given); a finite walk uses it to bound sampling.
- */
-export interface Ask {
-  readonly target?: number;
-  readonly until?: number;
-}
-
-/**
- * **An option**: a skill applied to a target, chosen by its chooser (`Chooser`) in a set of options
- * whose resources do not overlap (a `Choice`: its entry, where it can begin, or, running, go on; the
- * resources it claims, `WHOLE` the whole body; whether it is a rest option, `hold`, `guard`,
- * `brace`; its targets, a gait's destinations; and its status), with its model (what running it
- * from a state is expected to bring: measured where a profile prices it, else built by hand) and its
- * step. Begun, it runs until it is over, out of its entry, or given up for a better one where it
- * yields. What it may say beside, where its kind has it to say, its mind reads of any option alike.
- */
-export interface Option extends Choice<Situation> {
-  /**
-   * **What running it from `at` is expected to bring** (`Terms`), at the state the body is in now
-   * or one an Option leaves it in (`placed`), asked as `ask` says; null where it is not on offer
-   * there. It reads the state's percepts, so it answers at a predicted state as it would there; at
-   * the state now its entry has the last word (`Choice.entry`).
-   */
-  model(at: Situation, ask: Ask): Terms | null;
-  /** It runs as long as it is held, never over of itself (hold, guard, brace, the cover): priced over the seconds it is asked (`Ask.until`), and nothing after it. */
-  readonly open?: true;
-  /**
-   * **Its sites** (`Site`): the spots it would begin from, if not where the body stands, each a
-   * target of every walk its mind has (`WALK_OPTION`), so the search reaches it there as well as
-   * where the body stands. Absent where it names none.
-   */
-  readonly sites?: readonly Site[];
-  /**
-   * How its model is priced now, a sentence: measured, where its profile prices it (and why
-   * scaled, `ProfileReading.scaled`); else by hand, and why: it was never measured, its profile is
-   * stale (`staleness`), or no trial reads where it stands. Absent where it reads no profile.
-   */
-  priced?(now: Situation): string;
-  /**
-   * What it is expected to take of the focus a second, within its reach, as a share of the
-   * focus's full life, begun afresh; 0 with no focus. Not at the range now: out of reach it reads
-   * what it would deal in reach. Absent where it deals nothing.
-   */
-  rate?(now: Situation): number;
-  /** The strike its body is modelled by (`ModelledStrike`, `Seen.strikes`), where it is one. */
-  readonly modelled?: ModelledStrike;
-  /** What it asks this step, and what that holds. */
-  step(now: Situation, dt: number): Step;
-}
-
-/**
- * **A site**: a spot an Option would begin from (`Option.sites`), by its name, unique among its
- * mind's sites; where it is at the state `at` (`Spot`), null where there is none there.
- */
-export interface Site {
-  readonly name: string;
-  spot(at: Situation): Spot | null;
-}
-
-/**
- * **The sites a mind's options name** (`Option.sites`), in their order, and their names: filled
- * once every option is made (`optionsOf`), so a walk made among them goes to each (`walkBy`).
- */
-export interface Sites {
-  readonly all: readonly Site[];
-  readonly names: readonly string[];
-}
+import { upOrDown } from "./value.ts";
+import type { Leaves, Outcome } from "./contract/terms.ts";
 
 /**
  * **Where the body stands `range` m head to head from the focus of `at`**: on the line from the

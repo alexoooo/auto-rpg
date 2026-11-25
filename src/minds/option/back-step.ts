@@ -3,11 +3,13 @@ import { type Expected } from "../../skills/framework/profile/reading.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
 import { gaitStance } from "../../skills/locomotion/move/gaits.ts";
 import { BACK_STEP_GAIT, BACK_STEP_SECONDS, SWAYS_FROM } from "../../skills/locomotion/back-step/index.ts";
-import type { Status } from "../choice.ts";
-import { blocked, exitOutcomes, READY, standing, type Option, type Situation } from "./option.ts";
+import type { Status, Option } from "./contract/option.ts";
+import { blocked, exitOutcomes, READY, standing } from "./option.ts";
+import type { Situation } from "./contract/situation.ts";
 import { LEGS } from "../../skills/framework/action.ts";
 import { startOf } from "./percepts.ts";
-import { STILL, type Outcome, type Terms } from "./value.ts";
+import { STILL } from "./value.ts";
+import type { Outcome, Terms } from "./contract/terms.ts";
 import type { FoePhase } from "../../skills/perception/threat.ts";
 import type { ProfileOptionContext } from "./profile-contract.ts";
 

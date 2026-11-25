@@ -4,6 +4,8 @@ import { stockGaits } from "../../skills/locomotion/move/gaits.ts";
 import type { Carriage } from "../../skills/locomotion/shared/locomotion.ts";
 import type { MindConfig } from "../catalog/config.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
+import type { PartConfig } from "../../parts/parts.ts";
+import type { OptionBody } from "./contract/parts.ts";
 import { FILLED, type Filled } from "../../skills/assembly/filled.ts";
 import { partOffered } from "../../parts/fields.ts";
 
@@ -69,6 +71,16 @@ export function optionsOf(mind: OptionMindConfig, parts: PartLookup): readonly C
 /** **The Options of `mind` that keep the body where it stands**: those whose kind among `parts` says so (`OptionPart.stands`). */
 export function standingOptions(mind: OptionMindConfig, parts: PartLookup): readonly ConfigFor<"option">[] {
   return optionsOf(mind, parts).filter((option) => parts.of("option", option).stands);
+}
+
+/**
+ * Construction and editors use the same static Option admission, independent of a fight's state: a
+ * config that stands for several (`OptionPart.each`) applies where one of them does.
+ */
+export function optionApplies(config: PartConfig, body: OptionBody): boolean {
+  const { spec, parts, options } = body, part = parts.of("option", config);
+  return (part.each?.(config, parts) ?? [config]).some((one) => part.fits(spec, one, parts) === null && part.skills?.(one, spec, parts, options) !== null
+    && (part.applicable?.(one, body) ?? true));
 }
 
 /** The chooser and predictions supplied where a config names none. */

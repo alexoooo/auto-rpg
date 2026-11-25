@@ -9,9 +9,12 @@ import { type Expected, type ProfileReading } from "../../skills/framework/profi
 import { type Asked as StartAsked, type Postures, type Measured } from "../../skills/framework/profile/profile.ts";
 import type { ActOutcomes } from "../../skills/framework/outcomes.ts";
 import type { ProfileOptionContext } from "./profile-contract.ts";
-import { asking, exitOutcomes, blocked, READY, standing, type Asked, type Option, type Site, type Situation } from "./option.ts";
+import { asking, exitOutcomes, blocked, READY, standing } from "./option.ts";
+import type { Asked, Option, Site } from "./contract/option.ts";
+import type { Situation } from "./contract/situation.ts";
 import { startOf, threatened } from "./percepts.ts";
-import { clinched, record, type Terms } from "./value.ts";
+import { clinched, record } from "./value.ts";
+import type { Terms } from "./contract/terms.ts";
 import type { Walker } from "./walk.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { claimsLegs } from "../../skills/framework/intent.ts";
@@ -82,7 +85,7 @@ interface Striking { readonly action: ActionConfig; readonly walk: Walker; reado
  * orders name on the focus, else the first of the action's regions the focus has; orders at the
  * focus that name a skill or a limb admit only its limbs of that skill (its executor, named by its
  * kind) and limb (`orderAllows`). Firm orders at the focus (`Orders.firm`, a drill's) are carried
- * out, never weighed (`Choice.bound`): it is asked for where a limb of it is ready as they name,
+ * out, never weighed (`Option.bound`): it is asked for where a limb of it is ready as they name,
  * and, its blow under way, while they allow that blow's limb at its region. A mind fighting by
  * itself has no firm orders, and weighs it.
  *
@@ -193,7 +196,7 @@ export function strike({ action, walk, throws, measure, name }: Striking): Strik
     claim(now, ready?.limb ?? placed?.limb);
     return ready?.readiness ?? UNREADY;
   };
-  /** Whether firm orders at the focus ask for it at `now` (`Choice.bound`). */
+  /** Whether firm orders at the focus ask for it at `now` (`Option.bound`). */
   const bound = (now: Situation): boolean => {
     const orders = now.orders, focus = now.focus;
     if (!orders?.firm || !focus || orders.foe !== focus.id) return false;

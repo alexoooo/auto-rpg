@@ -2,7 +2,8 @@ import type { GaitName } from "../../skills/framework/skill.ts";
 import type { ActionConfig, ExecutorConfigs, ExecutorEntry } from "../../skills/config.ts";
 import { isRegionMark, type Region } from "../../skills/framework/action.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
-import { optionApplies, type OptionPart } from "./parts.ts";
+import { optionApplies } from "./config.ts";
+import type { OptionPart, NamedSkills } from "./contract/parts.ts";
 import { choice, json, optionalChoice } from "../../parts/fields.ts";
 import { anyBody, slotOne, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
 import { gaitChoices } from "../../skills/locomotion/move/move-rule-part.ts";
@@ -12,11 +13,10 @@ import { recordingKey } from "../../core/world/recording.ts";
 import { covers } from "./cover.ts";
 import { backStepping } from "./back-step.ts";
 import { LIMB_ROLES, limbsOf, type LimbRole } from "./limbs.ts";
-import type { Option, Site } from "./option.ts";
+import type { Option, Site } from "./contract/option.ts";
 import { followOrders } from "./orders.ts";
 import { gaitsOf, goesBy, walkBy } from "./places.ts";
 import { PROFILE_MODEL, type ProfileOptionContext } from "./profile-contract.ts";
-import type { NamedSkills } from "./skills.ts";
 import { chosenVariation, type Varied } from "../../skills/framework/variations.ts";
 import { guardOf, hold, holdAt } from "./rest.ts";
 import { strike, strikeMeasure } from "./strike.ts";
@@ -369,7 +369,7 @@ export function optionsOf(of: (config: PartConfig) => ProfileOptionPart, configs
   return made;
 }
 
-declare module "./parts.ts" {
+declare module "./contract/parts.ts" {
   interface OptionConfigs {
     readonly orders: { readonly kind: "orders" };
     readonly "strike-straight-punch": StrikeConfig<"straight-punch">;

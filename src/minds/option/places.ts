@@ -9,12 +9,14 @@ import { PROFILE_SPANS } from "../../skills/framework/profile/nearest.ts";
 import { startVelocity } from "../../skills/framework/profile/numbers.ts";
 import { type StanceNumbers } from "../../skills/framework/profile/profile.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
-import { blocked, READY, standing, still, type Option, type Sites, type Situation } from "./option.ts";
+import { blocked, READY, standing, still } from "./option.ts";
+import type { Option, Sites, Status } from "./contract/option.ts";
+import type { Situation } from "./contract/situation.ts";
 import { LEGS } from "../../skills/framework/action.ts";
-import type { Status } from "../choice.ts";
 import { bearingAround, dealtAt, edgeOf, graceAt, stancedPressure } from "./percepts.ts";
 import { gaitStance } from "../../skills/locomotion/move/gaits.ts";
-import { CLINCH, clinched, STILL, upOrDown, type Terms } from "./value.ts";
+import { CLINCH, clinched, STILL, upOrDown } from "./value.ts";
+import type { Terms } from "./contract/terms.ts";
 import type { Walker } from "./walk.ts";
 
 /** A gait as Option Mind's legs go by it: its name, its label and its legs' config. */

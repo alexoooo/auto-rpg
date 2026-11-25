@@ -6,13 +6,16 @@ import { tumbling, type GroundReading, type Position } from "../../control/groun
 import { isWayUp, type TechniqueName, type TechniquePart } from "../../skills/recovery/shared/technique.ts";
 import { edgeExpected } from "../../skills/recovery/data/profiles.ts";
 import { anyBody, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
-import { WHOLE, type Status } from "../choice.ts";
+import { WHOLE } from "./select-set.ts";
+import type { Status, Option, Step } from "./contract/option.ts";
 import { brace } from "./rest.ts";
-import { asking, blocked, READY, type Option, type Situation, type Step } from "./option.ts";
+import { asking, blocked, READY } from "./option.ts";
+import type { Situation } from "./contract/situation.ts";
 import { onFeet, REGAIN_TRY } from "./rise-memory.ts";
 import { recorded, type Prior, type Tried } from "./record.ts";
-import { STILL, UNMOVED, type Outcome, type Terms } from "./value.ts";
-import type { NamedSkills } from "./skills.ts";
+import { STILL, UNMOVED } from "./value.ts";
+import type { Outcome, Terms } from "./contract/terms.ts";
+import type { NamedSkills } from "./contract/parts.ts";
 import { isProfileOption, type ProfileOptionPart } from "./kinds.ts";
 import { PROFILE_MODEL, type ProfileOptionContext } from "./profile-contract.ts";
 
@@ -371,7 +374,7 @@ export const declaredWaysUp = (parts: PartLookup, options: readonly PartConfig[]
 export const withWayUpFirst = (parts: PartLookup, options: readonly ConfigFor<"option">[], first: ConfigFor<"technique">): readonly ConfigFor<"option">[] =>
   withWaysUp(parts, options, [first, ...declaredWaysUp(parts, options).filter((technique) => technique.kind !== first.kind)]);
 
-declare module "./parts.ts" {
+declare module "./contract/parts.ts" {
   interface OptionConfigs {
     readonly "way-up": GroundConfig<"way-up">;
     readonly reposition: GroundConfig<"reposition">;

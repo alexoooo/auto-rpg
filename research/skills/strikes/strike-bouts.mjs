@@ -178,14 +178,14 @@ if (isMainThread) {
             /** An offer's terms: how long, s, and the life it deals and takes; null with none. */
             const termsOf = (t) => t ? { duration: +t.duration.toFixed(3), dealt: +t.dealt.toFixed(5), taken: +t.taken.toFixed(5) } : null;
             const hold = offers.find((offer) => offer.name === "hold")?.terms;
-            /** The best worth of each kind of offer (`Choice.kind`). */
+            /** The best worth of each kind of offer (`Option.kind`). */
             const bestByKind = (all) => { const best = {}; for (const offer of all) best[offer.kind] = Math.max(best[offer.kind] ?? -Infinity, +offer.worth.toFixed(5)); return best; };
             decisions[side].push({
               t: +duel.clock.toFixed(4),
               /** How far apart the two bodies' centres are, m. */
               apart: +Math.hypot(a.x - b.x, a.z - b.z).toFixed(3),
               chosen: engagement.phase, terms: termsOf(terms),
-              /** What the search found the chosen offer worth (`Priced.worth`), and the best of each kind on offer. */
+              /** What the search found the chosen offer worth (`Offer.worth`), and the best of each kind on offer. */
               worth: chosen ? +chosen.worth.toFixed(5) : null, worths: bestByKind(offers),
               /** Its own life then, and the foe's. */
               life: +me.pool.bar().toFixed(5), foeLife: +foe.pool.bar().toFixed(5),

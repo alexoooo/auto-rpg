@@ -5,7 +5,7 @@ import { heldPace, steeredPace } from "../../control/stance/stance-envelope.ts";
 import { legSeconds } from "../../skills/locomotion/shared/travel.ts";
 import type { GroundPoint } from "../../skills/framework/movement.ts";
 import { keepOut } from "../../skills/locomotion/shared/navigation/clear-step.ts";
-import type { Situation } from "./option.ts";
+import type { Situation } from "./contract/situation.ts";
 import type { Intent } from "../../skills/framework/intent.ts";
 import { orderedFacing } from "../ordered.ts";
 

@@ -2,7 +2,7 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { OutcomeModel } from "../../skills/framework/outcomes.ts";
-import type { Sites } from "./option.ts";
+import type { Sites } from "./contract/option.ts";
 import type { Walker } from "./walk.ts";
 import type { OptionRecord } from "./record.ts";
 

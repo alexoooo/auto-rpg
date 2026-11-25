@@ -1,8 +1,8 @@
-import type { NamedSkills } from "./skills.ts";
-import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { OptionEvaluation } from "./model.ts";
-import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
-import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
+import type { BodySpec } from "../../../core/bodies/spec/body.ts";
+import type { ConfigFor, PartLookup } from "../../../parts/lookup.ts";
+import type { KeysOf, Part, PartConfig } from "../../../parts/parts.ts";
+import type { ActionConfig, ExecutorEntry } from "../../../skills/config.ts";
+import type { OptionEvaluation } from "../model.ts";
 
 /**
  * **A kind of chooser**: a part of role `chooser` that owns its config's keys and faults, and makes
@@ -28,6 +28,19 @@ export interface OptionBody {
   readonly options: readonly PartConfig[];
   /** The selected locomotion part, or null when the controller does not publish it. */
   readonly legs: PartConfig | null;
+}
+
+/**
+ * **What an Option's config names of its body's skills** (`OptionPart.skills`), where the body
+ * fits what it names: the executors it strikes by and what it asks of each (`ActionConfig`), the
+ * ground technique it runs, the low support it strikes from and the navigation its walk goes by.
+ */
+export interface NamedSkills {
+  readonly executors?: readonly ExecutorEntry[];
+  readonly actions?: readonly ActionConfig[];
+  readonly technique?: ConfigFor<"technique">;
+  readonly support?: ConfigFor<"support">;
+  readonly navigation?: ConfigFor<"navigation">;
 }
 
 /**
@@ -60,19 +73,9 @@ export interface OptionPart<C extends PartConfig = PartConfig, G = unknown, O = 
 }
 
 /**
- * Construction and editors use the same static Option admission, independent of a fight's state: a
- * config that stands for several (`OptionPart.each`) applies where one of them does.
- */
-export function optionApplies(config: PartConfig, body: OptionBody): boolean {
-  const { spec, parts, options } = body, part = parts.of("option", config);
-  return (part.each?.(config, parts) ?? [config]).some((one) => part.fits(spec, one, parts) === null && part.skills?.(one, spec, parts, options) !== null
-    && (part.applicable?.(one, body) ?? true));
-}
-
-/**
  * **A kind of objective**: a part of role `objective` that owns its config's keys and faults, and
  * makes what an option's model is worth to the body (`V`), read by the mind whose slot holds the part
- * as its own. The percepts and predictions it reads beyond the situation's own it names in `uses`.
+ * as its own.
  */
 export interface ObjectivePart<C extends PartConfig = PartConfig, V = unknown> extends Part<C> {
   readonly role: "objective";
@@ -104,7 +107,7 @@ export interface ObjectiveConfigs {}
 export interface PredictionsConfigs {}
 
 // The option framework's roles, added to the roles the part lookup knows (`RoleParts`), each with its configs (`RoleConfigs`).
-declare module "../../parts/lookup.ts" {
+declare module "../../../parts/lookup.ts" {
   interface RoleParts {
     readonly chooser: ChooserPart;
     readonly option: OptionPart;

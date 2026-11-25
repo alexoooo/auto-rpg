@@ -8,7 +8,7 @@ import { buildOptionMind, type OptionMind } from "./build.ts";
 import { isSettings, optionMindFaults, optionsOf, resolveConfig, type OptionAssembly, type OptionMindConfig } from "./config.ts";
 import { describeOptionMind } from "./description.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
-import type { OptionPart } from "./parts.ts";
+import type { OptionPart } from "./contract/parts.ts";
 import { skillsOf } from "./skills.ts";
 import { guardConfigs, initialGuardPosture } from "../../skills/assembly/guards.ts";
 

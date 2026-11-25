@@ -2,7 +2,9 @@ import { sameResource, LEG_RESOURCE, LEGS } from "../../skills/framework/action.
 import { NO_COVER } from "../../skills/framework/intent.ts";
 import { orderedIntent } from "../ordered.ts";
 import { legsReadiness } from "../../skills/locomotion/shared/locomotion.ts";
-import { asking, blocked, READY, standing, type Option, type Situation } from "./option.ts";
+import { asking, blocked, READY, standing } from "./option.ts";
+import type { Option } from "./contract/option.ts";
+import type { Situation } from "./contract/situation.ts";
 import { threatened } from "./percepts.ts";
 import { UNMOVED } from "./value.ts";
 import type { Walker } from "./walk.ts";

@@ -1,7 +1,7 @@
 import { deepFreeze } from "../../core/state.ts";
 import { hypot } from "../../core/math/real.ts";
-import type { Situation } from "./option.ts";
-import type { Terms } from "./value.ts";
+import type { Situation } from "./contract/situation.ts";
+import type { Terms } from "./contract/terms.ts";
 import { treesAt, validTrees, type Trees } from "./boosted-trees.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 

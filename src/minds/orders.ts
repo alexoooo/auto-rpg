@@ -39,7 +39,7 @@ export interface Orders {
   /**
    * Carry them out first: a mind that weighs orders against its own judgement puts them before it,
    * and a strike they name at a foe it begins as soon as the skill admits it, unweighed
-   * (`Choice.bound`). Absent, as the mind weighs them.
+   * (`Option.bound`). Absent, as the mind weighs them.
    */
   readonly firm?: true;
 }

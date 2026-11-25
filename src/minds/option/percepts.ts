@@ -1,14 +1,9 @@
-import type { StancePhase } from "../../control/stance/goal.ts";
 import type { StanceReading } from "../../control/stance/goal.ts";
-import type { Spot } from "../../skills/framework/menu.ts";
-import type { KeysOf, Part } from "../../parts/parts.ts";
-import type { MotorUnmet } from "../../control/motor.ts";
 import { turnAt } from "../../control/stance/stance-envelope.ts";
 import { stanceEnvelopeOf } from "../../skills/locomotion/shared/stance/envelope.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
-import type { LegsUnmet } from "../../skills/framework/skill.ts";
-import type { BearingEnd, BodySpec } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
@@ -20,16 +15,14 @@ import { readProfile, type ProfileReading } from "../../skills/framework/profile
 import { startVelocity } from "../../skills/framework/profile/numbers.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
-import { foePhase, sensedPosture, threatReader, type FoePhase } from "../../skills/perception/threat.ts";
+import { foePhase, sensedPosture, threatReader } from "../../skills/perception/threat.ts";
 import { stancesOf, turned } from "../../skills/perception/stance-numbers.ts";
 import { carriageOf } from "../../skills/locomotion/move/gaits.ts";
-import type { GroundReading, Position } from "../../control/ground-reading.ts";
+import type { Position } from "../../control/ground-reading.ts";
 import type { RiseMemory } from "./rise-memory.ts";
-import type { Situation } from "./option.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
-import type { PartConfig } from "../../parts/parts.ts";
+import type { Bearing, Cues, ModelledStrike, Percepts, Predictions, Pressure, ReachMemory, Situation } from "./contract/situation.ts";
 import { pressureCurve, pressureTable, type PressureTable } from "./pressure.ts";
-import { blowLife, limbReach, record, RETHINK, type Ground } from "./value.ts";
+import { blowLife, limbReach, record, RETHINK } from "./value.ts";
 
 /**
  * What every percept and prediction reads from, a step's: the body's sight and spec, the world's
@@ -68,25 +61,11 @@ export interface Seen {
 type Threats = ReturnType<typeof threatReader>;
 
 /**
- * **A strike a body is modelled by**: its name, the limbs it is thrown with (effector segments,
- * `hand.right`), and its profiles measured on that body as it is read, its senses' reaction time
- * aside, one a body it was measured against (none where none is). It is read by the one against
- * the body it strikes (`profileAgainst`); one whose profile is not fresh at the senses' reaction
- * time is read by its limbs' prior (`modelOf`), so a strike left unmeasured is priced by hand while
- * the others are measured.
- */
-export interface ModelledStrike {
-  readonly name: string;
-  readonly limbs: readonly string[];
-  readonly profiles: readonly Profile[];
-}
-
-/**
  * **A percept**: one named reading of what the body senses, read the first time a step asks for it
  * (`perceiver`). Its cue, where it has one, is what of it a chooser watches where its last decision
  * asked for it (`Cues`): a change in the cue is an event, on which the chooser decides at once.
  */
-export interface Percept<V> {
+interface Percept<V> {
   read(seen: Seen): V;
   cue?(value: V): unknown;
 }
@@ -101,9 +80,6 @@ const heads = ({ focus, sight }: Seen) => ({ mine: sight.view.head, theirs: focu
  * alike.
  */
 const LANDS = .3, RATE = 1;
-
-/** The stance's feet the ground bears (`StanceEnd.touching`), by name, in the stance's order. */
-type Bearing = readonly BearingEnd[];
 
 /** The feet of `ends` the ground bears. */
 const bearingOf = (ends: StanceReading["ends"]): Bearing => Object.keys(ends).filter((end) => ends[end]!.touching);
@@ -260,34 +236,6 @@ const ownModel = (seen: Seen, struck: BodySpec, postures: Postures): Model => mo
 /** This body's phase as a foe's strike meets it (`FoePhase`'s): striking while a blow of its own is under way, else clear. */
 const ownPhase = ({ sight }: Seen): string => sight.report.actions.length > 0 ? "striking" : "clear";
 
-/**
- * **What one body's strikes are expected to deal another**: the strikes it is modelled by
- * (`model`, each read through its profile at how the two stand, `ProfileReading`), read at the
- * struck body's phase (`phase`) and in its life (`struck`), the most of them a second at any range
- * (`peak`, the struck body's life), and how it is priced (`priced`, a sentence). Each limb its
- * model reads by hand (`Model.unmeasured`) is, between two standing bodies, its prior (`prior`):
- * within that limb's reach (`limbReach`), `RATE` blows a second, landing as this body's own do
- * (`record`), each that limb's blow (`blowLife`); a body lying, or struck lying, deals none by
- * hand. Its latency (`latency`), s: how long a blow not yet begun takes to reach the struck body
- * once it is within reach, the striker's mind taken for one like this (its rethink, `RETHINK`, and
- * its command's delay, `Seen.delay`) and its fastest blow's run (`ProfileReading.fastest`). The
- * focus's on this body (`pressure`), and this body's on the focus (`pressing`); none with no focus.
- */
-export interface Pressure {
-  readonly model: readonly ProfileReading[];
-  readonly phase: string;
-  readonly struck: BodySpec | null;
-  readonly peak: number;
-  readonly latency: number;
-  readonly priced: string;
-  /** How the striker and the struck body stand toward each other (`Stances`), at which its model is read; absent, read as alike any. */
-  readonly stance?: Stances;
-  /** The rate at an exact start, where a search keeps query scratch (`cachedPressure`). */
-  readonly rateAt?: (range: number, velocity: readonly [number, number]) => number;
-  /** What bouts measured the focus's fighting took from the body (`PressureTable`), read where it reads (`pressureCurve`), the focus in `doing` as now. */
-  readonly measured?: { readonly table: PressureTable; readonly doing: string };
-}
-
 /** No pressure: no focus. */
 const NO_PRESSURE: Pressure = deepFreeze({ model: [], phase: "clear", struck: null, peak: 0, latency: Infinity, priced: "no focus" });
 
@@ -300,7 +248,12 @@ type Placing = "reach" | "over" | null;
 
 /**
  * **The pressure** (`Pressure`) of strikes `model` by a body of `striker` on a body of `struck` in
- * `phase`: each measured, and the prior of each limb it reads by hand, placed by `placing`.
+ * `phase`: each measured, and the prior of each limb it reads by hand, placed by `placing`. Each
+ * limb its model reads by hand (`Model.unmeasured`) is, between two standing bodies, its prior
+ * (`prior`): within that limb's reach (`limbReach`), `RATE` blows a second, landing as this body's
+ * own do (`record`), each that limb's blow (`blowLife`); a body lying, or struck lying, deals none
+ * by hand. Its latency takes the striker's mind for one like this (its rethink, `RETHINK`, and its
+ * command's delay, `Seen.delay`) and adds its fastest blow's run (`ProfileReading.fastest`).
  */
 function pressureBy(seen: Seen, model: Model, phase: string, striker: BodySpec, struck: BodySpec, placing: Placing): Pressure {
   const lands = model.unmeasured.length === 0 || placing === null ? 0 : record(seen.sight.report.ledger, null).lands;
@@ -538,7 +491,7 @@ export const inReach = (now: Situation): boolean => within(now.range, edgeOf(now
  * latency (`Pressure.latency`), which a foe first seen gives whole. It is counted when a decision
  * reads it (`graceAt`), the body taken as within or out of reach since the last count as it is now.
  */
-export function reachMemory() {
+export function reachMemory(): ReachMemory {
   const state: Record<string, { grace: number; at: number }> = {};
   return {
     state,
@@ -557,9 +510,6 @@ export function reachMemory() {
     },
   };
 }
-
-/** **A body's reach memory** (`reachMemory`). */
-type ReachMemory = ReturnType<typeof reachMemory>;
 
 /**
  * **The seconds before the focus's pressure reaches the body at `now`**: what a state an Option
@@ -632,59 +582,35 @@ function carriedStances(spec: BodySpec, view: Sight["view"], other: BodySense): 
 /** How two bodies stand with no focus: neither read. */
 const NO_STANCES: Stances = Object.freeze({});
 
-/**
- * **Every percept Option Mind reads**, by name: what it reads of the senses
- * and its own body with fixed geometry and kinematics, the same whatever a drill or the rules give.
- * Whether the body is down, how it lies (`Position`, what bears it, as the ground reading's label
- * settles: standing on its feet); what its reader keeps
- * of its rise (`Seen.risen`): whether it runs, the ground as its rise reads it (`ground`, none where
- * no rise runs), the seconds the body has been braced tumbling in it (`tumbled`) and the seconds its
- * regain has held it in its try (`regained`); where
- * on the ground it stands and the way it faces (`where`: its stance's centre and its heading); what
- * its reader keeps of the stretches it has spent within each foe's reach (`reached`, `reachMemory`); its
- * orders; its focus; how far off the focus is, centre to centre
- * across the ground (Infinity with none), and head to head (`range`, Infinity with none); its
- * bearing around the focus, rad from the focus's forward (its `marks.base`'s +z), positive to its
- * right (0 with none); a foe's blow predicted to reach the head (`READINGS.predicted`); a foe's
- * weapon near enough to ward off (`Seen.ward`); how late the senses show the focus (`reactionOf`), s; the
- * lead (its own life less the focus's, 0 with none) and how late in the bout it is (`lateness`:
- * the share of the clock's time from its start to its verdict that has passed, `Senses.begins` to
- * `Senses.ends`; 0 where no clock ends the bout). The gait's: where the stance is in a step
- * (`StanceReading.phase`), which feet the ground bears (`Bearing`) and the centre of mass's velocity
- * over the ground, m/s (`velocity`). What the controllers did not carry out: the legs' (`LegsReport.unmet`) and
- * the motor's (`BodyView.unmet`). The focus's phase (`FoePhase`), its posture (`sensedPosture`;
- * standing with no focus), and the time to contact of the
- * blow it strikes with, s (Infinity with none). Its cues: going down or getting up, another posture,
- * orders asking for something else (`ordersAsked`), another focus, a threat or a blow coming.
- */
-const PERCEPTS = Object.freeze({
-  down: { read: (seen) => seen.sight.view.down, cue: (down) => down } as Percept<boolean>,
-  posture: { read: ({ sight }) => sight.view.ground?.position ?? (sight.view.down ? "between" : "standing"), cue: (posture) => posture } as Percept<Position>,
-  rising: { read: (seen) => seen.risen.state.rising } as Percept<boolean>,
-  ground: { read: ({ risen, sight }) => risen.state.rising ? sight.view.ground : null } as Percept<GroundReading | null>,
-  tumbled: { read: (seen) => seen.risen.state.tumbled } as Percept<number>,
-  regained: { read: (seen) => seen.risen.state.regained } as Percept<number>,
-  where: { read: ({ sight }) => ({ x: sight.view.stance.centre.x, z: sight.view.stance.centre.z, face: sight.report.legs.heading }) } as Percept<Spot>,
-  reached: { read: (seen) => seen.reach } as Percept<ReachMemory>,
-  orders: { read: (seen) => seen.orders, cue: ordersAsked } as Percept<Orders | null>,
-  focus: { read: (seen) => seen.focus, cue: (focus) => focus?.id ?? null } as Percept<BodySense | null>,
-  apart: { read: ({ focus, sight }) => focus ? hypot(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : Infinity } as Percept<number>,
-  incoming: { read: (seen) => seen.blow?.cover ?? null, cue: (incoming) => incoming !== null } as Percept<Cover | null>,
-  ward: { read: (seen) => seen.ward } as Percept<Cover | null>,
-  range: { read: (seen) => { const { mine, theirs } = heads(seen); return theirs ? hypot(theirs.x - mine.x, theirs.z - mine.z) : Infinity; } } as Percept<number>,
-  around: { read: ({ focus, sight }) => focus ? bearingAround(focus, sight.view.stance.centre.x, sight.view.stance.centre.z) : 0 } as Percept<number>,
-  reaction: { read: reactionOf } as Percept<number | null>,
-  lead: { read: ({ focus, sight }) => focus ? sight.view.senses.life - focus.life : 0 } as Percept<number>,
-  lateness: { read: ({ sight }) => { const { begins, ends, time } = sight.view.senses; return begins === undefined || ends === undefined || !(ends > begins) ? 0 : Math.min(1, Math.max(0, (time - begins) / (ends - begins))); } } as Percept<number>,
-  stride: { read: ({ sight }) => sight.view.stance.phase } as Percept<StancePhase>,
-  bearing: { read: ({ sight }) => bearingOf(sight.view.stance.ends) } as Percept<Bearing>,
-  velocity: { read: ({ sight }) => ({ x: sight.view.stance.velocity.x, z: sight.view.stance.velocity.z }) } as Percept<Ground>,
-  legsUnmet: { read: ({ sight }) => sight.report.legs.unmet } as Percept<LegsUnmet>,
-  motorUnmet: { read: ({ sight }) => sight.view.unmet } as Percept<MotorUnmet>,
-  phase: { read: ({ focus, blow }) => foePhase(focus, blow) } as Percept<FoePhase>,
-  foePosture: { read: ({ focus }) => focus ? sensedPosture(focus) : "standing" } as Percept<Position>,
-  stances: { read: ({ focus, spec, sight }) => focus ? carriedStances(spec, sight.view, focus) : NO_STANCES } as Percept<Stances>,
-  contact: { read: ({ focus, blow }) => focus && blow?.foe.id === focus.id ? blow.seconds : Infinity } as Percept<number>,
+/** **How each percept is read** (`Percepts`, which says what each is), by its name, in the order a situation keeps them; with its cue, where a chooser watches it (`Percept.cue`). */
+const PERCEPTS = Object.freeze<{ readonly [K in keyof Percepts]: Percept<Percepts[K]> }>({
+  down: { read: (seen) => seen.sight.view.down, cue: (down) => down },
+  posture: { read: ({ sight }) => sight.view.ground?.position ?? (sight.view.down ? "between" : "standing"), cue: (posture) => posture },
+  rising: { read: (seen) => seen.risen.state.rising },
+  ground: { read: ({ risen, sight }) => risen.state.rising ? sight.view.ground : null },
+  tumbled: { read: (seen) => seen.risen.state.tumbled },
+  regained: { read: (seen) => seen.risen.state.regained },
+  where: { read: ({ sight }) => ({ x: sight.view.stance.centre.x, z: sight.view.stance.centre.z, face: sight.report.legs.heading }) },
+  reached: { read: (seen) => seen.reach },
+  orders: { read: (seen) => seen.orders, cue: ordersAsked },
+  focus: { read: (seen) => seen.focus, cue: (focus) => focus?.id ?? null },
+  apart: { read: ({ focus, sight }) => focus ? hypot(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : Infinity },
+  incoming: { read: (seen) => seen.blow?.cover ?? null, cue: (incoming) => incoming !== null },
+  ward: { read: (seen) => seen.ward },
+  range: { read: (seen) => { const { mine, theirs } = heads(seen); return theirs ? hypot(theirs.x - mine.x, theirs.z - mine.z) : Infinity; } },
+  around: { read: ({ focus, sight }) => focus ? bearingAround(focus, sight.view.stance.centre.x, sight.view.stance.centre.z) : 0 },
+  reaction: { read: reactionOf },
+  lead: { read: ({ focus, sight }) => focus ? sight.view.senses.life - focus.life : 0 },
+  lateness: { read: ({ sight }) => { const { begins, ends, time } = sight.view.senses; return begins === undefined || ends === undefined || !(ends > begins) ? 0 : Math.min(1, Math.max(0, (time - begins) / (ends - begins))); } },
+  stride: { read: ({ sight }) => sight.view.stance.phase },
+  bearing: { read: ({ sight }) => bearingOf(sight.view.stance.ends) },
+  velocity: { read: ({ sight }) => ({ x: sight.view.stance.velocity.x, z: sight.view.stance.velocity.z }) },
+  legsUnmet: { read: ({ sight }) => sight.report.legs.unmet },
+  motorUnmet: { read: ({ sight }) => sight.view.unmet },
+  phase: { read: ({ focus, blow }) => foePhase(focus, blow) },
+  foePosture: { read: ({ focus }) => focus ? sensedPosture(focus) : "standing" },
+  stances: { read: ({ focus, spec, sight }) => focus ? carriedStances(spec, sight.view, focus) : NO_STANCES },
+  contact: { read: ({ focus, blow }) => focus && blow?.foe.id === focus.id ? blow.seconds : Infinity },
 });
 
 /**
@@ -692,55 +618,34 @@ const PERCEPTS = Object.freeze({
  * stale with that data; read when an option or the position value asks for it, once a step at most
  * (`perceiver`).
  */
-export interface Prediction<V> {
+interface Prediction<V> {
   read(seen: Seen): V;
 }
 
 /**
- * **Every prediction Option Mind reads**, by name: the own life the blow coming is expected to take
- * (`lifeOf`), 0 with none or where the foe's pressure holds it (`OthersModel.holdsBlow`); what the
- * focus is expected to deal the body (`Pressure`), and
- * what its own strikes are expected to deal the focus (`pressingOf`); what a second down in each
- * posture costs (`downRateAtOf`); how fast the focus turns to face (`turnOf`), rad/s, Infinity with none; and the
- * focus's life a blow of a limb at a segment of its takes by the rules (`blowLife`), 0 with no focus.
+ * **How each prediction is read** (`Predictions`, which says what each is), by its name: the blow
+ * coming by `lifeOf`, none where the foe's pressure holds it (`OthersModel.holdsBlow`); the
+ * focus's pressure by its model of the others (`OthersModel.pressure`) and the body's own by
+ * `pressingOf`; a second down by `downRateAtOf`; the focus's turn by `turnOf`; a blow by the
+ * rules (`blowLife`).
  */
-const PREDICTIONS = Object.freeze({
-  danger: { read: (seen) => seen.others.holdsBlow?.(seen) ? 0 : lifeOf(seen, seen.blow) } as Prediction<number>,
-  pressure: { read: (seen) => seen.others.pressure(seen) } as Prediction<Pressure>,
-  pressing: { read: pressingOf } as Prediction<Pressure>,
-  downRate: { read: downRateAtOf } as Prediction<(posture: Position) => number>,
-  turns: { read: ({ focus }) => focus ? turnOf(focus.spec) : Infinity } as Prediction<number>,
-  blows: { read: ({ focus, spec, rules }) => (limb: string, segment: string): number => focus ? blowLife(rules, spec, limb, focus.spec, undefined, segment) : 0 } as Prediction<(limb: string, segment: string) => number>,
+const PREDICTIONS = Object.freeze<{ readonly [K in keyof Predictions]: Prediction<Predictions[K]> }>({
+  danger: { read: (seen) => seen.others.holdsBlow?.(seen) ? 0 : lifeOf(seen, seen.blow) },
+  pressure: { read: (seen) => seen.others.pressure(seen) },
+  pressing: { read: pressingOf },
+  downRate: { read: downRateAtOf },
+  turns: { read: ({ focus }) => focus ? turnOf(focus.spec) : Infinity },
+  blows: { read: ({ focus, spec, rules }) => (limb: string, segment: string): number => focus ? blowLife(rules, spec, limb, focus.spec, undefined, segment) : 0 },
 });
 
-/** What each prediction says, by its name. */
-export type Predictions = { readonly [K in keyof typeof PREDICTIONS]: typeof PREDICTIONS[K] extends Prediction<infer V> ? V : never };
-
-/** What each percept reads, by its name. */
-export type Percepts = { readonly [K in keyof typeof PERCEPTS]: typeof PERCEPTS[K] extends Percept<infer V> ? V : never };
-
 /** The percepts' names, in their order. */
-const PERCEIVED = Object.freeze(Object.keys(PERCEPTS) as (keyof typeof PERCEPTS)[]);
+const PERCEIVED = Object.freeze(Object.keys(PERCEPTS) as (keyof Percepts)[]);
 
 /** The predictions' names, in their order. */
-const PREDICTED = Object.freeze(Object.keys(PREDICTIONS) as (keyof typeof PREDICTIONS)[]);
+const PREDICTED = Object.freeze(Object.keys(PREDICTIONS) as (keyof Predictions)[]);
 
 /** The percepts' names that have a cue, in their order. */
 const CUED = Object.freeze(PERCEIVED.filter((name) => PERCEPTS[name].cue !== undefined));
-
-/**
- * **What a chooser watches of a body's situations** (`Situation.cues`): the cued percepts
- * (`Percept.cue`) asked for since it last cleared them, of any situation its reader made, and the
- * event those cues make.
- */
-export interface Cues {
-  /** **What changes the situation enough to decide at once**: the cue of each of the percepts `watched` names at `now`, as one text a chooser compares with the last; reading them is not asking. */
-  event(now: Situation, watched: readonly string[]): string;
-  /** Count the cued percepts asked for afresh. */
-  clear(): void;
-  /** The cued percepts asked for since `clear`, by name, in their order. */
-  asked(): string[];
-}
 
 /** What a percept or prediction holds before it is first asked for. */
 const UNREAD = Symbol("unread");
@@ -749,42 +654,27 @@ const UNREAD = Symbol("unread");
 const MEMO = Symbol("memo");
 
 /**
- * **One situation's reading**: what it reads from (`Seen`), what each percept and then each
- * prediction read (`UNREAD` until asked), and what each part its config names read.
+ * **One situation's reading**: what it reads from (`Seen`), and what each percept and then each
+ * prediction read (`UNREAD` until asked).
  */
-interface Memo { readonly seen: Seen; readonly values: unknown[]; parts: Map<PartConfig, unknown> | null }
+interface Memo { readonly seen: Seen; readonly values: unknown[] }
 
 /** A situation or its predictions, keeping its `Memo`. */
 type Memoized = Record<typeof MEMO, Memo>;
 
 /**
  * **A body's situations** (`Situation`) read from a step's `Seen` (`at`): each percept and
- * prediction read the first time it is asked and kept, and each percept and prediction part an
- * option or an objective asks for by config (`perceive`, `predict`: a `ProfilePerceptPart`'s or
- * `ProfilePredictionPart`'s, made once a config through `parts`), read the same way. Every situation's
- * readings are getters on one prototype made here; a situation keeps its own, so one kept past
+ * prediction read the first time it is asked and kept. Every situation's readings are getters on one prototype made here; a situation keeps its own, so one kept past
  * its step reads its own step. Which cued percepts any of its situations was asked for is counted
  * for a chooser (`Cues`).
  */
-export function perceiver(parts?: PartLookup) {
+export function perceiver() {
   /** The cued percepts asked for since `Cues.clear`, a bit each, by their place in `CUED`. */
   let asked = 0;
-  const made = new Map<PartConfig, Percept<unknown>>();
   /** What `reading` reads in `memo`'s situation, at `i` of its values: read the first time it is asked. */
   const memoized = (memo: Memo, i: number, reading: { read(seen: Seen): unknown }): unknown => {
     const value = memo.values[i];
     return value === UNREAD ? memo.values[i] = reading.read(memo.seen) : value;
-  };
-  /** What the part of `role` that `config` names reads in `memo`'s situation, once. */
-  const readPart = (memo: Memo, role: "profile-percept" | "profile-prediction", config: PartConfig): unknown => {
-    const read = memo.parts ??= new Map();
-    if (read.has(config)) return read.get(config);
-    if (!parts) throw new Error(`a ${role} part read with no part lookup: ${config.kind}`);
-    let reading = made.get(config);
-    if (!reading) made.set(config, reading = parts.of(role, config).make(config));
-    const value = reading.read(memo.seen);
-    read.set(config, value);
-    return value;
   };
   const cues: Cues = {
     event(now, watched) {
@@ -795,11 +685,7 @@ export function perceiver(parts?: PartLookup) {
     clear() { asked = 0; },
     asked: () => CUED.filter((_, c) => (asked & 1 << c) !== 0),
   };
-  const situation = {
-    cues,
-    perceive(this: Memoized, config: PartConfig): unknown { return readPart(this[MEMO], "profile-percept", config); },
-    predict(this: Memoized, config: PartConfig): unknown { return readPart(this[MEMO], "profile-prediction", config); },
-  };
+  const situation = { cues };
   PERCEIVED.forEach((name, i) => {
     const percept = PERCEPTS[name] as Percept<unknown>, bit = CUED.includes(name) ? 1 << CUED.indexOf(name) : 0;
     Object.defineProperty(situation, name, { get(this: Memoized) { asked |= bit; return memoized(this[MEMO], i, percept); } });
@@ -809,7 +695,7 @@ export function perceiver(parts?: PartLookup) {
   return {
     /** **The situation `seen` reads**, its percepts and predictions read as they are asked. */
     at(seen: Seen): Situation {
-      const memo: Memo = { seen, values: new Array<unknown>(PERCEIVED.length + PREDICTED.length).fill(UNREAD), parts: null };
+      const memo: Memo = { seen, values: new Array<unknown>(PERCEIVED.length + PREDICTED.length).fill(UNREAD) };
       const now = Object.create(situation) as Memoized & { sight: Sight; time: number; predictions: Predictions };
       now.sight = seen.sight; now.time = seen.sight.view.time; now[MEMO] = memo;
       const said = Object.create(predictions) as Memoized;
@@ -818,25 +704,4 @@ export function perceiver(parts?: PartLookup) {
       return now as unknown as Situation;
     },
   };
-}
-
-/** Percepts owned by the profile model consume that model's complete Seen value. */
-export interface ProfilePerceptPart<C extends PartConfig = PartConfig, P = unknown> extends Part<C> {
-  readonly role: "profile-percept";
-  readonly keys: KeysOf<C>;
-  make(config: C): Percept<P>;
-}
-
-/** Predictions owned by the profile model consume that model's complete Seen value. */
-export interface ProfilePredictionPart<C extends PartConfig = PartConfig, P = unknown> extends Part<C> {
-  readonly role: "profile-prediction";
-  readonly keys: KeysOf<C>;
-  make(config: C): Prediction<P>;
-}
-
-declare module "../../parts/lookup.ts" {
-  interface RoleParts {
-    readonly "profile-percept": ProfilePerceptPart;
-    readonly "profile-prediction": ProfilePredictionPart;
-  }
 }
