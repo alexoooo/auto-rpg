@@ -277,6 +277,6 @@
     "note": "scored 0.502 against Option Mind, foe's closing reply over 576 bouts (0.542 and 0.462 on the two halves); 80.1% knockouts within 60 s (that Mind 88.4%), 1.20 downs a bout (0.75); its step as that Mind's at the same roots"
   },
   "option-lean": {
-    "note": "scored 0.486 (0.431 to 0.542) against Thinks ahead over 288 warrior-drawn bouts, as Thinks ahead at 10 decisions a second and no reply searched; 34.7% knockouts within 60 s (that Mind 34.8%), 3.88 downs a bout (4.17); its thinking 135 ms a simulated second against that Mind's 251"
+    "note": "scored 0.486 (0.431 to 0.542) against Thinks ahead, foe's reply over 288 warrior-drawn bouts, as that Mind at 10 decisions a second and no reply searched; 34.7% knockouts within 60 s (that Mind 34.8%), 3.88 downs a bout (4.17); its thinking 135 ms a simulated second against that Mind's 251"
   }
 }

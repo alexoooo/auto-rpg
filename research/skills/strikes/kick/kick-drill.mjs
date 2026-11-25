@@ -12,10 +12,11 @@
  * land on the mark (`onMark`): a foot that meets the thighs from below gains nothing. `--rung` names
  * another rung to search on and `--confirm-on` the rungs a confirmation plays (comma-separated), at
  * 120 Hz alone where they are not `middle`: a low kick at a body lying is searched on `stomping-twin`
- * and confirmed on `stomping-sampled` and `sparring-laid`. `--fix` may name any of the kick's
- * settings, its window's height band among them.
+ * and confirmed on `stomping-sampled` and `sparring-laid`. `--trials N` searches on N of the rung's
+ * foot conditions, spread evenly over them (a sampled rung's are drawn at random).
+ * `--fix` may name any of the kick's settings, its window's height band among them.
  *
- *   node research/skills/strikes/kick/kick-drill.mjs --out <file.json> [--workers N] [--lambda 16] [--generations 40] [--seed 1] [--from <file.json> [--sigma 0.15]] [--fix '{"hipLevel":0}'] [--on-mark] [--rung middle-twin]
+ *   node research/skills/strikes/kick/kick-drill.mjs --out <file.json> [--workers N] [--lambda 16] [--generations 40] [--seed 1] [--from <file.json> [--sigma 0.15]] [--fix '{"hipLevel":0}'] [--on-mark] [--rung middle-twin] [--trials N]
  *   node research/skills/strikes/kick/kick-drill.mjs --confirm <file.json> [--workers N] [--confirm-on middle]
  *
  * Harness: Node, the Strike drill's bout world (`playCase`) on Rapier (`DEFAULT_ENGINE`), 120 Hz;
@@ -87,7 +88,7 @@ function trialsOf(protocol) {
 
 const { values } = parseArgs({ options: { out: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" },
   from: { type: "string" }, sigma: { type: "string" }, lambda: { type: "string" }, confirm: { type: "string" }, fix: { type: "string" }, "on-mark": { type: "boolean" },
-  rung: { type: "string" }, "confirm-on": { type: "string" } } });
+  rung: { type: "string" }, "confirm-on": { type: "string" }, trials: { type: "string" } } });
 
 /**
  * `--on-mark`'s score of a candidate's trials: each trial's search score, less what it traded
@@ -115,7 +116,8 @@ if (values.confirm) {
   process.exit(0);
 }
 if (!values.out) throw new Error("--out <file.json>");
-const RUNG = values.rung ?? "middle-twin", trials = trialsOf(RUNG), lo = SEARCHED.map(([, low]) => low), hi = SEARCHED.map(([, , high]) => high);
+const RUNG = values.rung ?? "middle-twin", every = trialsOf(RUNG), keep = Math.min(Number(values.trials ?? every.length), every.length);
+const trials = Array.from({ length: keep }, (_, k) => every[Math.floor(k * every.length / keep)]), lo = SEARCHED.map(([, low]) => low), hi = SEARCHED.map(([, , high]) => high);
 const toX = (u) => u.map((v, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, v)));
 // From a search's best settings, by name, so a dimension added since starts at its default; with none, from the defaults.
 const from = values.from ? JSON.parse(readFileSync(values.from, "utf8")).best.settings : null;

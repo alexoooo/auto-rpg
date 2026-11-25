@@ -42,11 +42,11 @@ export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   "option-reply": { label: "Option Mind, foe's closing reply", config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, replies: 1, against: "mean" } } },
   "option-replies": { label: "Option Mind, foe's replies", config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, replies: 2, against: "mean" } } },
   "option-truer": {
-    label: "Thinks ahead",
+    label: "Thinks ahead, foe's reply",
     config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, replies: 1, against: "mean", carry: .5 }, predictions: { kind: "measured", walkStart: "signed", sways: "own" } },
   },
   "option-lean": {
-    label: "Thinks ahead, lean",
+    label: "Thinks ahead",
     config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, carry: .5 }, rate: 10, predictions: { kind: "measured", walkStart: "signed", sways: "own" } },
   },
 });

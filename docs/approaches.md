@@ -482,7 +482,8 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   together read 0.451 on draws 9 to 14 and 0.497 on 3 to 8: level with the Mind above, not
   better. With walks braking for the place (`30fc95f23`) they read 0.542 (0.483 to 0.601) on 3 to
   8 and 0.462 (0.406 to 0.517) on 9 to 14, about 0.50 pooled. Level, correct models win the tie:
-  they are the empty-handed man's Mind (`option-truer`). Its bar 2 is 80.1 % of bouts knocked out
+  they were the empty-handed man's Mind (`option-truer`), and are in the one that is (`option-lean`,
+  below). Its bar 2 is 80.1 % of bouts knocked out
   within 60 s against the Mind above's 88.4 %, 1.20 downs a bout against 0.75, and standing
   silence 12.5 % against 14.2 %. At the same roots its step times the same (5.8 against 5.7 ms
   median) and allocates the same; in its own bouts it allocates about twice as much a step, from
@@ -622,7 +623,12 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   the fitted leaf already reads the same quantities. Deciding 10 times a second with no reply
   searched (`option-lean`) thinks 135 ms a simulated second against 251 and plays as well: a
   decision costs more as decisions get rarer, so the rate halves the thinking, not divides it by
-  six. *Shown.*
+  six. On the scorecard it knocks out within 60 s in 34.7 % of its mirror bouts against 34.8 %;
+  it is the empty-handed man's Mind. Its decision lands in the one step it is made in: with the
+  minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
+  202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of
+  a bout's CPU against the physics' 22 %, the profiles' nearest lookup the largest part
+  (`research/runs/lean-time/`). *Shown.*
 - **Not yet read**: the search spread over steps and the branch kept (each rests on a kept worth
   standing for a situation since moved, as the warm start's does); a value read from bouts is the
   Minds' that fought them, and how a table stays true as the Mind reading it changes is not

@@ -26,6 +26,12 @@ strikes, guarding and minds are there.
   the owner (90 minutes), a stricter reading of the bar the worker was then held to, a wrong
   figure, a plateau called early. A note is weighed, never a reason to stop, and never a reading of
   the bar. The owner's part: the bar in the owner's words, revising it, and the look in the game.
+- **A run whose readings already answer it is stopped**, in the owner's standing words: "My goal
+  is fast development velocity, running things that can't work for no reason makes no sense". A
+  search or a run that reads flat, or that tries what is already known not to work, is stopped at
+  once, its reading recorded and the work gone on, not run to its planned end: the low kick's
+  search at a foe fighting back was stopped at generation 25 of 30, its best and medians flat for
+  twenty (`research/runs/low/`).
 
 ### A step and a strike
 
