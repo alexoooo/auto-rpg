@@ -6,13 +6,11 @@ import type { BodySense } from "../../../core/bodies/senses.ts";
 import type { BearingEnd, BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Cover } from "../../../skills/framework/intent.ts";
 import type { Spot } from "../../../skills/framework/menu.ts";
-import type { Profile, Stances } from "../../../skills/framework/profile/profile.ts";
-import type { ProfileReading } from "../../../skills/framework/profile/reading.ts";
+import type { Profile, StanceNumbers, Stances } from "../../../skills/framework/profile/profile.ts";
 import type { LegsUnmet } from "../../../skills/framework/skill.ts";
 import type { FoePhase, threatReader } from "../../../skills/perception/threat.ts";
 import type { Sight } from "../../decider.ts";
 import type { Orders } from "../../orders.ts";
-import type { PressureTable } from "../pressure.ts";
 import type { Ground } from "./terms.ts";
 
 /**
@@ -128,8 +126,6 @@ export interface Predictions {
   readonly danger: number;
   /** What the focus's fighting is expected to deal the body (`Pressure`). */
   readonly pressure: Pressure;
-  /** What the body's own strikes are expected to deal the focus (`Pressure`). */
-  readonly pressing: Pressure;
   /** What a second down in each posture is expected to cost the body, own life. */
   readonly downRate: (posture: Position) => number;
   /** How fast the focus turns to face, rad/s; Infinity with none. */
@@ -152,27 +148,32 @@ export interface Cues {
 }
 
 /**
- * **What one body's strikes are expected to deal another**: the strikes it is modelled by
- * (`model`, each read through its profile at how the two stand, `ProfileReading`), read at the
- * struck body's phase (`phase`) and in its life (`struck`), the most of them a second at any range
- * (`peak`, the struck body's life), and how it is priced (`priced`, a sentence). Its latency
- * (`latency`), s: how long a blow not yet begun takes to reach the struck body once it is within
- * reach. The focus's on this body (`Predictions.pressure`), and this body's on the focus
- * (`Predictions.pressing`); none with no focus.
+ * **What one body's strikes are expected to take from another as the two stand**: the focus's
+ * from this body (`Predictions.pressure`). With no focus it takes nothing and reaches nowhere.
  */
 export interface Pressure {
-  readonly model: readonly ProfileReading[];
-  readonly phase: string;
-  readonly struck: BodySpec | null;
-  readonly peak: number;
+  /** The seconds before a blow not yet begun reaches the struck body once it is within reach. */
   readonly latency: number;
+  /** The most it takes in a second, the struck body's life, for a report. */
+  readonly peak: number;
+  /** How it was priced, as a sentence for a report. */
   readonly priced: string;
-  /** How the striker and the struck body stand toward each other (`Stances`), at which its model is read; absent, read as alike any. */
-  readonly stance?: Stances;
-  /** The rate at an exact start, where a search keeps query scratch (`cachedPressure`). */
-  readonly rateAt?: (range: number, velocity: readonly [number, number]) => number;
-  /** What bouts measured the focus's fighting took from the body (`PressureTable`), read where it reads (`pressureCurve`), the focus in `doing` as now. */
-  readonly measured?: { readonly table: PressureTable; readonly doing: string };
+  /** The share of the struck body's life it takes over `span` (`Span`), from `now`. */
+  dealt(now: Situation, span: Span): number;
+  /** How far it reaches, m head to head, as the range at `now` places it; 0 where it has no blow. */
+  edge(now: Pick<Situation, "range" | "apart">): number;
+  /** The same pressure with the struck body standing at `own`. */
+  stanced(own: StanceNumbers): Pressure;
+  /** The same pressure keeping scratch for one search's repeated questions. The scratch ends with the search. */
+  cached(): Pressure;
+}
+
+/** **A span under a pressure**: the two bodies `apart` m head to head, moving at `velocity` (`startOf`), for `seconds` s from `from` s after now. */
+export interface Span {
+  readonly apart: number;
+  readonly velocity: readonly [number, number];
+  readonly seconds: number;
+  readonly from: number;
 }
 
 /**

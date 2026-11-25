@@ -3,7 +3,7 @@ import type { Exit } from "../../skills/framework/profile/profile.ts";
 import { hasResource, type Readiness, type Resource } from "../../skills/framework/action.ts";
 import { SETTLED } from "../../skills/intent/action-window.ts";
 import type { Sight } from "../decider.ts";
-import { bearingAround, graceAt, inReach, stancedPressure } from "./percepts.ts";
+import { bearingAround, graceAt, inReach } from "./percepts.ts";
 import type { Asked } from "./contract/option.ts";
 import type { ExchangePredictor } from "./contract/predictors.ts";
 import type { Predictions, Situation } from "./contract/situation.ts";
@@ -52,15 +52,14 @@ const afterDanger = (predictions: Predictions): Predictions => Object.create(pre
 /** Each overlay of predictions at another own stance (`stancedPredictions`), by the predictions and the stance. */
 const STANCED_PREDICTIONS = new WeakMap<Predictions, WeakMap<object, Predictions>>();
 
-/** **`predictions` with the body standing at `own`**: its focus's pressure on it and its own on the focus read there (`stancedPressure`); made once for the two. */
+/** **`predictions` with the body standing at `own`**: its focus's pressure on it read there (`Pressure.stanced`); made once for the two. */
 function stancedPredictions(predictions: Predictions, own: NonNullable<Leaves["stance"]>): Predictions {
   let by = STANCED_PREDICTIONS.get(predictions);
   if (!by) STANCED_PREDICTIONS.set(predictions, by = new WeakMap());
   let made = by.get(own);
   if (!made) {
-    const pressure = stancedPressure(predictions.pressure, "target", own), pressing = stancedPressure(predictions.pressing, "own", own);
-    by.set(own, made = pressure === predictions.pressure && pressing === predictions.pressing ? predictions
-      : Object.create(predictions, { pressure: { value: pressure }, pressing: { value: pressing } }) as Predictions);
+    const pressure = predictions.pressure.stanced(own);
+    by.set(own, made = pressure === predictions.pressure ? predictions : Object.create(predictions, { pressure: { value: pressure } }) as Predictions);
   }
   return made;
 }

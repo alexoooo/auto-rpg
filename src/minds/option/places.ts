@@ -13,7 +13,7 @@ import { blocked, READY, standing, still } from "./option.ts";
 import type { Option, Sites, Status } from "./contract/option.ts";
 import type { Situation } from "./contract/situation.ts";
 import { LEGS } from "../../skills/framework/action.ts";
-import { bearingAround, dealtAt, edgeOf, graceAt, stancedPressure } from "./percepts.ts";
+import { bearingAround, graceAt } from "./percepts.ts";
 import { gaitStance } from "../../skills/locomotion/move/gaits.ts";
 import { CLINCH, clinched, STILL, upOrDown } from "./value.ts";
 import type { Terms } from "./contract/terms.ts";
@@ -48,7 +48,7 @@ const WALK_SPACING = PROFILE_SPANS.range / 2;
  * has one) by `gait`, each leg of the way as long as the legs take on it (`Walker.seconds`: the
  * speed rule all along the way, facing the focus, or the way each leg goes with none); through the
  * blow coming, and the focus's pressure along the part of each leg within its reach, the body
- * moving at the walk's velocity against the focus's (`dealtAt`, from as long after `at` as the way has gone, read at the middle of each
+ * moving at the walk's velocity against the focus's (`Pressure.dealt`, from as long after `at` as the way has gone, read at the middle of each
  * `WALK_SPACING` of that part, so the reads follow the way's length within reach and not its time),
  * past its grace (`graceAt`: spent as the way goes within its reach, restored as it goes out of it,
  * never past the focus's latency); leaving the body still at the spot with that grace, the focus
@@ -59,8 +59,8 @@ const WALK_SPACING = PROFILE_SPANS.range / 2;
  */
 export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker, stance: StanceNumbers | null = null): Terms | null {
   // Walking by the gait, the body stands as the gait stands it, and the focus's pressure is read there.
-  const focus = at.focus, from = at.where, offset = at.apart - at.range, pressure = stance ? stancedPressure(at.predictions.pressure, "target", stance) : at.predictions.pressure;
-  const reach = focus ? edgeOf(at, pressure) + offset : 0, points = spot.route ?? [spot];
+  const focus = at.focus, from = at.where, offset = at.apart - at.range, pressure = stance ? at.predictions.pressure.stanced(stance) : at.predictions.pressure;
+  const reach = focus ? pressure.edge(at) + offset : 0, points = spot.route ?? [spot];
   const legs = walk.seconds(at, gait.name, points, focus ? walk.facing(at) : null);
   let duration = 0, taken = 0, grace = graceAt(at), x = from.x, z = from.z;
   for (let k = 0; k < points.length; k++) {
@@ -82,7 +82,7 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
             const along = enter + (i + .5) / pieces * within, tx = fx - (x + along * ux), tz = fz - (z + along * uz);
             const spent = Math.min(grace, dt);
             grace -= spent;
-            taken += dealtAt(pressure, at, { apart: hypot(tx, tz) - offset, velocity: startVelocity({ x: tx, z: tz }, moving), seconds: dt - spent,
+            taken += pressure.dealt(at, { apart: hypot(tx, tz) - offset, velocity: startVelocity({ x: tx, z: tz }, moving), seconds: dt - spent,
               from: duration - seconds + enter / pace + i * dt + spent });
           }
         }

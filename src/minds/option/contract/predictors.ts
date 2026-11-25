@@ -14,7 +14,7 @@ export interface FoeMove {
 
 /**
  * **What the body and its foe are expected to do to each other**, as far as the body can tell
- * without knowing the foe's Options. Its first six members are a situation's predictions
+ * without knowing the foe's Options. Its first five members are a situation's predictions
  * (`Predictions`), each read of what the reader sees (`Seen`) the first time a step asks for it.
  * The last two are asked by a search, of a state already read.
  */
@@ -23,8 +23,6 @@ export interface ExchangePredictor {
   danger(seen: Seen): number;
   /** What the foe's fighting is expected to take from the body as the two stand now. */
   pressure(seen: Seen): Pressure;
-  /** What the body's own strikes are expected to take from the foe. */
-  pressing(seen: Seen): Pressure;
   /** What a second spent down in each posture is expected to cost the body, own life. */
   downRate(seen: Seen): (posture: Position) => number;
   /** How fast the foe turns to face, rad/s; Infinity with no foe. */

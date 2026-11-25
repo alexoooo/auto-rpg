@@ -38,7 +38,7 @@ hard-coded hacks."
 
 Each line was read in the code on 2026-11-25 at `878c17a24`, and cites the code as it was then.
 Put right so far: 5, 6 and 10 (chunk 1); 1, 3 and 4 (2b); 2 (2b and 2c); 7 in part (3a: the
-exchange is one interface; a pressure and a line's end follow in 3b and 3c).
+exchange is one interface; 3b: a pressure is one; a line's end follows in 3c).
 
 1. **Nothing named Option Mind is a `Mind`.** `OptionMind` (`src/minds/option/build.ts:28`) is
    the receipt the build hands the fight (`MindMade`). The `Mind` (`src/minds/mind.ts:15`) is made
@@ -411,7 +411,7 @@ implementations already behind it.
 | File | Holds |
 | --- | --- |
 | `contract/terms.ts` | `Ground`, `Leaves`, `Outcome`, `Terms`, `Ask` |
-| `contract/situation.ts` | `Situation`, `Percepts`, `Predictions`, `Cues`, `Pressure`, `ReachMemory`, `Bearing`, `ModelledStrike` |
+| `contract/situation.ts` | `Situation`, `Percepts`, `Predictions`, `Cues`, `Seen`, `Pressure`, `Span`, `ReachMemory`, `Bearing`, `ModelledStrike` |
 | `contract/option.ts` | `Option` whole, `Status`, `Step`, `Asked`, `Site`, `Sites` |
 | `contract/objective.ts` | `Objective`, `Tally`, `Path`, `Obedience`, `ObedienceLevel` |
 | `contract/chooser.ts` | `Chooser`, `Chosen` |
@@ -430,8 +430,7 @@ the file that holds it imports the contract; else it is imported as a type.
 
 **Left for the chunk that first names them in the contract:** `Walker` and `OptionRecord`
 moved in 2b with `OptionContext`, which names them (`contract/context.ts`); `RiseMemory` (`rise-memory.ts`) moves only if a contract file comes to name it (none does:
-3a's `Seen` stays outside). `PressureTable` (`pressure.ts`) is imported until 3b narrows
-`Pressure`.
+`ReaderSeen` stays outside). `contract/situation.ts` imports nothing from the rest of the folder.
 
 ## Chunk 2: the Option Mind is a `Mind`
 
@@ -572,9 +571,9 @@ Options model, is asked of one interface that a config can swap whole.
 
 What is there now:
 
-- **`contract/predictors.ts`**: `ExchangePredictor` with eight members. Six are a situation's
-  predictions, each read of what the reader sees (`danger`, `pressure`, `pressing`,
-  `downRate`, `turns`, `blows`). Two are asked by a search of a state already read: `later`
+- **`contract/predictors.ts`**: `ExchangePredictor` with seven members. Five are a situation's
+  predictions, each read of what the reader sees (`danger`, `pressure`, `downRate`, `turns`,
+  `blows`; a sixth, `pressing`, had no reader and went in 3b). Two are asked by a search of a state already read: `later`
   (the foe some seconds on) and `reply` (the move the foe answers a line with, a `FoeMove`).
   `Predictors` holds `outcomes`, `walkStart` and `exchange(given)`, which makes the predictor
   from the body's own modelled strikes once its Options are made.
@@ -603,54 +602,44 @@ as a field, where a function's would each have taken them as a fourth argument.
 Allocation is not moved: `option-lean` 476.4, 479.5 and 474.1 KiB a body a step,
 `option-tail` 539.3, 544.0 and 541.0.
 
-### 3b: a pressure is asked, not taken apart
+### 3b: a pressure is asked, not taken apart (landed)
 
-**Purpose.** Today a `Pressure` is a record of one implementation's fields, read by free
-functions that the search, the imagined state and three Options call (`chooser.ts:564`,
-`option.ts:159`, `places.ts:60`, `:83`, `rest.ts`), so no other predictor could answer with its
-own. The contract's `Pressure` becomes what is asked of one:
+**Purpose.** A pressure was a record of one implementation's fields, read by free functions that
+the search, the imagined state and three Options called, so no other predictor could answer with
+its own. It is now what is asked of one.
 
-```ts
-/** What one body's strikes are expected to take from another as the two stand. */
-export interface Pressure {
-  /** The seconds before a blow not yet begun reaches the struck body once it is within reach. */
-  readonly latency: number;
-  /** The most it takes in a second, for a report. */
-  readonly peak: number;
-  /** How it was priced, as a sentence for a report. */
-  readonly priced: string;
-  /** The share of the struck body's life it takes over a span from `now`. */
-  dealt(now: Situation, span: Span): number;
-  /** How far from the striker its blows begin to land, m. */
-  edge(now: Pick<Situation, "range" | "apart">): number;
-  /** The same pressure with one of the two bodies standing otherwise. */
-  stanced(body: keyof Stances, own: StanceNumbers): Pressure;
-  /** The same pressure keeping scratch for one search's repeated questions. */
-  cached(): Pressure;
-}
-```
+What is there now:
 
-**Steps.**
+- **`contract/situation.ts`**: `Pressure` is an interface: three fields a report reads
+  (`latency`, `peak`, `priced`) and four questions (`dealt(now, span)`, `edge(now)`,
+  `stanced(own)`, `cached()`). `Span` is beside it. The file imports nothing from the
+  rest of the folder.
+- **`percepts.ts`**: `class ProfilePressure implements Pressure` holds what it is made of as
+  one private record (`PressureFields`, the old record's fields) and one search's scratch of
+  exact starts (`Starts`, or null). Its methods are the old `dealtAt`, `edgeOf`,
+  `stancedPressure` and `cachedPressure`; the rate with its cache is private. Every place a
+  pressure is made or copied calls the constructor, and inside the file a pressure is typed
+  `ProfilePressure`.
+- **The callers** (`chooser.ts`, `option.ts`, `places.ts`, `rest.ts`) ask the methods.
+  `inReach` and `threatened` stay functions over the interface.
+- **`tests/layer-contracts.test.mjs`**: its fixture's pressure, which was a record with no
+  strikes, answers the interface with nothing.
 
-1. **`ProfilePressure` is a class** in the implementation's file, its fields today's (`model`,
-   `phase`, `struck`, `stance`, `rateAt`, `measured`), its methods today's `dealtAt`, `edgeOf`,
-   `stancedPressure` and `cachedPressure`. Methods sit on the prototype, so a pressure allocates
-   no closure it does not allocate today.
-2. **Every place a pressure is made or copied makes a `ProfilePressure` by its constructor.** A
-   spread of a class instance copies its fields and drops its methods, and there are seven such
-   places in `percepts.ts`: the literals `NO_PRESSURE` (`:292`) and `pressureBy`'s (`:312`), and
-   the spreads at `:348`, `:381`, `:395`, `:442` (the whole of `cachedPressure`) and `:479` (the
-   whole of `stancedPressure`). The last two are not moved unchanged: each builds its copy by
-   the constructor with the one field changed.
-3. **Inside the implementation's file a pressure is typed `ProfilePressure`, never `Pressure`.**
-   The type checker then refuses a spread assigned where a pressure is wanted (a spread of a
-   class has no methods in its type), which it would not of a value typed as the interface.
-4. `inReach` and `threatened` read a situation's pressure and stay functions over the
-   interface. `contract/situation.ts` then imports nothing from the rest of the folder.
+Not as first written: `pressureBy` and `ProfileExchange.ratePressure` answer with the record a
+pressure is made of (`PressureFields`) and not with a pressure, so a pressure is made once
+where it is handed out and the down rate reads a peak without making one. The record has no
+method, so the type checker refuses it where a `Pressure` is wanted. A copy at another stance
+spreads the record and never the class.
 
-**Done when** the checks pass, the fingerprint compares clean, allocation is read, and the
-contract's `Pressure` has no field but the three (the type checker refuses a reader of another
-outside the implementation).
+Removed: `pressing`, the body's own pressure on its focus. Nothing asked it: it was only read
+at another stance beside `pressure`, which made a pressure and its scratch for no reader. With
+it went `ProfileExchange.ownModel` and the `body` argument of `stanced`, which now always
+means the struck body. The fingerprint moves no pose without it.
+
+**Read on landing** (2026-11-25): the fingerprint moves no pose on any of the 299 cases.
+Allocation is not moved, KiB a body a step: `option-lean` 476.6 to 484.3 over twelve readings,
+beside 477.9 to 484.7 of a copy of the tree before chunk 2b, with two stray readings of 514.1
+and 525.4 among seven taken earlier; `option-tail` 539.9, 542.1 and 543.1.
 
 ### 3c: what a line's end is worth
 
@@ -747,7 +736,7 @@ exported; `Prior` is `record.ts`'s.
    | Member | Today's code |
    | --- | --- |
    | `strike` | `priorOf(at)` (`strike.ts:215`, `:327`) and the clinch read where nothing is measured (`:218`) |
-   | `limb` | the `prior(...)` call in `pressureBy` with its `RATE` and its landing rate (`percepts.ts:306` to `:309`), which prices a foe's limb, the body's own unmeasured strike (`pressingOf`) and the down rate alike |
+   | `limb` | the `prior(...)` call in `pressureBy` with its `RATE` and its landing rate (`percepts.ts:306` to `:309`), which prices a foe's limb and the down rate alike |
    | `blow` | the `priorOf(...)` call in `lifeOf` with its `LANDS` (`percepts.ts:593`) |
    | `way` | `WAY_PRIOR`, `REGAIN_PRIOR`, `SETTLE_PRIOR` (`rise.ts:30` to `:36`), read at `rise.ts:169` |
 

@@ -9,7 +9,7 @@ import type { Ask, Terms } from "./contract/terms.ts";
 import type { Option, Site, Status } from "./contract/option.ts";
 import type { Situation } from "./contract/situation.ts";
 import { NOTHING, WHOLE } from "./select-set.ts";
-import { edgeOf, inReach, startOf, threatened } from "./percepts.ts";
+import { inReach, startOf, threatened } from "./percepts.ts";
 import { AS_IS, clinched, STILL, UNMOVED, upOrDown } from "./value.ts";
 import type { Walker } from "./contract/context.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
@@ -42,14 +42,14 @@ const still = (walk: Pick<Walker, "facing" | "kept">) => (now: Situation) => ({ 
 
 /**
  * **Out of the focus's reach**, holding's site (`Site`): on the line from the focus through where
- * the body stands, where the focus's pressure reaches (`edgeOf`, `along`), facing the focus and
+ * the body stands, where the focus's pressure reaches (`Pressure.edge`, `along`), facing the focus and
  * moving with it; none with no focus or where the body stands out of its reach.
  */
 const OUT_OF_REACH: Site = Object.freeze({
   name: "the edge of the foe's reach",
   spot(at: Situation) {
     const focus = at.focus;
-    return focus && inReach(at) ? { ...along(at, edgeOf(at, at.predictions.pressure)), velocity: focus.velocity } : null;
+    return focus && inReach(at) ? { ...along(at, at.predictions.pressure.edge(at)), velocity: focus.velocity } : null;
   },
 });
 

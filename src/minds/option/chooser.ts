@@ -12,7 +12,7 @@ import type { Option } from "./contract/option.ts";
 import type { Situation, Pressure } from "./contract/situation.ts";
 import { FEW_TERMS_PART } from "./objective.ts";
 import type { Objective, Tally, Obedience, ObedienceLevel } from "./contract/objective.ts";
-import { cachedPressure, graceAt, threatened } from "./percepts.ts";
+import { graceAt, threatened } from "./percepts.ts";
 import { bodyOf, featuresOf, fittedOn, fittedOver, offeredOf, readingAt, validFitted, type Offered } from "./fitted-value.ts";
 import { dataOf, type DataKey } from "../../core/data/store.ts";
 import { exp, hypot, log } from "../../core/math/real.ts";
@@ -556,7 +556,7 @@ function treeSearch(root: Situation, searched: Searched & { readonly runs: numbe
   const predictions = root.predictions;
   let pressure: Pressure | undefined;
   root = Object.create(root, { predictions: { value: Object.create(predictions, {
-    pressure: { get: () => pressure ??= cachedPressure(predictions.pressure) },
+    pressure: { get: () => pressure ??= predictions.pressure.cached() },
   }) } }) as Situation;
   const at = space(root, searched), leafAt = searched.leaf.leafOf(at, root);
   const nodeAt = (state: Situation, from: Tally): TreeNode => {

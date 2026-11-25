@@ -20,7 +20,7 @@ import { carriageOf } from "../../skills/locomotion/move/gaits.ts";
 import type { Position } from "../../control/ground-reading.ts";
 import type { RiseMemory } from "./rise-memory.ts";
 import type { ExchangePredictor, FoeMove } from "./contract/predictors.ts";
-import type { Bearing, Cues, ModelledStrike, Percepts, Predictions, Pressure, ReachMemory, Seen, Situation } from "./contract/situation.ts";
+import type { Bearing, Cues, ModelledStrike, Percepts, Predictions, Pressure, ReachMemory, Seen, Situation, Span } from "./contract/situation.ts";
 import type { Terms } from "./contract/terms.ts";
 import { pressureCurve, pressureTable, type PressureTable } from "./pressure.ts";
 import { blowLife, limbReach, record, RETHINK } from "./value.ts";
@@ -180,7 +180,7 @@ function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySp
  * **How far a foe of `foe` reaches a body of `struck` with the foe in `phase`**, m centre to centre:
  * the farthest any strike measured on its body reads (`ProfileReading.reach`), each read by its
  * profile against that body (`strikesOf`, `profileAgainst`), as a Mind reads a foe's reach
- * (`ProfileExchange.foeModel`, `edgeOf`); -Infinity where none reads in that phase.
+ * (`ProfileExchange.foeModel`, `ProfilePressure.edge`); -Infinity where none reads in that phase.
  */
 export function measuredReach(profiles: readonly Profile[], foe: BodySpec, struck: BodySpec, phase: string): number {
   let reach = -Infinity;
@@ -204,9 +204,6 @@ function strikesOf(profiles: readonly Profile[]): readonly ModelledStrike[] {
 /** This body's phase as a foe's strike meets it (`FoePhase`'s): striking while a blow of its own is under way, else clear. */
 const ownPhase = ({ sight }: Seen): string => sight.report.actions.length > 0 ? "striking" : "clear";
 
-/** No pressure: no focus. */
-const NO_PRESSURE: Pressure = deepFreeze({ model: [], phase: "clear", struck: null, peak: 0, latency: Infinity, priced: "no focus" });
-
 /**
  * Where a prior (`pressureBy`) puts a striker's limbs: each within its reach (`limbReach`) of the
  * struck body's centre, or each over the struck body, at no range; none where the two stand so
@@ -215,7 +212,7 @@ const NO_PRESSURE: Pressure = deepFreeze({ model: [], phase: "clear", struck: nu
 type Placing = "reach" | "over" | null;
 
 /**
- * **The pressure** (`Pressure`) of strikes `model` by a body of `striker` on a body of `struck` in
+ * **What makes the pressure** (`PressureFields`) of strikes `model` by a body of `striker` on a body of `struck` in
  * `phase`: each measured, and the prior of each limb it reads by hand, placed by `placing`. Each
  * limb its model reads by hand (`Model.unmeasured`) is, between two standing bodies, its prior
  * (`prior`): within that limb's reach (`limbReach`), `RATE` blows a second, landing as this body's
@@ -223,7 +220,7 @@ type Placing = "reach" | "over" | null;
  * by hand. Its latency takes the striker's mind for one like this (its rethink, `RETHINK`, and its
  * command's delay, `Seen.delay`) and adds its fastest blow's run (`ProfileReading.fastest`).
  */
-function pressureBy(seen: Seen, model: Model, phase: string, striker: BodySpec, struck: BodySpec, placing: Placing): Pressure {
+function pressureBy(seen: Seen, { model, phase, striker, struck, placing }: { readonly model: Model; readonly phase: string; readonly striker: BodySpec; readonly struck: BodySpec; readonly placing: Placing }): PressureFields {
   const lands = model.unmeasured.length === 0 || placing === null ? 0 : record(seen.sight.report.ledger, null).lands;
   const readings = model.measured.map((one) => one.reading);
   if (placing !== null) for (const limb of model.unmeasured)
@@ -259,16 +256,6 @@ function pooled(model: Model, striker: BodySpec, postures: Postures): Model {
 }
 
 /**
- * **The life `seconds` s at `range` m apart, centre to centre, the two moving at `velocity`
- * (`startVelocity`), are expected to cost the struck body** under `pressure`: the most of its
- * strikes (a foe's pooled as one, `pooled`), each what its profile expects there a second (`ProfileReading.rate`) short of its reach
- * (`edgeOf`: the reach is where the body is out of it).
- */
-function pressureAt(pressure: Pressure, range: number, velocity: readonly [number, number], seconds: number): number {
-  return (pressure.rateAt ? pressure.rateAt(range, velocity) : pressureRateAt(pressure, range, velocity)) * seconds;
-}
-
-/**
  * How near a range may come to a reach and still read as at its edge, m: the rounding of one range
  * found by two routes (a spot placed at the edge of a reach, then measured back from where it is).
  */
@@ -277,33 +264,128 @@ const ROUNDING = 1e-9;
 /** **Whether `range` m is within `reach` m**: short of it; a range at its edge, rounding aside (`ROUNDING`), is out of it. */
 const within = (range: number, reach: number): boolean => range < reach - ROUNDING;
 
-/** The most life a second the measured strikes of `pressure` deal at this start. */
-function pressureRateAt(pressure: Pressure, range: number, velocity: readonly [number, number]): number {
-  let rate = 0;
-  for (const reading of pressure.model) {
-    if (!within(range, reading.reach(pressure.phase))) continue;
-    const expected = reading.rate(pressure.stance ? { range, phase: pressure.phase, velocity, stance: pressure.stance } : { range, phase: pressure.phase, velocity }, pressure.struck);
-    if (expected !== null) rate = Math.max(rate, expected);
-  }
-  return rate;
+/**
+ * **What a `ProfilePressure` is made of**: the strikes it is modelled by (`model`, each read
+ * through its profile at how the two stand, `ProfileReading`), read at the struck body's phase
+ * (`phase`) and in its life (`struck`); the most of them a second at any range (`peak`), its
+ * latency and how it is priced (`Pressure`); how the striker and the struck body stand toward
+ * each other (`stance`), at which its model is read, alike any where absent; and what bouts
+ * measured the focus's fighting took from the body (`measured`: a `PressureTable`, read where
+ * it reads, `pressureCurve`, the focus in `doing` as now).
+ */
+interface PressureFields {
+  readonly model: readonly ProfileReading[];
+  readonly phase: string;
+  readonly struck: BodySpec | null;
+  readonly peak: number;
+  readonly latency: number;
+  readonly priced: string;
+  readonly stance?: Stances;
+  readonly measured?: { readonly table: PressureTable; readonly doing: string };
 }
 
-/** Query scratch holds at most this many exact starts; four ways share each hash bucket. */
+/** A search's scratch holds at most this many exact starts; four ways share each hash bucket. */
 const PRESSURE_CACHE = Object.freeze({ buckets: 64, ways: 4 });
 
 /**
- * `pressure` with bounded exact rate queries for one search. The arrays belong to that search,
- * never to its saved state. A bucket evicts its least recently used start; a miss reads the
- * original profiles in their order. Duration is applied by `pressureAt` on both hits and misses.
+ * **One search's scratch of a pressure's exact starts** (`ProfilePressure.cached`): each start
+ * kept (its range and the two parts of its velocity), the rate found there, and when it was last
+ * asked for (`ages`, by `clock`; 0, never). `values` and `words` are one start's numbers and
+ * their bits, which it is hashed by.
  */
-export function cachedPressure(pressure: Pressure): Pressure {
-  const { buckets, ways } = PRESSURE_CACHE, size = buckets * ways;
-  const ranges = new Float64Array(size), forward = new Float64Array(size), across = new Float64Array(size), rates = new Float64Array(size), ages = new Float64Array(size);
-  const values = new Float64Array(3), words = new Uint32Array(values.buffer);
-  let clock = 0;
-  return { ...pressure, rateAt(range, velocity) {
-    const x = velocity[0], z = velocity[1];
-    if (!Number.isFinite(range) || !Number.isFinite(x) || !Number.isFinite(z)) return pressureRateAt(pressure, range, velocity);
+interface Starts {
+  readonly ranges: Float64Array;
+  readonly forward: Float64Array;
+  readonly across: Float64Array;
+  readonly rates: Float64Array;
+  readonly ages: Float64Array;
+  readonly values: Float64Array;
+  readonly words: Uint32Array;
+  clock: number;
+}
+
+/** An empty scratch (`Starts`). */
+function startsOf(): Starts {
+  const size = PRESSURE_CACHE.buckets * PRESSURE_CACHE.ways, values = new Float64Array(3);
+  return { ranges: new Float64Array(size), forward: new Float64Array(size), across: new Float64Array(size), rates: new Float64Array(size), ages: new Float64Array(size),
+    values, words: new Uint32Array(values.buffer), clock: 0 };
+}
+
+/** Each pressure read at another own stance (`ProfilePressure.stanced`), by its pressure and that stance: a pressure and a stance are immutable. */
+const STANCED = new WeakMap<ProfilePressure, WeakMap<object, ProfilePressure>>();
+
+/**
+ * **A pressure read from measured profiles** (`Pressure`, of `PressureFields`). What it takes
+ * over a span is what bouts measured where it holds their table and they measured near, else the
+ * most of its strikes' rates there (a foe's pooled as one, `pooled`). What it is made of never
+ * changes: a pressure at another stance, or one keeping a search's scratch, is another pressure.
+ */
+class ProfilePressure implements Pressure {
+  readonly latency: number;
+  readonly peak: number;
+  readonly priced: string;
+  private readonly fields: PressureFields;
+  // A cache: one search's exact starts and the rate read at each. Null where it keeps none.
+  private readonly starts: Starts | null;
+
+  constructor(fields: PressureFields, starts: Starts | null) {
+    this.latency = fields.latency;
+    this.peak = fields.peak;
+    this.priced = fields.priced;
+    this.fields = fields;
+    this.starts = starts;
+  }
+
+  /**
+   * At the range centre to centre the span's `apart` leaves: what bouts measured there
+   * (`measured`) from `from` to `from + seconds` s after a moment, the focus doing as now where
+   * `now` is the body's own and as any where it is a state an Option leaves (`Situation.grace`),
+   * later than what it does now; else, or where they measured none near, its strikes' rate there
+   * for the span's seconds (`rateAt`).
+   */
+  dealt(now: Situation, { apart, velocity, seconds, from }: Span): number {
+    const range = now.apart + apart - now.range, measured = this.fields.measured;
+    const curve = measured ? pressureCurve(measured.table, now.grace === undefined ? measured.doing : null, range) : null;
+    return curve ? curve(from + seconds) - curve(from) : this.rateAt(range, velocity) * seconds;
+  }
+
+  /** Its strikes' farthest range at its phase (`ProfileReading.reach`), as the range at `now` places it; 0 with no strikes. */
+  edge(now: Pick<Situation, "range" | "apart">): number {
+    const { model, phase } = this.fields;
+    if (model.length === 0) return 0;
+    let range = -Infinity;
+    for (const reading of model) range = Math.max(range, reading.reach(phase));
+    return now.range + range - now.apart;
+  }
+
+  /**
+   * Made once for the pressure and the stance (`STANCED`), with a search's scratch of its own;
+   * itself where it reads that body at `own` already, so a walk in the body's carriage asks
+   * nothing anew.
+   */
+  stanced(own: StanceNumbers): ProfilePressure {
+    const fields = this.fields;
+    if (fields.stance?.target === own) return this;
+    let by = STANCED.get(this);
+    if (!by) STANCED.set(this, by = new WeakMap());
+    const known = by.get(own);
+    if (known) return known;
+    const made = new ProfilePressure({ ...fields, stance: { ...fields.stance, target: own } }, startsOf());
+    by.set(own, made);
+    return made;
+  }
+
+  cached(): ProfilePressure { return new ProfilePressure(this.fields, startsOf()); }
+
+  /**
+   * The most life a second its strikes deal at this start. Where it keeps a search's scratch
+   * (`Starts`) an exact start asked before is answered from it; a bucket evicts its least recently
+   * used start, and a miss reads the profiles (`read`).
+   */
+  private rateAt(range: number, velocity: readonly [number, number]): number {
+    const starts = this.starts, x = velocity[0], z = velocity[1];
+    if (!starts || !Number.isFinite(range) || !Number.isFinite(x) || !Number.isFinite(z)) return this.read(range, velocity);
+    const { ranges, forward, across, rates, ages, values, words } = starts, { buckets, ways } = PRESSURE_CACHE;
     values[0] = range; values[1] = x; values[2] = z;
     let hash = 0x811c9dc5;
     for (let i = 0; i < words.length; i++) hash = Math.imul(hash ^ words[i]!, 0x01000193);
@@ -312,37 +394,31 @@ export function cachedPressure(pressure: Pressure): Pressure {
     let oldest = from;
     for (let i = from; i < from + ways; i++) {
       if (ages[i]! > 0 && Object.is(ranges[i], range) && Object.is(forward[i], x) && Object.is(across[i], z)) {
-        ages[i] = ++clock;
+        ages[i] = ++starts.clock;
         return rates[i]!;
       }
       if (ages[i]! < ages[oldest]!) oldest = i;
     }
-    const rate = pressureRateAt(pressure, range, velocity);
-    ranges[oldest] = range; forward[oldest] = x; across[oldest] = z; rates[oldest] = rate; ages[oldest] = ++clock;
+    const rate = this.read(range, velocity);
+    ranges[oldest] = range; forward[oldest] = x; across[oldest] = z; rates[oldest] = rate; ages[oldest] = ++starts.clock;
     return rate;
-  } };
+  }
+
+  /** The most of its strikes at this start, each what its profile expects there a second (`ProfileReading.rate`) short of its reach: the reach is where the body is out of it. */
+  private read(range: number, velocity: readonly [number, number]): number {
+    const { model, phase, stance, struck } = this.fields;
+    let rate = 0;
+    for (const reading of model) {
+      if (!within(range, reading.reach(phase))) continue;
+      const expected = reading.rate(stance ? { range, phase, velocity, stance } : { range, phase, velocity }, struck);
+      if (expected !== null) rate = Math.max(rate, expected);
+    }
+    return rate;
+  }
 }
 
-/** Each pressure read at another own stance (`stancedPressure`), by its pressure and that stance: a pressure and a stance are immutable. */
-const STANCED = new WeakMap<Pressure, WeakMap<object, Pressure>>();
-
-/**
- * **`pressure` with the body it reads standing at `own`** (`Pressure.stance`): `body`, the struck
- * (`target`: the focus's pressure on the body) or the striker (`own`: the body's on the focus);
- * its exact-start cache made anew for it (`cachedPressure`). Made once for the two; `pressure`
- * itself where it reads that body at `own` already, so a walk in the body's carriage asks nothing anew.
- */
-export function stancedPressure(pressure: Pressure, body: keyof Stances, own: StanceNumbers): Pressure {
-  if (pressure.stance?.[body] === own) return pressure;
-  let by = STANCED.get(pressure);
-  if (!by) STANCED.set(pressure, by = new WeakMap());
-  const known = by.get(own);
-  if (known) return known;
-  const { rateAt: _, ...rest } = pressure, was = pressure.stance ?? {};
-  const made = cachedPressure({ ...rest, stance: { ...was, [body]: own } });
-  by.set(own, made);
-  return made;
-}
+/** No pressure: no focus. */
+const NO_PRESSURE = deepFreeze(new ProfilePressure({ model: [], phase: "clear", struck: null, peak: 0, latency: Infinity, priced: "no focus" }, null));
 
 /** Still: the start's velocity with no focus. */
 const AT_REST: readonly [number, number] = Object.freeze([0, 0]) as readonly [number, number];
@@ -358,40 +434,8 @@ export function startOf(now: Pick<Situation, "focus" | "where" | "velocity">): r
     { x: now.velocity.x - focus.velocity.x, z: now.velocity.z - focus.velocity.z }) : AT_REST;
 }
 
-/**
- * **How far `pressure` reaches**, m head to head: its strikes' farthest range at its phase
- * (`ProfileReading.reach`), as the range now places it; 0 with no strikes.
- */
-export function edgeOf(now: Pick<Situation, "range" | "apart">, pressure: Pressure): number {
-  if (pressure.model.length === 0) return 0;
-  let range = -Infinity;
-  for (const reading of pressure.model) range = Math.max(range, reading.reach(pressure.phase));
-  return now.range + range - now.apart;
-}
-
-/** **A span under the focus's pressure**: the two `apart` m head to head, moving at `velocity` (`startOf`), for `seconds` s from `from` s after now. */
-export interface Span {
-  readonly apart: number;
-  readonly velocity: readonly [number, number];
-  readonly seconds: number;
-  readonly from: number;
-}
-
-/**
- * **The life a span (`Span`) costs the struck body under `pressure`**, at `now`: at the range
- * centre to centre its `apart` leaves, what bouts measured there (`Pressure.measured`) from `from`
- * to `from + seconds` s after a moment, the focus doing as now where `now` is the body's own and as
- * any where it is a state an Option leaves (`Situation.grace`), later than what it does now; else,
- * or where they measured none near, its strikes' rate (`pressureAt`).
- */
-export function dealtAt(pressure: Pressure, now: Situation, { apart, velocity, seconds, from }: Span): number {
-  const range = now.apart + apart - now.range, measured = pressure.measured;
-  const curve = measured ? pressureCurve(measured.table, now.grace === undefined ? measured.doing : null, range) : null;
-  return curve ? curve(from + seconds) - curve(from) : pressureAt(pressure, range, velocity, seconds);
-}
-
-/** **Whether the body at `now` is within the focus's reach** (`edgeOf` its pressure). */
-export const inReach = (now: Situation): boolean => within(now.range, edgeOf(now, now.predictions.pressure));
+/** **Whether the body at `now` is within the focus's reach** (`Pressure.edge`). */
+export const inReach = (now: Situation): boolean => within(now.range, now.predictions.pressure.edge(now));
 
 /**
  * **What a body's reader keeps of the focus's reach**: for each foe, the seconds a blow it has not
@@ -428,12 +472,12 @@ export function reachMemory(): ReachMemory {
 export const graceAt = (now: Situation): number => now.grace ?? now.reached.grace(now);
 
 /**
- * **The own life `seconds` s cost under the focus's pressure** (`Pressure`, `dealtAt`), standing
+ * **The own life `seconds` s cost under the focus's pressure** (`Pressure.dealt`), standing
  * where it stands at `now`, the two moving at `velocity` (`startOf`; the start's at `now` unless
  * given): none of the first s of its grace (`graceAt`), before a blow not yet begun reaches it.
  */
 export const threatened = (now: Situation, seconds: number, velocity = startOf(now)): number =>
-  dealtAt(now.predictions.pressure, now, { apart: now.range, velocity, seconds: Math.max(0, seconds - graceAt(now)), from: 0 });
+  now.predictions.pressure.dealt(now, { apart: now.range, velocity, seconds: Math.max(0, seconds - graceAt(now)), from: 0 });
 
 /**
  * **How the body and `other` stand toward each other, each in its carriage** (`stancesOf`,
@@ -487,7 +531,7 @@ const REPLY_LEAST = .01;
  * (`ProfileTables`). The focus's pressure is its strikes' rate (`ratePressure`): the focus
  * throwing its strikes back to back from wherever it stands, each as its profile reads it. Where
  * the tables hold what bouts measured of a standing focus's body fighting this one
- * (`measuredAgainst`), the rate is read by that (`Pressure.measured`), the focus doing as it is
+ * (`measuredAgainst`), the rate is read by that (`ProfilePressure.measured`), the focus doing as it is
  * now (`foePhase`): its moments carry how soon its blows came, so no grace is kept of it (its
  * latency none), and what a blow under way took, so the blow coming is priced at none beside it
  * (`danger`).
@@ -499,18 +543,11 @@ export class ProfileExchange implements ExchangePredictor {
 
   danger(seen: Seen): number { return this.measuredAgainst(seen) ? 0 : this.lifeOf(seen, seen.blow); }
 
-  pressure(seen: Seen): Pressure {
-    const pressure = this.ratePressure(seen), table = this.measuredAgainst(seen);
-    return table ? { ...pressure, latency: 0, priced: `${pressure.priced}; measured in bouts`, measured: { table, doing: foePhase(seen.focus!, seen.blow) } } : pressure;
-  }
-
-  /** Its own strikes (`ownModel`), read standing at the focus's posture (`sensedPosture`) and phase (`FoePhase`). */
-  pressing(seen: Seen): Pressure {
-    const { focus, spec } = seen;
+  pressure(seen: Seen): ProfilePressure {
+    const focus = seen.focus;
     if (!focus) return NO_PRESSURE;
-    const posture = sensedPosture(focus);
-    return { ...pressureBy(seen, this.ownModel(seen, focus.spec, { own: "standing", target: posture }), foePhase(focus, seen.blow), spec, focus.spec, placingAt(posture)),
-      stance: carriedStances(spec, seen.sight.view, focus) };
+    const rate = this.ratePressure(seen, focus), table = this.measuredAgainst(seen);
+    return new ProfilePressure(table ? { ...rate, latency: 0, priced: `${rate.priced}; measured in bouts`, measured: { table, doing: foePhase(focus, seen.blow) } } : rate, null);
   }
 
   /** What a second down costs in each posture (`downRateOf`) against the focus, and with none one of its own kind; each found once a posture. */
@@ -578,18 +615,14 @@ export class ProfileExchange implements ExchangePredictor {
     return { ...model, priced: limbs.length && strikes.length ? `${source}; by hand: ${limbs.join(", ")}` : source };
   }
 
-  /** **This body's own strikes** (`ProfileTables.strikes`) at a body of `struck`, read at `postures` (`modelOf`). */
-  private ownModel(seen: Seen, struck: BodySpec, postures: Postures): Model { return modelOf(seen, this.tables.strikes, seen.spec, struck, postures); }
-
   /**
-   * **The pressure** (`Pressure`) the focus puts on the body by its strikes' rate: its model read at
-   * the focus's posture (`sensedPosture`), pooled (`pooled`), the body struck as standing.
+   * **What makes the pressure `focus` puts on the body by its strikes' rate** (`PressureFields`):
+   * its model read at the focus's posture (`sensedPosture`), pooled (`pooled`), the body struck
+   * as standing.
    */
-  private ratePressure(seen: Seen): Pressure {
-    const { focus, spec } = seen;
-    if (!focus) return NO_PRESSURE;
-    const posture = sensedPosture(focus), postures = { own: posture, target: "standing" };
-    return { ...pressureBy(seen, pooled(this.foeModel(seen, focus.spec, postures), focus.spec, postures), ownPhase(seen), focus.spec, spec, placingAt(posture)),
+  private ratePressure(seen: Seen, focus: BodySense): PressureFields {
+    const spec = seen.spec, posture = sensedPosture(focus), postures = { own: posture, target: "standing" };
+    return { ...pressureBy(seen, { model: pooled(this.foeModel(seen, focus.spec, postures), focus.spec, postures), phase: ownPhase(seen), striker: focus.spec, struck: spec, placing: placingAt(posture) }),
       stance: turned(carriedStances(spec, seen.sight.view, focus)) };
   }
 
@@ -616,13 +649,13 @@ export class ProfileExchange implements ExchangePredictor {
   /**
    * **What a second costs the body down in `posture`**, own life, against a foe of `foe` as it is
    * (`sensedPosture`; standing with no focus), as the foe's pressure reads it: the blows of the foe
-   * over it (`Pressure.peak`: the foe's strikes read at its posture and a target lying in that
+   * over it (`PressureFields.peak`: the foe's strikes read at its posture and a target lying in that
    * posture, in the phase down; a foe lying deals none by hand, `placingAt`). What a second on its
    * feet brings is priced by the Options that begin there, as the search reaches them.
    */
   private downRateOf(seen: Seen, foe: BodySpec, posture: Position): number {
     const foeAt = seen.focus ? sensedPosture(seen.focus) : "standing", postures = { own: foeAt, target: posture };
-    return pressureBy(seen, pooled(this.foeModel(seen, foe, postures), foe, postures), "down", foe, seen.spec, placingAt(foeAt) && "over").peak;
+    return pressureBy(seen, { model: pooled(this.foeModel(seen, foe, postures), foe, postures), phase: "down", striker: foe, struck: seen.spec, placing: placingAt(foeAt) && "over" }).peak;
   }
 }
 
@@ -630,7 +663,7 @@ export class ProfileExchange implements ExchangePredictor {
 const PERCEIVED = Object.freeze(Object.keys(PERCEPTS) as (keyof Percepts)[]);
 
 /** The predictions' names, in their order: each is the member of an exchange predictor that reads it (`ExchangePredictor`). */
-const PREDICTED = Object.freeze(Object.keys({ danger: 0, pressure: 0, pressing: 0, downRate: 0, turns: 0, blows: 0 } satisfies Record<keyof Predictions, 0>) as (keyof Predictions)[]);
+const PREDICTED = Object.freeze(Object.keys({ danger: 0, pressure: 0, downRate: 0, turns: 0, blows: 0 } satisfies Record<keyof Predictions, 0>) as (keyof Predictions)[]);
 
 /** The percepts' names that have a cue, in their order. */
 const CUED = Object.freeze(PERCEIVED.filter((name) => PERCEPTS[name].cue !== undefined));
