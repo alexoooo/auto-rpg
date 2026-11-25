@@ -25,8 +25,12 @@ was chosen for falls, and a new skill or variation enters pickable, as the kick 
   ([the skill recipe](../recipes/skill.md), the kick).
 - **The game's Mind prices it far over what it gives**: a stomp at a downed foe was priced 12
   times what followed (17 choices in 72 mirror bouts; the approaches' Minds).
-- **The foe is down often**: the push kick's kicker is down after about two kicks in three, and
-  the game's Mind falls about 2 times a minute in its bouts (the approaches' Travel).
+- **The foe is down often, and the kick cost bar 2**: the push kick's kicker is down after about
+  two kicks in three. On the scorecard (warrior-drawn, at 3a7341cb5, `research/runs/low/`) the
+  game's Mind knocks out within 60 s in 34.8 % (26.7 to 43.9) of its mirror bouts, with 4.17
+  downs a bout, against 80.8 % (72.9 to 86.9) and 0.96 for the same Mind with the kick's Option
+  taken out (115 and 120 bouts, the budget's share of 216). Of its 17,521 choices, 6,305 were
+  made with the foe down, and 206 of them dealt.
 - **It lands on other bodies**: against the Rat, four stomps on its trunk took 0.80 of its bar,
   the stomp that misses a man lying down meeting the rat's back at its height
   ([the Rat's plan](2026-11-24-rat.md)).
