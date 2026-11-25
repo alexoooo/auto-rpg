@@ -120,8 +120,12 @@ what is added, not with every pairing of it:
 
 The search's own cost grows with the Options a body has: hundreds of skills mean a body with dozens
 on offer. Whether the tree's 50 runs still find the strong line among them is read at step 9 on
-the body with the most skills; if not, the Options are narrowed by what the measured models say
-can matter from the state, which is mechanism 2's to give.
+the body with the most skills. If not, the first thing tried is the one already built for this:
+PUCT guided by a prior learned from where searches' runs went (`7f7b33aff`). On the man, with a
+handful of Options, it was not stronger, and it was removed in the settings' tidy-up
+(`dca2ce824`, the approaches' Minds); its fit is kept in `research/minds/move-prior.mjs`. With
+dozens of Options a prior matters more, so it is read again there, its prior fitted on the
+record as the other fits are.
 
 ## Steps
 
