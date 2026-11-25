@@ -22,8 +22,8 @@ export interface GuardSkill extends Skill {
   readonly selected?: PartConfig | null;
   /** Select an enabled guard by its `skill/variation` name; absent, this is one fixed guard. */
   select?(name: string | undefined, view: BodyView): void;
-  /** A point task for a free effector, or null to retain the reference posture. */
-  readonly hold: ((effector: string) => PointTask | null) | null;
+  /** A point task for a free effector over a step of `dt` s, or null to retain the reference posture. */
+  readonly hold: ((effector: string, dt: number) => PointTask | null) | null;
   /** The configuration requested for a free segment; absent or null retains its previous request. */
   configuration?(effector: string): ConfigurationName | null;
   /** The goals it writes this step, by declared effector segment. */

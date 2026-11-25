@@ -26,6 +26,8 @@ import type { Side } from "../../core/bodies/bilateral.ts";
  * its own step (`aim`, `helped`, `tasks`), and the turn a swing asks (`step.turn`).
  */
 interface StanceState {
+  /** The length of the step the last command was given, s: its aims' gains are exact over it (`damping`). */
+  dt: number;
   /** The supported root pose requested this step; null uses the walking planner. */
   pose: StanceGoal["pose"] | null;
   /** The foot of the last step of a walk, while it steps on without standing between. */
@@ -174,7 +176,7 @@ export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist
     - feet.reduce((sum, foot) => sum + foot.chain[0]!.spec.centre.value[1], 0) / feet.length;
   const pace: [number, number] = [0, 0], resolved = resolveStance(tuning);
   const state: StanceState = {
-    gait: resolved.gait, pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace, crouch: 0,
+    dt: NaN, gait: resolved.gait, pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace, crouch: 0,
     step: { swing: null, lifted: false, pivoted: false, time: 0, met: false, held: 0, off: Infinity, catching: false, recovering: false, facing: null, from: new Vector3(), turn: new Quaternion(), lift: new Quaternion(), drop: 0,
       shift: { now: [0, 0], capture: [0, 0], centre: [0, 0] } },
     plan: { on: false, at: new Vector3(), velocity: new Vector3(), missed: new Vector3() },

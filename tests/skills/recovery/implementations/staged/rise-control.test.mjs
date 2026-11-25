@@ -7,6 +7,7 @@ import { stockBody } from "../../../../../src/app/stock-body.ts";
 import { riseLimbs } from "../../../../../src/skills/recovery/shared/staged/limbs.ts";
 import { takesOf } from "../../../../../src/skills/recovery/shared/staged/bearing-policy.ts";
 import { servoAsk } from "../../../../../src/control/servo.ts";
+import { damping } from "../../../../../src/control/approach.ts";
 import { Vector3 } from "../../../../../src/core/math/vector.ts";
 
 /**
@@ -42,13 +43,13 @@ test("bearing posture accelerations use the joint turning map, including damping
     for (const name of ["hand.left", "shin.left"]) {
       const index = own.spec.ends.findIndex(end => end.name === name), end = own.spec.ends[index], limb = limbs.limbs[index];
       for (const transfer of [false, true]) {
-        limbs.bear(index, 1, { goal: goals, rate: 2, ground: -10, transfer });
+        limbs.bear(index, 1, { goal: goals, rate: 2, ground: -10, transfer, dt: stand.world.dt });
         const seconds = i => !transfer && takesOf(end).includes(muscles.channels[i].name) ? .1 : .5;
         const reference = servoAsk(muscles, command, i => goals[i], .5, stand.world.dt,
           { seconds, rate: () => 0, acceleration: () => 0 });
         for (let k = 0; k < limb.memory.channels.length; k++) {
-          const i = limb.memory.channels[k], rate = 1 / seconds(i);
-          const unmapped = rate * rate * (goals[i] - muscles.angle(i)) - 2 * rate * muscles.rate(i);
+          const i = limb.memory.channels[k], gain = damping(1 / seconds(i), stand.world.dt);
+          const unmapped = gain.error * (goals[i] - muscles.angle(i)) - gain.rate * muscles.rate(i);
           different ||= Math.abs(unmapped - reference.accel[i]) > 1e-6;
           assert.ok(Math.abs(limb.work.toward[k] - reference.accel[i]) < 1e-10,
             `${name}, transfer ${transfer}, ${muscles.channels[i].name}: bearing ${limb.work.toward[k]}, servo ${reference.accel[i]}`);

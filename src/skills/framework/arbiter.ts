@@ -248,7 +248,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         if (effectors[hand]) { state.covering.push(hand); owned(effector, GUARD); }
         const pose = available(posed) ? guard.configuration?.(hand) ?? null : null;
         if (pose) { configurations[hand] = pose; owned(posed, GUARD); }
-        const held = !effectors[hand] && available(effector) ? guard.hold?.(hand) : null;
+        const held = !effectors[hand] && available(effector) ? guard.hold?.(hand, dt) : null;
         if (held) { points.push(held); owned(effector, GUARD); }
       }
       const asked = legOwner?.claim.legs !== undefined ? legOwner.claim.legs : available(resources.stance) ? {} : null;

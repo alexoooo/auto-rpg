@@ -14,7 +14,7 @@ import { angularMomentumToRef, massCentreToRef, motionAtToRef, pointOfToRef, tur
 import { sin, cos, atan2, exp, sinh, cosh, hypot } from "../../core/math/real.ts";
 import type { BearingEnd, DofSpec } from "../../core/bodies/spec/body.ts";
 import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../../core/math/turn.ts";
-import { approachToRef, turnToRef } from "../approach.ts";
+import { approachToRef, damping, turnToRef } from "../approach.ts";
 import { swingBowToRef, swingPathToRef, swingProgressToRef } from "../swing-path.ts";
 import { swingShiftToRef } from "../swing-leg.ts";
 import type { BuiltDof, ReadBody } from "../../core/bodies/read-body.ts";
@@ -122,7 +122,7 @@ type Phasing = { readonly phase: "stand"; readonly swing: SwingGoal | null } | S
  */
 function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], phasing: Phasing, pendulum: number): [number, number] {
   const { plan, reading, step, gait } = s.state, { seconds } = s.tuning, { hipAt, progress, shiftWork, bow, path, along, accel } = s.scratch;
-  const r = plan.at, u = plan.velocity, n = 1 / seconds.across;
+  const r = plan.at, u = plan.velocity, gain = damping(1 / seconds.across, s.state.dt);
   if (phasing.phase === "swing") {
     const { swing, bearer } = phasing;
     // On one foot the plan falls as an inverted pendulum of its height about a point of the
@@ -177,12 +177,12 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], p
     // takes it, past what a stance on both feet holds: the foot lifts before it gets there.
     const { bearer } = phasing;
     reading.place.set(bearer.middle.x, 0, bearer.middle.z);
-    return [n * n * (bearer.middle.x - r.x) - 2 * n * u.x, n * n * (bearer.middle.z - r.z) - 2 * n * u.z];
+    return [gain.error * (bearer.middle.x - r.x) - gain.rate * u.x, gain.error * (bearer.middle.z - r.z) - gain.rate * u.z];
   }
   // A place outside what the ankles can hold is taken at the nearest point that they can.
   const [gx, gz] = withinSupport(heldBy(stance), goal.centre?.[0] ?? reading.support.x, goal.centre?.[1] ?? reading.support.z, 0);
   reading.place.set(gx, 0, gz);
-  return [n * n * (gx - r.x) - 2 * n * u.x, n * n * (gz - r.z) - 2 * n * u.z];
+  return [gain.error * (gx - r.x) - gain.rate * u.x, gain.error * (gz - r.z) - gain.rate * u.z];
 }
 
 /**
@@ -441,12 +441,13 @@ function swingFoot(s: Stance, { swing, bearer }: Stepping, heading: number, dt: 
   // swing's constant; its turn's likewise, with the turn's own rate and acceleration: damping
   // alone lags a turn by twice its rate times the swing's constant, and a foot turning over a
   // swing lands off the heading.
-  const task = tasks[feet.indexOf(foot)]!, w = 1 / settle;
+  const task = tasks[feet.indexOf(foot)]!, gain = damping(1 / settle, dt);
   motionAtToRef(foot.segment, sole, task.linear, task.angular);
-  task.linear.set(accel.x + w * w * (path.x - sole.x) + 2 * w * (along.x - task.linear.x),
-    accel.y + w * w * (path.y - sole.y) + 2 * w * (along.y - task.linear.y),
-    accel.z + w * w * (path.z - sole.z) + 2 * w * (along.z - task.linear.z));
-  task.angular.scaleInPlace(-2 * w).addInPlace(turn.scale(w)).addInPlace(wholeAxis.scale(dds + 2 * w * ds));
+  task.linear.set(accel.x + gain.error * (path.x - sole.x) + gain.rate * (along.x - task.linear.x),
+    accel.y + gain.error * (path.y - sole.y) + gain.rate * (along.y - task.linear.y),
+    accel.z + gain.error * (path.z - sole.z) + gain.rate * (along.z - task.linear.z));
+  // `turn` is the steady spin closing the turn in `settle`: times `settle`, the turn's angle.
+  task.angular.scaleInPlace(-gain.rate).addInPlace(turn.scale(gain.error * settle)).addInPlace(wholeAxis.scale(dds + gain.rate * ds));
   task.on = true;
   task.bearing = false;
   for (const i of foot.memory.channels) s.state.owned[i] = 1;
@@ -532,8 +533,8 @@ function advancePlan(s: Stance, goal: StanceGoal, stance: readonly FootState[], 
   rollFeet(s, stance, phasing.swing, limits.floors, limits.high);
   let low = -Infinity;
   for (const [foot, floor] of limits.floors) if (!foot.memory.rolled) low = Math.max(low, floor);
-  const high = Math.max(limits.high, low), k = 1 / seconds.height;
-  const ay = k * k * (high - r.y) - 2 * k * u.y;
+  const high = Math.max(limits.high, low), gain = damping(1 / seconds.height, dt);
+  const ay = gain.error * (high - r.y) - gain.rate * u.y;
   const m = plan.missed, over = 1 / s.parts().mass;
   u.addInPlaceFromFloats((ax - m.x * over) * dt, (ay - m.y * over) * dt, (az - m.z * over) * dt);
   r.addInPlace(u.scale(dt));
@@ -552,15 +553,16 @@ function aimRoot(s: Stance, heading: number, planned: readonly [number, number, 
   const { pelvis } = s, { aim, plan, reading } = s.state, { seconds } = s.tuning, { target, pelvisSpin } = s.scratch;
   const r = plan.at, u = plan.velocity, c = reading.centre, vel = reading.velocity, [ax, ay, az] = planned;
   turnAboutToRef(Vector3.UpReadOnly, heading, target).multiplyInPlace(pelvis.rest);
-  turnToRef(pelvis.pose.rotation, target, seconds.turn, pelvis.body.angularVelocityToRef(pelvisSpin), aim.spin);
-  aim.centre.set(ax + e * e * (r.x - c.x) + 2 * e * (u.x - vel.x), ay + e * e * (r.y - height) + 2 * e * (u.y - vel.y),
-    az + e * e * (r.z - c.z) + 2 * e * (u.z - vel.z));
+  const dt = s.state.dt, gain = damping(e, dt);
+  turnToRef(pelvis.pose.rotation, target, seconds.turn, pelvis.body.angularVelocityToRef(pelvisSpin), dt, aim.spin);
+  aim.centre.set(ax + gain.error * (r.x - c.x) + gain.rate * (u.x - vel.x), ay + gain.error * (r.y - height) + gain.rate * (u.y - vel.y),
+    az + gain.error * (r.z - c.z) + gain.rate * (u.z - vel.z));
   aim.on = true;
 }
 
 /** Each of `stance`'s feet held still where it bears, what motion it has damped out at the rate `e`. */
 function holdStance(s: Stance, stance: readonly FootState[], e: number): void {
-  const { feet } = s, { tasks } = s.state;
+  const { feet } = s, { tasks } = s.state, gain = damping(e, s.state.dt);
   for (const foot of stance) {
     const task = tasks[feet.indexOf(foot)]!;
     motionAtToRef(foot.segment, bearingEdge(foot)?.middle ?? foot.middle, task.linear, task.angular);
@@ -569,9 +571,9 @@ function holdStance(s: Stance, stance: readonly FootState[], e: number): void {
     // lifted off, is pressed down by its own leg, which its share of the ground's wrench alone
     // would drive down slowly against the leg's posture.
     const down = task.linear.y;
-    task.linear.scaleInPlace(-e);
-    task.linear.y = -e * e * soleHeight(foot) - 2 * e * down;
-    task.angular.scaleInPlace(-e);
+    task.linear.scaleInPlace(-gain.decay);
+    task.linear.y = -gain.error * soleHeight(foot) - gain.rate * down;
+    task.angular.scaleInPlace(-gain.decay);
     task.on = true;
     task.bearing = true;
     for (const i of foot.memory.channels) s.state.owned[i] = 1;
@@ -609,8 +611,8 @@ function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleReading)
   ahead.length = foot.memory.channels.length;
   ahead.fill(NaN);
   if (!s.state.pose) {
-    const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, flexed = muscles.angle(i) - foot.straight, m = 1 / seconds.height;
-    if (flexed < 0) ahead[k] = m * m * (bend - flexed) - 2 * m * muscles.rate(i);
+    const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, flexed = muscles.angle(i) - foot.straight, gain = damping(1 / seconds.height, s.state.dt);
+    if (flexed < 0) ahead[k] = gain.error * (bend - flexed) - gain.rate * muscles.rate(i);
   }
   // On one end of its sole, the foot's turn about the edge it bears on is free: the leg pivots on
   // the edge. Of the spin's rows the task keeps the one about the level normal to the edge, and
@@ -621,19 +623,19 @@ function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleReading)
     // stop, the heel's the plantar flexion stop), critically damped at the height's constant.
     const pre = step.swing;
     if (reading.phase === "shift" && pre?.transfer && pre.foot === foot.name) {
-      const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / gait.preswing.seconds;
-      ahead[k] = m * m * (gait.preswing.knee - (muscles.angle(i) - foot.straight)) - 2 * m * muscles.rate(i);
+      const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, gain = damping(1 / gait.preswing.seconds, s.state.dt);
+      ahead[k] = gain.error * (gait.preswing.knee - (muscles.angle(i) - foot.straight)) - gain.rate * muscles.rate(i);
     } else {
-      const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / seconds.height;
-      ahead[k] = m * m * (stopLessSpare(foot.chain[2]!.dofs[0]!.spec, foot.memory.rolled, spare) - muscles.angle(i)) - 2 * m * muscles.rate(i);
+      const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, gain = damping(1 / seconds.height, s.state.dt);
+      ahead[k] = gain.error * (stopLessSpare(foot.chain[2]!.dofs[0]!.spec, foot.memory.rolled, spare) - muscles.angle(i)) - gain.rate * muscles.rate(i);
     }
   } else if (task.bearing && !s.state.pose && foot.memory.rolled === null && bearingEnd(foot) !== null) {
     // Standing on an end it was not rolled onto, a leg placed on its toes or a foot landed on an
     // end, the foot is brought flat: its ankle asked the dorsiflexion that lays the sole down
     // (`soleFlatTurn`), critically damped at the height's constant. Left to the task, the turn
     // about the edge is free and the heel comes down only as the body's motion carries it.
-    const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / seconds.height;
-    ahead[k] = m * m * soleFlatTurn(foot) - 2 * m * muscles.rate(i);
+    const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, gain = damping(1 / seconds.height, s.state.dt);
+    ahead[k] = gain.error * soleFlatTurn(foot) - gain.rate * muscles.rate(i);
   }
   work.patch = task.bearing ? bearingSole(foot, 1 - soleMargin) : null;
   work.share = 1;
@@ -741,6 +743,7 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning, assist: Ass
     },
     command(muscles, goal, dt) {
       const { feet, state } = s, { reading, plan } = state;
+      state.dt = dt;
       bindChannels(s, muscles);
       askNothing(s);
       state.gait = goal?.gait ?? s.tuning.gait;
@@ -798,32 +801,32 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning, assist: Ass
 
 /** A planted-foot root pose, followed at its own response rather than by the walking pendulum. */
 function holdPose(s: Stance, goal: StanceGoal, pose: NonNullable<StanceGoal["pose"]>): void {
-  const { state, feet, pelvis } = s, { reading, aim } = state, n = 1 / pose.seconds;
+  const { state, feet, pelvis } = s, { reading, aim, dt } = state, n = 1 / pose.seconds, gain = damping(n, dt);
   const bearing = goal.feet.length === feet.length ? feet : feet.filter(foot => goal.feet.includes(foot.name));
   readSupport(feet, bearing, reading.support);
   reading.phase = "stand"; reading.own = null; state.plan.on = false; state.last = goal.feet;
   state.step.swing = null; state.step.catching = false; state.step.recovering = false; state.stride = null; state.striding = null; state.pace.fill(0);
   const c = reading.centre, v = reading.velocity, p = reading.support;
   const [x, z] = goal.centre ? withinSupport(heldBy(bearing), goal.centre[0], goal.centre[1], 0) : [p.x, p.z];
-  approachToRef(s.scratch.p.set(x, p.y + goal.height, z), c, v, n, aim.centre);
+  approachToRef(s.scratch.p.set(x, p.y + goal.height, z), c, v, n, dt, aim.centre);
   turnAboutToRef(Vector3.UpReadOnly, goal.heading, s.scratch.target);
   turnAboutToRef(s.scratch.wholeAxis.set(1, 0, 0), pose.pitch, s.scratch.footTurn);
   s.scratch.target.multiplyInPlace(s.scratch.footTurn).multiplyInPlace(pelvis.rest);
-  turnToRef(pelvis.pose.rotation, s.scratch.target, pose.seconds, pelvis.body.angularVelocityToRef(s.scratch.pelvisSpin), aim.spin);
+  turnToRef(pelvis.pose.rotation, s.scratch.target, pose.seconds, pelvis.body.angularVelocityToRef(s.scratch.pelvisSpin), dt, aim.spin);
   aim.on = true;
   for (const foot of bearing) {
     foot.memory.rolled = null;
     const task = state.tasks[feet.indexOf(foot)]!;
     motionAtToRef(foot.segment, foot.middle, task.linear, task.angular);
     const vy = task.linear.y;
-    task.linear.scaleInPlace(-n); task.linear.y = n * n * (p.y - foot.middle.y) - 2 * n * vy;
-    task.angular.scaleInPlace(-n);
+    task.linear.scaleInPlace(-gain.decay); task.linear.y = gain.error * (p.y - foot.middle.y) - gain.rate * vy;
+    task.angular.scaleInPlace(-gain.decay);
     const anchor = pose.anchors?.[foot.name];
     if (anchor) {
       motionAtToRef(foot.segment, foot.middle, s.scratch.v, s.scratch.pelvisSpin);
-      approachToRef(s.scratch.p.set(...anchor.position), foot.middle, s.scratch.v, n, task.linear);
+      approachToRef(s.scratch.p.set(...anchor.position), foot.middle, s.scratch.v, n, dt, task.linear);
       s.scratch.target.set(...anchor.rotation).multiplyInPlace(foot.segment.rest);
-      turnToRef(foot.segment.pose.rotation, s.scratch.target, pose.seconds, s.scratch.pelvisSpin, task.angular);
+      turnToRef(foot.segment.pose.rotation, s.scratch.target, pose.seconds, s.scratch.pelvisSpin, dt, task.angular);
     }
     task.on = true; task.bearing = true;
     for (const i of foot.memory.channels) state.owned[i] = 1;

@@ -7,7 +7,8 @@
  * - `foldHip`, `foldKnee`, `plantedKnee`, `sweepYaw`, `wrappedHip`, `unwindHip`: a wrapped paw
  *   moved around a trunk end before unfolding.
  * - `recoveryServo`, `placementServo`, `placementError`, `foldWait`: holding and moving legs
- *   tracked apart; actual joint arrival and paw clearance required.
+ *   tracked apart; actual joint arrival and paw clearance required. The placing leg's response,
+ *   8 ms, is one 120 Hz step; the servo's step is exact (`damping`), so it is 8 ms at every rate.
  * - `pressWait`, `pressLever`, `pressDepth`: a bounded joint servo lowers a paw; the lever is a
  *   controller approximation, not anatomy.
  * - `routeLimit`, `recoveryLimit`: try the other trunk end; time out.

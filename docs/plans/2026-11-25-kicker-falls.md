@@ -107,17 +107,29 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   and 3. The hips driven through behind the foot (the centre 0.1 and 0.2 m further ahead through
   the extension) landed 4 and 3, lighter, and fell 2 and 3: not kept. The push kick on that rung:
   landed 11, down after 2, value 0.577 (`research/looks/man/`).
-- **A search found a kick that stands only at 120 Hz.** The front kick's timings, gains and window
-  searched at 120 Hz on its empty-handed base trials: its best by generation 35, 0.368 (no falls),
-  a faster kick (chamber 0.106 s, extension 0.071 s, path response 0.013 s); on the cells' cases,
-  0.332 and 1 fall in 32 at 120 Hz, 0.054 and 21 falls at 480. Its response raised to 25 ms: 0.119
-  (3 falls) and 0.185 (1); its brake back at the record's as well: the same. A response within two
-  steps is softened by a 120 Hz step alone: its search's response starts at three (25 ms), and a
-  search reads its rising best at 480 Hz as it goes. The same floor on every freedom's response
-  (`servoAsk`) moved only the reptile's righting, which drives its placing leg at 8 ms: with it, its
-  longest time down in the fingerprint's reptile bouts went from 0.1 to 1.7 s to 3.7 to 16.8 s at
-  120 Hz, and to 24.5 s at 480. That floor waits on the reptile's righting working at 25 ms.
-- **Next**: step 4 again, searched at 120 Hz from 25 ms; then step 5, as the owner asked:
+- **A search found a kick that stands only at 120 Hz: the servo's step was not exact.** The front
+  kick's timings, gains and window searched at 120 Hz on its empty-handed base trials: its best by
+  generation 35, 0.368 (no falls), a faster kick (chamber 0.106 s, extension 0.071 s, path response
+  0.013 s); on the cells' cases, 0.332 and 1 fall in 32 at 120 Hz, 0.054 and 21 falls at 480. Every
+  damped aim took the continuous motion's gains (n^2, 2n) as one explicit step, right only while a
+  response is many steps long, so a time meant one thing at 120 Hz and another at 480. The aims now
+  take the gains exact over the world's step (`damping`), one source: that best reads 0.103 with 17
+  falls at 120 Hz and 0.065 with 16 at 480, the record 0.040 (1) and 0.048 (0), and the reptile's
+  righting (its placing leg at 8 ms) rights it at both. A search reads its rising best at 480 Hz as
+  it goes.
+- **What the exact step moved** (the fingerprint, 253 cases: every servoed body; the table's cells
+  one case each, so each reading is a sign, not a measure). A response of 30 to 100 ms acts 10 to
+  25 % softer at 120 Hz than the explicit step made it. Read worse there: the ways up on the
+  standard falls (the man's sit-back 3.06 to 5.79 s, front-sit-back 6.87 to 7.48; the woman's
+  sit-back 3.15 to 6.04, front-sit-back 8.47 to 9.36, staged-down 5.64 to 6.76; the Skeleton's
+  staged-down 8.92 to 12.40, front-sit-back 8.51 to 10.83, staged-roll 8.89 to 10.13); the kick
+  (base 0.586 to 0.278, middle 0.398 to 0.281); the man's punch walking (1.23 to 0.69); the bonk
+  (0.267 to 0.130); the man's cover against the sword (1.55 to 2.42). Read better: the man's run,
+  his staged-down, his thrust, his punch still, the stomp. Each reading worse is to be measured on
+  its table row and, where it holds, its skill's hand-set responses fixed at its root by the
+  procedure.
+- **Next**: the table measured fresh on the exact step, and each skill that reads worse fixed; then
+  step 4 again; then step 5, as the owner asked:
   confirmed at 120 and 480 Hz, its look at the best's code, its profiles, and the match and
   scorecard against the push kick as the Warrior's kick. It lands as the kick the Warrior holds
   only if it measures no worse, and stays pickable either way.
@@ -129,16 +141,6 @@ prices it by measurement, and whether, its falls fewer, it takes bar 2 back), th
 Mind's knockouts within 60 s by the skills, the way up first (the owner, 2026-11-24: "it will take
 more than just hyperparameter tuning, it wmight require significant skill iteration (which is
 fine)"). Numbers and the testbed's rest stay parked. Each gets its own plan when begun.
-
-A floor on every freedom's response is held back: in `servoAsk` (`src/control/servo.ts`),
-`n = 1 / Math.max(FASTEST_RESPONSE, feed?.seconds?.(i) ?? seconds)` with `FASTEST_RESPONSE = 3 / 120`
-s, three steps of the game's rate, the same at every rate. It moved only the reptile's two arena
-bouts in the fingerprint: its righting (`righting-routes/tuning.ts`, `placementServo: .008`) drives
-its placing leg at one 120 Hz step and rights it at both rates (its longest time down 1.7 and 0.1 s
-against the reptile, 1.5 s against the man at 120 Hz; 1.5, 2.1 and 3.9 s at 480); with the floor,
-3.7, 16.8 and 8.1 s at 120 Hz and about 24.5 s never rising at 480. It lands only with that
-righting made to work at 25 ms, its waits (`foldWait`, `pressWait`) and arrival test
-(`placementError`) timed for a one-step drive.
 
 A decision still lands in the one step it is made in (the approaches' Minds,
 `research/runs/lean-time/`): spreading it over the steps until the next one is the lever, not yet

@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
+import { damping } from "../../../../control/approach.ts";
 
 import type { BodyView } from "../../../../control/body.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../../../../control/bearing.ts";
@@ -367,7 +368,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     // bear, by their shares, and with none down, where the centre of mass is.
     const c = view.stance.centre, v = view.stance.velocity;
     made.read({ ground, overProp: stage.overProp, toes, centre: c });
-    const bearing = { goal: goals, rate: n, ground, transfer: !keeps };
+    const bearing = { goal: goals, rate: n, ground, transfer: !keeps, dt };
     place.setAll(0);
     let borne = 0, down = true;
     made.over.forEach((over, l) => {
@@ -401,7 +402,9 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     }
     // The centre of mass: toward the place, at the stage's height over the ground if it has one, critically damped.
     target.set(place.x, (stage.height === null ? c.y : ground + stage.height * standing), place.z);
-    aim.centre.set(n * n * (target.x - c.x + state.transfer.x) - 2 * n * v.x, n * n * (target.y - c.y) - 2 * n * v.y, n * n * (target.z - c.z + state.transfer.z) - 2 * n * v.z);
+    const gain = damping(n, dt);
+    aim.centre.set(gain.error * (target.x - c.x + state.transfer.x) - gain.rate * v.x, gain.error * (target.y - c.y) - gain.rate * v.y,
+      gain.error * (target.z - c.z + state.transfer.z) - gain.rate * v.z);
     // The pelvis: toward its reference turn pitched forward, then turned about up to the way it faces now.
     root.body.angularVelocityToRef(rootSpin);
     if (stage.pitch === null) spin.setAll(0);
@@ -410,7 +413,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       yaw.multiplyToRef(pitch, turn).multiplyInPlace(root.rest);
       spinBetweenToRef(root.pose.rotation, turn, seconds, spin);
     }
-    aim.spin.copyFrom(spin).scaleInPlace(n).subtractInPlace(rootSpin.scaleInPlace(2 * n));
+    // `spin` is the steady spin closing the turn in `seconds`: times `seconds`, the turn's angle.
+    aim.spin.copyFrom(spin).scaleInPlace(gain.error * seconds).subtractInPlace(rootSpin.scaleInPlace(gain.rate));
     // Motor control's order: the servo's asks, the root's acceleration, the servo's solve around
     // the limbs' motion, and the limbs' torques. Every freedom is asked toward the posture: a
     // bearing limb's are then the solve's, and its stem moves as the servo asked.
