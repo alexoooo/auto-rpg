@@ -42,13 +42,7 @@
       "ankleLength": 0.2950788838582495,
       "trunkLevel": 0.8539499778578326,
       "trunkFrom": 0.4,
-      "trunkLength": 0.12953454084830107,
-      "standKneeLevel": 0.6325199658543297,
-      "standKneeFrom": 0.08182025991689446,
-      "standKneeLength": 0.3556562280780938,
-      "standHipLevel": -0.1832963780870276,
-      "standHipFrom": 0.28593955978093255,
-      "standHipLength": 0.07261450899917028
+      "trunkLength": 0.12953454084830107
     }
   }
 }

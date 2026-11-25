@@ -325,8 +325,8 @@ input.
     against the record's 365, the kicker was down after 57 % of kicks against 68 % but its foot came
     no nearer the foe's middle than 0.52 m against 0.43, and in 288 warrior-drawn bouts it scored
     0.347 (0.299 to 0.399) against the record (`a5fff57da`). A schedule's pushes on the standing
-    leg never act while the stance stands on it: the stance drives its own legs over a push
-    (`src/control/motor.ts`). *Shown.*
+    leg never acted while the stance stood on it, the stance driving its own legs over a push
+    (`src/control/motor.ts`), and are gone from the kick's schedule and its search. *Shown.*
 
 ### 4. A learned actor over it
 
