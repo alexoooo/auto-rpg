@@ -265,6 +265,64 @@ sits, and one check holds it.
 
 The check is chunk 5's: the fingerprint's fights played as a relay through fresh bouts.
 
+### Memory spread over the parts
+
+The chooser, each Option, the reader, the pace and the skills each remember things, and the
+project already has the way to hold that (`src/core/state.ts`): a part's memory is one plain
+object, its `state`, which the part makes and owns; a parent's `state` points at its parts'
+`state` objects, so all of a bout's memory hangs on one root as a tree. A save copies the tree; a
+load writes the saved values back into the same objects, so each part still holds its own and
+needs no load method. The Option Mind's constructor is the one place its tree is put together:
+
+```ts
+/** Everything an Option Mind remembers. A part's memory is that part's own object, held here by reference. */
+export interface OptionMindState extends Commanding {
+  /** Its skills' memory. */
+  readonly skills: object;
+  /** Its reader's: the foe it keeps to, and what it has learned of reach and of rising. */
+  readonly situation: object;
+  /** The tries its Options have made and how each ended. */
+  readonly record: object;
+  /** Its chooser's: what is running, and what the last decision weighed. */
+  readonly chooser: object;
+  /** Each Option's own, in the Options' order. */
+  readonly options: readonly object[];
+  /** Its aims'. */
+  readonly aims: object;
+  /** Its pace's: when it last decided, and on what. */
+  readonly pace: object;
+  /** The intent it last decided, which stands until it decides again. */
+  asked: Intent | null;
+  /** What it last reported of itself. */
+  readonly said: { prospects: readonly Prospect[]; details: EngagementDetail[]; foe: string };
+}
+
+    this.state = {
+      layers: parts.layers.state, idle: false,
+      skills: parts.skills.state, situation: parts.reader.state, record: parts.record.state,
+      chooser: parts.chooser.state, options: parts.options.map((option) => option.state),
+      aims: parts.aims, pace: parts.pace.state,
+      asked: null, said: { prospects: [], details: [], foe: "clear" },
+    };
+```
+
+Three rules keep it clean, and the contract says the first:
+
+1. **A part that remembers declares `readonly state: object`** in its interface (`Option`,
+   `Chooser`, `SituationReader` and `Skills` do today); a part that does not has none. A part's
+   state is opaque to its parent: what a chooser remembers is read in the chooser.
+2. **A parent points at a part's state and never copies it**, and nothing but the constructor
+   above adds to the Mind's tree.
+3. **A part reaches its memory through its `state` each time** and keeps no second reference to
+   an object inside it: a load may put a new object in a slot (where the saved one is of another
+   kind, or the slot held a frozen constant), and a kept reference would then read the old one.
+
+What refuses a breach: `saveState` throws, naming the path, at a function, a getter or a class
+instance in the tree; and the relay of chunk 5 fails where a part kept memory in a closure, or
+the constructor left a part's state off the tree, since a fresh Mind then plays otherwise.
+Scratch a part fills and reads within one decision (the reader's `last`, `situation.ts:105`)
+is not memory and stays a local.
+
 ### The folder
 
 ```
@@ -510,11 +568,10 @@ Both reviewers read this against `motor-layers.ts:200` to `:219` step for step a
 
    `everyOf` moves here from `decider.ts`. The intent held between decisions is the Mind's
    (`OptionMindState.asked`), where `driveBy` kept it in the pace's state.
-3. **`option-mind.ts`** is the class above. `OptionMindState` is
-   `{ layers, idle, skills, situation, record, chooser, options, aims, pace, asked, said }`:
-   the layers' memory, whether its body is away, the skills', the reader's, the Options' record
-   of their tries, the chooser's, each Option's, the aims', the pace's, the intent it last
-   decided, and what it last published (`{ prospects, details, foe }`).
+3. **`option-mind.ts`** is the class above, with `OptionMindState` and the constructor that
+   gathers it as written under "Memory spread over the parts". Each part's state is checked
+   against rule 3 there as it is moved: a second reference into a state is replaced by a read
+   through it.
 4. **`build.ts`** makes everything inside the one `host.take`, in today's order (layers, first
    look, ground skills, aims, skills, Options, reader, chooser), and returns `MindMade`. `take`
    hands back the construction it was given, as it hands back `body` today.
