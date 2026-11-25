@@ -85,7 +85,7 @@ export const MOVE_PART = deepFreeze<LocomotionPart<MoveConfig>>({
   supplies: (config, parts) => config.gaits == null ? stockGaits(parts).map((gait) => ({ role: "gait" as const, config: gait.legs })) : [],
   ...varied({ skill: "move", label: "move", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [
     (spec, config, parts) => gaitsOf(config, parts).some(gait => parts.of("gait", gait.legs).fits(spec, gait.legs, parts) === null) ? null : "has no enabled gait to move by"] }),
-  faults: gaitFaults, gaits: (config, _spec, parts) => gaitsOfMove(config, parts), skillGroup: "Travel",
+  faults: gaitFaults, gaits: (config, _spec, parts) => gaitsOfMove(config, parts), asSkill: { group: "Travel", ends: ["standing"] },
 });
 
 declare module "../../config.ts" {

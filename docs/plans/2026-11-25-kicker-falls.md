@@ -10,6 +10,17 @@ On 2026-11-24: "Re the excessive falls after kicking, I do want that addressed, 
 modelling and better low attack (stomp)". On 2026-11-25: "re the kicks, yeah reducing falls of the
 kicker should be the main priority now they basically work".
 
+Later on 2026-11-25, having looked at the push kick: "it looks extremeyl uncoordinated, basically
+the warrior is flinging himself into the ground"; "our standard approach is to make the movement
+using authored code, to make it work some of the time, and then to ttune that with machine
+learning. did you follow the standard procedure?"; "i want *you* to develop the skills, not me";
+"i don't want to waste multiple days again, how do we change teh skill development process to force
+you to follow the instructions?"; and, on staying up as the score's rule, "what if the skill
+requires being on the ground, liek grappling?".
+
+So the kick is rebuilt by [the procedure](../recipes/skill.md#the-procedure): authored, looked at,
+made to work some of the time by hand, and only then tuned over its timings and gains.
+
 So the kicker stays up after a kick, the push kick's and the low kick's alike (both are the kick's
 executor, `src/skills/strikes/shared/kick.ts`), without losing what the kick lands, and the game's
 Mind's knockouts within 60 s come back toward what they were before the kick.
@@ -49,9 +60,19 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   scorecard's knockouts within 60 s 38.9 % against 34.7 %, level in the match; at `b207cee32`
   the game's Mind reads 45.1 % (35.8 to 54.8) and 3.59 downs a bout, `option-truer` 38.6 % and 4.01. A step aimed at the
   capture point read flat; a re-chamber under the pose before the step fell more.
-- **Next**: the falls left, read by the same probe (`bout-kicks.mjs`), each kick's kicker
-  against whether the foe's blow came first, the trades the kick's findings name; then the low
-  kick's falls on the same set-down; then a match and the scorecard for each change.
+- **Leaning 0.45 in the drive, on the new set-down**: down after 54.6 % of driven kicks in fights
+  against 65.7 %; its match and scorecard were stopped unread, the movement itself to be rebuilt.
+- **The push kick's look: not the motion.** Its frames (`research/looks/man/kick-push/`) show no
+  chamber, extension or retraction: as the hip drives the leg up, the trunk is thrown back like a
+  seesaw, and the folded leg is jammed into the foe. On its drill it lands 7 of 14 and ends standing
+  in 11. The flat-out pushes at the hip and knee toward a goal in the root's frame make the
+  reaction, and the one-foot pose cannot hold it. Its searches are refused (`requireLook`).
+- **Next: the authored kick**, its own variation beside `kick/push`: chamber the knee; drive the hips
+  through over a bent standing leg; the trunk counters the leg; retract after contact; set the foot
+  down under the body. Written for the range a person throws it from (the foot reaching the target
+  with the leg near straight) and looked at there first; what it does when offered closer (the
+  Option's range, or a step back first) decided by look and by hand. Made to land and keep the
+  kicker up some of the time on the drill, by hand, and reported before any search.
 
 ## After it
 

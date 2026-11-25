@@ -159,7 +159,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   }
   const generations = Number(values.generations ?? 60);
   console.error(`${cell.skill} on ${cell.body}: ${trials.length} trials of the twin a candidate`);
-  const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(values.sigma ?? (start ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 16), generations,
+  const { best: found } = await cmaSearch({ look: { body: values.body, variation: "bonk/swing" }, n: lo.length, start, sigma: Number(values.sigma ?? (start ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 16), generations,
     seed: Number(values.seed ?? 1),
     // A candidate none of whose trials counts scores below every one that has one.
     score: async (u) => { const r = await scoreOn(trials, valuesWith(tuningOf(toX(u), cell)), { play: pool.play }); return { ...r, score: r.score ?? -1e3, each: undefined }; },

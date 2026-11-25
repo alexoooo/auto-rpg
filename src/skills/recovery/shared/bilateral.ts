@@ -1,6 +1,6 @@
 import { varied, type Varied } from "../../framework/variations.ts";
 import { soleRefusal } from "../../../control/support.ts";
-import type { Part } from "../../../parts/parts.ts";
+import type { AsSkill, Part } from "../../../parts/parts.ts";
 import type { TechniquePart, TechniqueRun } from "./technique.ts";
 import { segmentOf, type BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Side } from "../../../core/bodies/bilateral.ts";
@@ -45,7 +45,7 @@ export function mirrorPosture(posture: Readonly<Record<string, number>>): Readon
  * its configs' `defaults` and `keys`, the sides it starts from, and its run on a body (`make`).
  */
 type TechniqueFields<C extends { readonly kind: string } & Varied> = Pick<TechniquePart<C>, "label" | "icon" | "edges" | "purpose" | "mode" | "defaults" | "keys"> & {
-  readonly skillGroup: string;
+  readonly asSkill: AsSkill;
   readonly sides: readonly Side[];
   readonly make: (...args: Parameters<TechniquePart<C>["make"]>) => TechniqueRun<Side>;
   readonly requires?: TechniquePart["requires"];

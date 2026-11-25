@@ -39,7 +39,7 @@ export const RIGHTING_RECIPE = deepFreeze<TechniquePart<RecipeConfig>>({
     fits: [fitsPaws, recordFault("righting", deepFreeze(meta.bodies), wholeRecipe)] }),
   faults: (config: RecipeConfig) => config.tuning === undefined || wholeRecipe(config.tuning) ? [] : ["invalid righting recipe"],
   reads: () => ["righting"],
-  skillGroup: "Stand-up",
+  asSkill: { group: "Stand-up", ends: ["standing"] },
 });
 
 declare module "../shared/technique.ts" {

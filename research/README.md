@@ -35,6 +35,7 @@ write:
 | the root: the step | what a world step takes in time and memory: `step-*.mjs`, `crypt-step.mjs`, `crypt-plan.mjs`, `mind-*.mjs`, `minds-apart.mjs`, `call-count.mjs`, `reach-bed.mjs`, `rest-probe.mjs`. Their figures and commands: [step cost](../docs/reference/step-cost.md) |
 | the root: learning | `run-learning-server.mjs` (an environment file's copies on worker threads), `case-learning-environment.mjs` (any learnable part in an evaluation's cases; a pooled environment's starts are kept in `.cache/starts/` and found again by condition, `starts.mjs`), `learner-adapter.mjs` (the loop every environment steps through), `run-train.py` (PPO or SAC against the server; PPO's rollouts by `rollout.mjs`), `learning-speed.mjs` |
 | the root: the engine and contact | `rapier-probe.mjs`, `rapier-package-parity.mjs`, `engine-adapter-cost.mjs`, `real-against-engine.mjs`, `toe-support.mjs`, `pad-surface.mjs` |
+| the root: the look | `look.mjs` (a skill's movement drawn in strips at its key moments, kept with its verdict in `looks/`), `look-gate.mjs` (the verdict a search reads before it starts), `look-image.mjs` (the drawing) |
 | the root: shared | `cma.mjs` (the resumable CMA-ES every search shares), `drill-trials.mjs` (a drill's trial pool), `worker-jobs.mjs`, `lag.mjs`, `yaw-pitch-roll.mjs`, `bvh.mjs` and `mocap-import.mjs` (the CMU clips the run cycle is fitted to; `run-cycle.mjs` names them and their licence) |
 
 Two data files are provenance, not scripts: `skills/strikes/held-blow/club-unit.json` is the club

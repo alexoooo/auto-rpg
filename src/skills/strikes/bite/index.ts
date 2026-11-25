@@ -30,7 +30,7 @@ export const BITE_PART: ExecutorPart<Config> = {
   faults: (config) => config.tuning === undefined || validBite(config.tuning) ? [] : ["invalid bite tuning"],
   effectors: ["head"], aims: true, meets: "point",
   strikesWith: (spec, _config, effector) => jawOf(spec).head.name === effector,
-  skillGroup: "Strikes",
+  asSkill: { group: "Strikes", ends: ["standing"] },
 };
 
 declare module "../../config.ts" {

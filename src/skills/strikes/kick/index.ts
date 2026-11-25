@@ -64,7 +64,7 @@ export const KICK_PART: ExecutorPart<Config> = {
     (spec, config) => { const records = recordOf(spec, config); return records === null || validKickTuning(tunedSettings(records, spec, config)) ? null : "invalid kick executor settings"; }] }),
   faults: (config) => config.tuning === undefined || validKickPart(config.tuning) ? [] : ["invalid kick tuning"],
   fitReads: ["kick/kick", "kick/push"], reads: variationReads(VARIATIONS), effectors: ["foot.left", "foot.right"], aims: true,
-  skillGroup: "Strikes",
+  asSkill: { group: "Strikes", ends: ["standing"] },
 };
 
 declare module "../../config.ts" {

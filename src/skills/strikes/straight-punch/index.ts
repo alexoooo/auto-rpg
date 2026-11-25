@@ -80,7 +80,7 @@ export const PUNCH_PART: ExecutorPart<Config> = {
   reads: variationReads(VARIATIONS), effectors: ["hand.left", "hand.right"], aims: true,
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.
   strikesWith: (spec, _config, effector) => heldAt(spec, effector) === undefined,
-  skillGroup: "Strikes",
+  asSkill: { group: "Strikes", ends: ["standing"] },
 };
 
 declare module "../../config.ts" {

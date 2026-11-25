@@ -123,7 +123,7 @@ const toX = (u) => u.map((v, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.ma
 const from = values.from ? JSON.parse(readFileSync(values.from, "utf8")).best.settings : null;
 const start = pointOf(from ?? {}).map((x, i) => (x - lo[i]) / (hi[i] - lo[i]));
 console.error(`kick on man: ${trials.length} trials of ${RUNG} a candidate`);
-const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 16),
+const { best: found } = await cmaSearch({ look: { body: "man", variation: "kick/push" }, n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 16),
   generations: Number(values.generations ?? 40), seed: Number(values.seed ?? 1),
   // A candidate none of whose trials counts scores below every one that has one.
   score: async (u) => { const settings = settingsOf(toX(u)), r = await scoreOn(trials, (trial) => withTuning(trial.subject.value, { ...KICK_PATH, ...settings }), { play: pool.play });

@@ -27,7 +27,7 @@ export const RIGHTING_ROUTES = deepFreeze<TechniquePart<RoutesConfig>>({
   ...RIGHTING, requires: [MOTOR_SUPPORT], edges: toStanding([...LYING, "crouch", "between"]), label: "Right by routes", defaults: { kind: "righting-routes" }, keys: { kind: true, variation: true },
   ...varied({ skill: "righting-routes", label: "righting by routes", variations: ROUTES_VARIATIONS, of: (own, _view, _clock, _fitted, config) => [own.spec, config],
     fits: [fitsPaws, fitsWhen(holdsRoutes, "needs legs whose ranges hold the righting routes' poses")] }), faults: () => [],
-  skillGroup: "Stand-up",
+  asSkill: { group: "Stand-up", ends: ["standing"] },
 });
 
 declare module "../shared/technique.ts" {

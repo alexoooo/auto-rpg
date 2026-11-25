@@ -114,7 +114,7 @@ export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
     ];
   },
   reads: () => ["walk-run"],
-  skillGroup: "Travel",
+  asSkill: { group: "Travel", ends: ["standing"] },
 });
 
 declare module "../../config.ts" {

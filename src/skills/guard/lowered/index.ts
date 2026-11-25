@@ -26,7 +26,7 @@ export const LOWERED_GUARD: GuardPart<LoweredGuardConfig> = {
   // A shield's outline with an arrow down in it.
   icon: "M12 2l8 3v6c0 5-3.4 9-8 11c-4.6-2-8-6-8-11V5ZM12 4.6l-5.6 2.1V11c0 3.8 2.4 6.7 5.6 8.3c3.2-1.6 5.6-4.5 5.6-8.3V6.7ZM8.5 9.5h7L12 15Z",
   role: "guard", label: "Arms lowered", fields: [], slots: [], defaults: { kind: "lowered" }, keys: { kind: true, variation: true },
-  faults: () => [], skillGroup: "Guard", ...guardVariations({ skill: "lowered", label: "lowered arms", variations: VARIATIONS, fits: [
+  faults: () => [], asSkill: { group: "Guard", ends: ["standing"] }, ...guardVariations({ skill: "lowered", label: "lowered arms", variations: VARIATIONS, fits: [
     fitsWhen((spec: BodySpec) => Object.keys(LOWERED).every((channel) => spec.joints.some((joint) => joint.dofs.some((dof) => `${joint.name} ${dof.positive}` === channel))),
       "has no two arms to lower")] }),
 };

@@ -34,9 +34,11 @@ export const createPlay = perContext((context: GameContext) => {
   /**
    * Play `world` until `read`'s reader says it ended; an error once it runs `seconds` and `OVERRUN`
    * more. Every kind of world is stepped and traced the same way (`WorldKind`); at `hz` steps a
-   * second where given and its kind takes a rate (a confirmation's finer one), else at its own.
+   * second where given and its kind takes a rate (a confirmation's finer one), else at its own;
+   * `watch` where given sees the built case after each step (a look at the movement), and changes nothing.
    */
-  async function playCase<R extends Json>(world: CaseWorld, seconds: number, read: (built: BuiltCase) => Reader<R>, { hz }: { readonly hz?: number } = {}): Promise<Played<R> | Refused> {
+  async function playCase<R extends Json>(world: CaseWorld, seconds: number, read: (built: BuiltCase) => Reader<R>,
+    { hz, watch }: { readonly hz?: number; readonly watch?: (built: BuiltCase) => void } = {}): Promise<Played<R> | Refused> {
     const kind = WORLD_BUILDERS[world.kind] as unknown as WorldKind;
     const built = await kind.build(world, hz === undefined ? undefined : { hz });
     if (isRefused(built)) return built;
@@ -48,6 +50,7 @@ export const createPlay = perContext((context: GameContext) => {
         built.world.step();
         trace.take();
         reader.afterStep();
+        watch?.(built);
       }
       return { reading: reader.reading(), digest: trace.digest(), played: kind.clock(built) };
     } finally { built.dispose(); }

@@ -59,7 +59,7 @@ export const STANCE_WALK_PART = deepFreeze<GaitPart<StanceWalkConfig>>({
     ...(validTurnStartup(config.tuning?.turnStartup) ? [] : ["invalid combat turn startup settings"]),
     ...(config.carriage === undefined || validCarriage(config.carriage) ? [] : ["a carriage needs a positive width or none, and a finite stagger and lowering"]),
   ],
-  skillGroup: "Travel",
+  asSkill: { group: "Travel", ends: ["standing"] },
 });
 
 declare module "../../config.ts" {

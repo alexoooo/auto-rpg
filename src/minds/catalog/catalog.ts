@@ -158,6 +158,7 @@ function registryOf({ minds, parts: roles, entrants, data: dataLists = [] }: Cat
   const add = (kind: string, part: Part, what: string, scope: string | null) => {
     if (scopeOf(kind) !== scope) faults.push(scope === null ? `${what} ${JSON.stringify(kind)} is scoped, and the toolkit's kinds are not` : `${what} ${JSON.stringify(kind)} is not scoped ${scope}:`);
     else if (Object.hasOwn(parts, kind)) faults.push(`${what} ${JSON.stringify(kind)} is another part's kind`);
+    else if (!part.variations !== !part.asSkill) faults.push(`${what} ${JSON.stringify(kind)} is a skill only in part: a skill has its variations and says what it is as one (\`AsSkill\`)`);
     else {
       parts[kind] = part;
       if (part.role === "mind") controllers[kind] = part as Controller;
@@ -317,7 +318,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
 
   let skills: readonly SkillOffer[] | null = null;
   const skillsOf = (): readonly SkillOffer[] => skills ??= Object.freeze(Object.entries(registered().parts).flatMap(([skill, part]) =>
-    part.variations ? [Object.freeze({ skill, label: part.label, group: part.skillGroup ?? "Other", variations: part.variations })] : []));
+    part.variations ? [Object.freeze({ skill, label: part.label, group: part.asSkill!.group, variations: part.variations })] : []));
   /** Whether the executor of `config` strikes with one of the limbs of `spec` as it holds what it holds. */
   const strikes = (spec: BodySpec, config: PartConfig): boolean => {
     const executor = parts.of("executor", config);

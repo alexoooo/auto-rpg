@@ -103,7 +103,7 @@ try {
     base,baseline,dimensions,trials:trials.length,seconds:(Date.now()-started)/1000,log,best:kept,checkpoint},null,1));
   save(previous?.log??[],resume??null);
   let generationStarted=Date.now();
-  const result=await cmaSearch({n:dimensions.length,start,sigma:Number(values.sigma),lambda,generations,seed:13,resume,
+  const result=await cmaSearch({ look: { body: values.model ?? "man", variation: "staged-roll/staged-roll" }, n:dimensions.length,start,sigma:Number(values.sigma),lambda,generations,seed:13,resume,
     score:unit=>score(decode(base,unit)),
     onGeneration(entry,search) {
       if(search.best.score>kept.score) kept={tuning:decode(base,search.best.u),...search.best.r};

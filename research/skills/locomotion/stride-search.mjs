@@ -57,7 +57,7 @@ try {
     const baseline = await score(unit);
     if (!o.resume) writeFileSync(o.out + '-baseline.json', JSON.stringify({ row, stride: strideAt(unit), ...baseline }) + '\n');
     console.log(JSON.stringify({ baseline: baseline.value, falls: baseline.falls, trials: baseline.trials }));
-    if (!o.score) await cmaSearch({ n: keys.length, start: unit, sigma: Number(o.sigma), lambda: Number(o.lambda), generations: Number(o.generations), seed: 1, score, resume: saved?.checkpoint,
+    if (!o.score) await cmaSearch({ look: { body: o.body ?? "man", variation: "walk-run/walk-run" }, n: keys.length, start: unit, sigma: Number(o.sigma), lambda: Number(o.lambda), generations: Number(o.generations), seed: 1, score, resume: saved?.checkpoint,
       onGeneration: (entry, { best, checkpoint }) => {
         const line = { ...entry, lost: best.r?.value, falls: best.r?.falls, stride: strideAt(best.u) };
         appendFileSync(o.out + '.jsonl', JSON.stringify(line) + '\n');

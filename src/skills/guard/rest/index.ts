@@ -18,7 +18,7 @@ export const REST_GUARD: GuardPart<RestGuardConfig> = {
   // A shield's outline: no guard held.
   icon: "M12 2l8 3v6c0 5-3.4 9-8 11c-4.6-2-8-6-8-11V5ZM12 4.6l-5.6 2.1V11c0 3.8 2.4 6.7 5.6 8.3c3.2-1.6 5.6-4.5 5.6-8.3V6.7Z",
   role: "guard", label: "At rest", fields: [], slots: [], defaults: { kind: "rest" }, keys: { kind: true, variation: true },
-  faults: () => [], skillGroup: "Guard", ...guardVariations({ skill: "rest", label: "rest", variations: VARIATIONS, fits: [] }),
+  faults: () => [], asSkill: { group: "Guard", ends: ["standing"] }, ...guardVariations({ skill: "rest", label: "rest", variations: VARIATIONS, fits: [] }),
 };
 
 declare module "../../config.ts" {

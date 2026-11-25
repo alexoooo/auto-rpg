@@ -42,6 +42,8 @@ export function lieOf(root: ReadSegment, belly: Vec3, work = { turn: new Quatern
  * upright, with its feet, hands and thighs, sitting; on anything else, between.
  */
 export type Position = "standing" | "crouch" | "half-kneel" | "kneeling" | "fours" | "sitting" | Lie | "between";
+/** Every `Position`, as a skill names where it leaves its body (`AsSkill.ends`, `src/parts/parts.ts`). */
+export const POSITIONS: readonly Position[] = Object.freeze(["standing", "crouch", "half-kneel", "kneeling", "fours", "sitting", "front", "back", "left", "right", "between"]);
 
 /** What a body on the ground knows this step; all fields are plain data written in place. */
 export interface GroundReading {

@@ -135,7 +135,7 @@ export const STOMP_PART: ExecutorPart<Config> = {
     (spec, config) => { const variation = variationOf(spec, config); return variation === null || variation.valid(spec, config) ? null : "invalid stomp executor settings"; }] }),
   faults: (config) => config.tuning === undefined || validTuning(config.tuning, config.variation) ? [] : ["invalid stomp tuning"],
   fitReads: ["stomp/stomp", "stomp/kick"], reads: variationReads(VARIATIONS), effectors: ["foot.left", "foot.right"], aims: true,
-  skillGroup: "Strikes",
+  asSkill: { group: "Strikes", ends: ["standing"] },
 };
 
 declare module "../../config.ts" {

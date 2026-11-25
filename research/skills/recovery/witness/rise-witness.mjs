@@ -357,7 +357,7 @@ if (!isMainThread && workerData.harness === "rise-witness") {
     const workers = Number(values.workers ?? defaultLanes());
     const pool = workerPool(new URL(import.meta.url), { harness: "rise-witness", move, model, held, seed, cap }, workers), t0 = Date.now();
     try {
-      const result = await cmaSearch({ n: start.length, start, sigma: Number(values.sigma ?? .15), lambda: workers, generations: Number(values.generations ?? 100), seed: 7,
+      const result = await cmaSearch({ look: { body: model, variation: "regain/regain" }, n: start.length, start, sigma: Number(values.sigma ?? .15), lambda: workers, generations: Number(values.generations ?? 100), seed: 7,
         score: u => pool.evaluate(u),
         async onGeneration(entry, progress) {
           const seconds = Math.round((Date.now() - t0) / 1000);

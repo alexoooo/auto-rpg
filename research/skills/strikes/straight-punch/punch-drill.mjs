@@ -162,7 +162,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   if (values.tune) { if (!from) throw new Error("--tune tunes --from's schedule"); cell.base = [...from]; const n = 3 * channels.length; from.length = 0; from.push(1, 0, ...cell.base.slice(n, n + 5)); }
   const start = from ? lo.map((l, i) => from[i] === undefined || hi[i] === l ? 0.5 : (from[i] - l) / (hi[i] - l)) : undefined;
   console.error(`${cell.skill} on ${cell.body}: ${trials.length} trials of the twin a candidate`);
-  const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 16), generations, seed: Number(values.seed ?? 1),
+  const { best: found } = await cmaSearch({ look: { body: values.body, variation: { punch: "straight-punch/moving", thrust: "sword-thrust/drive" }[values.skill] }, n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 16), generations, seed: Number(values.seed ?? 1),
     // A candidate none of whose trials counts scores below every one that has one.
     score: async (u) => { const r = await scoreOn(trials, valuesWith(settingsOf(toX(u), cell)), { play: pool.play }); return { ...r, score: r.score ?? -1e3, each: undefined }; },
     onGeneration(entry, { best, mean, log }) {

@@ -459,7 +459,7 @@ async function search({ out, variation, holds, steer, draws, starts, rank, lambd
       best = { score: r.score, u: start, r, g: -1 };
       console.log(`the start on the twin: ${reading(r)}`);
     }
-    await cmaSearch({ n: start.length, start, sigma, spread: [...SEARCHED.map(() => 1), ...new Array(moved).fill(step / (sigma * 2 * WEIGHT_RANGE))], lambda, generations: Number.MAX_SAFE_INTEGER, seed: 1,
+    await cmaSearch({ look: { body: BODY, variation: `${SKILL}/${variation}` }, n: start.length, start, sigma, spread: [...SEARCHED.map(() => 1), ...new Array(moved).fill(step / (sigma * 2 * WEIGHT_RANGE))], lambda, generations: Number.MAX_SAFE_INTEGER, seed: 1,
       ...(saved?.checkpoint ? { resume: saved.checkpoint } : {}),
       score: async (u) => {
         if (drawnFor !== generation) { conditions = startsOf(generation); drawnFor = generation; }

@@ -11,6 +11,33 @@ A bullet that ends in a confidence (*repeated*, *shown*, *suspected*) is a findi
 graded as [the approaches](../approaches.md) say; the findings on travel, standing up, weapon
 strikes, guarding and minds are there.
 
+## The procedure
+
+In the owner's words, 2026-11-25: "our standard approach is to make the movement using authored
+code, to make it work some of the time, and then to ttune that with machine learning"; "i want
+*you* to develop the skills, not me". The push kick was searched for days without anyone looking
+at it, and its frames showed a body flinging itself back, nothing like a kick: "if you had taken
+one look at it you would see that it doesn't look liek a kick at all".
+
+1. **Author the movement** in code, as stages and settings, from how a person does the motion.
+2. **Look at its frames** at its key moments: `npm run look -- <body> <skill/variation>`
+   (`research/look.mjs`) plays it on its drill and draws its strips in
+   `research/looks/<body>/<variation>/<code>/`; read them and write the `verdict.md` beside them.
+3. **Make it work some of the time**, by hand: it lands (or reaches what its drill asks) and ends
+   where the skill says it leaves its body (`AsSkill.ends`, `src/parts/parts.ts`).
+4. **Then tune only timings and gains** by search, never its shape.
+
+- **A movement is looked at before it is tuned, and again before it is called better**: its frames
+  at its key moments, compared with how a person does the motion.
+- **A skill whose frames do not look like the motion is not searched or matched**: it goes back to
+  its authored code. Every search (`cmaSearch`, `research/cma.mjs`) names the movement it tunes and
+  refuses to start unless that movement's look, at its code as it is now, says "Looks like the
+  motion: yes" and "Works some of the time: yes" (`requireLook`, `research/look-gate.mjs`); a change
+  to the skill's code is a new look with no verdict.
+- **A trial that ends where its skill does not leave its body scores no better than doing
+  nothing** (`searchScore`, `research/drill-trials.mjs`): a kick that lands and leaves the kicker
+  down is worth less than one not thrown, and a skill done on the ground names the ground.
+
 ## Conventions
 
 ### How the work is run

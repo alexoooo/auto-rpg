@@ -146,7 +146,7 @@ if (!isMainThread && workerData.harness === "crouch-regain") {
     const pool = workerPool(new URL(import.meta.url), { harness: "crouch-regain", model, held }, Number(values.workers ?? defaultLanes()));
     let result;
     try {
-    result = await cmaSearch({ n: START.length, start: START, sigma: .15, lambda: 12, generations: Number(values.generations ?? 40), seed: 7,
+    result = await cmaSearch({ look: { body: model, variation: "regain/regain" }, n: START.length, start: START, sigma: .15, lambda: 12, generations: Number(values.generations ?? 40), seed: 7,
       score: async u => { const ts = await Promise.all(seeds.map(seed => pool.evaluate({ u, seed }).then(r => { if (r.error) throw new Error(r.error); return r.t; }))); return { score: -ts.reduce((a, b) => a + b, 0) / ts.length, ts }; },
       onGeneration: (entry, search) => console.log(`g${entry.g} mean ${(-entry.best).toFixed(2)} s, best so far ${(-search.best.score).toFixed(2)} s`) });
     } finally { await pool.terminate(); }
