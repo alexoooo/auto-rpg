@@ -18,7 +18,8 @@ import "../tests/harness/preload-data.mjs";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cellOf, drillTrials, endsOf, playTrial, subjectOf, trialPool, withTuning } from "./drill-trials.mjs";
+import { strikeOffered } from "../src/evaluation/strike/read.ts";
+import { cellOf, drillTrials, endsOf, offered, playTrial, subjectOf, trialPool, withTuning } from "./drill-trials.mjs";
 import { bodyShape, drawBodies, stripPng } from "./look-image.mjs";
 import { belowNormal, defaultLanes } from "../scripts/lanes.mjs";
 import { lookCode, lookDir } from "./look-gate.mjs";
@@ -80,7 +81,7 @@ async function main() {
   belowNormal();
   const tuningPath = flag("tuning", null), tuning = tuningPath ? JSON.parse(readFileSync(tuningPath, "utf8")) : null;
   const cell = cellOf({ body, skill: flag("cell", variation.split("/")[0]), loadout: flag("loadout", "empty,empty") });
-  const all = drillTrials(cell, "twin"), count = Math.min(all.length, Number(flag("trials", 32)));
+  const all = drillTrials(cell, "twin").filter((trial) => offered(trial, valueOf(trial, variation, tuning))), count = Math.min(all.length, Number(flag("trials", 32)));
   const trials = Array.from({ length: count }, (_, k) => all[Math.floor(k * all.length / count)]);
   const code = lookCode(variation, tuning), dir = lookDir(body, variation, code);
   mkdirSync(dir, { recursive: true });
@@ -88,9 +89,11 @@ async function main() {
   let played;
   try { played = await Promise.all(trials.map((trial) => pool.play(trial, valueOf(trial, variation, tuning)))); }
   finally { await pool.terminate().catch(() => {}); }
-  const strips = Math.min(count, Number(flag("strips", 4))), shown = [];
+  // Its counts and strips are of the trials whose blow the skill offers (`strikeOffered`): a target outside what it strikes is no trial of it.
+  const counted = played.map((one) => strikeOffered(one.outcome)), shownOf = played.map((_, k) => k).filter((k) => counted[k]);
+  const strips = Math.min(shownOf.length, Number(flag("strips", 4))), shown = [];
   for (let k = 0; k < strips; k++) {
-    const at = Math.floor(k * count / strips), frames = await strip(trials[at], valueOf(trials[at], variation, tuning));
+    const at = shownOf[Math.floor(k * shownOf.length / strips)], frames = await strip(trials[at], valueOf(trials[at], variation, tuning));
     writeFileSync(join(dir, `strip-${k}.png`), stripPng(frames.map((f) => f.drawn)));
     shown.push({ strip: `strip-${k}.png`, trial: trials[at].name, rung: trials[at].protocol, outcome: played[at].outcome, down: played[at].down, frames: frames.map(({ time, stage }) => ({ time, stage })) });
   }
@@ -99,19 +102,21 @@ async function main() {
   const ends = endsOf(trials[0].skill), rungs = {};
   // Each rung's own counts, a cell reading more than one (the kick's middle and base).
   played.forEach((one, k) => {
+    if (!counted[k]) return;
     const rung = rungs[trials[k].protocol] ??= { trials: 0, landed: 0, down: 0, endedAsItMust: 0, value: 0, counted: 0 };
     rung.trials++; if (one.value !== null) { rung.value += one.value; rung.counted++; } rung.landed += one.outcome === "landed" ? 1 : 0; rung.down += one.down ? 1 : 0; rung.endedAsItMust += ends.includes(one.ended) ? 1 : 0;
   });
   // Each rung's mean value as its cell values a trial (`trialValue`), over the trials that count.
   for (const rung of Object.values(rungs)) { rung.value = rung.counted ? +(rung.value / rung.counted).toFixed(3) : null; delete rung.counted; }
-  const look = { body, variation, code, tuning, cell: `${cell.body} ${cell.skill} ${trials[0].drill}/${trials[0].protocol}`, trials: count,
-    landed: played.filter((one) => one.outcome === "landed").length, down: played.filter((one) => one.down).length,
-    ends, endedAsItMust: played.filter((one) => ends.includes(one.ended)).length, outcomes, rungs, strips: shown };
+  const struck = played.filter((_, k) => counted[k]);
+  const look = { body, variation, code, tuning, cell: `${cell.body} ${cell.skill} ${trials[0].drill}/${trials[0].protocol}`, trials: struck.length,
+    landed: struck.filter((one) => one.outcome === "landed").length, down: struck.filter((one) => one.down).length,
+    ends, endedAsItMust: struck.filter((one) => ends.includes(one.ended)).length, outcomes, rungs, strips: shown };
   writeFileSync(join(dir, "look.json"), JSON.stringify(look, null, 1) + "\n");
   const verdict = join(dir, "verdict.md");
   if (!existsSync(verdict)) writeFileSync(verdict, [`# ${body}'s ${variation} at ${code}`, "", "Looks like the motion: no", "Works some of the time: no", "",
     "What the strips show, against how a person does it:", ""].join("\n") + "\n");
-  console.log(`${relative(ROOT, dir)}: landed ${look.landed}/${count}, down ${look.down}/${count}, ended ${ends.join(" or ")} ${look.endedAsItMust}/${count}, ${JSON.stringify(outcomes)}, by rung ${JSON.stringify(rungs)}; strips ${shown.map((s) => s.strip).join(", ")}; its verdict ${relative(ROOT, verdict)}`);
+  console.log(`${relative(ROOT, dir)}: landed ${look.landed}/${look.trials}, down ${look.down}/${look.trials}, ended ${ends.join(" or ")} ${look.endedAsItMust}/${look.trials}, ${JSON.stringify(outcomes)}, by rung ${JSON.stringify(rungs)}; strips ${shown.map((s) => s.strip).join(", ")}; its verdict ${relative(ROOT, verdict)}`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await main();

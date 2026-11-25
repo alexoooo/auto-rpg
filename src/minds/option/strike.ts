@@ -2,7 +2,7 @@ import { sameRegion, type Spot } from "../../skills/framework/menu.ts";
 import type { Readiness, Resource, TargetRef, Window } from "../../skills/framework/action.ts";
 import { regionSegments } from "../../skills/framework/action-aim.ts";
 import { heldBeside, placeInWindow, SIDES, windowHolds, windowSpot, type Side } from "../../skills/intent/action-window.ts";
-import { orderAllows, orderedTarget } from "../orders.ts";
+import { orderAllows, orderedTargets } from "../orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
 import { measuredOn, staleness, strikeSkill } from "../../skills/framework/profile/lookup.ts";
 import { type Expected, type ProfileReading } from "../../skills/framework/profile/reading.ts";
@@ -127,27 +127,33 @@ export function strike({ action, walk, throws, measure, name }: Striking): Strik
       ...(place ? { window: place } : {}), ...(progress === undefined ? {} : { progress }) };
     return reading.expect(start, focus.spec);
   };
-  const targetOf = (now: Situation): TargetRef | null => {
+  /** Where it may strike the situation's focus: each of its regions the focus has, as orders put them (`orderedTargets`). */
+  const targetsOf = (now: Situation): readonly TargetRef[] => {
     const focus = now.focus;
-    return focus && action.regions ? orderedTarget(now.orders ?? null, focus, action.regions) : null;
+    return focus && action.regions ? orderedTargets(now.orders ?? null, focus, action.regions) : [];
   };
   const readiness = (now: Situation, limb: string, target: TargetRef): Readiness =>
     now.sight.actions.readiness(now.sight.view, action.name, limb, target, now.sight.actions.around);
   type Limb = { readonly limb: string; readonly readiness: Readiness };
-  /** The first limb ready at `target`, and the first with a window to walk to (`position`) where none is: what a walk into it goes to (`window`). */
-  const scan = (now: Situation, target: TargetRef): { ready: Limb | null; placed: Limb | null } => {
-    let placed: Limb | null = null;
+  /**
+   * The first limb ready at `target`, and the first with a window to walk to (`position`) where none
+   * is: what a walk into it goes to (`window`); and whether every limb read finds the target outside
+   * what the skill strikes (`beyond`).
+   */
+  const scan = (now: Situation, target: TargetRef): { ready: Limb | null; placed: Limb | null; beyond: boolean } => {
+    let placed: Limb | null = null, read = 0, beyond = 0;
     for (const limb of action.effectors) {
       if (target.kind === "body" && !orderAllows(now.orders ?? null, target.body, action.executor, limb)) continue;
       const ready = readiness(now, limb, target);
-      if (ready.kind === "ready") return { ready: { limb, readiness: ready }, placed: null };
+      if (ready.kind === "ready") return { ready: { limb, readiness: ready }, placed: null, beyond: false };
       if (ready.kind === "position") placed ??= { limb, readiness: ready };
+      read++; if (ready.kind === "beyond") beyond++;
     }
-    return { ready: null, placed };
+    return { ready: null, placed, beyond: read > 0 && beyond === read };
   };
   /**
-   * What its entry reads of its limbs at the target the situation names (`targetOf`), once a step
-   * for each focus: the chooser weighs every foe's situation in a step, each with its own focus.
+   * What its entry reads of its limbs at its target, once a step for each focus: the first of its
+   * targets (`targetsOf`) its skill strikes (none `beyond`), else the first; the chooser weighs every foe's situation in a step, each with its own focus.
    * It is kept against the body's reading of that step (`StepReading`), so it is no state: a time
    * comes round again in a bout put back to a save, and what was read at it before is stale.
    */
@@ -157,11 +163,17 @@ export function strike({ action, walk, throws, measure, name }: Striking): Strik
     let offered = offers.get(focus);
     if (!offered) offers.set(focus, offered = { stamp: -1, time: NaN, target: null, ready: null, placed: null });
     if (offered.stamp === stamp && offered.time === now.time) return offered;
-    offered.stamp = stamp; offered.time = now.time; offered.target = targetOf(now);
-    const scanned = offered.target === null ? { ready: null, placed: null } : scan(now, offered.target);
-    offered.ready = scanned.ready; offered.placed = scanned.placed;
+    offered.stamp = stamp; offered.time = now.time; offered.target = null; offered.ready = null; offered.placed = null;
+    for (const target of targetsOf(now)) {
+      const scanned = scan(now, target);
+      if (offered.target !== null && scanned.beyond) continue;
+      offered.target = target; offered.ready = scanned.ready; offered.placed = scanned.placed;
+      if (!scanned.beyond) break;
+    }
     return offered;
   };
+  /** Where it strikes the situation's focus now (`offer`), null where nowhere. */
+  const targetOf = (now: Situation): TargetRef | null => offer(now).target;
   const live = (now: Situation) => state.id === null ? undefined : now.sight.report.actions.find((a) => a.id === state.id);
   const UNFIT = blocked("no focus to strike"), UNAIMED = blocked("the focus has none of its regions"), UNREADY = blocked("no limb in its entry");
   /** Whether the focus and its blow under way leave it a target to strike. */

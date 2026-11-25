@@ -1,6 +1,6 @@
 import { choiceKey, orderable } from "../../../game/arena/choice-watch.ts";
 import { buttonInput as button } from "./inputs.ts";
-import type { Readiness, Region } from "../../../skills/framework/action.ts";
+import { refused, type Readiness, type Region } from "../../../skills/framework/action.ts";
 import type { MenuEntry } from "../../../skills/framework/menu.ts";
 import type { StrikeChoice } from "../../../minds/command/commands.ts";
 import { partLabel } from "../../../game/part-label.ts";
@@ -17,12 +17,13 @@ function readinessText(readiness: Readiness): string {
     case "position": return "out of position";
     case "waiting": return `waiting: ${readiness.reason}`;
     case "blocked": return `refused: ${readiness.reason}`;
+    case "beyond": return `beyond it: ${readiness.reason}`;
     default: { const never: never = readiness; throw new Error(`unknown readiness ${JSON.stringify(never)}`); }
   }
 }
 
 /** How near a readiness is to starting: ready first, refused last. */
-const NEARNESS: Readonly<Record<Readiness["kind"], number>> = { ready: 0, position: 1, waiting: 2, blocked: 3 };
+const NEARNESS: Readonly<Record<Readiness["kind"], number>> = { ready: 0, position: 1, waiting: 2, blocked: 3, beyond: 4 };
 
 /** What a person picking a choice orders: an attack on a foe, naming what the choice names of how. */
 type PickedStrike = StrikeChoice & { readonly foe: string };
@@ -89,7 +90,7 @@ export function choicePanel(name: (foe: string) => string, pick: (strike: Picked
       previous = signature;
       list.replaceChildren();
       if (!menu) { list.append(line("Its mind reports no choices")); return; }
-      const groups = grouped(menu), open = groups.filter((group) => group.foe !== null && nearest(group).kind !== "blocked");
+      const groups = grouped(menu), open = groups.filter((group) => group.foe !== null && !refused(nearest(group)));
       const rest = groups.filter((group) => !open.includes(group));
       if (picks) for (const foe of new Set(open.map((group) => group.foe!)))
         list.append(button(`Attack ${name(foe)} (its own choice)`, () => pick({ foe }, [])));
@@ -97,7 +98,7 @@ export function choicePanel(name: (foe: string) => string, pick: (strike: Picked
         const row = document.createElement("div");
         row.className = "choice-row"; row.dataset.readiness = nearest(group).kind;
         row.append(line(`${groupText(group, name)} — ${groupReadiness(group)}`));
-        const limbs = group.entries.filter((entry) => orderable(entry) && entry.readiness.kind !== "blocked");
+        const limbs = group.entries.filter((entry) => orderable(entry) && !refused(entry.readiness));
         if (picks) {
           const buttons = document.createElement("div");
           buttons.className = "choice-limbs";
@@ -110,9 +111,9 @@ export function choicePanel(name: (foe: string) => string, pick: (strike: Picked
       }
       if (!open.length) {
         // Where every strike is refused for one reason, that reason is why none can start.
-        const refused = groups.flatMap((group) => group.foe === null ? [] : group.entries.map((entry) => entry.readiness.kind === "blocked" ? entry.readiness.reason : ""));
-        const reasons = new Set(refused);
-        list.append(line(`No strike can start now${reasons.size === 1 && refused[0] ? `: ${refused[0]}` : ""}`));
+        const why = groups.flatMap((group) => group.foe === null ? [] : group.entries.map((entry) => refused(entry.readiness) && "reason" in entry.readiness ? entry.readiness.reason : ""));
+        const reasons = new Set(why);
+        list.append(line(`No strike can start now${reasons.size === 1 && why[0] ? `: ${why[0]}` : ""}`));
       }
       if (rest.length) {
         const folded = document.createElement("details"), title = document.createElement("summary");

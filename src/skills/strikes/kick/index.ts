@@ -60,7 +60,8 @@ function variation<S>(key: KickRecordKey, bodies: readonly string[], executor: (
  * The kick's variations, each by its own record: the kick (`kick/kick`), its leg thrown up on its
  * schedule; the push kick (`kick/push`), its leg the aimed drive's, folded up and driven out
  * level at the foe's middle; and the front kick (`kick/front`), its leg carried along authored paths,
- * chambered, extended at the target and retracted (`frontKickExecutor`).
+ * chambered, extended at the target and retracted (`frontKickExecutor`), its height band about
+ * its own hip's, where a person's push kick meets a body.
  */
 const VARIATIONS: Variations<KickVariation> = {
   kick: variation("kick/kick", deepFreeze(meta.bodies), kickExecutor, validKickPart, wholeKick, validKickTuning),

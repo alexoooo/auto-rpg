@@ -62,7 +62,7 @@ export type Approach = { readonly way: number; readonly speed: number; readonly 
 export type DrillPhase = "fighting" | "settling" | "going" | "lost" | Readiness["kind"] | "striking" | "under way" | "let go" | "done";
 
 /** What a drill says its member does (`MemberReport.task`): its phase, and why where its choice is refused or waits. */
-const taskOf = (phase: DrillPhase, reason: string): string => reason && (phase === "blocked" || phase === "waiting") ? `${phase}: ${reason}` : phase;
+const taskOf = (phase: DrillPhase, reason: string): string => reason && (phase === "blocked" || phase === "beyond" || phase === "waiting") ? `${phase}: ${reason}` : phase;
 
 /** A drill's phase and reason from what it says its member does (`taskOf`). */
 export function drillTask(task: string): { readonly phase: DrillPhase; readonly reason: string } {
@@ -227,7 +227,7 @@ function drillCommander(config: DrillCommanderConfig): Commander {
         return decided(member, { move: directMovement(sin(way), cos(way)), pace: approach.speed, face: heading(toward) });
       }
       state.phase = readiness.kind;
-      state.reason = readiness.kind === "blocked" || readiness.kind === "waiting" ? readiness.reason : "";
+      state.reason = "reason" in readiness ? readiness.reason : "";
       const h = member.heading ?? 0, toward = atan2(foe.at.x - at.x, foe.at.z - at.z);
       if (readiness.kind === "position") state.window = readiness.window;
       if (entry?.spot) {

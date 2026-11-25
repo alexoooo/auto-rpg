@@ -91,6 +91,16 @@ export function drillTrials(cell, held) {
 /** The subject `trial` reads as its evaluation resolves it: its value, the one a candidate's settings are written into. */
 export const subjectOf = (trial) => EVALUATIONS[trial.drill].subjects([trial.subject])[0];
 
+/** `trial`'s subject with the value `value`: the variations it names are its bodies' (`variations`, as a subject given whole has them), over its subject's own. */
+const seatedOf = (trial, value) => { const own = subjectOf(trial); return value?.variations ? { ...own, variations: value.variations } : own; };
+
+/**
+ * **Whether `trial` is a case of the subject's value `value`** (its protocol's `faults`, none): a
+ * drill asks a skill only what it offers, so a variation that strikes at fewer marks than the
+ * cell's subject is offered fewer of its trials.
+ */
+export const offered = (trial, value) => (EVALUATIONS[trial.drill].protocols[trial.protocol].faults?.(value, trial.condition, seatedOf(trial, value)) ?? []).length === 0;
+
 /**
  * **`trial` played with the subject's value `value`**, at `hz` steps a second (the game's where not
  * given): its reading, what its judge keeps, its outcome and its value as the cell values it, and
@@ -99,9 +109,7 @@ export const subjectOf = (trial) => EVALUATIONS[trial.drill].subjects([trial.sub
 export async function playTrial(trial, value, { hz, watch } = {}) {
   let ended = null;
   const seen = (built) => { const view = actorView(built); if (view) ended = positionOf(view); watch?.(built); };
-  // The variations a value names are its bodies' (`variations`, as a subject given whole has them), over its subject's own.
-  const evaluation = EVALUATIONS[trial.drill], cases = evaluation.protocols[trial.protocol], own = subjectOf(trial);
-  const subject = value?.variations ? { ...own, variations: value.variations } : own;
+  const evaluation = EVALUATIONS[trial.drill], cases = evaluation.protocols[trial.protocol], subject = seatedOf(trial, value);
   const world = cases.world([value], trial.condition, cases.engine ?? DEFAULT_ENGINE, [subject]);
   if (isRefused(world)) throw new Error(`${trial.drill}/${trial.protocol} ${trial.name}: ${world.refused}`);
   const played = await playCase(world, cases.seconds, (built) => cases.read(built, trial.condition), { ...(hz === undefined ? {} : { hz }), watch: seen });
