@@ -1,7 +1,7 @@
 /**
  * **The Strike drill's cases**: one strike skill thrown once, at a still body (`still`, and from
  * starts drawn at random, moving or still, `sampled`), at one lying (`stomping`, and from starts
- * drawn at random, `stomping-sampled`), a club's blow at one's head (`bonk`), at one
+ * drawn at random, `stomping-sampled`), a rat's bite at one's legs (`biting`), a club's blow at one's head (`bonk`), at one
  * carried past on a rail (`moving`), at one walked to from farther (`walk`), at a drill opponent stepping in and out (`stepping`), guarding
  * (`guarding`) or punching back (`punching`), in a fight's moment (`fight`, over many fights,
  * `fights`, and in fights drawn at random, `fights-twin`), or from starts drawn at random at a foe that fights back (`sparring`, and at one laid
@@ -10,7 +10,7 @@
  * answer, measured on the sparring rungs. The striker is the
  * subject's mind as given, holding what its subject names (`StrikeSubject.held`), its side led by
  * the drill Commander (`DrillCommanderConfig`): it stands, walks the striker into its action's
- * window, and orders the one action at one mark with one limb, a hand or a foot, once; the mind
+ * window, and orders the one action at one mark with one limb, a hand, a foot or another effector (a rat's head), once; the mind
  * carries the order out. A subject is asked a condition only where its mind offers its skill with
  * that limb at that mark on that body (`caseFaults`): a rung lists every mark and limb a strike is
  * asked at, and each strike's cases are its own of them. The target is a Warrior with empty hands, or each body the rung names (the rungs a table cell reads: each of the game's foes, `FOES`), under the rung's opponent (`DRILL_OPPONENTS`:
@@ -203,6 +203,13 @@ const STOMPING = deepFreeze({ ...OPPONENT, hands: [] as Hand[], feet: [...SIDES]
   marks: ["middle"] as Mark[], opponent: "bare", settled: 2, patience: 12, seconds: 25, laid: LAID });
 
 /**
+ * **Biting**: the still rung's trials thrown by the rat's head (`effectors`), whose jaw bites, at the
+ * legs mark of a standing Warrior with his arms lowered, the mark at its mouth's height. A rung for
+ * the rat's bite alone; the other foes come once it lands here.
+ */
+const BITING = deepFreeze({ ...STILL, models: ["rat"] as BodyModel[], marks: ["legs"] as Mark[], hands: [] as Hand[], effectors: ["head"] });
+
+/**
  * **Stomping from starts drawn at random**, the `stomping-sampled` rung: the stomping rung's trials
  * at a Warrior lying, each foot by turns, begun from starts drawn as the sampled rung's are, on
  * the Warrior's and the Rogue's bodies: the target's gap ahead and offset across, either side, drawn from `gaps`
@@ -298,9 +305,11 @@ function railOf(moving: Moving, settled: number, direction: Direction, speed: nu
  * in turn from one stream, the same for every body, each drawn to the millimetre and the
  * hundredth; its limbs, its hands then its feet, by turns, and its marks and targets by turns of them.
  */
-function sampledConditions(protocol: typeof SAMPLED & { readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly pairings?: readonly (Staggered | undefined)[] }): StillCondition[] {
+function sampledConditions(protocol: typeof SAMPLED & { readonly feet?: readonly Hand[]; readonly effectors?: readonly string[]; readonly targets?: readonly BodyModel[];
+  readonly pairings?: readonly (Staggered | undefined)[] }): StillCondition[] {
   const conditions: StillCondition[] = [], within = ([low, high]: readonly number[], at: number) => low! + at * (high! - low!);
-  const limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))], pairings = protocol.pairings ?? [undefined];
+  const limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot })), ...(protocol.effectors ?? []).map((effector) => ({ effector }))];
+  const pairings = protocol.pairings ?? [undefined];
   for (const model of protocol.models) {
     const stream = randomStream(protocol.seed);
     for (let k = 0; k < protocol.trials; k++) {
@@ -446,6 +455,14 @@ const SPARRING_FEET = deepFreeze({ ...SPARRING, hands: [] as Hand[], feet: [...S
   trials: SPARRING_DRAWN.trials + SPARRING_JUDGE.trials });
 
 /**
+ * **Sparring with the teeth**, the `sparring-bite` rung: sparring's starts on a stream of their own,
+ * thrown by the rat's head (`effectors`), whose jaw bites, at the foe's legs, as many trials as
+ * sparring's own, which a profile the Mind prices a bite by rests on.
+ */
+const SPARRING_BITE = deepFreeze({ ...SPARRING, models: ["rat"] as BodyModel[], hands: [] as Hand[], effectors: ["head"], marks: ["legs"] as Mark[], seed: 7,
+  trials: SPARRING.trials });
+
+/**
  * **Sparring at a foe laid down**, the `sparring-laid` rung: the stomping rung's sampled starts
  * (`STOMPING_SAMPLED`), with each foot, at each of the game's foes laid down and fighting back
  * (`SPARRING_FOE`), which rises as it would. A foe that keeps its balance is shoved four times as
@@ -522,9 +539,10 @@ export const createStrikeCases = perContext((context: GameContext) => {
   }
 
   function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string; readonly letGo?: readonly number[];
-    readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly laid?: typeof LAID; readonly motion?: true; readonly timing?: BoutTiming } & Partial<Moving>,
+    readonly feet?: readonly Hand[]; readonly effectors?: readonly string[]; readonly targets?: readonly BodyModel[]; readonly laid?: typeof LAID; readonly motion?: true; readonly timing?: BoutTiming } & Partial<Moving>,
     drawn?: readonly StillCondition[]): Cases<StrikeCondition, StrikeReading> {
-    const conditions: StillCondition[] = drawn ? [...drawn] : [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
+    const conditions: StillCondition[] = drawn ? [...drawn] : [];
+    const limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot })), ...(protocol.effectors ?? []).map((effector) => ({ effector }))];
     const moving: Moving | null = protocol.directions === undefined ? null : protocol as Moving;
     const motions = moving ? moving.directions.flatMap((direction) => moving.speeds.map((speed) => ({ direction, speed }))) : [undefined];
     if (!drawn) for (const model of protocol.models) for (const mark of protocol.marks) for (const limb of limbs) for (const target of protocol.targets ?? [undefined]) for (const motion of motions)
@@ -602,12 +620,13 @@ export const createStrikeCases = perContext((context: GameContext) => {
     "sparring-stances": stillCases(SPARRING_STANCES, sampledConditions(SPARRING_STANCES)),
     "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
     "sparring-feet": stillCases(SPARRING_FEET, sampledConditions(SPARRING_FEET)),
+    "sparring-bite": stillCases(SPARRING_BITE, sampledConditions(SPARRING_BITE)),
     "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), ...twinned("middle", MIDDLE), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT, fightGrid(FIGHT)), fights: fightCases(FIGHTS, fightGrid(FIGHTS)),
     "fights-twin": fightCases(FIGHTS_TWIN, drawnFights(FIGHTS_TWIN)), "fights-drawn": fightCases(FIGHTS_DRAWN, drawnFights(FIGHTS_DRAWN)),
     "fights-judge": fightCases(FIGHTS_JUDGE, drawnFights(FIGHTS_JUDGE)),
-    letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), ...twinned("stomping", STOMPING),
+    letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), ...twinned("stomping", STOMPING), ...twinned("biting", BITING),
     "stomping-sampled": stillCases(STOMPING_SAMPLED, sampledConditions(STOMPING_SAMPLED)),
     ...twinned("still-bodies", atEveryFoe(onOtherBodies(STILL))), ...twinned("walk-bodies", atEveryFoe(onOtherBodies(WALK))), "fight-bodies": fightCases(onOtherBodies(FIGHT), fightGrid(onOtherBodies(FIGHT))),
     ...twinned("stomping-bodies", onOtherBodies(STOMPING)) });

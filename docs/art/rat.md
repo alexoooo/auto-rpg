@@ -54,7 +54,7 @@ in the script, kept in `.cache/art/downloads/street_rat/`), and writes `rat.glb`
 | What | From the art |
 | --- | --- |
 | trunk | a capsule rump to shoulders at the back's height, its radius the body's half height |
-| head | a capsule behind the eyes to the snout; the neck where it leaves the shoulders |
+| head | a capsule behind the eyes toward the snout, as wide as the skull, its snout end drawn back until the lower incisors stand 1 mm of the art (about 1 cm) outside it (`INCISORS_CLEAR`), the soft nose left out, so the teeth reach what the snout presses on; the neck where it leaves the shoulders |
 | jaw | the hinge under the ear to the lower incisors; the authored quadruped's teeth and mouth, scaled and tipped onto them |
 | head and jaw raised | .5 rad about the neck (`HEAD_RAISE`): the art holds its mouth about .05 m off the floor, where the jaw, opened to the bite's gape, drops the incisors into it; raised, the mouth stands at about .17 m and the open incisors .09 m clear |
 | legs | the shoulder or hip, elbow or knee and wrist or ankle where the legs bend, stretched to stand the body .08 m higher; bending about x |

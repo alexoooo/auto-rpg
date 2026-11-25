@@ -1,7 +1,7 @@
 /**
  * **The strikes' profiles** (`src/skills/framework/profile/profile.ts`, `assets/skills/strikes/strike-profiles/strike-profiles.json`): from
  * the Strike drill's sparring rungs (`npm run evaluate -- strike <subject> --protocol sparring --json <run.json>`,
- * `sparring-laid` for a strike at a body lying, and `sparring-feet` for a foot's at one standing), where each strike is thrown from starts drawn
+ * `sparring-laid` for a strike at a body lying, `sparring-feet` for a foot's at one standing, and `sparring-bite` for a bite at its legs), where each strike is thrown from starts drawn
  * at random against Option Mind fighting back. A profile says what a strike brings against a foe
  * that fights back, so no trial at a drill's still target makes one: how well a body throws a
  * strike there is another question, and a run of another rung is refused. Each
@@ -56,10 +56,11 @@ import { harnessRule } from "../../../src/evaluation/results.ts";
 import { profileKey, profileKeys } from "../../../tests/harness/profile-keys.mjs";
 import { rulebook } from "../../../src/combat/rulebook.ts";
 import { medianOf } from "../../../src/evaluation/stats.ts";
+import { covers } from "../../../src/skills/framework/menu.ts";
 
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
-/** The Strike drill's rungs a profile is measured on: a strike thrown from drawn starts at a foe fighting back (`SPARRING`, `SPARRING_LAID`, `SPARRING_FEET`, `src/evaluation/strike/cases.ts`). */
-const PROTOCOLS = Object.freeze(["sparring", "sparring-laid", "sparring-feet"]);
+/** The Strike drill's rungs a profile is measured on: a strike thrown from drawn starts at a foe fighting back (`SPARRING`, `SPARRING_LAID`, `SPARRING_FEET`, `SPARRING_BITE`, `src/evaluation/strike/cases.ts`). */
+const PROTOCOLS = Object.freeze(["sparring", "sparring-laid", "sparring-feet", "sparring-bite"]);
 /** Sparring's starts drawn from its other streams (`SPARRING_TWIN`, `SPARRING_DRAWN`, `SPARRING_JUDGE`, and `SPARRING_STANCES`, each body square or staggered): the same rung on another draw, which a profile may be measured on in its place. */
 const DRAWS = Object.freeze(["sparring-twin", "sparring-drawn", "sparring-judge", "sparring-stances"]);
 const write = process.argv.includes("--write");
@@ -101,7 +102,8 @@ for (const path of paths) {
     if (!action) throw new Error(`${path}: ${led.skill} is not a strike its body throws`);
     if (!action.effectors.includes(led.limb)) continue;
     const marks = marksOf(action);
-    if (marks && !marks.includes(row.condition.mark)) continue;
+    // A trial at a mark the action takes an order at (`covers`: the bite's `any` takes the legs).
+    if (marks && !action.regions.some((region) => covers(region, { kind: "mark", mark: row.condition.mark }))) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const struck = specOf(recipe, "right"), { measured, digests } = strikeKey(spec, mind, executors, action, led.limb, hz, reaction, delay);
     const key = JSON.stringify(measured);

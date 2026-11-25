@@ -3,7 +3,7 @@ import { approachPace, arrivedIn, settledAt, straightSpot, widened, windowArriva
 import { ARRIVED, directMovement, placeMovement, SWAY } from "../../skills/framework/movement.ts";
 import { isRegion, type Orders } from "../orders.ts";
 import type { ActionStatus, Readiness, Region, Window } from "../../skills/framework/action.ts";
-import { sameRegion, skillOf, type KitEntry, type MenuEntry, type Spot } from "../../skills/framework/menu.ts";
+import { covers, skillOf, type KitEntry, type MenuEntry, type Spot } from "../../skills/framework/menu.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { hold, letGo, stillHeld, unheld } from "../../control/held.ts";
 import type { CommanderConfig, CommanderEntry } from "./kind.ts";
@@ -27,7 +27,7 @@ export interface DrillCommanderConfig extends CommanderConfig {
   readonly skill?: string;
   /** The limb, an effector (`hand.right`, `foot.left`); absent, any. */
   readonly limb?: string;
-  /** The region of the foe, a mark or a segment; absent, any the action aims at. */
+  /** The region of the foe, a mark or a segment, which it orders where the choice offered takes it (`covers`); absent, any the action aims at. */
   readonly region?: Region;
   /** How long it stands from its first decision, or from its moment, before it walks or orders anything else, s. */
   readonly after: number;
@@ -83,13 +83,13 @@ const STAND: Orders = deepFreeze({ move: null, face: null, firm: true });
 
 /**
  * **Whether a drill asking `config`'s choice takes `action` as its own**: an action under way at a
- * body, by the skill (as `kit` has it), limb and region its config names (each where it names one).
- * At its moment the drill carries such an action on rather than letting it go and ordering it again.
+ * body, by the skill (as `kit` has it) and limb its config names, at a region that takes its
+ * config's (`covers`), each where it names one. At its moment the drill carries such an action on rather than letting it go and ordering it again.
  */
 function adopts(config: Pick<DrillCommanderConfig, "skill" | "limb" | "region">, action: ActionStatus, kit: readonly KitEntry[]): boolean {
   return action.target.kind === "body" && (config.skill === undefined || skillOf(kit, action.action) === config.skill)
     && (config.limb === undefined || action.effector === config.limb)
-    && (config.region === undefined || sameRegion(action.target.region, config.region));
+    && (config.region === undefined || covers(action.target.region, config.region));
 }
 
 /**
@@ -146,11 +146,11 @@ function drillCommander(config: DrillCommanderConfig): Commander {
   /** The menu's entry for its choice at `foe`, or, before it has one, the first that fits its config and could start or be walked to (which it then keeps), else the first that fits. */
   const ordered = (member: MemberView, foe: string): MenuEntry | null => {
     const fits = (entry: MenuEntry, want: Partial<Choice>) => entry.foe === foe && entry.region !== null && (want.skill === undefined || entry.skill === want.skill)
-      && (want.limb === undefined || entry.limb === want.limb) && (want.region === undefined || sameRegion(entry.region, want.region));
+      && (want.limb === undefined || entry.limb === want.limb) && (want.region === undefined || covers(entry.region, want.region));
     const menu = member.menu ?? [];
     if (state.choice) return menu.find((entry) => fits(entry, state.choice!)) ?? null;
     const open = menu.find((entry) => fits(entry, config) && (entry.readiness.kind === "ready" || entry.readiness.kind === "position"));
-    if (open) state.choice = { skill: open.skill, limb: open.limb, region: open.region! };
+    if (open) state.choice = { skill: open.skill, limb: open.limb, region: config.region ?? open.region! };
     return open ?? menu.find((entry) => fits(entry, config)) ?? null;
   };
   /**
@@ -246,8 +246,9 @@ function drillCommander(config: DrillCommanderConfig): Commander {
         // slow enough inside the window, while it sways no further than `SWAY` out of it and until it stands settled outside it.
         const arrived = arrivedIn(state.arrival, window, at.x, at.z, h, distance, settled);
         state.held = state.held ? within(widened(window, SWAY)) && !(settled && !within(window)) : arrived && within(window);
-        // Held beside a body lying, it faces as its spot does; else at the foe.
-        if (state.held) state.set ??= state.spot ? spot.face : toward;
+        // Held beside a body lying, it faces as its spot does; else at the foe, where its window still holds facing so, and
+        // as its spot does where turning to the foe would carry the window's target out of the window (a short reach beside a leg).
+        if (state.held) state.set ??= state.spot || !windowHolds(window, at.x, at.z, toward) ? spot.face : toward;
         if (config.pace === undefined || state.held || arrived) return decided(member, stay(state.set ?? spot.face));
         state.walked = true;
         const move = spot.route ? { kind: "place" as const, points: spot.route.map((point) => ({ x: point.x, z: point.z })), near: ARRIVED, ...(spot.by === undefined ? {} : { by: spot.by }) }

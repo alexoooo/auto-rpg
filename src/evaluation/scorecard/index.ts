@@ -12,13 +12,11 @@ import { sha256Text } from "../sha256.ts";
 import { createLocomotionIndex } from "../locomotion/index.ts";
 import { createScorecardCases, type ScorecardCondition } from "./cases.ts";
 import { readingSilence, type Prices, type ScorecardReading } from "./read.ts";
+import { KNOCKOUT_WITHIN } from "../contest.ts";
 import { type GameContext, perContext } from "../../game/arena/context.ts";
 
 /** Whether a bout ended by a body's life, not by the clock or another rule. */
 const knockedOut = (r: ScorecardReading): boolean => r.bars.some((bar) => bar <= 0);
-
-/** How soon a mirror's bouts are to end by a body's life, s: the share that do is read (`knockout within`). */
-const KNOCKOUT_WITHIN = 60;
 
 const ratio = (a: number, b: number): string => b > 0 ? (a / b).toFixed(2) : "-";
 const pct = (x: number): string => (100 * x).toFixed(1);

@@ -12,6 +12,7 @@ import { createMind } from "../../../../src/minds/seat/create-mind.ts";
 import { GAME, defaultMind } from "../../../../src/app/catalog.ts";
 import { optionsOf } from "../../../../src/minds/option/config.ts";
 import { quadrupedSpec } from "../../../../src/core/bodies/quadruped/spec.ts";
+import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { STAND_ORDERS } from "../../../../src/minds/orders.ts";
 import { buildBout } from "../../../../src/app/node/evaluation.ts";
 import { loadState } from "../../../../src/core/state.ts";
@@ -27,8 +28,14 @@ const withRecipe = (model, recipe) => {
   return { ...base, options: optionsOf(base, GAME.partLookup).map((option) => option.skill?.kind === "righting-recipe" ? { ...option, skill: { kind: "righting-recipe", tuning: recipe } } : option) };
 };
 
-/** The righting by recipe's run in a mind's state (`rightingByRecipe`): its ground executor's. */
-export const rightingOf = (mind) => mind.skills.actions.executors.find((executor) => executor?.run && "mirrored" in executor.run).run;
+/**
+ * The righting by recipe's run in a minded body's skills (`rightingByRecipe`), its ground executor's, read as it
+ * is each time: its phase (idle before the executor is made, on the mind's first step) and how it lay.
+ */
+export const rightingOf = (minded) => {
+  const run = () => minded.skills.state.actions.executors.find((executor) => executor?.run && "mirrored" in executor.run)?.run;
+  return { get phase() { return run()?.phase ?? "idle"; }, get lie() { return run()?.lie ?? null; } };
+};
 
 /** **The fight a fork is of**: `model`, bare, against the sword Warrior `gap` m away; its mind's righting `recipe` where one is given. */
 export const forkBout = (model, gap, recipe) => ({ left: model, right: "man", gap,
@@ -46,7 +53,7 @@ async function fightTrial(model, recipe, file, fork, seconds) {
   const { duel, world, dispose } = await buildBout(forkBout(model, gap, recipe));
   try {
   world.physics.load(save.physics); loadState(duel.state, save.state); duel.senses.show(); world.loaded();
-  const body = duel.duelists.left.body, righting = rightingOf(duel.duelists.left.minded.state), trunk = body.built.segments.get("trunk"), rest = Quaternion.Inverse(trunk.rest), up = new Vector3();
+  const body = duel.duelists.left.body, righting = rightingOf(duel.duelists.left.minded), trunk = body.built.segments.get("trunk"), rest = Quaternion.Inverse(trunk.rest), up = new Vector3();
   const from = duel.clock, last = 2;
   let played = false, handed = null, down = 0, lie = null, plays = 0, was = righting.phase;
   while (duel.clock < from + seconds && !duel.verdict) {
@@ -76,12 +83,14 @@ export const LYING = { back: [0, 0, 1, 0], left: [0, 0, Math.SQRT1_2, Math.SQRT1
 export async function trial({ data, model, recipe, lying, heading = 0, forks, fork, seconds }) {
   if (fork !== undefined) return fightTrial(model, recipe, forks, fork, seconds);
   const turn = new Quaternion(0, Math.sin(heading / 2), 0, Math.cos(heading / 2));
-  const stand = await coreStand(quadrupedSpec(data, model, `${model}-anatomy`), { groundSize: 100, position: [0, .3, 0], rotation: turn.multiply(new Quaternion(...LYING[lying])).asArray() });
+  // The body from `data`, holding its model's character's skills as a fight's does: a body holding none runs no way up.
+  const spec = { ...quadrupedSpec(data, model, `${model}-anatomy`), skills: modelSpec(model).skills };
+  const stand = await coreStand(spec, { groundSize: 100, position: [0, .3, 0], rotation: turn.multiply(new Quaternion(...LYING[lying])).asArray() });
   try {
   const config = withRecipe(model, recipe);
   const mind = createMind(GAME, stand.built, stand.world, config, { rules: rulebook("arena"), name: model, orders: () => STAND_ORDERS });
   try {
-  const righting = rightingOf(mind.state), trunk = stand.built.segments.get("trunk"), rest = Quaternion.Inverse(trunk.rest), up = new Vector3();
+  const righting = rightingOf(mind), trunk = stand.built.segments.get("trunk"), rest = Quaternion.Inverse(trunk.rest), up = new Vector3();
   const steps = Math.round(seconds * 120), last = 240;
   let played = false, handed = null, down = 0, lie = null, plays = 0, was = righting.phase;
   for (let i = 1; i <= steps; i++) {

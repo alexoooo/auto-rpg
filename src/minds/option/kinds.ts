@@ -122,10 +122,22 @@ const strikeLimbs = (parts: PartLookup, spec: BodySpec, config: StrikeConfig, ex
 const ACTIONS = new WeakMap<StrikeConfig, WeakMap<BodySpec, WeakMap<ExecutorEntry, Map<string, ActionConfig | null>>>>();
 
 /**
+ * **A strike's aim as its action asks it**: `config`'s, with its skill's research `tuning` beside it
+ * where the aim reads a record the skill reads (the jaw's arc a bite's aim searches is the bite's
+ * own), so research that tunes the skill tunes what its aim reckons with too.
+ */
+function aimFor(parts: PartLookup, config: StrikeConfig): ConfigFor<"aim"> | undefined {
+  const aim = config.aim, tuning = (config.skill as { readonly tuning?: object }).tuning;
+  if (!aim || tuning === undefined) return aim;
+  const read = parts.of("executor", config.skill).reads?.(config.skill) ?? [];
+  return parts.of("aim", aim).reads?.(aim).some((key) => read.includes(key)) ? { ...aim, tuning } as ConfigFor<"aim"> : aim;
+}
+
+/**
  * **What a strike of `config` named `name` (`strikeName`) asks of `executor` on a body of
  * `spec`**: an action of that name, struck with the body's limbs of its role that the executor
- * strikes with (`strikeLimbs`), at its regions by its aim; null where the executor does not fit the
- * body or it has no such limb.
+ * strikes with (`strikeLimbs`), at its regions by its aim (`aimFor`); null where the executor does
+ * not fit the body or it has no such limb.
  */
 function strikeAction(parts: PartLookup, spec: BodySpec, config: StrikeConfig, executor: ExecutorEntry, name: string): ActionConfig | null {
   let bySpec = ACTIONS.get(config);
@@ -135,9 +147,9 @@ function strikeAction(parts: PartLookup, spec: BodySpec, config: StrikeConfig, e
   let byName = byExecutor.get(executor);
   if (!byName) byExecutor.set(executor, byName = new Map());
   if (byName.has(name)) return byName.get(name)!;
-  const effectors = strikeLimbs(parts, spec, config, executor);
+  const effectors = strikeLimbs(parts, spec, config, executor), aim = aimFor(parts, config);
   const action: ActionConfig | null = effectors.length === 0 ? null : Object.freeze({ name, executor: executor.name, effectors,
-    ...config.regions === undefined ? {} : { regions: config.regions }, ...config.aim === undefined ? {} : { aim: config.aim } });
+    ...config.regions === undefined ? {} : { regions: config.regions }, ...aim === undefined ? {} : { aim } });
   byName.set(name, action);
   return action;
 }

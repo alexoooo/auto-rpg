@@ -574,6 +574,16 @@ change to `src` does not edit it to keep it running.
   (`node research/skills/recovery/edge-profiles.mjs --model <body> --write`)
   in the change that installs the record. The table reads no profile, so its reading neither
   waits on nor moves with them.
+- **A part that reads the skill's record but not the search's tuning**: the bite's aim reckoned
+  the jaw's arc and lean from the rat's record while the search tuned the executor's, so the best
+  of a search landed at 120 Hz and never came into its window at 480. A strike's aim that reads a
+  record its skill reads is given the skill's tuning (`aimFor`, `src/minds/option/kinds.ts`); a
+  new part that reads a skill's record takes the same route.
+- **A body that cannot strike with what it strikes with**: the rat's skull capsule held its lower
+  incisors inside its rounded end, so every bite met the shin with the snout and closed on
+  nothing, whatever its settings. Before a search, see the striking point touch the target at
+  least once in a trace; where the body's colliders stand in its way, the fit is mended (the
+  rat's `INCISORS_CLEAR`, `scripts/rat/fit.mjs`).
 
 ### In training
 

@@ -9,17 +9,20 @@
  */
 import { loadoutKey, type Held, type Loadout } from "../../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
-import { modelHolding, type HumanoidModel } from "../../core/bodies/models.ts";
+import { modelHolding, modelHoldingChecked, type BodyModel } from "../../core/bodies/models.ts";
+import { isRefused } from "../../core/refusal.ts";
 import type { TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { createRising } from "../rising.ts";
 import { createStrikeCases } from "../strike/cases.ts";
+import { createLocomotionCases } from "../locomotion/cases.ts";
+import { createWayUpCases } from "../way-up/cases.ts";
 import { ATTEMPT_CAP } from "../way-up/read.ts";
 import { type GameContext, perContext } from "../../game/arena/context.ts";
 
-/** The bodies the table reads: the Warrior, the Rogue and the Skeleton. */
-export const TABLE_BODIES: readonly HumanoidModel[] = Object.freeze(["man", "woman", "skeleton"]);
+/** The bodies the table reads: the Warrior, the Rogue, the Skeleton and the rat. */
+export const TABLE_BODIES: readonly BodyModel[] = Object.freeze(["man", "woman", "skeleton", "rat"]);
 
-/** The loadouts the table reads: the five minds are rated on (`REPRESENTATIVE`). */
+/** The loadouts the table reads: the five minds are rated on (`REPRESENTATIVE`), each on the bodies that can hold it. */
 export const TABLE_LOADOUTS: readonly Loadout[] = REPRESENTATIVE;
 
 /** The mind every cell reads: the drills' Option Mind (`option-drill`), so no profile and no tree search decides what it does in a cell. */
@@ -35,9 +38,10 @@ export type Judge = "way-up" | "orders" | "strike" | "cover";
 /**
  * **What a strike's figure reads of its hit** (`StrikeHit`), beside its value: a fist's speed over
  * its last run in (`fist`), a foot's (`foot`), a held blow's energy (`energy`), a point's closing
- * speed (`point`); the person's figure for each is `BAR`'s (`personOf`).
+ * speed (`point`), a bite's teeth's closing speed (`teeth`); the person's figure for each is `BAR`'s
+ * (`personOf`), a bite's none.
  */
-export type HitFigure = "fist" | "foot" | "energy" | "point";
+export type HitFigure = "fist" | "foot" | "energy" | "point" | "teeth";
 
 /**
  * **One drill reading of a cell**: the evaluation, its protocol and the subject it reads, how its
@@ -53,7 +57,7 @@ export type Reading = {
 } & ({ readonly judge: "strike"; readonly hit: HitFigure } | { readonly judge: Exclude<Judge, "strike"> });
 
 /** **A cell**: its body, loadout and skill, what its value is in words (`value`), and its readings. */
-export type Cell = { readonly body: HumanoidModel; readonly loadout: Loadout; readonly skill: string; readonly value: string; readonly readings: readonly Reading[] };
+export type Cell = { readonly body: BodyModel; readonly loadout: Loadout; readonly skill: string; readonly value: string; readonly readings: readonly Reading[] };
 
 /** Whether a hand of `loadout` holds `held`. */
 const holds = (loadout: Loadout, held: Held): boolean => loadout.left === held || loadout.right === held;
@@ -66,13 +70,11 @@ const strikeSubject = (action: string, loadout: Loadout): string =>
  * **A skill**: its name, what its value is in words, whether a body holding a loadout does it
  * (`has`), and its readings there.
  */
-type Skill = { readonly name: string; readonly value: string; readonly has: (body: HumanoidModel, loadout: Loadout) => boolean;
-  readonly readings: (body: HumanoidModel, loadout: Loadout) => readonly Reading[] };
-
-const always = () => true;
+type Skill = { readonly name: string; readonly value: string; readonly has: (body: BodyModel, loadout: Loadout) => boolean;
+  readonly readings: (body: BodyModel, loadout: Loadout) => readonly Reading[] };
 
 /** The bodies with a run to read: the Warrior's Travel drill and the Rogue's Locomotion runs. */
-const RUNNERS: readonly HumanoidModel[] = Object.freeze(["man", "woman"]);
+const RUNNERS: readonly BodyModel[] = Object.freeze(["man", "woman"]);
 
 /** What a blow's value is, in words. */
 const BLOW = "the life each trial took from the target less the life it cost, a second of the action's cycle, a fall adding a fall's price (10 s), a blow not begun worth 0";
@@ -83,10 +85,16 @@ const MOVE = "the seconds each trial lost against its orders, a trial ended down
 export const createTableCells = perContext((context: GameContext) => {
   const { STRIKE_CASES, strikesBy } = createStrikeCases(context);
   const { drillWaysUp } = createRising(context);
+  const { LOCOMOTION_CASES } = createLocomotionCases(context);
+  /** The bodies the Locomotion screen walks (its `every` protocol): where a walk has a cell. */
+  const walkers = new Set<BodyModel>(LOCOMOTION_CASES.every!.conditions.map((condition) => condition.model));
+  const { WAY_UP_CASES } = createWayUpCases(context);
+  /** The bodies the way-up drill fells (its `standard` protocol): where a way up may have a cell. */
+  const fallers = new Set<BodyModel>(WAY_UP_CASES.standard!.conditions.map((condition) => condition.model));
   const parts = context.catalog.partLookup, techniqueOf = (way: TechniqueName) => parts.of("technique", { kind: way });
 
-  /** Whether the way up `way` fits `body` holding `loadout`: where it has a cell. */
-  const fits = (way: TechniqueName) => (body: HumanoidModel, loadout: Loadout): boolean =>
+  /** Whether the way up `way` fits `body` holding `loadout`, a body its drill fells: where it has a cell. */
+  const fits = (way: TechniqueName) => (body: BodyModel, loadout: Loadout): boolean => fallers.has(body) &&
     techniqueOf(way).fits(modelHolding(body, loadout), techniqueOf(way).defaults, parts) === null;
 
   /**
@@ -100,14 +108,14 @@ export const createTableCells = perContext((context: GameContext) => {
       + "over the body's falls holding the loadout, shoved and from bouts, that reach a posture it begins from" });
 
   /** Whether the table's mind strikes by `action` on a body holding a loadout (`strikesBy`): where a blow has a cell. */
-  const struck = (action: string) => (body: HumanoidModel, loadout: Loadout): boolean => strikesBy(context.catalog.minds[TABLE_MIND]!.config, action, body, loadout);
+  const struck = (action: string) => (body: BodyModel, loadout: Loadout): boolean => strikesBy(context.catalog.minds[TABLE_MIND]!.config, action, body, loadout);
 
   /** The Strike drill's protocol that throws `rung` from `body`: the rung's own, or its `-bodies` for a body its own leaves out. */
-  const strikeProtocol = (rung: string, body: HumanoidModel): string =>
+  const strikeProtocol = (rung: string, body: BodyModel): string =>
     STRIKE_CASES[rung]!.conditions.some((condition) => condition.model === body) ? rung : `${rung}-bodies`;
 
   /** A strike rung's reading of `action` thrown from `body` holding `loadout`, its hit's `hit` beside its value. */
-  const strikeRung = (rung: string, hit: HitFigure, action: string, body: HumanoidModel, loadout: Loadout): Reading =>
+  const strikeRung = (rung: string, hit: HitFigure, action: string, body: BodyModel, loadout: Loadout): Reading =>
     ({ drill: "strike", protocol: strikeProtocol(rung, body), subject: strikeSubject(action, loadout), judge: "strike", hit });
 
   /**
@@ -115,13 +123,13 @@ export const createTableCells = perContext((context: GameContext) => {
    * reads a skill on its own merit; what a blow brings against a foe fighting back is its
    * profile's, read sparring (`sparring`) and never in a cell.
    */
-  const blowRungs = (action: string, hit: HitFigure, body: HumanoidModel, loadout: Loadout): readonly Reading[] =>
+  const blowRungs = (action: string, hit: HitFigure, body: BodyModel, loadout: Loadout): readonly Reading[] =>
     ["still", "walk"].map((rung) => strikeRung(rung, hit, action, body, loadout));
 
   /** **Every skill the table reads**, in the order it prints them. */
   const TABLE_SKILLS: readonly Skill[] = Object.freeze([
     ...drillWaysUp().map(wayUp),
-    { name: "walk", has: always, readings: () => [{ drill: "locomotion", protocol: "every", subject: TABLE_MIND, judge: "orders", byLoadout: true }],
+    { name: "walk", has: (body) => walkers.has(body), readings: () => [{ drill: "locomotion", protocol: "every", subject: TABLE_MIND, judge: "orders", byLoadout: true }],
       value: `${MOVE}: the Locomotion screen's walks eight ways at paces up to the body's fastest each way, runs, turns and shoves, its walks again in the gusts` },
     { name: "run", has: (body) => RUNNERS.includes(body),
       readings: body => body === "man"
@@ -134,6 +142,8 @@ export const createTableCells = perContext((context: GameContext) => {
       value: `${BLOW}; the foot's speed into the contact beside it` },
     { name: "kick", has: struck("kick"), readings: (body, loadout) => [strikeRung("middle", "foot", "kick", body, loadout)],
       value: `${BLOW}; the foot's speed over its last 0.1 m beside it` },
+    { name: "bite", has: struck("bite"), readings: (body, loadout) => [strikeRung("biting", "teeth", "bite", body, loadout)],
+      value: `${BLOW}; the teeth's closing speed at the contact beside it` },
     { name: "bonk", has: struck("bonk"),
       readings: (body, loadout) => ["bonk", "walk"].map((rung) => strikeRung(rung, "energy", "bonk", body, loadout)),
       value: `${BLOW}; the blow's energy on the head beside it` },
@@ -146,7 +156,7 @@ export const createTableCells = perContext((context: GameContext) => {
   ] satisfies readonly Skill[]);
 
   /** **Every cell** of the table: body by loadout by skill, where the body holding the loadout does the skill (`Skill.has`). */
-  const tableCells = (): readonly Cell[] => TABLE_BODIES.flatMap((body) => TABLE_LOADOUTS.flatMap((loadout) => TABLE_SKILLS
+  const tableCells = (): readonly Cell[] => TABLE_BODIES.flatMap((body) => TABLE_LOADOUTS.filter((loadout) => !isRefused(modelHoldingChecked(body, loadout))).flatMap((loadout) => TABLE_SKILLS
     .filter((skill) => skill.has(body, loadout))
     .map((skill): Cell => ({ body, loadout, skill: skill.name, value: skill.value, readings: skill.readings(body, loadout) }))));
 
