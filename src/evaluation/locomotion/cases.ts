@@ -125,6 +125,12 @@ const EVERY = deepFreeze({ ...SCREEN, models: ["man", "woman", "skeleton"] as Bo
 const EVERY_TWIN = deepFreeze({ ...EVERY, ways: turned(EVERY.ways), paces: between(EVERY.paces), turns: EVERY.turns.map((way) => way < 180 ? way / 2 : 360 - (360 - way) / 2),
   shoves: { ways: turned(EVERY.shoves.ways), impulses: between(EVERY.shoves.impulses) }, walked: { ...EVERY.walked, ways: turned(EVERY.walked.ways) }, seed: 2 });
 
+/**
+ * **The screen on the four-legged**, the rat's: its trials eight ways, at a slow walk and at the
+ * pace its trot holds aside and back (0.17 m/s), where it steps about a foe's reach.
+ */
+const QUADRUPEDS = deepFreeze({ ...SCREEN, models: ["rat"] as BodyModel[], ways: [0, 45, 90, 135, 180, 225, 270, 315], paces: [.1, .17] });
+
 /** The run's bar on the Warrior and the Rogue in every rated loadout: each run trial in calm air and the lab's gusts, seeds 1 to 4. */
 const RUN_BAR = deepFreeze({ models: ["man", "woman"] as BodyModel[], loadouts: REPRESENTATIVE as Loadout[], seeds: [1, 2, 3, 4], airs: [false, true] });
 
@@ -294,6 +300,7 @@ export const createLocomotionCases = perContext((context: GameContext) => {
     run: { ...locomotionCases(RUN_BAR as unknown as Json, runsOf(RUN_BAR)), twin: "run-twin" },
     "run-twin": locomotionCases(RUN_TWIN as unknown as Json, runsOf(RUN_TWIN)),
     step: locomotionCases(STEP as unknown as Json, stepsOf(STEP)),
+    quadrupeds: locomotionCases(QUADRUPEDS as unknown as Json, conditionsOf(QUADRUPEDS)),
   });
 
   return { LOCOMOTION_CASES };

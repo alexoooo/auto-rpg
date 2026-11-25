@@ -592,6 +592,13 @@ change to `src` does not edit it to keep it running.
   nothing, whatever its settings. Before a search, see the striking point touch the target at
   least once in a trace; where the body's colliders stand in its way, the fit is mended (the
   rat's `INCISORS_CLEAR`, `scripts/rat/fit.mjs`).
+- **A gait that steps where it will not travel**: the paw trot travels only the way it faces, yet
+  stepped whenever a move was asked, so a rat asked to back off a foe it faced trod in place on
+  two diagonal paws and tipped over by itself, a fall the fight blamed on the foe. And it stopped
+  stepping the moment the move ended while its pace ran down, so it vaulted over planted paws.
+  Before reading a fight's falls, trace one: what touched the body, and what its gait was asked.
+  The trot now steps to travel or turn, and on while it carries pace
+  (`src/skills/locomotion/paw-trot/paw-trot/trot.ts`).
 
 ### In training
 
