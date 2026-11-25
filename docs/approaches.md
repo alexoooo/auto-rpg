@@ -751,9 +751,14 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   (`research/skills/strikes/struck-held-out.mjs`; 47 held-out bodies, 7,124 trials; `08c342acd`,
   `e5fee3269`), a body read as the nearest loses much of what its own trials give: squared error
   of landed 0.313 against 0.170 (0.143 ± 0.009 worse), of dealt 0.0058 against 0.0041
-  (0.0017 ± 0.0003). The rest pooled as a written form, the struck body's numbers among its
-  terms, reads landed 0.278 and dealt 0.0080, still far from its own. What makes a body read well
-  is its own trials struck, added to each striker's profile, never a table of a pair. *Shown.*
+  (0.0017 ± 0.0003). The rule before it, the first body a profile's trials struck, reads the
+  same (0.313, 0.0058): the two name the same body for all but 6 of the held-out bodies. The
+  rest pooled as a written form, the struck body's numbers among its terms, reads landed 0.278
+  (0.108 ± 0.007 worse than its own) and dealt 0.0080 (0.0039 ± 0.0005 worse), further than
+  either on dealt. 1,068 trials were unread by one rule or more, no trial begun at that posture.
+  The nearest body can be far: the reptile (0.325 m, 8 kg) reads as the skeleton (1.62 m,
+  15 kg). What makes a body read well is its own trials struck, added to each striker's
+  profile, never a table of a pair. *Shown.*
 - **What a body holds is numbers on a trial, and a reading merged across loadouts moved a body
   that had its own**: an item's mass and its reach past the hand are read from its spec (the
   short sword 0.75 kg and 0.62 m, the club 1.16 kg and 0.70 m, the buckler 0.90 kg and 0.23 m;
@@ -761,11 +766,17 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   profile: the edges went from 83 profiles to 17 (`93f128cab`). A foe's limb is read throwing a
   strike only where it holds as its trials' limb held (`limbHoldsAsMeasured`). That commit's
   claim that the empty-handed cases played to the bit rested on the fingerprint alone and was
-  wrong: the empty-handed mirror (24 gaps 2.65 to 5.41 m, 120 s) moved in 5 of 24 bouts, a body
-  reading every loadout's falls where its own began from no such position. The fingerprint's
+  wrong: the empty-handed mirror (24 gaps 2.65 to 5.41 m, 120 s) moved in 5 of 24 bouts, the
+  winners the same, a body reading every loadout's falls where its own began from no such
+  position (the flatten, from the front, the right side and the crouch). The fingerprint's
   empty-handed cases end before a fall's price matters. A loadout's own trials read where it had
   any put the mirror back to 24 of 24 (`168168a0f`); the cleanup then read what is held one way,
-  as numbers among the trials' (`6d4d692ec`), which moves the edges' readings again. *Shown.*
+  as numbers among the trials' (`6d4d692ec`), so the written form fits every loadout's falls at
+  once and the edges' readings moved again: in the fingerprint the 13 cases where a body holds
+  an item and, empty-handed, `option-back-step`'s man against woman, not read by bouts since. A
+  Warrior holding a sword then priced its foe by the rate from measured strikes, not by hand,
+  and the walker's bout at a sword allocated 789 KiB a step against the ceiling's 570, the
+  nearest search's distances boxed as numbers; written to arrays, 382. *Shown.*
 - **The pressure is found by its two bodies' numbers, and is still a table a pairing**: a table
   records the striker and the struck as stature, mass and what each holds (`PressureBody`), and
   is read by a pairing within a span of both (`pressureTable`, `pairingApart`; `19d6a6d39`), the
