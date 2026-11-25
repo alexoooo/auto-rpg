@@ -431,9 +431,12 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   runs: 0.646 (0.606 to 0.686) over 576 bouts held out against the tail leaf's best line, its
   mirror knocking out within 60 s in 81.0% (91.2%). By the owner's word, the empty-handed man's
   default since e5eacbb22 (`DEFAULT_BODIES` by `bodyOf`), the body it was measured on. Every
-  other body keeps the Mind before it (`option-tail`): off the empty-handed man its fitted models
-  stand aside (`fittedOn`), and the mean backup with initiative 0.3 on the tail's leaf knocked out
-  in 0.0% on the Warrior. *Shown.*
+  other body but the rat keeps the Mind before it (`option-tail`): off the empty-handed man its
+  fitted models stand aside (`fittedOn`), and the mean backup with initiative 0.3 on the tail's
+  leaf knocked out in 0.0% on the Warrior. The rat (steadiness 25 %) plays `option`, the mean
+  backup at aggression 4 and initiative 0.3 on the tail's leaf: against the empty-handed Warrior
+  in the tournament's `gaps` it took 0.238 (0.183 to 0.298) of his life by 60 s, at least 1 HP in
+  29 of 48 bouts, against `option-tail`'s 0.119 and 8 of 48. *Shown.*
 - **A line priced against the foe's replies as well as the foe standing is as strong and quicker
   to a knockout**: each root line worth the mean of a tree search's price with the foe standing and
   with the foe running each reply over the line's first step (`repliedSearch`), a foe of the

@@ -62,11 +62,11 @@ export function trot(body: PawGaitBody, T: typeof REPTILE_TROT): Gait {
     command(view, intent, dt) {
       const error = headingError(intent, state.yaw), move = intent.move;
       const length = move ? Math.sqrt(move.x * move.x + move.z * move.z) : 0;
-      // The trunk travels as fast as it faces the way it is ordered, and mostly along itself.
-      const facing = length ? Math.max(0, cos(atan2(move!.x, move!.z) - view.yaw)) : 0;
-      // It steps to travel where it faces any of the way, or to turn: asked a way it faces away from, it would only tread in place
-      // on two paws, and stands on four.
-      const moving = facing > 0 || Math.abs(error) > T.turnError;
+      // The trunk travels as fast as it faces the way it is ordered, and mostly along itself; asked a way behind it, it backs
+      // along itself, no faster than its share of travel aside and back (`sideways`), facing as it faces.
+      const along = length ? cos(atan2(move!.x, move!.z) - view.yaw) : 0, facing = Math.max(0, along), backing = along < 0;
+      // It steps to travel or to turn: asked a way it would not travel, it would only tread in place on two paws, and stands on four.
+      const moving = facing > 0 || backing || Math.abs(error) > T.turnError;
       state.time += dt; state.since += dt;
       const free = groups[state.paw]!;
       view.feet.forEach((e, i) => { if (e.contact && (!free.includes(i) || state.phase === "settle")) anchorAt(state.anchors[i]!, e); });
@@ -74,7 +74,10 @@ export function trot(body: PawGaitBody, T: typeof REPTILE_TROT): Gait {
       let vx = 0, vz = 0;
       const delayed = state.phase === "return" || state.phase === "land" && state.time >= T.landingWait
         || state.phase === "settle" && state.time >= T.landingWait && !view.feet.every(foot => foot.contact);
-      if (move && !delayed) {
+      if (move && backing && !delayed) {
+        const back = Math.min(T.speed, fastest) * Math.min(1, length) * -along, most = Math.min(T.speed, fastest) * T.sideways;
+        vx = -sin(view.yaw) * Math.min(back, most); vz = -cos(view.yaw) * Math.min(back, most);
+      } else if (move && !delayed) {
         const scale = length ? Math.min(T.speed, fastest) * facing * Math.min(1, length) / length : 0;
         vx = move.x * scale; vz = move.z * scale;
         const s = sin(view.yaw), c = cos(view.yaw), sideways = (vx * c - vz * s) * (1 - T.sideways);

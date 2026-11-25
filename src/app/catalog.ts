@@ -19,9 +19,14 @@ export const { controllers: CONTROLLERS, minds: MINDS, loadData, controllerOf, a
 
 export { FIGHT_ENTRY, type EntryRule, type Offered } from "../minds/catalog/catalog.ts";
 
-/** **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): the Option Mind on the tail's leaf. */
+/**
+ * **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): the
+ * Option Mind on the tail's leaf. The rat plays the Option Mind as configured by default (`option`),
+ * which values the Warrior's life more against its own and bites him far more often in the
+ * tournament's `gaps` protocol.
+ */
 const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
-  man: "option-tail", woman: "option-tail", skeleton: "option-tail", reptile: "option-tail", rat: "option-tail",
+  man: "option-tail", woman: "option-tail", skeleton: "option-tail", reptile: "option-tail", rat: "option",
 });
 
 /**
