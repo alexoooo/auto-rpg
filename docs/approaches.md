@@ -436,9 +436,9 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   leaf knocked out in 0.0% on the Warrior. The rat (steadiness 25 %) plays `option-presses`,
   each state worth its best line at aggression 5 and initiative 0.3: against the empty-handed
   Warrior in the tournament's `gaps` it took 0.395 (0.323 to 0.470) of his life by 60 s, at least
-  1 HP in 40 of 48 bouts, its pressure tables measured on its own bouts (38 of 48 on `option`'s), against `option`'s 0.238 and 29 of 48 and `option-tail`'s
-  0.119 and 8. Without initiative it read 19 of 44; at initiative 0.6, 32 of 46; at aggression 4,
-  36 of 46. *Shown.*
+  1 HP in 40 of 48 bouts, its pressure tables measured on its own bouts (38 of 48 on
+  `option`'s), against `option`'s 0.238 and 29 of 48 and `option-tail`'s 0.119 and 8. Without
+  initiative it read 19 of 44; at initiative 0.6, 32 of 46; at aggression 4, 36 of 46. *Shown.*
 - **A line priced against the foe's replies as well as the foe standing is as strong and quicker
   to a knockout**: each root line worth the mean of a tree search's price with the foe standing and
   with the foe running each reply over the line's first step (`repliedSearch`), a foe of the
