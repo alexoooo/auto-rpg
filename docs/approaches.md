@@ -602,6 +602,37 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   body's pooled and read as a written form beat the nearest body in 11 of 18 sets, 9 of 12 where
   the others had hundreds of trials, and lost where they had about 60, as the man's do
   (`5f394cae0`, `b7d2fb56a`). *Shown.*
+- **The struck body is numbers on a strike's trials, and three measured bodies do not price a
+  fourth**: a profile is found by the striker's body, skill and limb, never by the body struck;
+  each trial records the body it struck (its stature, mass, Steadiness and Haste,
+  `struckNumbers`), and a reading takes the trials struck at the measured body nearest in stature
+  and mass (`profileAgainst`, spans 0.1 m and 10 kg), saying so (`ProfileReading.scaled`). The
+  strikes went from 51 profiles to 17 and the empty-handed mirror played 24 of 24 to the bit
+  (`540ddff7b`). Held out over the trials in the assets
+  (`research/skills/strikes/struck-held-out.mjs`; 47 held-out bodies, 7,124 trials; `08c342acd`,
+  `e5fee3269`), a body read as the nearest loses much of what its own trials give: squared error
+  of landed 0.313 against 0.170 (0.143 ± 0.009 worse), of dealt 0.0058 against 0.0041
+  (0.0017 ± 0.0003). The rest pooled as a written form, the struck body's numbers among its
+  terms, reads landed 0.278 and dealt 0.0080, still far from its own. What makes a body read well
+  is its own trials struck, added to each striker's profile, never a table of a pair. *Shown.*
+- **What a body holds is numbers on a trial, and a reading merged across loadouts moved a body
+  that had its own**: an item's mass and its reach past the hand are read from its spec (the
+  short sword 0.75 kg and 0.62 m, the club 1.16 kg and 0.70 m, the buckler 0.90 kg and 0.23 m;
+  `Start.held`, `bodyNumbers`), their spans (1 kg, 0.1 m) set on no reading. No loadout finds a
+  profile: the edges went from 83 profiles to 17 (`93f128cab`). A foe's limb is read throwing a
+  strike only where it holds as its trials' limb held (`limbHoldsAsMeasured`). That commit's
+  claim that the empty-handed cases played to the bit rested on the fingerprint alone and was
+  wrong: the empty-handed mirror (24 gaps 2.65 to 5.41 m, 120 s) moved in 5 of 24 bouts, a body
+  reading every loadout's falls where its own began from no such position. The fingerprint's
+  empty-handed cases end before a fall's price matters. A loadout's own trials read where it had
+  any put the mirror back to 24 of 24 (`168168a0f`); the cleanup then read what is held one way,
+  as numbers among the trials' (`6d4d692ec`), which moves the edges' readings again. *Shown.*
+- **The pressure is found by its two bodies' numbers, and is still a table a pairing**: a table
+  records the striker and the struck as stature, mass and what each holds (`PressureBody`), and
+  is read by a pairing within a span of both (`pressureTable`, `pairingApart`; `19d6a6d39`), the
+  empty-handed mirror 24 of 24 to the bit. A pairing near no table is priced by its strikes'
+  rate. Three tables since the rat's work: a man on a man, a man on a rat, a rat on a man.
+  *Shown.*
 - **Two foes cost a little less than the sum of each, and the Option Mind prices them so**: a man
   in an open Crypt room lost 0.79 (0.65 to 0.96) of what two men took from him alone, summed, and
   the Mind's expectation of each foe fell with two as the loss did, within about 15%; skeletons
@@ -611,11 +642,11 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   one model a skill across bodies in the game (the nearest body's trials scaled is). What a body
   holds is numbers on a profile's trials (`Start.held`) and no part of what finds one, but no
   trial yet crosses a loadout with a skill measured without it: a body holding a sword reads its
-  punches' and its stomp's empty-handed trials, coarse; the pressure is still found by what each
-  body holds (`holdsOf`, `pressure.ts`). The skeletons' overprice two on
-  one is likely their pricing by rate: the measured pressure has a table for a man on a man only,
-  so any other foe is priced by the most its strikes could deal at reach (`measuredOthers`,
-  `ratePressure`); not isolated. The kinds were fitted by bouts on the Warrior empty-handed
+  punches' and its stomp's empty-handed trials, coarse; a pressure table is read only by bodies
+  holding as its own held (`holdsAlike`, `pressure.ts`). The skeletons' overprice two on
+  one is likely their pricing by rate: the measured pressure has no table of a skeleton, so it
+  is priced by the most its strikes could deal at reach (`measuredOthers`, `ratePressure`); not
+  isolated. The kinds were fitted by bouts on the Warrior empty-handed
   alone, the stature reading went into the game on held-out trials with no bouts, and the
   written form into it with no look in a browser. *Suspected* where a cause is named.
 - **The game's Mind's play does not move with how it models its foe; its search's runs move it**:
