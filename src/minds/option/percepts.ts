@@ -19,11 +19,13 @@ import { stancesOf, turned } from "../../skills/perception/stance-numbers.ts";
 import { carriageOf } from "../../skills/locomotion/move/gaits.ts";
 import type { Position } from "../../control/ground-reading.ts";
 import type { RiseMemory } from "./rise-memory.ts";
-import type { ExchangePredictor, FoeMove } from "./contract/predictors.ts";
+import type { ExchangePredictor, FoeMove, Guesses, Placing } from "./contract/predictors.ts";
 import type { Bearing, Cues, ModelledStrike, Percepts, Predictions, Pressure, ReachMemory, Seen, Situation, Span } from "./contract/situation.ts";
 import type { Terms } from "./contract/terms.ts";
 import { pressureCurve, pressureTable, type PressureTable } from "./pressure.ts";
-import { blowLife, limbReach, record, RETHINK } from "./value.ts";
+import { pricedBy, UNMEASURED_TURN } from "./by-hand.ts";
+import { blowLife } from "./damage.ts";
+import { RETHINK } from "./value.ts";
 
 /**
  * **What every percept reads from**, a step's: what a predictor reads (`Seen`), and with it the
@@ -64,25 +66,17 @@ interface Percept<V> {
 /** This body's head, and the focus's (its `marks.high`, else its centre). */
 const heads = ({ focus, sight }: Seen) => ({ mine: sight.view.head, theirs: focus ? focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre : null });
 
-/**
- * Set by hand, for where no strike models the foe (`foeModel`): the chance a foe's
- * blow predicted to reach the head lands; and how many blows a second a standing foe throws within
- * its reach, of which as many land as of the body's own (`record`): two bodies trading blows land
- * alike.
- */
-const LANDS = .3, RATE = 1;
-
 /** The feet of `ends` the ground bears. */
 const bearingOf = (ends: StanceReading["ends"]): Bearing => Object.keys(ends).filter((end) => ends[end]!.touching);
 
-/** Each spec's turn standing measured on its body, rad/s, found once; Infinity where none was measured. */
+/** Each spec's turn standing measured on its body, rad/s, found once; where none was measured, what it is taken for (`UNMEASURED_TURN`). */
 const TURNS = new WeakMap<BodySpec, number>();
 
-/** **How fast a body of `spec` turns to face**, rad/s: its measured turn walking slowest (`turnAt`, `stanceEnvelopeOf`); Infinity where none was measured, so it is taken to face at once. */
+/** **How fast a body of `spec` turns to face**, rad/s: its measured turn walking slowest (`turnAt`, `stanceEnvelopeOf`); where none was measured, what it is taken for (`UNMEASURED_TURN`). */
 function turnOf(spec: BodySpec): number {
   const known = TURNS.get(spec);
   if (known !== undefined) return known;
-  const envelope = stanceEnvelopeOf(spec), turn = envelope ? turnAt(envelope, 0) : 0, rate = turn > 0 ? turn : Infinity;
+  const envelope = stanceEnvelopeOf(spec), turn = envelope ? turnAt(envelope, 0) : 0, rate = turn > 0 ? turn : UNMEASURED_TURN;
   TURNS.set(spec, rate);
   return rate;
 }
@@ -110,40 +104,10 @@ const reactionOf = ({ focus, sight }: Seen): number | null =>
   focus?.time === undefined ? null : sight.view.senses.reaction ?? sight.view.senses.time - focus.time;
 
 /**
- * **A prior**: what a strike of `striker` is taken to bring before a drill measures it, a profile
- * of one trial read like any measured one (`readProfile`): within `range` m centre to centre, in any
- * phase and at any velocity, `life` of `struck`'s life every `seconds` s, its whole cycle (it
- * records no recovery, `Trial.recovers`).
- */
-function prior(striker: BodySpec, struck: BodySpec, range: number, life: number, seconds: number): ProfileReading {
-  // A reading is made of these alone, and a spec is immutable: a prior is made once for them, for a caller whose
-  // numbers come from a few (a limb's reach, a share of its record's blows). A -0 is read as given, since a key takes it for 0.
-  if (Object.is(range, -0) || Object.is(life, -0) || Object.is(seconds, -0)) return priorOf(striker, struck, range, life, seconds);
-  let byStruck = PRIORS.get(striker);
-  if (!byStruck) PRIORS.set(striker, byStruck = new WeakMap());
-  let byRange = byStruck.get(struck);
-  if (!byRange) byStruck.set(struck, byRange = new Map());
-  let byLife = byRange.get(range);
-  if (!byLife) byRange.set(range, byLife = new Map());
-  let bySeconds = byLife.get(life);
-  if (!bySeconds) byLife.set(life, bySeconds = new Map());
-  let made = bySeconds.get(seconds);
-  if (!made) bySeconds.set(seconds, made = priorOf(striker, struck, range, life, seconds));
-  return made;
-}
-
-/** Each prior made (`prior`), by its striker's spec, the struck body's, its range, its life and its seconds. */
-const PRIORS = new WeakMap<BodySpec, WeakMap<BodySpec, Map<number, Map<number, Map<number, ProfileReading>>>>>();
-
-/** A prior (`prior`), made anew: of `striker`'s body, measured on nothing, its skill set by hand. */
-const priorOf = (striker: BodySpec, struck: BodySpec, range: number, life: number, seconds: number): ProfileReading =>
-  readProfile({ measured: { body: striker.model, stature: striker.stature.value, skill: "by hand", hz: 0, reaction: null },
-    trials: [{ start: { range, phase: "clear" }, done: true, dealt: life * struck.wounds.hp.value, taken: 0, seconds, recovers: null, down: false }] }, striker);
-
-/**
  * **The strikes a body is modelled by**: each measured, read for its striker (`readProfile`), with
- * the limbs that throw it; the limbs the rest are thrown with, each read by its prior where the two
- * stand so that one is of it (`pressureBy`, `lifeOf`); and how they are priced, a sentence.
+ * the limbs that throw it; the limbs the rest are thrown with, each read by its guess where the
+ * Mind has guesses and the two stand so that one is of it (`pressureBy`, `lifeOf`); and how they
+ * are priced, a sentence.
  */
 interface Model {
   readonly measured: readonly { readonly limbs: readonly string[]; readonly reading: ProfileReading }[];
@@ -155,25 +119,25 @@ interface Model {
 const staleAt = (profile: Profile | null, reaction: number | null, hz: number): string | null =>
   !profile || sameReaction(profile.measured.reaction, reaction, hz) ? null : `measured with senses ${profile.measured.reaction} s late, read ${reaction} s late`;
 
-/** Why a strike of `profile` is priced by hand at `postures`, a sentence: none measured it, or measured it with the bodies standing otherwise (`measuredAt`); null where its profile reads them, stale or not. */
-const byHandAt = (profile: Profile | null, postures: Postures): string | null =>
+/** Why a strike of `profile` is not read by its profile at `postures`, a sentence: none measured it, or measured it with the bodies standing otherwise (`measuredAt`); null where its profile reads them, stale or not. */
+const unreadAt = (profile: Profile | null, postures: Postures): string | null =>
   !profile ? "no fight measured it as it is" : measuredAt(profile, postures) ? null : `measured with no ${postures.own} striker at a ${postures.target} target`;
 
 /**
  * **The model** (`Model`) of `strikes` thrown by a body of `striker` at one of `struck`, read at
  * `postures`: each by its profile against that body (`profileAgainst`) where it is fresh at the
- * senses' reaction time and measured at those postures, each other by the prior of every limb it
- * is thrown with: a strike measured only on a body standing says nothing of one lying
- * (`measuredAt`).
+ * senses' reaction time and measured at those postures, each other left to the guess of every limb
+ * it is thrown with: a strike measured only on a body standing says nothing of one lying
+ * (`measuredAt`). Its sentence says how such a strike is priced (`pricedBy` of `guesses`).
  */
-function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySpec, struck: BodySpec, postures: Postures): Model {
-  const reaction = reactionOf(seen), measured: Model["measured"][number][] = [], unmeasured = new Set<string>(), why: string[] = [];
+function modelOf(seen: Seen, { strikes, striker, struck, postures, guesses }: { readonly strikes: readonly ModelledStrike[]; readonly striker: BodySpec; readonly struck: BodySpec; readonly postures: Postures; readonly guesses: Guesses | null }): Model {
+  const reaction = reactionOf(seen), measured: Model["measured"][number][] = [], unmeasured = new Set<string>(), said: string[] = [];
   for (const strike of strikes) {
-    const profile = profileAgainst(strike.profiles, struck), hand = byHandAt(profile, postures), stale = staleAt(profile, reaction, seen.hz);
-    if (hand === null) { measured.push({ limbs: strike.limbs, reading: readProfile(profile!, striker, postures) }); if (stale !== null) why.push(`${strike.name} stale, ${stale}`); }
-    else { why.push(`${strike.name} by hand, ${hand}`); for (const limb of strike.limbs) unmeasured.add(limb); }
+    const profile = profileAgainst(strike.profiles, struck), why = unreadAt(profile, postures), stale = staleAt(profile, reaction, seen.hz);
+    if (why === null) { measured.push({ limbs: strike.limbs, reading: readProfile(profile!, striker, postures) }); if (stale !== null) said.push(`${strike.name} stale, ${stale}`); }
+    else { said.push(`${strike.name} ${pricedBy(guesses)}, ${why}`); for (const limb of strike.limbs) unmeasured.add(limb); }
   }
-  return { measured, unmeasured: [...unmeasured], priced: why.length ? why.join("; ") : strikes.length ? "measured" : "no strike to model" };
+  return { measured, unmeasured: [...unmeasured], priced: said.length ? said.join("; ") : strikes.length ? "measured" : "no strike to model" };
 }
 
 /**
@@ -205,33 +169,23 @@ function strikesOf(profiles: readonly Profile[]): readonly ModelledStrike[] {
 const ownPhase = ({ sight }: Seen): string => sight.report.actions.length > 0 ? "striking" : "clear";
 
 /**
- * Where a prior (`pressureBy`) puts a striker's limbs: each within its reach (`limbReach`) of the
- * struck body's centre, or each over the struck body, at no range; none where the two stand so
- * that no prior is of it.
- */
-type Placing = "reach" | "over" | null;
-
-/**
  * **What makes the pressure** (`PressureFields`) of strikes `model` by a body of `striker` on a body of `struck` in
- * `phase`: each measured, and the prior of each limb it reads by hand, placed by `placing`. Each
- * limb its model reads by hand (`Model.unmeasured`) is, between two standing bodies, its prior
- * (`prior`): within that limb's reach (`limbReach`), `RATE` blows a second, landing as this body's
- * own do (`record`), each that limb's blow (`blowLife`); a body lying, or struck lying, deals none
- * by hand. Its latency takes the striker's mind for one like this (its rethink, `RETHINK`, and its
+ * `phase`: each measured, and, where the Mind has `guesses`, the guess of each limb its model
+ * has no profile of (`Model.unmeasured`, `Guesses.limb`), placed by `placing`: null where the two
+ * stand so that no guess is of it (a body lying, or struck lying, deals none by a guess). With no
+ * guesses such a limb adds nothing. Its latency takes the striker's mind for one like this (its rethink, `RETHINK`, and its
  * command's delay, `Seen.delay`) and adds its fastest blow's run (`ProfileReading.fastest`).
  */
-function pressureBy(seen: Seen, { model, phase, striker, struck, placing }: { readonly model: Model; readonly phase: string; readonly striker: BodySpec; readonly struck: BodySpec; readonly placing: Placing }): PressureFields {
-  const lands = model.unmeasured.length === 0 || placing === null ? 0 : record(seen.sight.report.ledger, null).lands;
+function pressureBy(seen: Seen, { model, phase, striker, struck, placing, guesses }: { readonly model: Model; readonly phase: string; readonly striker: BodySpec; readonly struck: BodySpec; readonly placing: Placing | null; readonly guesses: Guesses | null }): PressureFields {
   const readings = model.measured.map((one) => one.reading);
-  if (placing !== null) for (const limb of model.unmeasured)
-    readings.push(prior(striker, struck, placing === "over" ? 0 : limbReach(striker, limb), lands * blowLife(seen.rules, striker, limb, struck), 1 / RATE));
+  if (guesses && placing !== null) for (const limb of model.unmeasured) readings.push(guesses.limb(seen, { striker, struck, limb, placing }));
   let peak = 0, fastest = Infinity;
   for (const reading of readings) { peak = Math.max(peak, reading.peak(phase, struck)); fastest = Math.min(fastest, reading.fastest(phase)); }
   return { model: readings, phase, struck, peak, latency: RETHINK + seen.delay / seen.hz + fastest, priced: model.priced };
 }
 
-/** Where a prior puts the limbs of a body striking one whose posture is `posture` (`Placing`): within their reach of a body standing; none of one lying. */
-const placingAt = (posture: string): Placing => posture === "standing" ? "reach" : null;
+/** Where a guess puts the limbs of a body striking one whose posture is `posture` (`Placing`): within their reach of a body standing; null of one lying, which no guess is of. */
+const placingAt = (posture: string): Placing | null => posture === "standing" ? "reach" : null;
 
 /** Each pooled profile (`pooled`), by the profiles it pools, in their order: a profile is immutable. */
 interface Pools { pool?: Profile; readonly next: WeakMap<Profile, Pools> }
@@ -538,8 +492,10 @@ const REPLY_LEAST = .01;
  */
 export class ProfileExchange implements ExchangePredictor {
   private readonly tables: ProfileTables;
+  /** What it guesses where nothing is measured; null where it guesses nothing. */
+  private readonly guesses: Guesses | null;
 
-  constructor(tables: ProfileTables) { this.tables = tables; }
+  constructor({ guesses, ...tables }: ProfileTables & { readonly guesses: Guesses | null }) { this.tables = tables; this.guesses = guesses; }
 
   danger(seen: Seen): number { return this.measuredAgainst(seen) ? 0 : this.lifeOf(seen, seen.blow); }
 
@@ -564,8 +520,8 @@ export class ProfileExchange implements ExchangePredictor {
   turns({ focus }: Seen): number { return focus ? turnOf(focus.spec) : Infinity; }
 
   /** A blow by the rules (`blowLife`). */
-  blows({ focus, spec, rules }: Seen): (limb: string, segment: string) => number {
-    return (limb, segment) => focus ? blowLife(rules, spec, limb, focus.spec, undefined, segment) : 0;
+  blows({ focus, spec, rules }: Seen): (limb: string, segment: string, closing: number) => number {
+    return (limb, segment, closing) => focus ? blowLife(rules, spec, limb, focus.spec, closing, segment) : 0;
   }
 
   /** The foe carried on its velocity for `seconds` s and stopped there. */
@@ -602,17 +558,19 @@ export class ProfileExchange implements ExchangePredictor {
    * (`ProfileTables.strikes`), each read by its profile against this body (`modelOf`), fresh at the
    * senses' reaction time and this mind's rate (`Seen.rate`: a foe's mind is taken for one like
    * it) and thrown with the limb it names (`Measured.limb`); and each other limb the foe strikes
-   * with (`defaultStrikeLimbs`), by its prior. A foe's strikes are not sensed, so its limbs stand
-   * for them: a limb no measured strike throws is priced by hand while the others are measured.
+   * with (`defaultStrikeLimbs`), left to its guess. A foe's strikes are not sensed, so its limbs
+   * stand for them: a limb no measured strike throws is priced by hand while the others are
+   * measured, or not priced where the Mind has no guesses (`pricedBy`).
    */
   private foeModel(seen: Seen, foe: BodySpec, postures: Postures): Model {
     const reaction = reactionOf(seen), on = profilesOn(this.tables.measured, foe, { hz: seen.hz, reaction, rate: seen.rate, delay: seen.delay });
     const strikes: readonly ModelledStrike[] = on.read.length ? strikesOf(on.read)
       : this.tables.strikes.filter((strike) => profileAgainst(strike.profiles, seen.spec) !== null);
     const thrown = new Set(strikes.flatMap((strike) => strike.limbs)), limbs = defaultStrikeLimbs(foe).filter((limb) => !thrown.has(limb));
-    const model = modelOf(seen, [...strikes, ...limbs.map((limb) => ({ name: limb, limbs: [limb], profiles: [] }))], foe, seen.spec, postures);
-    const source = on.read.length ? (on.stale === null ? "measured" : `measured, stale, ${on.stale}`) : strikes.length ? `as its own strikes, ${on.stale}` : `by hand, ${on.stale}`;
-    return { ...model, priced: limbs.length && strikes.length ? `${source}; by hand: ${limbs.join(", ")}` : source };
+    const unread = pricedBy(this.guesses);
+    const model = modelOf(seen, { strikes: [...strikes, ...limbs.map((limb) => ({ name: limb, limbs: [limb], profiles: [] }))], striker: foe, struck: seen.spec, postures, guesses: this.guesses });
+    const source = on.read.length ? (on.stale === null ? "measured" : `measured, stale, ${on.stale}`) : strikes.length ? `as its own strikes, ${on.stale}` : `${unread}, ${on.stale}`;
+    return { ...model, priced: limbs.length && strikes.length ? `${source}; ${unread}: ${limbs.join(", ")}` : source };
   }
 
   /**
@@ -622,7 +580,7 @@ export class ProfileExchange implements ExchangePredictor {
    */
   private ratePressure(seen: Seen, focus: BodySense): PressureFields {
     const spec = seen.spec, posture = sensedPosture(focus), postures = { own: posture, target: "standing" };
-    return { ...pressureBy(seen, { model: pooled(this.foeModel(seen, focus.spec, postures), focus.spec, postures), phase: ownPhase(seen), striker: focus.spec, struck: spec, placing: placingAt(posture) }),
+    return { ...pressureBy(seen, { model: pooled(this.foeModel(seen, focus.spec, postures), focus.spec, postures), phase: ownPhase(seen), striker: focus.spec, struck: spec, placing: placingAt(posture), guesses: this.guesses }),
       stance: turned(carriedStances(spec, seen.sight.view, focus)) };
   }
 
@@ -630,8 +588,8 @@ export class ProfileExchange implements ExchangePredictor {
    * **The own life `blow` is expected to take**: the most its striker's measured strikes thrown with
    * its limb (`foeModel`) are expected to take at the striker's range, the two bodies' velocities
    * (`startVelocity`) and this body's phase, to their reach (a blow predicted to reach the head is in
-   * reach); with none, its prior (`prior`): its energy at the speed it closes, landing as often as
-   * `LANDS`. 0 with none.
+   * reach); with none, its guess where the Mind has guesses (`Guesses.blow`). 0 with neither, and
+   * with no blow.
    */
   private lifeOf(seen: Seen, blow: Seen["blow"]): number {
     const { spec, sight } = seen;
@@ -639,7 +597,7 @@ export class ProfileExchange implements ExchangePredictor {
     const centre = sight.view.stance.centre, foe = blow.foe, range = hypot(foe.centre.x - centre.x, foe.centre.z - centre.z), phase = ownPhase(seen);
     const own = sight.view.stance.velocity, velocity = startVelocity({ x: foe.centre.x - centre.x, z: foe.centre.z - centre.z }, { x: own.x - foe.velocity.x, z: own.z - foe.velocity.z });
     const measured = this.foeModel(seen, blow.foe.spec, STANDING).measured.filter((one) => one.limbs.includes(blow.limb)).map((one) => one.reading);
-    const model = measured.length ? measured : [priorOf(blow.foe.spec, spec, range, LANDS * blowLife(seen.rules, blow.foe.spec, blow.limb, spec, blow.closing), 1)];
+    const guessed = measured.length ? null : this.guesses?.blow(seen, blow, range) ?? null, model = guessed ? [guessed] : measured;
     let most = 0;
     const stance = turned(carriedStances(spec, sight.view, foe));
     for (const reading of model) most = Math.max(most, reading.expect({ range: Math.min(range, reading.reach(phase)), phase, velocity, stance }, spec)?.dealt ?? 0);
@@ -650,12 +608,12 @@ export class ProfileExchange implements ExchangePredictor {
    * **What a second costs the body down in `posture`**, own life, against a foe of `foe` as it is
    * (`sensedPosture`; standing with no focus), as the foe's pressure reads it: the blows of the foe
    * over it (`PressureFields.peak`: the foe's strikes read at its posture and a target lying in that
-   * posture, in the phase down; a foe lying deals none by hand, `placingAt`). What a second on its
+   * posture, in the phase down; a foe lying deals none by a guess, `placingAt`). What a second on its
    * feet brings is priced by the Options that begin there, as the search reaches them.
    */
   private downRateOf(seen: Seen, foe: BodySpec, posture: Position): number {
     const foeAt = seen.focus ? sensedPosture(seen.focus) : "standing", postures = { own: foeAt, target: posture };
-    return pressureBy(seen, { model: pooled(this.foeModel(seen, foe, postures), foe, postures), phase: "down", striker: foe, struck: seen.spec, placing: placingAt(foeAt) && "over" }).peak;
+    return pressureBy(seen, { model: pooled(this.foeModel(seen, foe, postures), foe, postures), phase: "down", striker: foe, struck: seen.spec, placing: placingAt(foeAt) && "over", guesses: this.guesses }).peak;
   }
 }
 

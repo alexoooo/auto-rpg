@@ -1,14 +1,5 @@
 import type { OptionRecord, Tried } from "./contract/context.ts";
 
-/**
- * **What an Option is taken to bring where no drill measured it**, set by hand: the seconds it runs,
- * and the share of its tries that do what it does.
- */
-export interface Prior {
-  readonly seconds: number;
-  readonly done: number;
-}
-
 /** How many tries a prior, or a measured profile, counts as against an Option's record of them (`recorded`). */
 const WEIGHT = 2;
 

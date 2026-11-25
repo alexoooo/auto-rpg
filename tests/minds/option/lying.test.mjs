@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { Vector3 } from "../../../src/core/math/vector.ts";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
 import { rulebook } from "../../../src/combat/rulebook.ts";
+import { BY_HAND } from "../../../src/minds/option/by-hand.ts";
 import { perceiver, ProfileExchange, reachMemory } from "../../../src/minds/option/percepts.ts";
 import { brace, hold } from "../../../src/minds/option/rest.ts";
 
@@ -13,7 +14,7 @@ import { brace, hold } from "../../../src/minds/option/rest.ts";
  */
 test("lying retains an opportunity cost against a foe with no modelled hand attack", () => {
   // The Skeleton on its back, a reptile beside it, both still; then on its feet, the reptile out of every reach.
-  const spec = modelSpec("skeleton"), foe = modelSpec("reptile"), reading = perceiver(new ProfileExchange({ strikes: [], measured: [], pressures: null }));
+  const spec = modelSpec("skeleton"), foe = modelSpec("reptile"), reading = perceiver(new ProfileExchange({ strikes: [], measured: [], pressures: null, guesses: BY_HAND }));
   const at = (down, away) => reading.at({ spec, hz: 120, delay: 0, rules: rulebook("arena"), reach: reachMemory(),
     focus: { spec: foe, centre: new Vector3(0, 0.3, away), velocity: new Vector3(), segments: new Map(), down: false, time: 0 },
     sight: { view: { down, ground: down ? { position: "back" } : null, head: new Vector3(0, down ? 0.2 : 1.7, 0), stance: { centre: new Vector3(), velocity: new Vector3() },

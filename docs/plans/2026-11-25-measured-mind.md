@@ -294,16 +294,16 @@ the rat's fights have shown it.
 | --- | --- | --- | --- |
 | The end of a line is not priced | `objective.ts` `fewTermsWorth` never reads `path.end`; `chooser.ts` `cutWorth` | A line cut at the horizon, and every hold or guard, is worth the same ending on its back as on its feet | 4 |
 | The fitted value reads only the man | `assets/minds/fitted-value.json` fitted on man against man; `fittedOn` | Every other body, and the man against any other, falls back to the tail's leaf | 1, 4 |
-| A second down is priced at the foe's peak | `percepts.ts` `downRateOf` (`Pressure.peak`) | Lying 5 m away costs as much as lying at his feet: 0.075 of the rat's life a second, where its time down in fights cost about 0.004 | 3 |
+| A second down is priced at the foe's peak | `percepts.ts` `downRateOf` (`PressureFields.peak`) | Lying 5 m away costs as much as lying at his feet: 0.075 of the rat's life a second, where its time down in fights cost about 0.004 | 3 |
 | The foe stands still in imagined lines, or carries on as he was | `carry` 0 by default, 0.5 s on `option-lean`; `option.ts` | Waiting near a foe who would close looks free, or is priced by where his velocity takes him | 3, 5 |
 | The foe's replies are searched only against the same body | `chooser.ts` `repliedSearch` (`bodyOf(focus.spec) !== searched.body`) | Against any other body, replies are never searched | 3, 5: the foe's Options built from his own body, weighted by the prior |
 | A walk never falls outside a clinch | `places.ts` `walkTerms` | Walks look safer than strikes, whose falls are measured | 2 |
-| The clinch | `value.ts` `CLINCH`: 0.65 m centre to centre, 0.2 falls a second, every body | Holds and walks near the foe fall at one rate, rat or Warrior | 2 |
-| Ways up and recoveries not measured | `rise.ts` `WAY_PRIOR` (5 s, 7 in 10), `REGAIN_PRIOR` (9 in 10), `SETTLE_PRIOR` (0.25 s), `BRACED` (1 s) | Getting up is priced by hand for any body without a drill | 2 |
-| Blows not measured | `value.ts` record prior (0.3 lands, 0.6 s, weight 3), `BLOW_SPEED` 5 m/s; `percepts.ts` `LANDS` 0.3, `RATE` 1 a second | A foe's limb with no profile is priced by hand | 2 |
-| The cover | `cover.ts` `STOPS` 0.6 | A cover keeps off six tenths of any blow | 2 |
-| Where a fall leaves the body | `value.ts` `FALLEN` "back" | Every fall is priced as landing on the back | 2 |
-| A foe with no turning measured turns at once | `percepts.ts` `turnOf` (Infinity) | Going round a foe is worth nothing | 3, 5 |
+| The clinch | `by-hand.ts` `CLINCH`: 0.65 m centre to centre, 0.2 falls a second, every body | Holds and walks near the foe fall at one rate, rat or Warrior | 2 |
+| Ways up and recoveries not measured | `by-hand.ts` `WAYS` (a way up 5 s, 7 in 10; the regain 9 in 10; a brace 0.25 s), `BRACED` (1 s) | Getting up is priced by hand for any body without a drill | 2 |
+| Blows not measured | `by-hand.ts` `PRIOR` of `record` (0.3 lands, 0.6 s, weight 3), `BLOW_SPEED` 5 m/s, `LANDS` 0.3, `RATE` 1 a second | A foe's limb with no profile is priced by hand | 2 |
+| The cover | `by-hand.ts` `STOPS` 0.6 | A cover keeps off six tenths of any blow | 2 |
+| Where a fall leaves the body | `by-hand.ts` `FALLEN` "back" | Every fall is priced as landing on the back | 2 |
+| A foe with no turning measured turns at once | `by-hand.ts` `UNMEASURED_TURN` (Infinity), read by `percepts.ts` `turnOf` | Going round a foe is worth nothing | 3, 5 |
 | The search weighs every Option evenly | `chooser.ts` `treeSearch`: UCT, no prior | With dozens of Options, 50 runs spread too thin to find the strong line | 5 |
 | Stances read by the model's name | `gaitStance`, `carriageOf` (`places.ts`, `back-step.ts`, `percepts.ts`) | A model with no entry gets no stance and no back step | 2, its stance measured like any Option's |
 | The rat's own Mind | `option-presses`: best line, aggression 5 | Pushes past the wrong prices for one body | Retired once the rest stands (the owner's word) |

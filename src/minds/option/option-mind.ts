@@ -165,7 +165,7 @@ const lastEnded = (ledger: readonly Ended[]): number => ledger.length ? ledger[l
 
 /**
  * How each Option that reads a profile and the focus's strikes are priced as it last decided, as
- * an engagement's detail: by their measured profiles, or by hand and why (`Option.priced`,
+ * an engagement's detail: by their measured profiles, by hand, or not at all, and why (`Option.priced`,
  * `Pressure.priced`).
  */
 function pricedDetail(options: readonly Option[], now: Situation): EngagementDetail {

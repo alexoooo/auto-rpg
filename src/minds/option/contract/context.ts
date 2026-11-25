@@ -6,12 +6,13 @@ import type { GroundPoint } from "../../../skills/framework/movement.ts";
 import type { OutcomeModel } from "../../../skills/framework/outcomes.ts";
 import type { GaitName } from "../../../skills/framework/skill.ts";
 import type { Sites } from "./option.ts";
+import type { Guesses } from "./predictors.ts";
 import type { Situation } from "./situation.ts";
 
 /**
  * **What an Option kind is made from** (`OptionPart.make`): its body's spec, the world's rate (Hz)
  * and the part lookup; the legs its body goes by (whose gaits its walks name), its Mind's Options
- * as its config names them, and the outcome model they ask what each act brings (`OutcomeModel`);
+ * as its config names them, the outcome model they ask what each act brings (`OutcomeModel`) and what they guess where nothing is measured (`Guesses`, null where they guess nothing);
  * what the Mind itself runs on: its walk and its Options' record of their tries; and the sites its
  * Options name (`Sites`, filled once every Option is made). A kind builds anything else it needs
  * from these.
@@ -29,6 +30,8 @@ export interface OptionContext {
   /** Its Mind's Options, as its config names them, in rank order. */
   readonly options: readonly PartConfig[];
   readonly outcomes: OutcomeModel;
+  /** What its Options guess where nothing is measured (`Predictors.guesses`); null where they guess nothing. */
+  readonly guesses: Guesses | null;
   readonly walk: Walker;
   readonly record: OptionRecord;
   readonly sites: Sites;

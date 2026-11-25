@@ -15,7 +15,8 @@ import type { Situation } from "./contract/situation.ts";
 import { LEGS } from "../../skills/framework/action.ts";
 import { bearingAround, graceAt } from "./percepts.ts";
 import { gaitStance } from "../../skills/locomotion/move/gaits.ts";
-import { CLINCH, clinched, STILL, upOrDown } from "./value.ts";
+import { CLINCH, clinched } from "./by-hand.ts";
+import { STILL, upOrDown } from "./value.ts";
 import type { Terms } from "./contract/terms.ts";
 import type { Walker } from "./contract/context.ts";
 

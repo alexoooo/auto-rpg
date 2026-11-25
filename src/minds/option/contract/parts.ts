@@ -87,7 +87,7 @@ export interface ObjectivePart<C extends PartConfig = PartConfig> extends Part<C
 /**
  * **A kind of predictions**: a part of role `predictions` that owns its config's keys and faults,
  * and makes what a Mind predicts by (`Predictors`) from what its config names (the tables a drill
- * measured, or none, so each model reads its prior).
+ * measured, or none, so each model reads its guess; and whether it guesses at all, `Predictors.guesses`).
  */
 export interface PredictionsPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "predictions";

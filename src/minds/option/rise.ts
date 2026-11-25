@@ -2,6 +2,7 @@ import { refused, type TargetRef } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import { deepFreeze } from "../../core/state.ts";
+import { BRACED, pricedBy } from "./by-hand.ts";
 import { tumbling, type GroundReading, type Position } from "../../control/ground-reading.ts";
 import { isWayUp, type TechniqueName, type TechniquePart } from "../../skills/recovery/shared/technique.ts";
 import { edgeExpected } from "../../skills/recovery/data/profiles.ts";
@@ -11,9 +12,10 @@ import type { Status, Option, Step } from "./contract/option.ts";
 import { brace } from "./rest.ts";
 import { asking, blocked, READY } from "./option.ts";
 import type { Situation } from "./contract/situation.ts";
-import { onFeet, REGAIN_TRY } from "./rise-memory.ts";
+import { onFeet } from "./rise-memory.ts";
 import type { OptionContext, Tried } from "./contract/context.ts";
-import { recorded, type Prior } from "./record.ts";
+import { recorded } from "./record.ts";
+import type { GuessedWay } from "./contract/predictors.ts";
 import { STILL, UNMOVED } from "./value.ts";
 import type { Outcome, Terms } from "./contract/terms.ts";
 import type { NamedSkills, OptionPart } from "./contract/parts.ts";
@@ -27,18 +29,6 @@ function bindingSegments(part: TechniquePart, spec: BodySpec, config: PartConfig
     return binding.segment;
   };
 }
-
-/** What a way up is taken to do where no drill measured it (`Prior`), set by hand: it runs 5 s and stands the body seven times in ten. */
-const WAY_PRIOR: Prior = deepFreeze({ seconds: 5, done: .7 });
-
-/** What the regain is taken to do, set by hand: it stands a body on its feet ready in its try (`REGAIN_TRY`) nine times in ten. */
-const REGAIN_PRIOR: Prior = deepFreeze({ seconds: REGAIN_TRY, done: .9 });
-
-/** What bracing a body until a way up admits it is taken to do where none was measured, set by hand: a quarter second, after which one does. */
-const SETTLE_PRIOR: Prior = deepFreeze({ seconds: .25, done: 1 });
-
-/** What a brace saves a tumbling body, s: its first second tumbling, before a way up is begun on it moving. */
-const BRACED = 1;
 
 /** A ground action's target: none; the body acts on itself. */
 const HERE: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });
@@ -110,11 +100,12 @@ function asks(now: Situation, memory: Asking, action: string, sides: (start: str
  * prepared; its try noted in `record` as it ends (`OptionRecord.note`), done where the action ended
  * done. Priced as what it is expected to do from where it is begun (`way`): its seconds down
  * (`downTerms`), ending where it goes in the share done and where its failures come to rest
- * (`endings`). At a state an Option leaves the body in, where no ground is read, it is on offer
+ * (`endings`); with nothing expected from there (`way` answers null) it has no model and is not on
+ * offer. At a state an Option leaves the body in, where no ground is read, it is on offer
  * lying in a posture `toward` goes from.
  */
 function attempt(given: OptionContext, part: TechniquePart, skill: PartConfig, edges: readonly Edge[], toward: (from: Position, g: GroundReading | null) => Position | null,
-  way: (from: Position) => Way, extra: { readonly priced?: Option["priced"] }): Option {
+  way: (from: Position) => Way | null, extra: { readonly priced?: Option["priced"] }): Option {
   const name = part.defaults.kind as string, memory: Asking = { id: null, start: part.starts[0]!, from: null }, record = given.record, sides = bindingSegments(part, given.spec, skill);
   const UNOFFERED = blocked(`${name} does not admit the body as it lies`);
   const fromOf = (g: GroundReading): Position => part.moving && edges.some((edge) => edge.from === g.raw) ? g.raw : g.position;
@@ -145,7 +136,7 @@ function attempt(given: OptionContext, part: TechniquePart, skill: PartConfig, e
       const g = at.ground, from = g ? memory.from ?? fromOf(g) : at.down ? at.posture : null, to = from === null ? null : toward(from, g);
       if (from === null || to === null) return null;
       const expected = way(from);
-      return downTerms(at, expected.seconds, endings(expected, from, to));
+      return expected && downTerms(at, expected.seconds, endings(expected, from, to));
     },
     begin(now) {
       memory.id = null;
@@ -161,24 +152,27 @@ function attempt(given: OptionContext, part: TechniquePart, skill: PartConfig, e
 /**
  * **What the ground technique `skill`, run as Option `name`, is expected to do from where it is
  * begun** (`way`): its profile on the body from there where one is measured (`edgeExpected`), else
- * `prior`, either moved by the record of its tries (`recordedWay`); and how it is priced from where
- * the body lies now (`priced`).
+ * its Mind's guess of its `kind` (`Guesses.way`), either moved by the record of its tries
+ * (`recordedWay`); null with neither. And how it is priced from where the body lies now (`priced`).
  */
-function groundWay(given: OptionContext, skill: PartConfig, name: string, prior: Prior): { readonly way: (from: Position) => Way; readonly priced: (now: Situation) => string } {
-  const { expected, priced } = edgeExpected(skill, given);
+function groundWay(given: OptionContext, skill: PartConfig, name: string, kind: GuessedWay): { readonly way: (from: Position) => Way | null; readonly priced: (now: Situation) => string } {
+  const { expected, priced } = edgeExpected(skill, given), guess = given.guesses?.way(kind) ?? null;
   const measured = (from: Position): Way | null => expected?.(from) ?? null;
   return {
-    way: (from) => recordedWay(measured(from) ?? { ...prior, ends: [] }, given.record.of(name, from), from),
+    way: (from) => {
+      const base = measured(from) ?? (guess ? { ...guess, ends: [] } : null);
+      return base && recordedWay(base, given.record.of(name, from), from);
+    },
     priced: (now) => {
       const from = now.ground?.position ?? now.posture;
-      return measured(from) ? "measured" : `by hand, ${expected ? `no trial begun from ${from}` : priced}`;
+      return measured(from) ? "measured" : `${pricedBy(given.guesses)}, ${expected ? `no trial begun from ${from}` : priced}`;
     },
   };
 }
 
-/** A way up's `attempt` of `part` over `edges`, priced by its profile on the body where one is measured, by hand else (`groundWay`, `WAY_PRIOR`). */
+/** A way up's `attempt` of `part` over `edges`, priced by its profile on the body where one is measured, by its Mind's guess of a way up else (`groundWay`). */
 function wayUp(given: OptionContext, config: GroundConfig<string>, part: TechniquePart, edges: readonly Edge[]): Option {
-  const { way, priced } = groundWay(given, skillOf(config), part.defaults.kind as string, WAY_PRIOR);
+  const { way, priced } = groundWay(given, skillOf(config), part.defaults.kind as string, "way");
   return attempt(given, part, skillOf(config), edges, (from) => edges.find((edge) => edge.from === from)?.to ?? null, way, { priced });
 }
 
@@ -227,7 +221,7 @@ const techniquesFor = (purpose: "ascent" | "fallback", parts: PartLookup): reado
 const every = (kind: "way-up" | "reposition", purpose: "ascent" | "fallback") => (config: GroundConfig<string>, parts: PartLookup): readonly ConfigFor<"option">[] =>
   waysUp(kind, config.skill ? [config.skill] : techniquesFor(purpose, parts));
 
-/** **A way up** (`attempt`): its technique's edges, priced by its profile, else by hand. */
+/** **A way up** (`attempt`): its technique's edges, priced by its profile, else by its Mind's guess of a way up. */
 export const WAY_UP_OPTION = deepFreeze({ ...groundKind("way-up", "Way up", null, { purpose: "ascent" }, (given, config, part) => [wayUp(given, config, part, part.edges)]),
   each: every("way-up", "ascent") });
 
@@ -235,21 +229,21 @@ export const WAY_UP_OPTION = deepFreeze({ ...groundKind("way-up", "Way up", null
 export const REPOSITION_OPTION = deepFreeze({ ...groundKind("reposition", "Reposition", null, { purpose: "fallback" }, (given, config, part) => [wayUp(given, config, part, part.edges)]),
   each: every("reposition", "fallback") });
 
-/** **Flatten** (`attempt`): the body laid flat on the side it lies on, priced as a way up to that lie: by its profile where one is measured, by hand else (`groundWay`, `WAY_PRIOR`). */
+/** **Flatten** (`attempt`): the body laid flat on the side it lies on, priced as a way up to that lie: by its profile where one is measured, by its Mind's guess of a way up else (`groundWay`). */
 export const FLATTEN_OPTION = groundKind("flattening", "Flatten", "flatten", null, (given, config, part) => {
-  const { way, priced } = groundWay(given, skillOf(config), part.defaults.kind as string, WAY_PRIOR);
+  const { way, priced } = groundWay(given, skillOf(config), part.defaults.kind as string, "way");
   return [attempt(given, part, skillOf(config), [], (_from, g) => g?.lie ?? null, way, { priced })];
 });
 
 /**
  * **The regain**, on its feet while its rise runs (`onFeet`), over the whole body, yielding: priced as
- * a way up from where it stands to standing, by its profile where one is measured, by hand else
- * (`groundWay`, `REGAIN_PRIOR`), its try's seconds left (`Situation.regained`); its route from a
+ * a way up from where it stands to standing, by its profile where one is measured, by its Mind's
+ * guess of a regain else (`groundWay`), its try's seconds left (`Situation.regained`); its route from a
  * crouch to standing. Its try is noted in the record as it ends: done where its rise is over, not
  * where its try ran out with the rise still on.
  */
 export const REGAIN_OPTION = groundKind("regaining", "Regain", "regain", null, (given, config, part) => {
-  const name = part.defaults.kind as string, record = given.record, { way, priced } = groundWay(given, skillOf(config), name, REGAIN_PRIOR);
+  const name = part.defaults.kind as string, record = given.record, { way, priced } = groundWay(given, skillOf(config), name, "regain");
   const memory = { id: null as number | null, start: part.starts[0]!,  from: null, regained: 0 }, sides = bindingSegments(part, given.spec, skillOf(config)), NOT_ON_FEET = blocked("not on its feet in a rise");
   return [{
     name: "regain", kind: "regain", claims: WHOLE, state: memory, priced,
@@ -263,7 +257,7 @@ export const REGAIN_OPTION = groundKind("regaining", "Regain", "regain", null, (
       const g = at.ground;
       if (!g || !onFeet(g)) return null;
       const expected = way(g.position);
-      return downTerms(at, Math.max(0, expected.seconds - at.regained), endings(expected, g.position, "standing"));
+      return expected && downTerms(at, Math.max(0, expected.seconds - at.regained), endings(expected, g.position, "standing"));
     },
     begin() { memory.id = null; memory.regained = 0; },
     end() { memory.id = null; },
@@ -295,7 +289,7 @@ export const LAND_OPTION = groundKind("landing", "Land", "land", null, (given, c
  * (`SkillsActions.readiness`: too fast for it). A body on its feet is the stance's to catch, and bracing it
  * would fold the legs under it. Priced as lying where it is: tumbling, for what is left of what a
  * brace saves (`BRACED`); else until a way up admits it, where the body is then, by its profile from
- * where it lies where one is measured, by hand else (`groundWay`, `SETTLE_PRIOR`).
+ * where it lies where one is measured, by its Mind's guess of a brace else (`groundWay`).
  */
 export const BRACE_TUMBLING_OPTION = groundKind("brace-tumbling", "Brace while tumbling", "brace", null, (given, config, part) => {
   const name = part.defaults.kind as string, memory = { id: null as number | null, start: part.starts[0]!,  from: null }, sides = bindingSegments(part, given.spec, skillOf(config)), NOT_MOVING = blocked("not moving unbraced");
@@ -303,7 +297,7 @@ export const BRACE_TUMBLING_OPTION = groundKind("brace-tumbling", "Brace while t
     const way = given.parts.of("technique", skill);
     return way.fits(given.spec, skill, given.parts) === null ? [{ part: way, config: skill }] : [];
   });
-  const { way: settling, priced } = groundWay(given, skillOf(config), "brace while tumbling", SETTLE_PRIOR);
+  const { way: settling, priced } = groundWay(given, skillOf(config), "brace while tumbling", "settle");
   /** Whether `g` lies where one of the ways up begins and none admits the body on any of its sides. */
   const unready = (now: Situation, g: GroundReading): boolean => {
     let begins = false;
@@ -324,7 +318,7 @@ export const BRACE_TUMBLING_OPTION = groundKind("brace-tumbling", "Brace while t
       if (!g) return null;
       if (!calm(at, g)) return downTerms(at, Math.max(1 / given.hz, BRACED - at.tumbled), UNMOVED);
       const expected = settling(g.position);
-      return downTerms(at, expected.seconds, endings(expected, g.position, g.position));
+      return expected && downTerms(at, expected.seconds, endings(expected, g.position, g.position));
     },
     begin() { memory.id = null; }, end() { memory.id = null; },
     step: (now) => asks(now, memory, name, sides),

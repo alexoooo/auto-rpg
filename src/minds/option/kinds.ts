@@ -206,7 +206,7 @@ function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, se
       const executors = [executor], blows = given.parts.of("executor", executor).blows?.(executor) ?? 1;
       return action.effectors.map((limb) => {
         const one = limbAction(action, limb);
-        const option = strike({ action: one, walk: given.walk, throws: blows, measure: strikeMeasure(given, executors, one), name: `${action.name} ${limb}` });
+        const option = strike({ action: one, walk: given.walk, throws: blows, measure: strikeMeasure(given, executors, one), guesses: given.guesses, name: `${action.name} ${limb}` });
         const support = config.support && given.parts.of("support", config.support).fits(given.spec, config.support, given.parts) === null ? config.support : null;
         return support ? choosingSkill(option, { ...support, variation: chosenVariation(given.spec, support.kind, support) }, "support") : option;
       });

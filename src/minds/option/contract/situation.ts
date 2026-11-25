@@ -130,8 +130,8 @@ export interface Predictions {
   readonly downRate: (posture: Position) => number;
   /** How fast the focus turns to face, rad/s; Infinity with none. */
   readonly turns: number;
-  /** The focus's life a blow of a limb of the body's takes at a segment of the focus's, by the rules; 0 with no focus. */
-  readonly blows: (limb: string, segment: string) => number;
+  /** The focus's life a blow of a limb of the body's takes at a segment of the focus's, closing on it at `closing` m/s, by the rules; 0 with no focus. */
+  readonly blows: (limb: string, segment: string, closing: number) => number;
 }
 
 /**
@@ -192,8 +192,8 @@ export interface ReachMemory {
  * `hand.right`), and its profiles measured on that body as it is read, its senses' reaction time
  * aside, one a body it was measured against (none where none is). It is read by the one against
  * the body it strikes (`profileAgainst`); one whose profile is not fresh at the senses' reaction
- * time is read by its limbs' prior, so a strike left unmeasured is priced by hand while the others
- * are measured.
+ * time is left to its limbs' guess (`Guesses.limb`), so a strike left unmeasured is priced by hand
+ * while the others are measured, or not priced where its Mind guesses nothing.
  */
 export interface ModelledStrike {
   readonly name: string;

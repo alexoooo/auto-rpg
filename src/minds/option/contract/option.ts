@@ -25,7 +25,7 @@ export interface Step {
  * **An Option**: a skill applied to a target, chosen by its chooser (`Chooser`) in a set of
  * Options whose claims do not overlap. It says where it can begin and whether it goes on (its
  * entry and its status), what running it from a state is expected to bring (its model: measured
- * where a profile prices it, else built by hand), and what it asks of the skills each step. Begun,
+ * where a profile prices it, else guessed by hand where its Mind has guesses), and what it asks of the skills each step. Begun,
  * it runs until it is over, out of its entry, or given up for a better one where it yields. What
  * it may say beside, where its kind has it to say, its mind reads of any Option alike.
  */
@@ -80,7 +80,7 @@ export interface Option {
   readonly sites?: readonly Site[];
   /**
    * How its model is priced now, a sentence: measured, where its profile prices it (and why
-   * scaled, `ProfileReading.scaled`); else by hand, and why: it was never measured, its profile is
+   * scaled, `ProfileReading.scaled`); else by hand, or not at all where its Mind guesses nothing, and why: it was never measured, its profile is
    * stale (`staleness`), or no trial reads where it stands. Absent where it reads no profile.
    */
   priced?(now: Situation): string;

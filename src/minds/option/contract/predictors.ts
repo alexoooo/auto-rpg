@@ -1,5 +1,8 @@
 import type { Position } from "../../../control/ground-reading.ts";
 import type { BodySense } from "../../../core/bodies/senses.ts";
+import type { BodySpec } from "../../../core/bodies/spec/body.ts";
+import type { TargetRef } from "../../../skills/framework/action.ts";
+import type { Expected, ProfileReading } from "../../../skills/framework/profile/reading.ts";
 import type { OutcomeModel } from "../../../skills/framework/outcomes.ts";
 import type { WalkStart } from "./context.ts";
 import type { ModelledStrike, Pressure, Seen, Situation } from "./situation.ts";
@@ -27,8 +30,8 @@ export interface ExchangePredictor {
   downRate(seen: Seen): (posture: Position) => number;
   /** How fast the foe turns to face, rad/s; Infinity with no foe. */
   turns(seen: Seen): number;
-  /** The share of the foe's life a blow of a limb of the body's takes at a segment of the foe's; 0 with no foe. */
-  blows(seen: Seen): (limb: string, segment: string) => number;
+  /** The share of the foe's life a blow of a limb of the body's takes at a segment of the foe's, closing on it at `closing` m/s; 0 with no foe. */
+  blows(seen: Seen): (limb: string, segment: string, closing: number) => number;
   /**
    * The foe `seconds` s from now, moving as `foe` is sensed to move. The same object where that
    * does not move it. A search imagines a reply (`reply`) by giving the foe the reply's velocity
@@ -47,6 +50,55 @@ export interface Predictors {
   exchange(given: { readonly strikes: readonly ModelledStrike[] }): ExchangePredictor;
   /** The speed a walk is priced as starting at. */
   readonly walkStart: WalkStart;
+  /** What it guesses where nothing is measured. Null where it guesses nothing: a strike, a limb, a blow coming or a way up with no measurement is then not priced. */
+  readonly guesses: Guesses | null;
+}
+
+/** **What an Option is taken to bring where no drill measured it**: the seconds it runs, and the share of its tries that do what it does. */
+export interface Prior {
+  readonly seconds: number;
+  readonly done: number;
+}
+
+/** What a strike's guess reads of the strike: its action with its limbs, how many blows one try throws, and what it aims at from a state (null with nothing to aim at). */
+export interface GuessedStrike {
+  readonly action: { readonly name: string; readonly effectors: readonly string[] };
+  readonly throws: number;
+  target(at: Situation): TargetRef | null;
+}
+
+/** Where a guess puts a striker's limb: within its reach of the struck body's centre, or over the struck body, at no range. */
+export type Placing = "reach" | "over";
+
+/** What a limb's guess reads: the limb, the body it is on, the body it strikes, and where the guess puts it. */
+interface GuessedLimb {
+  readonly striker: BodySpec;
+  readonly struck: BodySpec;
+  readonly limb: string;
+  readonly placing: Placing;
+}
+
+/** What a guess is of, of the ground's Options: a way up, the regain, or a brace until a way up admits the body. */
+export type GuessedWay = "way" | "regain" | "settle";
+
+/**
+ * **Numbers set by hand that stand in where a measurement is missing.** A Mind has them only where
+ * its predictions part gives them (`Predictors.guesses`), and measured code reaches one only
+ * through this interface.
+ */
+export interface Guesses {
+  /**
+   * What a strike of the body's is expected to bring from `at`, its blow `progress` s under way,
+   * with its chance of ending down. A search asks it at every state it prices such a strike, so it
+   * takes its arguments by place and no argument object is made.
+   */
+  strike(at: Situation, strike: GuessedStrike, progress: number): Expected;
+  /** A limb with no profile of its own, as a reading of what it deals a body it can reach. */
+  limb(seen: Seen, limb: GuessedLimb): ProfileReading;
+  /** A blow already coming from a limb with no profile of its own, its striker `range` m away, as a reading of what it deals. */
+  blow(seen: Seen, blow: NonNullable<Seen["blow"]>, range: number): ProfileReading;
+  /** How long a way up, a regain or a brace takes and how often it does what it does, where no drill measured it. */
+  way(kind: GuessedWay): Prior;
 }
 
 /** **An Option on offer as one try of it is modelled** (`Terms`): its kind, whether it is open, and its seconds and the life it deals and takes. */

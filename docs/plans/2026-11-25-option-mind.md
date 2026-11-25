@@ -38,7 +38,7 @@ hard-coded hacks."
 
 Each line was read in the code on 2026-11-25 at `878c17a24`, and cites the code as it was then.
 Put right so far: 5, 6 and 10 (chunk 1); 1, 3 and 4 (2b); 2 (2b and 2c); 7 (3a: the exchange is
-one interface; 3b: a pressure is one; 3c: a line's end is one).
+one interface; 3b: a pressure is one; 3c: a line's end is one); 8 (3d).
 
 1. **Nothing named Option Mind is a `Mind`.** `OptionMind` (`src/minds/option/build.ts:28`) is
    the receipt the build hands the fight (`MindMade`). The `Mind` (`src/minds/mind.ts:15`) is made
@@ -668,105 +668,104 @@ the chooser is made.
 
 **Read on landing** (2026-11-25): the fingerprint moves no pose on any of the 299 cases.
 
-### 3d: by hand has one home, and a kind without the fallbacks
+### 3d: by hand has one home, and a kind without the fallbacks (landed)
 
 **Purpose.** Every number set by hand that prices something is in one file. Those that stand in
 where a measurement is missing are behind one interface, the measured code reaches them only
 through it, and a kind of predictions built without them can be picked. This is the place the
 measured Mind plan's registry of numbers set by hand (its step 1) reads.
 
-Said plainly, since it differs from what the discussion first proposed: the fallbacks are not
-removed from the game's Mind here, and no existing config gains a key. A body facing a foe with
-no measured strikes would predict no harm at all and walk in, and how to predict a foe never met
-is the measured Mind plan's question. And a key added to the game's configs could orphan their
-saved rows (what must not move). So the `measured` kind stays what it is today (the comment at
-`predictions-part.ts:34`: "each model its own where fresh, else its prior"), now built as the
-measured code given the guesses; and a kind given none is added beside it.
+The fallbacks are not removed from the game's Mind, and no existing config gained a key. A body
+facing a foe with no measured strikes would predict no harm at all and walk in, and how to
+predict a foe never met is the measured Mind plan's question. So the `measured` kind is what it
+was, now built as the measured code given the guesses, and a kind given none is beside it.
 
-The measured Mind plan's table "What is guessed now, and what replaces it" has two sorts of
-hand-set number, and they are treated apart:
+What is there now:
 
-- **A fallback** stands beside a measurement and is read where the measurement is missing: a
-  strike's prior, a limb's, a coming blow's, a way up's. These are `Guesses`.
-- **A number with no measurement to fall from** is read always: the clinch (`CLINCH`,
-  `clinched`), the cover (`STOPS`), a blow's speed (`BLOW_SPEED`), where a fall leaves the body
-  (`FALLEN`), the brace (`BRACED`). These move to the same file as plain exports under their own
-  heading, read where they are read today by every kind. Each waits for its mechanism in the
-  measured Mind plan; none is hidden behind an interface that has one answer.
+- **`contract/predictors.ts`**: `Guesses` has four members. `strike(at, strike, progress)`
+  answers what a strike of the body's is expected to bring, with its chance of ending down.
+  `limb(seen, limb)` answers a foe's limb with no profile as a reading. `blow(seen, blow,
+  range)` answers a blow coming from such a limb. `way(kind)` answers how long a way up, a
+  regain or a brace takes and how often it works. `GuessedStrike`, `GuessedWay`, `Placing`
+  and `Prior` (was `record.ts`'s) are beside it. `Predictors.guesses` and
+  `OptionContext.guesses` are `Guesses | null`.
+- **`by-hand.ts`**: `BY_HAND` implements `Guesses` with the code that was at each site
+  (`priorOf` in `strike.ts` with its clinch read; the `prior(...)` call in `pressureBy`; the
+  `priorOf(...)` call in `lifeOf`; the three priors of `rise.ts`, now `WAYS`). `record` with
+  its `PRIOR`, `LANDS`, `RATE`, `BLOW_SPEED` and the guessed reading with its cache moved
+  in. Under their own heading are the numbers read always, as plain exports: `CLINCH` with
+  `clinched`, `STOPS`, `FALLEN`, `BRACED`, and `UNMEASURED_TURN` (a foe with no turn
+  measured turns at once; it was a literal in `turnOf`). `pricedBy(guesses)` is the one place
+  a `priced` sentence gets "by hand" or "not measured here" from.
+- **The measured code** reaches a guess only through the interface: `strike.ts` prices
+  `expected(...) ?? guesses?.strike(...) ?? null`; `pressureBy` adds a limb's guess only where
+  it is given guesses; `lifeOf` asks `guesses?.blow(...)`; `groundWay` in `rise.ts` asks
+  `guesses?.way(kind)`. With none, a strike with no reading at a state models null there and is
+  not offered, its `rate` is 0 and its `priced` says "not measured here"; a limb with no
+  profile adds nothing to a pressure; a blow coming from one is no danger; a way up, a regain or
+  a brace with no drill from a posture models null and is not offered from it.
+- **`predictions-part.ts`**: `measuredPredictions({ kind, label, guesses })` makes the
+  `measured` kind ("Measured, by hand where nothing is", given `BY_HAND`) and the new
+  `measured-only` kind ("Measured, no fallback", given null). The `prior` kind gives
+  `BY_HAND` with empty tables. `measured-only` is registered beside the other two
+  (`src/app/registration/option-predictions.ts`).
+- **`src/entrants/option/mind.ts`**: the preset `option-measured`, "Option Mind, measured
+  only", is `option-lean` with `predictions.kind: "measured-only"`. Its note
+  (`assets/minds/notes.json`) holds its reading.
+- **`damage.ts`** holds `blowLife` and `limbReach`, out of `value.ts` ahead of chunk 4, so
+  that `by-hand.ts` and `value.ts` do not import each other. `blowLife` takes its closing
+  speed from its caller and has no default of its own, and `Predictions.blows` takes it as a
+  third argument: only a strike's guess asks it, at `BLOW_SPEED`.
 
-```ts
-/**
- * Numbers set by hand that stand in where a measurement is missing. A Mind has them only where
- * its predictions part gives them.
- */
-export interface Guesses {
-  /** What a strike of the body's is expected to bring from `at`, its chance of ending down with it. */
-  strike(at: Situation, strike: GuessedStrike): Expected;
-  /** A limb with no profile of its own, as a reading of what it deals a body it can reach. */
-  limb(seen: Seen, striker: BodySpec, struck: BodySpec, limb: string, placing: Placing): ProfileReading;
-  /** A blow already coming from a limb with no profile of its own, as a reading of what it deals. */
-  blow(seen: Seen, blow: NonNullable<Seen["blow"]>, range: number): ProfileReading;
-  /** How long a way up, a regain or a brace takes and how often it succeeds, where no drill measured it. */
-  way(kind: "way" | "regain" | "settle"): Prior;
-}
-```
+Not as first written:
 
-`GuessedStrike` names what the strike's prior reads of it today (`strike.ts:215` to `:234`: its
-action, what it throws, its target and the blow's progress); `Placing` is `percepts.ts:299`'s,
-exported; `Prior` is `record.ts`'s.
+- `GuessedStrike` holds what never changes of a strike (its action, its throws, and how it finds
+  its target from a state), and the blow's progress is `strike`'s third argument. So a strike
+  makes one `GuessedStrike` for good and a search makes no object to ask a guess.
+- `limb` takes what it reads by name, not five arguments by place. It reads the body's record
+  once a limb, where `pressureBy` read it once for all of them. The numbers are the same.
+- `Placing` is `"reach" | "over"`; where the two stand so that no guess is of a limb, the
+  caller holds null and does not ask.
+- `Prior` moved into the contract, so no `contract/` file imports from the rest of the folder.
+- `BLOW_SPEED` is not read always: its two readers are guesses, so it is among the guesses'
+  numbers and not exported.
 
-**Steps.**
+**Whether a rise can be left unoffered** (was not settled by reading): it can. A way up, the
+regain and the brace already answered `Terms | null` from `model`, and a null model is an
+Option not on offer at that state. `way` stays in `Guesses`. What it means in play: no drill
+measured the regain on any body, so on `measured-only` the regain is never on offer; the brace
+while tumbling is measured on the woman and the skeleton alone; and a body with no ground
+profile has no ground Option but the brace it rests in.
 
-1. **`by-hand.ts`** (made in the flat folder; chunk 4 moves it) implements `Guesses` with the
-   code at each site, whole, so no hand-set number is left at a caller:
+**Left where it is**, each a stand-in that is no number in a caller, and each the measured Mind
+plan's to replace. The chunk's reader found them, told to find a number set by hand outside
+`by-hand.ts`:
 
-   | Member | Today's code |
-   | --- | --- |
-   | `strike` | `priorOf(at)` (`strike.ts:215`, `:327`) and the clinch read where nothing is measured (`:218`) |
-   | `limb` | the `prior(...)` call in `pressureBy` with its `RATE` and its landing rate (`percepts.ts:306` to `:309`), which prices a foe's limb and the down rate alike |
-   | `blow` | the `priorOf(...)` call in `lifeOf` with its `LANDS` (`percepts.ts:593`) |
-   | `way` | `WAY_PRIOR`, `REGAIN_PRIOR`, `SETTLE_PRIOR` (`rise.ts:30` to `:36`), read at `rise.ts:169` |
+- A foe with no profile of its own is modelled by the body's own strikes
+  (`ProfileExchange.foeModel`, "as its own strikes"), on `measured-only` too. That plan's
+  census lists it as a borrowed reading.
+- A walk falls only in a clinch (`places.ts` `walkTerms`): outside one its chance of a fall is
+  0 because nothing prices one. That plan's step 2.
+- The foe's latency takes its mind to rethink as often as this one (`RETHINK`, `value.ts`),
+  where no pressure table reads. That plan sorts `RETHINK` nowhere yet.
+- A strike whose trials record no exit leaves the body where it struck from (`exitOutcomes`,
+  `option.ts`), a guessed strike among them.
+- The regain's guessed seconds are its try's length (`REGAIN_TRY`, `rise-memory.ts`), which is
+  the rise's own.
 
-   `prior`, `LANDS`, `RATE`, and `PRIOR` with `record` (`value.ts:206`, `:214`) move in as its
-   own. `record` stays exported: `tests/skills/profiles.test.mjs:14` reads it and is repointed.
-   The always-read numbers named above move in beside them.
-2. **`Predictors` gains `readonly guesses: Guesses | null`**, and `OptionContext` and
-   `ProfileExchange` are built with it. The measured code reaches a guess only as
-   `guesses?.strike(...) ?? null`. With none: a strike with no reading at a state models null
-   there and is not offered, its `rate` says nothing of that foe and its `priced` says "not
-   measured here"; a limb with no profile adds nothing to a pressure; a blow coming from one is
-   no danger; and a way up with no drill from a posture is not offered from it, so a body down
-   with no measured way up stays down. Both reviewers looked for a caller that assumes a strike
-   model or a pressure and found an empty pressure and a null strike model already handled
-   (`NO_PRESSURE`, `strike.ts:314`); the way up was not read (not settled, below).
-3. **The two kinds of today are built from it and resolve as before**: `measured` gives the
-   guesses with its tables; `prior` gives the guesses with empty tables. Neither config changes.
-4. **A kind with no guesses is added**: `measured-only`, "Measured, no fallback", the `measured`
-   part's config and tables with `guesses: null`, registered beside the other two
-   (`src/app/registration/option-predictions.ts`). The `measured` part's label becomes
-   "Measured, by hand where nothing is".
-5. **A preset is added**: `option-measured`, "Option Mind, measured only", which is
-   `option-lean` (the empty-handed man's default, `src/app/catalog.ts:37`) with
-   `predictions.kind: "measured-only"`. It is read once against it
-   (`npm run match -- option-lean option-measured`), and the digest goes in the commit message
-   and first in the report. It stays pickable whatever it reads; which the game's default should
-   be is the measured Mind plan's bar ("the inventory is clean for every body on its default
-   config").
+**Where it is picked.** The kind is in the mind editor's predictions menu on any Mind. The
+preset joins the Crypt's and the Lab's menus and the evaluations' entrants by enumeration. The
+Arena's menu lists the game's own minds and one a link names, so there it is reached by link
+(`control=option-measured`) or by the editor, as `option-truer` is.
 
-**Consequences.**
-
-- **Where it is picked.** The kind is in the mind editor's predictions menu on any Mind. The
-  preset joins the Crypt's and the Lab's menus and the evaluations' entrants by enumeration; the
-  Arena's menu lists the game's own minds and one a link names (`arena/main.ts:348`), so there
-  it is reached by link or by the editor, as `option-truer` is.
-- The fingerprint and `tests/core-step-cost.test.mjs:34` play every mind, so each gains the new
-  preset's case and moves no other.
-- `option-drill` is unchanged: it is the `prior` kind.
-
-**Done when** the checks pass, the fingerprint compares clean on every existing case,
-`option-measured` plays its match to the end, the Arena opens headless with it picked, and the
-chunk's reader, told to find a number set by hand outside `by-hand.ts` that prices something,
-finds none that the measured Mind plan does not sort as a preference or as the Mind's own.
+**Read on landing** (2026-11-25): the fingerprint moves no pose on any of the 299 cases it had,
+and gains three of `option-measured`. The standard match, 120 bouts
+(`npm run match -- option-lean option-measured`): `option-lean` scores 0.642 (0.579 to 0.708)
+and `option-measured` 0.358 (0.292 to 0.421); it empties the other's bar within 60 s in 8.3 %
+of bouts against 25.0 %. Man against man `option-lean` wins 27 of 30. So the game's Mind is
+stronger with its guesses than without, as it stands. Allocation is not moved, KiB a body a
+step: `option-lean` 476.1 to 485.6 over eight readings, beside 476.5 to 479.6 of a copy of the
+tree before chunk 2b; `option-measured` 523.3.
 
 ## Chunk 4: one idea a file, six folders
 
@@ -783,7 +782,7 @@ Files move with `git mv` so history follows. Two commits: the splits, then the m
 | `percepts.ts` | `situation/percepts.ts` (`PERCEPTS`, `perceiver`, `Cues`' implementation), `situation/reach-memory.ts` (`reachMemory`, `graceAt`, `inReach`, `threatened`), `predictions/exchange/pressure.ts` (`ProfilePressure`, `pressureBy`, `pooled`, `startOf`), `predictions/exchange/profile.ts` (`ProfileExchange`, `measuredReach`) |
 | `kinds.ts` | `options/strike-kinds.ts` (`strikeKind` and the seven strikes), `options/kinds.ts` (the rest and `optionsOf`) |
 | `option.ts` | `situation/imagined.ts` (`placed`, `placing`, `placedWith`), `options/readiness.ts` (`standing`, `still`, `asking`, `READY`, `blocked`), `options/outcomes.ts` (`along`, `exitOutcomes`) |
-| `value.ts` | `options/outcomes.ts` (`upOrDown`, `AS_IS`, `UNMOVED`, `STILL`), `predictions/damage.ts` (`blowLife`, `limbReach`), `choosers/obedience.ts` (`OBEDIENCE`, `STEADY`, `FIRST`), `RETHINK` to `choosers/chooser.ts` |
+| `value.ts` | `options/outcomes.ts` (`upOrDown`, `AS_IS`, `UNMOVED`, `STILL`), `choosers/obedience.ts` (`OBEDIENCE`, `STEADY`, `FIRST`), `RETHINK` to `choosers/chooser.ts` |
 | `objective.ts` | `choosers/objectives.ts` (the two objective parts) |
 
 **The moves**: `mind.ts` to `assembly/controller.ts` (its `optionMind` renamed
@@ -793,7 +792,7 @@ to `situation/reader.ts`, `record.ts`, `rise-memory.ts` to `situation/`; `strike
 `places.ts`, `rest.ts`, `cover.ts`, `cover-hand.ts`, `back-step.ts`, `orders.ts`, `rise.ts`,
 `limbs.ts`, `selection.ts` to `options/`; `predictions-part.ts` to `predictions/part.ts`, `pressure.ts` to
 `predictions/exchange/pressure-table.ts`, `fitted-value.ts`, `boosted-trees.ts` to
-`predictions/value/`, `by-hand.ts` and `data/` to `predictions/`.
+`predictions/value/`, `by-hand.ts`, `damage.ts` and `data/` to `predictions/`.
 
 **Consequences.**
 
@@ -855,9 +854,6 @@ its import lines: each path leaves `src/minds/option/` or stays in `contract/`).
 
 Each is settled by the chunk that meets it, with the tool named.
 
-- **Whether a rise can be left unoffered from a posture** (3d). `rise.ts:169` takes a way as
-  given. If a way up cannot model null without reshaping the rise, `way` leaves `Guesses`, its
-  three priors join the always-read numbers in `by-hand.ts`, and the commit says so.
 - **Whether a relay equals a straight play today on every arena case** (5).
   `tests/minds/contract.test.mjs:211` shows it for two men under Option Minds with a drill
   Commander, one load, 180 steps; other bodies and more loads were not read. A case that differs

@@ -1,6 +1,5 @@
 import { sameRegion, type Spot } from "../../skills/framework/menu.ts";
 import type { Readiness, Resource, TargetRef, Window } from "../../skills/framework/action.ts";
-import { regionSegments } from "../../skills/framework/action-aim.ts";
 import { heldBeside, placeInWindow, SIDES, windowHolds, windowSpot, type Side } from "../../skills/intent/action-window.ts";
 import { orderAllows, orderedTargets } from "../orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
@@ -8,12 +7,13 @@ import { measuredOn, staleness, strikeSkill } from "../../skills/framework/profi
 import { type Expected, type ProfileReading } from "../../skills/framework/profile/reading.ts";
 import { type Asked as StartAsked, type Postures, type Measured } from "../../skills/framework/profile/profile.ts";
 import type { ActOutcomes } from "../../skills/framework/outcomes.ts";
+import { pricedBy } from "./by-hand.ts";
 import type { OptionContext, Walker } from "./contract/context.ts";
+import type { GuessedStrike, Guesses } from "./contract/predictors.ts";
 import { asking, exitOutcomes, blocked, READY, standing } from "./option.ts";
 import type { Asked, Option, Site } from "./contract/option.ts";
 import type { Situation } from "./contract/situation.ts";
 import { startOf, threatened } from "./percepts.ts";
-import { clinched, record } from "./value.ts";
 import type { Terms } from "./contract/terms.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { claimsLegs } from "../../skills/framework/intent.ts";
@@ -48,7 +48,7 @@ export const strikeMeasure = ({ spec, outcomes, hz, rate = hz, delay }: Pick<Opt
  * **A strike option** (`strike`): how its model is priced (`Option.priced`); its sites
  * (`Option.sites`), the spots in its window; what it deals a second (`Option.rate`), the most any
  * cell of its profile takes at the focus's phase from any start (`ProfileReading.peak`) where its
- * model reads its profile now, else its prior's (`priorOf`); and the strike its body is modelled by
+ * model reads its profile now, else its guess's (`Guesses.strike`), 0 with neither; and the strike its body is modelled by
  * (`Option.modelled`), the profiles its outcome model answers it from (`ActOutcomes.read`).
  */
 type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" | "modelled">>;
@@ -60,8 +60,8 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  */
 interface Stood { readonly focus: string; readonly spot: Spot; readonly place: [number, number] | null; readonly foe: readonly [number, number]; readonly through: number }
 
-/** What a strike is made of (`strike`): its action, the walker, how many blows it throws, its outcome model and its name. */
-interface Striking { readonly action: ActionConfig; readonly walk: Walker; readonly throws: number; readonly measure: StrikeMeasure; readonly name: string }
+/** What a strike is made of (`strike`): its action, the walker, how many blows it throws, its outcome model, what its Mind guesses where nothing is measured (null where it guesses nothing) and its name. */
+interface Striking { readonly action: ActionConfig; readonly walk: Walker; readonly throws: number; readonly measure: StrikeMeasure; readonly guesses: Guesses | null; readonly name: string }
 
 /**
  * **Strike**: `action` at the focus with the first of its limbs that is ready, named `name`, on
@@ -94,7 +94,8 @@ interface Striking { readonly action: ActionConfig; readonly walk: Walker; reado
  * it ran until its limb was back (`Expected.recovers`), and its chance of ending down; through the blow coming, and the focus's pressure while it
  * runs, past the focus's latency (`threatened`, `graceAt`); and, its blow
  * begun and not yet committed, what letting it go cost there at its progress (`Expected.letGo`).
- * Else its prior (`priorOf`), read the same way. It leaves the body up where it strikes from in
+ * Else its guess (`Guesses.strike`), read the same way, where its Mind has guesses; with neither
+ * it has no model there and is not on offer. It leaves the body up where it strikes from in
  * the share of its trials that ended where they began (`Expected.exit`'s `stays`), else as much
  * further from the focus as those that did not moved (`moved`), on the line from the focus through
  * it, facing the focus (`along`); where its trials do not say, where it strikes from. Down in its
@@ -105,7 +106,7 @@ interface Striking { readonly action: ActionConfig; readonly walk: Walker; reado
  * on offer; elsewhere, at one of its sites (`atSite`), or where the spot it stands at is within its
  * window now, ready or not (`windowAny`, `windowHolds`), its model there as it would be here.
  */
-export function strike({ action, walk, throws, measure, name }: Striking): StrikeOption {
+export function strike({ action, walk, throws, measure, guesses, name }: Striking): StrikeOption {
   const state = { target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null,
     // Each side's place beside a body lying (`HeldBeside`), and its spot as last read: at what time, for what focus, and where in its window (`placeInWindow`);
     // and the spot last read with the body up (`Stood`).
@@ -209,31 +210,21 @@ export function strike({ action, walk, throws, measure, name }: Striking): Strik
    * way's where one is). Its blow under way, short of its exit, it is priced from where it
    * is: the time its motion has left, and its payoff unless its blow has met the target. Its chance
    * of ending down is its profile's where one measures it (its trials' falls, in a clinch or not),
-   * else the clinch's (`clinched`).
+   * else its guess's. Null where no profile prices it there and its Mind has no guess.
    */
-  const priceOf = (at: Situation, place: readonly [number, number] | null): Terms => {
+  const priceOf = (at: Situation, place: readonly [number, number] | null): Terms | null => {
     const running = live(at), under = running !== undefined && running.phase !== "release";
     const progress = under && state.began !== null ? at.time - state.began : 0, met = under && running.contacts.lastTarget !== null;
-    const preparing = running?.phase === "prepare", measured = expected(at, running ? state.place : place, preparing ? progress : undefined), e = measured ?? priorOf(at);
+    const preparing = running?.phase === "prepare", e = expected(at, running ? state.place : place, preparing ? progress : undefined) ?? guesses?.strike(at, guessed, progress) ?? null;
+    if (!e) return null;
     const duration = Math.max(0, e.seconds + e.recovers - progress);
     const terms: { -readonly [K in keyof Terms]: Terms[K] } = { duration, dealt: met ? 0 : e.dealt, taken: at.predictions.danger + threatened(at, duration), orders: 0,
-      outcomes: exitOutcomes(at, e.exit, Math.max(e.down, measured ? 0 : clinched(at, duration, at.apart))) };
+      outcomes: exitOutcomes(at, e.exit, e.down) };
     if (preparing && e.letGo) terms.letGo = e.letGo;
     return terms;
   };
-  /**
-   * Its prior, where no profile prices it, read as a profile is (`Expected`): `throws` blows
-   * from its stronger limb at the segment its region strikes (`blowLife`), each landing as often as its record says (`record`, of its action
-   * with its limbs), as long as its record says it runs.
-   */
-  const priorOf = (now: Situation): Expected => {
-    const { lands, seconds } = record(now.sight.report.ledger, action);
-    const target = targetOf(now), segment = target?.kind === "body" && now.focus ? regionSegments(now.focus.spec, target.region)[0] : undefined;
-    const struck = segment ?? now.focus?.spec.marks.high ?? "";
-    let blow = -Infinity;
-    for (let i = 0; i < action.effectors.length; i++) blow = Math.max(blow, now.predictions.blows(action.effectors[i]!, struck));
-    return { done: lands, dealt: throws * lands * blow, taken: 0, seconds, recovers: 0, down: 0, ends: [] };
-  };
+  /** What its guess reads of it (`GuessedStrike`). */
+  const guessed: GuessedStrike = { action, throws, target: targetOf };
   /** Whether its blow leaves the legs to a walk: what it needs with its first limb names no legs (`SkillsActions.needs`), read once, its skill's for good. */
   const onTheWay = (at: Situation): boolean => state.leaves ??= action.effectors.length > 0 && !claimsLegs(at.sight.actions.needs(action.name, action.effectors[0]!));
   /**
@@ -305,10 +296,11 @@ export function strike({ action, walk, throws, measure, name }: Striking): Strik
     begin(now) { state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; state.began = null; state.place = null; },
     end() { state.id = null; state.target = null; state.began = null; state.place = null; },
     priced(now) {
-      if (!act) return "by hand, no fight measured it";
+      const unread = pricedBy(guesses);
+      if (!act) return `${unread}, no fight measured it`;
       const reading = readingOf(now), stale = reading ? staleness(reading.profile, { ...measured, reaction: now.reaction }) : act.stale;
-      if (!reading) return `by hand, ${stale}`;
-      if (!expected(now)) return "by hand, no trial of its profile reads here";
+      if (!reading) return `${unread}, ${stale}`;
+      if (!expected(now)) return `${unread}, no trial of its profile reads here`;
       const scaled = reading.scaled(now.focus?.spec ?? null);
       return ["measured", ...(scaled === null ? [] : [scaled]), ...(stale === null ? [] : [`stale, ${stale}`])].join(", ");
     },
@@ -326,8 +318,8 @@ export function strike({ action, walk, throws, measure, name }: Striking): Strik
       if (!focus) return 0;
       const reading = readingOf(now, { own: "standing", target: now.foePosture });
       if (reading && expected(now)) return reading.peak(now.phase, focus.spec);
-      const prior = priorOf(now);
-      return prior.seconds > 0 ? prior.dealt / prior.seconds : 0;
+      const guess = guesses?.strike(now, guessed, 0) ?? null;
+      return guess && guess.seconds > 0 ? guess.dealt / guess.seconds : 0;
     },
     step(now) { const asked = walk.kept(now, ask(now), now.focus?.id ?? null); return { asked, holds: asking(now, asked) }; },
   };

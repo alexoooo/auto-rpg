@@ -2,15 +2,13 @@ import { hasResource, segmentResource, type Resource } from "../../skills/framew
 import { cos, sin } from "../../core/math/real.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { coveringHand } from "./cover-hand.ts";
+import { STOPS } from "./by-hand.ts";
 import { blocked, READY } from "./option.ts";
 import type { Situation } from "./contract/situation.ts";
 import type { Option } from "./contract/option.ts";
 import { NOTHING } from "./select-set.ts";
 import { GUARDING, holding } from "./rest.ts";
 import { type Side, pairedSegment, sidesWith } from "../../core/bodies/bilateral.ts";
-
-/** The share of a blow's life on the head a cover keeps off. */
-const STOPS = .6;
 
 /**
  * **The cover**: one option of a body of `spec`, its target the blow predicted to reach the head
