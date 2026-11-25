@@ -40,6 +40,19 @@ was chosen for falls, and a new skill or variation enters pickable, as the kick 
 1. **What the stomp does at a man lying down**: in the game's Mind's bouts, each time the foe is
    down, what the Mind does, how often it stomps, where the stomp's foot lands against the lying
    body, and what life it takes; and on a drill of a man lying in the falls the bouts give.
+   *Read* (`research/runs/low/`, at 0408c68ee). In the game's Mind's 144 warrior-drawn bouts a
+   side's foe was down 7,169 s (523 stretches, a median 6.9 s, 1.5 m apart at their start); the
+   side was down itself in 54 % of it, and standing it lay flat or braced more than it struck:
+   stomping 13 % of the time, kicking 2 %. Of its 243 stomps 117 swung, 45 gave up at the
+   square-up step and 40 at the chamber; the first came a median 4.8 s into a stretch. What the
+   foe lost while down was 80 hp in all, 0.67 hp a minute: stomps' swings 41 (0.38 hp a blow),
+   kicks' drives 17, the rest contacts in falls and braces. On the drill the stomp lands on a
+   man lying still in 61 % of trials, 2.6 s from the order at 4.8 m/s and 28 J; at a foe laid
+   down that fights back (`sparring-laid`) it is begun in 56 %, lands in 15 % at 3 J, and its
+   striker falls in 28 %. The stomp is slow and the foe does not wait for it. The push kick's
+   record aimed down at a man lying still, its window's height band lowered and nothing
+   searched, reaches him 1.1 s from the order at 5.3 m/s but lands on the mark in 5 % and falls
+   in 61 %.
 2. **The strike chosen**: the stomp mended where step 1 shows it fails, or a low kick at a lying
    body, read on the same drill by life taken a second; the one that does most enters pickable.
 3. **Into the game's Mind**: its price against what it gives, then a match of the Mind with it
