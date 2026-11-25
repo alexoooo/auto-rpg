@@ -13,7 +13,7 @@
  *   `--loadout` one cell), each the Strike drill's `stomping` rung (each foot at the middle of each
  *   of the game's foes lying limp), searched on the rung's training twin at 120 Hz and confirmed on
  *   the cells' own cases at 120 and 480 Hz, the worse counting ([the skill
- *   recipe](../../docs/recipes/skill.md#an-options-code): research scores on its drill). A candidate
+ *   recipe](../../docs/recipes/skill.md#research-scores-on-its-drill): research scores on its drill). A candidate
  *   is the cell's subject, the drills' Option Mind, its stomp so tuned (`withTuning`); a trial scores
  *   its value as the cell values it, a blow short of the bar graded below it (`searchScore`), and the
  *   confirmation keeps a record on the value.

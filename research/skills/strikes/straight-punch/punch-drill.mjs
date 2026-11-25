@@ -10,11 +10,11 @@
  * the body's row of the skill (`rowOf`; `--loadout` one cell), the drill's own admission giving
  * each its places, marks and hands, at the game's rate, 120 Hz, and scored by the mean of its
  * trials' search scores (`searchScore`: the cell's value, a blow short of the bar graded below it)
- * ([the skill recipe](../../../../docs/recipes/skill.md#an-options-code): research scores on its
+ * ([the skill recipe](../../../../docs/recipes/skill.md#research-scores-on-its-drill): research scores on its
  * drill). `--confirm` plays a search's best and the record the body plays now on the row's cells'
  * own cases at 120 and 480 Hz, the worse counting (`confirmRow`).
  *
- * Feasibility (the recipe's step 2) is searched the same way with the channels pushed free
+ * Feasibility (the recipe's step 1) is searched the same way with the channels pushed free
  * (`--free`: a channel pushed under `FREE` leaves the schedule) or some left off it (`--without`);
  * with `--fire`, `--brake` and `--chamber`, the drive's fire, brake and chamber are searched too;
  * with `--tune`, only a schedule's time scale and shift and its aim and posture, over `--from`'s.

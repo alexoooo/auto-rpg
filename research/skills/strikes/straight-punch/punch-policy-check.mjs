@@ -11,7 +11,7 @@ import { workerJobs } from "../../../worker-jobs.mjs";
  * (`recoveryNetwork`, as the core evaluates a learned network). With `--policy none`, the schedule
  * alone: each request answered with no steer. With `--cell`, the cells' own cases instead, the
  * protocols the places' twins are of (`Cases.twin`), at 120 and 480 Hz, the worse counting: the
- * confirmation ([the skill recipe](../../../../docs/recipes/skill.md#an-options-code)). Each trial is
+ * confirmation ([the skill recipe](../../../../docs/recipes/skill.md#research-scores-on-its-drill)). Each trial is
  * valued as its cell values it (`trialValue`) and scored as a search scores it (`searchScore`).
  * Prints a line a trial, then by rate and body the landed share, the falls, the mean value and the
  * mean score; with `--cell`, the worse rate's value.

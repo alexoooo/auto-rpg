@@ -1,7 +1,7 @@
 # The kicker's falls
 
 **Begun 2026-11-25, by the owner's order**, relayed through the reviewing session, ahead of more
-work on the low attack ([the skill recipe](../recipes/skill.md), the kick's findings: the low
+work on the low attack ([the approaches](../approaches.md#unarmed-strikes), the kick's findings: the low
 kick is pickable under Stomp and the Warrior does not hold it).
 
 ## The goal, in the owner's words

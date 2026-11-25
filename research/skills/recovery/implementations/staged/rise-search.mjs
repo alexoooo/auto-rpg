@@ -1,6 +1,6 @@
 /**
  * Search one body's loadout-specific recovery settings with immutable technique overrides, scored
- * on its drill ([research scores on its drill](../../../../../docs/recipes/skill.md#an-options-code)):
+ * on its drill ([research scores on its drill](../../../../../docs/recipes/skill.md#research-scores-on-its-drill)):
  * the twin of the body's way-up cells holding the loadout (the way-up drill's fresh falls
  * and bouts, `research/skills/recovery/way-up-trials.mjs`), every staged way up played on the candidate's
  * tuning, which holds both the step-up's and the sit-back's stages, so every way up's cell reads

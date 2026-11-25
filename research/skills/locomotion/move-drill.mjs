@@ -1,5 +1,5 @@
 /**
- * **A move's settings on its drill** ([the skill recipe](../../../docs/recipes/skill.md#an-options-code):
+ * **A move's settings on its drill** ([the skill recipe](../../../docs/recipes/skill.md#research-scores-on-its-drill):
  * research scores on its drill): the walk's or the run's row of a body (`rowOf`; the walk's cells
  * read Locomotion `every`, the run's Travel `confirmation` on the Warrior and Locomotion `run` on the
  * Rogue), its trials those cells' training twins, each played with the cell's own subject (the

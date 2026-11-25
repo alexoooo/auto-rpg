@@ -1,5 +1,5 @@
 /**
- * **A skill's drill trials, for research** ([the skill recipe](../docs/recipes/skill.md#an-options-code):
+ * **A skill's drill trials, for research** ([the skill recipe](../docs/recipes/skill.md#research-scores-on-its-drill):
  * research scores on its drill). A table cell's trials (`cell`) or those of its readings' training
  * twins (`twin`, `Cases.twin`): the conditions the drill's own admission gives the cell's subject on
  * the cell's body and loadout (`casesOf`, `casesOn`), each a plain record a worker can take. A trial
@@ -166,7 +166,7 @@ export function withTuning(value, tuning) {
 }
 
 /**
- * **A trial's score in a search**, the skill's value graded ([the skill recipe](../docs/recipes/skill.md#1-the-reader-and-its-score)):
+ * **A trial's score in a search**, the skill's value graded ([the skill recipe](../docs/recipes/skill.md#a-skills-value)):
  * its value as the cell values it (`playTrial`), a blow that did not land graded below it by how far
  * short of the drill's bar it came (`graded`, the strike drill's `value` term, which training is
  * rewarded by). Any other judge's, its value alone. Null where the trial does not count. Where the

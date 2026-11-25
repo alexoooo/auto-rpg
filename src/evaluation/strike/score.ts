@@ -97,7 +97,7 @@ export const SHORT = 0.05;
 const LANDED = 9, FELL = -3;
 
 /**
- * **A blow's value graded**, as research scores it ([the skill recipe](../../../docs/recipes/skill.md#1-the-reader-and-its-score)):
+ * **A blow's value graded**, as research scores it ([the skill recipe](../../../docs/recipes/skill.md#a-skills-value)):
  * `value`, its cell's value of the trial; a blow that did not land, up to `SHORT` hp a second less
  * by how far short of the drill's bar it came (`barScore`), so a search whose candidates land
  * nothing still climbs, and no nearness outweighs a landing.

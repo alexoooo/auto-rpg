@@ -1,6 +1,6 @@
 /**
  * **The way-up cells a staged record drives, for research** ([research scores on its
- * drill](../../../docs/recipes/skill.md#an-options-code)): a search of the step-up or the sit-back
+ * drill](../../../docs/recipes/skill.md#research-scores-on-its-drill)): a search of the step-up or the sit-back
  * record scores on the twin of every table cell of the ways up that record drives
  * (`RECORD_WAYS`, [the way-up drill](../../../docs/reference/rising.md#the-way-up-drill)), a
  * candidate played as the cell's subject with every staged way up of its mind tuned by it

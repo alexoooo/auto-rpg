@@ -1,6 +1,6 @@
 /**
  * **The locomotion scorecard**: a move's settings read on its drill, so that two gaits, or two
- * settings of one, are read on the same thing ([the skill recipe](../../../docs/recipes/skill.md#an-options-code):
+ * settings of one, are read on the same thing ([the skill recipe](../../../docs/recipes/skill.md#research-scores-on-its-drill):
  * research scores on its drill). Each body's walk row (`--skills walk,run` adds the run's), its
  * cells' training twins at the game's rate, 120 Hz (`move-drill.mjs`), each trial played with the
  * cell's own subject (`option-drill`) given the settings and valued as the cell values it: seconds
