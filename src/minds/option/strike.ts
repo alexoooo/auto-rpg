@@ -147,7 +147,7 @@ export function strike({ action, walk, throws, measure, name }: Striking): Strik
       const ready = readiness(now, limb, target);
       if (ready.kind === "ready") return { ready: { limb, readiness: ready }, placed: null, beyond: false };
       if (ready.kind === "position") placed ??= { limb, readiness: ready };
-      read++; if (ready.kind === "blocked" && ready.beyond) beyond++;
+      read++; if (ready.kind === "beyond") beyond++;
     }
     return { ready: null, placed, beyond: read > 0 && beyond === read };
   };

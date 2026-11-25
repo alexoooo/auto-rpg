@@ -1,4 +1,4 @@
-# man's kick/push at da9ebc4e9f19
+# man's kick/push at 9f9088337d22
 
 Looks like the motion: no
 Works some of the time: yes (the middle rung: landed 7 of 14, down after 3, value 0.479; the base rung: landed 11 of 14, down after 2, value 0.577)

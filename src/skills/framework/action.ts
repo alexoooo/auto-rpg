@@ -65,13 +65,15 @@ export interface Window {
  * be walked to, an action that has a window names it (`window`): where the body stands for it.
  */
 export type Readiness = { readonly kind: "ready"; readonly window?: Window } | { readonly kind: "position"; readonly window: Window }
-  | { readonly kind: "waiting"; readonly reason: string }
   /**
-   * Refused; `beyond` where the target lies outside what the skill strikes at all, as its body is
-   * now and wherever it stands (a kick's height band): an Option takes its next region, and a drill
-   * does not count the trial (`strikeOffered`).
+   * Waiting; refused (`blocked`); or refused as `beyond`, the target outside what the skill strikes
+   * at all, as its body is now and wherever it stands (a kick's height band): an Option takes its
+   * next region there, and a drill does not count the trial (`strikeOffered`).
    */
-  | { readonly kind: "blocked"; readonly reason: string; readonly beyond?: true };
+  | { readonly kind: "waiting" | "blocked" | "beyond"; readonly reason: string };
+
+/** Whether `readiness` refuses the action, its target beyond the skill or not (`blocked`, `beyond`). */
+export const refused = (readiness: Readiness): boolean => readiness.kind === "blocked" || readiness.kind === "beyond";
 
 /** A request's identity and anatomical choice remain fixed for its lifetime. */
 export interface ActionRequest {

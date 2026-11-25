@@ -1,4 +1,4 @@
-import type { TargetRef } from "../../skills/framework/action.ts";
+import { refused, type TargetRef } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import { deepFreeze } from "../../core/state.ts";
@@ -118,7 +118,7 @@ function attempt(given: ProfileOptionContext, part: TechniquePart, skill: PartCo
   const fromOf = (g: GroundReading): Position => part.moving && edges.some((edge) => edge.from === g.raw) ? g.raw : g.position;
   const beginningOf = (now: Situation, g: GroundReading): string | null => {
     for (const start of [g.side, ...part.starts])
-      if (start && part.starts.includes(start) && now.sight.actions.readiness(now.sight.view, name, sides(start), HERE, now.sight.actions.around).kind !== "blocked") return start;
+      if (start && part.starts.includes(start) && !refused(now.sight.actions.readiness(now.sight.view, name, sides(start), HERE, now.sight.actions.around))) return start;
     return null;
   };
   const note = (done: boolean): void => { if (memory.from !== null) record.note(name, memory.from, done); memory.from = null; };
@@ -309,7 +309,7 @@ export const BRACE_TUMBLING_OPTION = groundKind("brace-tumbling", "Brace while t
       if (!way.edges.some((edge) => edge.from === g.position || edge.from === g.raw)) continue;
       begins = true;
       for (const binding of way.bindings(given.spec, config))
-        if (now.sight.actions.readiness(now.sight.view, config.kind, binding.segment, HERE, now.sight.actions.around).kind !== "blocked") return false;
+        if (!refused(now.sight.actions.readiness(now.sight.view, config.kind, binding.segment, HERE, now.sight.actions.around))) return false;
     }
     return begins;
   };

@@ -1,4 +1,4 @@
-import { copyActionTarget, sameActionIdentity, hasResource, segmentResource, LEG_RESOURCE, LEGS } from "./action.ts";
+import { copyActionTarget, sameActionIdentity, hasResource, refused, segmentResource, LEG_RESOURCE, LEGS } from "./action.ts";
 import type { BodyView } from "../../control/body.ts";
 import type { ContactTarget } from "../../core/bodies/contact-identity.ts";
 import type { ActionAround, ActionEnding, ActionRequest, ActionStatus, ContactKind, Ended, Executor, LifecycleUpdate, Observation, Phase, Readiness, Region, Resource, TargetRef } from "./action.ts";
@@ -131,7 +131,7 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
     if (!attached(effector)) return { kind: "blocked", reason: "effector cut off" };
     const executor = executors[registered.get(binding.executor)!]!.executor, needs = needsOf(executor, action, effector);
     const own = executor.readiness(view, action, effector, target, around);
-    if (own.kind === "blocked") return own;
+    if (refused(own)) return own;
     if (state.live.some(item => resources.overlap(needs, item.status.holds))) return { kind: "waiting", reason: "resources held" };
     return own;
   };

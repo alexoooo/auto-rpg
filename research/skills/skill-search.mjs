@@ -198,9 +198,9 @@ export const SEARCHES = {
     trial: strikeTrial, error: -3, lost: "falls", rates: CONFIRM_RATES,
     lengths: ["biteAlign", "biteShift", "biteEntry"], heights: [],
     task: "the Strike drill's biting rung (the head at a standing Warrior's legs), the body's bite row" },
-  // The front kick's timings and gains: its stages' times, its paths' response, the push through, the set-down's drive back and its window. Its poses are authored, never searched.
+  // The front kick's timings and gains: its stages' times, its paths' response, the push through, the set-down's drive back and its window (shares of the leg's reach). Its poses are authored, never searched.
   "kick/front": { dims: [["chamberSeconds", .1, .35], ["extendSeconds", .06, .25], ["retractSeconds", .08, .3], ["pathSeconds", .01, .08],
-      ["transferSeconds", .1, .35], ["follow", 0, .2], ["decel", 100, 600], ["alongNear", .6, .8], ["alongFar", .75, 1]],
+      ["transferSeconds", .1, .35], ["follow", 0, .2], ["decel", 100, 600], ["alongNear", .62, .83], ["alongFar", .78, 1.04]],
     // alongFar kept past alongNear.
     settle: (settings) => settings.alongFar <= settings.alongNear + .1 ? { ...settings, alongFar: Number((settings.alongNear + .1).toFixed(4)) } : settings,
     trials: strikeTrials("kick", "kick/front"), search: "twin", confirm: "cell",

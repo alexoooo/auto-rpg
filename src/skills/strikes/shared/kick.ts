@@ -345,7 +345,7 @@ function kick(body: Body, actions: readonly string[], resolve: TargetResolver, d
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       const side = sideOf(effector), sole = view.stance.ends[nameOf(side)]!.middle.y;
       const reach = reaches[side];
-      if (at[1] < sole + tuning.low * reach || at[1] > sole + tuning.high * reach) return { kind: "blocked", reason: "target is outside the kick's height band", beyond: true };
+      if (at[1] < sole + tuning.low * reach || at[1] > sole + tuning.high * reach) return { kind: "beyond", reason: "target is outside the kick's height band" };
       const window = { at, along: [tuning.alongNear * reach, tuning.alongFar * reach] as const, across: [-tuning.across * reach, tuning.across * reach] as const,
         facing: tuning.facing, speed: tuning.admitSpeed, ...(target.kind === "body" ? { on: target.body } : {}) };
       return withinActionWindow(view, window, around.heading) ? { kind: "ready", window } : { kind: "position", window };
