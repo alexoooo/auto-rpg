@@ -44,9 +44,10 @@ as one, a stronger one as one.
 
 ## After it
 
-The order, the owner's, 2026-11-24: striking a foe who is down, then the game's Mind's knockouts
-within 60 s (80.1 % against the bar's 90 %) if they are still short. Numbers and the testbed's
-rest stay parked. Each gets its own plan when begun.
+The order, the owner's, 2026-11-24: striking a foe who is down (the low attack, the stomp made to
+work), then the kicker's own falls after kicking, then the game's Mind's knockouts within 60 s
+(80.1 % against the bar's 90 %) if they are still short. Numbers and the testbed's rest stay
+parked. Each gets its own plan when begun.
 
 ### Striking a foe who is down
 
@@ -55,6 +56,16 @@ because it sets us up to work on the ability to hit an opponent that's not uprig
 stomp doesn't really work but we needed more falls to be able to work on that, and i think the new
 kick does get us there)". On its place: "i think we can do that after the modelling. the modelling
 will make thinking cheaper which will speed up the rest of the work that follows."
+
+### The kicker's falls after kicking
+
+The owner, 2026-11-24: "Re the excessive falls after kicking, I do want that addressed, but only
+after modelling and better low attack (stomp)". Where it starts: in fights the push kick's kicker
+is down after about two kicks in three, a kick that misses as often as one that lands; the
+standing foot leaves the ground late in the drive as the leg is braked onto its goal, and a softer
+brake fell less but reached less and lost the match (the skill recipe's kick findings,
+`a5fff57da`). The stance's catch does not reach what the drive sets going (the approaches'
+Travel).
 
 ### The knockouts within 60 s, by the skills
 
