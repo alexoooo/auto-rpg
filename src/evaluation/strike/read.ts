@@ -413,7 +413,8 @@ const BACK = Object.freeze({ within: .05, still: .3 });
 /**
  * When a trial ends: the protocol's longest, how long it runs on after the action's end, how long
  * it waits after the action's end or its let-go for the limb back at its guard (`recover`), and how
- * long the striker may wait to be admitted `settled` s after the drill has the body.
+ * long the striker may wait to be admitted `settled` s after the drill has the body. A trial whose
+ * target its skill refuses as `beyond` ends there: standing as the drill stands it, it stays so.
  */
 interface Ending {
   readonly seconds: number; readonly settle: number; readonly recover: number; readonly settled: number; readonly patience: number;
@@ -709,7 +710,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       const watched = letAt ?? watching;
       return world.time >= since + ending.seconds || times.ended !== null && world.time >= times.ended + ending.settle
         && (again !== null || watched !== null && world.time >= watched + ending.recover)
-        || id === null && handed !== null && world.time >= handed + ending.settled + ending.patience;
+        || id === null && handed !== null && (phase === "beyond" || world.time >= handed + ending.settled + ending.patience);
     },
     reading() {
       // The trial's blows: those from the step the drill had the body, the bout's start but in a fight, whose earlier blows are the fight's.
