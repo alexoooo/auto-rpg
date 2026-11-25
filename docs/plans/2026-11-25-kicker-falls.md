@@ -107,17 +107,20 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   and 3. The hips driven through behind the foot (the centre 0.1 and 0.2 m further ahead through
   the extension) landed 4 and 3, lighter, and fell 2 and 3: not kept. The push kick on that rung:
   landed 11, down after 2, value 0.577 (`research/looks/man/`).
-- **A search at 120 Hz alone found a kick that stands only there.** The front kick's timings,
-  gains and window searched on its empty-handed base trials at 120 Hz: its best by generation 35,
-  0.368 (no falls), a faster kick (chamber 0.106 s, extension 0.071 s, path response 0.013 s);
-  confirmed on the cells' cases, 0.332 and 1 fall in 32 at 120 Hz, 0.054 and 21 falls at 480,
-  where the record read 0.038 (4 falls) and 0.065 (none). A response under two steps is softened
-  by a 120 Hz step and not by a 480 Hz one. A search now scores a candidate at both rates, the
-  worse counting, as its confirmation does.
-- **Next**: step 4 again, the search at both rates; then step 5, as the owner asked: confirmed at
-  120 and 480 Hz, its look at the best's code, its profiles, and the match and scorecard against
-  the push kick as the Warrior's kick. It lands as the kick the Warrior holds only if it measures
-  no worse, and stays pickable either way.
+- **A search found a kick that stands only at 120 Hz.** The front kick's timings, gains and window
+  searched at 120 Hz on its empty-handed base trials: its best by generation 35, 0.368 (no falls),
+  a faster kick (chamber 0.106 s, extension 0.071 s, path response 0.013 s); on the cells' cases,
+  0.332 and 1 fall in 32 at 120 Hz, 0.054 and 21 falls at 480. Its response raised to 25 ms: 0.119
+  (3 falls) and 0.185 (1); its brake back at the record's as well: the same. A response within two
+  steps is softened by a 120 Hz step alone: its search's response starts at three (25 ms), and a
+  search reads its rising best at 480 Hz as it goes. The same floor on every freedom's response
+  (`servoAsk`) moved only the reptile's righting, which drives its placing leg at 8 ms: with it, its
+  longest time down in the fingerprint's reptile bouts went from 0.1 to 1.7 s to 3.7 to 16.8 s at
+  120 Hz, and to 24.5 s at 480. That floor waits on the reptile's righting working at 25 ms.
+- **Next**: step 4 again, searched at 120 Hz from 25 ms; then step 5, as the owner asked:
+  confirmed at 120 and 480 Hz, its look at the best's code, its profiles, and the match and
+  scorecard against the push kick as the Warrior's kick. It lands as the kick the Warrior holds
+  only if it measures no worse, and stays pickable either way.
 
 ## After it
 

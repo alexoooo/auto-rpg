@@ -12,8 +12,8 @@
  *
  * - The stomp: the table's cells of the body's stomp row (`rowOf`, `research/drill-trials.mjs`;
  *   `--loadout` one cell), each the Strike drill's `stomping` rung (each foot at the middle of each
- *   of the game's foes lying limp), searched on the rung's training twin and confirmed on the cells'
- *   own cases, each at 120 and 480 Hz, the worse counting ([the skill
+ *   of the game's foes lying limp), searched on the rung's training twin at 120 Hz and confirmed on
+ *   the cells' own cases at 120 and 480 Hz, the worse counting ([the skill
  *   recipe](../../docs/recipes/skill.md#research-scores-on-its-drill): research scores on its drill). A candidate
  *   is the cell's subject, the drills' Option Mind, its stomp so tuned (`withTuning`); a trial scores
  *   its value as the cell values it, a blow short of the bar graded below it (`searchScore`), and the
@@ -27,7 +27,7 @@
  *   on the twin of both their table cells on the body, every loadout or `--loadout`'s (the way-up
  *   drill's fresh falls and bouts, `research/skills/recovery/way-up-trials.mjs`), each fall risen by the
  *   drills' Mind with the cell's way up first and every staged way up on the candidate
- *   (`stagedValue`), and confirmed on the cells' own falls, each at 120 and 480 Hz, the worse
+ *   (`stagedValue`), at 120 Hz, and confirmed on the cells' own falls at 120 and 480 Hz, the worse
  *   counting. The search moves the joint angles its three stages drive toward, never their times.
  *   A trial scores the cell's value negated: the way up's seconds an attempt, one not reaching
  *   where it goes at `ATTEMPT_CAP`; a fall not exercised scores nothing. A record it writes leaves
@@ -62,7 +62,8 @@
  *
  * Harness: Node on Rapier (`DEFAULT_ENGINE`), each command one step late. The stomp: the bout
  * world (`playCase`); the sit-back and the roll: the fall bed (`buildFall`); each searched at
- * 120 and 480 Hz, the worse counting, its search as its confirmation.
+ * 120 Hz, its best checked at 480 Hz as it rises (`cmaSearch`'s `check`), its confirmation 120 and
+ * 480 Hz.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -168,7 +169,7 @@ const wayUpTrial = (as) => async (settings, trial, hz) => {
 };
 
 /** What a way-up search plays and confirms on, in words. */
-const wayUpSaid = (held) => held === "twin" ? "on their cells' training twins (the way-up drill's fresh falls and bouts) at 120 and 480 Hz, the worse counting" : "on their cells' own falls at 120 and 480 Hz, the worse counting";
+const wayUpSaid = (held) => held === "twin" ? "on their cells' training twins (the way-up drill's fresh falls and bouts) at 120 Hz" : "on their cells' own falls at 120 and 480 Hz, the worse counting";
 
 /**
  * **What each skill's search plays**: the settings it searches, each with its range (the rest the
@@ -176,8 +177,8 @@ const wayUpSaid = (held) => held === "twin" ? "on their cells' training twins (t
  * settings' own keys, and `settle`, what the settings must keep between them; the trials it
  * searches on and confirms on (`search`, `confirm`, as `trials` takes them and `said` words
  * them), a trial's score, the score of a trial that threw (`error`: the worst a trial scores),
- * and what its lost trials are called (`lost`); the rates it searches and confirms at, the worse
- * counting (`rates`);
+ * and what its lost trials are called (`lost`); the rates its confirmation plays at, the worse
+ * counting (`rates`; it searches at the game's, 120 Hz);
  * its settings that are lengths of the body (`lengths`, m), scaled to a body that starts from
  * another's, and heights over the ground toward the target (`heights`, m), kept; and the skill
  * whose record its settings are (`record`), where they are not a record of their own.
@@ -187,24 +188,24 @@ export const SEARCHES = {
     // alongFar kept past alongNear.
     settle: (settings) => "alongFar" in settings && settings.alongFar <= settings.alongNear + .1 ? { ...settings, alongFar: Number((settings.alongNear + .1).toFixed(4)) } : settings,
     trials: strikeTrials("stomp"), search: "twin", confirm: "cell",
-    said: (held) => held === "twin" ? "on its cells' training twins at 120 and 480 Hz, the worse counting" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
+    said: (held) => held === "twin" ? "on its cells' training twins at 120 Hz" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
     trial: strikeTrial, error: -3, lost: "falls", rates: CONFIRM_RATES,
     lengths: ["windup", "alongNear", "alongFar", "across", "returnNear"], heights: ["lift"],
     task: "the Strike drill's stomping rung (each foot at the middle mark of each of the game's foes lying limp), the body's stomp row" },
   bite: { dims: [["open", .4, .7], ["contactAt", .3, .9], ["biteAlign", .005, .04], ["biteShift", .02, .09], ["biteEntry", .002, .02],
       ["prepare", .12, .4], ["snap", .06, .2], ["closeRate", 2, 8], ["contactSeconds", .1, 1]],
     trials: strikeTrials("bite"), search: "twin", confirm: "cell",
-    said: (held) => held === "twin" ? "on its cells' training twins at 120 and 480 Hz, the worse counting" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
+    said: (held) => held === "twin" ? "on its cells' training twins at 120 Hz" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
     trial: strikeTrial, error: -3, lost: "falls", rates: CONFIRM_RATES,
     lengths: ["biteAlign", "biteShift", "biteEntry"], heights: [],
     task: "the Strike drill's biting rung (the head at a standing Warrior's legs), the body's bite row" },
   // The front kick's timings and gains: its stages' times, its paths' response, the push through, the set-down's drive back and its window (shares of the leg's reach). Its poses are authored, never searched.
-  "kick/front": { dims: [["chamberSeconds", .1, .35], ["extendSeconds", .06, .25], ["retractSeconds", .08, .3], ["pathSeconds", .01, .08],
+  "kick/front": { dims: [["chamberSeconds", .1, .35], ["extendSeconds", .06, .25], ["retractSeconds", .08, .3], ["pathSeconds", .025, .08],
       ["transferSeconds", .1, .35], ["follow", 0, .2], ["decel", 100, 600], ["alongNear", .62, .83], ["alongFar", .78, 1.04]],
     // alongFar kept past alongNear.
     settle: (settings) => settings.alongFar <= settings.alongNear + .1 ? { ...settings, alongFar: Number((settings.alongNear + .1).toFixed(4)) } : settings,
     trials: strikeTrials("kick", "kick/front"), search: "twin", confirm: "cell",
-    said: (held) => held === "twin" ? "on its cells' training twins at 120 and 480 Hz, the worse counting" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
+    said: (held) => held === "twin" ? "on its cells' training twins at 120 Hz" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
     trial: strikeTrialOf("kick/front"), error: -3, lost: "falls", rates: CONFIRM_RATES, lengths: [], heights: [],
     task: "the kick's row on the Strike drill, the trials the front kick is offered (its base rung)" },
   "sit-back": { dims: [["plant: knee.@ flexion", 1.9, 2.2], ["plant: hip.@ flexion", 1.5, 2.1], ["plant: shoulder.@ flexion", 1.2, 2.2], ["plant: elbow.@ flexion", 0, 1.6],
@@ -291,21 +292,17 @@ async function scored(pool, settings, trials, hz) {
 }
 
 /**
- * `settings` played on `trials` at each of `rates` (one play at the world's own where none), read
- * at each by `at`: the worse reading, higher better, its trials, and the most trials lost at any.
- * A search reads a candidate's score so and a confirmation its value, so no setting the search
- * raises holds at one rate only.
+ * `settings` confirmed on `trials` at each of `rates` (one play at the world's own where none):
+ * at each, the trials' value where they read one, else their score; the worse of them, higher
+ * better, the one a record is kept on, and the most trials lost at any.
  */
-async function atRates(pool, settings, trials, rates, at) {
+async function confirmed(pool, settings, trials, rates) {
   const byRate = [];
   for (const hz of rates ?? [undefined]) byRate.push({ ...(hz === undefined ? {} : { hz }), ...await scored(pool, settings, trials, hz) });
-  const worst = byRate.reduce((a, b) => (at(b) ?? -Infinity) < (at(a) ?? -Infinity) ? b : a);
+  const at = (one) => one.value ?? one.score, worst = byRate.reduce((a, b) => at(b) < at(a) ? b : a);
   return { score: at(worst), falls: Math.max(...byRate.map((one) => one.falls)), byRate: byRate.map(({ each: _, ...one }) => one), each: worst.each,
     ...(byRate.find((one) => one.error) ? { error: byRate.find((one) => one.error).error } : {}) };
 }
-
-/** `settings` confirmed on `trials` at `rates`: at each, the trials' value where they read one, else their score; a record is kept on the worse. */
-const confirmed = (pool, settings, trials, rates) => atRates(pool, settings, trials, rates, (one) => one.value ?? one.score);
 
 if (!isMainThread && workerData?.search) {
   const search = SEARCHES[workerData.skill];
@@ -380,7 +377,16 @@ if (!isMainThread && workerData?.search) {
   console.error(`${skill} on ${body}: ${trials.length} trials a candidate, ${lambda} candidates a generation, ${values.generations === undefined && values.patience !== undefined ? `until ${patience} generations raise nothing` : `${generations} generations`}, ${workers} workers`);
   const { best } = await cmaSearch({ look: { body, variation: looked }, n: search.dims.length, start: unit, sigma: Number(values.sigma ?? .2), lambda, generations, seed: Number(values.seed ?? 1), resume,
     // A candidate none of whose trials counts scores as one that threw.
-    score: async (u) => { const r = await atRates(pool, decode(search, start, u), trials, search.rates, (one) => one.score); return { ...r, score: r.score ?? search.error }; },
+    score: async (u) => { const r = await scored(pool, decode(search, start, u), trials); return { ...r, score: r.score ?? search.error }; },
+    // A best that has risen is read at its confirmation's finer rates too, in the background: one losing more trials there is told at once, with its settings.
+    check: search.rates?.length > 1 ? async (risen) => {
+      const settings = decode(search, start, risen.u);
+      for (const hz of search.rates.slice(1)) {
+        const r = await scored(pool, settings, trials, hz), lost = r.falls - risen.r.falls;
+        console.error(JSON.stringify({ checked: risen.g, hz, score: +(r.score ?? search.error).toFixed(4), falls: r.falls, searched: { score: +risen.score.toFixed(4), falls: risen.r.falls },
+          ...(lost > 0 ? { fails: `${lost} more ${search.lost} at ${hz} Hz`, settings } : {}) }));
+      }
+    } : undefined,
     onGeneration(entry, { best, checkpoint }) {
       console.error(JSON.stringify({ ...entry, seconds: Math.round((Date.now() - started) / 1000) }));
       if (best.score > bestSoFar) { bestSoFar = best.score; raised = entry.g; }

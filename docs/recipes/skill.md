@@ -132,10 +132,14 @@ By hand, on its drill, read by its score ([a skill's value](#a-skills-value)):
 ### Research scores on its drill
 
 - **A search, a training run or a screen plays its drill's training twin** on the drills' Mind
-  (`option-drill`) at 120 and 480 Hz, the worse counting: a search at one rate raises settings
-  that hold at it alone (the front kick's best read 0.33 at 120 Hz and fell in 21 of 32 at 480).
-  The cells' own cases are held out and played once at both before a record is kept, the worse
-  counting. A situation only research plays is a gap, closed by
+  (`option-drill`) at 120 Hz, the game's rate; as its best rises (at most every ten generations)
+  that best is read at 480 Hz in the background, and one losing more trials there is told at once.
+  The cells' own cases are held out and played once at 120 and 480 Hz before a record is kept, the
+  worse counting. A record failing at 480 Hz is a dependence on the rate: find the setting or
+  mechanism that differs between the two, bound it at its root, and resume the search. The front
+  kick's best asked a path response of 13 ms, read 0.33 at 120 Hz with 1 fall in 32 and fell in 21
+  at 480; at 25 ms it read 0.12 (3 falls) and 0.18 (1): a response within two steps is softened
+  by a 120 Hz step alone, so its search's response starts at three. A situation only research plays is a gap, closed by
   adding it to the drill.
 - **Drills read no profile and search no tree**; profiles and the tree are a fight's.
 - **A profile measures an Option's outcomes, falls among them**, from blows thrown sparring
