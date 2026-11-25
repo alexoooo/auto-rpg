@@ -3,7 +3,7 @@ import type { Sight } from "../decider.ts";
 import type { TechniquePart } from "../../skills/recovery/shared/technique.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
-import type { OptionRecord } from "./record.ts";
+import type { OptionRecord } from "./contract/context.ts";
 
 /** A body standing ready this long (`standReady`) with no try under way has risen, s: its rise is over. */
 const READY_HOLD = .1;

@@ -94,7 +94,7 @@ const SETTING_FIELDS = (Object.keys(SETTINGS) as (keyof typeof SETTINGS)[]).map(
 });
 
 /** **The few terms** (`fewTerms`) as a part of role `objective`: what a chooser that values options prices them by. */
-export const FEW_TERMS_PART = deepFreeze<ObjectivePart<FewTermsConfig, Objective>>({
+export const FEW_TERMS_PART = deepFreeze<ObjectivePart<FewTermsConfig>>({
   role: "objective", label: "Combat", fields: SETTING_FIELDS, slots: [], defaults: { kind: "few-terms" }, keys: { kind: true, aggression: true, initiative: true },
   fits: anyBody,
   faults: (config: FewTermsConfig) => (Object.keys(SETTINGS) as (keyof typeof SETTINGS)[]).flatMap((key) => {
@@ -130,7 +130,7 @@ function reachPlace(config: ReachConfig): Objective {
 }
 
 /** **Reaching a place** (`reachPlace`) as a part of role `objective`. */
-export const REACH_PLACE_PART = deepFreeze<ObjectivePart<ReachConfig, Objective>>({
+export const REACH_PLACE_PART = deepFreeze<ObjectivePart<ReachConfig>>({
   role: "objective", label: "Reach a place", offered: false, fields: [], slots: [], defaults: { kind: "reach-place", x: 0, z: 0 },
   keys: { kind: true, x: true, z: true } as KeysOf<ReachConfig>, fits: anyBody,
   faults: (config: ReachConfig) => Number.isFinite(config.x) && Number.isFinite(config.z) ? [] : ["x, z: a place, m"],

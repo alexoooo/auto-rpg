@@ -17,7 +17,6 @@ import { loadState, saveState } from "../../src/core/state.ts";
 import { freshEngine, coreStand } from "../harness/core-stand.mjs";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
 import { commandedMind } from "../../src/minds/sub-mind.ts";
-import { driveBy } from "../../src/minds/decider.ts";
 import { standingSkills } from "../../src/app/standing-skills.ts";
 import { standIntent } from "../../src/skills/framework/intent.ts";
 import { stockMotor } from "../../src/app/registration/stock-motor.ts";
@@ -133,19 +132,18 @@ test("a fresh physics fork resets exactly the forces pending at its save", async
 });
 
 /**
- * Detect decider and skill memory saved only through a separate controller result. Load the
- * published Mind state into a fresh commanded mind and verify its decider continues from the saved
- * count; a whole-bout fork can hide the omission by saving a second memory root.
+ * Detect a driver's and its skills' memory saved only through a separate controller result. Load
+ * the published Mind state into a fresh commanded mind and verify its driver continues from the
+ * saved count; a whole-bout fork can hide the omission by saving a second memory root.
  */
 test("a commanded Mind restores its driver's memory from its own state", async () => {
   const make = async () => {
     const stand = await coreStand(modelSpec("man"));
     const embodied = embody(stand.built, stand.world, own => commandedMind(own, { servoSeconds: SERVO_SECONDS, motor: stockMotor() }, stand.world));
-    const memory = { decisions: 0 };
-    driveBy(embodied.construction.body, { name: "counted stand", state: memory, decide() {
-      memory.decisions++;
-      return standIntent(0);
-    } }, standingSkills(embodied.construction.body));
+    const memory = { decisions: 0 }, skills = standingSkills(embodied.construction.body);
+    embodied.construction.body.drive({ state: { memory, skills: skills.state },
+      decide() { memory.decisions++; return standIntent(0); },
+      carry: (view, intent, dt) => skills.command(view, intent, dt) }, skills.release);
     return { stand, embodied, memory, dispose() { embodied.dispose(); stand.dispose(); } };
   };
   const original = await make(), fork = await make();

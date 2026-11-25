@@ -177,3 +177,19 @@ export interface ModelledStrike {
   readonly limbs: readonly string[];
   readonly profiles: readonly Profile[];
 }
+
+/**
+ * **A body's situation reader**: the situation at the foe it keeps to, and at each other foe it may
+ * focus on. The foes it may focus on are the one its orders name, else every foe in the fight; it
+ * reads at the one it kept (`keep`) while that one is in the fight, else the nearest.
+ */
+export interface SituationReader {
+  /** Its memory: the kept focus, and what it keeps of the body's rise and of each foe's reach. */
+  readonly state: object;
+  /** The situation at its focus, now. */
+  read(sight: Sight): Situation;
+  /** The situation at each other foe it may focus on, as the last `read` saw them: none where it may focus on one alone. */
+  others(): readonly Situation[];
+  /** Keep `now`'s focus: the one it reads at while it is in the fight. */
+  keep(now: Situation): void;
+}

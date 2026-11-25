@@ -4,7 +4,7 @@ import { slotList, slotOne, type PartConfig, type Slot } from "../../parts/parts
 import { partRequirements, whenEmpty } from "../../parts/tree.ts";
 import { FILLED, filledOf, filledRefusal, motorOf } from "../../skills/assembly/filled.ts";
 import { controller } from "../catalog/controller.ts";
-import { buildOptionMind, type OptionMind } from "./build.ts";
+import { buildOptionMind } from "./build.ts";
 import { isSettings, optionMindFaults, optionsOf, resolveConfig, type OptionAssembly, type OptionMindConfig } from "./config.ts";
 import { describeOptionMind } from "./description.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
@@ -44,7 +44,7 @@ export function optionMind(assembly: OptionAssembly) {
       ...Object.values(FILLED).flatMap((role) => parts.candidates(role).map((one) => ({ role, config: one }))),
       ...parts.candidates("leg-adapter").map((one) => ({ role: "leg-adapter" as const, config: one })),
     ],
-    faults: (config, parts) => optionMindFaults(resolvedFor(config, parts), parts),
+    faults: (config, parts) => optionMindFaults(resolvedFor(config, parts)),
     fits: (spec, config, parts) => {
       const refused = filledRefusal(parts, spec, config.tuning?.parts);
       if (refused) return refused;
@@ -68,6 +68,6 @@ export function optionMind(assembly: OptionAssembly) {
     builtIn: (spec, config, parts) => {
       return initialGuardPosture(parts, spec, guardConfigs(parts, spec, config.tuning?.parts?.guard));
     },
-    create: (host, config): OptionMind => buildOptionMind(host, resolvedFor(config, host.parts)),
+    create: (host, config) => buildOptionMind(host, resolvedFor(config, host.parts)),
   });
 }

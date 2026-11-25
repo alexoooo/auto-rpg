@@ -2,23 +2,25 @@ import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { ConfigFor, PartLookup } from "../../../parts/lookup.ts";
 import type { KeysOf, Part, PartConfig } from "../../../parts/parts.ts";
 import type { ActionConfig, ExecutorEntry } from "../../../skills/config.ts";
-import type { OptionEvaluation } from "../model.ts";
+import type { Chooser } from "./chooser.ts";
+import type { OptionContext } from "./context.ts";
+import type { Objective } from "./objective.ts";
+import type { Option } from "./option.ts";
+import type { Predictors } from "./predictors.ts";
 
 /**
  * **A kind of chooser**: a part of role `chooser` that owns its config's keys and faults, and makes
- * the chooser over a body's options (`O`), its chances drawn from a seed (`BodyHost.seed`), the
- * parts its slots name found by `parts`. What an option and a chooser (`M`) are is the mind's whose
- * slot holds the part: the lookup gives a chooser of either unread, and the mind reads them as its own.
+ * the chooser over a body's Options, its chances drawn from a seed (`BodyHost.seed`), the parts
+ * its slots name found by `parts`.
  */
-export interface ChooserPart<C extends PartConfig = PartConfig, O = unknown, M = unknown> extends Part<C> {
+export interface ChooserPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "chooser";
-  readonly model: string;
   readonly keys: KeysOf<C>;
   /**
    * The chooser over `options`, its chances drawn from `seed`, the parts its slots name found by
    * `parts`, for `body`: its model and what it holds (`bodyOf`).
    */
-  make(making: { readonly config: C; readonly options: readonly O[]; readonly seed: number; readonly parts: PartLookup; readonly body: string }): M;
+  make(making: { readonly config: C; readonly options: readonly Option[]; readonly seed: number; readonly parts: PartLookup; readonly body: string }): Chooser;
 }
 
 /** Static capabilities used when deciding whether a configured Option builds any behavior. */
@@ -44,15 +46,11 @@ export interface NamedSkills {
 }
 
 /**
- * **A kind of option**: a part of role `option` that owns its config's keys and faults, and makes
- * the options of its kind a mind decides among from what that mind gives it (`G`). What an option
- * (`O`) and what is given are the mind's whose slot holds the part: the lookup gives the options
- * unread, and the mind reads them as its own.
+ * **A kind of Option**: a part of role `option` that owns its config's keys and faults, and makes
+ * the Options of its kind a Mind decides among from what that Mind gives it (`OptionContext`).
  */
-export interface OptionPart<C extends PartConfig = PartConfig, G = unknown, O = unknown> extends Part<C> {
+export interface OptionPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "option";
-  /** Constructor input protocol supplied by the selected prediction model. */
-  readonly model: string;
   /** Whether this Option applies to the body and its selected continuous services. */
   applicable?(config: C, body: OptionBody): boolean;
   skills?(config: C, spec: BodySpec, parts: PartLookup, options: readonly PartConfig[]): NamedSkills | null;
@@ -68,33 +66,33 @@ export interface OptionPart<C extends PartConfig = PartConfig, G = unknown, O = 
   readonly keys: KeysOf<C>;
   /** The configs a config of it stands for, where it stands for several (`optionsOf`); itself where absent. */
   each?(config: C, parts: PartLookup): readonly ConfigFor<"option">[];
-  /** The options a config of it makes, from what the mind gives (`given`), in their rank order. */
-  make(config: C, given: G): readonly O[];
+  /** The way off the ground it is, where it is one: an ordinary ascent establishes routes; a fallback serves only the starts no ascent covers. */
+  readonly recovery?: { readonly purpose: "ascent" | "fallback"; technique(config: C): ConfigFor<"technique"> };
+  /** The Options a config of it makes, from what the Mind gives (`given`), in their rank order. */
+  make(config: C, given: OptionContext): readonly Option[];
 }
 
 /**
  * **A kind of objective**: a part of role `objective` that owns its config's keys and faults, and
- * makes what an option's model is worth to the body (`V`), read by the mind whose slot holds the part
- * as its own.
+ * makes what an Option's model is worth to the body (`Objective`).
  */
-export interface ObjectivePart<C extends PartConfig = PartConfig, V = unknown> extends Part<C> {
+export interface ObjectivePart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "objective";
   readonly keys: KeysOf<C>;
   /** The objective a config of it names. */
-  make(config: C): V;
+  make(config: C): Objective;
 }
 
 /**
  * **A kind of predictions**: a part of role `predictions` that owns its config's keys and faults,
- * and makes what builds a mind's decider (`OptionEvaluation`) from what its config predicts by
- * (the tables a drill measured, or none, so each model reads its prior).
+ * and makes what a Mind predicts by (`Predictors`) from what its config names (the tables a drill
+ * measured, or none, so each model reads its prior).
  */
 export interface PredictionsPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "predictions";
-  readonly model: string;
   readonly keys: KeysOf<C>;
-  /** What builds a decider (`OptionEvaluation.build`) predicting as `config` says. */
-  make(config: C): OptionEvaluation;
+  /** What a Mind predicts by, as `config` says. */
+  make(config: C): Predictors;
 }
 
 /** **A chooser's config**, by registered kind. */

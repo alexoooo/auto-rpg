@@ -38,7 +38,7 @@ async function traceFall(job) {
   /** The run's state of the ground skill running action `id` (`groundSkills`); none where no ground skill runs it. */
   const runOf = (mind, id) => mind?.skills?.actions?.executors?.find((one) => one?.live?.id === id)?.run ?? null;
   /** Where the ground Option asking action `id` began its try (`attempt`); null where none keeps one. */
-  const fromOf = (mind, id) => mind?.decider?.options?.find((one) => one?.id === id && one.from != null)?.from ?? null;
+  const fromOf = (mind, id) => mind?.options?.find((one) => one?.id === id && one.from != null)?.from ?? null;
   /** What ground action `name` is doing, as its run's state `run` reads: its phase, and in a staged rise the stage. */
   const stageOf = (run, name, fallback) => {
     if (!run) return fallback;

@@ -11,7 +11,7 @@ import type { Situation } from "./contract/situation.ts";
 import { NOTHING, WHOLE } from "./select-set.ts";
 import { edgeOf, inReach, startOf, threatened } from "./percepts.ts";
 import { AS_IS, clinched, STILL, UNMOVED, upOrDown } from "./value.ts";
-import type { Walker } from "./walk.ts";
+import type { Walker } from "./contract/context.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
 
 /**

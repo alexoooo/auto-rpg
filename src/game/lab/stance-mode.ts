@@ -90,7 +90,7 @@ export const LAB_TURN_RATE = 1;
  */
 function stanceScript(orders: StanceOrders): Script {
   return {
-    name: "keys", state: { orders },
+    state: { orders },
     decide({ report }, dt): Intent {
       const walking = orders.forward !== 0 || orders.right !== 0;
       return {

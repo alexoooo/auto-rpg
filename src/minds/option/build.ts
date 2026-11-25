@@ -1,44 +1,32 @@
+import { constructionScope } from "../../core/construction.ts";
 import { configuredAims } from "../../skills/assembly/action-config.ts";
 import { aimsState } from "../../skills/framework/aim-part.ts";
 import { motorLayerOptions, makeSkills } from "../../skills/assembly/assembly.ts";
 import { filledOf, motorAndGuardOf } from "../../skills/assembly/filled.ts";
 import type { SkillParts } from "../../skills/config.ts";
-import type { Skills } from "../../skills/framework/skills.ts";
 import { groundSkills } from "../../skills/recovery/shared/skills.ts";
 import type { MindMade } from "../catalog/controller.ts";
-import { driveBy, everyOf, type Driven, type Sight } from "../decider.ts";
 import type { BodyHost } from "../mind.ts";
-import type { Orders } from "../orders.ts";
-import type { MindReport } from "../report.ts";
-import { commandedMind } from "../sub-mind.ts";
+import { commandLayers } from "../motor-layers.ts";
+import { skillsReport } from "../report.ts";
+import { chooserOf } from "./chooser.ts";
 import type { ResolvedConfig } from "./config.ts";
+import { bodyOf } from "./fitted-value.ts";
+import { optionsOf } from "./kinds.ts";
+import { OptionMind } from "./option-mind.ts";
+import { everyOf, Pace } from "./pace.ts";
+import { optionRecord } from "./record.ts";
+import { situationReader } from "./situation.ts";
 import { skillsOf } from "./skills.ts";
+import { walker } from "./walk.ts";
 import { guardConfigs } from "../../skills/assembly/guards.ts";
 
 /**
- * **A running Option Mind**: what `buildOptionMind` gives the fight of the mind it makes on one
- * body.
- *
- * How it is stepped: as the mind takes its body it hands its host an object with `act` and
- * `think` (`Mind`, made by `commandedMind`). On each world step that simulates the body in full
- * (a control step), the body's hook on the world (`embody`) calls `act`, then `think`. `think`
- * asks the decider what to do, at its pace; `act`, on the next step, has `skills` turn that
- * answer into the body's command.
+ * **An Option Mind of `config` on `host`'s body** (`OptionMind`), with everything it is made of.
+ * `config` has its defaults (`resolveConfig`) and has passed its checks (`optionMindFaults`, the
+ * controller's `fits`).
  */
-export interface OptionMind extends MindMade {
-  /** Its skills: its legs, its guard, its navigation, and the executors and ground techniques its Options name. */
-  readonly skills: Skills;
-  /** Its memory above the body's, saved and loaded with it: its skills', its decider's, its pace's and its aims'. */
-  readonly state: Driven["state"];
-  /** What it publishes of itself: what it is doing and what it expects of each foe. */
-  readonly report: MindReport;
-}
-
-/**
- * **An Option Mind of `config` on `host`'s body.** `config` has its defaults (`resolveConfig`)
- * and has passed its checks (`optionMindFaults`, the controller's `fits`).
- */
-export function buildOptionMind(host: BodyHost, config: ResolvedConfig): OptionMind {
+export function buildOptionMind(host: BodyHost, config: ResolvedConfig): MindMade {
   const { parts, spec, clock } = host;
 
   // The parts under its skills: the one an experiment passes in, else the one the body fits.
@@ -52,24 +40,39 @@ export function buildOptionMind(host: BodyHost, config: ResolvedConfig): OptionM
   const navigation = named.navigations;
   const skillParts: SkillParts = { legs, guards: guard, navigations: navigation, executors: named.executors, actions: named.actions, supports: named.supports };
 
-  // The body, taken once from its host under command layers on its motor. Taking it hooks the mind to the world's step (`embody`).
   const layerOptions = { ...motorLayerOptions(motor, parts), ...host.experiment };
-  const { body } = host.take(own => commandedMind(own, layerOptions, clock));
+  // It decides every `every`th control step.
+  const hz = Math.round(1 / clock.dt), every = everyOf(config.rate, hz), rate = hz / every;
 
-  // Its skills on that body: its ways up off the ground, its aims, then those its parts make.
-  const ground = groundSkills(body, clock, motorAndGuardOf(parts, spec, tuned), named.techniques);
-  const aims = configuredAims(parts, spec, skillParts.actions);
-  const skills = makeSkills(body, clock, parts, skillParts, ground, aims);
+  // The body, taken once from its host. Taking it hooks the Mind made here to the world's step (`embody`).
+  const { mind, skills } = host.take((own) => {
+    // A part that throws while the Mind is built disposes the layers already made.
+    const scope = constructionScope(); let complete = false;
+    try {
+      // The command layers on its motor, which read the body as it stands before anything is made over their view.
+      const layers = scope.own(commandLayers(own, layerOptions, clock));
+      layers.firstLook();
+      const body = layers.body;
 
-  // Its decider: the session its predictions part builds over its chooser and Options, deciding every `every`th control step.
-  const hz = Math.round(1 / clock.dt);
-  const every = everyOf(config.rate, hz);
-  const orders = (sight: Sight): Orders | null => host.orders(sight.view.senses);
-  const evaluation = parts.of("predictions", config.predictions).make(config.predictions);
-  const decider = evaluation.build({ spec, parts, rules: host.rules, seed: host.seed, hz, rate: hz / every, delay: body.delay,
-    legs, guards: guard, options: config.options, chooser: config.chooser, techniques: named.techniques, orders });
+      // Its skills on that body: its ways up off the ground, its aims, then those its parts make.
+      const ground = groundSkills(body, clock, motorAndGuardOf(parts, spec, tuned), named.techniques);
+      const aims = configuredAims(parts, spec, skillParts.actions);
+      const skills = makeSkills(body, clock, parts, skillParts, ground, aims);
 
-  // The decider becomes the body's driver (`Body.drive`): it decides at its pace, and the skills carry each decision out.
-  const driven = driveBy(body, decider, skills, { every, phase: host.phase, orders }, aimsState(aims));
-  return { skills, state: driven.state, report: driven.report };
+      // What it predicts by, as its predictions part makes it; then its Options, its reader and its chooser.
+      const predictors = parts.of("predictions", config.predictions).make(config.predictions);
+      const walk = walker(spec, predictors.walkStart), record = optionRecord();
+      const options = optionsOf(config.options, { spec, hz, rate, delay: body.delay, parts, walk, legs, guards: guard, outcomes: predictors.outcomes, record });
+      const reader = situationReader({ spec, hz, rate, delay: body.delay, rules: host.rules, strikes: options.flatMap((option) => option.modelled ? [option.modelled] : []),
+        measured: predictors.strikes, others: predictors.others, ordersOf: (sight) => host.orders(sight.view.senses), record, parts, techniques: named.techniques });
+      const chooser = chooserOf(parts, config.chooser, options, host.seed, bodyOf(spec));
+
+      const mind = new OptionMind({ layers, skills, reader, options, chooser, pace: new Pace(every, host.phase, (senses) => host.orders(senses)),
+        record, aims: aimsState(aims), facing: walk.facing });
+      complete = true;
+      return { mind, skills, name: layers.name, has: () => mind.state.idle ? "nobody" : layers.name, body,
+        dispose() { skills.release(layers.view, "replaced"); scope.dispose(); } };
+    } finally { if (!complete) scope.dispose(); }
+  });
+  return { state: mind.state, skills, report: skillsReport(skills, mind) };
 }

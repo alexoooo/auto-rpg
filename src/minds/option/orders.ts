@@ -7,7 +7,7 @@ import type { Option } from "./contract/option.ts";
 import type { Situation } from "./contract/situation.ts";
 import { threatened } from "./percepts.ts";
 import { UNMOVED } from "./value.ts";
-import type { Walker } from "./walk.ts";
+import type { Walker } from "./contract/context.ts";
 import type { GaitName } from "../../skills/framework/skill.ts";
 
 /** How far ahead following orders is priced, s. */

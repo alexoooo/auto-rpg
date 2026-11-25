@@ -12,12 +12,11 @@ import { brace } from "./rest.ts";
 import { asking, blocked, READY } from "./option.ts";
 import type { Situation } from "./contract/situation.ts";
 import { onFeet, REGAIN_TRY } from "./rise-memory.ts";
-import { recorded, type Prior, type Tried } from "./record.ts";
+import type { OptionContext, Tried } from "./contract/context.ts";
+import { recorded, type Prior } from "./record.ts";
 import { STILL, UNMOVED } from "./value.ts";
 import type { Outcome, Terms } from "./contract/terms.ts";
-import type { NamedSkills } from "./contract/parts.ts";
-import { isProfileOption, type ProfileOptionPart } from "./kinds.ts";
-import { PROFILE_MODEL, type ProfileOptionContext } from "./profile-contract.ts";
+import type { NamedSkills, OptionPart } from "./contract/parts.ts";
 
 /** The selected technique owns the physical binding for each opaque beginning token. */
 function bindingSegments(part: TechniquePart, spec: BodySpec, config: PartConfig): (start: string) => string {
@@ -114,7 +113,7 @@ function asks(now: Situation, memory: Asking, action: string, sides: (start: str
  * (`endings`). At a state an Option leaves the body in, where no ground is read, it is on offer
  * lying in a posture `toward` goes from.
  */
-function attempt(given: ProfileOptionContext, part: TechniquePart, skill: PartConfig, edges: readonly Edge[], toward: (from: Position, g: GroundReading | null) => Position | null,
+function attempt(given: OptionContext, part: TechniquePart, skill: PartConfig, edges: readonly Edge[], toward: (from: Position, g: GroundReading | null) => Position | null,
   way: (from: Position) => Way, extra: { readonly priced?: Option["priced"] }): Option {
   const name = part.defaults.kind as string, memory: Asking = { id: null, start: part.starts[0]!, from: null }, record = given.record, sides = bindingSegments(part, given.spec, skill);
   const UNOFFERED = blocked(`${name} does not admit the body as it lies`);
@@ -165,7 +164,7 @@ function attempt(given: ProfileOptionContext, part: TechniquePart, skill: PartCo
  * `prior`, either moved by the record of its tries (`recordedWay`); and how it is priced from where
  * the body lies now (`priced`).
  */
-function groundWay(given: ProfileOptionContext, skill: PartConfig, name: string, prior: Prior): { readonly way: (from: Position) => Way; readonly priced: (now: Situation) => string } {
+function groundWay(given: OptionContext, skill: PartConfig, name: string, prior: Prior): { readonly way: (from: Position) => Way; readonly priced: (now: Situation) => string } {
   const { expected, priced } = edgeExpected(skill, given);
   const measured = (from: Position): Way | null => expected?.(from) ?? null;
   return {
@@ -178,7 +177,7 @@ function groundWay(given: ProfileOptionContext, skill: PartConfig, name: string,
 }
 
 /** A way up's `attempt` of `part` over `edges`, priced by its profile on the body where one is measured, by hand else (`groundWay`, `WAY_PRIOR`). */
-function wayUp(given: ProfileOptionContext, config: GroundConfig<string>, part: TechniquePart, edges: readonly Edge[]): Option {
+function wayUp(given: OptionContext, config: GroundConfig<string>, part: TechniquePart, edges: readonly Edge[]): Option {
   const { way, priced } = groundWay(given, skillOf(config), part.defaults.kind as string, WAY_PRIOR);
   return attempt(given, part, skillOf(config), edges, (from) => edges.find((edge) => edge.from === from)?.to ?? null, way, { priced });
 }
@@ -206,9 +205,9 @@ const fitting = (config: GroundConfig<string>, spec: BodySpec, parts: PartLookup
  * registered technique of its purpose, in the order registered.
  */
 function groundKind<K extends string>(kind: K, label: string, technique: TechniqueName | null, routing: { readonly purpose: "ascent" | "fallback" } | null,
-  make: (given: ProfileOptionContext, config: GroundConfig<K>, part: TechniquePart) => readonly Option[]): ProfileOptionPart<GroundConfig<K>> {
+  make: (given: OptionContext, config: GroundConfig<K>, part: TechniquePart) => readonly Option[]): OptionPart<GroundConfig<K>> {
   const wayUp = routing !== null;
-  return deepFreeze<ProfileOptionPart<GroundConfig<K>>>({ role: "option", model: PROFILE_MODEL, label, stands: true, ...(routing ? { recovery: { purpose: routing.purpose, technique: (config: GroundConfig<K>) => skillOf(config) } } : {}), fields: [],
+  return deepFreeze<OptionPart<GroundConfig<K>>>({ role: "option", label, stands: true, ...(routing ? { recovery: { purpose: routing.purpose, technique: (config: GroundConfig<K>) => skillOf(config) } } : {}), fields: [],
     // A way up's technique may be left unnamed: it then runs every registered one of its purpose (`supplies`).
     slots: [{ ...slotSkill("skill", "Technique", "technique"), optional: routing !== null }],
     ...(routing ? { supplies: (config: GroundConfig<K>, parts: PartLookup) => config.skill ? []
@@ -217,7 +216,7 @@ function groundKind<K extends string>(kind: K, label: string, technique: Techniq
     faults: (config: GroundConfig<K>, parts: PartLookup) => config.skill === undefined ? (wayUp ? [] : ["skill: a mode of the ground"])
       : isWayUp(parts.of("technique", config.skill)) === wayUp ? [] : [`skill: ${wayUp ? "a way up" : "a mode of the ground"}`],
     skills: (config: GroundConfig<K>, spec: BodySpec, parts: PartLookup): NamedSkills | null => fitting(config, spec, parts) ? { technique: skillOf(config) } : null,
-    make: (config: GroundConfig<K>, given: ProfileOptionContext) => fitting(config, given.spec, given.parts) ? make(given, config, given.parts.of("technique", skillOf(config))) : [] });
+    make: (config: GroundConfig<K>, given: OptionContext) => fitting(config, given.spec, given.parts) ? make(given, config, given.parts.of("technique", skillOf(config))) : [] });
 }
 
 /** Every registered technique of `purpose` (`TechniquePart.purpose`), in the order registered. */
@@ -333,18 +332,18 @@ export const BRACE_TUMBLING_OPTION = groundKind("brace-tumbling", "Brace while t
 });
 
 /** **Brace**, down (`brace`), a rest option: by the ground's brace where it fits the body, priced as lying where it lies; on offer on every body. */
-export const BRACE_OPTION = deepFreeze<ProfileOptionPart<GroundConfig<"brace-down">>>({ ...groundKind("brace-down", "Brace", "brace", null, () => []),
+export const BRACE_OPTION = deepFreeze<OptionPart<GroundConfig<"brace-down">>>({ ...groundKind("brace-down", "Brace", "brace", null, () => []),
   skills: (config: GroundConfig<"brace-down">, spec: BodySpec, parts: PartLookup): NamedSkills => fitting(config, spec, parts) ? { technique: skillOf(config) } : {},
-  make: (config: GroundConfig<"brace-down">, given: ProfileOptionContext) =>
+  make: (config: GroundConfig<"brace-down">, given: OptionContext) =>
     [brace(fitting(config, given.spec, given.parts) ? { action: skillOf(config).kind, effector: bindingSegments(given.parts.of("technique", skillOf(config)), given.spec, skillOf(config))(given.parts.of("technique", skillOf(config)).starts[0]!) } : null)] });
 
 /** The way-up options of `techniques`, each a way up of its own (`WAY_UP_OPTION`). */
 const waysUp = (kind: "way-up" | "reposition", techniques: readonly ConfigFor<"technique">[]): readonly ConfigFor<"option">[] => techniques.map((skill) => ({ kind, skill }));
 
-/** The selected profile Option's declared recovery purpose and configured technique. */
+/** The Option's declared recovery purpose and configured technique, null where its kind is no way off the ground. */
 function recoveryOf(parts: PartLookup, option: PartConfig) {
   const part = parts.of("option", option);
-  return isProfileOption(part) && part.recovery ? { purpose: part.recovery.purpose, technique: part.recovery.technique(option) } : null;
+  return part.recovery ? { purpose: part.recovery.purpose, technique: part.recovery.technique(option) } : null;
 }
 
 /** The applicable techniques of declared ordinary ascent choices, in configured order. */

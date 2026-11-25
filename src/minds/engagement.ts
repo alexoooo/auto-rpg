@@ -32,7 +32,7 @@ export interface Offer {
 }
 
 /**
- * **A candidate action a decider weighed** (`Engagement.candidates`): its key, the action, the limb
+ * **A candidate action a mind weighed** (`Engagement.candidates`): its key, the action, the limb
  * and the body region it would strike, whether the skills would admit it now (`Readiness`), what it
  * was estimated at, and whether it was eligible to be chosen.
  */
@@ -46,23 +46,23 @@ interface EngagementCandidate {
   readonly eligible: boolean;
 }
 
-/** The candidate a decider pursues (`Engagement.pending`): its key, and since when, s. */
+/** The candidate a mind pursues (`Engagement.pending`): its key, and since when, s. */
 interface EngagementPending {
   readonly key: string;
   readonly since: number;
 }
 
-/** A decider's own fact, which a readout shows as it is: a label and its value, in words. */
+/** A mind's own fact, which a readout shows as it is: a label and its value, in words. */
 export interface EngagementDetail {
   readonly label: string;
   readonly value: string;
 }
 
 /**
- * **What a decider reports doing** (`Decider.engagement`): what every decider may say, its phase
+ * **What a mind reports doing** (`MindReport.engagement`): what every mind may say, its phase
  * (its own words for what it does now, shown as they are), its focus and whether it lost it, and its own
- * details, which any decider publishes as it likes and a readout shows as they are (`details`).
- * A decider adds what is its own to show: a chooser over options the offers it chose among
+ * details, which any mind publishes as it likes and a readout shows as they are (`details`).
+ * A mind adds what is its own to show: a chooser over options the offers it chose among
  * (`offers`), an action controller its candidates and the one it pursues (`candidates`,
  * `pending`).
  */

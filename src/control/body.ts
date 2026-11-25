@@ -23,7 +23,7 @@ import type { ReadBody } from "../core/bodies/read-body.ts";
  * **A body, commanded and seen**: the body its drivers have under the command layers
  * (`commandLayers`, `src/minds/motor-layers.ts`), any mind's to build on its own body.
  * Its muscles are under motor control, commanded by goals and read through a view: whoever drives
- * it at this level -- a decider's skills, the lab's routine, a test -- sees the view and hands back
+ * it at this level -- a mind's skills, the lab's routine, a test -- sees the view and hands back
  * a command. A mind may drive muscles itself instead (`Mind`, `src/minds/mind.ts`).
  *
  * Each control step the body reads its view, asks its driver for a command, and gives the command

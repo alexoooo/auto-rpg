@@ -34,9 +34,11 @@ class (or something else)?" and "i noticed src/minds/choice.ts -- does that belo
 minds/option/?". Standing: "I always want everything to be just a skill. I don't want any ad-hoc
 hard-coded hacks."
 
-## What is wrong today
+## What was wrong at the start
 
-Each line was read in the code on 2026-11-25 at `878c17a24`.
+Each line was read in the code on 2026-11-25 at `878c17a24`, and cites the code as it was then.
+Put right so far: 5, 6 and 10 (chunk 1); 1, 3 and 4, and 2 under an Option Mind (2b). A scripted
+body keeps the registered driver of 2 until 2c.
 
 1. **Nothing named Option Mind is a `Mind`.** `OptionMind` (`src/minds/option/build.ts:28`) is
    the receipt the build hands the fight (`MindMade`). The `Mind` (`src/minds/mind.ts:15`) is made
@@ -232,13 +234,13 @@ export class OptionMind extends CommandingMind<Intent> {
 }
 ```
 
-`choose` is `profileModel`'s `decide` line for line (`profile-model.ts:53` to `:60`): the foe's
+`choose` is the decision the predictions part's object held before 2b, line for line: the foe's
 phase, the choice, the prospects where it was fresh (at `read` and at each situation the chooser
 priced, which it fills only when it prices the other foes), the focus kept, the Options' steps,
 the two details. `prospectsAt` and `detailsAt` hold `prospect`, `unmetDetail` and
-`profileDetail`. `lastEnded` is the last ended action's sequence, as `driveBy` reads it.
-`SituationReader` is what `situationReader` returns today with no name (`state`, `read`,
-`others`, `keep`); chunk 2b writes it as an interface in `contract/situation.ts`.
+`pricedDetail`. `lastEnded` is the last ended action's sequence. `SituationReader` is what
+`situationReader` returns (`state`, `read`, `others`, `keep`), an interface in
+`contract/situation.ts`.
 
 **Why this is not the shell it replaces.** The base knows nothing of skills, a pace or Options;
 its three hooks are methods the compiler checks, where today a driver object is registered on
@@ -424,11 +426,10 @@ contract file imports types from below the Option Mind (`src/core`, `src/control
 folder is moved into `contract/`, written out as an interface where it is a `ReturnType`, when
 the file that holds it imports the contract; else it is imported as a type.
 
-**Left for the chunk that first names them in the contract:** `Walker` (`walk.ts`) and
-`OptionRecord` (`record.ts`) move in 2b, with `OptionContext`, which names them;
-`RiseMemory` (`rise-memory.ts`) moves only if a contract file comes to name it (none does:
+**Left for the chunk that first names them in the contract:** `Walker` and `OptionRecord`
+moved in 2b with `OptionContext`, which names them (`contract/context.ts`); `RiseMemory` (`rise-memory.ts`) moves only if a contract file comes to name it (none does:
 3a's `Seen` stays outside). `PressureTable` (`pressure.ts`) is imported until 3b narrows
-`Pressure`; `OptionEvaluation` (`model.ts`) until 2b deletes it.
+`Pressure`.
 
 ## Chunk 2: the Option Mind is a `Mind`
 
@@ -471,166 +472,57 @@ In `src/minds/motor-layers.ts`, `think` and `act` are:
   };
 ```
 
-The three are the layers' own until 2b, whose `CommandingMind` is their first caller from
-outside: 2b declares them on `CommandLayers`, exports that interface and returns them beside
-`look` and `observe`.
+`CommandLayers` declares the three and returns them beside `look` and `observe` (2b, whose
+`CommandingMind` is their first caller from outside).
 
-### 2b: the two classes
+### 2b: the two classes (landed)
 
-**Purpose.** `OptionMind` is the `Mind` its body runs. The loop leaves the predictions part.
+**Purpose.** `OptionMind` is the `Mind` its body runs. The loop left the predictions part.
 
-**Steps.**
+What is there now:
 
-1. **`src/minds/commanding-mind.ts`** is the abstract class above, with the Option Mind its
-   first subclass in the same commit.
-2. **`src/minds/option/pace.ts`** holds what `driveBy` does about when to decide, as a class with
-   its memory in `state`:
+- **`src/minds/commanding-mind.ts`**: the abstract `CommandingMind<D>` above, with the Option
+  Mind its one subclass until 2c. Its `released` is told `"idle"` alone until 2c's sub-minds
+  give it `"takeover"` to say. It casts what `layers.take` hands back to `D`; 2c, which takes
+  the driver out of the layers, tries carrying `D` in `CommandLayers`' type instead.
+- **`src/minds/option/pace.ts`**: `Pace`, when an Option Mind decides again, its memory in
+  `state`; and `everyOf`. The intent held between decisions is the Mind's
+  (`OptionMindState.asked`).
+- **`src/minds/option/option-mind.ts`**: the class, `OptionMindState` and `OptionMindParts`. It
+  makes its own sight from its layers' body and its skills. `pricedDetail`, `prospect` and
+  `unmetDetail` are here.
+- **`src/minds/option/build.ts`**: `buildOptionMind(host, config): MindMade` makes everything
+  inside the one `host.take`, in the order it was made before (layers, first look, ground skills,
+  aims, skills, predictors, Options, reader, chooser).
+- **`contract/predictors.ts`**: `Predictors`, which `PredictionsPart.make(config)` returns and
+  nothing else. `OthersModel` is imported there as a type from `percepts.ts` until 3a gives the
+  exchange its interface.
+- **`contract/context.ts`**: `OptionContext` (what an Option kind is made from), with `Walker`,
+  `Walk`, `WalkStart`, `OptionRecord` and `Tried`, which it names. They are in a file of their
+  own and not in `contract/parts.ts`, which would otherwise import half the folder.
+- **`contract/situation.ts`** gained `SituationReader`.
+- **`"profiles/1"` is gone**: `PROFILE_MODEL`, the `model` field of every part, the three checks,
+  `profile-model.ts`, `model.ts` and `profile-contract.ts`. `ProfileOptionPart` folded into
+  `OptionPart` (with `recovery`). `ChooserPart` and `ObjectivePart` lost their generics too,
+  and `OptionChooserPart` with them: each was there only to be cast away.
+  `optionMindFaults(config)` takes no parts, having no protocol to look up.
+- **`src/minds/decider.ts`** holds `Script` (an interface, `Decider` folded into it), `Sight`
+  and `sightOf`. `driveBy`, `Driven` and the old `Pace` are gone. The three callers that
+  stand a stock body call `body.drive(standingDriver(skills), skills.release)`
+  (`src/app/standing-skills.ts`).
+- **The saved state has another shape**: an Option Mind's is `{ layers, idle, skills, situation,
+  record, chooser, options, aims, pace, asked, said }`, the one object at the body's
+  `state.mind` and at `minded.state.mind`. The research scripts that read it by path are
+  repointed (`.layers.motor`, `.record`, `.options`).
 
-   ```ts
-   /**
-    * When an Option Mind decides again: every `every`th control step on its phase, and at once on
-    * the step its body is back from another holder, its orders change, or an action of its skills
-    * has ended.
-    */
-   export class Pace {
-     /** The step it last decided on, the orders it decided on then, the last action ended then, and whether it has decided at all. */
-     readonly state = { decided: 0, orders: null as Orders | null, ended: 0, begun: false };
-     private readonly every: number;
-     private readonly offset: number;
-     private readonly orders: (senses: Senses) => Orders | null;
-
-     constructor(every: number, phase: number, orders: (senses: Senses) => Orders | null) {
-       if (!Number.isInteger(every) || every < 1 || !(phase >= 0 && phase < 1)) throw new Error(`a mind decides every whole number of steps on a phase in [0, 1), not every ${every} on ${phase}`);
-       this.every = every;
-       this.offset = Math.floor(phase * every);
-       this.orders = orders;
-     }
-
-     /** The seconds since its last decision where one is due this step, else null. The first is `dt`. A mind that decides every step asks for no orders here, as now. */
-     since(view: BodyView, dt: number, ended: number): number | null {
-       if (this.every === 1) return dt;
-       const state = this.state, step = Math.round(view.time / dt), every = this.every, orders = this.orders(view.senses);
-       if (state.begun && !view.resumed && ((step - this.offset) % every + every) % every !== 0 && ended === state.ended && sameOrders(orders, state.orders)) return null;
-       const since = state.begun ? (step - state.decided) * dt : dt;
-       state.decided = step; state.orders = orders === null ? null : structuredClone(orders); state.ended = ended; state.begun = true;
-       return since;
-     }
-   }
-   ```
-
-   `everyOf` moves here from `decider.ts`. The intent held between decisions is the Mind's
-   (`OptionMindState.asked`), where `driveBy` kept it in the pace's state.
-3. **`option-mind.ts`** is the class above, with `OptionMindState` and the constructor that
-   gathers it as written under "Memory spread over the parts". Each part's state is checked
-   against rule 3 there as it is moved: a second reference into a state is replaced by a read
-   through it.
-4. **`build.ts`** makes everything inside the one `host.take`, in today's order (layers, first
-   look, ground skills, aims, skills, Options, reader, chooser), and returns `MindMade`. `take`
-   hands back the construction it was given, as it hands back `body` today.
-
-   ```ts
-   export function buildOptionMind(host: BodyHost, config: ResolvedConfig): MindMade {
-     // ...the parts under its skills, as today...
-     const { mind, skills } = host.take((own) => {
-       const scope = constructionScope(); let complete = false;
-       try {
-         const layers = scope.own(commandLayers(own, layerOptions, clock));
-         layers.firstLook();
-         const body = layers.body;
-         // ...ground skills, aims and skills on `body`, as today...
-         // ...the predictors its predictions part makes; its Options, its reader and its chooser, as `profileModel` builds them today...
-         const mind = new OptionMind({ layers, skills, reader, options, chooser, pace: new Pace(every, host.phase, host.orders), record, aims: aimsState(aims), sight: sightOf(body, skills), facing: walk.facing });
-         complete = true;
-         return { mind, skills, name: layers.name, has: () => mind.state.idle ? "nobody" : layers.name, body,
-           dispose() { skills.release(layers.view, "replaced"); scope.dispose(); } };
-       } finally { if (!complete) scope.dispose(); }
-     });
-     return { state: mind.state, skills, report: skillsReport(skills, mind) };
-   }
-   ```
-
-   The scope is `commandedMind`'s own pattern (`sub-mind.ts:63`): a part that throws while the
-   Mind is built disposes the layers already made. `dispose` releases the skills as `replaced`
-   once, which is what disposing the layers does today through the driver (`drive(null)`,
-   `motor-layers.ts:262`). The interface `OptionMind extends MindMade` is deleted; `mind.ts`
-   reads `MindMade`.
-5. **The predictions part makes predictors and nothing else.** `PredictionsPart.make(config)`
-   returns what `profileModel` is called with today, under its own name in
-   `contract/predictors.ts`:
-
-   ```ts
-   /** What a Mind predicts by, made by its predictions part. */
-   export interface Predictors {
-     /** Every striker's measured strikes, which model a foe's. */
-     readonly strikes: readonly Profile[];
-     /** What each act of the body's own brings. */
-     readonly outcomes: OutcomeModel;
-     /** What the foe is expected to take from the body. */
-     readonly others: OthersModel;
-     /** The speed a walk is priced as starting at. */
-     readonly walkStart: WalkStart;
-   }
-   ```
-
-   `profile-model.ts` is deleted: its build moves into `build.ts`, its decision into the class,
-   and `profileDetail`, `prospect`, `unmetDetail` into `option-mind.ts`. `model.ts`
-   (`OptionEvaluation`, `OptionEvaluationInput`) is deleted.
-6. **`"profiles/1"` goes** (wrong, 4): `PROFILE_MODEL`; the `model` field of the three part
-   contracts that carry it (`OptionPart`, `ChooserPart`, `PredictionsPart`) and of every
-   registered part; the three checks (`isProfileOption` in `kinds.ts`, `profile-learning.ts:12`,
-   `config.ts:112` to `:114`); and their exports from `index.ts`. `ProfileOptionPart` folds into
-   `OptionPart`: its extra members (`recovery`, read at `rise.ts:344`, and those the cast at
-   `kinds.ts:245` reaches) become `OptionPart`'s, and the generic that carried the context and
-   the Option type is dropped. `ProfileOptionContext` is what an Option kind is made from and
-   moves to `contract/parts.ts` as `OptionContext`; `profile-contract.ts` is deleted. First
-   `grep -rn "PROFILE_MODEL\|profiles/1" src research tests scripts` and confirm no part carries
-   another string (none did on 2026-11-25). A Mind built wholly otherwise is another kind of
-   mind (`controller`), as the bare entrant is.
-7. **`driveBy`, `Driven` and the `Pace` interface are deleted from `src/minds/decider.ts`.**
-   `Sight`, `sightOf` and `Script` stay; `Decider` stays only if `Script` is not its one use,
-   else its fields fold into `Script`. Its callers:
-   - `scripts/fingerprint.mjs:184`, `tests/harness/garbage.mjs:30`, `research/rest-probe.mjs:118`
-     stand a stock body. `src/app/standing-skills.ts` gains the driver they share:
-
-     ```ts
-     /** A driver that has `skills` carry out an order to stand, decided anew each step. */
-     export const standingDriver = (skills: Skills): SplitDriver<Intent> => ({
-       state: { skills: skills.state },
-       decide(view) { if (view.resumed) skills.resume(view); return standIntent(0); },
-       carry: (view, intent, dt) => skills.command(view, intent, dt),
-     });
-     ```
-
-     and each calls `body.drive(standingDriver(skills), skills.release)`.
-   - `tests/minds/contract.test.mjs:145` ("a commanded Mind restores its driver's memory from its
-     own state") tests the seat: it calls `body.drive({ state: memory, decide, carry }, ...)`
-     itself. The Option Mind's own memory across a fresh load is the next test's (`:188`) and
-     chunk 5's relay.
-   - `tests/layer-contracts.test.mjs` ("pacing detects changed orders from a provider reusing its
-     object") tests the pace: it makes `new Pace(10, 0, () => orders)` and asks `since` twice with
-     the one orders object changed between, and expects a decision both times.
-8. **Research scripts read the Mind's state by path**, and each is repointed and run once.
-   The Mind's own, under `minded.state.mind`: `.decider.model.record` becomes `.record`
-   (`research/skills/recovery/edge-profile-trial.mjs:36`), `.decider.options` becomes `.options`
-   (`research/skills/recovery/implementations/staged/rise-trace.mjs:41`), `.skills` keeps its
-   name (`rise-trace.mjs:61`, `research/skills/locomotion/travel-environment.mjs:78`). The
-   body's, under `body.state.mind`: `.host.motor` becomes `.layers.motor`
-   (`research/step-time.mjs:57`, `research/skills/locomotion/locomotion-run.mjs:181`,
-   `locomotion-wrench.mjs:298`). Then `grep -rnE "mind\??\.(host|decider)\b" research scripts
-   tests` is read hit by hit for one that reads an Option Mind.
-
-**Consequences.** The Mind's saved state has another shape, so the fingerprint names a state
-difference on every fight and fails on none. No bout's save is kept in a file (only forks in
-memory), and a save made on another build starts its Mind fresh, as
-`tests/minds/contract.test.mjs:211` requires of a mind "whose memory is built otherwise". The
-comment on `BodyHost.phase` (`src/minds/mind.ts:46`) names `driveBy` and is corrected. A world
-that runs its minds apart (`mindApart`, `src/minds/seat/create-mind.ts`) makes the Mind through
-the same `Controller.create`, and is opened once in the browser's Arena for this commit.
-
-**Done when** the checks pass, the fingerprint's pose lines compare clean, allocation is read,
-and `driveBy`, `OptionEvaluation` and `PROFILE_MODEL` are declared nowhere (the type checker
-refuses a use left behind in `src`; `grep -rn "driveBy\|OptionEvaluation\|profiles/1" research
-scripts tests` for the rest).
+**Read on landing** (2026-11-25): the fingerprint names a state difference on each of the 70
+cases that keep a state digest and moves no pose on any of the 299. Allocation, KiB a body a
+step: `option-lean` 474.29 and 476.51 (480.56 and 478.93 before), `option-tail` 543.72 and
+539.65 (539.94 and 542.38 before). The Arena was opened headless on a preview server with both
+mind editors open and its minds apart on the browser's workers (the page is cross-origin
+isolated): the bout stepped, the Choices panels filled and the page raised no error.
+`research/skills/recovery/implementations/staged/rise-trace.mjs` fails as it did before this
+chunk (`action.stage` is undefined at its `traceFall`), which is not this plan's to fix.
 
 ### 2c: the scripted Mind is the second subclass
 
@@ -699,7 +591,8 @@ tool with steps and no seat, and no `drive` reaches a body under an Option Mind.
    `tests/minds/contract.test.mjs:145`, `tests/minds/stance-ownership.test.mjs:27`) call
    `construction.drive`. `contract.test.mjs:155` reads the driver's memory at
    `construction.mind.state`, where it now is `.driver`. A script that reads a scripted body's
-   `state.mind.host` reads `.layers` (the grep of 2b step 8, again).
+   `state.mind.host` reads `.layers` (`grep -rnE "mind??.(host|decider)" research scripts
+   tests`, read hit by hit).
 
 **Consequences.** `drive` on a scripted body is where it was for every `stockBody` and
 `commandedBody` caller. The order on a release changes for a scripted driver as it did for the

@@ -11,7 +11,7 @@ import { startOf } from "./percepts.ts";
 import { STILL } from "./value.ts";
 import type { Outcome, Terms } from "./contract/terms.ts";
 import type { FoePhase } from "../../skills/perception/threat.ts";
-import type { ProfileOptionContext } from "./profile-contract.ts";
+import type { OptionContext } from "./contract/context.ts";
 
 /**
  * **The ways a sway ends, split by what the focus is doing as it ends**: `striking` of them with
@@ -43,7 +43,7 @@ function phased(striking: number | undefined, outcomes: (phase: FoePhase | null)
  * while they swayed, for their seconds; it leaves the body up where its trials ended, centre to
  * centre (`exitOutcomes`), still, in its carriage; and down in the share of its trials that fell.
  */
-export function backStepping({ spec, outcomes, walk, hz, rate, delay }: Pick<ProfileOptionContext, "spec" | "outcomes" | "walk" | "hz" | "rate" | "delay">): readonly Option[] {
+export function backStepping({ spec, outcomes, walk, hz, rate, delay }: Pick<OptionContext, "spec" | "outcomes" | "walk" | "hz" | "rate" | "delay">): readonly Option[] {
   const act = outcomes.act("steps", measuredOn(spec, { skill: BACK_STEP_GAIT.name, limb: null }, { hz, reaction: null, rate, delay })), read = act?.read ?? [];
   const carriage = gaitStance(SWAYS_FROM, spec.model);
   if (!read.length || !carriage) return [];

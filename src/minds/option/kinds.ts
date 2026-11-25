@@ -3,6 +3,7 @@ import type { ActionConfig, ExecutorConfigs, ExecutorEntry } from "../../skills/
 import { isRegionMark, type Region } from "../../skills/framework/action.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import { optionApplies } from "./config.ts";
+import type { OptionContext } from "./contract/context.ts";
 import type { OptionPart, NamedSkills } from "./contract/parts.ts";
 import { choice, json, optionalChoice } from "../../parts/fields.ts";
 import { anyBody, slotOne, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
@@ -16,26 +17,15 @@ import { LIMB_ROLES, limbsOf, type LimbRole } from "./limbs.ts";
 import type { Option, Site } from "./contract/option.ts";
 import { followOrders } from "./orders.ts";
 import { gaitsOf, goesBy, walkBy } from "./places.ts";
-import { PROFILE_MODEL, type ProfileOptionContext } from "./profile-contract.ts";
 import { chosenVariation, type Varied } from "../../skills/framework/variations.ts";
 import { guardOf, hold, holdAt } from "./rest.ts";
 import { strike, strikeMeasure } from "./strike.ts";
 import { choosingSkill } from "./selection.ts";
 
-/** An Option kind whose constructor consumes the declared profile-model context. */
-export type ProfileOptionPart<C extends PartConfig = PartConfig> = OptionPart<C, ProfileOptionContext, Option> & {
-  readonly model: typeof PROFILE_MODEL;
-  /** Ordinary ascent choices establish routes; fallback transitions only serve uncovered starts. */
-  readonly recovery?: { readonly purpose: "ascent" | "fallback"; technique(config: C): ConfigFor<"technique"> };
-};
-
-/** The profile model's declared constructor and reporting protocol. */
-export const isProfileOption = (part: OptionPart): part is ProfileOptionPart => part.model === PROFILE_MODEL;
-
 /** A kind of option with no settings of its own, `kind`, labelled `label`, made by `make`. */
-function kind<K extends string>(kind: K, label: string, make: (given: ProfileOptionContext) => readonly Option[]): ProfileOptionPart<{ readonly kind: K }> {
-  return deepFreeze<ProfileOptionPart<{ readonly kind: K }>>({ role: "option", model: PROFILE_MODEL, label, stands: false, fields: [], slots: [], defaults: { kind }, keys: { kind: true } as KeysOf<{ readonly kind: K }>,
-    fits: anyBody, faults: () => [], make: (_config: { readonly kind: K }, given: ProfileOptionContext) => make(given) });
+function kind<K extends string>(kind: K, label: string, make: (given: OptionContext) => readonly Option[]): OptionPart<{ readonly kind: K }> {
+  return deepFreeze<OptionPart<{ readonly kind: K }>>({ role: "option", label, stands: false, fields: [], slots: [], defaults: { kind }, keys: { kind: true } as KeysOf<{ readonly kind: K }>,
+    fits: anyBody, faults: () => [], make: (_config: { readonly kind: K }, given: OptionContext) => make(given) });
 }
 
 /** **Following the orders** a person gives (`followOrders`), by the gaits its body's legs go by (`gaitsOf`). */
@@ -57,8 +47,8 @@ export interface StrikeConfig<K extends string = keyof ExecutorConfigs> {
   readonly support?: ConfigFor<"support"> | null;
 }
 
-/** **A kind of strike**: a kind of option (`ProfileOptionPart`) that strikes by one skill, the executor kind it names (`skill`). */
-export type StrikeKindPart<K extends string = keyof ExecutorConfigs> = ProfileOptionPart<StrikeConfig<K>> & { readonly skill: K };
+/** **A kind of strike**: a kind of option (`OptionPart`) that strikes by one skill, the executor kind it names (`skill`). */
+export type StrikeKindPart<K extends string = keyof ExecutorConfigs> = OptionPart<StrikeConfig<K>> & { readonly skill: K };
 
 /** Each executor's config as its body's skills hold it (`ExecutorEntry`), by the variation it runs and the name it goes by: a skill is one config a mind. */
 const ENTRIES = new WeakMap<ConfigFor<"executor">, Map<string, ExecutorEntry>>();
@@ -211,7 +201,7 @@ function aimingFaults(config: StrikeConfig, parts: PartLookup): readonly string[
  * reads it (`strikeMeasure`); none where the body does not fit its skill or has no limb of its role.
  */
 function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, settings: Omit<StrikeConfig<K>, "kind" | "skill">): StrikeKindPart<K> {
-  const of = (config: StrikeConfig<K>, given: ProfileOptionContext): readonly Option[] =>
+  const of = (config: StrikeConfig<K>, given: OptionContext): readonly Option[] =>
     strikeSkills(given.parts, given.spec, config, given.options).flatMap(({ executor, action }) => {
       const executors = [executor], blows = given.parts.of("executor", executor).blows?.(executor) ?? 1;
       return action.effectors.map((limb) => {
@@ -222,7 +212,7 @@ function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, se
       });
     });
   return deepFreeze<StrikeKindPart<K>>({
-    role: "option", model: PROFILE_MODEL, label, stands: false, skill,
+    role: "option", label, stands: false, skill,
     fields: [choice<StrikeConfig<K>, "limbs">("limbs", "Limbs", () => LIMB_ROLES), json<StrikeConfig<K>, "regions">("regions", "Target regions", "target-regions")],
     slots: [slotSkill("skill", "Skill", "executor"), { ...slotSkill("support", "Low support", "support"), optional: true }, slotOne("aim", "Aim", "aim", true)],
     defaults: { kind: `strike-${skill}`, skill: { kind: skill }, ...settings } as StrikeConfig<K>,
@@ -242,7 +232,7 @@ function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, se
 
 /** **The strikes among `options`** (`StrikeConfig`): those whose kind strikes by a skill it names (`StrikeKindPart.skill`), in their order. */
 export const strikesIn = (parts: PartLookup, options: readonly PartConfig[]): readonly StrikeConfig[] =>
-  options.filter((option): option is PartConfig & StrikeConfig => "skill" in (parts.of("option", option) as ProfileOptionPart));
+  options.filter((option): option is PartConfig & StrikeConfig => "skill" in parts.of("option", option));
 
 
 /** A strike at the trunk's middle. */
@@ -309,13 +299,13 @@ export interface WalkConfig {
  * config names, meaning go to a place by that gait, its places the sites its mind's options name
  * (`Sites`); none on legs without that gait. Its way is planned by its navigation.
  */
-export const WALK_OPTION = deepFreeze<ProfileOptionPart<WalkConfig>>({
-  role: "option", model: PROFILE_MODEL, label: "Walk to a site", stands: false, fields: [optionalChoice<WalkConfig, "gait">("gait", "Gait", "Every gait", gaitChoices)],
+export const WALK_OPTION = deepFreeze<OptionPart<WalkConfig>>({
+  role: "option", label: "Walk to a site", stands: false, fields: [optionalChoice<WalkConfig, "gait">("gait", "Gait", "Every gait", gaitChoices)],
   slots: [slotOne("navigation", "Navigation", "navigation", true)], defaults: { kind: "walk" },
   keys: { kind: true, gait: true, navigation: true }, fits: anyBody, faults: () => [],
   applicable: (config: WalkConfig, { parts, legs, spec }) => legs === null || gaitsOf(parts, legs, spec).some(gait => config.gait === undefined || gait.name === config.gait),
   skills: (config: WalkConfig) => config.navigation ? { navigation: config.navigation } : {},
-  make: (config: WalkConfig, given: ProfileOptionContext) => given.parts.selected("navigation", given.spec)
+  make: (config: WalkConfig, given: OptionContext) => given.parts.selected("navigation", given.spec)
     .filter(navigation => !config.navigation || config.navigation.kind === navigation.kind)
     .flatMap(navigation => gaitsOf(given.parts, given.legs, given.spec).filter(gait => config.gait === undefined || gait.name === config.gait)
       .map(gait => choosingSkill(walkBy(gait, given.sites, given.walk, given.spec), navigation, "navigation"))),
@@ -330,10 +320,10 @@ const placeFaults = (config: PlaceConfig): readonly string[] => [
   ...Number.isFinite(config.within) && config.within > 0 ? [] : ["within: a distance above nothing, m"]];
 
 /** **Holding at a place on the ground** (`holdAt`), whatever the focus: a rest option at the place its config names, which is its site. */
-export const HOLD_AT_OPTION = deepFreeze<ProfileOptionPart<PlaceConfig>>({
-  role: "option", model: PROFILE_MODEL, label: "Hold at a place", offered: false, stands: false, fields: [], slots: [], defaults: { kind: "hold-at-place", x: 0, z: 0, within: .3 },
+export const HOLD_AT_OPTION = deepFreeze<OptionPart<PlaceConfig>>({
+  role: "option", label: "Hold at a place", offered: false, stands: false, fields: [], slots: [], defaults: { kind: "hold-at-place", x: 0, z: 0, within: .3 },
   keys: { kind: true, x: true, z: true, within: true }, fits: anyBody, faults: placeFaults,
-  make: (config: PlaceConfig, given: ProfileOptionContext) => [holdAt(config.x, config.z, config.within, given.walk)],
+  make: (config: PlaceConfig, given: OptionContext) => [holdAt(config.x, config.z, config.within, given.walk)],
 });
 
 /** **The cover** of the head by the hand on the side a blow closes from (`covers`). */
@@ -354,13 +344,13 @@ export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at gua
   stands: true });
 
 /**
- * The options `configs` name, each kind's as `of` finds it, made from `given`, in their order; then
- * the sites they name (`Sites`), each name once.
+ * The Options `configs` name, each kind's as `given.parts` finds it, made from `given`, in their
+ * order; then the sites they name (`Sites`), each name once.
  */
-export function optionsOf(of: (config: PartConfig) => ProfileOptionPart, configs: readonly PartConfig[], given: Omit<ProfileOptionContext, "sites" | "options">): readonly Option[] {
+export function optionsOf(configs: readonly PartConfig[], given: Omit<OptionContext, "sites" | "options">): readonly Option[] {
   const all: Site[] = [], names: string[] = [], made: Option[] = [];
   const body = { ...given, options: configs, sites: { all, names } };
-  for (const config of configs) if (optionApplies(config, body)) made.push(...of(config).make(config, body));
+  for (const config of configs) if (optionApplies(config, body)) made.push(...given.parts.of("option", config).make(config, body));
   for (const option of made) for (const site of option.sites ?? []) {
     if (names.includes(site.name)) throw new Error(`two sites are named ${site.name}`);
     all.push(site); names.push(site.name);

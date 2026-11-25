@@ -117,7 +117,7 @@ Motor control (`src/control/`) turns a `BodyCommand` (a posture, effector goals,
 driven points, a stance goal) into muscle commands.
 
 - **The command layers** (`commandLayers`) are what a mind builds on its own body, read each step
-  through a `BodyView` (`src/control/body.ts`); they are independent of skills and deciders.
+  through a `BodyView` (`src/control/body.ts`); they are independent of skills and of whatever decides.
 - **The motor** is a part of role `motor` (`MOTORS`); the game's is the whole-body solve
   (`motorControl`, `solve.ts`): the bearing solve and the servo in one weighted least-squares
   problem. A body on paws has the paw support (`pawMotor`, `src/control/quadruped/paw-motor.ts`).
@@ -144,7 +144,7 @@ beneath, executors running discrete actions over them. What a mind holds is one 
 - **An action** (`ActionRequest`, `action.ts`) has an id, a name, an effector and a sensed target
   region. Admission reads readiness and reserves resources; actions overlap where reservations
   allow. An executor runs `prepare`, `commit` and `release` and ends once (`Ended`). It never
-  closes distance; the decider does.
+  closes distance; the mind does.
 - **Skills live in an area** of `src/skills/` (`guard/`, `locomotion/`, `strikes/`, `recovery/`),
   a folder a skill: the skill's part (`straight-punch/index.ts`) names its variations, and a
   variation with code of its own keeps it in its own folder (`stomp/stomp/`). Code that skills

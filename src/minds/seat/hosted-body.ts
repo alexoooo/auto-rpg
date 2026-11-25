@@ -5,7 +5,7 @@ import type { Embodying } from "./embodiment.ts";
  * **A body under the command layers as the one who built it holds it** (`commandedBody`): the
  * built body under it (`PhysicalBody`), its view, its drive, and the body under the command
  * layers (`commanded`, a `Body`), which reads the built body through its read view and is the one
- * to hand a decider's skills, a skill or a script.
+ * to hand a mind's skills, a skill or a script.
  */
 export type HostedBody = PhysicalBody & Pick<Body, "view" | "envelope" | "drive" | "afterPhysics"> & { readonly commanded: Body };
 

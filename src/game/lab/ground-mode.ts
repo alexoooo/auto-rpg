@@ -160,7 +160,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
   scope.own(dummy ? options.hears?.(dummy.fighter.built) : null);
   if (dummy) hub.add({ id: "ground-foe", side: "ground-foe", built: dummy.fighter.built, out: () => false });
   const check = standCheck(actorChecked(actor), options.cap ?? STAND_CHECK.cap);
-  const driven = actor.drive({ name: "ground stand", decide: () => standIntent(0) }, { senses,
+  const driven = actor.drive({ decide: () => standIntent(0) }, { senses,
     orders: () => environment.approach && address.ground.start === "shoved" && world.time < ROUND_FIRST
       ? { ...STAND_ORDERS, move: directMovement(environment.approach.x, environment.approach.z), pace: STAND_CHECK.pace } : check.orders() });
   if (isRefused(driven)) return driven;

@@ -20,18 +20,24 @@ import type { Mind } from "./mind.ts";
  * carries the due decision into motor commands. `observe` samples completed physics before any
  * holder acts. Releasing clears pending work and motor goals; resuming tells the driver.
  */
-interface CommandLayers extends LayersMind {
+export interface CommandLayers extends LayersMind {
   readonly name: string;
   dispose(): void;
   /** The view as the last step left it, or as built before the first. */
   readonly view: BodyView;
-  /** The body its drivers have: the one to hand a decider's skills, a skill or a script. */
+  /** The body its drivers have: the one to hand a mind's skills, a skill or a script. */
   readonly body: Body;
   /**
    * Read the body as it stands, once, before the first step: the view a driver first finds. Called
    * after whatever is made over the view, which so finds it as built.
    */
   firstLook(): void;
+  /** Queue what was decided this step, to be carried out once the body's delay has passed. A null keeps the command the body already has. */
+  decided(decision: unknown): void;
+  /** Read the body for this step and hand back the decision that is now due. Null where none is due yet, or the one due keeps the command. */
+  take(control: BodyControl): unknown;
+  /** Obey `command` where there is one, then have the motor write the muscles for this step. */
+  apply(command: BodyCommand | null, control: BodyControl): void;
 }
 
 /**
@@ -101,7 +107,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     pending: [] as unknown[],
     /** Whether the body was read this step, by the motor part before the look. */
     felt: false,
-    /** The registered driver's memory, including its skills, decider and pacing. */
+    /** The registered driver's memory, its skills' with it. */
     driver: null as object | null,
   };
   // The step's reading: its stamp moves wherever the view may, so it is no state and carries nothing on.
@@ -196,13 +202,11 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     state.felt = false;
     view.senses = senses;
   };
-  /** Queue what was decided this step. A null keeps the command the body already has. */
   const decided = (decision: unknown): void => {
     state.pending.push(decision);
     state.resumed = false;
     moved();
   };
-  /** Read the body for this step and hand back the decision that is now due. Null where none is due yet, or the one due keeps the command. */
   const take = (control: BodyControl): unknown => {
     current = control;
     feel(clock.time);
@@ -213,7 +217,6 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     if (due !== null) state.born ??= clock.time;
     return due;
   };
-  /** Obey `command` where there is one, then have the motor write the muscles for this step. */
   const apply = (command: BodyCommand | null, control: BodyControl): void => {
     if (command) obey(command, control);
     motor.control(muscles, control, clock.dt);
@@ -243,7 +246,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     ...(own.contactIdentity ? { contactIdentity: own.contactIdentity } : {}) };
   return {
     name: COMMAND,
-    view, body, look, think, act, state,
+    view, body, look, decided, take, apply, think, act, state,
     observe(control) {
       current = control;
       moved(); feedback?.read(clock.steps);

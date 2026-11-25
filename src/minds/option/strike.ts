@@ -8,14 +8,13 @@ import { measuredOn, staleness, strikeSkill } from "../../skills/framework/profi
 import { type Expected, type ProfileReading } from "../../skills/framework/profile/reading.ts";
 import { type Asked as StartAsked, type Postures, type Measured } from "../../skills/framework/profile/profile.ts";
 import type { ActOutcomes } from "../../skills/framework/outcomes.ts";
-import type { ProfileOptionContext } from "./profile-contract.ts";
+import type { OptionContext, Walker } from "./contract/context.ts";
 import { asking, exitOutcomes, blocked, READY, standing } from "./option.ts";
 import type { Asked, Option, Site } from "./contract/option.ts";
 import type { Situation } from "./contract/situation.ts";
 import { startOf, threatened } from "./percepts.ts";
 import { clinched, record } from "./value.ts";
 import type { Terms } from "./contract/terms.ts";
-import type { Walker } from "./walk.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { claimsLegs } from "../../skills/framework/intent.ts";
 import { hypot } from "../../core/math/real.ts";
@@ -40,7 +39,7 @@ interface StrikeMeasure {
  * limb by a body of `spec` at `hz` whose mind decides at `rate` Hz (its world's unless given) and
  * whose command is `delay` steps late, asked of `outcomes`.
  */
-export const strikeMeasure = ({ spec, outcomes, hz, rate = hz, delay }: Pick<ProfileOptionContext, "spec" | "outcomes" | "hz" | "rate" | "delay">, executors: readonly ExecutorEntry[], action: ActionConfig): StrikeMeasure => {
+export const strikeMeasure = ({ spec, outcomes, hz, rate = hz, delay }: Pick<OptionContext, "spec" | "outcomes" | "hz" | "rate" | "delay">, executors: readonly ExecutorEntry[], action: ActionConfig): StrikeMeasure => {
   const measured = measuredOn(spec, { skill: strikeSkill(spec, executors, action), limb: action.effectors[0] ?? null }, { hz, reaction: null, rate, delay });
   return { spec, measured, act: outcomes.act("strikes", measured) };
 };

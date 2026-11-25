@@ -45,9 +45,7 @@ import { controlCharacter, controlsFor, defaultControl, readControls, readMinds 
 import { SERVO_SECONDS, commandsBody } from "../src/control/body.ts";
 import { stockBody } from "../src/app/stock-body.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
-import { standIntent } from "../src/skills/framework/intent.ts";
-import { driveBy } from "../src/minds/decider.ts";
-import { standingSkills } from "../src/app/standing-skills.ts";
+import { standingDriver, standingSkills } from "../src/app/standing-skills.ts";
 import { MINDS, GAME } from "../src/app/catalog.ts";
 import { optionsOf } from "../src/minds/option/config.ts";
 import { tableCells } from "../src/app/node/evaluation.ts";
@@ -181,7 +179,7 @@ async function stand(model) {
   const minded = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS.option.config, { rules: rulebook("arena"), name: "stand", orders: () => null }) : null;
   const body = minded?.body ?? stockBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   try {
-    if (!minded) driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills(body));
+    if (!minded) { const skills = standingSkills(body); body.drive(standingDriver(skills), skills.release); }
     const trace = traceOf([stand.built]);
     for (let i = 0; i < stand.seconds(11); i++) { stand.step(); trace.take(); }
     const pose = trace.digest();

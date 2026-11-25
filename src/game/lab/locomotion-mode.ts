@@ -187,7 +187,7 @@ function trackScript(track: Track, { top, pace: most, turn, facing }: TrackOptio
     setOff: null as number | null, last: null as number | null,
     onPiece: track.lengths.map(() => ({ metres: 0, seconds: 0 })) };
   return {
-    name: "track", state,
+    state,
     decide({ view, report, legs: { envelope } }, dt): Intent {
       const c = view.stance.centre, v = view.stance.velocity, fastest = Math.min(top ?? fastestOf(envelope, facing), most ?? Infinity);
       if (view.time > 0) {
@@ -265,7 +265,7 @@ function commandsScript(commands: Commands, { top }: { readonly top?: number } =
     pace: 0, bending: false, face: 0, standUntil: null as number | null, from: [0, 0] as [number, number], progress: 0 };
   const stand = (): Intent => ({ move: null, face: state.face, guard: NO_COVER, actions: [] });
   return {
-    name: "commands", state,
+    state,
     decide({ view, report, legs: { envelope } }): Intent {
       if (view.time <= 0) return stand();
       const c = view.stance.centre, v = view.stance.velocity, dt = state.last === null ? 0 : view.time - state.last;

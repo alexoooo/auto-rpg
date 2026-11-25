@@ -1,4 +1,3 @@
-import { PROFILE_MODEL } from "./profile-contract.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { number, type PartField } from "../../parts/fields.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
@@ -74,16 +73,12 @@ const chooser = ({ options, appraise, deciding, chance, objective, holding, own 
     memory: { cue: cue.state, ...(objective?.state ? { objective: objective.state } : {}), ...own }, holding });
 };
 
-/** **A kind of Option Mind's chooser** (`ChooserPart`): over its options (`Option`), the chooser it makes a `Chooser`. */
-export type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C, Option, Chooser>;
-
 /**
  * The chooser `config` names, as `parts` finds it, over `options`, its chances drawn from `seed`, for
- * `body` (`bodyOf`): a part of the role makes a chooser over the options it is given
- * (`ChooserPart`), which Option Mind's are.
+ * `body` (`bodyOf`).
  */
 export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number, body: string): Chooser =>
-  parts.of("chooser", config).make({ config, options, seed, parts, body }) as Chooser;
+  parts.of("chooser", config).make({ config, options, seed, parts, body });
 
 /** How many options deep the valued chooser searches: the one it takes, or that and the best from where it leaves the body (`searching`). */
 const VALUED_DEPTHS: readonly number[] = Object.freeze([1, 2]);
@@ -793,7 +788,7 @@ const objectiveSupplied = (config: PartConfig): readonly Supplied[] => whenEmpty
 /** A searching chooser's obedience, as `config` names it, and its objective, made by `parts`. */
 function pricing(config: SearchConfig, parts: PartLookup): { readonly obedience: Obedience; readonly objective: Objective } {
   const given = config.objective ?? FEW_TERMS_PART.defaults;
-  return { obedience: OBEDIENCE.find(([value]) => value === config.obedience)?.[2] ?? STEADY, objective: parts.of("objective", given).make(given) as Objective };
+  return { obedience: OBEDIENCE.find(([value]) => value === config.obedience)?.[2] ?? STEADY, objective: parts.of("objective", given).make(given) };
 }
 
 /**
@@ -801,8 +796,8 @@ function pricing(config: SearchConfig, parts: PartLookup): { readonly obedience:
  * priced by its objective (`Objective.worth`), its orders at its obedience; a running option with
  * targets keeps the one it runs at `KEEP` s.
  */
-export const VALUED_CHOOSER = deepFreeze<OptionChooserPart<ValuedConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By worth", fields: [obedienceField<ValuedConfig>(), horizonField<ValuedConfig>(), carryField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+export const VALUED_CHOOSER = deepFreeze<ChooserPart<ValuedConfig>>({
+  role: "chooser", label: "By worth", fields: [obedienceField<ValuedConfig>(), horizonField<ValuedConfig>(), carryField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, carry: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config.depth), ...searchFaults(config)],
   make: ({ config, options, seed, parts, body }) => {
@@ -880,8 +875,8 @@ const AGAINST_FIELD = kindField("against", "Against its replies", AGAINST, "wors
  * obedience; its draws from one stream begun at its seed, kept in its state; a running option with
  * targets keeps the one it runs at `KEEP` s.
  */
-export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By tree", fields: [obedienceField<TreeConfig>(), horizonField<TreeConfig>(), carryField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], REPLIES_FIELD, AGAINST_FIELD, RUNS_FIELD, EXPLORATION_FIELD, BEST_FIELD, KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+export const TREE_CHOOSER = deepFreeze<ChooserPart<TreeConfig>>({
+  role: "chooser", label: "By tree", fields: [obedienceField<TreeConfig>(), horizonField<TreeConfig>(), carryField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], REPLIES_FIELD, AGAINST_FIELD, RUNS_FIELD, EXPLORATION_FIELD, BEST_FIELD, KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "tree" }, reads: (config) => LEAVES[config.leaf ?? "tail"].reads, keys: { kind: true, runs: true, exploration: true, leaf: true, replies: true, against: true, keeps: true, best: true, horizon: true, carry: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
@@ -910,8 +905,8 @@ interface RankedConfig { readonly kind: "ranked" }
  * searched or drawn, so a drill drives its skills by a fixed order, fast and the same each time;
  * which option a fight should choose is the valued and tree choosers' question. Not offered.
  */
-export const RANKED_CHOOSER = deepFreeze<OptionChooserPart<RankedConfig>>({
-  role: "chooser", model: PROFILE_MODEL, label: "By rank", offered: false, fields: [], slots: [],
+export const RANKED_CHOOSER = deepFreeze<ChooserPart<RankedConfig>>({
+  role: "chooser", label: "By rank", offered: false, fields: [], slots: [],
   defaults: { kind: "ranked" }, keys: { kind: true }, fits: anyBody, faults: () => [],
   make: ({ options, seed }) =>
     chooser({ options, appraise: (option, i) => ({ name: option.name, kind: option.kind, worth: options.length - i, terms: null, moves: null, letGo: 0 }),

@@ -6,11 +6,12 @@ import type { Profile } from "../../skills/framework/profile/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
 import { READINGS, threatReader } from "../../skills/perception/threat.ts";
-import type { Situation, ModelledStrike } from "./contract/situation.ts";
+import type { Situation, SituationReader, ModelledStrike } from "./contract/situation.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import { perceiver, reachMemory, type OthersModel, type Seen } from "./percepts.ts";
-import { optionRecord, type OptionRecord } from "./record.ts";
+import type { OptionRecord } from "./contract/context.ts";
+import { optionRecord } from "./record.ts";
 import { riseMemory } from "./rise-memory.ts";
 
 /**
@@ -57,7 +58,7 @@ interface Sensed {
 type SeenAt = { -readonly [K in "sight" | "orders" | "focus"]: Seen[K] } & { step: Sensed };
 
 /**
- * **A body's situation reader** (`Situation`) with `reading` (`Reading`): each percept (`PERCEPTS`)
+ * **A body's situation reader** (`SituationReader`) with `reading` (`Reading`): each percept (`PERCEPTS`)
  * and prediction read the first time it is asked, at a focus (`perceiver`), and a foe's blow and
  * weapon to ward off (`Seen.blow`, `Seen.ward`) the first time a step asks for either at any focus.
  * The foes it may focus on are the one its orders name, else every foe in the fight; it reads at
@@ -66,7 +67,7 @@ type SeenAt = { -readonly [K in "sight" | "orders" | "focus"]: Seen[K] } & { ste
  * it chose. Its memory is the kept focus's id, what it keeps of the body's rise (`riseMemory`),
  * read as each step is, and of each foe's reach (`reachMemory`), counted as a decision reads it.
  */
-export function situationReader(reading: Reading) {
+export function situationReader(reading: Reading): SituationReader {
   const { spec, hz, rate, delay, rules, strikes, measured, ordersOf } = reading, others = reading.others;
   const risen = riseMemory(reading.record ?? optionRecord(), reading.parts, reading.techniques), reach = reachMemory();
   const threats = threatReader(), state = { focus: null as string | null, risen: risen.state, reach: reach.state }, perceiving = perceiver();
@@ -105,14 +106,13 @@ export function situationReader(reading: Reading) {
   let last: Sensed | null = null, lastFocus: BodySense | null = null;
   return {
     state,
-    /** The situation at the focus (`focusOf`), now, its rise memory read first. */
+    // The situation at the focus (`focusOf`), its rise memory read first.
     read(sight: Sight): Situation {
       risen.read(sight);
       const orders = ordersOf(sight);
       last = { sight, orders, blow: UNREAD, ward: UNREAD }; lastFocus = focusOf(sight, orders);
       return at(last, lastFocus);
     },
-    /** The situation at each other foe it may focus on, as the last `read` saw them: none where it may focus on one alone. */
     others(): readonly Situation[] {
       if (!last) return NONE;
       const { sight, orders } = last;
@@ -121,7 +121,6 @@ export function situationReader(reading: Reading) {
         if (other !== lastFocus && candidate(sight, orders, other)) (others ??= []).push(at(last, other));
       return others ?? NONE;
     },
-    /** Keep `now`'s focus: the one it reads at while it is in the fight. */
     keep(now: Situation): void { state.focus = now.focus?.id ?? null; },
   };
 }

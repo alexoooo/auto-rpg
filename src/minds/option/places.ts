@@ -17,7 +17,7 @@ import { bearingAround, dealtAt, edgeOf, graceAt, stancedPressure } from "./perc
 import { gaitStance } from "../../skills/locomotion/move/gaits.ts";
 import { CLINCH, clinched, STILL, upOrDown } from "./value.ts";
 import type { Terms } from "./contract/terms.ts";
-import type { Walker } from "./walk.ts";
+import type { Walker } from "./contract/context.ts";
 
 /** A gait as Option Mind's legs go by it: its name, its label and its legs' config. */
 interface GaitOf {

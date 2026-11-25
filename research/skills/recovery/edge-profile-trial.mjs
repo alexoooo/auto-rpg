@@ -33,7 +33,7 @@ export async function edgeTrial(job, given) {
   if (isRefused(built)) throw new Error(built.refused);
   const spec = built.combatant.body.built.spec, hz = built.world.hz, delay = built.world.delay;
   const trials = [], open = [], waiting = [];
-  const record = built.combatant.minded.state.mind.decider.model.record;
+  const record = built.combatant.minded.state.mind.record;
   let phase = null, tried = new Map();
   /** Where `trial`'s Option takes the body: a way up's edge from where it began, flatten's lie. */
   const toOf = (trial) => trial.name === "flatten" ? trial.lie

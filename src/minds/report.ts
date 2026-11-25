@@ -21,7 +21,7 @@ export interface Prospect {
  * (`Prospect`), and where it walks, its heading, each of its gaits' limits (`GaitLimits`) and its
  * navigation's report; the skills always on that run now (`Running`); the actions its body has (`KitEntry`), those under way and those ended, and
  * its choices now (`MenuEntry`), read when asked and changing nothing of it; null for what it does not
- * say. A mind that runs the game's skills publishes theirs and its decider's (`skillsReport`); any
+ * say. A mind that runs the game's skills publishes theirs and its own (`skillsReport`); any
  * other may publish its own. Each field's owner gives it a new value when it changes and never
  * writes into one it has given: what a mind said is compared by identity and frozen (`saidNow`).
  */
@@ -39,12 +39,12 @@ export interface MindReport {
 }
 
 /**
- * What a mind says of itself, live (`MindReport`): what its `decider` reports doing, and the rest as
+ * What a mind says of itself, live (`MindReport`): what the `mind` reports doing, and the rest as
  * its `skills` report it. Its menu moves nothing a mind keeps, whoever reads it and when: its aims
  * are asked keeping nothing (`SkillsActions.menu`).
  */
-export function skillsReport(skills: Skills, decider: { readonly engagement?: Engagement; readonly prospects?: readonly Prospect[] }): MindReport {
-  return { get engagement() { return decider.engagement ?? null; }, get prospects() { return decider.prospects ?? null; }, get heading() { return skills.report.legs.heading; }, get gaits() { return skills.legs.gaits; },
+export function skillsReport(skills: Skills, mind: { readonly engagement: Engagement; readonly prospects: readonly Prospect[] }): MindReport {
+  return { get engagement() { return mind.engagement; }, get prospects() { return mind.prospects; }, get heading() { return skills.report.legs.heading; }, get gaits() { return skills.legs.gaits; },
     get navigation() { return skills.report.navigation ?? null; }, get running() { return skills.report.running; }, kit: skills.actions.kit, get actions() { return skills.report.actions; },
     get ended() { return skills.report.ledger; }, get menu() { return skills.actions.menu(); } };
 }

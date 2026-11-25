@@ -647,7 +647,7 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   rethink phase (`Deciding.phase`) had the right decide 0.618 of a 0.2 s period after the left
   (12 to 15 steps). Swapping the phases leaned it to the left (0.465), and both at one phase read
   0.507 and 0.486; enlisting the right first did not move it (0.573). Since 3bdd5b168 every body's
-  periods start at one time, the decider's step offset alone keeping two bodies on neighbouring
+  periods start at one time, the mind's step offset alone keeping two bodies on neighbouring
   steps: the right 0.479 on 288. The duel's mean step rose from 1.77 to 2.17 ms, the crowd's fell
   from 30.5 to 21.3, and a page drops no frame it did not before. Why a stagger leans, and to which
   side, is not known. *Shown.*

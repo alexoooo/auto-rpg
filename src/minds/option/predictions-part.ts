@@ -1,5 +1,3 @@
-import { PROFILE_MODEL } from "./profile-contract.ts";
-import { profileModel } from "./profile-model.ts";
 import { dataOf } from "../../core/data/store.ts";
 import type { PredictionsPart } from "./contract/parts.ts";
 import { anyBody } from "../../parts/parts.ts";
@@ -9,7 +7,8 @@ import { validPressures } from "./pressure.ts";
 import { measuredOthers, RATE_OTHERS } from "./percepts.ts";
 import { nearestTrials, ownSteps, writtenForms, type OutcomeModel, type Tables } from "../../skills/framework/outcomes.ts";
 import { optionalChoice } from "../../parts/fields.ts";
-import { WALK_STARTS, type WalkStart } from "./walk.ts";
+import type { WalkStart } from "./contract/context.ts";
+import { WALK_STARTS } from "./walk.ts";
 
 /**
  * An experiment may supply the ground profiles measured for the skill settings it runs. Its foe's
@@ -33,7 +32,7 @@ const SWAYS: Readonly<Record<"range" | NonNullable<MeasuredConfig["sways"]>, (mo
 
 /** **Measured**: supplied ground profiles where given, otherwise the drills' (`dataOf`); each model its own where fresh, else its prior. */
 export const MEASURED_PREDICTIONS = deepFreeze<PredictionsPart<MeasuredConfig>>({
-  role: "predictions", model: PROFILE_MODEL, label: "Measured", slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true, pressure: true, outcomes: true, walkStart: true, sways: true }, tuning: ["edges"],
+  role: "predictions", label: "Measured", slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true, pressure: true, outcomes: true, walkStart: true, sways: true }, tuning: ["edges"],
   fields: [optionalChoice<MeasuredConfig, "walkStart">("walkStart", "A walk starts at", WALK_STARTS.speed.label, () => STARTED),
     optionalChoice<MeasuredConfig, "sways">("sways", "A sway leaves the body", "Where its trials ended", () => [["own", "By its own steps"]])],
   fits: anyBody, faults: config => [...config.edges === undefined || validProfiles(config.edges) ? [] : ["edges: invalid profiles"],
@@ -44,8 +43,8 @@ export const MEASURED_PREDICTIONS = deepFreeze<PredictionsPart<MeasuredConfig>>(
   reads: config => [...config.edges === undefined ? ["strike-profiles", "edge-profiles", "step-profiles"] as const : ["strike-profiles", "step-profiles"] as const, ...config.pressure !== "rate" ? ["pressure-profiles"] as const : []],
   make: config => {
     const tables = deepFreeze({ strikes: dataOf("strike-profiles"), edges: config.edges ?? dataOf("edge-profiles"), steps: dataOf("step-profiles") });
-    return profileModel({ strikes: tables.strikes, outcomes: SWAYS[config.sways ?? "range"](OUTCOMES[config.outcomes ?? "written"](tables)),
-      others: config.pressure === "rate" ? RATE_OTHERS : measuredOthers(measuredPressures()), walkStart: config.walkStart ?? "speed" });
+    return { strikes: tables.strikes, outcomes: SWAYS[config.sways ?? "range"](OUTCOMES[config.outcomes ?? "written"](tables)),
+      others: config.pressure === "rate" ? RATE_OTHERS : measuredOthers(measuredPressures()), walkStart: config.walkStart ?? "speed" };
   },
 });
 
@@ -63,8 +62,8 @@ function measuredPressures() {
 
 /** **The prior alone**: no profile, each model its prior, set by hand; its walks priced as starting at the body's speed. */
 export const PRIOR_PREDICTIONS = deepFreeze<PredictionsPart<{ readonly kind: "prior" }>>({
-  role: "predictions", model: PROFILE_MODEL, label: "The prior alone", fields: [], slots: [], defaults: { kind: "prior" }, keys: { kind: true },
-  fits: anyBody, faults: () => [], make: () => profileModel({ strikes: [], outcomes: nearestTrials({ strikes: [], edges: [] }), others: RATE_OTHERS, walkStart: "speed" }),
+  role: "predictions", label: "The prior alone", fields: [], slots: [], defaults: { kind: "prior" }, keys: { kind: true },
+  fits: anyBody, faults: () => [], make: () => ({ strikes: [], outcomes: nearestTrials({ strikes: [], edges: [] }), others: RATE_OTHERS, walkStart: "speed" }),
 });
 
 declare module "./contract/parts.ts" {

@@ -11,7 +11,7 @@ import { Vector3, Quaternion } from "../src/core/math/vector.ts";
 import { freshEngine, coreStand } from "./harness/core-stand.mjs";
 import { embody } from "../src/minds/seat/embodiment.ts";
 import { commandedMind } from "../src/minds/sub-mind.ts";
-import { driveBy } from "../src/minds/decider.ts";
+import { Pace } from "../src/minds/option/pace.ts";
 import { stockMotor } from "../src/app/registration/stock-motor.ts";
 import { SERVO_SECONDS } from "../src/control/body.ts";
 import { fitsPaws } from "../src/control/quadruped/fit.ts";
@@ -186,15 +186,11 @@ test("command layers deliver changed tracking, bracing and moving-frame goals", 
  * drill's orders are made anew each time, so none reuses its object.
  */
 test("pacing detects changed orders from a provider reusing its object", () => {
-  let driver, decisions = 0;
-  const view = { time: 0, resumed: false }, orders = { face: null, pace: 1 };
-  const body = { view, drive(value) { driver = value; } };
-  const skills = { state: {}, report: { ledger: [] }, legs: {}, navigation: {}, actions: {}, command() {}, release() {} };
-  driveBy(body, { name: "counted", decide() { decisions++; return {}; } }, skills, { every: 10, phase: 0, orders: () => orders });
-  driver.decide(view, 1 / 120);
+  const view = { time: 0, resumed: false, senses: {} }, orders = { face: null, pace: 1 };
+  const pace = new Pace(10, 0, () => orders);
+  assert.notEqual(pace.since(view, 1 / 120, 0), null, "its first decision is due at once");
   view.time = 1 / 120; orders.pace = 0;
-  driver.decide(view, 1 / 120);
-  assert.equal(decisions, 2);
+  assert.notEqual(pace.since(view, 1 / 120, 0), null, "changed orders make a decision due off its phase");
 });
 
 /**

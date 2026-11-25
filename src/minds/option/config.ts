@@ -118,12 +118,9 @@ function tunedFaults(config: OptionMindConfig): readonly string[] {
   return Object.keys(given ?? {}).filter(place => !Object.hasOwn(FILLED, place)).map(place => `tuning: no place ${place} under its skills`);
 }
 
-/** **What is wrong with `config`**, each a sentence: duplicate choices, service settings, a rate that is not positive, and a chooser or an option whose protocol is not its provider's. */
-export function optionMindFaults(config: ResolvedConfig, parts: PartLookup): readonly string[] {
+/** **What is wrong with `config`**, each a sentence: duplicate choices, service settings, and a rate that is not positive. */
+export function optionMindFaults(config: ResolvedConfig): readonly string[] {
   const options = config.options, faults = [...optionsFaults(options), ...tunedFaults(config)];
-  const model = parts.of("predictions", config.predictions).model;
-  if (parts.of("chooser", config.chooser).model !== model) faults.push(`chooser: incompatible with prediction model ${model}`);
-  for (const option of options) if (parts.of("option", option).model !== model) faults.push(`options: ${option.kind} is incompatible with prediction model ${model}`);
   if (config.rate !== undefined && !(Number.isFinite(config.rate) && config.rate > 0)) faults.push("rate: a positive number of times a second");
   return faults;
 }
