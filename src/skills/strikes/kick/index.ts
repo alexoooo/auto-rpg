@@ -1,16 +1,14 @@
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
-import { SIDES } from "../../../core/bodies/bilateral.ts";
-import { soleRefusal } from "../../../control/support.ts";
-import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import meta from "../../../../assets/skills/strikes/kick/kick.meta.json" with { type: "json" };
 import pushMeta from "../../../../assets/skills/strikes/kick/push.meta.json" with { type: "json" };
 import { dataOf } from "../../../core/data/store.ts";
 import { aimedPoint, type ExecutorMaking, type ExecutorPart } from "../../framework/executor-part.ts";
 import type { ActionConfig } from "../../config.ts";
+import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { chosenVariation, executorOf, makersOf, varied, variationReads, variationRecordFault, type RecordedVariation, type Varied, type Variations } from "../../framework/variations.ts";
 import { tunedSettings, type SkillRecords } from "../../framework/records.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { kickExecutor, KICK_PATH, validKickTuning, type KickTuning } from "./kick/kick.ts";
+import { kickExecutor, kickRefusal, KICK_PATH, validKickPart, validKickTuning, wholeKick, type KickTuning } from "../shared/kick.ts";
 
 /** **The kick's records**, each its variation's own (`kick/<variation>`). */
 type KickRecordKey = "kick/kick" | "kick/push";
@@ -28,25 +26,6 @@ declare module "../../../core/data/store.ts" {
 interface Config extends Varied {
   readonly kind: "kick";
   readonly tuning?: Partial<KickTuning>;
-}
-
-/** Whether each setting `tuning` names is a known one, and finite. */
-const validKickPart = (tuning: Partial<KickTuning>): boolean =>
-  !!tuning && typeof tuning === "object" && !Array.isArray(tuning) && Object.entries(tuning).every(([key, value]) => key in KICK_PATH && Number.isFinite(value));
-
-/** Whether `tuning` holds every kick setting, each valid (`validKickTuning`). */
-const wholeKick = (tuning: Partial<KickTuning>): boolean => validKickPart(tuning) && Object.keys(KICK_PATH).every((key) => Object.hasOwn(tuning, key)) && validKickTuning(tuning as KickTuning);
-
-/** The soles, hips and foot effectors a kick reads. */
-function kickRefusal(spec: BodySpec): string | null {
-  const soles = soleRefusal(spec);
-  if (soles) return soles;
-  for (const side of SIDES) {
-    const segment = spec.segments.find((one) => one.name === "foot." + side);
-    if (!spec.joints.some((joint) => joint.name === "hip." + side) || !segment?.points?.sole || !spec.effectors?.some((effector) => effector.segment === segment.name))
-      return "the kick needs bilateral named hips and foot effectors with sole points";
-  }
-  return null;
 }
 
 /** A variation of the kick: the kick as the record of `key` has it on each of `bodies`. */

@@ -59,11 +59,12 @@ export function variationReads(variations: Variations<Recorded>): (config: Varie
  * A part's `fits` for its `variations` tuned per body (`Recorded`): why a body of `spec` has no
  * record of a variation of `skill` (its `label`) it runs as `config` names it (the one it names,
  * else each its character holds), or null (`recordFault`, of that variation's `bodies`, which
- * names the variation where the skill has several).
+ * names the variation where the skill has several), a research tuning in its place whole by
+ * `whole` for that variation.
  */
-export function variationRecordFault<T>(skill: string, label: string, variations: Variations<Recorded>, whole: (tuning: T) => boolean): (spec: BodySpec, config: VariedConfig & { readonly tuning?: T }) => string | null {
+export function variationRecordFault<T>(skill: string, label: string, variations: Variations<Recorded>, whole: (tuning: T, variation: string) => boolean): (spec: BodySpec, config: VariedConfig & { readonly tuning?: T }) => string | null {
   const several = Object.keys(variations).length > 1;
-  const faults = new Map(Object.entries(variations).map(([name, one]) => [name, recordFault(several ? `${label} ${name}` : label, one.bodies, whole)]));
+  const faults = new Map(Object.entries(variations).map(([name, one]) => [name, recordFault(several ? `${label} ${name}` : label, one.bodies, (tuning: T) => whole(tuning, name))]));
   return (spec, config) => {
     const named = config.variation;
     for (const variation of named !== undefined ? [named] : heldVariations(spec, skill)) {

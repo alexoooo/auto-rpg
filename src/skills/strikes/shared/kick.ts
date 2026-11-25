@@ -1,23 +1,23 @@
-import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../../framework/action.ts";
-import { supportHeight } from "../../../../control/support-reference.ts";
-import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
-import type { Body, BodyView } from "../../../../control/body.ts";
-import type { MusclePush } from "../../../../control/motor.ts";
-import { footStatesOf, readSupport, withinSupport } from "../../../../control/support.ts";
-import { intoFrameToRef, reachWork, solveReach } from "../../../../control/kinematics.ts";
-import { bodyEffectors, copyFreedoms } from "../../../../control/effectors.ts";
-import { channelName } from "../../../../core/bodies/muscle/driver.ts";
-import { supportReadiness, plantedSupport } from "../../shared/support-readiness.ts";
-import { stepShare, timedPushes, type TimedPush } from "../../shared/timed-push.ts";
-import { STANCE_GAIT } from "../../../../control/stance/stance-tuning.ts";
-import { cos, hypot, sin } from "../../../../core/math/real.ts";
-import type { Vec3 } from "../../../../core/quantity.ts";
-import { segmentOf, type BearingEnd } from "../../../../core/bodies/spec/body.ts";
-import type { Pose } from "../../../../core/bodies/spec/pose.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../../../framework/action.ts";
-import type { LegsGoal } from "../../../framework/skill.ts";
-import { withinActionWindow } from "../../../intent/action-window.ts";
-import { type Side, otherSide } from "../../../../core/bodies/bilateral.ts";
+import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../framework/action.ts";
+import { supportHeight } from "../../../control/support-reference.ts";
+import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
+import type { Body, BodyView } from "../../../control/body.ts";
+import type { MusclePush } from "../../../control/motor.ts";
+import { footStatesOf, readSupport, soleRefusal, withinSupport } from "../../../control/support.ts";
+import { intoFrameToRef, reachWork, solveReach } from "../../../control/kinematics.ts";
+import { bodyEffectors, copyFreedoms } from "../../../control/effectors.ts";
+import { channelName } from "../../../core/bodies/muscle/driver.ts";
+import { supportReadiness, plantedSupport } from "./support-readiness.ts";
+import { stepShare, timedPushes, type TimedPush } from "./timed-push.ts";
+import { STANCE_GAIT } from "../../../control/stance/stance-tuning.ts";
+import { cos, hypot, sin } from "../../../core/math/real.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
+import { segmentOf, type BearingEnd, type BodySpec } from "../../../core/bodies/spec/body.ts";
+import type { Pose } from "../../../core/bodies/spec/pose.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../../framework/action.ts";
+import type { LegsGoal } from "../../framework/skill.ts";
+import { withinActionWindow } from "../../intent/action-window.ts";
+import { SIDES, type Side, otherSide } from "../../../core/bodies/bilateral.ts";
 
 /**
  * **What a kick pushes**, by name: each a channel of the kicking leg (`{kick}`) or the trunk, driven
@@ -93,6 +93,25 @@ export function validKickTuning(tuning: KickTuning): boolean {
     && [tuning.hold, tuning.lower, tuning.follow, tuning.admitSpeed, tuning.low, tuning.lead, tuning.chamber, tuning.knee, tuning.through].every((v) => v >= 0) && tuning.decel > 0
     && tuning.alongFar > tuning.alongNear && tuning.high > tuning.low
     && (Object.keys(KICK_PUSHES) as PushName[]).every((name) => Math.abs(tuning[`${name}Level`]) <= 1 && tuning[`${name}From`] >= 0 && tuning[`${name}Length`] >= 0);
+}
+
+/** Whether each setting `tuning` names is a known one, and finite. */
+export const validKickPart = (tuning: Partial<KickTuning>): boolean =>
+  !!tuning && typeof tuning === "object" && !Array.isArray(tuning) && Object.entries(tuning).every(([key, value]) => key in KICK_PATH && Number.isFinite(value));
+
+/** Whether `tuning` holds every kick setting, each valid (`validKickTuning`). */
+export const wholeKick = (tuning: Partial<KickTuning>): boolean => validKickPart(tuning) && Object.keys(KICK_PATH).every((key) => Object.hasOwn(tuning, key)) && validKickTuning(tuning as KickTuning);
+
+/** The soles, hips and foot effectors a kick reads. */
+export function kickRefusal(spec: BodySpec): string | null {
+  const soles = soleRefusal(spec);
+  if (soles) return soles;
+  for (const side of SIDES) {
+    const segment = spec.segments.find((one) => one.name === "foot." + side);
+    if (!spec.joints.some((joint) => joint.name === "hip." + side) || !segment?.points?.sole || !spec.effectors?.some((effector) => effector.segment === segment.name))
+      return "the kick needs bilateral named hips and foot effectors with sole points";
+  }
+  return null;
 }
 
 /** `tuning`'s schedule for a kick with the `kick` foot, standing on the other. */
