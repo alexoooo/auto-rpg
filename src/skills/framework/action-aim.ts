@@ -37,6 +37,7 @@ function expanded(spec: BodySpec, region: Region): readonly string[] {
       switch (region.mark) {
         case "high": named = [spec.marks.high]; break;
         case "middle": named = spec.marks.middle; break;
+        case "base": named = [spec.marks.base]; break;
         case "legs": named = spec.marks.legs; break;
         case "any": return spec.segments.map(s => s.name);
         default: { const never: never = region.mark; throw new Error(`unknown mark ${never}`); }

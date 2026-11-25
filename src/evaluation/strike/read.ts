@@ -33,7 +33,7 @@ import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
 import { swingMotion, type SwingMotion } from "./motion.ts";
 import { swellShapes } from "./swell.ts";
 
-export type Mark = "high" | "middle" | "legs";
+export type Mark = "high" | "middle" | "base" | "legs";
 
 /**
  * A landed blow takes at least this much life, HP: half a solid punch (a hit point is 100 J of blunt

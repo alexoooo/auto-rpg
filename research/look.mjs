@@ -92,19 +92,24 @@ async function main() {
   for (let k = 0; k < strips; k++) {
     const at = Math.floor(k * count / strips), frames = await strip(trials[at], valueOf(trials[at], variation, tuning));
     writeFileSync(join(dir, `strip-${k}.png`), stripPng(frames.map((f) => f.drawn)));
-    shown.push({ strip: `strip-${k}.png`, trial: trials[at].name, outcome: played[at].outcome, down: played[at].down, frames: frames.map(({ time, stage }) => ({ time, stage })) });
+    shown.push({ strip: `strip-${k}.png`, trial: trials[at].name, rung: trials[at].protocol, outcome: played[at].outcome, down: played[at].down, frames: frames.map(({ time, stage }) => ({ time, stage })) });
   }
   const outcomes = {};
   for (const one of played) outcomes[one.outcome ?? "none"] = (outcomes[one.outcome ?? "none"] ?? 0) + 1;
-  const ends = endsOf(trials[0].skill);
+  const ends = endsOf(trials[0].skill), rungs = {};
+  // Each rung's own counts, a cell reading more than one (the kick's middle and base).
+  played.forEach((one, k) => {
+    const rung = rungs[trials[k].protocol] ??= { trials: 0, landed: 0, down: 0, endedAsItMust: 0 };
+    rung.trials++; rung.landed += one.outcome === "landed" ? 1 : 0; rung.down += one.down ? 1 : 0; rung.endedAsItMust += ends.includes(one.ended) ? 1 : 0;
+  });
   const look = { body, variation, code, tuning, cell: `${cell.body} ${cell.skill} ${trials[0].drill}/${trials[0].protocol}`, trials: count,
     landed: played.filter((one) => one.outcome === "landed").length, down: played.filter((one) => one.down).length,
-    ends, endedAsItMust: played.filter((one) => ends.includes(one.ended)).length, outcomes, strips: shown };
+    ends, endedAsItMust: played.filter((one) => ends.includes(one.ended)).length, outcomes, rungs, strips: shown };
   writeFileSync(join(dir, "look.json"), JSON.stringify(look, null, 1) + "\n");
   const verdict = join(dir, "verdict.md");
   if (!existsSync(verdict)) writeFileSync(verdict, [`# ${body}'s ${variation} at ${code}`, "", "Looks like the motion: no", "Works some of the time: no", "",
     "What the strips show, against how a person does it:", ""].join("\n") + "\n");
-  console.log(`${relative(ROOT, dir)}: landed ${look.landed}/${count}, down ${look.down}/${count}, ended ${ends.join(" or ")} ${look.endedAsItMust}/${count}, ${JSON.stringify(outcomes)}; strips ${shown.map((s) => s.strip).join(", ")}; its verdict ${relative(ROOT, verdict)}`);
+  console.log(`${relative(ROOT, dir)}: landed ${look.landed}/${count}, down ${look.down}/${count}, ended ${ends.join(" or ")} ${look.endedAsItMust}/${count}, ${JSON.stringify(outcomes)}, by rung ${JSON.stringify(rungs)}; strips ${shown.map((s) => s.strip).join(", ")}; its verdict ${relative(ROOT, verdict)}`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await main();

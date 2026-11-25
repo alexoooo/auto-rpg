@@ -140,7 +140,7 @@ export const createTableCells = perContext((context: GameContext) => {
       value: `${BLOW}; the fist's speed over its last 0.1 m beside it` },
     { name: "stomp", has: struck("stomp"), readings: (body, loadout) => [strikeRung("stomping", "foot", "stomp", body, loadout)],
       value: `${BLOW}; the foot's speed into the contact beside it` },
-    { name: "kick", has: struck("kick"), readings: (body, loadout) => [strikeRung("middle", "foot", "kick", body, loadout)],
+    { name: "kick", has: struck("kick"), readings: (body, loadout) => [strikeRung("middle", "foot", "kick", body, loadout), strikeRung("base", "foot", "kick", body, loadout)],
       value: `${BLOW}; the foot's speed over its last 0.1 m beside it` },
     { name: "bite", has: struck("bite"), readings: (body, loadout) => [strikeRung("biting", "teeth", "bite", body, loadout)],
       value: `${BLOW}; the teeth's closing speed at the contact beside it` },

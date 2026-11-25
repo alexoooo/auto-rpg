@@ -78,9 +78,21 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   holds a leg reaching forward short of its path (the knee stopped at 0.7 rad), at 0.03 s it
   straightens (`pathSeconds`); the window 0.7 to 1.0 m put the foe inside the leg's reach and 0.95
   to 1.15 beyond it, 0.8 to 1.0 holds it.
-- **Next, by hand**: the extension driven out level at the mark's height, not up from under the
-  chamber, at the range the leg is straight at; then what it does when offered closer (the
-  Option's range, or a step back first), by look. Reported before any search.
+- **The front kick's mark is the base.** A person's push kick goes to the belly and hips, and the
+  rules take a blow there as from any of the trunk (life ×1 on a man). Aimed at the middle mark,
+  the front kick struck the lower trunk in 6 of 14 (three 0.43 to 0.47 of a life) and the guard in
+  6. So the base (the body's `marks.base`, its lower trunk) is a mark, and the kick's cell reads it
+  beside the middle (the `base` rung); the kick Option offers it after the middle, so a Mind
+  without orders aims as it did. Aimed at the base's centre, the front kick lands 2 of 14 there
+  (light blows) and falls in 4, against 1 aimed at the middle: the leg's line has to be aimed
+  above where the foot meets, which bends under it. A chamber and extension solved to put the foot
+  at the middle mark's height tucked the kicker and laid the trunk back about 45°: reverted.
+- **Next, by hand**: the leg's line aimed above the mark it meets, on the base rung; then what it
+  does when offered closer (the Option's range, or a step back first), by look. Reported before
+  any search.
+- **When the front kick is the one the Warrior holds**: its mark is declared with the variation,
+  as its ends are, and the Option aims at it, one source; so the drive's goal and what the Mind's
+  strike profile measures for it agree with where it lands (the reviewing session, 2026-11-25).
 
 ## After it
 
