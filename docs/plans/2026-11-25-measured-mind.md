@@ -83,6 +83,11 @@ Each rule is held by something that refuses, as a skill's search is held by its 
 (`requireLook`, `research/look-gate.mjs`). A rule kept only in a document is how the pattern
 above happened.
 
+A gate holds that a step was taken, not that its judgment was right: the look's gate passes on a
+verdict the agent itself writes. So what an agent judges of its own work (a number's sort, a
+setting called one situation's, a step called done) is also put to a reader who did not do the
+work, told to refute it (the procedure's step 5).
+
 1. **No name is a key, and nothing has to be measured a pairing.** What the Mind reads is found
    by numbers: a body by its stature, mass and reach; what it holds by the mass and reach it
    adds; a skill by its kind and what its model says. A measurement is rows of one body doing one
@@ -92,7 +97,11 @@ above happened.
    as how the trials' square goes, trials coming from fights so the pairs that meet read well
    from play: "your recommendation makes sense".)
    *Held by* the inventory's check, which fails on a name or a pairing that finds a reading and
-   is not on its list. The list is this plan's two tables, and it only shrinks.
+   is not on its list. The list is this plan's two tables, and once step 1 has audited them
+   again it only shrinks. And by the made-up body (the inventory, below): it has no rows, so a
+   reading it finds as its own was found by a name. A lookup that is mended takes a body as its
+   numbers alone, as the struck body is taken already (`struckNumbers`), so it cannot see a
+   name.
 2. **A reading is taken from the rows nearest in the numbers.** Those are the body's own where
    it has any, holding what it holds, against the foe nearest the one it faces. Measuring is
    adding: rows to a profile, or one more fit beside those already there. So adding rows moves
@@ -115,7 +124,11 @@ above happened.
    it came from (`origin`). Step 1 builds the rest.
    *Held by* a reading's type: none is built without its source. Every number set by hand is in
    one registry and read through it alone, so the inventory lists them from the code that reads
-   them, never from a search of the source.
+   them, never from a search of the source. Each entry has one of three sorts (what is guessed
+   now, below): a guess, which is on the list that fails; a preference, which is a field a
+   person can set; or the reading's own, the same for every body. A number written anywhere
+   else in the folders the Mind prices in fails a scan of the parsed source, which has a fixture
+   that shows it catches one ([the test rules](../../tests/README.md)).
 4. **Nothing is measured again unless it is asked for, and nothing is chased to a fixed point.**
    A measuring command is given what is in hand (a body, a skill, a foe) and measures that
    alone. A new measurement changes the fights, so it makes staler everything measured in the
@@ -134,6 +147,25 @@ above happened.
    procedure's step 5).
    *Held by* the report being the tools' own output: the inventory's and the fingerprint's
    comparisons (`--compare`), in the commit message as they print.
+6. **Every term of a price says where it came from, and "not priced" is a source.** A line's
+   price answers what the Mind imagines (the mechanisms, below): how long each Option takes,
+   what it deals and takes, where it leaves the body, where the foe goes meanwhile, and what
+   the line's end is worth. Each answer carries its source. One the Mind does not answer is
+   written "not priced", never left out. The inventory lists what a lookup would find. It
+   cannot show a lookup that is never called (the end of a line today), or a mechanism that is
+   built and stands aside in play. So the sources are counted over decisions that were played.
+   *Held by* the trace: over a step's looked-at decisions and its bouts it prints the share of
+   terms from each source. On the bodies in scope, a step is not done while the term its row
+   names is by hand or not priced. Counting costs the game's play nothing where it is not asked
+   for ([the ceilings](../reference/step-cost.md#allocation-ceilings)).
+7. **Thinking grows no faster than what is on offer.** Measuring is not the only thing that
+   scales (the goal: "i don't want anything in this game to be N^2 (or worse)"). One more
+   Option, one more foe in the room and one more row kept each cost a decision no more than
+   their share. The foe's Options weighed along every line (mechanism 3) are the body's Options
+   times his unless they are bounded. Rows kept and counting for less (rule 4) still cost every
+   reading unless a reading's time does not grow with them.
+   *Held by* the step's naming, which states each of the three as a count, and by the thinking
+   read twice, on the man's own Options and on every Option that fits him, both in the report.
 
 ## One Mind already, in three configs
 
@@ -168,6 +200,20 @@ It is used as the fingerprint is: written before a change (`--json`), compared a
 name or by a pairing something that is not on its list of those known today. It never fails on
 staleness: it says how stale each reading is and can list the stalest first, which is what a
 refresh is chosen from.
+
+Borrowing always finds something, however far off, so "borrowed" alone says little. Each
+borrowed row says how far off it is in the numbers, and the listing can put the farthest first.
+Every listing ends with three counts: the registry's numbers by sort, the list that fails, and
+the settings in which the bodies' default configs differ. A count that grew is named in the
+step's report.
+
+**A made-up body and a made-up item** are listed beside the game's: a model built at a stature
+and mass no measured body has, and an item of a mass and reach no trial held. They are made in
+the script and no file is added for them. Both must be offered Options and have each priced,
+every row borrowed. A row that says "its own" was found by a name. A row that says "none" is a
+mechanism that does not reach a new body. This is the count in "What a new thing costs", run,
+where a clean listing of five bodies cannot show it. A skill cannot be made up without its code,
+so a skill's count is read on the next skill the game adds.
 
 This is what catches a mechanism called general that was built for one body. On its default
 config every body's rows must say "its own" or "borrowed"; one that says "by hand" or "none" is
@@ -265,6 +311,23 @@ recipe's tuning search, and goes there.
 initiative, the margin, the draw and the reach (`objective.ts`). So are the search's: the horizon
 and the runs. They stay as settings a player picks, each default chosen by measuring it.
 
+A preference is a field a person can set, and a number that is not one is not a preference. Of
+those named, the few terms' fields are the aggression and the initiative alone: the margin and
+the draw are constants in source (`MARGIN`, `DRAW`, and `EVEN` beside them). Step 1 makes each
+a field or sorts it otherwise.
+
+**The reading's own.** A third sort: the numbers of how a reading is taken, the same for every
+body and keyed by none. How many trials are nearest, and over what spans (`NEAREST`,
+`STRUCK_SPANS`, `src/skills/framework/profile/nearest.ts`); the pressure table's (`MOMENTS`,
+`SPAN`, `pressure.ts`); how many tries a prior counts as against a record (`WEIGHT`,
+`record.ts`). How far apart two bodies are in the numbers is of this sort, and so is how fast
+an older row comes to count for less. They are set by hand, so they are in the registry and
+the inventory lists them. They are not on the list that fails.
+
+**Not yet sorted.** A search of `src/minds/option/` on 2026-11-25 found these in neither table:
+`HELD_FOE` and `REPLY_LEAST` (`chooser.ts`), `LONGEST` (`fitted-value.ts`), `AHEAD`
+(`orders.ts`). Both tables came from one audit, so step 1 audits again.
+
 ## What a name, a pairing or a pooled reading still finds
 
 The numbers plan's census, as the code stands. Rules 1 and 2 ask each of these mended.
@@ -301,10 +364,17 @@ scope.** 5. **Install and confirm.**
 
 - **The row it replaces**, from the two tables above, and the numbers that will find it.
 - **What one more body, item or skill costs to measure**, as a count.
+- **What one more Option, one more foe in the room and one more row kept cost a decision**, as
+  a count (rule 7). A product of two of them goes back to the design before anything is built.
 - **Its sort**, by the owner's rule, with the reason: a fix of something broken, or a gain in
   scale or speed, which is every body's; or one situation's, which is that body's alone. This
   plan's mechanisms are fixes: each stands where a guess prices every body. A setting chosen by
   reading it on one body (an aggression, a backup, a run count) is a situation's.
+- **A situation's setting is traced as a fix is.** A fix that reads worse has found something
+  else broken (the goal). By the same reasoning a setting that reads better on one body may be
+  paying for a wrong price, as `option-presses` does. So before one is set, the prices at the
+  decisions it changes are looked at (step 3). Where one is wrong, that price is the work, and
+  the setting waits.
 - **Its scope**: the bodies it will be read on, which is what the work is on. Today that is the
   empty-handed Warrior, and the rat against him where the step is about what the rat showed.
   Nothing is played for another body or loadout unless the work is on it or the owner asks.
@@ -327,6 +397,8 @@ scope.** 5. **Install and confirm.**
   hand, the price of each Option on offer before and after, and where each price came from.
 - **The price moves for the reason the row names**, and by about what was measured. One that
   does not goes back to step 1.
+- **The term the row names has the mechanism as its source** at those decisions (rule 6). One
+  that is still by hand or not priced there was built and is not reached: back to step 1.
 - The rat's wait at the edge of reach was found by tracing one bout, after three `gaps` readings
   had not shown why (the rat plan).
 
@@ -339,7 +411,9 @@ scope.** 5. **Install and confirm.**
   `option-lean` 34 and 19; `option-lean` at best line and aggression 5, 42 and 22;
   `option-presses` 42 and 24. Where a step has changed the man's own Mind, these are read once
   again against it, and the report says so.
-- **The thinking**: the Mind's time per simulated second beside `option-lean`'s 135 ms.
+- **The thinking**: the Mind's time per simulated second beside `option-lean`'s 135 ms, read
+  on the man's own Options and on every Option that fits him (rule 7).
+- **The sources**: over these bouts' decisions, the share of terms from each source (rule 6).
 - **A run whose readings already answer it is stopped at once** (the skill recipe).
 
 ### 5. Install and confirm
@@ -362,8 +436,17 @@ scope.** 5. **Install and confirm.**
   inventory lists as borrowed. This shows that it fights, not how well, and costs the same
   however many bodies the game has.
 - **A headless look at the Arena** with the mind editor open, where a config changes.
+- **Read by one who did not do the work.** A fresh session is given the commit, the rules and
+  the inventory's listing, and not the worker's report. It is told to refute the step: a name
+  that still finds a reading, a number outside the registry, a term the mechanism does not
+  reach, a body or the made-up one it does not serve, a cost that is a product. It reads
+  read-only and plays nothing. What it finds goes into the report as it wrote it, each answered
+  by a reading or a mend. It does not wait on the owner (the second session's rule,
+  `AGENTS.md`).
 - **The report** (rule 5): its scope, its readings with their spreads, the fingerprint's and the
-  inventory's comparisons as they print, and each case moved and not read.
+  inventory's comparisons as they print, the inventory's three counts, the share of terms from
+  each source, the thinking read both ways, what the fresh reader found, and each case moved
+  and not read.
 - A mechanism that reads flat is kept: it removes a guess. That is the goal, the same Mind
   priced from measurement.
 
@@ -372,11 +455,14 @@ scope.** 5. **Install and confirm.**
 The agent's bar, from the owner's words above; the owner's to change.
 
 1. **Each row of the two tables above**: for every body its mechanism stands in the row's place,
-   under the five rules, or the owner has struck the row by name. A row written down as not
+   under the seven rules, or the owner has struck the row by name. A row written down as not
    built is not met. What a row's mechanism stood in for is listed for the owner's word to
-   remove.
+   remove. In the decisions played for its step, the term the row names has the mechanism as
+   its source (rule 6).
 2. **The inventory is clean for every body on its default config**: nothing read by hand, by a
-   name, or from a table that had to be measured for a pairing. Borrowed is allowed, and listed.
+   name, or from a table that had to be measured for a pairing. Borrowed is allowed, and listed
+   with how far off it is. The made-up body and item are offered Options, each priced, and read
+   nothing as their own.
 3. **Each mechanism was shown once on a body with nothing of its own** (the procedure's step 5).
 4. **The bodies' default configs differ only by what is one situation's**, each such setting
    listed with the body it was chosen for and its reading. No body is left without a fix
@@ -386,9 +472,9 @@ The agent's bar, from the owner's words above; the owner's to change.
    new skill each ask what the table says, and nothing of a pairing.
 6. **The action prior** is read each way "tried properly" lists, each variant pickable.
 7. **The rat's own config holds only what is the rat's situation's** (step 13).
-8. **The five rules are each held by what refuses** (their "held by"), not by this document.
-9. **A step's report** is the procedure's step 5. A step is called done only with it, and only
-   of the bodies it was read on.
+8. **The seven rules are each held by what refuses** (their "held by"), not by this document.
+9. **A step's report** is the procedure's step 5, the fresh reader's findings in it and each
+   answered. A step is called done only with it, and only of the bodies it was read on.
 
 No bar asks that a measurement be fresh or correct. A mechanism is done when it reads what was
 measured by the rules; how stale that is, is the inventory's to say and the owner's to refresh.
@@ -445,6 +531,15 @@ Each names its scope and follows the procedure. A step measures nothing outside 
    read), compared when the inventory runs, so how stale it is costs nothing to know; the
    script, its check, and its first listing for the five bodies. It plays nothing. The
    baselines are those in the procedure's step 4, read before this plan.
+   With it: each registry entry's sort, and the scan that fails a number written outside the
+   registry; the made-up body and item in the listing; and the trace's count of terms by
+   source (rule 6), "not priced" among them, read once on the man's mirror as it stands. The
+   two tables are audited again by a session that is not given them, over the folders the Mind
+   prices in (`src/minds/option/`, `src/skills/framework/profile/`,
+   `src/skills/framework/form.ts`). What it finds and the tables lack is added to them. This is
+   the one time the list grows.
+   Every later step leans on this one, so its first listing is put to the owner, and step 2
+   starts on the owner's word.
 2. **Today's three configs sorted by the owner's rule** (the goal: a fix is every body's). Each
    setting `option-lean` and `option-presses` hold apart from `option-tail` is named a fix, a
    gain in scale or speed, or one situation's, with its reason. The first two are set for every
