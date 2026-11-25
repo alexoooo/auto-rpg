@@ -623,8 +623,8 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   the fitted leaf already reads the same quantities. Deciding 10 times a second with no reply
   searched (`option-lean`) thinks 135 ms a simulated second against 251 and plays as well: a
   decision costs more as decisions get rarer, so the rate halves the thinking, not divides it by
-  six. On the scorecard it knocks out within 60 s in 34.7 % of its mirror bouts against 34.8 %;
-  it is the empty-handed man's Mind. Its decision lands in the one step it is made in: with the
+  six. On the scorecard it knocks out within 60 s in 45.1 % of its mirror bouts against 38.6 %
+  (`b207cee32`); it is the empty-handed man's Mind. Its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of
   a bout's CPU against the physics' 22 %, the profiles' nearest lookup the largest part

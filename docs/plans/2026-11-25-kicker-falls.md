@@ -46,7 +46,8 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   (`research/runs/falls/`).
 - **Step 2, the set-down: landed.** The set-down's step back to where the foot stood is gone; the
   stance's own standing catches the body, as in the recentre: down after 65.7 % of kicks, the
-  scorecard's knockouts within 60 s 38.9 % against 34.7 %, level in the match. A step aimed at the
+  scorecard's knockouts within 60 s 38.9 % against 34.7 %, level in the match; at `b207cee32`
+  the game's Mind reads 45.1 % (35.8 to 54.8) and 3.59 downs a bout, `option-truer` 38.6 % and 4.01. A step aimed at the
   capture point read flat; a re-chamber under the pose before the step fell more.
 - **Next**: the falls left, read by the same probe (`bout-kicks.mjs`), each kick's kicker
   against whether the foe's blow came first, the trades the kick's findings name; then the low
