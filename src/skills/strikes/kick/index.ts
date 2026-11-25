@@ -1,6 +1,7 @@
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
 import meta from "../../../../assets/skills/strikes/kick/kick.meta.json" with { type: "json" };
 import pushMeta from "../../../../assets/skills/strikes/kick/push.meta.json" with { type: "json" };
+import frontMeta from "../../../../assets/skills/strikes/kick/front.meta.json" with { type: "json" };
 import { dataOf } from "../../../core/data/store.ts";
 import { aimedPoint, type ExecutorMaking, type ExecutorPart } from "../../framework/executor-part.ts";
 import type { ActionConfig } from "../../config.ts";
@@ -8,10 +9,10 @@ import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { chosenVariation, executorOf, makersOf, varied, variationReads, variationRecordFault, type RecordedVariation, type Varied, type Variations } from "../../framework/variations.ts";
 import { tunedSettings, type SkillRecords } from "../../framework/records.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { kickExecutor, kickRefusal, KICK_PATH, validKickPart, validKickTuning, wholeKick, type KickTuning } from "../shared/kick.ts";
+import { kickExecutor, kickRefusal, KICK_PATH, validKickPart, validKickTuning, wholeKick, type KickDrive, type KickTuning } from "../shared/kick.ts";
 
 /** **The kick's records**, each its variation's own (`kick/<variation>`). */
-type KickRecordKey = "kick/kick" | "kick/push";
+type KickRecordKey = "kick/kick" | "kick/push" | "kick/front";
 
 declare module "../../../core/data/store.ts" {
   interface DataOf {
@@ -19,6 +20,8 @@ declare module "../../../core/data/store.ts" {
     "kick/kick": SkillRecords<KickTuning>;
     /** Every body's record of the push kick (`assets/skills/strikes/kick/push.json`). */
     "kick/push": SkillRecords<KickTuning>;
+    /** Every body's record of the front kick (`assets/skills/strikes/kick/front.json`). */
+    "kick/front": SkillRecords<KickTuning>;
   }
 }
 
@@ -28,20 +31,22 @@ interface Config extends Varied {
   readonly tuning?: Partial<KickTuning>;
 }
 
-/** A variation of the kick: the kick as the record of `key` has it on each of `bodies`. */
-const variation = (key: KickRecordKey, bodies: readonly string[]): RecordedVariation<(making: ExecutorMaking, config: Config, actions: readonly ActionConfig[]) => ReturnType<typeof kickExecutor>> & { readonly key: KickRecordKey } => ({
+/** A variation of the kick: the kick as the record of `key` has it on each of `bodies`, its leg driven as `drive` says. */
+const variation = (key: KickRecordKey, bodies: readonly string[], drive: KickDrive = "pushed"): RecordedVariation<(making: ExecutorMaking, config: Config, actions: readonly ActionConfig[]) => ReturnType<typeof kickExecutor>> & { readonly key: KickRecordKey } => ({
   key, reads: [key], bodies,
-  make: ({ body, aim }, config, actions) => kickExecutor(body, actions.map((a) => a.name), tunedSettings(dataOf(key), body.built.spec, config), aimedPoint(aim)),
+  make: ({ body, aim }, config, actions) => kickExecutor(body, actions.map((a) => a.name), tunedSettings(dataOf(key), body.built.spec, config), aimedPoint(aim), drive),
 });
 
 /**
  * The kick's variations, each by its own record: the kick (`kick/kick`), its leg thrown up on its
- * schedule; and the push kick (`kick/push`), its leg the aimed drive's, folded up and driven out
- * level at the foe's middle.
+ * schedule; the push kick (`kick/push`), its leg the aimed drive's, folded up and driven out
+ * level at the foe's middle; and the front kick (`kick/front`), its leg carried along authored paths,
+ * chambered, extended at the target and retracted (`KickDrive`).
  */
 const VARIATIONS: Variations<ReturnType<typeof variation>> = {
   kick: variation("kick/kick", deepFreeze(meta.bodies)),
   push: variation("kick/push", deepFreeze(pushMeta.bodies)),
+  front: variation("kick/front", deepFreeze(frontMeta.bodies), "authored"),
 };
 
 /** The record the kick runs on a body of `spec` as `config` names it (`chosenVariation`), or null where it runs no one. */
@@ -63,7 +68,7 @@ export const KICK_PART: ExecutorPart<Config> = {
   ...varied({ skill: "kick", label: "kick", variations: makersOf(VARIATIONS), of: executorOf, fits: [kickRefusal, variationRecordFault("kick", "kick", VARIATIONS, wholeKick),
     (spec, config) => { const records = recordOf(spec, config); return records === null || validKickTuning(tunedSettings(records, spec, config)) ? null : "invalid kick executor settings"; }] }),
   faults: (config) => config.tuning === undefined || validKickPart(config.tuning) ? [] : ["invalid kick tuning"],
-  fitReads: ["kick/kick", "kick/push"], reads: variationReads(VARIATIONS), effectors: ["foot.left", "foot.right"], aims: true,
+  fitReads: ["kick/kick", "kick/push", "kick/front"], reads: variationReads(VARIATIONS), effectors: ["foot.left", "foot.right"], aims: true,
   asSkill: { group: "Strikes", ends: ["standing"] },
 };
 

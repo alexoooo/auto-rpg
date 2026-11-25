@@ -67,12 +67,20 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   seesaw, and the folded leg is jammed into the foe. On its drill it lands 7 of 14 and ends standing
   in 11. The flat-out pushes at the hip and knee toward a goal in the root's frame make the
   reaction, and the one-foot pose cannot hold it. Its searches are refused (`requireLook`).
-- **Next: the authored kick**, its own variation beside `kick/push`: chamber the knee; drive the hips
-  through over a bent standing leg; the trunk counters the leg; retract after contact; set the foot
-  down under the body. Written for the range a person throws it from (the foot reaching the target
-  with the leg near straight) and looked at there first; what it does when offered closer (the
-  Option's range, or a step back first) decided by look and by hand. Made to land and keep the
-  kicker up some of the time on the drill, by hand, and reported before any search.
+- **The authored kick, `kick/front`: looks like the motion, lands nothing yet.** Pickable beside
+  `kick/push`, in no Mind. The kicking leg is carried along timed joint paths (`KickDrive`, the
+  kick's executor), through a chamber with the knee brought up at the target, an extension along
+  the line at it and a retraction, the stance on the standing leg solving for what the paths ask,
+  and the stance's own set-down. Its look (`research/looks/man/kick-front/`): a push kick, the
+  pelvis and trunk leaning back against the leg as a person's do, the standing foot down; on the
+  drill it ends standing in 13 of 14 and lands none, the foot meeting the foe's lower trunk, under
+  the mark, or its arms. Found by hand on the way: at the motor's own response the stance's solve
+  holds a leg reaching forward short of its path (the knee stopped at 0.7 rad), at 0.03 s it
+  straightens (`pathSeconds`); the window 0.7 to 1.0 m put the foe inside the leg's reach and 0.95
+  to 1.15 beyond it, 0.8 to 1.0 holds it.
+- **Next, by hand**: the extension driven out level at the mark's height, not up from under the
+  chamber, at the range the leg is straight at; then what it does when offered closer (the
+  Option's range, or a step back first), by look. Reported before any search.
 
 ## After it
 
