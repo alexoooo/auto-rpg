@@ -60,13 +60,13 @@ export function buildOptionMind(host: BodyHost, config: ResolvedConfig): MindMad
       const aims = configuredAims(parts, spec, skillParts.actions);
       const skills = makeSkills(body, clock, parts, skillParts, ground, aims);
 
-      // What it predicts by, as its predictions part makes it; then its Options, its reader and its chooser.
+      // What it predicts by, as its predictions part makes it; then its Options, its exchange predictor, given the strikes they model, its reader and its chooser.
       const predictors = parts.of("predictions", config.predictions).make(config.predictions);
       const walk = walker(spec, predictors.walkStart), record = optionRecord();
       const options = optionsOf(config.options, { spec, hz, rate, delay: body.delay, parts, walk, legs, guards: guard, outcomes: predictors.outcomes, record });
-      const reader = situationReader({ spec, hz, rate, delay: body.delay, rules: host.rules, strikes: options.flatMap((option) => option.modelled ? [option.modelled] : []),
-        measured: predictors.strikes, others: predictors.others, ordersOf: (sight) => host.orders(sight.view.senses), record, parts, techniques: named.techniques });
-      const chooser = chooserOf(parts, config.chooser, options, host.seed, bodyOf(spec));
+      const exchange = predictors.exchange({ strikes: options.flatMap((option) => option.modelled ? [option.modelled] : []) });
+      const reader = situationReader({ spec, hz, rate, delay: body.delay, rules: host.rules, exchange, ordersOf: (sight) => host.orders(sight.view.senses), record, parts, techniques: named.techniques });
+      const chooser = chooserOf(parts, config.chooser, { options, seed: host.seed, body: bodyOf(spec), exchange });
 
       const mind = new OptionMind({ layers, skills, reader, options, chooser, pace: new Pace(every, host.phase, (senses) => host.orders(senses)),
         record, aims: aimsState(aims), facing: walk.facing });

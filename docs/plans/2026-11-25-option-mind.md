@@ -37,7 +37,8 @@ hard-coded hacks."
 ## What was wrong at the start
 
 Each line was read in the code on 2026-11-25 at `878c17a24`, and cites the code as it was then.
-Put right so far: 5, 6 and 10 (chunk 1); 1, 3 and 4 (2b); 2 (2b and 2c).
+Put right so far: 5, 6 and 10 (chunk 1); 1, 3 and 4 (2b); 2 (2b and 2c); 7 in part (3a: the
+exchange is one interface; a pressure and a line's end follow in 3b and 3c).
 
 1. **Nothing named Option Mind is a `Mind`.** `OptionMind` (`src/minds/option/build.ts:28`) is
    the receipt the build hands the fight (`MindMade`). The `Mind` (`src/minds/mind.ts:15`) is made
@@ -564,80 +565,43 @@ lands far out (563.0 once), so the spread of this harness is nearer 9 KiB than 2
 
 Four commits.
 
-### 3a: the exchange
+### 3a: the exchange (landed)
 
 **Purpose.** What the body predicts of the fight between it and its foe, beyond what its own
-Options model, is asked of one interface that a config can swap whole. Today that is six
-readings in a closed literal, one of them swappable, and two more inside the imagined state and
-the search.
+Options model, is asked of one interface that a config can swap whole.
 
-`contract/predictors.ts` gains:
+What is there now:
 
-```ts
-/** What the body and its foe are expected to do to each other, as far as the body can tell without knowing the foe's Options. */
-export interface ExchangePredictor {
-  /** The share of the body's life the blow already coming is expected to take, where `pressure` does not count it already. */
-  danger(seen: Seen): number;
-  /** What the foe's fighting is expected to take from the body as the two stand now. */
-  pressure(seen: Seen): Pressure;
-  /** What the body's own strikes are expected to take from the foe. */
-  pressing(seen: Seen): Pressure;
-  /** What a second spent down in each posture is expected to cost the body. */
-  downRate(seen: Seen): (posture: Position) => number;
-  /** How fast the foe turns to face, rad/s. */
-  turns(seen: Seen): number;
-  /** The share of the foe's life a blow of a limb of the body's takes at a segment of his. */
-  blows(seen: Seen): (limb: string, segment: string) => number;
-  /** The foe `seconds` s from now. The same object where that does not move him. */
-  later(foe: BodySense, seconds: number): BodySense;
-  /** The move the foe is expected to answer a line of the body's with: a velocity and the seconds he keeps it. Null where he is expected to stand. */
-  reply(root: Situation, line: Terms): FoeMove | null;
-}
-```
+- **`contract/predictors.ts`**: `ExchangePredictor` with eight members. Six are a situation's
+  predictions, each read of what the reader sees (`danger`, `pressure`, `pressing`,
+  `downRate`, `turns`, `blows`). Two are asked by a search of a state already read: `later`
+  (the foe some seconds on) and `reply` (the move the foe answers a line with, a `FoeMove`).
+  `Predictors` holds `outcomes`, `walkStart` and `exchange(given)`, which makes the predictor
+  from the body's own modelled strikes once its Options are made.
+- **`contract/situation.ts`**: `Seen` is what a predictor reads: the sight, the spec, the two
+  rates, the delay, the rules, the focus and the blow coming. It carries no table.
+- **`percepts.ts`**: the class `ProfileExchange` is the old `PREDICTIONS` literal made an object,
+  built with `ProfileTables` (the body's own strikes, every striker's measured strikes, and the
+  pressure tables or null). `OthersModel`, `RATE_OTHERS` and `measuredOthers` are gone: null
+  tables read the strikes' rate alone, and `danger` is 0 where a measured table reads.
+  `carried` and `replyOf` moved here as its `later` and `reply`, and the strike models that
+  read the tables are its private methods. `perceiver(exchange)` reads each prediction from the
+  predictor, lazily, once a situation, through a binding that ties each member's answer to its
+  prediction's type. `ReaderSeen` extends `Seen`
+  with what the percepts alone read (orders, ward, the two memories).
+- **The search**: `ChooserPart.make` is given `exchange`, the two searching parts put it in
+  `Searched`, `placing(exchange, carry)` asks `later` for `Math.min(seconds, carry)`, and
+  `repliedSearch` asks `reply`. `placed` hands the foe on unmoved and asks nothing.
+  `chooserOf` takes what the part is made with as one object.
 
-Its first six members are `Predictions`' six fields. They take what the reader sees (`Seen`)
-because the perceiver asks them while it is building the situation; the last two are asked by
-the search of a state already built. `FoeMove` names what `replyOf` returns today
-(`{ x, z, seconds }`).
+Not as first written: `Seen` keeps the body's constants, as step 1 said, so the predictor is
+given its tables and the body's own strikes alone and not the constants a second time. The
+profile predictor is a class and not a function returning a literal: its helpers read the tables
+as a field, where a function's would each have taken them as a fourth argument.
 
-**Steps.**
-
-1. **`Seen` moves to `contract/situation.ts` as what a predictor reads**: the sight, the spec,
-   the rates, the delay, the rules, the focus and the blow coming, which is all the six readers
-   and their helpers read today. The reader's own (`SeenAt`, `situation.ts:57`) extends it with
-   the orders, the ward, the threat reader and its two memories. `Seen.strikes`, `Seen.measured`
-   and `Seen.others` go: the code that reads them (`modelOf`, `foeModel`, `ownModel`, `lifeOf`,
-   `PREDICTIONS`; `percepts.ts:202` to `:258`, `:592`, `:708`) is all inside the predictor,
-   which is built with those tables.
-2. **The profile predictor is `PREDICTIONS` made an object.** `profileExchange(given)` returns an
-   `ExchangePredictor` built with the measured strikes, the body's own modelled strikes, the
-   pressure tables or none, and the body's constants. `Predictors.others` becomes
-   `Predictors.exchange`, a function from what a Mind gives (its spec, rates, delay, rules and
-   its Options' modelled strikes, known once its Options are made) to its predictor. `perceiver`
-   reads each of a situation's six predictions from the predictor on what it sees, lazily, as it
-   reads the literal today; the imagined states overlay them with `Object.create`, which a lazy
-   getter survives. `OthersModel`, `RATE_OTHERS` and `measuredOthers` become the two ways
-   `profileExchange` is given its tables; `danger` is 0 where the measured table reads, as
-   `holdsBlow` selects today.
-3. **The search is given the predictor.** `ChooserPart.make`'s `making` (`parts.ts:21`) gains
-   `exchange`, `chooserOf` passes it, and the two searching parts put it in `Searched`
-   (`chooser.ts:813`, `:900`).
-4. **`later` replaces `carried`** (`option.ts:179`), as it is, the identity kept: `placedWith`
-   branches on whether the foe is the same object. `placing` takes the predictor's `later`
-   where it takes `carry` seconds today, and the search asks it for `Math.min(seconds, carry)`:
-   the chooser's `carry` stays the seconds of the foe's motion a search reads.
-5. **`reply` replaces `replyOf`** (`chooser.ts:697`), as it is. `repliedSearch` keeps what is
-   the search's: which replies it prices each line against (`replies`, `DIRECTIONS`), how
-   (`against`), the test that the foe is the body's own kind (`:664`), and the imagined root in
-   which the foe makes the predicted move (`:679`).
-
-**Consequences.** No config changes. `tests/minds/option/lying.test.mjs` builds a `Seen` with
-the three tables and calls `perceiver()` bare: its fixture is rebuilt on a rate predictor.
-`src/evaluation/back-step/read.ts` imports `measuredReach`, and `research/minds/move-prior.mjs`
-and `fitted-value.mjs` call `graceAt`; each is repointed in chunk 4, where those move.
-
-**Done when** the checks pass, the fingerprint compares clean, allocation is read, and `Seen`
-has no table (the type checker refuses a reader left behind).
+**Read on landing** (2026-11-25): the fingerprint moves no pose on any of the 299 cases.
+Allocation is not moved: `option-lean` 476.4, 479.5 and 474.1 KiB a body a step,
+`option-tail` 539.3, 544.0 and 541.0.
 
 ### 3b: a pressure is asked, not taken apart
 
@@ -791,7 +755,7 @@ exported; `Prior` is `record.ts`'s.
    own. `record` stays exported: `tests/skills/profiles.test.mjs:14` reads it and is repointed.
    The always-read numbers named above move in beside them.
 2. **`Predictors` gains `readonly guesses: Guesses | null`**, and `OptionContext` and
-   `profileExchange` are built with it. The measured code reaches a guess only as
+   `ProfileExchange` are built with it. The measured code reaches a guess only as
    `guesses?.strike(...) ?? null`. With none: a strike with no reading at a state models null
    there and is not offered, its `rate` says nothing of that foe and its `priced` says "not
    measured here"; a limb with no profile adds nothing to a pressure; a blow coming from one is
@@ -840,7 +804,7 @@ Files move with `git mv` so history follows. Two commits: the splits, then the m
 | --- | --- |
 | `chooser.ts` | `choosers/chooser.ts` (`chooser`, `chooserOf`, `watching`, `searching`, `FOE_HOLDING`), `choosers/space.ts` (`space`, `Searched`, `Pair`, `Reach`), `choosers/search.ts` (`search`, `again`), `choosers/tree-search.ts` (`treeSearch`, `warmStart`), `choosers/replies.ts` (`repliedSearch`, `AGAINST`, `DIRECTIONS`), `choosers/leaves.ts` (`LEAVES`, `fittedLeaf`), `choosers/parts.ts` (`OptionChooserPart`, the three parts, their configs and editor fields) |
 | `select-set.ts` | `choosers/select-set.ts` (`selectSet` and its argument types), `options/readiness.ts` (`onOffer`, `NOTHING`, `WHOLE`) |
-| `percepts.ts` | `situation/percepts.ts` (`PERCEPTS`, `perceiver`, `Cues`' implementation), `situation/reach-memory.ts` (`reachMemory`, `graceAt`, `inReach`, `threatened`), `predictions/exchange/pressure.ts` (`ProfilePressure`, `pressureBy`, `pooled`, `startOf`), `predictions/exchange/profile.ts` (`profileExchange`, the strike models, `measuredReach`) |
+| `percepts.ts` | `situation/percepts.ts` (`PERCEPTS`, `perceiver`, `Cues`' implementation), `situation/reach-memory.ts` (`reachMemory`, `graceAt`, `inReach`, `threatened`), `predictions/exchange/pressure.ts` (`ProfilePressure`, `pressureBy`, `pooled`, `startOf`), `predictions/exchange/profile.ts` (`ProfileExchange`, `measuredReach`) |
 | `kinds.ts` | `options/strike-kinds.ts` (`strikeKind` and the seven strikes), `options/kinds.ts` (the rest and `optionsOf`) |
 | `option.ts` | `situation/imagined.ts` (`placed`, `placing`, `placedWith`), `options/readiness.ts` (`standing`, `still`, `asking`, `READY`, `blocked`), `options/outcomes.ts` (`along`, `exitOutcomes`) |
 | `value.ts` | `options/outcomes.ts` (`upOrDown`, `AS_IS`, `UNMOVED`, `STILL`), `predictions/damage.ts` (`blowLife`, `limbReach`), `choosers/obedience.ts` (`OBEDIENCE`, `STEADY`, `FIRST`), `RETHINK` to `choosers/chooser.ts` |

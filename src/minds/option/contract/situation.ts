@@ -1,6 +1,7 @@
 import type { GroundReading, Position } from "../../../control/ground-reading.ts";
 import type { MotorUnmet } from "../../../control/motor.ts";
 import type { StancePhase } from "../../../control/stance/goal.ts";
+import type { Rulebook } from "../../../combat/rulebook.ts";
 import type { BodySense } from "../../../core/bodies/senses.ts";
 import type { BearingEnd, BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Cover } from "../../../skills/framework/intent.ts";
@@ -8,7 +9,7 @@ import type { Spot } from "../../../skills/framework/menu.ts";
 import type { Profile, Stances } from "../../../skills/framework/profile/profile.ts";
 import type { ProfileReading } from "../../../skills/framework/profile/reading.ts";
 import type { LegsUnmet } from "../../../skills/framework/skill.ts";
-import type { FoePhase } from "../../../skills/perception/threat.ts";
+import type { FoePhase, threatReader } from "../../../skills/perception/threat.ts";
 import type { Sight } from "../../decider.ts";
 import type { Orders } from "../../orders.ts";
 import type { PressureTable } from "../pressure.ts";
@@ -28,6 +29,27 @@ export interface Situation extends Percepts {
   readonly grace?: number;
   /** What its chooser watches: the cued percepts asked for of any situation its reader made (`Cues`). */
   readonly cues: Cues;
+}
+
+/**
+ * **What a predictor reads** (`ExchangePredictor`), a step's: the body as its Mind was made with
+ * it, what it sees, the foe it fights and that foe's blow coming.
+ */
+export interface Seen {
+  readonly sight: Sight;
+  readonly spec: BodySpec;
+  /** The world's rate, Hz. */
+  readonly hz: number;
+  /** The rate its mind decides at, Hz (`OptionMindConfig.rate`), at which a profile is read. */
+  readonly rate: number;
+  /** The steps its body's command waits (`Body.delay`), at which a profile is read. */
+  readonly delay: number;
+  /** The rules the fight is played by (`BodyHost.rules`), which price a blow. */
+  readonly rules: Rulebook;
+  /** The foe it fights (its focus, `situationReader`); null with none. */
+  readonly focus: BodySense | null;
+  /** The blow predicted to reach its head (`READINGS.predicted`), read the first time the step asks for it; null with none. */
+  readonly blow: ReturnType<ReturnType<typeof threatReader>["blowOf"]>;
 }
 
 /** The stance's feet the ground bears (`StanceEnd.touching`), by name, in the stance's order. */
@@ -99,7 +121,7 @@ export interface Percepts {
 /**
  * **Every prediction an Option Mind reads**, by name: what data a drill, a training run or the
  * rules make says of the situation, stale with that data; read when an Option or the objective
- * asks for it, once a step at most.
+ * asks for it, once a step at most, each by its Mind's exchange predictor (`ExchangePredictor`).
  */
 export interface Predictions {
   /** The own life the blow coming is expected to take; 0 with none, or where the focus's pressure holds it already. */

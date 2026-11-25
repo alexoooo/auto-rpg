@@ -6,7 +6,7 @@ import type { Chooser } from "./chooser.ts";
 import type { OptionContext } from "./context.ts";
 import type { Objective } from "./objective.ts";
 import type { Option } from "./option.ts";
-import type { Predictors } from "./predictors.ts";
+import type { ExchangePredictor, Predictors } from "./predictors.ts";
 
 /**
  * **A kind of chooser**: a part of role `chooser` that owns its config's keys and faults, and makes
@@ -18,9 +18,10 @@ export interface ChooserPart<C extends PartConfig = PartConfig> extends Part<C> 
   readonly keys: KeysOf<C>;
   /**
    * The chooser over `options`, its chances drawn from `seed`, the parts its slots name found by
-   * `parts`, for `body`: its model and what it holds (`bodyOf`).
+   * `parts`, for `body`: its model and what it holds (`bodyOf`). A chooser that searches asks
+   * `exchange` where the foe is later and how it replies.
    */
-  make(making: { readonly config: C; readonly options: readonly Option[]; readonly seed: number; readonly parts: PartLookup; readonly body: string }): Chooser;
+  make(making: { readonly config: C; readonly options: readonly Option[]; readonly seed: number; readonly parts: PartLookup; readonly body: string; readonly exchange: ExchangePredictor }): Chooser;
 }
 
 /** Static capabilities used when deciding whether a configured Option builds any behavior. */

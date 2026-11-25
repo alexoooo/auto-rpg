@@ -6,6 +6,7 @@ import { anyBody, slotOne, type PartConfig, type Supplied } from "../../parts/pa
 import { whenEmpty } from "../../parts/tree.ts";
 import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding, type Holding } from "./select-set.ts";
 import type { Chooser } from "./contract/chooser.ts";
+import type { ExchangePredictor } from "./contract/predictors.ts";
 import { placed, placing } from "./option.ts";
 import type { Option } from "./contract/option.ts";
 import type { Situation, Pressure } from "./contract/situation.ts";
@@ -74,11 +75,11 @@ const chooser = ({ options, appraise, deciding, chance, objective, holding, own 
 };
 
 /**
- * The chooser `config` names, as `parts` finds it, over `options`, its chances drawn from `seed`, for
- * `body` (`bodyOf`).
+ * The chooser `config` names, as `parts` finds it, over `given`'s `options`, its chances drawn from its
+ * `seed`, for its `body` (`bodyOf`), its search asking its `exchange` of the foe.
  */
-export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number, body: string): Chooser =>
-  parts.of("chooser", config).make({ config, options, seed, parts, body });
+export const chooserOf = (parts: PartLookup, config: PartConfig, given: { readonly options: readonly Option[]; readonly seed: number; readonly body: string; readonly exchange: ExchangePredictor }): Chooser =>
+  parts.of("chooser", config).make({ config, parts, ...given });
 
 /** How many options deep the valued chooser searches: the one it takes, or that and the best from where it leaves the body (`searching`). */
 const VALUED_DEPTHS: readonly number[] = Object.freeze([1, 2]);
@@ -137,7 +138,9 @@ interface Searched {
   readonly objective: Objective;
   readonly obedience: Obedience;
   readonly horizon: number;
-  /** The seconds the focus keeps its velocity in the states the search reads (`placing`): the config's `carry`, or a reply's seconds in its search (`repliedSearch`). */
+  /** What it asks where the foe is later (`placing`) and how the foe replies to a line (`repliedSearch`). */
+  readonly exchange: ExchangePredictor;
+  /** The seconds of the focus's motion the states the search reads take in (`placing`): the config's `carry`, or a reply's seconds in its search (`repliedSearch`). */
   readonly carry: number;
   /** The body it searches for: its model and what it holds (`bodyOf`). */
   readonly body: string;
@@ -157,8 +160,8 @@ interface Searched {
  * objective weighs it by when it comes (`Objective.weigh`: `dealtWeight`, `takenWeight`), as
  * itself where it weighs none.
  */
-function space(root: Situation, { options, objective, obedience, horizon, carry, body }: Searched) {
-  const place = placing(carry);
+function space(root: Situation, { options, objective, obedience, horizon, exchange, carry, body }: Searched) {
+  const place = placing(exchange, carry);
   /** What life dealt, and taken, traded evenly over `span` s from `from` s on counts for, a share (`Objective.weigh`); 1 where the objective weighs none. */
   const dealtWeight = (from: number, span: number): number => objective.weigh ? objective.weigh("dealt", from, span, horizon) : 1;
   const takenWeight = (from: number, span: number): number => objective.weigh ? objective.weigh("taken", from, span, horizon) : 1;
@@ -643,10 +646,8 @@ type TreeSearched = Parameters<typeof treeSearch>[1];
  * **The tree's search against the foe's replies** (`TreeConfig.replies`, `against`): each line at
  * `root` worth its worst (`worst`) or the mean (`mean`) of what a tree search prices it at with the
  * foe standing (`treeSearch`) and with the foe running each of `replies` replies over the line's
- * first step, a joint step; past it the foe stands, as in any line. A foe of the body's own build
- * (`bodyOf`) can do what the body's own lines do, roles swapped: two bodies swap by a half turn
- * about their midpoint, so where a line moves the body by a step, the foe's like move is the step
- * reversed, over its seconds (`replyOf`). Its replies are those moves that go furthest each way
+ * first step, a joint step; past it the foe stands, as in any line. It asks a reply only of a foe
+ * of the body's own build (`bodyOf`), one reply a line (`ExchangePredictor.reply`). Its replies are those moves that go furthest each way
  * (`DIRECTIONS`): closing on the body, backing off, and to either side, the first `replies` of
  * them, so the worst of them is the foe's best reply whatever it prefers. Elsewhere, and where
  * none moves, the foe stands.
@@ -658,7 +659,7 @@ function repliedSearch(root: Situation, searched: TreeSearched & { readonly repl
   if (!(apart > 0)) return own;
   // From the foe toward the body, and across.
   const ux = (where.x - focus.centre.x) / apart, uz = (where.z - focus.centre.z) / apart;
-  const moves = own.map((line) => replyOf(root, line.terms)), worths = own.map((line) => [line.worth]), chosen = new Set<number>();
+  const moves = own.map((line) => searched.exchange.reply(root, line.terms)), worths = own.map((line) => [line.worth]), chosen = new Set<number>();
   for (const [along, across] of DIRECTIONS.slice(0, searched.replies)) {
     let best = -1, most = 0;
     moves.forEach((move, i) => {
@@ -680,22 +681,6 @@ function repliedSearch(root: Situation, searched: TreeSearched & { readonly repl
     return { ...line, worth: searched.against === "mean" ? all.reduce((sum, worth) => sum + worth, 0) / all.length : Math.min(...all) };
   });
 }
-
-/**
- * **The foe's reply to a line of model `terms` at `root`**: the velocity that moves the foe by the
- * line's first step reversed (each way it ends by its chance, `Leaves.where`), over that step's
- * seconds; none where it does not move the body.
- */
-function replyOf(root: Situation, terms: Terms): { readonly x: number; readonly z: number; readonly seconds: number } | null {
-  const from = root.where!;
-  let x = 0, z = 0;
-  for (const outcome of terms.outcomes) { const where = outcome.leaves.where ?? from; x += outcome.chance * (where.x - from.x); z += outcome.chance * (where.z - from.z); }
-  if (!(terms.duration > 0) || hypot(x, z) < REPLY_LEAST) return null;
-  return { x: -x / terms.duration, z: -z / terms.duration, seconds: terms.duration };
-}
-
-/** The least a reply moves the foe, m (`replyOf`): a line moving the body less is the foe standing. */
-const REPLY_LEAST = .01;
 
 /** **The ways a foe's replies go** (`repliedSearch`), in order, as [toward the body, across it]: closing, backing off, to one side, to the other. */
 const DIRECTIONS: readonly (readonly [number, number])[] = Object.freeze([[1, 0], [-1, 0], [0, 1], [0, -1]]);
@@ -800,9 +785,9 @@ export const VALUED_CHOOSER = deepFreeze<ChooserPart<ValuedConfig>>({
   role: "chooser", label: "By worth", fields: [obedienceField<ValuedConfig>(), horizonField<ValuedConfig>(), carryField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, carry: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config.depth), ...searchFaults(config)],
-  make: ({ config, options, seed, parts, body }) => {
+  make: ({ config, options, seed, parts, body, exchange }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON;
-    const searched = { options, objective, obedience, horizon, carry: config.carry ?? 0, body, depth: config.depth };
+    const searched = { options, objective, obedience, horizon, exchange, carry: config.carry ?? 0, body, depth: config.depth };
     return chooser({ options, appraise: searching((now) => search(now, searched)), deciding: { rethink: RETHINK, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: {} });
   },
@@ -886,10 +871,10 @@ export const TREE_CHOOSER = deepFreeze<ChooserPart<TreeConfig>>({
     ...config.against === undefined || isAgainst(config.against) ? [] : [`against: one of ${Object.keys(AGAINST).join(", ")}`],
     ...config.keeps === undefined || Number.isFinite(config.keeps) && config.keeps > 0 ? [] : ["keeps: a finite time, more than none"],
     ...config.best === undefined || Number.isFinite(config.best) && config.best >= 0 && config.best <= 1 ? [] : ["best: a number from 0 to 1"]],
-  make: ({ config, options, seed, parts, body }) => {
+  make: ({ config, options, seed, parts, body, exchange }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
-    const searched = { options, objective, obedience, horizon, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
+    const searched = { options, objective, obedience, horizon, exchange, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"], replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
     return chooser({ options, appraise: searching((now) => pricedLines(repliedSearch(now, searched))), deciding: { rethink: RETHINK, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },

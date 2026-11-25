@@ -5,6 +5,7 @@ import { SETTLED } from "../../skills/intent/action-window.ts";
 import type { Sight } from "../decider.ts";
 import { bearingAround, graceAt, inReach, stancedPressure } from "./percepts.ts";
 import type { Asked } from "./contract/option.ts";
+import type { ExchangePredictor } from "./contract/predictors.ts";
 import type { Predictions, Situation } from "./contract/situation.ts";
 import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
@@ -71,17 +72,13 @@ function stancedPredictions(predictions: Predictions, own: NonNullable<Leaves["s
 const FIELD: PropertyDescriptor & { value: unknown } = { value: undefined };
 const define = (on: object, key: keyof Situation, value: unknown): void => { FIELD.value = value; Object.defineProperty(on, key, FIELD); FIELD.value = undefined; };
 
-/** The focus of `at` carried on its velocity for `seconds` s and stopped there; itself where it is not moved. */
-function carried(focus: BodySense, seconds: number): BodySense {
-  const v = focus.velocity;
-  if (!(seconds > 0) || (v.x === 0 && v.z === 0)) return focus;
-  const c = focus.centre;
-  return Object.create(focus, { centre: { value: { x: c.x + v.x * seconds, y: c.y, z: c.z + v.z * seconds } }, velocity: { value: { x: 0, y: 0, z: 0 } } }) as BodySense;
-}
-
-/** A placement with the sight and predictions after the actions and blow coming end, the focus carried for at most `carry` s (`carried`). */
-function placedWith(at: Situation, leaves: Leaves, seconds: number, sight: Sight, predictions: Predictions, carry: number): Situation {
-  const there = Object.create(at) as Situation, where = leaves.where, focus = at.focus && carried(at.focus, Math.min(seconds, carry));
+/**
+ * A placement with the sight and predictions after the actions and blow coming end, and the focus
+ * as it is there (`focus`; `at`'s own where it has not moved). A search calls it for every state
+ * it makes, so it takes its arguments by place and no argument object is made.
+ */
+function placedWith(at: Situation, leaves: Leaves, seconds: number, sight: Sight, predictions: Predictions, focus: BodySense | null): Situation {
+  const there = Object.create(at) as Situation, where = leaves.where;
   define(there, "ground", null); define(there, "incoming", null); define(there, "sight", sight);
   // Standing otherwise, the body reads the two pressures at its stance there.
   define(there, "predictions", leaves.stance ? stancedPredictions(predictions, leaves.stance) : predictions);
@@ -121,17 +118,18 @@ function placedWith(at: Situation, leaves: Leaves, seconds: number, sight: Sight
  * The foe and every other percept are as `at` reads them.
  */
 export function placed(at: Situation, leaves: Leaves, seconds: number): Situation {
-  return placedWith(at, leaves, seconds, afterActions(at.sight), afterDanger(at.predictions), 0);
+  return placedWith(at, leaves, seconds, afterActions(at.sight), afterDanger(at.predictions), at.focus);
 }
 
 /**
  * Placements within one search, sharing read-only sights and predictions after their actions and
  * incoming blow end. Each overlay maps to itself, so descendants keep the same overlay; geometry,
  * posture and grace still belong to each situation. The scratch ends with the search. The focus
- * keeps its velocity over an Option's seconds, at most `carry`, and stands from there (`carried`):
- * along a line it moves over the first step alone, at most `carry` s; none, as it stands now.
+ * is where `exchange` predicts it after an Option's seconds, at most `carry`
+ * (`ExchangePredictor.later`): along a line it moves over the first step alone, at most `carry` s;
+ * none, as it stands now.
  */
-export function placing(carry = 0): typeof placed {
+export function placing(exchange: ExchangePredictor, carry: number): typeof placed {
   const sights = new WeakMap<Sight, Sight>(), predictions = new WeakMap<Predictions, Predictions>();
   return (at, leaves, seconds) => {
     let sight = sights.get(at.sight), predicted = predictions.get(at.predictions);
@@ -143,7 +141,7 @@ export function placing(carry = 0): typeof placed {
       predicted = afterDanger(at.predictions);
       predictions.set(at.predictions, predicted); predictions.set(predicted, predicted);
     }
-    return placedWith(at, leaves, seconds, sight, predicted, carry);
+    return placedWith(at, leaves, seconds, sight, predicted, at.focus && exchange.later(at.focus, Math.min(seconds, carry)));
   };
 }
 

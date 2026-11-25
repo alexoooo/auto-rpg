@@ -484,7 +484,7 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   the Warrior mirror, in reach at a foe striking, a walk, a hold at reach's edge and a punch were
   priced 7 to 8% of a life taken against about 3% given, the back step 3.9% against 2.0%; a sway
   read 4 points better than the rest where it was 1. With the measured pressure holding it
-  (`OthersModel.holdsBlow`) they read 0.7 to 0.9 of what they get, and the old pricing scored 0.503
+  (`ExchangePredictor.danger`) they read 0.7 to 0.9 of what they get, and the old pricing scored 0.503
   (0.451 to 0.556) against the new on `warrior-drawn`. A cover is priced as a hold there; it was
   chosen 5 times in 45,000 decisions. *Shown.*
 - **The Option Mind's prices ran over what a fight gives**: in Warrior mirror bouts it expected
@@ -795,7 +795,7 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   punches' and its stomp's empty-handed trials, coarse; a pressure table is read only by bodies
   holding as its own held (`holdsAlike`, `pressure.ts`). The skeletons' overprice two on
   one is likely their pricing by rate: the measured pressure has no table of a skeleton, so it
-  is priced by the most its strikes could deal at reach (`measuredOthers`, `ratePressure`); not
+  is priced by the most its strikes could deal at reach (`ProfileExchange.ratePressure`); not
   isolated. The kinds were fitted by bouts on the Warrior empty-handed
   alone, the stature reading went into the game on held-out trials with no bouts, and the
   written form into it with no look in a browser. *Suspected* where a cause is named.

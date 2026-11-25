@@ -4,7 +4,7 @@ import { anyBody } from "../../parts/parts.ts";
 import { validProfiles, type Profile } from "../../skills/framework/profile/profile.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { validPressures } from "./pressure.ts";
-import { measuredOthers, RATE_OTHERS } from "./percepts.ts";
+import { ProfileExchange } from "./percepts.ts";
 import { nearestTrials, ownSteps, writtenForms, type OutcomeModel, type Tables } from "../../skills/framework/outcomes.ts";
 import { optionalChoice } from "../../parts/fields.ts";
 import type { WalkStart } from "./contract/context.ts";
@@ -43,8 +43,8 @@ export const MEASURED_PREDICTIONS = deepFreeze<PredictionsPart<MeasuredConfig>>(
   reads: config => [...config.edges === undefined ? ["strike-profiles", "edge-profiles", "step-profiles"] as const : ["strike-profiles", "step-profiles"] as const, ...config.pressure !== "rate" ? ["pressure-profiles"] as const : []],
   make: config => {
     const tables = deepFreeze({ strikes: dataOf("strike-profiles"), edges: config.edges ?? dataOf("edge-profiles"), steps: dataOf("step-profiles") });
-    return { strikes: tables.strikes, outcomes: SWAYS[config.sways ?? "range"](OUTCOMES[config.outcomes ?? "written"](tables)),
-      others: config.pressure === "rate" ? RATE_OTHERS : measuredOthers(measuredPressures()), walkStart: config.walkStart ?? "speed" };
+    const outcomes = SWAYS[config.sways ?? "range"](OUTCOMES[config.outcomes ?? "written"](tables)), pressures = config.pressure === "rate" ? null : measuredPressures();
+    return { outcomes, exchange: ({ strikes }) => new ProfileExchange({ strikes, measured: tables.strikes, pressures }), walkStart: config.walkStart ?? "speed" };
   },
 });
 
@@ -63,7 +63,7 @@ function measuredPressures() {
 /** **The prior alone**: no profile, each model its prior, set by hand; its walks priced as starting at the body's speed. */
 export const PRIOR_PREDICTIONS = deepFreeze<PredictionsPart<{ readonly kind: "prior" }>>({
   role: "predictions", label: "The prior alone", fields: [], slots: [], defaults: { kind: "prior" }, keys: { kind: true },
-  fits: anyBody, faults: () => [], make: () => ({ strikes: [], outcomes: nearestTrials({ strikes: [], edges: [] }), others: RATE_OTHERS, walkStart: "speed" }),
+  fits: anyBody, faults: () => [], make: () => ({ outcomes: nearestTrials({ strikes: [], edges: [] }), exchange: ({ strikes }) => new ProfileExchange({ strikes, measured: [], pressures: null }), walkStart: "speed" }),
 });
 
 declare module "./contract/parts.ts" {
