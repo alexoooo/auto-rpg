@@ -305,9 +305,11 @@ function railOf(moving: Moving, settled: number, direction: Direction, speed: nu
  * in turn from one stream, the same for every body, each drawn to the millimetre and the
  * hundredth; its limbs, its hands then its feet, by turns, and its marks and targets by turns of them.
  */
-function sampledConditions(protocol: typeof SAMPLED & { readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly pairings?: readonly (Staggered | undefined)[] }): StillCondition[] {
+function sampledConditions(protocol: typeof SAMPLED & { readonly feet?: readonly Hand[]; readonly effectors?: readonly string[]; readonly targets?: readonly BodyModel[];
+  readonly pairings?: readonly (Staggered | undefined)[] }): StillCondition[] {
   const conditions: StillCondition[] = [], within = ([low, high]: readonly number[], at: number) => low! + at * (high! - low!);
-  const limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))], pairings = protocol.pairings ?? [undefined];
+  const limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot })), ...(protocol.effectors ?? []).map((effector) => ({ effector }))];
+  const pairings = protocol.pairings ?? [undefined];
   for (const model of protocol.models) {
     const stream = randomStream(protocol.seed);
     for (let k = 0; k < protocol.trials; k++) {
@@ -451,6 +453,14 @@ const SPARRING_STANCES = deepFreeze({ ...SPARRING, models: ["man"] as BodyModel[
  */
 const SPARRING_FEET = deepFreeze({ ...SPARRING, hands: [] as Hand[], feet: [...SIDES] as Hand[], marks: ["middle"] as Mark[], seed: 6,
   trials: SPARRING_DRAWN.trials + SPARRING_JUDGE.trials });
+
+/**
+ * **Sparring with the teeth**, the `sparring-bite` rung: sparring's starts on a stream of their own,
+ * thrown by the rat's head (`effectors`), whose jaw bites, at the foe's legs, as many trials as
+ * sparring's own, which a profile the Mind prices a bite by rests on.
+ */
+const SPARRING_BITE = deepFreeze({ ...SPARRING, models: ["rat"] as BodyModel[], hands: [] as Hand[], effectors: ["head"], marks: ["legs"] as Mark[], seed: 7,
+  trials: SPARRING.trials });
 
 /**
  * **Sparring at a foe laid down**, the `sparring-laid` rung: the stomping rung's sampled starts
@@ -610,6 +620,7 @@ export const createStrikeCases = perContext((context: GameContext) => {
     "sparring-stances": stillCases(SPARRING_STANCES, sampledConditions(SPARRING_STANCES)),
     "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
     "sparring-feet": stillCases(SPARRING_FEET, sampledConditions(SPARRING_FEET)),
+    "sparring-bite": stillCases(SPARRING_BITE, sampledConditions(SPARRING_BITE)),
     "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), ...twinned("middle", MIDDLE), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT, fightGrid(FIGHT)), fights: fightCases(FIGHTS, fightGrid(FIGHTS)),
