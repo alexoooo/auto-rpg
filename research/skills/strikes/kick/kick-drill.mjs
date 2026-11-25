@@ -30,7 +30,7 @@ import { scoreOn, trialPool, withTuning } from "../../../drill-trials.mjs";
 import { belowNormal, defaultLanes } from "../../../../scripts/lanes.mjs";
 import { EVALUATIONS } from "../../../../src/app/node/evaluation.ts";
 import { OPTION_PRESETS } from "../../../../src/entrants/option/mind.ts";
-import { optionsOf } from "../../../../src/minds/option/config.ts";
+import { optionsOf } from "../../../../src/minds/option/assembly/config.ts";
 import { partLookup } from "../../../../src/app/catalog.ts";
 import { casesOf } from "../../../../src/evaluation/run.ts";
 import { caseName } from "../../../../src/evaluation/results.ts";

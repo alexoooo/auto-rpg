@@ -33,8 +33,7 @@ import { describeMind } from "../../minds/catalog/catalog.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import { kitOf, kitOffers, type KitEntry } from "../../skills/framework/menu.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { BodyModel } from "../../core/bodies/models.ts";
-import { modelHolding, modelSpec } from "../../core/bodies/models.ts";
+import { type BodyModel, modelHolding, modelSpec } from "../../core/bodies/models.ts";
 import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { seatBody, sideCharacters, type BoutTiming, type Cases, type Json, type Seat, type Subject } from "../evaluation.ts";
@@ -44,7 +43,7 @@ import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
 import { STAGGERED } from "../../skills/locomotion/shared/locomotion.ts";
-import { inCarriage } from "../../minds/option/config.ts";
+import { inCarriage } from "../../minds/option/assembly/config.ts";
 import { between } from "../twin.ts";
 
 /**

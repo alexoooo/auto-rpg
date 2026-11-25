@@ -9,7 +9,7 @@ const textOf = (source) => typeof source === "string" ? source : new TextDecoder
 
 export async function load(url, context, next) {
   const out = await next(url, context);
-  if (!url.endsWith("/src/minds/option/chooser.ts")) return out;
+  if (!url.endsWith("/src/minds/option/choosers/chooser.ts")) return out;
   const text = textOf(out.source);
   if (!END.test(text)) throw new Error("the tree search no longer ends where the move prior's hook looks");
   return { ...out, source: text.replace(END, (end) => `${end}  globalThis.__searchLines?.(root, at, edges);\n`) };

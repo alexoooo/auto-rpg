@@ -12,7 +12,7 @@
  */
 import { tableCells } from "../../../src/app/node/evaluation.ts";
 import { partLookup } from "../../../src/app/catalog.ts";
-import { optionsOf } from "../../../src/minds/option/config.ts";
+import { optionsOf } from "../../../src/minds/option/assembly/config.ts";
 import { loadoutKey } from "../../../src/core/bodies/items/held.ts";
 import { modelHolding } from "../../../src/core/bodies/models.ts";
 import { stepUpTuningWith } from "../../../src/skills/recovery/shared/staged/records.ts";

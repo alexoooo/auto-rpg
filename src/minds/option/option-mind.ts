@@ -13,7 +13,7 @@ import type { Chooser } from "./contract/chooser.ts";
 import type { OptionRecord } from "./contract/context.ts";
 import type { Option } from "./contract/option.ts";
 import type { Situation, SituationReader } from "./contract/situation.ts";
-import type { Pace } from "./pace.ts";
+import type { Pace } from "./assembly/pace.ts";
 
 /** **What an Option Mind is made of**: each part made once, by its build (`buildOptionMind`). */
 interface OptionMindParts {

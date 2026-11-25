@@ -17,7 +17,7 @@ import "../../../tests/harness/preload-data.mjs";
 import { isRefused } from "../../../src/core/refusal.ts";
 import { dataOf } from "../../../src/core/data/store.ts";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
-import { withLegs } from "../../../src/minds/option/config.ts";
+import { withLegs } from "../../../src/minds/option/assembly/config.ts";
 import { partLookup } from "../../../src/app/catalog.ts";
 import { withGaitTuning, withStanceTuning } from "../../../src/minds/option/index.ts";
 import { confirmRow, drillTrials, rowOf, subjectOf } from "../../drill-trials.mjs";

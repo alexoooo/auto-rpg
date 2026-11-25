@@ -793,7 +793,7 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   holds is numbers on a profile's trials (`Start.held`) and no part of what finds one, but no
   trial yet crosses a loadout with a skill measured without it: a body holding a sword reads its
   punches' and its stomp's empty-handed trials, coarse; a pressure table is read only by bodies
-  holding as its own held (`holdsAlike`, `pressure.ts`). The skeletons' overprice two on
+  holding as its own held (`holdsAlike`, `pressure-table.ts`). The skeletons' overprice two on
   one is likely their pricing by rate: the measured pressure has no table of a skeleton, so it
   is priced by the most its strikes could deal at reach (`ProfileExchange.ratePressure`); not
   isolated. The kinds were fitted by bouts on the Warrior empty-handed

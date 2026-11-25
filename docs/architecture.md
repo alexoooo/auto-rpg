@@ -207,11 +207,11 @@ A body is a different type to each holder:
   saying why a body cannot carry it out (`fits`) and what is wrong with its config (`faults`).
   A slot's config is typed by its role (`ConfigFor`, `lookup.ts`).
 
-**Option Mind** (`src/minds/option/`, `optionMind`) is the game's decision framework, for the
+**Option Mind** (`src/minds/option/`, `optionController`) is the game's decision framework, for the
 humanoids and the bodies on paws alike. It chooses among Options, each a skill applied to a
 target: its entry (`Readiness`), the resources it claims, its model (`Terms`: duration, what it
-deals and takes, the ways it ends) and its step. `mind.ts` is the controller, `config.ts` the
-config, `description.ts` what a config builds, `build.ts` the running mind.
+deals and takes, the ways it ends) and its step. In `assembly/`, `controller.ts` is the controller, `config.ts` the
+config, `description.ts` what a config builds, `build.ts` what makes the running mind.
 
 - **Predictions** price an Option from measured profiles (`Profile`,
   `src/skills/framework/profile/profile.ts`): a sample of trials, a strike's thrown sparring and a ground
@@ -225,7 +225,7 @@ config, `description.ts` what a config builds, `build.ts` the running mind.
   chooser.
 - **Its config is Options** (`OptionMindConfig`) in rank order: each strike its own kind
   (`strike-<skill>`), one Option a limb; each way up and mode of the ground an Option naming its
-  technique (`rise.ts`); a walk an Option a gait, to the sites the other Options name.
+  technique (`options/rise.ts`); a walk an Option a gait, to the sites the other Options name.
 
 **Entrants.** An `Entrant` (`src/minds/catalog/entrant.ts`) is one AI: its kinds of mind, parts and
 presets, each kind scoped `<name>:`, listed in `ENTRANTS` (`src/app/entrants.ts`).

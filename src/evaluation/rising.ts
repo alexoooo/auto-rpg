@@ -15,13 +15,13 @@ import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
 import { DEFAULT_ENGINE, loadEngine } from "../core/physics/engines.ts";
 import { armedWith, loadoutKey, type Held } from "../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "./loadouts.ts";
-import { optionsOf, type OptionMindConfig } from "../minds/option/config.ts";
+import { optionsOf, type OptionMindConfig } from "../minds/option/assembly/config.ts";
 import type { MindConfig } from "../minds/catalog/config.ts";
 import { groundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";
 import { motorAndGuardOf } from "../skills/assembly/filled.ts";
 import { isWayUp, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/shared/technique.ts";
-import { declaredWaysUp, withWaysUp, withWayUpFirst } from "../minds/option/rise.ts";
+import { declaredWaysUp, withWaysUp, withWayUpFirst } from "../minds/option/options/rise.ts";
 import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../core/bodies/models.ts";
 import { guardPosture } from "../skills/guard/shared/guard.ts";
 

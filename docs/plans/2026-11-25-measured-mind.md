@@ -267,7 +267,7 @@ for every body.
    where the strikes' rate does, which overprices. A direct fit of where the foe is a moment
    later (`research/minds/foe-placement.mjs`) is read beside it, and kept only if better.
 4. **What the end of a line is worth, measured.** The fitted value
-   (`src/minds/option/fitted-value.ts`) prices what follows a state from what followed such states
+   (`src/minds/option/predictions/value/fitted-value.ts`) prices what follows a state from what followed such states
    in fights. It prices the end of every line, including one the horizon cuts and an open Option
    (a hold, a guard). A fit names the bodies and foes whose bouts it was fitted on, as numbers. A
    state is read by the fit nearest in both, marked borrowed on the side that is not its own:
@@ -292,10 +292,10 @@ the rat's fights have shown it.
 
 | Now | Where | What it does | Replaced by |
 | --- | --- | --- | --- |
-| The end of a line is not priced | `objective.ts` `fewTermsWorth` never reads `path.end`; `chooser.ts` `cutWorth` | A line cut at the horizon, and every hold or guard, is worth the same ending on its back as on its feet | 4 |
+| The end of a line is not priced | `objectives.ts` `fewTermsWorth` never reads `path.end`; `chooser.ts` `cutWorth` | A line cut at the horizon, and every hold or guard, is worth the same ending on its back as on its feet | 4 |
 | The fitted value reads only the man | `assets/minds/fitted-value.json` fitted on man against man; `fittedOn` | Every other body, and the man against any other, falls back to the tail's leaf | 1, 4 |
 | A second down is priced at the foe's peak | `percepts.ts` `downRateOf` (`PressureFields.peak`) | Lying 5 m away costs as much as lying at his feet: 0.075 of the rat's life a second, where its time down in fights cost about 0.004 | 3 |
-| The foe stands still in imagined lines, or carries on as he was | `carry` 0 by default, 0.5 s on `option-lean`; `option.ts` | Waiting near a foe who would close looks free, or is priced by where his velocity takes him | 3, 5 |
+| The foe stands still in imagined lines, or carries on as he was | `carry` 0 by default, 0.5 s on `option-lean`; `imagined.ts` | Waiting near a foe who would close looks free, or is priced by where his velocity takes him | 3, 5 |
 | The foe's replies are searched only against the same body | `chooser.ts` `repliedSearch` (`bodyOf(focus.spec) !== searched.body`) | Against any other body, replies are never searched | 3, 5: the foe's Options built from his own body, weighted by the prior |
 | A walk never falls outside a clinch | `places.ts` `walkTerms` | Walks look safer than strikes, whose falls are measured | 2 |
 | The clinch | `by-hand.ts` `CLINCH`: 0.65 m centre to centre, 0.2 falls a second, every body | Holds and walks near the foe fall at one rate, rat or Warrior | 2 |
@@ -323,11 +323,11 @@ none. No player sets them (the owner, 2026-11-25: "margin and draw settings are 
 details, why would a video game player manually select implementation detatils?"). They are:
 
 - how the objective is shaped at the clock (`MARGIN`, `DRAW`, `EVEN`) and for reaching a place
-  (`REACH`), in `objective.ts`;
+  (`REACH`), in `objectives.ts`;
 - how many trials are nearest, and over what spans (`NEAREST`, `STRUCK_SPANS`,
   `src/skills/framework/profile/nearest.ts`);
-- the pressure table's reading (`MOMENTS`, `SPAN`, `pressure.ts`);
-- how many tries a prior counts as against a record (`WEIGHT`, `record.ts`);
+- the pressure table's reading (`MOMENTS`, `SPAN`, `pressure-table.ts`);
+- how many tries a prior counts as against a record (`PRIOR.weight`, `by-hand.ts`);
 - how far apart two bodies are in the numbers, and how fast an older row comes to count for
   less, when those are built.
 

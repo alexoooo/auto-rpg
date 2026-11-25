@@ -63,7 +63,7 @@ Built of the testbed, in [the approaches](../approaches.md#minds): the scorecard
 (`src/evaluation/match/cases.ts`), both the Warrior empty-handed against itself alone, and since
 then the rat against him (the tournament's `gaps`, `src/evaluation/tournament/cases.ts`); the
 contracts (`OutcomeModel`, `src/skills/framework/outcomes.ts`; `OthersModel`,
-`src/minds/option/percepts.ts`; the search's leaf, `src/minds/option/chooser.ts`; a chooser, `Chooser`,
+`src/minds/option/situation/percepts.ts`; the search's leaf, `src/minds/option/choosers/chooser.ts`; a chooser, `Chooser`,
 `src/minds/option/contract/chooser.ts`). Their kinds:
 
 | Contract | Built | Named and not built |
@@ -73,7 +73,7 @@ contracts (`OutcomeModel`, `src/skills/framework/outcomes.ts`; `OthersModel`,
 | the line's end | the tail (the game's); a value fitted to what followed (the empty-handed man's); a half-life, by distance and by the next exchange two ways, removed | a line played out by a cheap policy |
 | the chooser | tree (the game's), valued, ranked; a warm start (`keeps`, `option-warm`); a prior fitted to past searches' runs, removed | the other three kinds below that keep their work; a trained policy |
 
-The tree chooser decides by 50 runs (`RUNS`, `src/minds/option/chooser.ts`) of a tree made anew,
+The tree chooser decides by 50 runs (`RUNS`, `src/minds/option/choosers/chooser.ts`) of a tree made anew,
 its budget handed in as runs alone (`TreeConfig.runs`). A strike is read one
 way in a drill and in a bout (`readFought`, `strikeTrial`, `src/evaluation/strike/`) and profiles
 can be built from bouts (`research/skills/strikes/bout-profiles.mjs`), but the game's tables are

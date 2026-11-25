@@ -1,5 +1,5 @@
 /**
- * **The measured pressure** (`PressureTable`, `src/minds/option/pressure.ts`;
+ * **The measured pressure** (`PressureTable`, `src/minds/option/predictions/exchange/pressure-table.ts`;
  * `assets/minds/pressure-profiles.json`): what a foe's fighting took from a body in bouts, by how
  * far apart the two stood centre to centre, what the foe was doing, and the seconds after.
  *
@@ -14,7 +14,7 @@
  * field, `Engagement.foe`: the reading the mind prices by, `FoePhase`; a row with none, from before
  * it was written, is no moment); and the life the side lost (its pool's bar, a share of its full
  * life: the drain on a stalled bout is not in it) by each of `HORIZONS` s after, out to as far as
- * the chooser looks (`HORIZON`, `src/minds/option/chooser.ts`), at any range: a foe out of reach
+ * the chooser looks (`HORIZON`, `src/minds/option/choosers/chooser.ts`), at any range: a foe out of reach
  * comes, and what it takes on arriving is in the later horizons. Past the end of a bout a body's
  * life ended, its last bars hold; a moment whose last horizon is past the end of a bout that
  * ended otherwise is none, as is one within `UNSETTLED` s of either side's fall. Moments are kept summed in bins of `BIN` m by phase. A table is of
@@ -26,7 +26,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { savedBouts } from "../skills/strikes/bout-save.mjs";
 import { execSync } from "node:child_process";
 import { resolveCharacter } from "../../src/core/bodies/models.ts";
-import { pressureBody } from "../../src/minds/option/pressure.ts";
+import { pressureBody } from "../../src/minds/option/predictions/exchange/pressure-table.ts";
 
 const OUT = "assets/minds/pressure-profiles.json", SCRIPT = "research/minds/pressure-profiles.mjs";
 /** The seconds after a moment its life lost is read at. */

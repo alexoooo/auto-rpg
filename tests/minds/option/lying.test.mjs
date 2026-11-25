@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { Vector3 } from "../../../src/core/math/vector.ts";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
 import { rulebook } from "../../../src/combat/rulebook.ts";
-import { BY_HAND } from "../../../src/minds/option/by-hand.ts";
-import { perceiver, ProfileExchange, reachMemory } from "../../../src/minds/option/percepts.ts";
-import { brace, hold } from "../../../src/minds/option/rest.ts";
+import { BY_HAND } from "../../../src/minds/option/predictions/by-hand.ts";
+import { perceiver, ProfileExchange, reachMemory } from "../../../src/minds/option/situation/percepts.ts";
+import { brace, hold } from "../../../src/minds/option/options/rest.ts";
 
 /**
  * Detect zero lost-opportunity cost for remaining down when the foe has no modelled hand attack.

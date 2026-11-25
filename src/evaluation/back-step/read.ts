@@ -8,7 +8,7 @@ import type { World } from "../../core/world/world.ts";
 import type { Reader } from "../evaluation.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
 import { dataOf } from "../../core/data/store.ts";
-import { measuredReach } from "../../minds/option/percepts.ts";
+import { measuredReach } from "../../minds/option/situation/percepts.ts";
 import { wrap } from "../../core/math/turn.ts";
 import { centreReading } from "../../control/observation.ts";
 import type { Stances } from "../../skills/framework/profile/profile.ts";

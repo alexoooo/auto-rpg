@@ -22,7 +22,7 @@ import { standIntent } from "../../src/skills/framework/intent.ts";
 import { stockMotor } from "../../src/app/registration/stock-motor.ts";
 import { isOrdersEntry } from "../../src/game/arena/duel.ts";
 import { MOVE_PART } from "../../src/skills/locomotion/move/index.ts";
-import { optionsOf } from "../../src/minds/option/config.ts";
+import { optionsOf } from "../../src/minds/option/assembly/config.ts";
 import { partLookup } from "../../src/app/catalog.ts";
 import { PAW_MOVE } from "../../src/skills/locomotion/paw-move/index.ts";
 
@@ -319,10 +319,10 @@ test("a fallback recovery Option does not count its own transition as an ordinar
   const { GAME } = await import("../../src/app/catalog.ts");
   const { catalogOf } = await import("../../src/minds/catalog/catalog.ts");
   const { toolkitLists } = await import("../../src/app/toolkit.ts");
-  const { REPOSITION_OPTION, WAY_UP_OPTION, waysUpIn, withWaysUp } = await import("../../src/minds/option/rise.ts");
-  const { walker } = await import("../../src/minds/option/walk.ts");
-  const { optionRecord } = await import("../../src/minds/option/record.ts");
-  const { BY_HAND } = await import("../../src/minds/option/by-hand.ts");
+  const { REPOSITION_OPTION, WAY_UP_OPTION, waysUpIn, withWaysUp } = await import("../../src/minds/option/options/rise.ts");
+  const { walker } = await import("../../src/minds/option/options/walk.ts");
+  const { optionRecord } = await import("../../src/minds/option/situation/record.ts");
+  const { BY_HAND } = await import("../../src/minds/option/predictions/by-hand.ts");
   const { nearestTrials } = await import("../../src/skills/framework/outcomes.ts");
   const spec = modelSpec("man"), [fallback] = REPOSITION_OPTION.each(REPOSITION_OPTION.defaults, GAME.partLookup);
   const technique = GAME.partLookup.of("technique", fallback.skill), from = technique.edges[0]?.from;

@@ -1,4 +1,4 @@
-import { optionMind } from "../minds/option/index.ts";
+import { optionController } from "../minds/option/index.ts";
 
 /** The shared root kind with application defaults for omitted options. */
-export const OPTION_MIND = optionMind({ chooser: { kind: "tree" }, predictions: { kind: "measured" } });
+export const OPTION_MIND = optionController({ chooser: { kind: "tree" }, predictions: { kind: "measured" } });

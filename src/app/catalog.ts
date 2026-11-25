@@ -2,7 +2,7 @@ import { isRefused } from "../core/refusal.ts";
 import type { MindConfig } from "../minds/catalog/config.ts";
 import { modelHoldingChecked, type BodyModel } from "../core/bodies/models.ts";
 import type { Loadout } from "../core/bodies/items/held.ts";
-import { bodyOf } from "../minds/option/fitted-value.ts";
+import { bodyOf } from "../minds/option/predictions/value/fitted-value.ts";
 import type { BodyAsked } from "../game/arena/context.ts";
 import { catalogOf, type Catalog, type EntryRule } from "../minds/catalog/catalog.ts";
 import { toolkitLists } from "./toolkit.ts";

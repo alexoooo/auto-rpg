@@ -13,7 +13,7 @@ export async function edgeTrial(job, given) {
   await import("../../../tests/harness/preload-data.mjs");
   const { buildFall } = await import("../../../src/app/node/evaluation.ts");
   const { MINDS, partLookup } = await import("../../../src/app/catalog.ts");
-  const { optionsOf } = await import("../../../src/minds/option/config.ts");
+  const { optionsOf } = await import("../../../src/minds/option/assembly/config.ts");
   const { TECHNIQUES } = await import("../../../src/app/registration/techniques.ts");
   const { tumbling } = await import("../../../src/control/ground-reading.ts");
   const { heldNumbers } = await import("../../../src/skills/framework/profile/numbers.ts");
