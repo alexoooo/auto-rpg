@@ -7,7 +7,8 @@
  * (other gaps, other seeds): the record the body plays now, or the search's start where the body
  * has none. The best is kept only where it scores above that there and loses no more trials; with
  * `--write`, what is kept is the body's row (`writeRecord`, `research/skills/skill-records.mjs`),
- * saying how it was made, and a record that is kept is left as it is.
+ * saying how it was made, and a record that is kept is left as it is. A best is written only once a
+ * look at its settings says it still looks like the motion (`requireLook`).
  *
  * - The stomp: the table's cells of the body's stomp row (`rowOf`, `research/drill-trials.mjs`;
  *   `--loadout` one cell), each the Strike drill's `stomping` rung (each foot at the middle of each
@@ -19,6 +20,9 @@
  *   confirmation keeps a record on the value.
  * - The bite: the same way, on the cells of the body's bite row, each the Strike drill's `biting`
  *   rung (the head at each leg of a standing Warrior).
+ * - The front kick (`kick/front`): the same way, on the cells of the body's kick row, the trials
+ *   its variation is offered (`offered`: its base rung), played with the body running it. Its
+ *   timings and gains alone are searched; its poses are authored.
  * - The sit-back: its record drives two ways up (`front-sit-back`, `sit-back`), so it is searched
  *   on the twin of both their table cells on the body, every loadout or `--loadout`'s (the way-up
  *   drill's fresh falls and bouts, `research/skills/recovery/way-up-trials.mjs`), each fall risen by the
@@ -71,27 +75,36 @@ import { ATTEMPT_CAP } from "../../src/evaluation/way-up/read.ts";
 import { modelSpec } from "../../src/core/bodies/models.ts";
 import { ROLL_POSES, SIT_BACK } from "../../src/skills/recovery/shared/staged/stages.ts";
 import { cmaSearch, workerPool } from "../cma.mjs";
-import { CONFIRM_RATES, drillTrials, playTrial, rowOf, searchScore, subjectOf, withTuning } from "../drill-trials.mjs";
+import { CONFIRM_RATES, drillTrials, offered, playTrial, rowOf, searchScore, subjectOf, withTuning } from "../drill-trials.mjs";
 import { RECORD_WAYS, stagedValue, tuningOn, wayCells } from "./recovery/way-up-trials.mjs";
 import { recordsOf, writeRecord } from "./skill-records.mjs";
+import { requireLook } from "../look-gate.mjs";
 import { defaultLanes } from "../../scripts/lanes.mjs";
+
+/** The cell's subject of `trial`, its body running `variation` of its skill where given (`skill/variation`) over its own. */
+const runningOf = (trial, variation) => {
+  const value = subjectOf(trial).value;
+  return variation === undefined ? value : { ...value, variations: (value.variations ?? []).filter((one) => !one.startsWith(`${variation.split("/")[0]}/`)).concat(variation) };
+};
 
 /**
  * A strike's trials on `model`: the drill's trials of each cell of the body's row of `skill`
  * (`rowOf`; `loadout`'s cell alone where given), its training twin's (`twin`, the search's) or the
- * cell's own (`cell`, the confirmation's).
+ * cell's own (`cell`, the confirmation's); running `variation` where given, those it is offered (`offered`).
  */
-const strikeTrials = (skill) => (model, held, loadout) => rowOf({ body: model, skill, ...(loadout ? { loadout } : {}) }).flatMap((cell) => drillTrials(cell, held));
+const strikeTrials = (skill, variation) => (model, held, loadout) => rowOf({ body: model, skill, ...(loadout ? { loadout } : {}) })
+  .flatMap((cell) => drillTrials(cell, held)).filter((trial) => variation === undefined || offered(trial, runningOf(trial, variation)));
 
 /**
- * One drill trial of a strike's whole `settings` at `hz`: the cell's subject with its skill so
- * tuned (`withTuning`), scored for the search (`searchScore`: the cell's value, a blow short of the
- * bar graded below it), its value as the cell values it beside the score.
+ * One drill trial of a strike's whole `settings` at `hz`, running `variation` where given: the
+ * cell's subject with its skill so tuned (`withTuning`), scored for the search (`searchScore`: the
+ * cell's value, a blow short of the bar graded below it), its value as the cell values it beside the score.
  */
-async function strikeTrial(settings, trial, hz) {
-  const played = await playTrial(trial, withTuning(subjectOf(trial).value, settings), { hz });
+const strikeTrialOf = (variation) => async (settings, trial, hz) => {
+  const played = await playTrial(trial, withTuning(runningOf(trial, variation), settings), { hz });
   return { score: searchScore(trial, played), value: played.value, outcome: played.outcome, down: !!played.reading.down };
-}
+};
+const strikeTrial = strikeTrialOf(undefined);
 
 /** A sit-back dimension's stage and the channels of its posture it moves, `@` both sides': `"sit back: hip.@ flexion"`. */
 const stageChannels = (key) => { const [stage, channel] = key.split(": "); return { stage, channels: channel.includes("@") ? ["left", "right"].map((side) => channel.replace("@", side)) : [channel] }; };
@@ -185,6 +198,15 @@ export const SEARCHES = {
     trial: strikeTrial, error: -3, lost: "falls", rates: CONFIRM_RATES,
     lengths: ["biteAlign", "biteShift", "biteEntry"], heights: [],
     task: "the Strike drill's biting rung (the head at a standing Warrior's legs), the body's bite row" },
+  // The front kick's timings and gains: its stages' times, its paths' response, the push through, the set-down's drive back and its window. Its poses are authored, never searched.
+  "kick/front": { dims: [["chamberSeconds", .1, .35], ["extendSeconds", .06, .25], ["retractSeconds", .08, .3], ["pathSeconds", .01, .08],
+      ["transferSeconds", .1, .35], ["follow", 0, .2], ["decel", 100, 600], ["alongNear", .6, .8], ["alongFar", .75, 1]],
+    // alongFar kept past alongNear.
+    settle: (settings) => settings.alongFar <= settings.alongNear + .1 ? { ...settings, alongFar: Number((settings.alongNear + .1).toFixed(4)) } : settings,
+    trials: strikeTrials("kick", "kick/front"), search: "twin", confirm: "cell",
+    said: (held) => held === "twin" ? "on its cells' training twins at 120 Hz" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
+    trial: strikeTrialOf("kick/front"), error: -3, lost: "falls", rates: CONFIRM_RATES, lengths: [], heights: [],
+    task: "the kick's row on the Strike drill, the trials the front kick is offered (its base rung)" },
   "sit-back": { dims: [["plant: knee.@ flexion", 1.9, 2.2], ["plant: hip.@ flexion", 1.5, 2.1], ["plant: shoulder.@ flexion", 1.2, 2.2], ["plant: elbow.@ flexion", 0, 1.6],
       ["sit back: hip.@ flexion", 1.5, 2.2], ["sit back: shoulder.@ flexion", .2, 1.8], ["sit back: elbow.@ flexion", 0, 1.6], ["sit back: thoracic flexion", -.2, .35], ["sit back: ankle.@ dorsiflexion", 0, .7],
       ["up: hip.@ flexion", .4, .85], ["up: shoulder.@ flexion", 0, 1.4], ["up: thoracic flexion", -.2, .35]],
@@ -298,6 +320,8 @@ if (!isMainThread && workerData?.search) {
   const workers = Number(values.workers ?? defaultLanes());
   const pool = workerPool(fileURLToPath(import.meta.url), { search: true, skill }, workers);
   const body = modelSpec(model).model, started = Date.now();
+  // The movement the search tunes, as its look names it (`requireLook`).
+  const looked = recordName.includes("/") ? recordName : `${recordName}/${recordName}`;
   if (values.confirm) {
     const found = JSON.parse(readFileSync(values.confirm, "utf8")), trials = search.trials(model, search.confirm, values.loadout ?? found.loadout);
     // What the best must beat: the record the body plays now, which a search resumed after an install no longer starts from; its start where the body has none.
@@ -314,6 +338,8 @@ if (!isMainThread && workerData?.search) {
     if (values.write && kept === "record") console.log(`${recordName}: ${body}'s record is kept as it is, nothing written`);
     else if (values.write) {
       const commit = execSync("git rev-parse --short=8 HEAD").toString().trim(), settings = kept === "best" ? found.best.settings : found.start;
+      // A best is written only once its look says it still looks like the motion (`npm run look -- <body> <variation> --tuning <its settings>`).
+      if (kept === "best") { try { requireLook({ body, variation: looked, tuning: settings }); } catch (error) { await pool.terminate(); throw error; } }
       const fmt = (x) => x.toFixed(3);
       const made = `Searched on the ${body} at ${commit} (research/skills/skill-search.mjs): CMA over ${search.dims.map(([key]) => key).join(", ")} from ${values.from ?? found.from}, `
         + `${found.checkpoint?.generation ?? found.log.length} generations of ${found.lambda}, on ${search.task} ${search.said(search.search)}, ${found.trials} trials a candidate, ${found.seconds} s; `
@@ -348,7 +374,7 @@ if (!isMainThread && workerData?.search) {
   const unit = search.dims.map(([key, lo, hi]) => Math.min(1, Math.max(0, ((search.get ? search.get(start, key) : start[key]) - lo) / (hi - lo))));
   let raised = resume?.best.g ?? 0, bestSoFar = resume?.best.score ?? -Infinity, ended = null;
   console.error(`${skill} on ${body}: ${trials.length} trials a candidate, ${lambda} candidates a generation, ${values.generations === undefined && values.patience !== undefined ? `until ${patience} generations raise nothing` : `${generations} generations`}, ${workers} workers`);
-  const { best } = await cmaSearch({ look: { body, variation: recordName.includes("/") ? recordName : `${recordName}/${recordName}` }, n: search.dims.length, start: unit, sigma: Number(values.sigma ?? .2), lambda, generations, seed: Number(values.seed ?? 1), resume,
+  const { best } = await cmaSearch({ look: { body, variation: looked }, n: search.dims.length, start: unit, sigma: Number(values.sigma ?? .2), lambda, generations, seed: Number(values.seed ?? 1), resume,
     // A candidate none of whose trials counts scores as one that threw.
     score: async (u) => { const r = await scored(pool, decode(search, start, u), trials); return { ...r, score: r.score ?? search.error }; },
     onGeneration(entry, { best, checkpoint }) {

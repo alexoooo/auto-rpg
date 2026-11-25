@@ -75,6 +75,8 @@ By hand, on its drill, read by its score ([a skill's value](#a-skills-value)):
 - **A search is CMA-ES on its drill's twin** (`cmaSearch`; a record's settings by
   `research/skills/skill-search.mjs`, `SEARCHES`). Hand-picked variants are not a search. Given no
   clock or count, it runs to its plateau (`--patience 30`). Price it from its first generation.
+- **Its best is looked at again before it is written** (`npm run look -- <body> <variation>
+  --tuning <its settings>`; `--write` refuses without that verdict).
 - **It ends better** (installed), **flat** (the record kept: this search stopped finding gains,
   never "nothing better exists") **or unfinished** (copied to `research/runs/<skill>-search/` with
   a README and resumed by `--resume`). Its report says which.

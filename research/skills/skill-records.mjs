@@ -22,6 +22,7 @@ import { validSwing } from "../../src/skills/strikes/shared/swing.ts";
 import { WALK_RUN_PART } from "../../src/skills/locomotion/walk-run/index.ts";
 import { wholeRecipe } from "../../src/skills/recovery/righting-recipe/righting-recipe/recipe.ts";
 import { wholeBite } from "../../src/skills/strikes/bite/bite/bite.ts";
+import { wholeFrontKick } from "../../src/skills/strikes/shared/kick.ts";
 
 /** Whether `settings` holds exactly `keys`. */
 const whole = (settings, keys) => settings !== null && typeof settings === "object" && Object.keys(settings).sort().join() === [...keys].sort().join();
@@ -38,12 +39,15 @@ export const SKILLS = Object.freeze({
   "sword-thrust": (s) => s !== null && typeof s === "object" && validSwordThrust(s),
   "club-blow": (s) => s !== null && typeof s === "object" && validSwing(s),
   bonk: (s) => s !== null && typeof s === "object" && validSwing(s),
+  "kick/front": (s) => s !== null && typeof s === "object" && wholeFrontKick(s),
 });
 
 /** Each strike's variation whose records these are: its file of settings. */
 const VARIATIONS = Object.freeze({ stomp: "stomp", bite: "bite", "sword-thrust": "drive", "club-blow": "swing", bonk: "swing" });
 
+/** Where `skill`'s records are, without their extension; a name with a variation (`kick/front`) is that variation's of the strike. */
 const pathOf = (skill) => {
+  if (skill.includes("/")) return `assets/skills/strikes/${skill}`;
   const directory = skill === "step-up" || skill === "sit-back" ? "recovery/staged"
     : skill === "righting" ? "recovery/righting" : skill === "walk-run" ? "locomotion/walk-run" : `strikes/${skill}`;
   return `assets/skills/${directory}/${VARIATIONS[skill] ?? skill}`;
