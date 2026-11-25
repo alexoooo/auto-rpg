@@ -130,6 +130,16 @@ Mind's knockouts within 60 s by the skills, the way up first (the owner, 2026-11
 more than just hyperparameter tuning, it wmight require significant skill iteration (which is
 fine)"). Numbers and the testbed's rest stay parked. Each gets its own plan when begun.
 
+A floor on every freedom's response is held back: in `servoAsk` (`src/control/servo.ts`),
+`n = 1 / Math.max(FASTEST_RESPONSE, feed?.seconds?.(i) ?? seconds)` with `FASTEST_RESPONSE = 3 / 120`
+s, three steps of the game's rate, the same at every rate. It moved only the reptile's two arena
+bouts in the fingerprint: its righting (`righting-routes/tuning.ts`, `placementServo: .008`) drives
+its placing leg at one 120 Hz step and rights it at both rates (its longest time down 1.7 and 0.1 s
+against the reptile, 1.5 s against the man at 120 Hz; 1.5, 2.1 and 3.9 s at 480); with the floor,
+3.7, 16.8 and 8.1 s at 120 Hz and about 24.5 s never rising at 480. It lands only with that
+righting made to work at 25 ms, its waits (`foldWait`, `pressWait`) and arrival test
+(`placementError`) timed for a one-step drive.
+
 A decision still lands in the one step it is made in (the approaches' Minds,
 `research/runs/lean-time/`): spreading it over the steps until the next one is the lever, not yet
 asked for.
