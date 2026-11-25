@@ -612,6 +612,17 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   `ratePressure`); not isolated. The kinds were fitted by bouts on the Warrior empty-handed
   alone, the stature reading went into the game on held-out trials with no bouts, and the
   written form into it with no look in a browser. *Suspected* where a cause is named.
+- **The game's Mind's play does not move with how it models its foe; its search's runs move it**:
+  in 288 warrior-drawn bouts a match against itself it scored 0.498 with no reply searched, 0.474
+  with the foe held still in the states searched, 0.493 pricing the foe's pressure by its strikes'
+  rate, 0.469 and 0.477 deciding 30 and 20 times a second against 60, and 0.491 with a clear foe's
+  first half second priced by a learned onset at the root (`42690292f` and its plan's readings),
+  each within noise; at 10 runs, not 50, it lost 0.299. A foe's strike onset is predictable from
+  what a body sees of it (within 0.5 s: AUC 0.94 held out by bout, 0.87 from distance alone), and
+  the fitted leaf already reads the same quantities. Deciding 10 times a second with no reply
+  searched (`option-lean`) thinks 135 ms a simulated second against 251 and plays as well: a
+  decision costs more as decisions get rarer, so the rate halves the thinking, not divides it by
+  six. *Shown.*
 - **Not yet read**: the search spread over steps and the branch kept (each rests on a kept worth
   standing for a situation since moved, as the warm start's does); a value read from bouts is the
   Minds' that fought them, and how a table stays true as the Mind reading it changes is not
