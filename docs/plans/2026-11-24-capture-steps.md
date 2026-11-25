@@ -96,6 +96,15 @@ in the simplest and most general form the stance can hold.
    minute), but the game's Mind with it scored 0.472 (0.406 to 0.531) against itself without a
    kick, 0.613 before. Let go on one foot too, the kick's drive was let go and its leg pressed
    down, and it no longer reached. Not kept.
+   *The catch's height and reach*: 78 % of the catch's landings are cut short of where they are
+   aimed, half by the longest catch (1.2 of the leg, 1.06 m) and half by the leg's reach from the
+   hips (asked 0.98 m, given 0.69 m, the hips 0.76 m over the sole), the catch planned with the
+   hips lowered by the gait's crouch though the stance never asks them down. *Tried*: the hips
+   asked down by the crouch while a catch runs, 30.4 % of shoves down (no change); the longest
+   catch 1.4 of the leg, 25.9 %, but the falls in the bouts the same (2.08 a minute against 2.03,
+   blown 331 against 332; `falls-by-action-long14.jsonl`). Neither kept. The shoves a catch holds
+   better are not the bouts' falls: the bouts' blown falls follow light blows taken during the own
+   kick (`blows/`: under 0.4 m/s, 110 of 145 while striking), the kick's own balance.
 4. **The kick again**: its set-down on the better catch, and s10's aimed leg searched again on it.
 
 ## After it
