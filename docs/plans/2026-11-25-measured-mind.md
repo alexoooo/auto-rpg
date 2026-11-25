@@ -126,7 +126,7 @@ work, told to refute it (the procedure's step 5).
    one registry and read through it alone, so the inventory lists them from the code that reads
    them, never from a search of the source. Each entry has one of three sorts (what is guessed
    now, below): a guess, which is on the list that fails; a preference, which is a field a
-   person can set; or the reading's own, the same for every body. A number written anywhere
+   player sets; or the Mind's own, the same for every body. A number written anywhere
    else in the folders the Mind prices in fails a scan of the parsed source, which has a fixture
    that shows it catches one ([the test rules](../../tests/README.md)).
 4. **Nothing is measured again unless it is asked for, and nothing is chased to a fixed point.**
@@ -226,7 +226,12 @@ body. It replaces any reading taken across every body.
 | --- | --- | --- | --- |
 | A body | the settings every body shares, on the nearest body's profiles, value and prior, each marked borrowed | its own skills' drills, and its bouts against the foes in hand | another body measured again; a table for each foe |
 | An item | its mass and reach, read from its spec; the trials nearest in those numbers | trials holding it, of the skills that use it | a table for each loadout |
-| A skill | its kind and its model, which the action prior reads; its outcomes by hand, listed, until its drill | its drill, on the body that has it | another skill measured again |
+| A skill | its kind and its model, which the action prior reads; its outcomes from the nearest body that has drilled it, marked borrowed | its drill, on the body that has it | another skill measured again |
+
+A skill no body has drilled has no outcomes: its profile is empty, and nothing is written in by
+hand to fill it. An Option with no outcomes is not offered in a fight, and the inventory lists
+it as not measured. Its drill is part of making the skill
+([the skill recipe](../recipes/skill.md#the-procedure)), so it fights once that has run.
 
 Each count is checked against the code when its mechanism lands, and stated in the step's report.
 
@@ -307,22 +312,31 @@ Outside the Mind's prices, the same audit found the trunk opening's aim (`kinds.
 `TRUNK_OPENING`) copied from the Warrior's punch to the sword's thrust. That belongs to the skill
 recipe's tuning search, and goes there.
 
-**Not guesses.** The objective's settings are preferences, not predictions: the aggression, the
-initiative, the margin, the draw and the reach (`objective.ts`). So are the search's: the horizon
-and the runs. They stay as settings a player picks, each default chosen by measuring it.
+**Not guesses.** Two sorts of number set by hand are not predictions, and stay.
 
-A preference is a field a person can set, and a number that is not one is not a preference. Of
-those named, the few terms' fields are the aggression and the initiative alone: the margin and
-the draw are constants in source (`MARGIN`, `DRAW`, and `EVEN` beside them). Step 1 makes each
-a field or sorts it otherwise.
+**Preferences** are how a body is told to fight, and a player sets them: the objective's
+aggression and initiative, the search's horizon and runs. Each is a field in the mind editor,
+its default chosen by measuring it. A number that is not such a field is not a preference.
 
-**The reading's own.** A third sort: the numbers of how a reading is taken, the same for every
-body and keyed by none. How many trials are nearest, and over what spans (`NEAREST`,
-`STRUCK_SPANS`, `src/skills/framework/profile/nearest.ts`); the pressure table's (`MOMENTS`,
-`SPAN`, `pressure.ts`); how many tries a prior counts as against a record (`WEIGHT`,
-`record.ts`). How far apart two bodies are in the numbers is of this sort, and so is how fast
-an older row comes to count for less. They are set by hand, so they are in the registry and
-the inventory lists them. They are not on the list that fails.
+**The Mind's own** are implementation: how the Mind works, the same for every body and keyed by
+none. No player sets them (the owner, 2026-11-25: "margin and draw settings are implementation
+details, why would a video game player manually select implementation detatils?"). They are:
+
+- how the objective is shaped at the clock (`MARGIN`, `DRAW`, `EVEN`) and for reaching a place
+  (`REACH`), in `objective.ts`;
+- how many trials are nearest, and over what spans (`NEAREST`, `STRUCK_SPANS`,
+  `src/skills/framework/profile/nearest.ts`);
+- the pressure table's reading (`MOMENTS`, `SPAN`, `pressure.ts`);
+- how many tries a prior counts as against a record (`WEIGHT`, `record.ts`);
+- how far apart two bodies are in the numbers, and how fast an older row comes to count for
+  less, when those are built.
+
+They are in the registry, and the inventory lists and counts them. They are not on the list
+that fails.
+
+What tells one of the Mind's own from a guess: a guess says what happens in a fight (how often
+a blow lands, how long a way up takes), so rows could say it instead. No row could say one of
+the Mind's own. A number that rows could say is a guess, whatever it is called.
 
 **Not yet sorted.** A search of `src/minds/option/` on 2026-11-25 found these in neither table:
 `HELD_FOE` and `REPLY_LEAST` (`chooser.ts`), `LONGEST` (`fitted-value.ts`), `AHEAD`
@@ -525,6 +539,11 @@ owner's word.
 
 Each names its scope and follows the procedure. A step measures nothing outside its scope.
 
+Every step runs unattended (the owner, 2026-11-25: "it must be possible to implement anything
+unattended"). None waits on the owner. What reads a step in the owner's place is the fresh
+reader (the procedure's step 5). The owner's word is asked only to remove something from the
+game or to unpark something, and the work goes on meanwhile.
+
 1. **The inventory, and what holds rules 1 and 3.** The registry of numbers set by hand, each
    read through it; a reading's source in its type, of the body and of the foe; each asset
    naming what it was measured from (the body, the skill, the Minds that played and what they
@@ -538,8 +557,6 @@ Each names its scope and follows the procedure. A step measures nothing outside 
    prices in (`src/minds/option/`, `src/skills/framework/profile/`,
    `src/skills/framework/form.ts`). What it finds and the tables lack is added to them. This is
    the one time the list grows.
-   Every later step leans on this one, so its first listing is put to the owner, and step 2
-   starts on the owner's word.
 2. **Today's three configs sorted by the owner's rule** (the goal: a fix is every body's). Each
    setting `option-lean` and `option-presses` hold apart from `option-tail` is named a fix, a
    gain in scale or speed, or one situation's, with its reason. The first two are set for every
@@ -651,8 +668,9 @@ body left out in turn was put to the owner as the bar for every fit on 2026-11-2
   of the same reach, waiting at the edge of reach is about as safe for both, so pricing it better
   moves little. The rat's reach is far shorter than his.
 - **The fitted value took 1044 bouts and 623767 states of the man** (fit at `33be0e76f`). A fit
-  for another body must reach figures like the man's for far fewer bouts, or its cost is put to
-  the owner before it is paid.
+  for another body must reach figures like the man's for far fewer bouts. One whose first chunk
+  says it would not is not run: the body keeps its borrowed fit, the price goes in the report,
+  and the work goes on (rule 3: nothing waits on a measurement).
 - **Measured today**: 18 strike profiles, by body, skill and limb; 3 pressure tables, one a
   pairing; 17 edge profiles; the man's back-step sways; the fitted value, the empty-handed man's.
 - **The rat's time down, measured**: up 0.997 of its time at steadiness 25, its downs in fights
