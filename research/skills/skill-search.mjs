@@ -17,8 +17,10 @@
  *   is the cell's subject, the drills' Option Mind, its stomp so tuned (`withTuning`); a trial scores
  *   its value as the cell values it, a blow short of the bar graded below it (`searchScore`), and the
  *   confirmation keeps a record on the value.
- * - The bite: the same way, on the cells of the body's bite row, each the Strike drill's `biting`
- *   rung (the head at each leg of a standing Warrior).
+ * - The bite: the same way, its row's cells valuing the trials, but played on the Strike drill's
+ *   `sparring-bite` rung, its twin searched and its own cases confirmed: the head at the legs of a
+ *   foe fighting back, where a bite that holds on is struck over (a profile's rung, which the Mind
+ *   prices the bite by).
  * - The sit-back: its record drives two ways up (`front-sit-back`, `sit-back`), so it is searched
  *   on the twin of both their table cells on the body, every loadout or `--loadout`'s (the way-up
  *   drill's fresh falls and bouts, `research/skills/recovery/way-up-trials.mjs`), each fall risen by the
@@ -81,7 +83,9 @@ import { defaultLanes } from "../../scripts/lanes.mjs";
  * (`rowOf`; `loadout`'s cell alone where given), its training twin's (`twin`, the search's) or the
  * cell's own (`cell`, the confirmation's).
  */
-const strikeTrials = (skill) => (model, held, loadout) => rowOf({ body: model, skill, ...(loadout ? { loadout } : {}) }).flatMap((cell) => drillTrials(cell, held));
+// A strike's trials: its row's cells' own, or, given `rung`, that rung's (and its twin's) on the same bodies and loadouts, judged as the cells judge.
+const strikeTrials = (skill, rung) => (model, held, loadout) => rowOf({ body: model, skill, ...(loadout ? { loadout } : {}) })
+  .flatMap((cell) => drillTrials(rung ? { ...cell, readings: cell.readings.map((reading) => ({ ...reading, protocol: rung })) } : cell, held));
 
 /**
  * One drill trial of a strike's whole `settings` at `hz`: the cell's subject with its skill so
@@ -180,11 +184,11 @@ export const SEARCHES = {
     task: "the Strike drill's stomping rung (each foot at the middle mark of each of the game's foes lying limp), the body's stomp row" },
   bite: { dims: [["open", .4, .7], ["contactAt", .3, .9], ["biteAlign", .005, .04], ["biteShift", .02, .09], ["biteEntry", .002, .02],
       ["prepare", .12, .4], ["snap", .06, .2], ["closeRate", 2, 8], ["contactSeconds", .1, 1]],
-    trials: strikeTrials("bite"), search: "twin", confirm: "cell",
-    said: (held) => held === "twin" ? "on its cells' training twins at 120 Hz" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
+    trials: strikeTrials("bite", "sparring-bite"), search: "twin", confirm: "cell",
+    said: (held) => held === "twin" ? "on sparring-bite's training twin at 120 Hz" : "on sparring-bite's own cases at 120 and 480 Hz, the worse counting",
     trial: strikeTrial, error: -3, lost: "falls", rates: CONFIRM_RATES,
     lengths: ["biteAlign", "biteShift", "biteEntry"], heights: [],
-    task: "the Strike drill's biting rung (the head at a standing Warrior's legs), the body's bite row" },
+    task: "the Strike drill's sparring-bite rung (the head at the legs of a foe fighting back, from starts drawn at random), valued as the body's bite row values its trials" },
   "sit-back": { dims: [["plant: knee.@ flexion", 1.9, 2.2], ["plant: hip.@ flexion", 1.5, 2.1], ["plant: shoulder.@ flexion", 1.2, 2.2], ["plant: elbow.@ flexion", 0, 1.6],
       ["sit back: hip.@ flexion", 1.5, 2.2], ["sit back: shoulder.@ flexion", .2, 1.8], ["sit back: elbow.@ flexion", 0, 1.6], ["sit back: thoracic flexion", -.2, .35], ["sit back: ankle.@ dorsiflexion", 0, .7],
       ["up: hip.@ flexion", .4, .85], ["up: shoulder.@ flexion", 0, 1.4], ["up: thoracic flexion", -.2, .35]],
