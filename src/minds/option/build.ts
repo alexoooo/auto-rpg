@@ -20,6 +20,7 @@ import { situationReader } from "./situation.ts";
 import { skillsOf } from "./skills.ts";
 import { walker } from "./walk.ts";
 import { guardConfigs } from "../../skills/assembly/guards.ts";
+import type { Intent } from "../../skills/framework/intent.ts";
 
 /**
  * **An Option Mind of `config` on `host`'s body** (`OptionMind`), with everything it is made of.
@@ -50,7 +51,7 @@ export function buildOptionMind(host: BodyHost, config: ResolvedConfig): MindMad
     const scope = constructionScope(); let complete = false;
     try {
       // The command layers on its motor, which read the body as it stands before anything is made over their view.
-      const layers = scope.own(commandLayers(own, layerOptions, clock));
+      const layers = scope.own(commandLayers<Intent>(own, layerOptions, clock));
       layers.firstLook();
       const body = layers.body;
 

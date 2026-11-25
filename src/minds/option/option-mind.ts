@@ -18,7 +18,7 @@ import type { Pace } from "./pace.ts";
 /** **What an Option Mind is made of**: each part made once, by its build (`buildOptionMind`). */
 interface OptionMindParts {
   /** The command layers on its body. */
-  readonly layers: CommandLayers;
+  readonly layers: CommandLayers<Intent>;
   /** Its skills, which carry out what its Options ask. */
   readonly skills: Skills;
   /** What reads its situation each decision. */
@@ -124,7 +124,7 @@ export class OptionMind extends CommandingMind<Intent> {
     return this.skills.command(view, intent, dt);
   }
 
-  protected released(view: BodyView, reason: "idle"): void {
+  protected released(view: BodyView, reason: "idle" | "takeover"): void {
     this.skills.release(view, reason);
   }
 

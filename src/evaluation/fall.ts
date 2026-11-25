@@ -17,7 +17,7 @@ import type { MindConfig } from "../minds/catalog/config.ts";
 import type { Experiment } from "../control/body.ts";
 import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
 import { modelHoldingChecked, type BodyModel, type HumanoidModel } from "../core/bodies/models.ts";
-import type { HostedBody } from "../minds/seat/hosted-body.ts";
+import type { CommandedBody } from "../minds/seat/hosted-body.ts";
 import { soleRefusal } from "../control/support.ts";
 import { enlist, type Combatant } from "../game/combatant.ts";
 import { createSenses } from "../core/world/senses.ts";
@@ -320,7 +320,7 @@ export const createFall = perContext((context: GameContext) => {
     const wind = startWind(fighter.built, world, fall.gusts ? labGusts(fall.model) : CALM, fall.seed);
     if (isRefused(wind)) return wind;
     scope.own(wind);
-    const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.steadiness ?? 0) : null;
+    const commanded = "view" in body ? body as CommandedBody : null, meter = commanded ? groundMeter(commanded, world, fall.steadiness ?? 0) : null;
     const ledger = groundLedger(context.techniques, fighter.minded.report ?? null, () => world.time);
     const state = { shoves: 0, shovedAt: null as number | null, ended: false, check: check.state, meter: meter?.state ?? null, ledger: ledger.state };
     const result: BuiltFall = {

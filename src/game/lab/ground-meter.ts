@@ -1,12 +1,12 @@
 import { commandsBody } from "../../control/body.ts";
-import { type HostedBody } from "../../minds/seat/hosted-body.ts";
+import { type CommandedBody } from "../../minds/seat/hosted-body.ts";
 import type { World } from "../../core/world/world.ts";
 
 interface Trail { readonly at: number; readonly position: string; readonly controller: string }
 interface Attempt { readonly at: number; readonly seconds: number; readonly controller: string; readonly end: "hand-back" | "cap" }
 
 /** A run's ground history and assist meter, shared by the Lab readout and the Node bed. */
-export function groundMeter(body: HostedBody, world: World, steadiness: number) {
+export function groundMeter(body: CommandedBody, world: World, steadiness: number) {
   const indices = Object.fromEntries(body.built.spec.segments.map((s, i) => [s.name, i]));
   const state = {
     from: null as number | null, takeover: null as number | null, handback: null as number | null,

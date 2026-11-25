@@ -294,7 +294,7 @@ export async function residualEnvironment(configuration = {}) {
       goal = d.goal ?? goal;
       return { posture: guard, pushes: [], stance: view.time > 0 ? goal : null };
     };
-    body.drive((view, dt) => {
+    host.drive((view, dt) => {
       const commands = commandsOf(view, dt);
       if (ask(learner, dt) && learner.running) request();
       return commands;

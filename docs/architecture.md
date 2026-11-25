@@ -184,7 +184,7 @@ A body is a different type to each holder:
 | `BuiltBody` | `src/core/bodies/build/build-body.ts` | the world's side | the body in the engine, with what acts on it |
 | `ReadBody` | `src/core/bodies/read-body.ts` | a mind and its skills | the built body's readings alone; nothing in it moves a body |
 | `OwnBody` | `src/core/bodies/own-body.ts` | a mind's maker | what a mind is made with: the spec, the readings, the muscles' and assist's reading side, the first senses |
-| `Body` | `src/control/body.ts` | whatever drives the command layers | the body under motor control: a view to read and a command to hand back (`Body.drive`) |
+| `Body` | `src/control/body.ts` | a mind's skills, a skill or a script | the body under motor control: a view to read; the Mind that owns its command layers hands them each command (`CommandingMind`, `src/minds/commanding-mind.ts`) |
 | `PhysicalBody` | `src/minds/seat/physical-body.ts` | a fight | the body whatever its mind: the built body, whether it is down, who has it, its level, its saved state, its disposal |
 
 - **Made by its config.** A `MindConfig` is plain data tagged by kind; `createMind`

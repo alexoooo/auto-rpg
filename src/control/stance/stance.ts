@@ -73,7 +73,7 @@ const LATE_DESCENT = 0.3, LATE_MOST = 1;
 export interface StanceControl {
   /**
    * Read the body: its centre of mass and velocity, and the soles of the last command's stance
-   * feet, or all of them. A body reads this before its driver decides, so the driver's view is
+   * feet, or all of them. A body reads this before its mind decides, so the mind's view is
    * this step's; `command` uses it.
    */
   read(): void;

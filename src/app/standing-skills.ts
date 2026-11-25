@@ -1,5 +1,6 @@
 import { windowSpotFinder } from "../skills/intent/action-window.ts";
-import type { Body, SplitDriver } from "../control/body.ts";
+import type { Body } from "../control/body.ts";
+import type { SplitDriver } from "../minds/scripted-mind.ts";
 import { standingFooting } from "../control/support.ts";
 import { skillSet } from "../skills/framework/arbiter.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "../skills/locomotion/shared/stance-feet.ts";

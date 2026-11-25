@@ -1,7 +1,7 @@
 import { Vector3 } from "../../../core/math/vector.ts";
 import { airOf, hearTouches } from "../../../game/audio/body-sounds.ts";
 import { impactCue, substanceOf, voiceOf, type SoundCue, type SoundPoint } from "../../../game/audio/cues.ts";
-import type { HostedBody } from "../../../minds/seat/hosted-body.ts";
+import type { CommandedBody } from "../../../minds/seat/hosted-body.ts";
 import type { BuiltBody, BuiltSegment } from "../../../core/bodies/build/build-body.ts";
 import { contactMass } from "../../../core/bodies/build/contact-mass.ts";
 import type { World } from "../../../core/world/world.ts";
@@ -78,7 +78,7 @@ const LAB_OTHER = "other";
  * touches of another body in the world, with the body and with the ground, until what it returns
  * is disposed.
  */
-export function logSounds(world: World, body: HostedBody, log: SoundLog): { heard(cue: SoundCue | null): void; hears(built: BuiltBody): { dispose(): void }; dispose(): void } {
+export function logSounds(world: World, body: CommandedBody, log: SoundLog): { heard(cue: SoundCue | null): void; hears(built: BuiltBody): { dispose(): void }; dispose(): void } {
   const heard = (cue: SoundCue | null): void => { if (cue) log.note(body.view.time, cue); };
   const own = { id: LAB_BODY, built: body.built };
   const touches = hearTouches(world, [own], heard);

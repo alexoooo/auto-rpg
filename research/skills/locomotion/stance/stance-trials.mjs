@@ -243,7 +243,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
         down ||= b.view.down;
         facing = Math.max(facing, Math.abs(s.facing));
         if (trace) {
-          const step = b.state.mind.host.motor.stance.step;
+          const step = b.state.mind.layers.motor.stance.step;
           samples.push(structuredClone({ time: stand.world.time, facing: s.facing, phase: s.phase,
             velocity: s.velocity, centre: s.centre, ends: s.ends,
             catching: step.catching, recovering: step.recovering, stepFacing: step.facing,

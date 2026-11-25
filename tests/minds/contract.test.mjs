@@ -16,7 +16,7 @@ import { embody } from "../../src/minds/seat/embodiment.ts";
 import { loadState, saveState } from "../../src/core/state.ts";
 import { freshEngine, coreStand } from "../harness/core-stand.mjs";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
-import { commandedMind } from "../../src/minds/sub-mind.ts";
+import { commandedMind } from "../../src/minds/scripted-mind.ts";
 import { standingSkills } from "../../src/app/standing-skills.ts";
 import { standIntent } from "../../src/skills/framework/intent.ts";
 import { stockMotor } from "../../src/app/registration/stock-motor.ts";
@@ -141,7 +141,7 @@ test("a commanded Mind restores its driver's memory from its own state", async (
     const stand = await coreStand(modelSpec("man"));
     const embodied = embody(stand.built, stand.world, own => commandedMind(own, { servoSeconds: SERVO_SECONDS, motor: stockMotor() }, stand.world));
     const memory = { decisions: 0 }, skills = standingSkills(embodied.construction.body);
-    embodied.construction.body.drive({ state: { memory, skills: skills.state },
+    embodied.construction.drive({ state: { memory, skills: skills.state },
       decide() { memory.decisions++; return standIntent(0); },
       carry: (view, intent, dt) => skills.command(view, intent, dt) }, skills.release);
     return { stand, embodied, memory, dispose() { embodied.dispose(); stand.dispose(); } };

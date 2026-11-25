@@ -78,7 +78,7 @@ export interface PointTask {
 export interface MotorControl {
   /** The goals beyond a posture and pushes it carries out (`MotorGoal`): what it has the members for (`carrying`). */
   readonly carries: readonly MotorGoal[];
-  /** Read the body as it stands: its centre of mass and what bears it, into `reading`. A body reads this before its driver decides. */
+  /** Read the body as it stands: its centre of mass and what bears it, into `reading`. A body reads this before its mind decides. */
   read(): void;
   /** What its last reading found and its last command asked of what bears the body (`StanceReading`). */
   readonly reading: StanceReading;

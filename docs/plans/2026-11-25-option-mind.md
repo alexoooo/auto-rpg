@@ -37,8 +37,7 @@ hard-coded hacks."
 ## What was wrong at the start
 
 Each line was read in the code on 2026-11-25 at `878c17a24`, and cites the code as it was then.
-Put right so far: 5, 6 and 10 (chunk 1); 1, 3 and 4, and 2 under an Option Mind (2b). A scripted
-body keeps the registered driver of 2 until 2c.
+Put right so far: 5, 6 and 10 (chunk 1); 1, 3 and 4 (2b); 2 (2b and 2c).
 
 1. **Nothing named Option Mind is a `Mind`.** `OptionMind` (`src/minds/option/build.ts:28`) is
    the receipt the build hands the fight (`MindMade`). The `Mind` (`src/minds/mind.ts:15`) is made
@@ -366,7 +365,9 @@ Each is one commit's worth and is reversed by editing that chunk before it runs.
 - **What a body allocates a step** (`tests/harness/step-allocation.mjs`): read before chunk 2 and
   after chunks 2 and 3 on `option-lean` and `option-tail`, the empty-handed man (477 and 541 KiB
   a body a step on 2026-11-25). A chunk that raises either by more than the harness's own spread
-  between two runs is reworked before it lands.
+  between two runs is reworked before it lands. The spread is read with the chunk: several runs
+  on a copy of the tree from before it and several on the tree, back to back (2c found one
+  reading in ten or so far out, and the rest within about 9 KiB).
 - **Scripted bodies.** `stockBody`, `commandedBody` and their sub-minds (`src/minds/seat/host.ts`,
   `src/app/stock-body.ts`) drive by `drive` as they do now, a function or a split driver; about
   forty research and test call sites use them.
@@ -433,7 +434,7 @@ moved in 2b with `OptionContext`, which names them (`contract/context.ts`); `Ris
 
 ## Chunk 2: the Option Mind is a `Mind`
 
-Three commits, each green.
+Three commits, each green, all landed.
 
 ### 2a: the command layers say their steps (landed)
 
@@ -482,9 +483,7 @@ In `src/minds/motor-layers.ts`, `think` and `act` are:
 What is there now:
 
 - **`src/minds/commanding-mind.ts`**: the abstract `CommandingMind<D>` above, with the Option
-  Mind its one subclass until 2c. Its `released` is told `"idle"` alone until 2c's sub-minds
-  give it `"takeover"` to say. It casts what `layers.take` hands back to `D`; 2c, which takes
-  the driver out of the layers, tries carrying `D` in `CommandLayers`' type instead.
+  Mind its first subclass.
 - **`src/minds/option/pace.ts`**: `Pace`, when an Option Mind decides again, its memory in
   `state`; and `everyOf`. The intent held between decisions is the Mind's
   (`OptionMindState.asked`).
@@ -524,83 +523,42 @@ isolated): the bout stepped, the Choices panels filled and the page raised no er
 `research/skills/recovery/implementations/staged/rise-trace.mjs` fails as it did before this
 chunk (`action.stage` is undefined at its `traceFall`), which is not this plan's to fix.
 
-### 2c: the scripted Mind is the second subclass
+### 2c: the scripted Mind is the second subclass (landed)
 
 **Purpose.** A registered driver exists only on a scripted body's Mind. The command layers are a
 tool with steps and no seat, and no `drive` reaches a body under an Option Mind.
 
-**Steps.**
+What is there now:
 
-1. **`git mv src/minds/sub-mind.ts src/minds/scripted-mind.ts`**, and in it
-   `ScriptedMind extends CommandingMind<unknown>` replaces `hosting`:
-   - `drive(next, onRelease)` is the layers' `drive` moved as it is (`motor-layers.ts:220`): a
-     function driver wrapped with `carried`; a driver replaced has the old one's
-     `released(view, "replaced")` called and the decisions queued and not yet carried out
-     dropped, without the motor released (`layers.forget()`, new, which does that and nothing
-     else).
-   - `decide` is `driver ? driver.decide(view, dt) : null`, `carry` is the driver's, `released`
-     calls what `drive` was given.
-   - Its state is `{ layers, idle, driver, has, subs }`. `BodyDriver` and `SplitDriver` move
-     here from `src/control/body.ts` unless `grep -rn "SplitDriver\|BodyDriver" src/control`
-     finds a reader there.
-   - **Sub-minds stay its own.** A sub-mind takes the body between the senses being read and
-     the host thinking, so `ScriptedMind` overrides `think`, `act` and `interrupt` with
-     `hosting`'s bodies (`sub-mind.ts:30` to `:52`). For that the base's three methods are each
-     split after their first line into a protected step, in this commit where the split has
-     its reader:
+- **`src/minds/scripted-mind.ts`** (was `sub-mind.ts`): `ScriptedMind extends
+  CommandingMind<unknown>` in place of `hosting`. Its `drive` is the layers' old one. Its state
+  is `{ layers, idle, driver, has, subs }`; while anyone but its driver has the body, `idle` is
+  true and `has` says who. Sub-minds are its own: it overrides `think`, `act` and `interrupt`
+  to decide who has the body before the base's turn. `SplitDriver`, the driver type and `Drive`
+  live here. `commandedMind` returns the construction with `body` and `drive`.
+- **`src/minds/commanding-mind.ts`**: `think`, `act` and `interrupt` are each one line over a
+  protected step (`thinks`, `acts`, `gives`), which the scripted Mind calls.
+- **`src/minds/motor-layers.ts`**: `CommandLayers<D>` is the layers' one type and is no `Mind`.
+  It carries what its Mind decides, so the base class casts nothing. The driver, `drive`,
+  `think`, `act`, `interrupt` and `LayersMind` are gone; `forget` drops the queue alone;
+  `release` takes no reason, which only the driver's callback read.
+- **`src/control/body.ts`**: `Body` has no `drive`.
+- **`src/minds/seat/`**: `CommandedBody` is a body under any commanding Mind (`view`,
+  `envelope`, `afterPhysics`, `commanded`); `HostedBody` is a `CommandedBody` with `drive`,
+  which `commandedBody` adds from its construction (`seated` and `commandedOver` in place of
+  `takeBody`, no cast). The Lab's and the evaluations' readers take a `CommandedBody`.
+- A scripted body's saved state reads `state.mind.layers` where it read `.host`
+  (`research/skills/locomotion/stance/stance-trials.mjs`).
 
-     ```ts
-       think(senses: Senses): void { this.layers.look(senses); this.thinks(); }
-       act(control: BodyControl): void { this.layers.observe(control); this.acts(control); }
-       interrupt(): void { this.gives("idle"); }
-       /** Its own turn to think, its body's senses already read. */
-       protected thinks(): void { /* resume where idle, then queue what it decides */ }
-       /** Its own turn to act, its body already observed. */
-       protected acts(control: BodyControl): void { /* nothing where idle, else carry out what is due */ }
-       /** Give its body up, to nobody or to another holder. */
-       protected gives(reason: "idle" | "takeover"): void { /* nothing where idle, else released, layers.release, idle */ }
-     ```
+On a release a scripted driver's callback now runs before the layers drop their queue, as the
+Option Mind's does since 2b. The one callback handed to `drive` anywhere is `skills.release`,
+which reads the view and its own memory.
 
-     A sub-mind taking the body is `gives("takeover")` and its `begin`; one giving it back is
-     its `end`, and the host's next `thinks` resumes. While a sub-mind holds the body, `idle` is
-     true and `state.has` is its index; `has()` names it.
-   - `commandedMind(own, options, clock, subs)` builds one and returns
-     `MindConstruction & { readonly body: Body; readonly drive: Drive }`; its `dispose` calls
-     `drive(null)` before the layers'.
-2. In `motor-layers.ts`: `driver`, `released`, `drive`, `state.driver`, `think`, `act`,
-   `interrupt` and `carried` leave; `release` loses its call of `released`; `dispose` clears its
-   listeners; `forget` is added. `LayersMind` is deleted: `CommandLayers` is the layers' one type
-   and is no `Mind`.
-3. In `src/control/body.ts`: `Body` loses `drive`. Two callers drive the commanded `Body` and not
-   the hosted one, and call the hosted body's instead:
-   `tests/skills/locomotion/learned-run.test.mjs:43` and
-   `research/skills/locomotion/residual-environment.mjs:297` (`host.commanded.drive` becomes
-   `host.drive`).
-4. In `src/minds/seat/`: `takeBody` assigns `view`, `envelope`, `afterPhysics` and `commanded`
-   where the construction has a `body`; `commandedBody` adds `drive` from its construction.
-   `hosted-body.ts` holds two types: `CommandedBody`, a `PhysicalBody` with the layers' `view`,
-   `envelope`, `afterPhysics` and `commanded`, which a body under any commanding Mind is; and
-   `HostedBody`, a `CommandedBody` with `drive`, which a scripted one is.
-   - Stay `HostedBody`: `host.ts:38`, `:40`, `src/app/stock-body.ts:17`.
-   - Become `CommandedBody`, since they take an actor's or a duelist's body and read no `drive`:
-     `src/game/lab/actor.ts:43`, `:83`, `:112`; `src/game/lab/stance-mode.ts:64`,
-     `locomotion-mode.ts:94`, `ground-meter.ts:9`; `src/app/browser/lab/mind-log.ts:54`, `:66`,
-     `sound-log.ts:81`; and the casts at `src/evaluation/fall.ts:323`,
-     `back-step/read.ts:31`, `:162`, `strike/read.ts:535`.
-5. Tests that reach `construction.body.drive` (`tests/layer-contracts.test.mjs:178`,
-   `tests/minds/contract.test.mjs:145`, `tests/minds/stance-ownership.test.mjs:27`) call
-   `construction.drive`. `contract.test.mjs:155` reads the driver's memory at
-   `construction.mind.state`, where it now is `.driver`. A script that reads a scripted body's
-   `state.mind.host` reads `.layers` (`grep -rnE "mind??.(host|decider)" research scripts
-   tests`, read hit by hit).
-
-**Consequences.** `drive` on a scripted body is where it was for every `stockBody` and
-`commandedBody` caller. The order on a release changes for a scripted driver as it did for the
-Option Mind in 2b (its callback first, then the layers): each callback handed to `drive` in
-`src`, `research` and `tests` is read for one that reads the layers' queue or the motor.
-
-**Done when** the checks pass, the fingerprint compares clean, and `Body` has no `drive` (the
-type checker refuses every use left in `src`).
+**Read on landing** (2026-11-25): the fingerprint moves no pose on any of the 299 cases and
+names the same 70 state differences as 2b. Allocation is not moved by chunk 2: `option-tail`
+read 542.9 and 544.2 KiB a body a step beside 544.9, 543.5, 536.2 and 543.7 on a copy of the
+tree from before 2b, run back to back; `option-lean` 480.4 and 478.6. One reading in ten or so
+lands far out (563.0 once), so the spread of this harness is nearer 9 KiB than 2.
 
 ## Chunk 3: predictions behind interfaces
 
@@ -960,8 +918,6 @@ Each is settled by the chunk that meets it, with the tool named.
 - **Whether a rise can be left unoffered from a posture** (3d). `rise.ts:169` takes a way as
   given. If a way up cannot model null without reshaping the rise, `way` leaves `Guesses`, its
   three priors join the always-read numbers in `by-hand.ts`, and the commit says so.
-- **Whether a scripted driver's release callback reads the layers' queue or the motor** (2c).
-  The skills' does not; the others are read one by one.
 - **Whether a relay equals a straight play today on every arena case** (5).
   `tests/minds/contract.test.mjs:211` shows it for two men under Option Minds with a drill
   Commander, one load, 180 steps; other bodies and more loads were not read. A case that differs

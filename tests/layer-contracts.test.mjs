@@ -10,7 +10,7 @@ import { saveState, loadState } from "../src/core/state.ts";
 import { Vector3, Quaternion } from "../src/core/math/vector.ts";
 import { freshEngine, coreStand } from "./harness/core-stand.mjs";
 import { embody } from "../src/minds/seat/embodiment.ts";
-import { commandedMind } from "../src/minds/sub-mind.ts";
+import { commandedMind } from "../src/minds/scripted-mind.ts";
 import { Pace } from "../src/minds/option/pace.ts";
 import { stockMotor } from "../src/app/registration/stock-motor.ts";
 import { SERVO_SECONDS } from "../src/control/body.ts";
@@ -175,7 +175,7 @@ test("command layers deliver changed tracking, bracing and moving-frame goals", 
     const changes = [{}, { response: .1 }, { firm: true }, { unbend: true }, { origin: [.01, 0, 0] }, { drift: [.1, 0, 0] }];
     let index = 0;
     const goals = changes.map(change => Object.assign(goal = { ...goal }, change));
-    body.drive(() => ({ posture: {}, pushes: [], stance: null, effectors: { [segment]: goals[Math.min(index++, goals.length - 1)] } }));
+    embodied.construction.drive(() => ({ posture: {}, pushes: [], stance: null, effectors: { [segment]: goals[Math.min(index++, goals.length - 1)] } }));
     stand.step(goals.length + body.delay);
     assert.deepEqual(received, goals);
   } finally { embodied.dispose(); stand.dispose(); }

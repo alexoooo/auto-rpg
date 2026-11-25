@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { modelSpec } from "../../src/core/bodies/models.ts";
 import { embody } from "../../src/minds/seat/embodiment.ts";
-import { commandedMind } from "../../src/minds/sub-mind.ts";
+import { commandedMind } from "../../src/minds/scripted-mind.ts";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
 import { stockMotor } from "../../src/app/registration/stock-motor.ts";
 import { coreStand } from "../harness/core-stand.mjs";
@@ -24,7 +24,7 @@ test("a stance's named bearing end excludes another controller of its segment", 
     try {
       const body = embodied.construction.body;
       let carried = 0;
-      body.drive(() => { carried++; return { posture: {}, pushes: [],
+      embodied.construction.drive(() => { carried++; return { posture: {}, pushes: [],
         stance: { feet: [end.name], centre: null, height: body.view.standing, heading: 0 },
         ...(owns === "effectors"
           ? { effectors: { [end.segment]: { places: [{ point, position: [0, 0, 0] }], seconds: 1 } } }
