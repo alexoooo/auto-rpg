@@ -30,8 +30,8 @@ function phased(striking: number | undefined, outcomes: (phase: FoePhase | null)
 /**
  * **The back step**: the legs ordered its gait (`BACK_STEP_GAIT`) for `held` s (`BACK_STEP_SECONDS`), facing the focus, as a
  * body of `spec` sways back over its rear foot out of a punch's way and in again. On offer where
- * what `outcomes` answers of it (measured as a body of `spec` at `hz` whose mind decides at `rate`
- * Hz, its world's unless given, and whose command is `delay` steps late, against the focus's body)
+ * what `outcomes` answers of it (measured as a body of `spec` at `hz` whose mind looks `rate`
+ * times a second, its world's unless given, and whose command is `delay` steps late, against the focus's body)
  * reads the focus at the range it stands at (`ProfileReading.reach`), the body
  * standing in the back step's carriage (`gaitStance` of `SWAYS_FROM`, as the Mind reads its stance), its legs ready;
  * none for a body with no such profile (its Option, too, none for legs that do not go by the gait: `goesBy`). Once begun it

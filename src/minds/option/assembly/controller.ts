@@ -32,7 +32,7 @@ export function optionController(assembly: OptionAssembly) {
     resolvedFor(config, parts).options.flatMap((option) => { const part = parts.find("option", option); return part ? [[part, option] as const] : []; });
   return controller<OptionMindConfig>({
     role: "mind", label: "Option Mind", slots, defaults,
-    // Its two clocks, each a time: how soon it notices a change it watches (empty: every control step), and how often it searches with none.
+    // Its two clocks, each a time: how soon it notices a change it watches (the least, every control step), and how often it searches with none.
     fields: [period<OptionMindConfig, "rate">("rate", "Notices changes every", .001, 1, .001), number<OptionMindConfig, "rethink">("rethink", "Searches every", .01, 1, .01, "s", RETHINK)],
     keys: { kind: true, chooser: true, options: true, predictions: true, rate: true, rethink: true, tuning: true }, tuning: ["parts"],
     // The parts an experiment passes in under its skills, each at its place in the config.

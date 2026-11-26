@@ -23,8 +23,8 @@
  *   tell a guess from a count there.
  * - a guess that is not a number literal: `Infinity`, a posture's name, `Number("0.3")`.
  * - a guess written outside the code it reads (`PRICING`) and imported into it.
- * - a number inside a call named `handSet` or `number` that is not the registry's or the
- *   fields' function: the scan goes by the name called.
+ * - a number inside a call named `handSet`, `number` or `period` that is not the registry's or
+ *   the fields' function: the scan goes by the name called.
  * - a table that counts up from 0 and is in truth a guess.
  */
 import fs from "node:fs";

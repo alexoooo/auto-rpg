@@ -836,8 +836,9 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   this gains; why is not read. *Counted.*
 - **The search period is the strongest of the timings: every 0.05 s wins 0.807 for 40 % more
   thinking**: the same Mind at 60 Hz with no kick, one side's tree chooser searching every so
-  often (`OptionMindConfig.rethink`) against the other's 0.2 s, over the 288 bouts of
-  `warrior-drawn`. Score, then knockouts within 60 s and the other's life taken by 60 s, each
+  often against the other's 0.2 s, over the 288 bouts of `warrior-drawn`, played while the
+  period was the chooser's setting and a timed search waited for a look (at 60 Hz up to a step
+  late; `OptionMindConfig.rethink` since `0a5b7fdd7`, on time). Score, then knockouts within 60 s and the other's life taken by 60 s, each
   against the 0.2 s side's: 0.05 s 0.807 (0.757 to 0.852), 48.6 % against 9.4 %, 77.5 % against
   49.5 %; 0.1 s 0.642 (0.587 to 0.698), 37.8 % against 18.8 %, 73.7 % against 58.1 % (both at
   `0e79d9e37`); 0.15 s 0.554 (0.500 to 0.611), 38.5 % against 22.6 %, 72.1 % against 62.9 %;
@@ -856,7 +857,8 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   performance cores: thinking, both bodies, 219 ms a simulated second against 218 (the means of
   bouts 232 against 221), the 99th percentile step 7 ms at each; the mirrors at the new timings
   ran 381 s against 310, three of eight drained against none. The 20 Hz rate did not show the
-  saving its own reading did here. *Counted.*
+  saving its own reading did here. Played while a timed search waited for a look: at 20 Hz each
+  came up to 0.05 s late. *Counted.*
 - **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of

@@ -4,15 +4,15 @@ import { deepFreeze } from "../../core/state.ts";
 
 /**
  * Its Option configuration names no Options, so it fights by every one registered (`optionsOf`),
- * of which a body offers those whose skill it fits, with the limbs it has (`skillsOf`). It decides
- * at 60 Hz, every other control step (`OptionMindConfig.rate`), where its strike and gait profiles
- * are measured. It searches by tree, each leaf the value fitted to what followed (`leaf` fitted),
+ * of which a body offers those whose skill it fits, with the limbs it has (`skillsOf`). It looks
+ * for a change it watches at 60 Hz, every other control step (`OptionMindConfig.rate`), where its
+ * strike and gait profiles are measured. It searches by tree, each leaf the value fitted to what followed (`leaf` fitted),
  * each state worth the mean of its lines by their runs (`best` 0), at aggression 4, a blow's worth
  * falling by 0.3 a second along a line (`initiative`).
  */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "tree", leaf: "fitted", best: 0, objective: { kind: "few-terms", aggression: 4, initiative: .3 } }, rate: 60 });
 
-/** `option-lean`: the defaults deciding ten times a second, the foe kept moving over a line's first half second, its own body priced truer (`walkStart`, `sways`). */
+/** `option-lean`: the defaults looking ten times a second, the foe kept moving over a line's first half second, its own body priced truer (`walkStart`, `sways`). */
 const LEAN = deepFreeze({ ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, carry: .5 }, rate: 10, predictions: { kind: "measured", walkStart: "signed", sways: "own" } }) satisfies OptionMindConfig;
 
 /**
@@ -31,7 +31,7 @@ const LEAN = deepFreeze({ ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.choo
  * priced truer (`option-truer`): a walk starting at its speed along its way, going on away for its
  * gait's lag (`walkStart` signed), a sway leaving the body by its own steps (`sways` own), and the
  * foe kept moving over a line's first half second (`carry`), as strong as `option-reply`. And that
- * one deciding ten times a second with no reply searched (`option-lean`): as strong, at about half
+ * one looking ten times a second with no reply searched (`option-lean`): as strong, at about half
  * its thinking. And the Mind that presses its attack (`option-presses`): each state worth its
  * best line (`best` 1), at aggression 5 and initiative 0.3, the rat's, which bites the Warrior more
  * often than it waits. And `option-lean` given no guesses (`option-measured`): a strike, a

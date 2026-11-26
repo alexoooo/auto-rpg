@@ -39,7 +39,7 @@ export interface Seen {
   readonly spec: BodySpec;
   /** The world's rate, Hz. */
   readonly hz: number;
-  /** The rate its mind decides at, Hz (`OptionMindConfig.rate`), at which a profile is read. */
+  /** How often its mind looks for a change it watches, Hz (`OptionMindConfig.rate`), at which a profile is read. */
   readonly rate: number;
   /** The steps its body's command waits (`Body.delay`), at which a profile is read. */
   readonly delay: number;

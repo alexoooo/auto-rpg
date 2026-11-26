@@ -2,7 +2,7 @@ import type { BodyView } from "../../../control/body.ts";
 import type { Senses } from "../../../core/bodies/senses.ts";
 import { sameOrders, type Orders } from "../../orders.ts";
 
-/** **How many control steps apart a mind deciding at `rate` Hz decides** at `hz`: the nearest whole number, at least 1; every step where it names no rate. */
+/** **How many control steps apart a mind looking `rate` times a second looks** at `hz`: the nearest whole number, at least 1; every step where it names no rate. */
 export const everyOf = (rate: number | undefined, hz: number): number => rate === undefined ? 1 : Math.max(1, Math.round(hz / rate));
 
 /**
