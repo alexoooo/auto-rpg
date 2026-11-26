@@ -1,7 +1,7 @@
 # man's kick/front at cb783007b1fe
 
 Looks like the motion: yes
-Works some of the time: yes (the base twin, as many trials as its cell and none of its points: landed 7 of 32, down after 1, 31 standing, value 0.024; on the twin drawn at 8024209f6's points before it, 11 of 32, none down)
+Works some of the time: yes (the base twin, as many trials as its cell and none of its points: landed 7 of 32, down after 1, 31 standing, value 0.024; on the twin as e66f926ba drew it, 11 of 32, none down)
 
 What the strips show, against how a person does it: a push kick at the belly, as at 6ea2dae3e142
 before the merge changed the strikes' shared drive. The weight goes onto the standing leg, the knee
