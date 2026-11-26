@@ -203,3 +203,11 @@ its bout's path, 10 to 30 % between neighbouring commits, so the ceiling measure
 the change, and will go on being raised until it guards nothing. Either the minds' per-step
 allocation made independent of the path (what each allocates a step, found and taken out), or the
 reading made so (a bout whose path is fixed).
+
+A skill's search ranks its candidates as its confirmation keeps a best (`rank`,
+`research/skills/skill-search.mjs`). Training's reward, the strike drill's `value` term
+(`src/evaluation/strike/index.ts`), still prices a fall by its rise alone, the cell's price: a
+kick that lands and falls is rewarded above one that misses and stands. To be brought to the same
+order, or said why not. And a trial the kick refuses through its window (`beyond`) leaves the mean
+and the count of falls, in the search and the confirmation alike: whether it should count as not
+thrown (0) is read on the search's best against the record, refused trials counted.

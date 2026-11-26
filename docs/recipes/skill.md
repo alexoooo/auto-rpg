@@ -74,8 +74,10 @@ By hand, on its drill, read by its score ([a skill's value](#a-skills-value)):
 - **Only timings and gains, never its shape.**
 - **A search is CMA-ES on its drill's twin** (`cmaSearch`; a record's settings by
   `research/skills/skill-search.mjs`, `SEARCHES`), ranking its candidates as its confirmation
-  keeps a best: fewer trials lost, then the score. Ranked by the score alone, a search climbed by
-  landing more while falling more, toward a best the confirmation refuses. Hand-picked variants are not a search. Given no
+  keeps a best: by the score where a candidate loses no more trials than the start, the fewer lost
+  first where it loses more. Ranked by the score alone, a search climbed by landing more while
+  falling more, toward a best the confirmation refuses; ranked by falls first, it would climb
+  toward not kicking. Hand-picked variants are not a search. Given no
   clock or count, it runs to its plateau (`--patience 30`). Price it from its first generation.
 - **Its best is looked at again before it is written** (`npm run look -- <body> <variation>
   --tuning <its settings>`; `--write` refuses without that verdict).
