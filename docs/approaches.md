@@ -812,10 +812,20 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   each within noise; at 10 runs, not 50, it lost 0.299. A foe's strike onset is predictable from
   what a body sees of it (within 0.5 s: AUC 0.94 held out by bout, 0.87 from distance alone), and
   the fitted leaf already reads the same quantities. Deciding 10 times a second with no reply
-  searched (`option-lean`) thinks 135 ms a simulated second against 251 and plays as well: a
-  decision costs more as decisions get rarer, so the rate halves the thinking, not divides it by
-  six. On the scorecard it knocks out within 60 s in 45.1 % of its mirror bouts against 38.6 %
-  (`b207cee32`); it is the empty-handed man's Mind. Its decision lands in the one step it is made in: with the
+  searched (`option-lean`) thinks 135 ms a simulated second against 251 and plays as well. On
+  the scorecard it knocks out within 60 s in 45.1 % of its mirror bouts against 38.6 %
+  (`b207cee32`); it is the empty-handed man's Mind.
+- **The rate alone saves a sixth of the thinking, and 10 Hz loses**: `option-lean` with no kick,
+  at `9d1de3287`, its rate the only change. The search comes every 0.2 s (`RETHINK`) and at once
+  on a change it watches at any rate; the rate is how soon a change is noticed, on top of the
+  senses' 0.15 s, so the 60 Hz checks between searches are cheap. Thinking, both bodies, in eight
+  Warrior mirror bouts each, interleaved on the performance cores: 216 ms a simulated second at
+  60 Hz, 207 at 40, 172 at 30, 168 at 20, 179 at 10 (30 and 20 flattered: their mirrors ran
+  longer, and a long bout thinks less a second); the 99.9th percentile step 12 ms at 60 Hz, 20 ms
+  at 10. Against 60 Hz over the 288 bouts of `warrior-drawn`: 40 Hz 0.495 (0.438 to 0.552), 30 Hz
+  0.507 (0.451 to 0.566), 20 Hz 0.495 (0.434 to 0.559), 10 Hz 0.344 (0.295 to 0.392), 60 Hz then
+  knocking out within 60 s in 48.6 % of bouts against 24.0 %. Why 10 Hz loses is not read. *Shown.*
+- **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of
   a bout's CPU against the physics' 22 %, the profiles' nearest lookup the largest part

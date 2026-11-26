@@ -716,8 +716,9 @@ game or to unpark something, and the work goes on meanwhile.
    body; the third stays where it was read. The agent's sorting to start from, each checked in
    the code first: a walk's start signed, a sway by its own steps, the foe carried on and the
    fitted leaf are prices made truer, so fixes (off the man the fitted leaf stands aside until
-   step 5); deciding at 10 Hz halves the thinking, so speed, if `staleness` shows each body's
-   profiles hold at that rate; the backup, the aggression and the initiative were chosen by
+   step 5); deciding at 10 Hz is no gain: alone it saves a sixth of the thinking and loses to
+   60 Hz (0.344, the approaches' "The rate alone"), while 40, 30 and 20 Hz each play 60 Hz even;
+   the rate every body shares is the cheapest of those that hold on the rat; the backup, the aggression and the initiative were chosen by
    reading one body, so a situation's. Scope: the empty-handed Warrior and the rat against him,
    by the procedure's step 4. Nothing is played for the other bodies: the fingerprint names
    each case moved, and the report lists them as moved and not read.
