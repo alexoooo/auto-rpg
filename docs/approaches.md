@@ -847,6 +847,16 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   0.2, 186 at 0.25; the 99th percentile step 10 ms at 0.05 s, 7 to 8 ms at the rest. Down to
   0.15 s a search comes mostly at once on a change it watches, so the period costs little; below
   it the timed searches tell. *Counted.*
+- **Seeing at 0.1 s, deciding at 20 Hz and searching every 0.15 s beats today's timings for the
+  same thinking**: the same Mind with no kick on both sides, one side's character at a reaction
+  time of 0.1 s, its Mind at 20 Hz searching every 0.15 s, against 0.15 s, 60 Hz and 0.2 s, over
+  the 288 bouts of `warrior-drawn` at `d90569a87`: 0.615 (0.563 to 0.667), margin 0.099 (0.050
+  to 0.146), knocking out within 60 s in 42.7 % of bouts against 28.5 %, taking 75.2 % of the
+  other's life by 60 s against 65.1 %. Each as a Warrior mirror, eight bouts, interleaved on the
+  performance cores: thinking, both bodies, 219 ms a simulated second against 218 (the means of
+  bouts 232 against 221), the 99th percentile step 7 ms at each; the mirrors at the new timings
+  ran 381 s against 310, three of eight drained against none. The 20 Hz rate did not show the
+  saving its own reading did here. *Counted.*
 - **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of
