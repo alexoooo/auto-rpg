@@ -28,7 +28,7 @@
  *   drill's fresh falls and bouts, `research/skills/recovery/way-up-trials.mjs`), each fall risen by the
  *   drills' Mind with the cell's way up first and every staged way up on the candidate
  *   (`stagedValue`), at 120 Hz, and confirmed on the cells' own falls at 120 and 480 Hz, the worse
- *   counting. The search moves the joint angles its three stages drive toward, never their times.
+ *   counting. The search moves its three stages' times; their postures are authored.
  *   A trial scores the cell's value negated: the way up's seconds an attempt, one not reaching
  *   where it goes at `ATTEMPT_CAP`; a fall not exercised scores nothing. A record it writes leaves
  *   the body's ground profiles stale: rebuild them
@@ -74,7 +74,7 @@ import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../../tests/harness/preload-data.mjs";
 import { ATTEMPT_CAP } from "../../src/evaluation/way-up/read.ts";
 import { modelSpec } from "../../src/core/bodies/models.ts";
-import { ROLL_POSES, SIT_BACK } from "../../src/skills/recovery/shared/staged/stages.ts";
+import { ROLL_POSES } from "../../src/skills/recovery/shared/staged/stages.ts";
 import { cmaSearch, workerPool } from "../cma.mjs";
 import { CONFIRM_RATES, drillTrials, offered, playTrial, rowOf, searchScore, subjectOf, withTuning } from "../drill-trials.mjs";
 import { RECORD_WAYS, stagedValue, tuningOn, wayCells } from "./recovery/way-up-trials.mjs";
@@ -107,9 +107,6 @@ const strikeTrialOf = (variation) => async (settings, trial, hz) => {
 };
 const strikeTrial = strikeTrialOf(undefined);
 
-/** A sit-back dimension's stage and the channels of its posture it moves, `@` both sides': `"sit back: hip.@ flexion"`. */
-const stageChannels = (key) => { const [stage, channel] = key.split(": "); return { stage, channels: channel.includes("@") ? ["left", "right"].map((side) => channel.replace("@", side)) : [channel] }; };
-
 /** A searched posture's anatomical channels, on either side for a bilateral or relative channel; a pose's time has none. */
 const postureChannels = (key) => {
   const channel = key.split(": ")[1];
@@ -117,16 +114,13 @@ const postureChannels = (key) => {
     ? ["left", "right"].map(side => channel.replace(/\.(?:@|near|far) /, `.${side} `)) : [channel];
 };
 
-/** The angle a sit-back's `settings` drive a dimension's channels toward: their own, else the recipe's (`SIT_BACK`). */
-function sitBackAngle(settings, key) {
-  const { stage, channels } = stageChannels(key);
-  return settings.stages[stage]?.posture?.[channels[0]] ?? SIT_BACK.rise.find((one) => one.name === stage).posture[channels[0]] ?? 0;
-}
+/** A sit-back dimension's stage (`"up: scale"`) and the scale of its time `settings` give it. */
+const sitBackTime = (settings, key) => settings.stages[key.split(": ")[0]]?.scale ?? 1;
 
-/** `settings` with a dimension's channels driven toward `angle`. */
-function sitBackWith(settings, key, angle) {
-  const { stage, channels } = stageChannels(key), timing = settings.stages[stage] ?? { scale: 1 };
-  return { ...settings, stages: { ...settings.stages, [stage]: { ...timing, posture: { ...timing.posture, ...Object.fromEntries(channels.map((name) => [name, angle])) } } } };
+/** `settings` with a dimension's stage's time scaled by `scale`. */
+function sitBackTimed(settings, key, scale) {
+  const stage = key.split(": ")[0];
+  return { ...settings, stages: { ...settings.stages, [stage]: { ...settings.stages[stage], scale } } };
 }
 
 /** A roll dimension's stage and what it moves: a channel of the stage's pose, or `scale`, its time's. */
@@ -208,10 +202,9 @@ export const SEARCHES = {
     said: (held) => held === "twin" ? "on its cells' training twins at 120 Hz" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
     trial: strikeTrialOf("kick/front"), error: -3, lost: "falls", rates: CONFIRM_RATES, lengths: [], heights: [],
     task: "the kick's row on the Strike drill, the trials the front kick is offered (its base rung)" },
-  "sit-back": { dims: [["plant: knee.@ flexion", 1.9, 2.2], ["plant: hip.@ flexion", 1.5, 2.1], ["plant: shoulder.@ flexion", 1.2, 2.2], ["plant: elbow.@ flexion", 0, 1.6],
-      ["sit back: hip.@ flexion", 1.5, 2.2], ["sit back: shoulder.@ flexion", .2, 1.8], ["sit back: elbow.@ flexion", 0, 1.6], ["sit back: thoracic flexion", -.2, .35], ["sit back: ankle.@ dorsiflexion", 0, .7],
-      ["up: hip.@ flexion", .4, .85], ["up: shoulder.@ flexion", 0, 1.4], ["up: thoracic flexion", -.2, .35]],
-    get: sitBackAngle, set: sitBackWith, channels: postureChannels,
+  // Its three stages' times; their postures are authored (the recipe's step 4: timings and gains, never shape).
+  "sit-back": { dims: [["plant: scale", .5, 1.5], ["sit back: scale", .5, 1.5], ["up: scale", .5, 1.5]],
+    get: sitBackTime, set: sitBackTimed, channels: postureChannels,
     trials: wayUpTrials("sit-back"), search: "twin", confirm: "cell", said: wayUpSaid,
     trial: wayUpTrial((sitBack) => ({ sitBack })), error: -ATTEMPT_CAP, lost: "falls with an attempt not reached", rates: CONFIRM_RATES,
     task: "the way-up cells of front-sit-back and sit-back" },

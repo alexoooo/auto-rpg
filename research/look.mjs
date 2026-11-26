@@ -5,7 +5,9 @@
  * `straight-punch`), how many landed (or reached what the drill asks), went down, and ended where the
  * skill says it leaves its body (`AsSkill.ends`), each rung's apart with its mean value, and a
  * strip of frames of a few of them, drawn from the side at each change of the skill's stage and
- * every 0.1 s while it acts (`look-image.mjs`). It is kept in `research/looks/<body>/<variation>/<code>/`,
+ * every 0.1 s while it acts (`look-image.mjs`): the actor and its foe in a bout, the riser alone on
+ * a fall. A trial counts where its cell values it (`trialValue`: a strike offered, a fall with an
+ * attempt at its way up). It is kept in `research/looks/<body>/<variation>/<code>/`,
  * `<code>` the hash of the skill's code and records (`lookCode`, `look-gate.mjs`): `look.json` (the counts and each
  * strip's frames, their time and stage) and `strip-<k>.png`, which Git does not keep: this redraws it. Beside them, `verdict.md`, written by
  * whoever reads the strips, says whether the movement looks like the motion and works some of the
@@ -18,7 +20,6 @@ import "../tests/harness/preload-data.mjs";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { strikeOffered } from "../src/evaluation/strike/read.ts";
 import { cellOf, drillTrials, endsOf, offered, playTrial, subjectOf, trialPool, withTuning } from "./drill-trials.mjs";
 import { bodyShape, drawBodies, stripPng } from "./look-image.mjs";
 import { belowNormal, defaultLanes } from "../scripts/lanes.mjs";
@@ -43,25 +44,32 @@ function facing(duelist) {
   return [Math.sin(yaw), Math.cos(yaw)];
 }
 
+/** Whether a trial did what its drill asks: a blow landed, a way up reached where it goes. */
+const reached = (one) => one.outcome === "landed" || one.outcome === "reached";
+
+/** The bodies a case draws, its actor first: a bout's left side and its foe, or a fall's riser. */
+const castOf = (built) => built.duel ? [built.duel.duelists.left, built.duel.duelists.right] : [built.combatant];
+
 /**
- * **A strip of `trial`**: played with `value`, a frame at each change of the stage of the actor's (the
- * left side's) first action and every `EVERY` s while it is under way, and `AFTER` s after it ends;
- * drawn about where the actor stood, and across its facing, as the first action began.
+ * **A strip of `trial`**: played with `value`, a frame at each change of the stage of the actor's first
+ * action of the skill (`names`, the skill's and its cell's) and every `EVERY` s while it is under way,
+ * and `AFTER` s after it ends; drawn about where the actor stood, and across its facing, as that
+ * action began.
  */
-async function strip(trial, value) {
+async function strip(trial, value, names) {
   const frames = [];
   let seen = "", first = null, ended = null, nextAt = 0, shapes = null, view = null;
   await playTrial(trial, value, {
     watch: (built) => {
-      const { duel, world } = built, me = duel.duelists.left, time = world.time;
-      shapes ??= [duel.duelists.left, duel.duelists.right].map((one) => ({ built: one.built, shape: bodyShape(one.built.spec) }));
-      const actions = me.minded.skills?.report.actions ?? [];
-      if (first === null && actions.length) { first = actions[0].id; const c = me.body.view.stance.centre; view = { origin: [c.x, c.z], heading: facing(me) }; }
+      const cast = castOf(built), me = cast[0], time = built.world.time;
+      shapes ??= cast.map((one) => ({ built: one.built, shape: bodyShape(one.built.spec) }));
+      const actions = me.minded.skills?.report.actions ?? [], own = actions.find((a) => names.includes(a.action));
+      if (first === null && own) { first = own.id; const c = me.body.view.stance.centre; view = { origin: [c.x, c.z], heading: facing(me) }; }
       const action = first === null || ended !== null ? undefined : actions.find((a) => a.id === first), acts = action ? `${action.action}:${action.stage ?? action.phase}` : "";
       if (first !== null && !action && ended === null) ended = time;
       const changed = acts !== seen && acts !== "", timed = acts && time >= nextAt, after = ended !== null && AFTER.some((a) => time >= ended + a && time - 1 / 120 < ended + a);
       if (first !== null && (changed || timed || after)) {
-        frames.push({ time: +time.toFixed(3), stage: acts || (me.standing ? "standing" : "down"), key: changed || after,
+        frames.push({ time: +time.toFixed(3), stage: acts || (me.body.view.down ? "down" : "standing"), key: changed || after,
           drawn: drawBodies(shapes.map((s, k) => ({ ...s, colour: k === 0 ? [60, 110, 210] : [205, 70, 60] })), view) });
         nextAt = time + EVERY;
       }
@@ -89,11 +97,11 @@ async function main() {
   let played;
   try { played = await Promise.all(trials.map((trial) => pool.play(trial, valueOf(trial, variation, tuning)))); }
   finally { await pool.terminate().catch(() => {}); }
-  // Its counts and strips are of the trials whose blow the skill offers (`strikeOffered`): a target outside what it strikes is no trial of it.
-  const counted = played.map((one) => strikeOffered(one.outcome)), shownOf = played.map((_, k) => k).filter((k) => counted[k]);
+  // Its counts and strips are of the trials its cell values (`trialValue`): a target outside what a strike strikes, a fall with no attempt at the way up, is no trial of it.
+  const names = [variation.split("/")[0], cell.skill], counted = played.map((one) => one.value !== null), shownOf = played.map((_, k) => k).filter((k) => counted[k]);
   const strips = Math.min(shownOf.length, Number(flag("strips", 4))), shown = [];
   for (let k = 0; k < strips; k++) {
-    const at = shownOf[Math.floor(k * shownOf.length / strips)], frames = await strip(trials[at], valueOf(trials[at], variation, tuning));
+    const at = shownOf[Math.floor(k * shownOf.length / strips)], frames = await strip(trials[at], valueOf(trials[at], variation, tuning), names);
     writeFileSync(join(dir, `strip-${k}.png`), stripPng(frames.map((f) => f.drawn)));
     shown.push({ strip: `strip-${k}.png`, trial: trials[at].name, rung: trials[at].protocol, outcome: played[at].outcome, down: played[at].down, frames: frames.map(({ time, stage }) => ({ time, stage })) });
   }
@@ -104,13 +112,13 @@ async function main() {
   played.forEach((one, k) => {
     if (!counted[k]) return;
     const rung = rungs[trials[k].protocol] ??= { trials: 0, landed: 0, down: 0, endedAsItMust: 0, value: 0, counted: 0 };
-    rung.trials++; if (one.value !== null) { rung.value += one.value; rung.counted++; } rung.landed += one.outcome === "landed" ? 1 : 0; rung.down += one.down ? 1 : 0; rung.endedAsItMust += ends.includes(one.ended) ? 1 : 0;
+    rung.trials++; if (one.value !== null) { rung.value += one.value; rung.counted++; } rung.landed += reached(one) ? 1 : 0; rung.down += one.down ? 1 : 0; rung.endedAsItMust += ends.includes(one.ended) ? 1 : 0;
   });
   // Each rung's mean value as its cell values a trial (`trialValue`), over the trials that count.
   for (const rung of Object.values(rungs)) { rung.value = rung.counted ? +(rung.value / rung.counted).toFixed(3) : null; delete rung.counted; }
   const struck = played.filter((_, k) => counted[k]);
   const look = { body, variation, code, tuning, cell: `${cell.body} ${cell.skill} ${trials[0].drill}/${trials[0].protocol}`, trials: struck.length,
-    landed: struck.filter((one) => one.outcome === "landed").length, down: struck.filter((one) => one.down).length,
+    landed: struck.filter(reached).length, down: struck.filter((one) => one.down).length,
     ends, endedAsItMust: struck.filter((one) => ends.includes(one.ended)).length, outcomes, rungs, strips: shown };
   writeFileSync(join(dir, "look.json"), JSON.stringify(look, null, 1) + "\n");
   const verdict = join(dir, "verdict.md");
