@@ -32,7 +32,7 @@ import { measuredOn } from "../../../src/skills/framework/profile/lookup.ts";
 import { startHeld, struckNumbers, trialExit } from "../../../src/skills/framework/profile/numbers.ts";
 import { playedBy, playedOnce, specDigest } from "../profile-origin.mjs";
 import { everyOf } from "../../../src/minds/option/assembly/pace.ts";
-import { reactionSteps } from "../../../src/core/world/senses.ts";
+import { reactionSteps } from "../../../src/core/bodies/senses.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 import { medianOf } from "../../../src/evaluation/stats.ts";
 

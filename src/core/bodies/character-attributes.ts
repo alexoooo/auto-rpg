@@ -23,7 +23,7 @@ export function attributeError(name: AttributeName, value: unknown): string | nu
   switch (name) {
     case "steadiness": return value >= 0 ? null : "Steadiness must be zero or greater.";
     case "haste": return value > -100 ? null : "Haste must be greater than −100 %.";
-    case "reaction": return value >= 0 ? null : "Reaction must be zero or greater.";
+    case "reaction": return value >= 0 && value <= 1 ? null : "Reaction must be from 0 to 1 s.";
     case "size": case "weight": case "strength": case "speed": case "hp":
       return value > 0 ? null : `${label} must be greater than zero.`;
     default: { const never: never = name; throw new Error(`unknown attribute ${String(never)}`); }

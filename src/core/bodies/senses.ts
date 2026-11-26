@@ -121,5 +121,10 @@ export function shownSegments(names: readonly string[]) {
 /** A body's reaction time unless its character sets another (`AttributeSpec.reaction`): every body's, in every family. */
 export const REACTION = sourced(0.15, "s", "owner-reaction-time", "every other body seen 0.15 s late");
 
+/** How many whole steps late a body of `spec` sees every other body in a world stepping `hz` times a second: its reaction time (`AttributeSpec.reaction`), to the nearest step. */
+export function reactionSteps(spec: BodySpec, hz: number): number {
+  return Math.round(spec.attributes.reaction.value * hz);
+}
+
 /** What a body senses before anything has been read for it: no time, no side, its life whole, nobody. */
-export const NOTHING_SENSED: Senses =Object.freeze({ time: 0, side: "", out: false, life: 1, others: Object.freeze([]) });
+export const NOTHING_SENSED: Senses = Object.freeze({ time: 0, side: "", out: false, life: 1, others: Object.freeze([]) });

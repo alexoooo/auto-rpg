@@ -148,7 +148,7 @@ if (isMainThread) {
   const [{ buildBout }, { BOUT_ENGINE }] = await Promise.all([import("../../../src/app/node/evaluation.ts"), import("../../bout.mjs")]);
   const { SIDES } = await import("../../../src/game/arena/duel.ts");
   const [{ readFought }, { strikeTrial }, { reactionSteps }, { strikeKey, strikesOf }] = await Promise.all([import("../../../src/evaluation/strike/fought.ts"),
-    import("../../../src/evaluation/strike/trial.ts"), import("../../../src/core/world/senses.ts"), import("./strike-keys.mjs")]);
+    import("../../../src/evaluation/strike/trial.ts"), import("../../../src/core/bodies/senses.ts"), import("./strike-keys.mjs")]);
   const { footOn } = await import("../../../src/control/support.ts");
   const { CONTEXT } = await import("../../../src/app/node/context.ts");
   parentPort.on("message", async ({ left, right, gap, held, seconds, minds }) => {

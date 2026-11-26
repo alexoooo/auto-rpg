@@ -59,7 +59,7 @@ import { profileKey, profileKeys } from "../../../tests/harness/profile-keys.mjs
 import { rulebook } from "../../../src/combat/rulebook.ts";
 import { medianOf } from "../../../src/evaluation/stats.ts";
 import { covers } from "../../../src/skills/framework/menu.ts";
-import { reactionSteps } from "../../../src/core/world/senses.ts";
+import { reactionSteps } from "../../../src/core/bodies/senses.ts";
 
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
 /** The Strike drill's rungs a profile is measured on: a strike thrown from drawn starts at a foe fighting back (`SPARRING`, `SPARRING_LAID`, `SPARRING_FEET`, `SPARRING_BITE`, `src/evaluation/strike/cases.ts`). */

@@ -16,7 +16,7 @@ import { carries, carrying, sameEffectorGoal, type EffectorGoal, type FreedomPat
 
 /**
  * The command layers over a body: its motor, the view of it, and the queue that holds each
- * decision for the body's reaction time. They are a tool with steps and decide nothing. The Mind
+ * decision for the command's delay (`World.delay`). They are a tool with steps and decide nothing. The Mind
  * that owns them (`CommandingMind`) calls the steps in order each control step; `D` is what that
  * Mind decides.
  */

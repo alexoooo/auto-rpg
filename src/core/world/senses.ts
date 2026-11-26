@@ -1,8 +1,7 @@
 import { configurationCode, configurationAt } from "../bodies/build/configurations.ts";
-import { NOTHING_SENSED, OFF_BODY, sensedSpec, shownSegments, type Senses, type BodySense } from "../bodies/senses.ts";
+import { NOTHING_SENSED, OFF_BODY, reactionSteps, sensedSpec, shownSegments, type Senses, type BodySense } from "../bodies/senses.ts";
 import { Vector3 } from "../math/vector.ts";
 import type { BuiltBody, BuiltSegment } from "../bodies/build/build-body.ts";
-import type { BodySpec } from "../bodies/spec/body.ts";
 import { centreOfToRef } from "../bodies/read-motion.ts";
 import { attachment } from "../bodies/read-body.ts";
 
@@ -47,11 +46,6 @@ export interface SensesHub {
 export function clockSenses(world: World): () => Senses {
   const senses = { ...NOTHING_SENSED };
   return () => { senses.time = world.time; return senses; };
-}
-
-/** How many whole steps late a body of `spec` sees every other body in a world stepping `hz` times a second: its reaction time (`AttributeSpec.reaction`), to the nearest step. */
-export function reactionSteps(spec: BodySpec, hz: number): number {
-  return Math.round(spec.attributes.reaction.value * hz);
 }
 
 /**
@@ -167,19 +161,20 @@ export function createSenses(world: World, clock?: { readonly begins: number; re
     show() { for (const entry of carried) showAll(entry); },
     add(sensed) {
       if (state.has(sensed.id)) throw new Error(`the senses carry a body called ${sensed.id} already`);
-      const names = [...sensed.built.segments.keys()], segments = [...sensed.built.segments.values()], delay = reactionSteps(sensed.built.spec, world.hz);
-      const entry: Carried = { sensed, names, segments, attached: attachment(sensed.built), spec: sensedSpec(sensed.built.spec), delay, shown: new Map(), others: [] };
-      // A body that sees later than any before lengthens every body's frames by copies of its oldest: what was never kept is shown as the body stood when first kept.
-      if (delay > longest) {
-        for (const memory of state.values()) memory.frames.splice(memory.at, 0, ...Array.from({ length: delay - longest }, () => memory.frames[memory.at]!.slice()));
-        longest = delay;
+      const names = [...sensed.built.segments.keys()], segments = [...sensed.built.segments.values()], late = reactionSteps(sensed.built.spec, world.hz);
+      const entry: Carried = { sensed, names, segments, attached: attachment(sensed.built), spec: sensedSpec(sensed.built.spec), late, shown: new Map(), others: [] };
+      // A body that sees later than any before lengthens every body's frames by copies of its oldest, which were never kept: until the
+      // steps catch up, it is shown each other body as it stood in the oldest frame kept of it.
+      if (late > longest) {
+        for (const memory of state.values()) memory.frames.splice(memory.at, 0, ...Array.from({ length: late - longest }, () => memory.frames[memory.at]!.slice()));
+        longest = late;
       }
       // Every frame starts as the body stands, in the fight, up and with the life it has: `out` and `down` are first asked at the next step.
       const standing = new Float64Array(frameLength(segments.length)), memory: Remembered = { at: 0, frames: [] };
       read(entry, standing, false, false, sensed.life?.() ?? 1);
       for (let i = 0; i <= longest; i++) memory.frames.push(standing.slice());
       state.set(sensed.id, memory);
-      for (const other of carried) { other.others.push(shownAt(entry, other.delay)); entry.others.push(shownAt(other, delay)); }
+      for (const other of carried) { other.others.push(shownAt(entry, other.late)); entry.others.push(shownAt(other, late)); }
       carried.push(entry);
       const senses: Senses = {
         get time() { return world.time; },
@@ -187,7 +182,7 @@ export function createSenses(world: World, clock?: { readonly begins: number; re
         get out() { return sensed.out(); },
         get life() { return sensed.life?.() ?? 1; },
         ...(clock === undefined ? {} : { begins: clock.begins, ends: clock.ends }),
-        reaction: delay / world.hz,
+        reaction: late / world.hz,
         others: entry.others,
       };
       if (sensed.solids) Object.defineProperty(senses, "solids", { enumerable: true, get: () => sensed.solids });
@@ -211,8 +206,8 @@ interface Carried {
   readonly attached: (segment: BuiltSegment) => boolean;
   /** Its spec as the others sense it (`sensedSpec`), the same in every showing. */
   readonly spec: BodySense["spec"];
-  /** How late it sees the others, steps (`reactionSteps`). */
-  readonly delay: number;
+  /** How many steps late it sees the others (`reactionSteps`). */
+  readonly late: number;
   /** What the others are shown of it, one showing for each reaction time among them, by its steps. */
   readonly shown: Map<number, Shown>;
   /** What it is shown: each other's showing at its own reaction time. */

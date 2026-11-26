@@ -8,7 +8,7 @@ import { profilesOn } from "../../../../skills/framework/profile/lookup.ts";
 import { STANDING, type Postures, type Profile } from "../../../../skills/framework/profile/profile.ts";
 import { profileAgainst } from "../../../../skills/framework/profile/across.ts";
 import { startVelocity } from "../../../../skills/framework/profile/numbers.ts";
-import type { BodySense } from "../../../../core/bodies/senses.ts";
+import { reactionSteps, type BodySense } from "../../../../core/bodies/senses.ts";
 import { foePhase, sensedPosture } from "../../../../skills/perception/threat.ts";
 import { turned } from "../../../../skills/perception/stance-numbers.ts";
 import type { Position } from "../../../../control/ground-reading.ts";
@@ -18,7 +18,7 @@ import type { Terms } from "../../contract/terms.ts";
 import { pressureTable, tableSource, type PressureTable } from "./pressure-table.ts";
 import { UNMEASURED_TURN } from "../by-hand.ts";
 import { blowLife } from "../damage.ts";
-import { reactionOf, carriedStances } from "../../situation/percepts.ts";
+import { carriedStances } from "../../situation/percepts.ts";
 import { type Model, modelOf, strikesOf, pooled } from "./model.ts";
 import { pressureBy, type PressureFields, ProfilePressure, NO_PRESSURE, weakestOf } from "./pressure.ts";
 import { foundBy, given, notPriced, type Source } from "../../../../skills/framework/profile/source.ts";
@@ -152,8 +152,8 @@ export class ProfileExchange implements ExchangePredictor {
    * character holds, which is not sensed (`profilesOn`, each skill's profiles with a limb one
    * strike, `strikesOf`; its pressure reads them pooled, `pooled`), else this body's own measured
    * (`ProfileTables.strikes`), each read by its profile against this body (`modelOf`), fresh at the
-   * senses' reaction time and this mind's rate (`Seen.rate`: a foe's mind is taken for one like
-   * it) and thrown with the limb it names (`Measured.limb`); and each other limb the foe strikes
+   * foe's reaction time (`reactionSteps`) and this mind's rate (`Seen.rate`: a foe's mind is taken
+   * for one like it) and thrown with the limb it names (`Measured.limb`); and each other limb the foe strikes
    * with (`defaultStrikeLimbs`), left to its guess. A foe's strikes are not sensed, so its limbs
    * stand for them: a limb no measured strike throws is priced by hand while the others are
    * measured, or not priced where the Mind has no guesses (`standIn`). A foe with no strike
@@ -161,7 +161,7 @@ export class ProfileExchange implements ExchangePredictor {
    * the foe's numbers, and each such reading's source says so (`foundBy`).
    */
   private foeModel(seen: Seen, foe: BodySpec, postures: Postures): Model {
-    const on = profilesOn(this.tables.measured, foe, { hz: seen.hz, reaction: reactionOf(seen), rate: seen.rate, delay: seen.delay });
+    const on = profilesOn(this.tables.measured, foe, { hz: seen.hz, reaction: reactionSteps(foe, seen.hz) / seen.hz, rate: seen.rate, delay: seen.delay });
     const strikes: readonly ModelledStrike[] = on.length ? strikesOf(on)
       : this.tables.strikes.filter((strike) => profileAgainst(strike.profiles, seen.spec) !== null);
     const thrown = new Set(strikes.flatMap((strike) => strike.limbs)), limbs = defaultStrikeLimbs(foe).filter((limb) => !thrown.has(limb));
