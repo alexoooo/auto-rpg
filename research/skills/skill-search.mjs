@@ -50,7 +50,8 @@
  * and no `--generations` the search has no other end, and runs for as long as it keeps improving.
  * Its out file says how it ended (`ended`: `plateau`, `until`, or `generations` where its count
  * ran out first), and `--resume` goes on from one. `--try` plays the start
- * alone on the search's trials and saves it as a search's result (no generation), for `--confirm`
+ * alone on the search's trials, at the game's rate and its confirmation's finer ones, and saves it as a
+ * search's result (no generation), for `--confirm`
  * to keep where it serves.
  *
  *   node research/skills/skill-search.mjs <skill> <model> --out <file.json> [--generations 10 | --patience <generations>] [--lambda 16] [--sigma 0.2] [--until <score>] [--workers N] [--seed 1] [--resume]
@@ -358,9 +359,12 @@ if (!isMainThread && workerData?.search) {
   const from = saved?.from ?? (`the ${sourceBody}'s record${sourceBody === body ? "" : `, its lengths scaled by the body's stature${search.heights ? " and its heights kept" : ""}`}`
     + (set ? ` with ${Object.entries(set).map(([key, value]) => `${key} ${value}`).join(", ")}` : ""));
   if (values.try) {
-    const r = await scored(pool, start, trials), seconds = Math.round((Date.now() - started) / 1000);
+    // Scored as the search scores, and at its confirmation's finer rates beside it.
+    const r = await scored(pool, start, trials), rates = [];
+    for (const hz of (search.rates ?? []).slice(1)) { const at = await scored(pool, start, trials, hz); rates.push({ hz, score: at.score, falls: at.falls }); }
+    const seconds = Math.round((Date.now() - started) / 1000);
     save(values.out, JSON.stringify({ skill, body, ...(loadout ? { loadout } : {}), from, start, lambda: 0, trials: trials.length, dims: search.dims, log: [], seconds, best: { score: r.score, settings: start, falls: r.falls, each: r.each } }));
-    console.log(JSON.stringify({ skill, body, start: { score: r.score, falls: r.falls }, seconds }));
+    console.log(JSON.stringify({ skill, body, start: { score: r.score, falls: r.falls }, rates, seconds }));
     await pool.terminate();
     process.exit(0);
   }
