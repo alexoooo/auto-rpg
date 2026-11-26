@@ -12,9 +12,11 @@
  * strip's frames, their time and stage) and `strip-<k>.png`, which Git does not keep: this redraws it. Beside them, `verdict.md`, written by
  * whoever reads the strips, says whether the movement looks like the motion and works some of the
  * time; a search reads it before it starts (`requireLook`), and a change to the skill's code is a new
- * `<code>` with no verdict.
+ * `<code>` with no verdict. `--hz` plays it at another rate than the game's, a look of its own
+ * (its code names the rate) that no search reads; `--down` draws the strips of trials that went
+ * down, to read a fall.
  *
- *   npm run look -- <body> <skill/variation> [--cell <the table's skill>] [--loadout left,right] [--tuning settings.json] [--trials 32] [--strips 4]
+ *   npm run look -- <body> <skill/variation> [--cell <the table's skill>] [--loadout left,right] [--tuning settings.json] [--trials 32] [--strips 4] [--hz 480] [--down]
  */
 import "../tests/harness/preload-data.mjs";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -56,10 +58,10 @@ const castOf = (built) => built.duel ? [built.duel.duelists.left, built.duel.due
  * and `AFTER` s after it ends; drawn about where the actor stood, and across its facing, as that
  * action began.
  */
-async function strip(trial, value, names) {
+async function strip(trial, value, names, hz) {
   const frames = [];
   let seen = "", first = null, ended = null, nextAt = 0, shapes = null, view = null;
-  await playTrial(trial, value, {
+  await playTrial(trial, value, { hz,
     watch: (built) => {
       const cast = castOf(built), me = cast[0], time = built.world.time;
       shapes ??= cast.map((one) => ({ built: one.built, shape: bodyShape(one.built.spec) }));
@@ -67,7 +69,7 @@ async function strip(trial, value, names) {
       if (first === null && own) { first = own.id; const c = me.body.view.stance.centre; view = { origin: [c.x, c.z], heading: facing(me) }; }
       const action = first === null || ended !== null ? undefined : actions.find((a) => a.id === first), acts = action ? `${action.action}:${action.stage ?? action.phase}` : "";
       if (first !== null && !action && ended === null) ended = time;
-      const changed = acts !== seen && acts !== "", timed = acts && time >= nextAt, after = ended !== null && AFTER.some((a) => time >= ended + a && time - 1 / 120 < ended + a);
+      const changed = acts !== seen && acts !== "", timed = acts && time >= nextAt, after = ended !== null && AFTER.some((a) => time >= ended + a && time - 1 / (hz ?? 120) < ended + a);
       if (first !== null && (changed || timed || after)) {
         frames.push({ time: +time.toFixed(3), stage: acts || (me.body.view.down ? "down" : "standing"), key: changed || after,
           drawn: drawBodies(shapes.map((s, k) => ({ ...s, colour: k === 0 ? [60, 110, 210] : [205, 70, 60] })), view) });
@@ -85,23 +87,23 @@ async function strip(trial, value, names) {
 async function main() {
   const args = process.argv.slice(2), flag = (name, fallback) => { const at = args.indexOf(`--${name}`); return at < 0 ? fallback : args[at + 1]; };
   const [body, variation] = args.filter((a, k) => !a.startsWith("--") && !args[k - 1]?.startsWith("--"));
-  if (!body || !variation?.includes("/")) throw new Error("npm run look -- <body> <skill/variation> [--cell <the table's skill>] [--loadout left,right] [--tuning settings.json] [--trials 32] [--strips 4]");
+  if (!body || !variation?.includes("/")) throw new Error("npm run look -- <body> <skill/variation> [--cell <the table's skill>] [--loadout left,right] [--tuning settings.json] [--trials 32] [--strips 4] [--hz 480] [--down]");
   belowNormal();
   const tuningPath = flag("tuning", null), tuning = tuningPath ? JSON.parse(readFileSync(tuningPath, "utf8")) : null;
   const cell = cellOf({ body, skill: flag("cell", variation.split("/")[0]), loadout: flag("loadout", "empty,empty") });
   const all = drillTrials(cell, "twin").filter((trial) => offered(trial, valueOf(trial, variation, tuning))), count = Math.min(all.length, Number(flag("trials", 32)));
   const trials = Array.from({ length: count }, (_, k) => all[Math.floor(k * all.length / count)]);
-  const code = lookCode(variation, tuning), dir = lookDir(body, variation, code);
+  const hz = flag("hz", null) === null ? undefined : Number(flag("hz")), code = lookCode(variation, tuning, hz), dir = lookDir(body, variation, code);
   mkdirSync(dir, { recursive: true });
   const pool = trialPool(Math.min(defaultLanes(), trials.length));
   let played;
-  try { played = await Promise.all(trials.map((trial) => pool.play(trial, valueOf(trial, variation, tuning)))); }
+  try { played = await Promise.all(trials.map((trial) => pool.play(trial, valueOf(trial, variation, tuning), { hz }))); }
   finally { await pool.terminate().catch(() => {}); }
   // Its counts and strips are of the trials its cell values (`trialValue`): a target outside what a strike strikes, a fall with no attempt at the way up, is no trial of it.
-  const names = [variation.split("/")[0], cell.skill], counted = played.map((one) => one.value !== null), shownOf = played.map((_, k) => k).filter((k) => counted[k]);
+  const names = [variation.split("/")[0], cell.skill], counted = played.map((one) => one.value !== null), shownOf = played.map((_, k) => k).filter((k) => counted[k] && (!args.includes("--down") || played[k].down));
   const strips = Math.min(shownOf.length, Number(flag("strips", 4))), shown = [];
   for (let k = 0; k < strips; k++) {
-    const at = shownOf[Math.floor(k * shownOf.length / strips)], frames = await strip(trials[at], valueOf(trials[at], variation, tuning), names);
+    const at = shownOf[Math.floor(k * shownOf.length / strips)], frames = await strip(trials[at], valueOf(trials[at], variation, tuning), names, hz);
     writeFileSync(join(dir, `strip-${k}.png`), stripPng(frames.map((f) => f.drawn)));
     shown.push({ strip: `strip-${k}.png`, trial: trials[at].name, rung: trials[at].protocol, outcome: played[at].outcome, down: played[at].down, frames: frames.map(({ time, stage }) => ({ time, stage })) });
   }
