@@ -88,4 +88,28 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   - **The low front kick on a body down**: 0.75 blows a second there against the stomp's 1.04.
 - **Next**: the 120 and 480 Hz difference found at its root and fixed (the owner: "Ideally 120
   should not diverge vs 480"; a search mixing in 480 Hz trials only if it is fundamental); the
-  low front kick searched again on the code fixed; the front kick's price into a striking foe.
+  low front kick searched again on the code fixed; then the price below.
+
+## Then: a strike's price, every start a number
+
+The owner, on 2026-11-26, on pricing a strike with the foe attacking: "I do think that we need
+that and many other features. But I want to make sure to do it in a simple and general way that
+is scalable." Then: "Yes, queue the pricing approach."
+
+The profile's reading (`src/skills/framework/profile/nearest.ts`, `reading.ts`), the empty-handed
+man first:
+1. **Every feature of a start is a number in the nearest trials' distance**, each with its span:
+   the foe striking, how far into its strike, and the rest. No feature splits the trials by
+   category (as the foe's phase does now); a new feature is a number recorded, not a new path in
+   code.
+2. **Spans fitted, not set by hand**: each chosen by the error of predicting the profile's own
+   trials held out, a feature that does not predict given a span wide enough to drop out, so
+   features are added freely. The fitted spans replace the hand-set ones (`NEAREST`,
+   `STANCE_SPANS`, `STRUCK_SPANS`, `HELD_SPANS`).
+3. **Coverage and confidence**: where the game's Mind asks for prices in real bouts is recorded,
+   and a profile's starts are sampled there; a reading whose nearest trials are far leans toward
+   a broader mean rather than trusting a few distant trials.
+
+**Its gate**: the scorecard's priced dealt over given, by slice, near 1 in every slice; the front
+kick's slice with the foe striking, 3.04 now, the first. A part that proves not simple in the
+code is said so before it is built.
