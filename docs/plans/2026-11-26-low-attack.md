@@ -117,6 +117,20 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   owner, on the run gait: "it has ok top speed but it's quite slow to get there, so it's possible
   htat locomotion might need some work". So the lever is the man's speed forward, the envelope
   holding him to 0.7 m/s, and a route that keeps its window, before the kick or the Mind's pricing.
+- **The forward cap is stale.** Re-measured on today's code (`stance-envelope.mjs --legs walk-run
+  --models man --holds empty --walks --gusts 1:5:1,2,3,4`, 5 trials a speed), the empty-handed
+  man holds 4.0 m/s forward (2 of 5 at 4.5), against the asset's 0.7; 1.0 to each side (0.7
+  before); and 0.7 back, against 1.5 before (2 of 5 at 1.0): the back walk holds less than it did.
+- **The run stalls its first second.** Asked to run forward at 2 m/s from standing (the walk trial
+  of `stance-trials.mjs`, traced), the man goes 0.03 to 0.12 m/s for 1.1 s, reaches 0.5 m/s at
+  1.25 s, 0.9 at 1.7 and 1.8 at 2.2 (some 1.6 m/s² once moving), then runs 2.5 to 2.9 m/s against
+  the 2 asked. The run's record brings its pace up at 2.5 m/s² (`walk-run.json`, `accel`).
+- **Ordered by the owner**, on the forward cap and the run's start: "good catch, i think we'll need
+  to fix both these issues". First, the man's walk-run envelope re-measured and landed; then the
+  run's start, why its first second does not move, looked at in frames, authored to reach pace as
+  fast as its body holds, and the envelope measured with it. The window a route runs to, changing
+  foot and side between decisions, is the lever after them, not started; the run's overshoot is
+  noted, not started.
 - **Next**: the low front kick searched again at the empty-handed man, as the bite is, on the rung
   its profile is measured on: `sparring-laid`'s twin (`sparring-laid-twin`, its starts from
   another stream), its own cases confirming (`skill-search.mjs stomp/front man --loadout
