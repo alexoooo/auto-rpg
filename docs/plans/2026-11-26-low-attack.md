@@ -112,27 +112,26 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   was 1.4 m off at its end, moving at 0.38 m/s (median) and at most 0.89. Its menu through a down
   (one bout, printed at 0.5, 1.5, 3 and 5 s in): from 1.5 s it chooses to run to a stomp's window,
   each route priced 4 to 8 s from about 2 m, 2.5 s from 0.94 m, and the window it runs to changes
-  foot and side from one decision to the next. The man's forward walk-run is held to 0.7 m/s
-  (`walk-run-envelope.json`: the fastest every trial held; at 1.0, 8 of 20), 1.5 backward. The
-  owner, on the run gait: "it has ok top speed but it's quite slow to get there, so it's possible
-  htat locomotion might need some work". So the lever is the man's speed forward, the envelope
-  holding him to 0.7 m/s, and a route that keeps its window, before the kick or the Mind's pricing.
-- **The forward cap is stale.** Re-measured on today's code (`stance-envelope.mjs --legs walk-run
-  --models man --holds empty --walks --gusts 1:5:1,2,3,4`, 5 trials a speed), the empty-handed
-  man holds 4.0 m/s forward (2 of 5 at 4.5), against the asset's 0.7; 1.0 to each side (0.7
-  before); and 0.7 back, against 1.5 before (2 of 5 at 1.0): the back walk holds less than it did.
-- **The run stalls its first second.** Asked to run forward at 2 m/s from standing (the walk trial
-  of `stance-trials.mjs`, traced), the man goes 0.03 to 0.12 m/s for 1.1 s, reaches 0.5 m/s at
-  1.25 s, 0.9 at 1.7 and 1.8 at 2.2 (some 1.6 m/s² once moving), then runs 2.5 to 2.9 m/s against
-  the 2 asked. The run's record brings its pace up at 2.5 m/s² (`walk-run.json`, `accel`).
-- **Ordered by the owner**, on the forward cap and the run's start: "good catch, i think we'll need
-  to fix both these issues". First, the man's walk-run envelope re-measured and landed; then the
-  run's start, why its first second does not move, looked at in frames, authored to reach pace as
-  fast as its body holds, and the envelope measured with it; then the back walk, 0.7 m/s against
-  1.5, a regression fixed (the owner: "I don't care if it make something worse, that just reveals
-  another broken thing that must be fixed."). The window a route runs to, changing
-  foot and side between decisions, is the lever after them, not started; the run's overshoot is
-  noted, not started.
+  foot and side from one decision to the next. How long a walk takes is priced by hand
+  (`scripts/inventory.mjs`: "a walk: 24 on offer: by hand"). What holds the close in the bout is
+  not yet read: the speed asked, the gait not making it, or the route changing windows.
+- **The walk-run envelope was stale, and is not what holds the Warrior.** The asset predated the
+  envelope's turns onto a way (`turnings`); re-measured whole (2ac1f7f8b), the empty-handed man's
+  walk-run holds 4.0 m/s forward (was 0.7), 1.0 to each side (0.7), 0.7 back (1.5), and above
+  0.7 m/s no turn at any rate. The empty-handed man's mirror did not move with it: the Warrior
+  walks in the stance (`stance-walk`, its own envelope, 2.0 m/s forward, 1.4 back, 0.7 to each
+  side), and the walk-run he also holds is not what caps him in these bouts.
+- **The walk-run stalls its first second.** Asked to run forward at 2 m/s from standing (the walk
+  trial of `stance-trials.mjs` by the walk-run, traced), the man goes 0.03 to 0.12 m/s for 1.1 s:
+  the walk's weight shift (0.45 s, the centre still), a short first step, then the left foot set
+  0.36 m behind the start before the drive; 0.9 m/s at 1.7 s and 1.8 at 2.2, then 2.5 to 2.9 m/s
+  against the 2 asked. Whether the Warrior's own gaits start the same way is not yet read.
+- **Ordered by the owner**, on the run gait, seen in the game: "it has ok top speed but it's quite
+  slow to get there", and "i think we'll need to fix both these issues". The run's start is
+  ordered: why its first second does not move, looked at in frames, authored to reach pace as fast
+  as its body holds, and its envelope measured with it. The back walk's 0.7 m/s (1.5 before) is
+  the walk-run's: ordered for the Warrior only if his legs walk back by it. The window a route
+  runs to, changing foot and side between decisions, and the run's overshoot are noted, not started.
 - **Next**: the low front kick searched again at the empty-handed man, as the bite is, on the rung
   its profile is measured on: `sparring-laid`'s twin (`sparring-laid-twin`, its starts from
   another stream), its own cases confirming (`skill-search.mjs stomp/front man --loadout
