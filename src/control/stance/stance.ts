@@ -613,6 +613,15 @@ function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleReading)
   if (!s.state.pose) {
     const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, flexed = muscles.angle(i) - foot.straight, gain = damping(1 / seconds.height, s.state.dt);
     if (flexed < 0) ahead[k] = gain.error * (bend - flexed) - gain.rate * muscles.rate(i);
+    // A swing's foot still on the ground, its knee straighter than the pre-swing's bend (a catch
+    // lifts with no pre-swing), has the knee bent toward that bend as a walk's pre-swing bends it:
+    // near straight, the foot's height hardly moves with the knee, so the task asks the knee almost
+    // nothing to lift the foot, and the hip drags it along the ground instead.
+    const { preswing } = gait;
+    if (!task.bearing && reading.phase === "swing" && step.lifted && step.swing?.foot === foot.name && reading.ends[foot.name]!.touching && flexed < preswing.knee) {
+      const lift = damping(1 / preswing.seconds, s.state.dt);
+      ahead[k] = lift.error * (preswing.knee - flexed) - lift.rate * muscles.rate(i);
+    }
   }
   // On one end of its sole, the foot's turn about the edge it bears on is free: the leg pivots on
   // the edge. Of the spin's rows the task keeps the one about the level normal to the edge, and
