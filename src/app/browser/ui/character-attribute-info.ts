@@ -13,4 +13,5 @@ export const CHARACTER_ATTRIBUTES = deepFreeze({
   hp: { label: "Hit points", unit: "HP", step: 1, help: "The life bar: a blow takes its damage from it, twice on the head, half on a limb." },
   steadiness: { label: "Steadiness", unit: "%", step: 5, help: "External stabilizing assistance as a percentage of body weight; 0 is unassisted." },
   haste: { label: "Haste", unit: "%", step: 10, help: "Increase in leg muscle speed; +50 makes them 1.5 times as fast." },
+  reaction: { label: "Reaction", unit: "s", step: .01, help: "How late it sees every other body; 0.15 is a person's." },
 } satisfies { readonly [K in AttributeName]: AttributeInfo });

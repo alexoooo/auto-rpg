@@ -14,7 +14,7 @@ import type { MindConfig } from "../../minds/catalog/config.ts";
 import { createSenses, type SensesHub } from "../../core/world/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../../combat/blows.ts";
 import { levelsOf, stirs, type LevelAsk, type LevelRule } from "../levels.ts";
-import { reactionSteps, rulebook } from "../../combat/rulebook.ts";
+import { rulebook } from "../../combat/rulebook.ts";
 import { seedOf } from "../../core/math/random.ts";
 import { phaseOf } from "../../minds/seat/host.ts";
 import { cryptModel } from "./actors.ts";
@@ -324,7 +324,7 @@ export class DungeonRun {
     let completed = false;
     try {
     this.state.world = this.world.state;
-    this.senses = this.lifetime.own(createSenses(this.world, reactionSteps(this.rules.reaction.value, this.world.hz)));
+    this.senses = this.lifetime.own(createSenses(this.world));
     this.state.senses = this.senses.state;
     this.level = this.lifetime.own(dungeonSolids(this.map, this.world.physics));
     this.groundLevel = this.ground((places) => { this.visible = this.sight(places); });

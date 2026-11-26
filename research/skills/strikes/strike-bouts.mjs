@@ -147,8 +147,8 @@ if (isMainThread) {
 } else {
   const [{ buildBout }, { BOUT_ENGINE }] = await Promise.all([import("../../../src/app/node/evaluation.ts"), import("../../bout.mjs")]);
   const { SIDES } = await import("../../../src/game/arena/duel.ts");
-  const [{ readFought }, { strikeTrial }, { senseDelayOf }, { strikeKey, strikesOf }] = await Promise.all([import("../../../src/evaluation/strike/fought.ts"),
-    import("../../../src/evaluation/strike/trial.ts"), import("../../../src/game/arena/duel.ts"), import("./strike-keys.mjs")]);
+  const [{ readFought }, { strikeTrial }, { reactionSteps }, { strikeKey, strikesOf }] = await Promise.all([import("../../../src/evaluation/strike/fought.ts"),
+    import("../../../src/evaluation/strike/trial.ts"), import("../../../src/core/world/senses.ts"), import("./strike-keys.mjs")]);
   const { footOn } = await import("../../../src/control/support.ts");
   const { CONTEXT } = await import("../../../src/app/node/context.ts");
   parentPort.on("message", async ({ left, right, gap, held, seconds, minds }) => {
@@ -260,14 +260,14 @@ if (isMainThread) {
         delete t.sequence;
       }
       // Each side's strikes as profiles' trials, under the key each profile is found by.
-      const thrown = fought.done(), reaction = Math.round(senseDelayOf(duel.recipe) * world.hz) / world.hz, specOf = (side) => duel.duelists[side].body.built.spec;
+      const thrown = fought.done(), specOf = (side) => duel.duelists[side].body.built.spec;
       const strikes = SIDES.map((side) => {
         const spec = specOf(side), struck = specOf(side === "left" ? "right" : "left"), mind = duel.recipe.minds?.[side] ?? CONTEXT.defaultMind(duel.recipe[side]);
         const { executors, actions } = strikesOf(spec, mind), keyed = new Map();
         for (const { action: name, effector, reading } of thrown.filter((one) => one.striker === side)) {
           const action = actions.find((one) => one.name === name), trial = action && strikeTrial(reading, { spec, struck, rules: duel.rules });
           if (!trial) continue;
-          const found = strikeKey(spec, mind, executors, action, effector, world.hz, reaction, world.delay), key = JSON.stringify(found.measured);
+          const found = strikeKey(spec, mind, executors, action, effector, world.hz, reactionSteps(spec, world.hz) / world.hz, world.delay), key = JSON.stringify(found.measured);
           if (!keyed.has(key)) keyed.set(key, { ...found, trials: [] });
           keyed.get(key).trials.push(trial);
         }

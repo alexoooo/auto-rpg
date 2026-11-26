@@ -142,9 +142,6 @@ type Control = string;
 /** The link's key for `side`'s mind once a person has changed it from its preset: its whole tree (`writeMind`). */
 const mindKey = (side: Side): string => `${side}.mind`;
 
-/** How old what each side sees of the other is, s: `&senseDelay=`, up to a second; undefined, and the rulebook's reaction time, for anything else. */
-const readSenseDelay = (search: string): number | undefined => readWithin(search, "senseDelay", [0, 1]);
-
 /** The bout's seed: `&seed=`, a 32-bit word; undefined, and 0, for anything else. */
 function readSeed(search: string): number | undefined {
   const seed = readWithin(search, "seed", [0, 0xffffffff]);
@@ -250,13 +247,13 @@ export function createMatchup(context: GameContext) {
   /** The bout `search` asks for on `level`, each side's attributes as the page holds them over its mind's character (`controlCharacter`). */
   function recipeOf(search: string, attributes: Readonly<Record<Side, AttributeOverrides>>, level: ArenaLevel): DuelRecipe {
     const matchup = readMatchup(search), gap = readGap(search, level), capSeconds = readCap(search), controls = readControls(search);
-    const senseDelay = readSenseDelay(search), seed = readSeed(search), skills = arenaSkills(search);
+    const seed = readSeed(search), skills = arenaSkills(search);
     const models = matchupModels(matchup), characters = namedCharacters(matchup);
     return {
       left: models.left, right: models.right, ...(Object.keys(characters).length ? { characters } : {}), level, minds: readMinds(search),
       attributes: { left: controlCharacter(controls.left, attributes.left), right: controlCharacter(controls.right, attributes.right) },
       ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), loadouts: readLoadouts(search),
-      ...(senseDelay !== undefined ? { senseDelay } : {}), ...(seed !== undefined ? { seed } : {}), ...(Object.keys(skills).length ? { skills } : {}),
+      ...(seed !== undefined ? { seed } : {}), ...(Object.keys(skills).length ? { skills } : {}),
     };
   }
   return { CONTROLS, readControls, controlCharacter, controlsFor, defaultControl, linkedMind, unreadMinds, readMinds, mindsSearch, controlName, controllerLabel, recipeOf };

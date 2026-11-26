@@ -162,7 +162,7 @@ function skillsError(skills: unknown): string | null {
 export function characterDefaults(model: BodyModel): CharacterAttributes {
   const spec = specOf(model);
   return Object.freeze({ size: 1, weight: 1, strength: 1, speed: 1, hp: spec.wounds.hp.value,
-    steadiness: spec.attributes.steadiness.value, haste: spec.attributes.haste.value });
+    steadiness: spec.attributes.steadiness.value, haste: spec.attributes.haste.value, reaction: spec.attributes.reaction.value });
 }
 
 /** Geometry validation depends only on geometric modifiers; each model retains its most recent valid configurations. */
@@ -220,10 +220,9 @@ export function resolveCharacterChecked(character: CharacterConfig): ResolvedCha
   }
   let spec = !changed ? specOf(model) : familyOf(model).physique(model, specOf(model), physique, attributes.haste);
   if (isRefused(spec)) return spec;
-  if (attributes.hp !== defaults.hp || attributes.steadiness !== defaults.steadiness) spec = { ...spec,
-    wounds: attributes.hp === defaults.hp ? spec.wounds : { ...spec.wounds, hp: sourced(attributes.hp, "HP", "owner-hp-pool", "a character's configured hit points") },
-    attributes: attributes.steadiness === defaults.steadiness ? spec.attributes : { ...spec.attributes, steadiness: sourced(attributes.steadiness, "%", "owner-steadiness", "a character's configured steadiness") },
-  };
+  if (attributes.hp !== defaults.hp) spec = { ...spec, wounds: { ...spec.wounds, hp: sourced(attributes.hp, "HP", "owner-hp-pool", "a character's configured hit points") } };
+  if (attributes.steadiness !== defaults.steadiness) spec = { ...spec, attributes: { ...spec.attributes, steadiness: sourced(attributes.steadiness, "%", "owner-steadiness", "a character's configured steadiness") } };
+  if (attributes.reaction !== defaults.reaction) spec = { ...spec, attributes: { ...spec.attributes, reaction: sourced(attributes.reaction, "s", "owner-reaction-time", "a character's configured reaction time") } };
   if (attributes.size !== 1 || attributes.weight !== 1) {
     let checked = checkedGeometry.get(model);
     if (!checked) checkedGeometry.set(model, checked = new Set());

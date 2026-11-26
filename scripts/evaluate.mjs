@@ -56,7 +56,7 @@ import { oldestOf } from "../src/evaluation/rows.ts";
 import { standingsOf } from "../src/evaluation/standings.ts";
 import { keep } from "../src/evaluation/table/judge.ts";
 import { COMMAND_DELAY } from "../src/core/world/world.ts";
-import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf, tableOf } from "../src/evaluation/run.ts";
+import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, tableOf } from "../src/evaluation/run.ts";
 import { batteryComparison, panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
 import { scheduleName } from "../src/evaluation/schedule.ts";
 import { ratedNotes } from "../src/evaluation/tournament/notes.ts";
@@ -270,8 +270,8 @@ async function runProtocol({ evaluation, id, protocol, named, values }) {
   const { faults } = tableOf(subjects, complete, rows), figures = figuresOf(evaluation, subjects, complete, rows);
   // The summary reads the complete units with no fault; a unit with one is named above it and left out.
   const clean = complete.filter((unit) => unit.every((one) => !rows.get(one.key).fault)), { table } = tableOf(subjects, clean, rows);
-  const delays = senseDelaysOf(complete);
-  if (delays.length > 0) console.log(`reaction time ${delays.map((seconds) => `${seconds} s`).join(", ")}; bout seeds ${boutSeedsOf(complete).join(", ")}`);
+  const seeds = boutSeedsOf(complete);
+  if (seeds.length > 0) console.log(`bout seeds ${seeds.join(", ")}`);
   console.log("\n| Subject | Figure | Units | Value (95 % interval) |\n|---|---|---|---|");
   // An evaluation of every protocol reads each figure on its own protocol's readings alone: the others' are empty there.
   for (const f of figures) if (!evaluation.every || f.units > 0) console.log(`| ${f.subject} | ${f.figure}, ${f.unit} | ${f.units} | ${estimateText(f.estimate)} |`);
