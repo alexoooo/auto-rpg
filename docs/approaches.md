@@ -836,7 +836,7 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   this gains; why is not read. *Counted.*
 - **The search period is the strongest of the timings: every 0.05 s wins 0.807 for 40 % more
   thinking**: the same Mind at 60 Hz with no kick, one side's tree chooser searching every so
-  often (`SearchConfig.rethink`) against the other's 0.2 s, over the 288 bouts of
+  often (`OptionMindConfig.rethink`) against the other's 0.2 s, over the 288 bouts of
   `warrior-drawn`. Score, then knockouts within 60 s and the other's life taken by 60 s, each
   against the 0.2 s side's: 0.05 s 0.807 (0.757 to 0.852), 48.6 % against 9.4 %, 77.5 % against
   49.5 %; 0.1 s 0.642 (0.587 to 0.698), 37.8 % against 18.8 %, 73.7 % against 58.1 % (both at

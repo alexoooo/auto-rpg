@@ -10,6 +10,7 @@ import type { BodyHost } from "../../mind.ts";
 import { commandLayers } from "../../motor-layers.ts";
 import { skillsReport } from "../../report.ts";
 import { chooserOf } from "../choosers/chooser.ts";
+import { RETHINK } from "../choosers/select-set.ts";
 import type { ResolvedConfig } from "./config.ts";
 import { bodyOf } from "../predictions/value/fitted-value.ts";
 import { optionsOf } from "../options/kinds.ts";
@@ -66,7 +67,7 @@ export function buildOptionMind(host: BodyHost, config: ResolvedConfig): MindMad
       const options = optionsOf(config.options, { spec, hz, rate, delay: body.delay, parts, walk, legs, guards: guard, outcomes: predictors.outcomes, guesses: predictors.guesses, record });
       const exchange = predictors.exchange({ strikes: options.flatMap((option) => option.modelled ? [option.modelled] : []) });
       const reader = situationReader({ spec, hz, rate, delay: body.delay, rules: host.rules, exchange, ordersOf: (sight) => host.orders(sight.view.senses), record, parts, techniques: named.techniques });
-      const chooser = chooserOf(parts, config.chooser, { options, seed: host.seed, body: bodyOf(spec), exchange });
+      const chooser = chooserOf(parts, config.chooser, { options, seed: host.seed, body: bodyOf(spec), exchange, rethink: config.rethink ?? RETHINK });
 
       const mind = new OptionMind({ layers, skills, reader, options, chooser, pace: new Pace(every, host.phase, (senses) => host.orders(senses)),
         record, aims: aimsState(aims), facing: walk.facing });

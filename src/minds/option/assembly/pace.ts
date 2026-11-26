@@ -7,8 +7,8 @@ export const everyOf = (rate: number | undefined, hz: number): number => rate ==
 
 /**
  * When an Option Mind decides again: every `every`th control step on its phase, and at once on
- * the step its body is back from another holder, its orders change, or an action of its skills
- * has ended.
+ * the step its body is back from another holder, its orders change, an action of its skills
+ * has ended, or its chooser's time to decide afresh unasked has come.
  */
 export class Pace {
   /** The step it last decided on, the orders it decided on then, the last action ended then, and whether it has decided at all. */
@@ -27,13 +27,14 @@ export class Pace {
 
   /**
    * The seconds since its last decision where one is due this step, else null. The first is `dt`.
-   * `ended` is the last action its skills ended (`Ended.sequence`, 0 for none). A mind that
-   * decides every step asks for no orders here.
+   * `ended` is the last action its skills ended (`Ended.sequence`, 0 for none); `next`, when its
+   * chooser next decides afresh unasked, s (`Chooser.next`). A mind that decides every step asks
+   * for no orders here.
    */
-  since(view: BodyView, dt: number, ended: number): number | null {
+  since(view: BodyView, dt: number, ended: number, next: number): number | null {
     if (this.every === 1) return dt;
     const state = this.state, step = Math.round(view.time / dt), every = this.every, orders = this.orders(view.senses);
-    if (state.begun && !view.resumed && ((step - this.offset) % every + every) % every !== 0 && ended === state.ended && sameOrders(orders, state.orders)) return null;
+    if (state.begun && !view.resumed && ((step - this.offset) % every + every) % every !== 0 && view.time < next && ended === state.ended && sameOrders(orders, state.orders)) return null;
     const since = state.begun ? (step - state.decided) * dt : dt;
     state.decided = step;
     // The orders are copied: their provider may hand the same object again with other words in it.

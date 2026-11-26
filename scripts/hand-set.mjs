@@ -40,7 +40,7 @@ export const PRICING = Object.freeze(["src/minds/option/", "src/skills/framework
 const PLAIN = new Set([0, 1, 2]);
 
 /** The calls a number may be written inside: a registry entry, and a field a player sets. */
-const DECLARING = new Set(["handSet", "number"]);
+const DECLARING = new Set(["handSet", "number", "period"]);
 
 /** Every TypeScript file of the pricing code under `root`, each as its path from the root and its source. */
 export function pricingSources(root = ROOT) {

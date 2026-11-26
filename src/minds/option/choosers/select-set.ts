@@ -22,9 +22,9 @@ import { NOTHING, onOffer } from "../options/readiness.ts";
 export interface Deciding { readonly rethink: number; readonly keep: number }
 
 /**
- * How often an Option Mind's chooser rethinks (`Deciding.rethink`), s: a searching chooser's unless
- * its config says (`SearchConfig.rethink`), the ranked chooser's always. A foe's mind is taken for
- * one rethinking this often, its chooser not being seen (`Pressure.latency`).
+ * How often an Option Mind's chooser rethinks (`Deciding.rethink`), s, unless the Mind's config says
+ * (`OptionMindConfig.rethink`). A foe's mind is taken for one rethinking this often, its config
+ * not being seen (`Pressure.latency`).
  */
 export const RETHINK = handSet({
   name: "RETHINK", sort: "preference", field: "rethink",
@@ -195,6 +195,7 @@ export function selectSet({ choices, appraise, deciding, cue, chance, memory, ho
   return {
     state,
     get running() { return current(); },
+    get next() { return state.next; },
     get offers() { return state.offers; },
     decide(now, others) {
       if (state.decided === now.time) return decided(result.at ?? now, result.fresh);
