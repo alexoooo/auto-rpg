@@ -7,7 +7,7 @@ import { Quaternion, Vector3 } from "../core/math/vector.ts";
 import type { Row } from "./bearing.ts";
 import type { AnkleHold, BearingSole } from "./contact-wrench.ts";
 import { chainTo, specChainTo } from "./kinematics.ts";
-import { swingLegOf, type SwingLeg, type Tilt } from "./swing-leg.ts";
+import { swingLegOf, type SwingLeg } from "./swing-leg.ts";
 import type { Vec3 } from "../core/quantity.ts";
 import { turnOfToRef, partsOn, type Parts } from "../core/bodies/read-motion.ts";
 import { SUPPORT_INSET } from "./stance/stance-tuning.ts";
@@ -62,14 +62,6 @@ export interface FootMemory {
    * centre off the hips.
    */
   readonly hip: Vector3;
-  /**
-   * How far the frame the hip turns in leans from upright, rad, as last read (`StanceControl.read`):
-   * `ahead` along the way the body faces, `out` toward the leg's own side. A thigh leans from the
-   * vertical by its hip's angle less this, so the leg's reach ahead and behind, out and in, is its
-   * hip's range about this lean (`shareOfReach`): a pelvis tipped back leaves the thigh less of its
-   * reach behind.
-   */
-  readonly tilt: Tilt;
   /**
    * The ground's height under the sole, m: the bearing contact's for an articulated foot, the
    * lowest corner's for a rigid sole, or the ground a rising body is given. Read where the ground
@@ -269,7 +261,7 @@ export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[
     const held = flat.hold.map(() => new Vector3());
     const regions = (o: number): HeldRegions => ({ all: { corners: held.slice(o, o + 4) }, toe: { corners: [held[o]!, held[o + 1]!, held[o + 4]!, held[o + 5]!] }, heel: { corners: [held[o + 2]!, held[o + 3]!, held[o + 4]!, held[o + 5]!] } });
     return { ...flat, fits, read: { parts, weight, inset, strength }, toesFlat: true, turns: turnsOf(chain[0]!), name: end.name, side, segment, chain, contactParts,
-      memory: { channels: [] as number[], rolled: null, hip: new Vector3(), tilt: { ahead: 0, out: 0 }, ground: 0, lifted: 0 },
+      memory: { channels: [] as number[], rolled: null, hip: new Vector3(), ground: 0, lifted: 0 },
       corners: flat.sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       held: { points: held, under: new Vector3(), ankle: held[12]!, full: regions(0), half: regions(6) },
       straight: -referenceBendOf(chain), leg: swingLegOf(chain), middle: new Vector3(), ends: { front: soleEdge(), heel: soleEdge() }, heel: 0 };
