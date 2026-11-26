@@ -105,16 +105,18 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   first `beyond` (`Ending`: "standing as the drill stands it, it stays so", which a body laid down
   does not), and a trial not offered is not counted. So the lever is how the Mind closes on a
   lying foe, not the kick's admitting speed.
-- **In the game's bouts, the Mind seldom goes for a lying foe at all.** Replayed, 24 warrior-drawn
-  mirrors each, every down with the other standing: the standing Warrior began a low attack in 2
-  of 48 downs with the low front kick in place of the stomp, and in 2 of 51 with the stomp. A down
-  lasted 7.3 s (median); the stander, 1.5 m off at the fall and 1.9 m a second later, was 1.4 m
-  off at its end, moving at 0.38 m/s (median) and at most 0.89, so closing 0.13 m/s. The owner, on
-  the run gait: "it has ok top speed but it's quite slow to get there, so it's possible htat
-  locomotion might need some work". Getting up to pace is not what holds the close: from the
-  first 0.1 s over 0.2 m/s to the first at 80 % of the down's top speed took 1.6 s of a 7.2 s
-  close (median, 30 %; 2.1 of 6.7 s with the stomp). So the lever is the Mind's choice at a lying
-  foe, which its pricing sets (the price below), before the kick, its approach or the gait's start.
+- **In the game's bouts, the Mind goes for a lying foe and arrives after he is up.** Replayed, 24
+  warrior-drawn mirrors each, every down with the other standing: the standing Warrior began a low
+  attack in 2 of 48 downs with the low front kick in place of the stomp, and in 2 of 51 with the
+  stomp. A down lasted 7.3 s (median); the stander, 1.5 m off at the fall and 1.9 m a second later,
+  was 1.4 m off at its end, moving at 0.38 m/s (median) and at most 0.89. Its menu through a down
+  (one bout, printed at 0.5, 1.5, 3 and 5 s in): from 1.5 s it chooses to run to a stomp's window,
+  each route priced 4 to 8 s from about 2 m, 2.5 s from 0.94 m, and the window it runs to changes
+  foot and side from one decision to the next. The man's forward walk-run is held to 0.7 m/s
+  (`walk-run-envelope.json`: the fastest every trial held; at 1.0, 8 of 20), 1.5 backward. The
+  owner, on the run gait: "it has ok top speed but it's quite slow to get there, so it's possible
+  htat locomotion might need some work". So the lever is the man's speed forward, the envelope
+  holding him to 0.7 m/s, and a route that keeps its window, before the kick or the Mind's pricing.
 - **Next**: the low front kick searched again at the empty-handed man, as the bite is, on the rung
   its profile is measured on: `sparring-laid`'s twin (`sparring-laid-twin`, its starts from
   another stream), its own cases confirming (`skill-search.mjs stomp/front man --loadout
