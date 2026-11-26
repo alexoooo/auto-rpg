@@ -121,7 +121,13 @@ work, told to refute it (the procedure's step 5).
    Today a strike profile says when it was measured at other settings (`staleness`) and when it
    is read for another body (`ProfileReading.scaled`), and keeps digests of the body and skill
    it was measured on (`from`) that nothing compares; the fitted value keeps one line of where
-   it came from (`origin`). Step 1 builds the rest.
+   it came from (`origin`). The numbers that stand in where nothing measured reads are behind
+   one interface (`Guesses`, `src/minds/option/contract/predictors.ts`; `BY_HAND`,
+   `predictions/by-hand.ts`), and a Mind's predictions say whether it is built with them: the
+   kind `measured` is, and the kind `measured-only` is given none and leaves such an Option
+   unpriced (`pricedBy`). The numbers read whatever was measured (`CLINCH`, `STOPS`, `FALLEN`,
+   `BRACED`, `UNMEASURED_TURN`) are in the same file, behind no interface. Step 1 builds the
+   rest.
    *Held by* a reading's type: none is built without its source. Every number set by hand is in
    one registry and read through it alone, so the inventory lists them from the code that reads
    them, never from a search of the source. Each entry has one of three sorts (what is guessed
@@ -178,6 +184,12 @@ it plays by default, three today (`src/app/catalog.ts`, `src/entrants/option/min
 | `option-tail` | the woman, the skeleton, the reptile, and the man holding anything | the tail's leaf, a state worth its best line, the objective's own defaults, decided at 60 Hz |
 | `option-lean` | the empty-handed man | the fitted leaf, a state worth its lines' mean, aggression 4, initiative 0.3, the foe carried on 0.5 s, decided at 10 Hz, a walk's start signed and a sway by its own steps |
 | `option-presses` | the rat | a state worth its best line, aggression 5, initiative 0.3, decided at 60 Hz; it asks the fitted leaf, which stands aside for the rat |
+
+A fourth is pickable and no body's default: `option-measured`, which is `option-lean` built
+with no guesses (`predictions.kind: "measured-only"`), so every stand-in is taken away and
+nothing is yet in its place. Against `option-lean` over 120 bouts (`npm run match`, at
+`25dcc9900`) it scored 0.358 (0.292 to 0.421), with knockouts within 60 s in 8.3 % of bouts
+against 25.0 %. Step 10 measures what the stand-ins stood for.
 
 They are three because each was read on one body and installed for that body alone, the fixes
 among its settings with the rest. By the owner's rule (the goal) a fix, or a gain in scale or
@@ -397,6 +409,21 @@ scope.** 5. **Install and confirm.**
 
 - **A kind a person can pick**, by the config path the kinds already there take. What it stands
   in for stays pickable, and leaves the game only on the owner's word.
+- **Behind the interface that asks for it** (`src/minds/option/contract/`,
+  [the architecture](../architecture.md#minds)). The choosers and the Options read the future
+  only through these, so a mechanism is one more implementation, and no chooser or Option is
+  changed to reach it:
+  - what the foe and the body do to each other (mechanism 3, and the foe's turning) is an
+    `ExchangePredictor` (`predictors.ts`), made by the Mind's predictions part
+    (`predictions/part.ts`);
+  - what a state is worth where a line stops (mechanism 4) is a `ValuePredictor`, picked by the
+    chooser's leaf (`choosers/leaves.ts`);
+  - what an Option does (mechanism 2) is the Option's own model (`Option`, `option.ts`), read
+    from the outcomes its predictions give it;
+  - the action prior (mechanism 5) has no interface yet. It is declared in `contract/` with its
+    first reader.
+- **What a mechanism remembers is in its state**: the fingerprint with `--relay 127`
+  ([the code recipe](../recipes/code.md#code)).
 - **The game unmoved where it is unset**, on every commit that changes what a Mind reads: the
   fingerprint, each case it moves named. Where the empty-handed Warrior is claimed unmoved, his
   mirror is played to the bit as well, saved before and compared after
