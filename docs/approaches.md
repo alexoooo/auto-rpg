@@ -741,24 +741,29 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   body's pooled and read as a written form beat the nearest body in 11 of 18 sets, 9 of 12 where
   the others had hundreds of trials, and lost where they had about 60, as the man's do
   (`5f394cae0`, `b7d2fb56a`). *Shown.*
-- **The struck body is numbers on a strike's trials, and three measured bodies do not price a
-  fourth**: a profile is found by the striker's body, skill and limb, never by the body struck;
-  each trial records the body it struck (its stature, mass, Steadiness and Haste,
-  `struckNumbers`), and a reading takes the trials struck at the measured body nearest in stature
-  and mass (`profileAgainst`, spans 0.1 m and 10 kg), saying so (`ProfileReading.scaled`). The
-  strikes went from 51 profiles to 17 and the empty-handed mirror played 24 of 24 to the bit
-  (`540ddff7b`). Held out over the trials in the assets
-  (`research/skills/strikes/struck-held-out.mjs`; 47 held-out bodies, 7,124 trials; `08c342acd`,
-  `e5fee3269`), a body read as the nearest loses much of what its own trials give: squared error
-  of landed 0.313 against 0.170 (0.143 ± 0.009 worse), of dealt 0.0058 against 0.0041
-  (0.0017 ± 0.0003). The rule before it, the first body a profile's trials struck, reads the
-  same (0.313, 0.0058): the two name the same body for all but 6 of the held-out bodies. The
-  rest pooled as a written form, the struck body's numbers among its terms, reads landed 0.278
-  (0.108 ± 0.007 worse than its own) and dealt 0.0080 (0.0039 ± 0.0005 worse), further than
-  either on dealt. 1,068 trials were unread by one rule or more, no trial begun at that posture.
-  The nearest body can be far: the reptile (0.325 m, 8 kg) reads as the skeleton (1.62 m,
-  15 kg). What makes a body read well is its own trials struck, added to each striker's
-  profile, never a table of a pair. *Shown.*
+- **The struck body is numbers on a strike's trials**: a profile is found by the striker's body,
+  skill and limb, never by the body struck; each trial records the body it struck (its stature,
+  mass, Steadiness and Haste, `struckNumbers`), and a reading takes the trials struck at the
+  measured body nearest in stature and mass (`profileAgainst`, spans 0.1 m and 10 kg), saying so
+  (`ProfileReading.scaled`). The strikes went from 51 profiles to 17 and the empty-handed mirror
+  played 24 of 24 to the bit (`540ddff7b`). The nearest body can be far: the reptile (0.325 m,
+  8 kg) reads as the skeleton (1.62 m, 15 kg). *Shown.*
+- **What a struck body loses read as the nearest measured body is not settled.** A struck body's
+  trials are taken away and priced from the rest, against what its own trials give
+  (`research/skills/strikes/struck-held-out.mjs <striker's body>`, nothing played). Pooled over
+  every profile it read landed 0.313 against 0.170 (`08c342acd`, `e5fee3269`), which showed
+  nothing of borrowing: over half those trials were the woman's and the skeleton's punch, a
+  skill developed on the man alone, and the man's moving punch mixed two drills (its trials at
+  the man record a stance, those at the woman and the skeleton none). A profile is there for
+  every body its drill ran on, developed there or not. Read one striker at a time, a held-out
+  body from another drill left out: the man's drive punch, bonk and stomp, 168 trials, landed
+  0.236 as the nearest against 0.178 as its own (0.058 ± 0.037 worse), dealt 0.0070 against
+  0.0054 (0.0016 ± 0.0017); the rat's bite, 115 trials, landed 0.227 against 0.155
+  (0.072 ± 0.032), dealt 0.027 against 0.004 (0.023 ± 0.006). The rest pooled as a written
+  form, the struck body's numbers among its terms, read worse than the nearest on landed in
+  both (0.312, 0.302). Three bodies were ever struck, all human-shaped, and Steadiness and Haste
+  are 0 on every trial. That the nearest body's trials price worse than a body's own:
+  *Suspected.*
 - **What a body holds is numbers on a trial, and a reading merged across loadouts moved a body
   that had its own**: an item's mass and its reach past the hand are read from its spec (the
   short sword 0.75 kg and 0.62 m, the club 1.16 kg and 0.70 m, the buckler 0.90 kg and 0.23 m;

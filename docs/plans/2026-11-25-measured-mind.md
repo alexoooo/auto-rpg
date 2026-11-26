@@ -108,9 +108,9 @@ work, told to refute it (the procedure's step 5).
    only what was borrowed there. A body with its own rows, against a foe it had measured, reads
    as it did when another body's rows are added. (Its own rows made again do move it: rule 4.)
    A reading that pools every row does not keep this (the written form does so today, below). A
-   reading borrowed from the nearest body is coarse (the approaches: three measured bodies do
-   not price a fourth as its own trials do). It is there so a new body fights on the day it is
-   added, not so it fights well.
+   reading borrowed from the nearest body prices worse than the body's own, by how much is not
+   settled ([the approaches](../approaches.md#minds)). It is there so a new body fights on the
+   day it is added, not so it fights well.
    *Held by* the measuring command: it reads every body and foe that had their own rows before
    it adds and after, and writes nothing if one moved. It plays nothing to do so.
 3. **Every reading says where it came from**, of the body and of the foe: its own, borrowed
@@ -640,8 +640,8 @@ game or to unpark something, and the work goes on meanwhile.
 12. **What a name or a pooled reading still finds** (its table above): the striker's side, the
     foe's strikes across bodies, the sways and the edges found by numbers, and the written form
     read from the rows nearest in the numbers. This is code, and it plays nothing new; the
-    struck body held out is read again over the assets' trials
-    (`research/skills/strikes/struck-held-out.mjs`), which plays nothing either. Scope: the
+    struck body held out is read again over the assets' trials, one striker at a time
+    (`research/skills/strikes/struck-held-out.mjs <striker's body>`), which plays nothing either. Scope: the
     empty-handed Warrior, read where the form's change moves him.
 13. **The rat's own config, read again.** `option-presses` pushes past wrong prices. With the
     prices measured, the rat on the settings every body shares is read against it, by the rat's
@@ -672,18 +672,25 @@ hold for them meanwhile: they fight on what they borrow, and the inventory lists
   prior's readings.
 
 **Not a bar of every fit.** The numbers plan's bar 4 read each body by leaving it out. Over the
-trials in the assets it was read once and not met (the approaches), and it is read again when a
+trials in the assets it was read once, pooled over strikers a skill was never developed on, which
+showed nothing (the approaches), and it is read again, one striker at a time, when a
 body's trials are added (step 12); by bouts it was parked with what is held. A reading of every
 body left out in turn was put to the owner as the bar for every fit on 2026-11-25 and refused
 (the goal: "there is no single type of measurement that holds up in general").
 
 ## What is known before it starts
 
-- **Borrowed readings are coarse.** Held out over the trials in the assets, a struck body read as
-  the nearest measured body lost much of what its own trials give (landed: squared error 0.313
-  against 0.170). Pooling the others with the body's numbers among the terms read little better
-  (0.278). Three measured bodies do not price a fourth
+- **How coarse a borrowed reading is, is not settled.** Held out one striker at a time over the
+  trials in the assets, a struck body read as the nearest measured body priced worse than its
+  own trials on landed by 0.058 ± 0.037 (the man's drive punch, bonk and stomp, 168 trials) and
+  0.072 ± 0.032 (the rat's bite, 115), and pooling the others as a written form read worse
+  still. The figure once here (0.313 against 0.170) pooled a punch on bodies it was never
+  developed on, and showed nothing. Only three bodies, all human-shaped, were ever struck
   ([the approaches](../approaches.md#minds)).
+- **A profile does not say whether its skill was developed on its body.** The assets hold the
+  woman's and the skeleton's punch, 7,969 trials of a skill developed on the man alone, found
+  and read as any other profile, and nothing a profile holds says so. That is step 1's to
+  settle, with what the inventory lists as a body's own.
 - **A reading merged across loadouts moves a body that had its own.** The edges of every loadout
   read together moved the empty-handed mirror in 5 of 24 bouts, and the fingerprint did not show
   it. Its mend, a loadout's own trials first, was deleted in a cleanup, and the written form

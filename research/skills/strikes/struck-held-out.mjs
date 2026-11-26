@@ -1,6 +1,6 @@
 /**
  * **Which measured body a struck body never measured is read as, held out** (over the trials in
- * the assets, nothing played): for each strike's profile
+ * the assets, nothing played): for each profile of the striker named
  * (`strike-profiles.json`) and each body its trials struck, that body's trials taken away and
  * priced from the rest, by the trials struck at the measured body nearest its stature and mass
  * (`profileAgainst`, `STRUCK_SPANS`) and by those struck at the first body the profile's trials
@@ -13,19 +13,32 @@
  * error of each, paired trial by trial, and the difference's spread (twice its standard error).
  * Every body measured is held out in turn, whether or not the nearest and the first read the same.
  *
- *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/struck-held-out.mjs
+ * It reads one striker, the one in hand, and pools nothing across strikers: a profile is there for
+ * every body its drill ran on, whether or not the skill was developed on that body, and a skill
+ * that does not work on its striker says nothing of the bodies it struck. Nor does it say which
+ * of the struck bodies fought back with skills developed for them. A held-out body whose trials
+ * record other start coordinates than the rest's (a stance, where the rest have none) came from
+ * another drill: its line says so, and it is left out of the striker's pooled line.
+ *
+ *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/struck-held-out.mjs <striker's body> [<skill/variation>]
  */
 import { readFileSync } from "node:fs";
-import { resolveCharacter } from "../../../src/core/bodies/models.ts";
+import { BODY_MODELS, resolveCharacter } from "../../../src/core/bodies/models.ts";
 import { formReading } from "../../../src/skills/framework/form.ts";
 import { profileAgainst } from "../../../src/skills/framework/profile/across.ts";
 import { readProfile } from "../../../src/skills/framework/profile/reading.ts";
 import { struckNumbers } from "../../../src/skills/framework/profile/numbers.ts";
 import { mean } from "../../../src/evaluation/stats.ts";
 
-const { profiles } = JSON.parse(readFileSync("assets/skills/strikes/strike-profiles/strike-profiles.json", "utf8"));
-const MODELS = ["man", "woman", "skeleton"], specs = new Map(MODELS.map((model) => [model, resolveCharacter({ model }).spec]));
-const keyOf = (at) => `${at.stature} ${at.mass}`, modelAt = new Map(MODELS.map((model) => [keyOf(struckNumbers(specs.get(model))), model]));
+const [body, skill] = process.argv.slice(2);
+if (!BODY_MODELS.includes(body)) throw new Error(`usage: struck-held-out.mjs <striker's body: ${BODY_MODELS.join(", ")}> [<skill/variation>]`);
+const profiles = JSON.parse(readFileSync("assets/skills/strikes/strike-profiles/strike-profiles.json", "utf8")).profiles
+  .filter((profile) => profile.measured.body === body && (skill === undefined || profile.measured.skill === skill));
+if (!profiles.length) throw new Error(`no strike profile of ${body}${skill === undefined ? "" : ` throwing ${skill}`}`);
+const specs = new Map(BODY_MODELS.map((model) => [model, resolveCharacter({ model }).spec]));
+const keyOf = (at) => `${at.stature} ${at.mass}`, modelAt = new Map(BODY_MODELS.map((model) => [keyOf(struckNumbers(specs.get(model))), model]));
+/** The start coordinates a trial records, by name: trials of one drill record the same. */
+const recorded = (trials) => [...new Set(trials.flatMap((trial) => Object.keys(trial.start)))].sort().join(", ");
 const spread = (xs) => { const m = mean(xs); return 2 * Math.sqrt(xs.reduce((s, x) => s + (x - m) ** 2, 0) / (xs.length - 1) / xs.length); };
 const RULES = ["own", "nearest", "first", "form"];
 const all = { own: [], nearest: [], first: [], form: [], unread: 0 };
@@ -49,12 +62,13 @@ for (const profile of profiles) {
     }
     const n = errors.nearest.done.length;
     if (!n) continue;
-    for (const rule of RULES) all[rule].push(...errors[rule].done.map((done, k) => ({ done, dealt: errors[rule].dealt[k] })));
-    console.log(`${profile.measured.body} ${profile.measured.skill} ${profile.measured.limb}, ${modelAt.get(out)} held out (${n} trials): nearest ${modelAt.get(nearestAt)}, first ${modelAt.get(firstAt)};`
+    const apart = recorded(mine) === recorded(rest.trials) ? "" : ` ANOTHER DRILL, not pooled (its trials record ${recorded(mine)}; the rest ${recorded(rest.trials)})`;
+    if (!apart) for (const rule of RULES) all[rule].push(...errors[rule].done.map((done, k) => ({ done, dealt: errors[rule].dealt[k] })));
+    console.log(`${profile.measured.body} ${profile.measured.skill} ${profile.measured.limb}, ${modelAt.get(out)} held out (${n} trials)${apart}: nearest ${modelAt.get(nearestAt)}, first ${modelAt.get(firstAt)};`
       + ` ${summary(errors, (rule, key) => errors[rule][key])}`);
   }
 }
-if (all.nearest.length) console.log(`all, ${all.nearest.length} trials: ${summary(all, (rule, key) => all[rule].map((one) => one[key]))}; ${all.unread} unread by one rule or more`);
+if (all.nearest.length) console.log(`all of ${body}'s${skill === undefined ? "" : ` ${skill}`}, ${all.nearest.length} trials: ${summary(all, (rule, key) => all[rule].map((one) => one[key]))}; ${all.unread} unread by one rule or more`);
 
 /** Each rule's mean squared error of landed and of dealt, and the nearest's and the first's less the own's, paired, with its spread. */
 function summary(_, of) {
