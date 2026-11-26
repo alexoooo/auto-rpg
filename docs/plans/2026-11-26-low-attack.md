@@ -10,9 +10,16 @@ modelling and better low attack (stomp)"; on the low attack, "it doesn't have to
 can be like kicking a football or anything". On 2026-11-26, judging the front kick: "we don't have
 any good way to capitalize on opponent falls".
 
-So the low attack is judged as the front kick was: against the Warrior without it, empty-handed
-man on man (the match, warrior-drawn, and the scorecard's falls, out of reach and longest stretch
-unlanded), knockouts within 60 s read and not a gate.
+Later on 2026-11-26, the Warrior keeping the front kick: "that way we will see falls for the low
+kick to act on. We don't need anything re the club, again we are looking at empty handed warrior
+only [...] And now that we have the new kick with more falls, I am hoping that the low kick can
+bring faster knockouts."
+
+So the low attack's bar is faster knockouts in the empty-handed Warrior's mirror, the Warrior
+holding the front kick: the Warrior with the low attack against the same Warrior without it, on
+the scorecard (warrior-drawn), read by its knockouts within 60 s, its time to a knockout and its
+share of a bout with either body down. Everything it is searched, looked at and read on is the
+empty-handed man.
 
 ## Where it stands
 

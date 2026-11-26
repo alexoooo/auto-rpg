@@ -219,8 +219,9 @@ stretch with no blow taking life.
 
   So either kick, on the Warrior, measures worse than none: its bouts spend more of their time on
   the ground, where nothing finishes a foe, and standing they land fewer blows. At lean 0 the
-  match score's interval still holds an even match, but its margin does not. Whether the Warrior
-  goes without a kick is the owner's to say from this. Of the two kicks, the front kick at lean 0
+  match score's interval still holds an even match, but its margin does not. The owner, on
+  2026-11-26, on that: "Yes the warrior should use the new front kick, that way we will see falls
+  for the low kick to act on". Of the two kicks, the front kick at lean 0
   falls less (2.01 downs a bout against 2.71, a quarter of its bouts' time with either down less)
   and leaves the longest stretch unlanded shorter (15.8 s against 23.0); the push kick knocks out
   a little more within 60 s, inside the intervals (48.6 %, 42.0 to 55.2, against 43.1 %, 36.6 to
@@ -259,12 +260,6 @@ sit-back on the standard falls, +2.13 s an attempt (b71b3fd0); the Skeleton's fr
 holding a buckler and club, +2.16 s (b71b3fd0); the man's staged-down so held, +1.21 s
 (ecf5182e). And the Skeleton's sit-back's backward tip under `regain`, a step-1 item (above).
 They wait on the front kick landing; the order after it stands (the low kick next).
-
-The man's ways up from the falls of his bouts holding a club, worse since the front kick became
-the Warrior's kick (`20f03196d`, the fingerprint's single trial of each, the falls drawn from
-bouts that now hold the front kick's): staged-roll 1.52 to 8.73 s, staged-down 1.31 to 16 (the
-cap), sit-back 9.49 to 16, front-sit-back 4.87 to 13.14. Broken rises the front kick's falls
-revealed, each read on the table's way-up/bouts protocol and fixed at its root.
 
 From the catch's work, to read after the front kick: the woman's front-sit-back holding a club,
 40 reached of its twin's 89 without the tilted reach against 49 with it; the push kick's base with

@@ -64,6 +64,7 @@
  *   ... --source <model>: the start carried over from that body's record
  *   ... --set '{"lift": 0.7}': the start with those settings in its place, for a search or a --try
  *   ... --loadout <left,right>: one loadout's cells of its row, for a search, a --try or a --confirm
+ *   ... --target <model>: of a strike's trials, those at that body alone (its condition's `target`), for a search, a --try or a --confirm
  *   node research/skills/skill-search.mjs <skill> <model> --confirm <file.json> [--write [--from "<what the search started from>"]]
  *
  * Harness: Node on Rapier (`DEFAULT_ENGINE`), each command one step late. The stomp: the bout
@@ -324,18 +325,25 @@ if (!isMainThread && workerData?.search) {
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values, positionals: [skill, model] } = parseArgs({ allowPositionals: true, options: { out: { type: "string" }, confirm: { type: "string" }, write: { type: "boolean" },
     from: { type: "string" }, generations: { type: "string" }, lambda: { type: "string" }, sigma: { type: "string" }, workers: { type: "string" }, seed: { type: "string" }, resume: { type: "boolean" },
-    until: { type: "string" }, patience: { type: "string" }, try: { type: "boolean" }, loadout: { type: "string" }, set: { type: "string" }, source: { type: "string" } } });
+    until: { type: "string" }, patience: { type: "string" }, try: { type: "boolean" }, loadout: { type: "string" }, target: { type: "string" }, set: { type: "string" }, source: { type: "string" } } });
   const search = searchOn(skill, model);
   if (!search || !model) throw new Error(`usage: <skill> <model>, skill one of ${Object.keys(SEARCHES).join(", ")}`);
   const recordName = search.record ?? skill;
   if (values.loadout !== undefined && !search.rates) throw new Error(`${skill}'s trials are not a table row's: --loadout is not theirs`);
+  /** Of `trials`, those at the body `target` alone where one is given (`--target`). */
+  const atTarget = (trials, target) => {
+    if (target === undefined) return trials;
+    const kept = trials.filter((trial) => trial.condition.target === target);
+    if (kept.length === 0) throw new Error(`${skill} has no trial at ${target}`);
+    return kept;
+  };
   const workers = Number(values.workers ?? defaultLanes());
   const pool = workerPool(fileURLToPath(import.meta.url), { search: true, skill }, workers);
   const body = modelSpec(model).model, started = Date.now();
   // The movement the search tunes, as its look names it (`requireLook`).
   const looked = recordName.includes("/") ? recordName : `${recordName}/${recordName}`;
   if (values.confirm) {
-    const found = JSON.parse(readFileSync(values.confirm, "utf8")), trials = search.trials(model, search.confirm, values.loadout ?? found.loadout);
+    const found = JSON.parse(readFileSync(values.confirm, "utf8")), trials = atTarget(search.trials(model, search.confirm, values.loadout ?? found.loadout), values.target ?? found.target);
     // What the best must beat: the record the body plays now, which a search resumed after an install no longer starts from; its start where the body has none.
     const recorded = recordsOf(recordName)[body], record = recorded?.settings, against = record ? "record" : "start";
     const base = await confirmed(pool, record ?? found.start, trials, search.rates), best = await confirmed(pool, found.best.settings, trials, search.rates);
@@ -369,7 +377,7 @@ if (!isMainThread && workerData?.search) {
   const set = values.set ? JSON.parse(values.set) : null;
   const saved = values.resume && existsSync(values.out) ? JSON.parse(readFileSync(values.out, "utf8")) : null, resume = saved?.checkpoint, before = saved?.seconds ?? 0;
   if (saved && (saved.skill !== skill || saved.body !== body)) throw new Error(`${values.out} is a search of ${saved.skill} on ${saved.body}, not of ${skill} on ${body}`);
-  const loadout = saved?.loadout ?? values.loadout, start = saved?.start ?? { ...startOf(skill, model, values.source), ...set }, trials = search.trials(model, search.search, loadout), lambda = Number(values.lambda ?? 16);
+  const loadout = saved?.loadout ?? values.loadout, target = saved?.target ?? values.target, start = saved?.start ?? { ...startOf(skill, model, values.source), ...set }, trials = atTarget(search.trials(model, search.search, loadout), target), lambda = Number(values.lambda ?? 16);
   // With a plateau to end on and no count given, the search runs until it ends on one.
   const generations = Number(values.generations ?? (values.patience === undefined ? 10 : Number.MAX_SAFE_INTEGER));
   const sourceBody = modelSpec(values.source ?? (recordsOf(recordName)[body] ? model : "man")).model;
@@ -380,7 +388,7 @@ if (!isMainThread && workerData?.search) {
     const r = await scored(pool, start, trials), rates = [];
     for (const hz of (search.rates ?? []).slice(1)) { const at = await scored(pool, start, trials, hz); rates.push({ hz, score: at.score, falls: at.falls }); }
     const seconds = Math.round((Date.now() - started) / 1000);
-    save(values.out, JSON.stringify({ skill, body, ...(loadout ? { loadout } : {}), from, start, lambda: 0, trials: trials.length, dims: search.dims, log: [], seconds, best: { score: r.score, settings: start, falls: r.falls, each: r.each } }));
+    save(values.out, JSON.stringify({ skill, body, ...(loadout ? { loadout } : {}), ...(target ? { target } : {}), from, start, lambda: 0, trials: trials.length, dims: search.dims, log: [], seconds, best: { score: r.score, settings: start, falls: r.falls, each: r.each } }));
     console.log(JSON.stringify({ skill, body, start: { score: r.score, falls: r.falls }, rates, seconds }));
     await pool.terminate();
     process.exit(0);
@@ -410,7 +418,7 @@ if (!isMainThread && workerData?.search) {
       raised = best.g ?? raised;
       // How the search ended, once it has: on its plateau, at `--until`'s score, or at its count of generations with neither reached.
       ended = best.score >= until ? "until" : entry.g - raised >= patience ? "plateau" : entry.g + 1 >= generations ? "generations" : null;
-      save(values.out, JSON.stringify({ skill, body, ...(loadout ? { loadout } : {}), from, start, lambda, trials: trials.length, dims: search.dims, log: checkpoint.log,
+      save(values.out, JSON.stringify({ skill, body, ...(loadout ? { loadout } : {}), ...(target ? { target } : {}), from, start, lambda, trials: trials.length, dims: search.dims, log: checkpoint.log,
         seconds: before + Math.round((Date.now() - started) / 1000), ...(ended ? { ended } : {}),
         best: { score: best.score, settings: decode(search, start, best.u), falls: best.r.falls, each: best.r.each }, checkpoint }));
       if (ended) return false;
