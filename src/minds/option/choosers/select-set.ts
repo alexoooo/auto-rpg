@@ -1,5 +1,6 @@
 import { hasResource, BODY_RESOURCE, type Resource } from "../../../skills/framework/action.ts";
 import { randomStream } from "../../../core/math/random.ts";
+import { handSet } from "../../../core/hand-set.ts";
 import { hold, stillHeld, unheld, type Drift, type Held } from "../../../control/held.ts";
 import type { Offer } from "../../engagement.ts";
 import type { Chooser, Chosen } from "../contract/chooser.ts";
@@ -21,7 +22,11 @@ import { NOTHING, onOffer } from "../options/readiness.ts";
 export interface Deciding { readonly rethink: number; readonly keep: number }
 
 /** How often an Option Mind's chooser rethinks (`Deciding.rethink`), s. A foe's mind is taken for one like it (`Pressure.latency`). */
-export const RETHINK = .2;
+export const RETHINK = handSet({
+  name: "RETHINK", sort: "own",
+  says: "How often an Option Mind's chooser rethinks, s.",
+  value: .2,
+});
 
 /** **When `deciding` next decides with no event**, deciding at `now` s: the first period's start at least half a period on (`Deciding`). */
 function nextDecision(deciding: Deciding, now: number): number {

@@ -1,6 +1,7 @@
 import type { Readiness, Resource } from "../../../skills/framework/action.ts";
 import type { SelectedAsk } from "../../../skills/framework/intent.ts";
 import type { Spot } from "../../../skills/framework/menu.ts";
+import type { Read } from "../../../skills/framework/profile/source.ts";
 import type { ModelledStrike, Situation } from "./situation.ts";
 import type { Ask, Terms } from "./terms.ts";
 
@@ -79,11 +80,13 @@ export interface Option {
    */
   readonly sites?: readonly Site[];
   /**
-   * How its model is priced now, a sentence: measured, where its profile prices it (and why
-   * scaled, `ProfileReading.scaled`); else by hand, or not at all where its Mind guesses nothing, and why: it was never measured, its profile is
-   * stale (`staleness`), or no trial reads where it stands. Absent where it reads no profile.
+   * What its model reads for the body and its focus now, and where each reading comes from
+   * (`Read`): its measured profile, saying whose rows they are and what has changed since they
+   * were measured; else its Mind's guess, or nothing where its Mind guesses nothing, each saying
+   * why nothing measured reads. It says what its lookups find, not whether a trial of its profile
+   * reads at one state. Absent where it reads no profile.
    */
-  priced?(now: Situation): string;
+  reads?(now: Situation): readonly Read[];
   /**
    * What it is expected to take of the focus a second, within its reach, as a share of the
    * focus's full life, begun afresh; 0 with no focus. Not at the range now: out of reach it reads

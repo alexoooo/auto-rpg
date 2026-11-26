@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 
 /** The shape of a saved bout (`strike-bouts.mjs`' result): a new number with each change to it. */
-export const BOUT_SCHEMA = 8;
+export const BOUT_SCHEMA = 9;
 
 /** **The bouts saved at `path`**, as `[key, bout]`; an error where any was saved in another shape. */
 export function savedBouts(path) {

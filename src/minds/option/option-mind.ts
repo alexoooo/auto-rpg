@@ -4,6 +4,7 @@ import type { Ended } from "../../skills/framework/action.ts";
 import { intentOfSet, type Intent } from "../../skills/framework/intent.ts";
 import { LEGS_FIELDS, type LegsUnmet } from "../../skills/framework/skill.ts";
 import type { Skills } from "../../skills/framework/skills.ts";
+import type { Read } from "../../skills/framework/profile/source.ts";
 import { CommandingMind, type Commanding } from "../commanding-mind.ts";
 import { sightOf, type Sight } from "../decider.ts";
 import type { Engagement, EngagementDetail } from "../engagement.ts";
@@ -55,8 +56,8 @@ interface OptionMindState extends Commanding {
   readonly pace: object;
   /** The intent it last decided, which stands until it decides again. */
   asked: Intent | null;
-  /** What it last reported of itself: what it expects of each foe, its details, and what its focus was doing. */
-  readonly said: { prospects: readonly Prospect[]; details: readonly EngagementDetail[]; foe: string };
+  /** What it last reported of itself: what it expects of each foe, its details, what it read to price the fight, and what its focus was doing. */
+  readonly said: { prospects: readonly Prospect[]; details: readonly EngagementDetail[]; reads: readonly Read[]; foe: string };
 }
 
 /**
@@ -100,7 +101,7 @@ export class OptionMind extends CommandingMind<Intent> {
       skills: parts.skills.state, situation: parts.reader.state, record: parts.record.state,
       chooser: parts.chooser.state, options: parts.options.map((option) => option.state),
       aims: parts.aims, pace: parts.pace.state,
-      asked: null, said: { prospects: [], details: [], foe: "clear" },
+      asked: null, said: { prospects: [], details: [], reads: [], foe: "clear" },
     };
     const chooser = parts.chooser;
     this.engagement = {
@@ -109,6 +110,7 @@ export class OptionMind extends CommandingMind<Intent> {
       get offers() { return chooser.offers; },
       get foe() { return state.said.foe; },
       get details() { return state.said.details; },
+      get reads() { return state.said.reads; },
     };
   }
 
@@ -140,7 +142,8 @@ export class OptionMind extends CommandingMind<Intent> {
     // Each chosen Option's step, made one intent: the walk and facing of the one that claims the legs, else no walk, facing as the Mind faces.
     const intent = intentOfSet(chosen.set.map((option) => ({ claims: option.claims, ...option.step(chosen.at, dt) })),
       () => ({ move: null, face: this.facing(chosen.at) }));
-    said.details = this.detailsAt(chosen.at);
+    said.details = [unmetDetail(this.sight.report.legs.unmet, this.sight.view.unmet)];
+    said.reads = readsAt(this.options, chosen.at);
     return intent;
   }
 
@@ -151,10 +154,6 @@ export class OptionMind extends CommandingMind<Intent> {
     return prospects;
   }
 
-  /** What it reports beside its choice at `now`: what its legs and motor left undone, and how its Options and its foe are priced. */
-  private detailsAt(now: Situation): readonly EngagementDetail[] {
-    return [unmetDetail(this.sight.report.legs.unmet, this.sight.view.unmet), pricedDetail(this.options, now)];
-  }
 }
 
 /** No other foe's situation read. */
@@ -164,13 +163,16 @@ const NONE: readonly Situation[] = Object.freeze([]);
 const lastEnded = (ledger: readonly Ended[]): number => ledger.length ? ledger[ledger.length - 1]!.sequence : 0;
 
 /**
- * How each Option that reads a profile and the focus's strikes are priced as it last decided, as
- * an engagement's detail: by their measured profiles, by hand, or not at all, and why (`Option.priced`,
- * `Pressure.priced`).
+ * **What a decision at `now` reads to price the fight** (`Engagement.reads`): what each of
+ * `options` that reads a profile reads (`Option.reads`), then what the focus's pressure reads
+ * (`Pressure.reads`), each of those named as the foe's. They are reported, so each decision makes
+ * a new list.
  */
-function pricedDetail(options: readonly Option[], now: Situation): EngagementDetail {
-  const own = options.flatMap((option) => option.priced ? [`${option.name}: ${option.priced(now)}`] : []);
-  return { label: "Profiles", value: [...own, `foe: ${now.predictions.pressure.priced}`].join("; ") };
+function readsAt(options: readonly Option[], now: Situation): readonly Read[] {
+  const reads: Read[] = [];
+  for (const option of options) if (option.reads) for (const read of option.reads(now)) reads.push(read);
+  for (const read of now.predictions.pressure.reads) reads.push({ what: `the foe's ${read.what}`, source: read.source });
+  return reads;
 }
 
 /**

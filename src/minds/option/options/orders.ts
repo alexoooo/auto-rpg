@@ -6,18 +6,35 @@ import { asking, blocked, READY, standing } from "./readiness.ts";
 import type { Option } from "../contract/option.ts";
 import type { Situation } from "../contract/situation.ts";
 import { threatened } from "../situation/reach-memory.ts";
-import { UNMOVED } from "./outcomes.ts";
+import { NO_BLOW, PRESSED, UNMOVED } from "./outcomes.ts";
+import type { TermSources } from "../contract/terms.ts";
+import { given, notPriced } from "../../../skills/framework/profile/source.ts";
 import type { Walker } from "../contract/context.ts";
 import type { GaitName } from "../../../skills/framework/skill.ts";
+import { handSet } from "../../../core/hand-set.ts";
 
 /** How far ahead following orders is priced, s. */
-const AHEAD = 1;
+const AHEAD = handSet({
+  name: "AHEAD", sort: "own",
+  says: "How long following orders is priced for, s: an Option held open is priced over a span, and this is its span.",
+  value: 1,
+});
 
 /** Whether `now`'s orders are to move, stand or face: an explicit movement, stop or facing. */
 const ordered = (now: Situation): boolean => now.orders !== null && (now.orders.move !== undefined || (now.orders.face ?? null) !== null);
 
 /** Whether `now`'s orders are to stand and fight a foe: they name one and walk nowhere, so the strikes, which stand, carry them out. */
 const fights = (now: Situation): boolean => now.orders?.foe !== undefined && (now.orders.move ?? null) === null;
+
+/**
+ * Where each answer of its price comes from (`Terms.from`). It is priced over a set time ahead
+ * (`AHEAD`) and throws no blow, and what it takes is the focus's pressure. Where its orders take
+ * the body is not priced: its model leaves the body where it stands.
+ */
+const ORDERED: TermSources = Object.freeze({
+  duration: given("it is priced over a set time ahead"), dealt: NO_BLOW, taken: PRESSED,
+  leaves: notPriced("where its orders take the body"),
+});
 
 /**
  * **Follow orders**: walk or stop and face as ordered (`orderedIntent`), and nothing else: it asks
@@ -56,8 +73,8 @@ export function followOrders(gaits: readonly GaitName[], walk: Pick<Walker, "obe
     status: (now) => now.orders?.firm && now.orders.move !== undefined && now.orders.foe === undefined ? "committed" : "yields",
     begin() {},
     end() {},
-    model: (at) => standing(at) && ordered(at) ? { duration: AHEAD, dealt: 0, taken: at.predictions.danger + threatened(at, AHEAD), orders: fights(at) ? 0 : by(at).speed * AHEAD,
-      outcomes: UNMOVED } : null,
+    model: (at) => standing(at) && ordered(at) ? { duration: AHEAD, dealt: 0, taken: at.predictions.danger.life + threatened(at, AHEAD), orders: fights(at) ? 0 : by(at).speed * AHEAD,
+      outcomes: UNMOVED, from: ORDERED } : null,
     step(now) {
       const { guard: _, ...ordered } = orderedIntent(now.sight, now.orders!, NO_COVER);
       // The body an ordered way goes round (`MovementRequest`'s `by`) is not kept off as a fallen one.

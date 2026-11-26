@@ -7,6 +7,7 @@ import type { BearingEnd, BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Cover } from "../../../skills/framework/intent.ts";
 import type { Spot } from "../../../skills/framework/menu.ts";
 import type { Profile, StanceNumbers, Stances } from "../../../skills/framework/profile/profile.ts";
+import type { Read, Source } from "../../../skills/framework/profile/source.ts";
 import type { LegsUnmet } from "../../../skills/framework/skill.ts";
 import type { FoePhase, threatReader } from "../../../skills/perception/threat.ts";
 import type { Sight } from "../../decider.ts";
@@ -116,18 +117,27 @@ export interface Percepts {
   readonly contact: number;
 }
 
+/** **The blow already coming**: the share of the body's own life it is expected to take, and where that reading comes from. */
+export interface Coming { readonly life: number; readonly source: Source }
+
+/** **What lying costs a body**: the own life a second down is expected to cost it (`rate`), and where that comes from (`source`). */
+export interface DownCost {
+  readonly rate: number;
+  readonly source: Source;
+}
+
 /**
  * **Every prediction an Option Mind reads**, by name: what data a drill, a training run or the
  * rules make says of the situation, stale with that data; read when an Option or the objective
  * asks for it, once a step at most, each by its Mind's exchange predictor (`ExchangePredictor`).
  */
 export interface Predictions {
-  /** The own life the blow coming is expected to take; 0 with none, or where the focus's pressure holds it already. */
-  readonly danger: number;
+  /** The blow coming (`Coming`): no life with none, or where the focus's pressure holds it already. */
+  readonly danger: Coming;
   /** What the focus's fighting is expected to deal the body (`Pressure`). */
   readonly pressure: Pressure;
-  /** What a second down in each posture is expected to cost the body, own life. */
-  readonly downRate: (posture: Position) => number;
+  /** What a second down in each posture is expected to cost the body (`DownCost`). */
+  readonly down: (posture: Position) => DownCost;
   /** How fast the focus turns to face, rad/s; Infinity with none. */
   readonly turns: number;
   /** The focus's life a blow of a limb of the body's takes at a segment of the focus's, closing on it at `closing` m/s, by the rules; 0 with no focus. */
@@ -156,8 +166,15 @@ export interface Pressure {
   readonly latency: number;
   /** The most it takes in a second, the struck body's life, for a report. */
   readonly peak: number;
-  /** How it was priced, as a sentence for a report. */
-  readonly priced: string;
+  /** Each thing it is priced by, and where that reading comes from (`Read`), for a report. None with no focus. */
+  readonly reads: readonly Read[];
+  /**
+   * Where the life it takes comes from, said once: the weakest of what it is priced by (`weakest`
+   * of `reads`). It is a bound, not the one reading that answered at a state: a pressure is the
+   * most of several strikes' rates, or a table measured in bouts, and any of them may decide it.
+   * A given with no focus, which takes nothing.
+   */
+  readonly source: Source;
   /** The share of the struck body's life it takes over `span` (`Span`), from `now`. */
   dealt(now: Situation, span: Span): number;
   /** How far it reaches, m head to head, as the range at `now` places it; 0 where it has no blow. */

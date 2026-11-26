@@ -1,7 +1,10 @@
 import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
+import { handSet } from "../../../../core/hand-set.ts";
 import { heldNumbers, holdsAlike, struckNumbers } from "../../../../skills/framework/profile/numbers.ts";
 import { STRUCK_SPANS } from "../../../../skills/framework/profile/nearest.ts";
-import { type BodyHeld } from "../../../../skills/framework/profile/profile.ts";
+import { type BodyHeld, type Origin } from "../../../../skills/framework/profile/profile.ts";
+import { gapIn, measuredFrom, type Side, type Source } from "../../../../skills/framework/profile/source.ts";
+import { remembered } from "../../../../core/remembered.ts";
 
 /**
  * **A body as a pressure table is found by** (`pressureBody`): its stature, m, and mass, kg, as a
@@ -35,9 +38,11 @@ interface MeasuredPairing {
  * **A measured pressure**: what a striker's fighting took from a struck body in bouts, by how far
  * apart the two stood centre to centre, what the striker was doing (`striking`, else `clear`), and
  * the seconds after (`research/minds/pressure-profiles.mjs`, `assets/minds/pressure-profiles.json`).
- * It is the minds' that fought the bouts it was read from, and is read again where those change.
+ * It is the minds' that fought the bouts it was read from, and is read again where those change:
+ * it names them (`from`, `Origin.minds`), where its tool wrote them.
  */
 export interface PressureTable extends MeasuredPairing {
+  readonly from?: Origin;
   readonly bins: readonly PressureBin[];
 }
 
@@ -53,10 +58,25 @@ export interface PressureBin {
 export type PressureCurve = (seconds: number) => number;
 
 /** How many moments a reading is the mean of: the bins nearest its range until they hold as many. */
-const MOMENTS = 40;
+const MOMENTS = handSet({
+  name: "MOMENTS", sort: "own",
+  says: "How many measured moments a reading of a pressure table is the mean of.",
+  value: 40,
+});
 
 /** How far a reading's bins may lie from its range, m: beyond it the table does not read there. */
-const SPAN = .1;
+const SPAN = handSet({
+  name: "SPAN", sort: "own",
+  says: "How far from the range asked a pressure table's bins may lie and still be read, m.",
+  value: .1,
+});
+
+/** How many places a range is rounded to where it keys a curve already made: a hundred a metre. */
+const CURVE_GRAIN = handSet({
+  name: "CURVE_GRAIN", sort: "own",
+  says: "How finely a range is rounded where it finds a pressure curve already made: this many places a metre.",
+  value: 100,
+});
 
 /** **Whether `value` is what a measured table is of** (`MeasuredPairing`): two bodies as numbers, and one horizon or more, rising from over none. */
 function validPairing(value: unknown): value is MeasuredPairing {
@@ -117,6 +137,21 @@ function pairingApart(pairing: { readonly measured: PressureBody; readonly targe
   return Math.max(apart(pairing.measured, pressureBody(striker)), apart(pairing.target, pressureBody(struck)));
 }
 
+/** One body of a table's pairing as a side of the table's source (`Side`): the body it was measured on, as its numbers, and each number in which a body of `spec` differs from it. A table is found by numbers alone. */
+function sideOf(measured: PressureBody, spec: BodySpec): Side {
+  const now = pressureBody(spec);
+  const gaps = [gapIn("stature, m", measured.stature, now.stature, STRUCK_SPANS.stature), gapIn("mass, kg", measured.mass, now.mass, STRUCK_SPANS.mass)].filter((gap) => gap !== null);
+  return { own: gaps.length === 0, of: `a body of ${measured.stature} m and ${measured.mass} kg`, by: "numbers", gaps };
+}
+
+/**
+ * **Where `table` comes from, read of `striker` fighting `struck`** (`Source`): bouts of the two
+ * bodies it was measured on, so a table that had to be measured for the pairing. Its body is the
+ * striker and its target the body struck. Made once a table and each of the two specs.
+ */
+export const tableSource = remembered((table: PressureTable) => remembered((striker: BodySpec) => remembered((struck: BodySpec): Source =>
+  measuredFrom({ body: sideOf(table.measured, striker), target: sideOf(table.target, struck), pairing: true }))));
+
 /** Each table's curves read, by phase (`any` for every phase) and range. A cache: a table is data, which never changes. */
 const CURVES = new WeakMap<PressureTable, Map<string, PressureCurve | null>>();
 
@@ -129,7 +164,7 @@ const CURVES = new WeakMap<PressureTable, Map<string, PressureCurve | null>>();
 export function pressureCurve(table: PressureTable, phase: string | null, range: number): PressureCurve | null {
   let curves = CURVES.get(table);
   if (!curves) CURVES.set(table, curves = new Map());
-  const at = Math.round(range * 100) / 100, key = `${phase ?? "any"} ${at}`;
+  const at = Math.round(range * CURVE_GRAIN) / CURVE_GRAIN, key = `${phase ?? "any"} ${at}`;
   if (curves.has(key)) return curves.get(key)!;
   const bins = table.bins.filter((bin) => (phase === null || bin.phase === phase) && Math.abs(bin.range - at) <= SPAN).sort((a, b) => Math.abs(a.range - at) - Math.abs(b.range - at));
   const lost = table.horizons.map(() => 0);

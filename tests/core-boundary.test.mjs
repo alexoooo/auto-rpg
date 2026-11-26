@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { moduleImports, parseSource, visitSyntax } from "../scripts/syntax.mjs";
 import { sourceCrossings, sourceFiles } from "../scripts/source-boundary.mjs";
+import { handSetScan, pricingSources, PRICING } from "../scripts/hand-set.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const CORE = "src/core/";
@@ -492,4 +493,59 @@ import RAPIER from "@dimforge/rapier3d-simd-compat";
     "src/minds/command/sly-too.ts imports src/game/combatant.ts",
     `src/minds/command/sly-too.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
   ]);
+});
+
+/**
+ * The Option Mind priced fights with numbers written in by hand all over its code, and two audits
+ * listed them from searches of the source that each missed some (`HELD_FOE`, `REPLY_LEAST`,
+ * `LONGEST` and `AHEAD` were in neither list). So every such number is now an entry of one
+ * registry (`handSet`), and this scan fails one written anywhere else in the code that prices a
+ * fight. No drill or bout shows a number's place: the game plays the same wherever it is written.
+ */
+test("the code that prices a fight writes a number of its own only as a registry entry or a player's field", () => {
+  const files = pricingSources();
+  assert.ok(PRICING.every((root) => files.some(([file]) => file.startsWith(root))) && files.length > 50, "the pricing code was not found, so this test would pass on nothing");
+  const found = handSetScan(files);
+  assert.deepEqual(found.faults, []);
+  assert.ok(found.entries.length > 40, `only ${found.entries.length} registry entries were found: the scan does not see them`);
+  // The control: each way of writing a number outside the registry is found, and what code cannot be written without is not.
+  const probe = `
+    import { handSet } from "../../core/hand-set.ts";
+    import { number } from "../../parts/fields.ts";
+    /** Not a number: 0.65 in a comment, and "0.65" in a string. */
+    type Kind = 0 | 1 | 3; const named = "0.65";
+    const CLINCH = handSet({ name: "CLINCH", sort: "guess", says: "A made-up clinch.", value: { within: .65, falls: .2 } });
+    const FIELD = number("runs", "Runs", 1, 1000, 1, "", 50);
+    const ORDER = Object.freeze({ range: 0, closing: 1, across: 2, ahead: 3 });
+    const half = (x: number[]): number => x[3]! / 2 + x[ORDER.ahead + 4]! * 2 + (x.length > 1 ? 1 : 0);
+    const RATE = 1;
+    const WAYS = Object.freeze({ way: { seconds: 5, done: .7 } });
+    const far = (range: number): boolean => range > 3.5 || range < -1e-9;
+    const WRONG = handSet({ name: "RIGHT", sort: "own", says: "Named as another constant.", value: 4 });
+    const TWICE = [handSet({ name: "TWICE", sort: "own", says: "Not a constant of its own.", value: 7 })];
+    const NOT_IN_ORDER = { first: 0, fourth: 3 };
+    const HALF = 1 / 2, SIGNED = +1 as const;
+    let count = 0; for (let at = 0; at < 2; at++) count += 1;
+    const EITHER = 1 || 2, PICKED = count ? 1 : 2, SURE = 1!;
+  `;
+  assert.deepEqual(handSetScan([["src/minds/option/probe.ts", probe], ["src/minds/option/again.ts", `const CLINCH = handSet({ name: "CLINCH", sort: "guess", says: "A second clinch.", value: 0 });`]]), {
+    entries: [{ file: "src/minds/option/probe.ts", name: "CLINCH" }, { file: "src/minds/option/again.ts", name: "CLINCH" }],
+    faults: [
+      "src/minds/option/probe.ts:13 a registry entry is named as the constant it makes",
+      "src/minds/option/probe.ts:14 a registry entry is named as the constant it makes",
+      "src/minds/option/probe.ts:9 4 is written outside the registry",
+      "src/minds/option/probe.ts:10 RATE is a number set by hand, outside the registry",
+      "src/minds/option/probe.ts:11 5 is written outside the registry",
+      "src/minds/option/probe.ts:11 .7 is written outside the registry",
+      "src/minds/option/probe.ts:12 3.5 is written outside the registry",
+      "src/minds/option/probe.ts:12 1e-9 is written outside the registry",
+      "src/minds/option/probe.ts:15 3 is written outside the registry",
+      "src/minds/option/probe.ts:16 HALF is a number set by hand, outside the registry",
+      "src/minds/option/probe.ts:16 SIGNED is a number set by hand, outside the registry",
+      "src/minds/option/probe.ts:18 EITHER is a number set by hand, outside the registry",
+      "src/minds/option/probe.ts:18 PICKED is a number set by hand, outside the registry",
+      "src/minds/option/probe.ts:18 SURE is a number set by hand, outside the registry",
+      "src/minds/option/again.ts CLINCH is a registry entry's name twice",
+    ],
+  });
 });

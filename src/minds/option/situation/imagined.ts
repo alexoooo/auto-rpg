@@ -3,7 +3,8 @@ import type { Sight } from "../../decider.ts";
 import { bearingAround } from "./percepts.ts";
 import { graceAt, inReach } from "./reach-memory.ts";
 import type { ExchangePredictor } from "../contract/predictors.ts";
-import type { Predictions, Situation } from "../contract/situation.ts";
+import type { Coming, Predictions, Situation } from "../contract/situation.ts";
+import { given } from "../../../skills/framework/profile/source.ts";
 import { hypot } from "../../../core/math/real.ts";
 import type { BodySense } from "../../../core/bodies/senses.ts";
 import type { Leaves } from "../contract/terms.ts";
@@ -16,8 +17,11 @@ const afterActions = (sight: Sight): Sight => Object.create(sight, {
   report: { value: Object.create(sight.report, { actions: { value: NO_ACTIONS } }) },
 });
 
+/** No blow coming, past the one that was (`Coming`). */
+const PAST: Coming = Object.freeze({ life: 0, source: given("the blow that was coming has ended") });
+
 /** Predictions past the blow coming, inheriting every other prediction. */
-const afterDanger = (predictions: Predictions): Predictions => Object.create(predictions, { danger: { value: 0 } });
+const afterDanger = (predictions: Predictions): Predictions => Object.create(predictions, { danger: { value: PAST } });
 
 /** Each overlay of predictions at another own stance (`stancedPredictions`), by the predictions and the stance. A cache: neither ever changes. */
 const STANCED_PREDICTIONS = new WeakMap<Predictions, WeakMap<object, Predictions>>();

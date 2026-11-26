@@ -1,6 +1,6 @@
 /**
  * **The profiles a body reads for a skill**, found by the question they answer (`Measured`,
- * `measuredOn`): fresh, else stale (`staleness`), else of another body; and those a foe's body is
+ * `measuredOn`): fresh, else stale (`changes`), else of another body; and those a foe's body is
  * modelled by (`profilesOn`).
  */
 import type { DataLoader } from "../../../core/data/store.ts";
@@ -9,14 +9,18 @@ import type { ActionConfig, ExecutorEntry } from "../../config.ts";
 import type { PartConfig } from "../../../parts/parts.ts";
 import { chosenVariation } from "../variations.ts";
 import type { Measured, Profile } from "./profile.ts";
+import type { Change } from "./source.ts";
 import { heldPast } from "./across.ts";
 import { remembered } from "../../../core/remembered.ts";
 
+/** The settings a profile is measured at, as a profile records them (`Measured`): a mind's rate and a command's delay are absent where they are the world's rate and none. */
+type Settings = Pick<Measured, "hz" | "reaction" | "rate" | "delay">;
+
 /** **The steps a body's command waited** where `measured` was measured: its `delay`, else none. */
-const delayOf = (measured: Measured): number => measured.delay ?? 0;
+const delayOf = (measured: Settings): number => measured.delay ?? 0;
 
 /** **The rate the mind's driver ran at** where `measured` was measured, Hz: its `rate`, else the world's. */
-const rateOf = (measured: Measured): number => measured.rate ?? measured.hz;
+const rateOf = (measured: Settings): number => measured.rate ?? measured.hz;
 
 /** A profiles' loader whose identity for a body is the profiles measured on it (`dataIdentity`): its own strikes', and what a foe of that body is modelled by. */
 export function bodyProfiles(load: () => Promise<unknown>): DataLoader {
@@ -60,67 +64,63 @@ export function measuredOn(spec: BodySpec, { skill, limb }: SkillAsked, { hz, re
 }
 
 /** **Whether a reaction time `now` s reads as `was` s** at `hz`: within half a step, or either unknown. */
-export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= .5 / hz;
+export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= 1 / 2 / hz;
 
-/** **Why `profile` answers another question than `now` asks**, a sentence: another body, skill or limb; null where it answers the same. One that does is never read for it. */
-function askedOtherwise(profile: Profile, now: Measured): string | null {
-  const was = profile.measured;
-  if (was.body !== now.body) return `measured on ${was.body}, read on ${now.body}`;
-  if (was.skill !== now.skill || was.limb !== now.limb) return `measured of ${was.skill}${was.limb ? ` with ${was.limb}` : ""}`;
-  return null;
-}
+/** Nothing has changed since a profile was measured. */
+const NO_CHANGE: readonly Change[] = Object.freeze([]);
 
 /**
- * **Why `profile` is stale for `now`**, a sentence: the first of what it was measured on that
- * differs, the question it answers (`askedOtherwise`) or a setting it was measured at (the world's
- * and the mind's rates, the command's delay, the senses' reaction time, the same by
- * `sameReaction`); null where none does. One measured at another setting is still read, labelled
- * by this, so a stale measurement prices a skill before a hand-built guess does.
+ * **What has changed since `profile` was measured, for `now`**: each setting it was measured at
+ * that is another now. The settings are the world's rate, the mind's rate, the command's delay
+ * and the senses' reaction time (the same by `sameReaction`). None where it was measured as it is
+ * read. A profile measured at another setting is stale and still read, with these on its source
+ * (`Source.stale`), so a stale measurement prices a skill before a guess does.
  */
-export function staleness(profile: Profile, now: Measured): string | null {
-  const was = profile.measured, asked = askedOtherwise(profile, now);
-  if (asked !== null) return asked;
-  if (was.hz !== now.hz) return `measured at ${was.hz} Hz, read at ${now.hz} Hz`;
-  if (rateOf(was) !== rateOf(now)) return `measured with its mind at ${rateOf(was)} Hz, read at ${rateOf(now)} Hz`;
-  if (delayOf(was) !== delayOf(now)) return `measured with its command ${delayOf(was)} steps late, read ${delayOf(now)} steps late`;
-  if (!sameReaction(was.reaction, now.reaction, now.hz))
-    return `measured with senses ${was.reaction} s late, read ${now.reaction} s late`;
-  return null;
+export function changes(profile: Profile, now: Settings): readonly Change[] {
+  const was = profile.measured, reacts = sameReaction(was.reaction, now.reaction, now.hz);
+  if (was.hz === now.hz && rateOf(was) === rateOf(now) && delayOf(was) === delayOf(now) && reacts) return NO_CHANGE;
+  return [
+    ...was.hz === now.hz ? [] : [{ what: "the world's rate, Hz", measured: was.hz, asked: now.hz }],
+    ...rateOf(was) === rateOf(now) ? [] : [{ what: "its mind's rate, Hz", measured: rateOf(was), asked: rateOf(now) }],
+    ...delayOf(was) === delayOf(now) ? [] : [{ what: "its command's delay, steps", measured: delayOf(was), asked: delayOf(now) }],
+    ...reacts ? [] : [{ what: "its senses' reaction time, s", measured: was.reaction, asked: now.reaction }],
+  ];
 }
 
 /**
  * A skill's profiles looked up (`profilesFor`), one a body it was measured against: those it reads
- * (`read`), the ones measured as it is read where there are any, else those asked the same
- * question at another setting, else those asked it on another body (the nearest in stature, read
- * by stature, `acrossBodies`); and why those are stale, or why none is read (`stale`, null where
- * they are fresh).
+ * (`read`), and what has changed since they were measured (`stale`, none where they are fresh).
+ * It reads the ones measured on the body as it is read where there are any; else those measured
+ * on the body at another setting; else those measured on the other body nearest it in stature,
+ * read by stature (`acrossBodies`). Whose trials it reads is on the reading's source
+ * (`ProfileReading.source`).
  */
 interface Found {
   readonly read: readonly Profile[];
-  readonly stale: string | null;
+  readonly stale: readonly Change[];
 }
 
 /**
  * **The profiles of the skill and limb `now` names** among `profiles` (`Found`): each measured as
- * it is read, else each of the same question at another setting, stale (`staleness`), else each
- * of it measured on the other body nearest this one in stature, stale; one a body it was measured
- * against (`profileAgainst` reads the struck body's); null where the skill was never measured
- * with that limb.
+ * it is read, else each measured on the body at another setting, stale (`changes`), else each
+ * measured on the other body nearest this one in stature; one a body it was measured against
+ * (`profileAgainst` reads the struck body's); null where the skill was never measured with that
+ * limb.
  */
 export function profilesFor(profiles: readonly Profile[], now: Measured): Found | null {
   const fresh: Profile[] = [], stale: Profile[] = [], elsewhere: Profile[] = [];
   for (const profile of profiles) {
     if (profile.measured.skill !== now.skill || profile.measured.limb !== now.limb) continue;
-    if (askedOtherwise(profile, now) !== null) elsewhere.push(profile);
-    else (staleness(profile, now) === null ? fresh : stale).push(profile);
+    if (profile.measured.body !== now.body) elsewhere.push(profile);
+    else (changes(profile, now).length === 0 ? fresh : stale).push(profile);
   }
-  if (fresh.length) return { read: fresh, stale: null };
-  if (stale.length) return { read: stale, stale: staleness(stale[0]!, now) };
+  if (fresh.length) return { read: fresh, stale: NO_CHANGE };
+  if (stale.length) return { read: stale, stale: changes(stale[0]!, now) };
   if (elsewhere.length) {
     const apart = (profile: Profile): number => Math.abs(profile.measured.stature - now.stature);
     const nearest = elsewhere.reduce((best, profile) => apart(profile) < apart(best) ? profile : best).measured.body;
     const read = elsewhere.filter((profile) => profile.measured.body === nearest);
-    return { read, stale: `${staleness(read[0]!, now)}, read by stature: coarse` };
+    return { read, stale: changes(read[0]!, now) };
   }
   return null;
 }
@@ -138,23 +138,21 @@ const limbHolds = remembered((profile: Profile) => remembered((spec: Pick<BodySp
 
 /**
  * **The profiles among `profiles` measured on a body of `spec`**, of any skill its limbs throw
- * as they hold (`limbHoldsAsMeasured`), at `at` (`MeasuredAt`, `fresh`): what a foe of that body is measured
- * able to deal. Which skills a foe's character holds is not sensed (`sensedSpec`), so every one
- * measured on its body stands for them. Those it reads (`read`), of each skill and limb as
- * `profilesFor` reads one: the fresh, else those measured at another setting, stale, so a strike
- * measured as it is read leaves none of the others out; and why the first stale one read is
- * stale, or why none is read (`stale`, null where every one read is fresh).
+ * as they hold (`limbHoldsAsMeasured`), at `at` (`MeasuredAt`): what a foe of that body is
+ * measured able to deal. Which skills a foe's character holds is not sensed (`sensedSpec`), so
+ * every one measured on its body stands for them. Of each skill and limb they are the fresh,
+ * else those measured at another setting (`changes`), as `profilesFor` reads one: a strike
+ * measured as it is read leaves none of the others out. None where no fight measured a strike
+ * its body throws as it holds.
  */
-export function profilesOn(profiles: readonly Profile[], spec: BodySpec, at: MeasuredAt): { readonly read: readonly Profile[]; readonly stale: string | null } {
-  const body = spec.model, on: { readonly profile: Profile; readonly ask: string; readonly stalled: string | null }[] = [], fresh = new Set<string>();
+export function profilesOn(profiles: readonly Profile[], spec: BodySpec, at: MeasuredAt): readonly Profile[] {
+  const body = spec.model, on: { readonly profile: Profile; readonly ask: string; readonly changed: boolean }[] = [], fresh = new Set<string>();
   for (const profile of profiles) {
     const was = profile.measured;
     if (was.body !== body || !limbHoldsAsMeasured(profile, spec)) continue;
-    const ask = `${was.skill} ${was.limb ?? ""}`, stalled = staleness(profile, measuredOn(spec, { skill: was.skill, limb: was.limb ?? null }, at));
-    on.push({ profile, ask, stalled });
-    if (stalled === null) fresh.add(ask);
+    const ask = `${was.skill} ${was.limb ?? ""}`, changed = changes(profile, at).length > 0;
+    on.push({ profile, ask, changed });
+    if (!changed) fresh.add(ask);
   }
-  const read = on.filter(({ ask, stalled }) => stalled === null || !fresh.has(ask));
-  if (!read.length) return { read: [], stale: `no fight measured the strikes a ${body} throws as it holds` };
-  return { read: read.map(({ profile }) => profile), stale: read.find(({ stalled }) => stalled !== null)?.stalled ?? null };
+  return on.filter(({ ask, changed }) => !changed || !fresh.has(ask)).map(({ profile }) => profile);
 }

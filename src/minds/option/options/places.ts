@@ -16,9 +16,10 @@ import { LEGS } from "../../../skills/framework/action.ts";
 import { bearingAround } from "../situation/percepts.ts";
 import { graceAt } from "../situation/reach-memory.ts";
 import { gaitStance } from "../../../skills/locomotion/move/gaits.ts";
-import { CLINCH, clinched } from "../predictions/by-hand.ts";
-import { STILL, upOrDown } from "./outcomes.ts";
-import type { Terms } from "../contract/terms.ts";
+import { CLINCH, CLINCH_FALLS, clinched } from "../predictions/by-hand.ts";
+import { NO_BLOW, PRESSED, STILL, upOrDown } from "./outcomes.ts";
+import type { Terms, TermSources } from "../contract/terms.ts";
+import { byHand } from "../../../skills/framework/profile/source.ts";
 import type { Walker } from "../contract/context.ts";
 
 /** A gait as Option Mind's legs go by it: its name, its label and its legs' config. */
@@ -81,7 +82,7 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
           const within = leave - enter, pieces = Math.max(1, Math.ceil(within / WALK_SPACING)), dt = within / pace / pieces;
           const moving = { x: ux * pace - focus.velocity.x, z: uz * pace - focus.velocity.z };
           for (let i = 0; i < pieces; i++) {
-            const along = enter + (i + .5) / pieces * within, tx = fx - (x + along * ux), tz = fz - (z + along * uz);
+            const along = enter + (i + 1 / 2) / pieces * within, tx = fx - (x + along * ux), tz = fz - (z + along * uz);
             const spent = Math.min(grace, dt);
             grace -= spent;
             taken += pressure.dealt(at, { apart: hypot(tx, tz) - offset, velocity: startVelocity({ x: tx, z: tz }, moving), seconds: dt - spent,
@@ -93,12 +94,23 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
     }
     x = point.x; z = point.z;
   }
-  if (!focus) return { duration, dealt: 0, taken: at.predictions.danger, orders: 0, outcomes: upOrDown({ where: { x: spot.x, z: spot.z, face: spot.face }, velocity: STILL, ...(stance ? { stance } : {}) }, 0) };
+  if (!focus) return { duration, dealt: 0, taken: at.predictions.danger.life, orders: 0, outcomes: upOrDown({ where: { x: spot.x, z: spot.z, face: spot.face }, velocity: STILL, ...(stance ? { stance } : {}) }, 0), from: WALKED };
   const where = { x: spot.x, z: spot.z, face: spot.face }, apart = hypot(where.x - focus.centre.x, where.z - focus.centre.z), bearing = bearingAround(focus, where.x, where.z);
   const around = (bearing < 0 ? -1 : 1) * Math.max(0, Math.abs(bearing) - at.predictions.turns * duration);
-  return { duration, dealt: 0, taken: at.predictions.danger + taken, orders: 0,
-    outcomes: upOrDown({ where, around, velocity: STILL, grace, ...(stance ? { stance } : {}) }, apart >= CLINCH.within ? 0 : clinched(at, duration)) };
+  return { duration, dealt: 0, taken: at.predictions.danger.life + taken, orders: 0,
+    outcomes: upOrDown({ where, around, velocity: STILL, grace, ...(stance ? { stance } : {}) }, apart >= CLINCH.within ? 0 : clinched(at, duration)), from: WALKED };
 }
+
+/**
+ * Where each answer of a walk's price comes from (`Terms.from`). No drill measured a walk: its
+ * seconds are its gait's own reckoning of its pace (`Walker.seconds`), a rule written by hand,
+ * and its falls are the clinch's, set by hand. It throws no blow, and what it takes on the way is
+ * the focus's pressure.
+ */
+const WALKED: TermSources = Object.freeze({
+  duration: byHand([], "no drill measured a walk: its seconds are its gait's own reckoning of its pace"),
+  dealt: NO_BLOW, taken: PRESSED, leaves: CLINCH_FALLS,
+});
 
 /** No site to walk to. */
 const NOWHERE = blocked("no site to walk to"), THERE = blocked("at its site"), NO_PACE = blocked("no attainable walking pace");

@@ -259,7 +259,14 @@ memory and what checks them.
   (`Start.held`: an item's mass and reach), read by the trials nearest it. Where nothing measured
   reads, the kind `measured` answers by a number set by hand (`Guesses`, `BY_HAND`), all of them
   in `predictions/by-hand.ts`; the kind `measured-only` guesses nothing, so what no drill
-  measured is not priced; the kind `prior` reads no profile.
+  measured is not priced; the kind `prior` reads no profile. Every reading says where it comes
+  from (`Source`, `src/skills/framework/profile/source.ts`), and so does each answer of a price
+  (`Terms.from`, a line's `foe` and `end`; an offer's six in the Mind's report,
+  `OfferTerms.from`). A measured row can name what it was measured from (`Origin`: its body's and
+  its skill's digests, and each Mind that played its trials with what that Mind read, `Played`).
+  A field is absent where the row's tool did not write it: a profile's row names its body and
+  mostly its skill, a pressure table and the fitted value name only Minds, and no row in the
+  repository names Minds yet, since none has been measured since the tools began to write them.
 - **The chooser** (`CHOOSERS`): the tree chooser prices each Option by a Monte Carlo tree search
   over the models (`treeSearch`) and is the application's default; the valued chooser searches one
   or two deep; the ranked chooser (`RANKED_CHOOSER`) prices nothing and takes firm orders first,

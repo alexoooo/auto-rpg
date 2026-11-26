@@ -5,8 +5,9 @@ import type { TargetRef } from "../../../skills/framework/action.ts";
 import type { Expected, ProfileReading } from "../../../skills/framework/profile/reading.ts";
 import type { OutcomeModel } from "../../../skills/framework/outcomes.ts";
 import type { WalkStart } from "./context.ts";
-import type { ModelledStrike, Pressure, Seen, Situation } from "./situation.ts";
+import type { Coming, DownCost, ModelledStrike, Pressure, Seen, Situation } from "./situation.ts";
 import type { Terms } from "./terms.ts";
+import type { Source } from "../../../skills/framework/profile/source.ts";
 
 /** A move the foe is expected to make: a velocity over the ground, m/s, and the seconds it keeps it. */
 export interface FoeMove {
@@ -22,12 +23,12 @@ export interface FoeMove {
  * The last two are asked by a search, of a state already read.
  */
 export interface ExchangePredictor {
-  /** The share of the body's life the blow already coming is expected to take; 0 with none, or where `pressure` counts it already. */
-  danger(seen: Seen): number;
+  /** The blow already coming (`Coming`): no life with none, or where `pressure` counts it already. */
+  danger(seen: Seen): Coming;
   /** What the foe's fighting is expected to take from the body as the two stand now. */
   pressure(seen: Seen): Pressure;
-  /** What a second spent down in each posture is expected to cost the body, own life. */
-  downRate(seen: Seen): (posture: Position) => number;
+  /** What a second spent down in each posture is expected to cost the body (`DownCost`). */
+  down(seen: Seen): (posture: Position) => DownCost;
   /** How fast the foe turns to face, rad/s; Infinity with no foe. */
   turns(seen: Seen): number;
   /** The share of the foe's life a blow of a limb of the body's takes at a segment of the foe's, closing on it at `closing` m/s; 0 with no foe. */
@@ -99,6 +100,8 @@ export interface Guesses {
   blow(seen: Seen, blow: NonNullable<Seen["blow"]>, range: number): ProfileReading;
   /** How long a way up, a regain or a brace takes and how often it does what it does, where no drill measured it. */
   way(kind: GuessedWay): Prior;
+  /** The entries in the registry of numbers set by hand (`handSet`) that each guess is made of, by their names: what a reading by that guess gives as its source. */
+  readonly entries: Readonly<Record<"strike" | "limb" | "blow" | GuessedWay, readonly string[]>>;
 }
 
 /** **An Option on offer as one try of it is modelled** (`Terms`): its kind, whether it is open, and its seconds and the life it deals and takes. */
@@ -109,8 +112,14 @@ export interface Followed { readonly dealt: number; readonly taken: number }
 
 /** **What a state is worth where a line of a search stops.** */
 export interface ValuePredictor {
-  /** A reader for one search begun at `root`. Null where it has no reading of this body against this foe. */
-  from(root: Situation): ValueReader | null;
+  /** What it gives one search begun at `root` (`Valued`). Null where it has no reading of this body against this foe. */
+  from(root: Situation): Valued | null;
+}
+
+/** **What a value predictor gives one search**: its reader, and where its reading comes from. */
+export interface Valued {
+  readonly read: ValueReader;
+  readonly source: Source;
 }
 
 /**

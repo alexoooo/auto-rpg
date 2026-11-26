@@ -1,4 +1,4 @@
-import { deepFreeze } from "../../../core/state.ts";
+import { handSet } from "../../../core/hand-set.ts";
 import type { Obedience, ObedienceLevel } from "../contract/objective.ts";
 
 /**
@@ -9,8 +9,11 @@ import type { Obedience, ObedienceLevel } from "../contract/objective.ts";
  * foe's life one and a half times more) and orders first (a metre a third of a life, a named foe's
  * life twenty thirds more). Without orders it changes nothing.
  */
-export const OBEDIENCE: readonly (readonly [value: ObedienceLevel, name: string, worth: Obedience])[] = deepFreeze([
-  ["own", "Own judgement", { metre: 1 / 60, foe: 1 / 3 }], ["steady", "Steady", { metre: .075, foe: 1.5 }], ["orders", "Orders first", { metre: 1 / 3, foe: 20 / 3 }]]);
+export const OBEDIENCE = handSet<readonly (readonly [value: ObedienceLevel, name: string, worth: Obedience])[]>({
+  name: "OBEDIENCE", sort: "preference", field: "obedience",
+  says: "At each level of obedience a player picks: what a metre walked as ordered is worth, in life, and how much more a named foe's life is.",
+  value: [["own", "Own judgement", { metre: 1 / 60, foe: 1 / 3 }], ["steady", "Steady", { metre: .075, foe: 1.5 }], ["orders", "Orders first", { metre: 1 / 3, foe: 20 / 3 }]],
+});
 
 /** The steady level: the valued chooser's own. */
 export const STEADY: Obedience = OBEDIENCE[1]![2];

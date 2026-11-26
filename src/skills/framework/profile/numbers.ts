@@ -7,10 +7,18 @@ import type { BodySpec, ItemSpec } from "../../../core/bodies/spec/body.ts";
 import { hypot } from "../../../core/math/real.ts";
 import { ARRIVED } from "../movement.ts";
 import { remembered } from "../../../core/remembered.ts";
+import { handSet } from "../../../core/hand-set.ts";
 import type { BodyHeld, Exit, Held, ItemNumbers, StruckNumbers } from "./profile.ts";
 
-/** The 4-place rounding a trial's numbers are written at. */
-const fourPlaces = (x: number): number => Number(x.toFixed(4));
+/** How many decimal places a trial's numbers are written at. */
+const PLACES = handSet({
+  name: "PLACES", sort: "own",
+  says: "How many decimal places the numbers a trial records of its bodies are written at.",
+  value: 4,
+});
+
+/** `x` at the rounding a trial's numbers are written at (`PLACES`). */
+export const asWritten = (x: number): number => Number(x.toFixed(PLACES));
 
 /**
  * **A trial's exit** (`Trial.exit`) from where the two stood as it ended, `exit` (head to head,
@@ -20,14 +28,14 @@ const fourPlaces = (x: number): number => Number(x.toFixed(4));
  * so a change head to head is not the bodies'. An exit with no centre gives its range alone.
  */
 export function trialExit(exit: { readonly range: number; readonly apart?: number }, apart: number): Exit {
-  const range = { range: fourPlaces(exit.range) };
+  const range = { range: asWritten(exit.range) };
   if (exit.apart === undefined) return range;
   const moved = exit.apart - apart;
-  return Math.abs(moved) <= ARRIVED ? { ...range, stays: 1 } : { ...range, stays: 0, moved: fourPlaces(moved) };
+  return Math.abs(moved) <= ARRIVED ? { ...range, stays: 1 } : { ...range, stays: 0, moved: asWritten(moved) };
 }
 
 /** **A body of `spec` as a trial records it struck** (`StruckNumbers`), at the 4 places a trial is written at; found once a spec. */
-export const struckNumbers = remembered((spec: BodySpec): StruckNumbers => Object.freeze({ stature: fourPlaces(spec.stature.value), mass: fourPlaces(spec.mass.value),
+export const struckNumbers = remembered((spec: BodySpec): StruckNumbers => Object.freeze({ stature: asWritten(spec.stature.value), mass: asWritten(spec.mass.value),
   steadiness: spec.attributes.steadiness.value, haste: spec.attributes.haste.value }));
 
 /** The farthest any point of `shape` lies from its frame's origin, m. */
@@ -42,8 +50,8 @@ function shapeReach(shape: ItemSpec["shapes"][number]): number {
 }
 
 /** **`item`'s numbers** (`ItemNumbers`), at the 4 places a trial is written at; found once an item. */
-const itemNumbers = remembered((item: ItemSpec): ItemNumbers => Object.freeze({ mass: fourPlaces(item.mass.value),
-  reach: fourPlaces(Math.max(0, ...item.shapes.map(shapeReach), ...(item.contacts ?? []).map((contact) => shapeReach(contact.shape)))) }));
+const itemNumbers = remembered((item: ItemSpec): ItemNumbers => Object.freeze({ mass: asWritten(item.mass.value),
+  reach: asWritten(Math.max(0, ...item.shapes.map(shapeReach), ...(item.contacts ?? []).map((contact) => shapeReach(contact.shape)))) }));
 
 /** **What a body of `spec` holds, as numbers** (`BodyHeld`); undefined where it holds nothing. Found once a spec. */
 export const heldNumbers = remembered((spec: Pick<BodySpec, "held">): BodyHeld | undefined => {

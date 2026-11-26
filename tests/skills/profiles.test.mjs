@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { HUMANOID_MODELS, resolveCharacter } from "../../src/core/bodies/models.ts";
 import { sensedSpec } from "../../src/core/bodies/senses.ts";
-import { limbHoldsAsMeasured, profilesFor, profilesOn } from "../../src/skills/framework/profile/lookup.ts";
+import { changes, limbHoldsAsMeasured, profilesFor, profilesOn } from "../../src/skills/framework/profile/lookup.ts";
 import { struckNumbers } from "../../src/skills/framework/profile/numbers.ts";
 import { readProfile } from "../../src/skills/framework/profile/reading.ts";
 import { loadData } from "../../src/core/data/store.ts";
@@ -19,7 +19,7 @@ import { reportNow } from "../../src/minds/seat/apart.ts";
 /**
  * Every measured profile (`assets/skills/strikes/strike-profiles/strike-profiles.json`, and the edges' and steps') is of a skill the game has, on a body
  * it builds (`profileKeys`): a profile is read only where its body, its skill and its limb are the reader's
- * (`staleness`), so one keyed to a skill or body that has moved on is never read, and a strike or
+ * (`profilesFor`), so one keyed to a skill or body that has moved on is never read, and a strike or
  * edge that has none is priced by hand in silence.
  */
 test("every measured profile is of a current skill on a current body", () => {
@@ -78,11 +78,11 @@ test("a foe is modelled alike whatever skills its character holds", () => {
     assert.ok(on.length > 0, `the stored profiles hold a ${model}'s strikes`);
     const skills = [...new Set(on.map(({ measured }) => measured.skill))];
     if (skills.some((skill) => !spec.skills.includes(skill))) both++;
-    const { hz, reaction, rate, delay } = on[0].measured, read = (one) => profilesOn(profiles, one, { hz, reaction, rate: rate ?? hz, delay: delay ?? 0 });
+    const { hz, reaction, rate, delay } = on[0].measured, at = { hz, reaction, rate: rate ?? hz, delay: delay ?? 0 }, read = (one) => profilesOn(profiles, one, at);
     const own = read(spec);
-    assert.ok(own.read.length > 0 && own.stale === null, `a ${model} is modelled by measured strikes: ${own.stale}`);
+    assert.ok(own.length > 0 && own.every((profile) => changes(profile, at).length === 0), `a ${model} is modelled by measured strikes, each read as it was measured`);
     for (const one of [{ ...spec, skills: [skills.at(-1)] }, sensedSpec(spec)]) assert.deepEqual(read(one), own);
-    assert.deepEqual([...new Set(own.read.map(({ measured }) => measured.skill))].sort(), [...skills].sort());
+    assert.deepEqual([...new Set(own.map(({ measured }) => measured.skill))].sort(), [...skills].sort());
   }
   assert.ok(both > 0, "the stored profiles reached no variation a model's own character does not hold, so a model by its skills would read the same");
 });
@@ -103,24 +103,27 @@ test("a body's strikes measured at different settings are each read, the fresh a
   const [moved] = skills, { hz, reaction, rate, delay } = on[0].measured, at = { hz, reaction, rate: rate ?? hz, delay: delay ?? 0 };
   const mixed = profiles.map((profile) => profile.measured.body === "man" && profile.measured.skill === moved ? { ...profile, measured: { ...profile.measured, rate: at.rate / 6 } } : profile);
   const read = profilesOn(mixed, spec, at);
-  assert.deepEqual([...new Set(read.read.map(({ measured }) => measured.skill))].sort(), [...skills].sort());
-  assert.equal(read.stale, `measured with its mind at ${at.rate / 6} Hz, read at ${at.rate} Hz`);
+  assert.deepEqual([...new Set(read.map(({ measured }) => measured.skill))].sort(), [...skills].sort());
+  for (const profile of read) assert.deepEqual(changes(profile, at), profile.measured.skill !== moved ? [] : [{ what: "its mind's rate, Hz", measured: at.rate / 6, asked: at.rate }]);
 });
 
 /**
  * **A bout's first decisions read each strike's measured profile**: a profile is measured at the
  * senses' reaction time (`Senses.reaction`), and a foe carried for less than that is shown as it
  * stood when the bout began. Read at how old that showing was, every strike was priced by hand
- * ("measured with senses 0.15 s late, read 0 s late") until the bout was 0.15 s old.
+ * ("measured with senses 0.15 s late, read 0 s late") until the bout was 0.15 s old. A strike says
+ * where its reading comes from (`Engagement.reads`), so the punch must say it is measured, with
+ * nothing changed since.
  */
 test("a bout's first decision prices a measured strike by its profile", async () => {
   const recipe = recipeOf("?matchup=man,man&control=option,option&left.loadout=empty,empty&right.loadout=empty,empty", { left: {}, right: {} }, "open");
   const bout = await buildBout(recipe);
   try {
     bout.world.step(1);
-    const profiles = reportNow(bout.duel.duelists.left.minded.report).engagement?.details?.find((detail) => detail.label === "Profiles")?.value;
-    assert.ok(profiles?.includes("straight-punch"), "the fixture's mind must have decided and said how it prices its punch");
-    assert.doesNotMatch(profiles, /measured with senses/, "a strike priced by hand for the age of what the senses show at a bout's start");
+    const punch = reportNow(bout.duel.duelists.left.minded.report).engagement?.reads?.find((read) => read.what.startsWith("straight-punch"))?.source;
+    assert.ok(punch, "the fixture's mind must have decided and said what its punch reads");
+    assert.equal(punch.kind, "measured", "the punch is priced by its measured profile at a bout's start");
+    assert.deepEqual(punch.stale, [], "a strike read as stale for the age of what the senses show at a bout's start");
   } finally { bout.dispose(); }
 });
 

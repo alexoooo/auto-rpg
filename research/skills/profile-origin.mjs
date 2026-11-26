@@ -1,10 +1,11 @@
 /**
  * **Where a profile came from** (`Origin`, `src/skills/framework/profile/profile.ts`), as the tools that
  * measure profiles write it: the digests of its body's spec (`specDigest`) and of its skill
- * (`skillDigest` for a strike, `techniqueDigest` for a ground technique). A digest labels a
- * profile and finds none.
+ * (`skillDigest` for a strike, `techniqueDigest` for a ground technique), and the Minds that
+ * played its trials (`playedBy`). A digest labels a profile and finds none.
  */
-import { dataIdentity } from "../../src/core/data/store.ts";
+import { treeData } from "../../src/app/catalog.ts";
+import { dataIdentity, dataOf } from "../../src/core/data/store.ts";
 import { chosenVariation } from "../../src/skills/framework/variations.ts";
 
 /** Each object's digest, found once: what is digested is frozen. */
@@ -15,7 +16,7 @@ const DIGESTS = new WeakMap();
  * flags, an object's by its keys in order, leaving out functions, what is undefined and each
  * `provenance` (where a number came from, not what it is).
  */
-function digestOf(value) {
+export function digestOf(value) {
   const known = typeof value === "object" && value !== null ? DIGESTS.get(value) : undefined;
   if (known !== undefined) return known;
   let a = 2166136261, b = 3735928559;
@@ -68,6 +69,43 @@ export const specDigest = (spec) => {
   if (digest === undefined) SPEC_DIGESTS.set(spec, digest = digestOf({ ...spec, wounds: undefined, skills: undefined, held: undefined }));
   return digest;
 };
+
+/** Each record's digest (`recordDigest`), by its key: a record is loaded once and frozen. */
+const RECORD_DIGESTS = new Map();
+
+/**
+ * **A whole record's digest**, by its data key (`dataOf`). It is the whole record, not one
+ * body's rows of it: a Mind reads other bodies' rows too, its foe's and those it borrows.
+ */
+export function recordDigest(key) {
+  let digest = RECORD_DIGESTS.get(key);
+  if (digest === undefined) RECORD_DIGESTS.set(key, digest = digestOf(dataOf(key)));
+  return digest;
+}
+
+/** Each Mind that played (`playedBy`), by its body's digest and its config's: the same object for the same two. */
+const PLAYED = new Map();
+
+/**
+ * **One Mind that played a measurement's trials** (`Played`): the Mind `mind` configures, on a
+ * body of `spec`. It keeps the body's name and digest, the config's digest, and the digest of
+ * each whole record the Mind's parts read (`treeData`, `recordDigest`). So the inventory can
+ * say which of them has changed since, without playing anything.
+ */
+export function playedBy(spec, mind) {
+  const body = specDigest(spec), config = digestOf(mind), key = `${body} ${config}`;
+  let played = PLAYED.get(key);
+  if (!played) PLAYED.set(key, played = Object.freeze({ body: spec.model, spec: body, mind: config,
+    read: Object.freeze(Object.fromEntries([...new Set(treeData(mind))].sort().map((data) => [data, recordDigest(data)]))) }));
+  return played;
+}
+
+/** The Minds among `played`, each once, in an order that does not depend on the order they came in. */
+export function playedOnce(played) {
+  const once = new Map();
+  for (const one of played) once.set(JSON.stringify(one), one);
+  return [...once.keys()].sort().map((key) => once.get(key));
+}
 
 /** Each strike's digest (`skillDigest`), by its action, its executor, its body's spec and its parts: each is frozen data, read once. */
 const SKILL_DIGESTS = new WeakMap();

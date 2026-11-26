@@ -4,12 +4,21 @@ import type { TechniquePart } from "../../../skills/recovery/shared/technique.ts
 import type { PartLookup } from "../../../parts/lookup.ts";
 import type { PartConfig } from "../../../parts/parts.ts";
 import type { OptionRecord } from "../contract/context.ts";
+import { handSet } from "../../../core/hand-set.ts";
 
 /** A body standing ready this long (`standReady`) with no try under way has risen, s: its rise is over. */
-const READY_HOLD = .1;
+const READY_HOLD = handSet({
+  name: "READY_HOLD", sort: "own",
+  says: "How long a body must read as standing ready, s, before the Mind takes its rise as over.",
+  value: .1,
+});
 
 /** **The regain's try**, s: how long the regain holds the body on its feet before its try is over, the rise over where it stands, else a try begun afresh. */
-export const REGAIN_TRY = 2;
+export const REGAIN_TRY = handSet({
+  name: "REGAIN_TRY", sort: "own",
+  says: "How long the Mind holds a body regaining its feet before that try is over, s.",
+  value: 2,
+});
 
 /**
  * How upright a body on its feet holds its trunk (`GroundReading.upright`, the cosine of its lean):
@@ -17,7 +26,11 @@ export const REGAIN_TRY = 2;
  * its supports read on a step its trunk does not bear: on its feet means the trunk within 60
  * degrees of upright.
  */
-const TRUNK_UP = .5;
+const TRUNK_UP = handSet({
+  name: "TRUNK_UP", sort: "own",
+  says: "How upright a body on its feet holds its trunk, as the cosine of its lean: within 60 degrees of upright.",
+  value: .5,
+});
 
 /** **On its feet**: read standing or crouched, or its feet bearing it (`GroundReading.onFeet`) while its position is read between, its trunk up (`TRUNK_UP`). */
 export const onFeet = (g: GroundReading): boolean => (g.onFeet || g.position === "standing" || g.position === "crouch") && g.upright >= TRUNK_UP;

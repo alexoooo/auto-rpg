@@ -1,16 +1,19 @@
 import type { ActionStatus, Ended } from "../../../skills/framework/action.ts";
 import type { Engagement } from "../../../minds/engagement.ts";
 import type { MindReport } from "../../../minds/report.ts";
+import { sourceWords } from "../../../skills/framework/profile/source.ts";
 
 /**
  * What a planner's report says (`Engagement`), a line each: its focus and phase, its own details
- * as it gives them, then the offers or candidates a stock planner chose among: an offer valued in
+ * as it gives them, what it read to price the fight with where each reading comes from
+ * (`sourceWords`), then the offers or candidates a stock planner chose among: an offer valued in
  * life (its terms, its worth, how much it moves the position and what letting it go costs, where it
  * costs anything) as per cent of a body's full life.
  */
 function engagementLines(engagement: Engagement): string[] {
   const lines = [`Focus: ${engagement.focus ?? "none"}${engagement.lost ? " (lost)" : ""} · ${engagement.phase}`];
   for (const { label, value } of engagement.details ?? []) lines.push(`${label}: ${value}`);
+  if (engagement.reads?.length) lines.push(`Profiles: ${engagement.reads.map((read) => `${read.what}: ${sourceWords(read.source)}`).join(" | ")}`);
   for (const offer of engagement.offers ?? []) {
     const terms = offer.terms, percent = (life: number) => `${(life * 100).toFixed(1)} %`;
     lines.push(`${offer.name === engagement.phase ? "Chosen · " : ""}${offer.name} · ${terms ? `${percent(offer.worth)} · ${terms.duration.toFixed(1)} s, dealt ${percent(terms.dealt)}, taken ${percent(terms.taken)}, orders ${terms.orders.toFixed(2)} m, position ${percent(offer.moves ?? 0)} to ${terms.exit.range.toFixed(2)} m, down ${terms.exit.down.toFixed(2)}${offer.letGo ? `, let go ${percent(offer.letGo)}` : ""}`

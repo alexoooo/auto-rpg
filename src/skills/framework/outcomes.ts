@@ -11,14 +11,15 @@ import { profileAgainst } from "./profile/across.ts";
 import { profilesFor } from "./profile/lookup.ts";
 import { readProfile, type ProfileReading } from "./profile/reading.ts";
 import { type Measured, type Postures, type Profile } from "./profile/profile.ts";
+import type { Change } from "./profile/source.ts";
 
 /** The acts an outcome model answers for: strikes, a body's ways up off the ground (`edges`) and its steps. */
 type ActTable ="strikes" | "edges" | "steps";
 
 /** What an outcome model has of one act, as one body's mind asks it (`OutcomeModel.act`). */
 export interface ActOutcomes {
-  /** Null where what it answers from is fresh, else why it is stale (`staleness`). */
-  readonly stale: string | null;
+  /** What has changed since what it answers from was measured (`changes`); none where it is fresh. */
+  readonly stale: readonly Change[];
   /** The profiles it answers from: what a foe of the same make is modelled by (`StrikeModel.profiles`). */
   readonly read: readonly Profile[];
   /**

@@ -113,7 +113,7 @@ const PERCEPTS = Object.freeze<{ readonly [K in keyof Percepts]: Percept<Percept
 const PERCEIVED = Object.freeze(Object.keys(PERCEPTS) as (keyof Percepts)[]);
 
 /** The predictions' names, in their order: each is the member of an exchange predictor that reads it (`ExchangePredictor`). */
-const PREDICTED = Object.freeze(Object.keys({ danger: 0, pressure: 0, downRate: 0, turns: 0, blows: 0 } satisfies Record<keyof Predictions, 0>) as (keyof Predictions)[]);
+const PREDICTED = Object.freeze(Object.keys({ danger: 0, pressure: 0, down: 0, turns: 0, blows: 0 } satisfies Record<keyof Predictions, 0>) as (keyof Predictions)[]);
 
 /** The percepts' names that have a cue, in their order. */
 const CUED = Object.freeze(PERCEIVED.filter((name) => PERCEPTS[name].cue !== undefined));

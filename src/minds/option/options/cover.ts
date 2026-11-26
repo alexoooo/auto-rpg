@@ -6,8 +6,27 @@ import { STOPS } from "../predictions/by-hand.ts";
 import { blocked, READY, NOTHING } from "./readiness.ts";
 import type { Situation } from "../contract/situation.ts";
 import type { Option } from "../contract/option.ts";
-import { GUARDING, holding } from "./rest.ts";
+import { GUARDING, holding, PLAIN, type Held } from "./rest.ts";
+import { byHand, weaker } from "../../../skills/framework/profile/source.ts";
+import type { TakenFrom } from "../contract/terms.ts";
 import { type Side, pairedSegment, sidesWith } from "../../../core/bodies/bilateral.ts";
+
+/** No drill measured what a cover keeps off a blow, so a number set by hand says it (`STOPS`). */
+const KEPT_OFF = byHand(["STOPS"], "no drill measured what a cover keeps off a blow");
+
+/** Where what a covered hold takes comes from: as the hold's (`held`), and by the cover's number too where a blow is coming for it to keep off. */
+const covered = (held: TakenFrom): TakenFrom => (at) => at.predictions.danger.life > 0 ? weaker(held(at), KEPT_OFF) : held(at);
+
+/**
+ * **Holding behind a cover** (`Held`): the share of the blow coming that the cover does not keep
+ * off gets through, so what it takes is by that number as well as by what any hold's is. The
+ * rest is as any hold's (`PLAIN`).
+ */
+const COVERED: Held = Object.freeze({
+  coming: (at: Situation) => (1 - STOPS) * at.predictions.danger.life,
+  lying: Object.freeze({ ...PLAIN.lying, taken: covered(PLAIN.lying.taken) }),
+  standing: Object.freeze({ ...PLAIN.standing, taken: covered(PLAIN.standing.taken) }),
+});
 
 /**
  * **The cover**: one option of a body of `spec`, its target the blow predicted to reach the head
@@ -45,7 +64,7 @@ export function covers(spec: BodySpec, hands: readonly string[]): readonly Optio
       return now.sight.report.actions.some((action) => hasResource(action.holds, segmentResource(pairedSegment("hand", side)))) ? HELD : READY;
     },
     open: true, status: () => "yields", begin() {}, end() {},
-    model: (at, ask) => at.incoming ? holding(at, ask, (1 - STOPS) * at.predictions.danger) : null,
+    model: (at, ask) => at.incoming ? holding(at, ask, COVERED) : null,
     step: (now) => {
       const hand = pairedSegment("hand", handAt(now)!);
       return { asked: { move: null, face: now.sight.report.legs.heading, actions: [], guard: { [hand]: now.incoming! } }, holds: NOTHING };

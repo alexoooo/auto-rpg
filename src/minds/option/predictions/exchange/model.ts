@@ -1,29 +1,27 @@
 import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../../../core/state.ts";
-import { limbHoldsAsMeasured, sameReaction } from "../../../../skills/framework/profile/lookup.ts";
+import { changes, limbHoldsAsMeasured } from "../../../../skills/framework/profile/lookup.ts";
 import { STANDING, measuredAt, type Postures, type Profile } from "../../../../skills/framework/profile/profile.ts";
 import { profileAgainst } from "../../../../skills/framework/profile/across.ts";
 import { readProfile, type ProfileReading } from "../../../../skills/framework/profile/reading.ts";
+import { staler, weaker, type Read, type Source } from "../../../../skills/framework/profile/source.ts";
 import type { Guesses } from "../../contract/predictors.ts";
 import type { ModelledStrike, Seen } from "../../contract/situation.ts";
-import { pricedBy } from "../by-hand.ts";
+import { standIn } from "../by-hand.ts";
 import { reactionOf } from "../../situation/percepts.ts";
 
 /**
  * **The strikes a body is modelled by**: each measured, read for its striker (`readProfile`), with
  * the limbs that throw it; the limbs the rest are thrown with, each read by its guess where the
- * Mind has guesses and the two stand so that one is of it (`pressureBy`, `lifeOf`); and how they
- * are priced, a sentence.
+ * Mind has guesses and the two stand so that one is of it (`pressureBy`, `ProfileExchange.coming`); and each
+ * strike with where its reading comes from (`reads`).
  */
 export interface Model {
-  readonly measured: readonly { readonly limbs: readonly string[]; readonly reading: ProfileReading }[];
+  /** Each measured strike's reading, with where it comes from against the struck body and what has changed since (its `Read`'s source). */
+  readonly measured: readonly { readonly limbs: readonly string[]; readonly reading: ProfileReading; readonly source: Source }[];
   readonly unmeasured: readonly string[];
-  readonly priced: string;
+  readonly reads: readonly Read[];
 }
-
-/** Why a strike of `profile` (null with none) is stale with the senses `reaction` s late, a sentence (`sameReaction`); null where it is fresh or there is none. A stale profile is still read. */
-const staleAt = (profile: Profile | null, reaction: number | null, hz: number): string | null =>
-  !profile || sameReaction(profile.measured.reaction, reaction, hz) ? null : `measured with senses ${profile.measured.reaction} s late, read ${reaction} s late`;
 
 /** Why a strike of `profile` is not read by its profile at `postures`, a sentence: none measured it, or measured it with the bodies standing otherwise (`measuredAt`); null where its profile reads them, stale or not. */
 const unreadAt = (profile: Profile | null, postures: Postures): string | null =>
@@ -31,19 +29,28 @@ const unreadAt = (profile: Profile | null, postures: Postures): string | null =>
 
 /**
  * **The model** (`Model`) of `strikes` thrown by a body of `striker` at one of `struck`, read at
- * `postures`: each by its profile against that body (`profileAgainst`) where it is fresh at the
- * senses' reaction time and measured at those postures, each other left to the guess of every limb
- * it is thrown with: a strike measured only on a body standing says nothing of one lying
- * (`measuredAt`). Its sentence says how such a strike is priced (`pricedBy` of `guesses`).
+ * `postures`: each by its profile against that body (`profileAgainst`) where it was measured at
+ * those postures, each other left to the guess of every limb it is thrown with: a strike measured
+ * only on a body standing says nothing of one lying (`measuredAt`). A profile measured at other
+ * settings than the Mind reads at now is still read, and its source says what has changed
+ * (`changes`). A strike left to a guess says so, or that it is not priced where the Mind has no
+ * `guesses` (`standIn`).
  */
 export function modelOf(seen: Seen, { strikes, striker, struck, postures, guesses }: { readonly strikes: readonly ModelledStrike[]; readonly striker: BodySpec; readonly struck: BodySpec; readonly postures: Postures; readonly guesses: Guesses | null }): Model {
-  const reaction = reactionOf(seen), measured: Model["measured"][number][] = [], unmeasured = new Set<string>(), said: string[] = [];
+  const at = { hz: seen.hz, reaction: reactionOf(seen), rate: seen.rate, delay: seen.delay };
+  const measured: Model["measured"][number][] = [], unmeasured = new Set<string>(), reads: Read[] = [];
   for (const strike of strikes) {
-    const profile = profileAgainst(strike.profiles, struck), why = unreadAt(profile, postures), stale = staleAt(profile, reaction, seen.hz);
-    if (why === null) { measured.push({ limbs: strike.limbs, reading: readProfile(profile!, striker, postures) }); if (stale !== null) said.push(`${strike.name} stale, ${stale}`); }
-    else { said.push(`${strike.name} ${pricedBy(guesses)}, ${why}`); for (const limb of strike.limbs) unmeasured.add(limb); }
+    const profile = profileAgainst(strike.profiles, struck), why = unreadAt(profile, postures);
+    if (why === null) {
+      const reading = readProfile(profile!, striker, postures), source = staler(reading.source(struck), changes(profile!, at));
+      measured.push({ limbs: strike.limbs, reading, source });
+      reads.push({ what: strike.name, source });
+    } else {
+      reads.push({ what: strike.name, source: standIn(guesses, "limb", why) });
+      for (const limb of strike.limbs) unmeasured.add(limb);
+    }
   }
-  return { measured, unmeasured: [...unmeasured], priced: said.length ? said.join("; ") : strikes.length ? "measured" : "no strike to model" };
+  return { measured, unmeasured: [...unmeasured], reads };
 }
 
 /** **The strikes `profiles` measure**, each skill's profiles with one limb one strike (`ModelledStrike`), named by its skill and its limb and thrown with that limb. */
@@ -80,7 +87,8 @@ const POOLS: Pools = { next: new WeakMap() };
  * one profile, read for `striker` at `postures`, thrown with any of their limbs. A foe throws one
  * blow at a time, which of them unsensed: read as one, what it deals from a start is the mean of the
  * trials nearest it of whichever strikes were measured there, where the most of each strike's own
- * reading is the most of noisy readings. A model of one profile or none is as it is.
+ * reading is the most of noisy readings. It comes from the weakest of their sources. A model of
+ * one profile or none is as it is.
  */
 export function pooled(model: Model, striker: BodySpec, postures: Postures): Model {
   if (model.measured.length < 2) return model;
@@ -90,5 +98,7 @@ export function pooled(model: Model, striker: BodySpec, postures: Postures): Mod
   const { limb: _, ...measured } = first.measured;
   at.pool ??= deepFreeze({ measured: { ...measured, skill: profiles.map((profile) => `${profile.measured.skill} ${profile.measured.limb ?? ""}`.trim()).join(" + ") },
     trials: profiles.flatMap((profile) => profile.trials) });
-  return { ...model, measured: [{ limbs: [...new Set(model.measured.flatMap((one) => one.limbs))], reading: readProfile(at.pool, striker, postures) }] };
+  let source = model.measured[0]!.source;
+  for (const one of model.measured) source = weaker(source, one.source);
+  return { ...model, measured: [{ limbs: [...new Set(model.measured.flatMap((one) => one.limbs))], reading: readProfile(at.pool, striker, postures), source }] };
 }

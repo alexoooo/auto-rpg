@@ -10,6 +10,7 @@ import type { ItemNumbers, Profile, Start, StruckNumbers } from "./profile.ts";
 import { HELD_SPANS, STRUCK_SPANS } from "./nearest.ts";
 import { heldNumbers, struckNumbers } from "./numbers.ts";
 import type { ProfileReading } from "./reading.ts";
+import type { Gap } from "./source.ts";
 
 /** The held numbers, and the extent of a segment no trial held at. */
 const HELD_KEYS = ["mass", "reach"] as const, NONE_HELD = [0, 0] as const;
@@ -34,18 +35,21 @@ const heldExtent = remembered((trials: readonly { readonly start: Start }[]) => 
  * **Where a body of `spec` holds past what `trials` held**, as the body whose skill it is (`own`)
  * or the body struck (`target`): the first of `segments` (every one it or a trial holds at, where
  * none are given) whose mass or reach lies beyond the trials' by over half its span
- * (`HELD_SPANS`), as a sentence; null where none does, or there are no trials. A reading takes the
- * trials begun nearest what each body holds (`bodyNumbers`); past them it reads what nothing
- * measured, so a foe's limb is read throwing a strike only within them (`profilesOn`) and a body's
- * own reading says it is read past them (`ProfileReading.scaled`).
+ * (`HELD_SPANS`), as a gap (`Gap`) from the nearer end of what the trials held; null where none
+ * does, or there are no trials. A reading takes the trials begun nearest what each body holds
+ * (`bodyNumbers`); past them it reads what nothing measured, so a foe's limb is read throwing a
+ * strike only within them (`profilesOn`) and a body's own reading says it is read past them
+ * (`ProfileReading.source`).
  */
-export function heldPast(trials: readonly { readonly start: Start }[], of: "own" | "target", spec: Pick<BodySpec, "held">, segments?: readonly string[]): string | null {
+export function heldPast(trials: readonly { readonly start: Start }[], of: "own" | "target", spec: Pick<BodySpec, "held">, segments?: readonly string[]): Gap | null {
   if (!trials.length) return null;
   const extent = heldExtent(trials)(of), mine = heldNumbers(spec);
   for (const segment of segments ?? [...new Set([...extent.keys(), ...Object.keys(mine ?? {})])].sort()) for (const key of HELD_KEYS) {
     const now = mine?.[segment]?.[key] ?? 0, [least, most] = extent.get(segment)?.[key] ?? NONE_HELD;
-    if (now < least - HELD_SPANS[key] / 2 || now > most + HELD_SPANS[key] / 2)
-      return `${of === "own" ? "holding" : "struck holding"} ${now} ${key === "mass" ? "kg" : "m"} ${key} at ${segment}, measured ${least} to ${most}`;
+    if (now < least - HELD_SPANS[key] / 2 || now > most + HELD_SPANS[key] / 2) {
+      const nearer = now < least ? least : most;
+      return { number: `${key} held at ${segment}, ${key === "mass" ? "kg" : "m"}`, measured: nearer, asked: now, spans: Math.abs(now - nearer) / HELD_SPANS[key] };
+    }
   }
   return null;
 }
@@ -65,7 +69,7 @@ export function acrossBodies(profile: Profile, striker: BodySpec, reading: Profi
     reach: (phase) => reading.reach(phase) / ratio,
     expect: (asked, struck) => reading.expect(at(asked), struck),
     rate: (asked, struck) => reading.rate(at(asked), struck),
-    peak: (phase, struck) => reading.peak(phase, struck), fastest: (phase) => reading.fastest(phase), scaled: (struck) => reading.scaled(struck),
+    peak: (phase, struck) => reading.peak(phase, struck), fastest: (phase) => reading.fastest(phase), source: (struck) => reading.source(struck),
   };
 }
 
@@ -97,7 +101,7 @@ function struckAt(profile: Profile, struck: BodySpec): Profile {
 /**
  * **The profile among one skill's `profiles` that a body of `struck` is read by**: the first
  * whose trials struck a body of its numbers, else the first; read at the body it measured nearest
- * `struck` (`struckAt`), scaled where that is not `struck`'s own (`ProfileReading.scaled`). A
+ * `struck` (`struckAt`), which its reading's source says where that is not `struck`'s own (`ProfileReading.source`). A
  * skill with no foe has one, read with none struck. Null with none.
  */
 export function profileAgainst(profiles: readonly Profile[], struck: BodySpec | null): Profile | null {

@@ -2,6 +2,8 @@ import type { Position } from "../../../control/ground-reading.ts";
 import type { Spot } from "../../../skills/framework/menu.ts";
 import type { StanceNumbers } from "../../../skills/framework/profile/profile.ts";
 import type { FoePhase } from "../../../skills/perception/threat.ts";
+import type { Source } from "../../../skills/framework/profile/source.ts";
+import type { Situation } from "./situation.ts";
 
 /** A point on the ground, or a motion over it: x and z, m or m/s. */
 export interface Ground { readonly x: number; readonly z: number }
@@ -33,12 +35,35 @@ export interface Outcome {
 }
 
 /**
+ * **Where the life an Option takes comes from**, asked of the state it is priced from. Most
+ * Options take what the focus's fighting deals them over their run, standing or lying, and where
+ * that comes from depends on the focus. So it is asked of the state, and not kept with the
+ * Option. Where the blow already coming is added to the number (`Predictions.danger`), the
+ * answer is the weaker of the two sources (`weaker`): one source stands for both.
+ */
+export type TakenFrom = (at: Situation) => Source;
+
+/**
+ * **Where each answer of a price comes from** (`Terms.from`, `Source`): how long the Option
+ * runs, the life it deals, the life it takes, and where it leaves the body. An Option makes these
+ * once and gives the same one with every price it builds the same way, so pricing makes no new
+ * object for them.
+ */
+export interface TermSources {
+  readonly duration: Source;
+  readonly dealt: Source;
+  readonly taken: TakenFrom;
+  readonly leaves: Source;
+}
+
+/**
  * **What running an Option from a state is expected to bring**, over its run, in life (a share of
  * a body's full life, the verdict's unit) where it is a payoff: how long it runs, s; the focus's
  * life its blows take; its own life the blows it takes take, the blow coming included; the metres
  * it walks as ordered; the ways it ends (`Outcome`), whose chances sum to one; and, where it runs
  * and may be let go now, before its point of no return, what letting it go leaves: the seconds
- * until its body could begin it again, and its own life lost meanwhile.
+ * until its body could begin it again, and its own life lost meanwhile. It says where its answers
+ * come from (`from`), so no price is built without its sources.
  */
 export interface Terms {
   readonly duration: number;
@@ -46,6 +71,7 @@ export interface Terms {
   readonly taken: number;
   readonly orders: number;
   readonly outcomes: readonly Outcome[];
+  readonly from: TermSources;
   readonly letGo?: { readonly seconds: number; readonly taken: number };
 }
 
