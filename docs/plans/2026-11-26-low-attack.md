@@ -58,9 +58,17 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   began, landed 44 % with the left foot and 30 % with the right, the kicker down after 5 % and
   17 %; the push-based low kick on the same rung landed 15.8 % and fell 31.5 %. At the man, 33 of
   its 80 starts were beyond its height band, the foe sitting up out of it first.
-- **The confirmation's falls are within chance**: it refused the best on 4 falls against the
-  record's 3 at 480 Hz over 30 cases, where one fall is inside the fall counts' spread; a margin
-  by that spread lands with the 120 and 480 Hz work below.
+- **The confirmation's falls are within chance, and none was the empty-handed man's**: it refused
+  the best on 4 falls against the record's 3 at 480 Hz over 30 cases, where one fall is inside the
+  fall counts' spread; and its 30 were 6 cases in each of the man's five loadouts, the record's 3
+  falls with a club or a sword, none empty-handed.
+- **At the empty-handed man, 120 and 480 Hz agree on the mean**: the record on sparring-laid's 80
+  starts at the man, at both rates, valued 0.092 ± 0.090 and 0.061 ± 0.061; case by case, no
+  outcome moves between the rates beyond chance (McNemar: beyond the height band 11 at 120 alone
+  against 20 at 480 alone, z 1.44; falls 15 against 10, z 0.80; landed 6 against 2, z 1.06), the
+  paired value 0.058 ± 0.230. A case's outcome is not kept: 45 of 80 end otherwise at the other
+  rate, a foe fighting back growing a step's difference into another bout. The confirmation keeps
+  both rates.
 - **Read at f5581cb82 (warrior-drawn, `--fresh`)**: the low front kick in place of the stomp is
   no faster, and lands less on a body down than the stomp does. The scorecard's mirrors, 216
   each; every bout a knockout, so a bout's seconds are its time to one:
@@ -86,9 +94,10 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
     three times as much, and a start at a striking foe reads that phase's trials alone
     (`readProfile`). Where the price comes from is the first thing traced.
   - **The low front kick on a body down**: 0.75 blows a second there against the stomp's 1.04.
-- **Next**: the 120 and 480 Hz difference found at its root and fixed (the owner: "Ideally 120
-  should not diverge vs 480"; a search mixing in 480 Hz trials only if it is fundamental); the
-  low front kick searched again on the code fixed; then the price below.
+- **Next**: the low front kick searched again at the empty-handed man, as the bite is, on the rung
+  its profile is measured on: `sparring-laid`'s twin (`sparring-laid-twin`, its starts from
+  another stream), its own cases confirming (`skill-search.mjs stomp/front man --loadout
+  empty,empty --target man`, 80 starts each); then the price below.
 
 ## Then: a strike's price, every start a number
 
