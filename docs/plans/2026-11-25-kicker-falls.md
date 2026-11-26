@@ -260,6 +260,12 @@ holding a buckler and club, +2.16 s (b71b3fd0); the man's staged-down so held, +
 (ecf5182e). And the Skeleton's sit-back's backward tip under `regain`, a step-1 item (above).
 They wait on the front kick landing; the order after it stands (the low kick next).
 
+The man's ways up from the falls of his bouts holding a club, worse since the front kick became
+the Warrior's kick (`20f03196d`, the fingerprint's single trial of each, the falls drawn from
+bouts that now hold the front kick's): staged-roll 1.52 to 8.73 s, staged-down 1.31 to 16 (the
+cap), sit-back 9.49 to 16, front-sit-back 4.87 to 13.14. Broken rises the front kick's falls
+revealed, each read on the table's way-up/bouts protocol and fixed at its root.
+
 From the catch's work, to read after the front kick: the woman's front-sit-back holding a club,
 40 reached of its twin's 89 without the tilted reach against 49 with it; the push kick's base with
 empty hand and sword, played fresh; the front kick's record going down backward at 120 Hz after a
