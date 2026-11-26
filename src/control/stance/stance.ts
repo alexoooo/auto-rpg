@@ -593,26 +593,33 @@ function leverOf(s: Stance, height: number): number {
 /**
  * A driven leg's part of the solve, for this step (`Limb.work`): the point its task is asked at;
  * where it bears, its patch and its part of the load (`loadShare`); and the leg's own asks ahead of
- * the task. A knee past straight is asked back toward the bend; a foot on one end of its sole
- * (`bearingEnd`) turns free about the edge it bears on, and one rolled there by the stance has its
- * ankle held short of that end's stop, or, in a walk's pre-swing, its knee bent. One landed on its
- * toes or its heel is asked its centre of pressure halfway to that end (`bearingSole`), and the
- * other end comes down.
+ * the task (`aimFreedom`). A knee past straight is asked back toward the bend, and the knee of the
+ * leg about to swing, its sole still on the ground, set to the pre-swing's bend instead, and once
+ * lifted, bent at least to it (`preswinging`); a foot on one end of its sole (`bearingEnd`) turns
+ * free about the edge it bears on, and one rolled there by the stance, not pre-swinging, has its
+ * ankle held short of that end's stop. One landed on its toes or its heel is asked its centre of
+ * pressure halfway to that end (`bearingSole`), and the other end comes down.
  */
 function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleReading): void {
-  const { reading, step, gait } = s.state, { bend, spare, seconds, soleMargin } = s.tuning, { task, work } = limb, { ahead } = work;
+  const { gait } = s.state, { bend, spare, seconds, soleMargin } = s.tuning, { task, work } = limb, { ahead } = work;
   // The point: bearing, where the foot bears, as last read; swinging, its sole's middle, now.
   if (task.bearing) work.at.copyFrom(bearingEdge(foot)?.middle ?? foot.middle);
   else soleMiddleToRef(foot, work.at);
-  // A knee past straight is on the Jacobian's other branch, where the leg shortens by extending
-  // the knee further, into its stop. That knee is asked back toward `STANCE_KNEE_BEND`,
-  // critically damped at the height's constant, ahead of the foot's task, and the leg's other
-  // freedoms take the task.
   ahead.length = foot.memory.channels.length;
   ahead.fill(NaN);
+  const knee = foot.chain[0]!.dofs.length, ankle = knee + foot.chain[1]!.dofs.length, lifting = !s.state.pose && preswinging(s, foot);
   if (!s.state.pose) {
-    const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, flexed = muscles.angle(i) - foot.straight, gain = damping(1 / seconds.height, s.state.dt);
-    if (flexed < 0) ahead[k] = gain.error * (bend - flexed) - gain.rate * muscles.rate(i);
+    const flexed = muscles.angle(foot.memory.channels[knee]!) - foot.straight;
+    // The leg about to swing, its sole still on the ground, has its knee set to the pre-swing's bend;
+    // lifted with the sole still down, a knee straighter than that is bent to it: near straight, the
+    // foot's height hardly moves with the knee, so the task asks the knee almost nothing to lift the
+    // foot, and the hip drags it along the ground instead. A lifted knee bent further, a crouch's,
+    // is left to the task: straightened, it would press the foot down.
+    if (lifting && (!s.state.step.lifted || flexed < gait.preswing.knee)) aimFreedom(s, foot, muscles, ahead, knee, gait.preswing.knee - flexed, gait.preswing.seconds);
+    // A knee past straight is on the Jacobian's other branch, where the leg shortens by extending
+    // the knee further, into its stop. That knee is asked back toward `STANCE_KNEE_BEND` at the
+    // height's constant, and the leg's other freedoms take the task.
+    else if (flexed < 0) aimFreedom(s, foot, muscles, ahead, knee, bend - flexed, seconds.height);
   }
   // On one end of its sole, the foot's turn about the edge it bears on is free: the leg pivots on
   // the edge. Of the spin's rows the task keeps the one about the level normal to the edge, and
@@ -620,22 +627,15 @@ function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleReading)
   work.rows = task.bearing && bearingEnd(foot) !== null ? rolledRows(foot) : null;
   if (task.bearing && foot.memory.rolled && spare !== null) {
     // Rolled, the ankle is held at that end's stop less the spare (the front's the dorsiflexion
-    // stop, the heel's the plantar flexion stop), critically damped at the height's constant.
-    const pre = step.swing;
-    if (reading.phase === "shift" && pre?.transfer && pre.foot === foot.name) {
-      const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, gain = damping(1 / gait.preswing.seconds, s.state.dt);
-      ahead[k] = gain.error * (gait.preswing.knee - (muscles.angle(i) - foot.straight)) - gain.rate * muscles.rate(i);
-    } else {
-      const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, gain = damping(1 / seconds.height, s.state.dt);
-      ahead[k] = gain.error * (stopLessSpare(foot.chain[2]!.dofs[0]!.spec, foot.memory.rolled, spare) - muscles.angle(i)) - gain.rate * muscles.rate(i);
-    }
+    // stop, the heel's the plantar flexion stop), at the height's constant; pre-swinging, it goes
+    // where the leg takes it.
+    if (!lifting) aimFreedom(s, foot, muscles, ahead, ankle, stopLessSpare(foot.chain[2]!.dofs[0]!.spec, foot.memory.rolled, spare) - muscles.angle(foot.memory.channels[ankle]!), seconds.height);
   } else if (task.bearing && !s.state.pose && foot.memory.rolled === null && bearingEnd(foot) !== null) {
     // Standing on an end it was not rolled onto, a leg placed on its toes or a foot landed on an
     // end, the foot is brought flat: its ankle asked the dorsiflexion that lays the sole down
-    // (`soleFlatTurn`), critically damped at the height's constant. Left to the task, the turn
-    // about the edge is free and the heel comes down only as the body's motion carries it.
-    const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, gain = damping(1 / seconds.height, s.state.dt);
-    ahead[k] = gain.error * soleFlatTurn(foot) - gain.rate * muscles.rate(i);
+    // (`soleFlatTurn`), at the height's constant. Left to the task, the turn about the edge is free
+    // and the heel comes down only as the body's motion carries it.
+    aimFreedom(s, foot, muscles, ahead, ankle, soleFlatTurn(foot), seconds.height);
   }
   work.patch = task.bearing ? bearingSole(foot, 1 - soleMargin) : null;
   work.share = 1;
@@ -643,6 +643,27 @@ function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleReading)
 
 /** What `contactsOf` is asked for when only the ground is wanted. */
 const groundOnly = (other: unknown): boolean => other === null;
+
+/**
+ * `foot`'s leg's freedom `k` (of its channels) asked ahead of its task (`Limb.work.ahead`) to take up
+ * `error` rad, critically damped at `seconds`, against its rate.
+ */
+function aimFreedom(s: Stance, foot: FootState, muscles: MuscleReading, ahead: number[], k: number, error: number, seconds: number): void {
+  const i = foot.memory.channels[k]!, gain = damping(1 / seconds, s.state.dt);
+  ahead[k] = gain.error * error - gain.rate * muscles.rate(i);
+}
+
+/**
+ * Whether `foot`'s leg is about to swing or swinging with its sole still on the ground: the step's
+ * swing is its own, and it is in the walk's double support before the lift (`SwingGoal.transfer`)
+ * with the foot rolled onto its toes, or lifted with the ground still pressing the sole.
+ */
+function preswinging(s: Stance, foot: FootState): boolean {
+  const { reading, step } = s.state, swing = step.swing;
+  return swing?.foot === foot.name && (reading.phase === "shift"
+    ? (swing.transfer ?? 0) > 0 && foot.memory.rolled !== null
+    : reading.phase === "swing" && step.lifted && reading.ends[foot.name]!.touching);
+}
 
 /** Whether the ground pushed on `foot` in the last step, from below (`LANDED_NORMAL`). */
 function soleOnGround(s: Stance, foot: FootState): boolean {

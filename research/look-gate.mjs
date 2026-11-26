@@ -22,12 +22,13 @@ const filesUnder = (dir) => !existsSync(dir) ? [] : readdirSync(dir).sort().flat
  * **The code a look is of**: the hash of `skill`'s folder, its group's shared code and their records
  * (`src/skills/<group>/<skill>/`, `src/skills/<group>/shared/`, `assets/skills/<group>/<skill>/`, and
  * `assets/skills/<group>/<name>/` for each folder `<name>` of the shared code: a staged way up's
- * record is `staged/`'s), the variation and the settings looked at. A change to any is another look.
+ * record is `staged/`'s), the variation and the settings looked at, and the rate where it is not
+ * the game's. A change to any is another look.
  */
-export function lookCode(variation, tuning = null) {
+export function lookCode(variation, tuning = null, hz = undefined) {
   const skill = variation.split("/")[0], group = readdirSync(join(ROOT, "src", "skills")).find((one) => existsSync(join(ROOT, "src", "skills", one, skill)));
   if (!group) throw new Error(`no skill ${skill} under src/skills`);
-  const hash = createHash("sha256").update(JSON.stringify({ variation, tuning })), shared = join(ROOT, "src/skills", group, "shared");
+  const hash = createHash("sha256").update(JSON.stringify({ variation, tuning, ...(hz === undefined ? {} : { hz }) })), shared = join(ROOT, "src/skills", group, "shared");
   const sharedRecords = !existsSync(shared) ? [] : readdirSync(shared).filter((name) => statSync(join(shared, name)).isDirectory()).sort().map((name) => join(ROOT, "assets/skills", group, name));
   for (const file of [join(ROOT, "src/skills", group, skill), shared, join(ROOT, "assets/skills", group, skill), ...sharedRecords].flatMap(filesUnder))
     hash.update(file).update(readFileSync(join(ROOT, file)));

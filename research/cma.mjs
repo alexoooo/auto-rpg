@@ -49,7 +49,9 @@ export function workerPool(url, workerData, count) {
  * Search `n` numbers from `start` (the cube's middle if not given) at step `sigma`, each
  * coordinate's first step that times its `spread` (one where none is given), `lambda`
  * candidates a generation for `generations`, each scored by `score(u)` (a promise of an object
- * with a `score`, the higher the better). Where the best has risen since it was last checked, and
+ * with a `score`, the higher the better), and ranked by `rank(a, b)`, negative where `a` is the
+ * better (by `score` where not given: a search whose confirmation keeps a best on more than its
+ * score ranks as that confirmation keeps). Where the best has risen since it was last checked, and
  * at most every `checkEvery` generations, `check(best)` reads it in the background while the
  * search goes on (a best read at the finer rate its confirmation plays, so a best that holds at
  * one rate alone is told at once and not at the end). `onGeneration(entry, search)` hears each generation's
@@ -58,7 +60,7 @@ export function workerPool(url, workerData, count) {
  * variation }`: a search starts only on a skill whose look at its code now says it looks like the
  * motion and works some of the time (`requireLook`; [the skill recipe](../docs/recipes/skill.md#the-procedure)).
  */
-export async function cmaSearch({ n, start, sigma = 0.25, spread, lambda, generations, seed = 1, score, check, checkEvery = 10, onGeneration, resume, look }) {
+export async function cmaSearch({ n, start, sigma = 0.25, spread, lambda, generations, seed = 1, score, rank = (a, b) => b.score - a.score, check, checkEvery = 10, onGeneration, resume, look }) {
   if (!look) throw new Error("a search names the movement it tunes (look: { body, variation }), and starts only once a look at it says it looks like the motion and works some of the time");
   requireLook(look);
   if (!Number.isSafeInteger(n) || n < 1 || !Number.isSafeInteger(lambda) || lambda < 2
@@ -95,8 +97,8 @@ export async function cmaSearch({ n, start, sigma = 0.25, spread, lambda, genera
     const us = Array.from({ length: lambda }, (_, k) => g === 0 && k === 0 && start ? m.slice() : m.map((mi, i) => Math.min(1, Math.max(0, mi + sigma * Math.sqrt(C[i]) * gauss()))));
     const rs = await Promise.all(us.map((u) => score(u)));
     if (rs.some(r => !Number.isFinite(r?.score))) throw new Error('CMA requires finite scores for every candidate');
-    const order = rs.map((_, i) => i).sort((a, b) => rs[b].score - rs[a].score);
-    if (rs[order[0]].score > best.score) best = { score: rs[order[0]].score, u: us[order[0]], r: rs[order[0]], g };
+    const order = rs.map((_, i) => i).sort((a, b) => rank(rs[a], rs[b]));
+    if (!best.r || rank(rs[order[0]], best.r) < 0) best = { score: rs[order[0]].score, u: us[order[0]], r: rs[order[0]], g };
     if (check && best.u && best !== checked && g - checkedAt >= checkEvery) { checked = best; checkedAt = g; checks.push(check(best)); }
     const old = m.slice();
     m = m.map((_, i) => order.slice(0, mu).reduce((a, k, j) => a + weights[j] * us[k][i], 0));

@@ -140,14 +140,19 @@ const limbHolds = remembered((profile: Profile) => remembered((spec: Pick<BodySp
  * **The profiles among `profiles` measured on a body of `spec`**, of any skill its limbs throw
  * as they hold (`limbHoldsAsMeasured`), at `at` (`MeasuredAt`): what a foe of that body is
  * measured able to deal. Which skills a foe's character holds is not sensed (`sensedSpec`), so
- * every one measured on its body stands for them. They are the fresh, else those measured at
- * another setting (`changes`); none where no fight measured a strike its body throws as it holds.
+ * every one measured on its body stands for them. Of each skill and limb they are the fresh,
+ * else those measured at another setting (`changes`), as `profilesFor` reads one: a strike
+ * measured as it is read leaves none of the others out. None where no fight measured a strike
+ * its body throws as it holds.
  */
 export function profilesOn(profiles: readonly Profile[], spec: BodySpec, at: MeasuredAt): readonly Profile[] {
-  const body = spec.model, fresh: Profile[] = [], stale: Profile[] = [];
+  const body = spec.model, on: { readonly profile: Profile; readonly ask: string; readonly changed: boolean }[] = [], fresh = new Set<string>();
   for (const profile of profiles) {
-    if (profile.measured.body !== body || !limbHoldsAsMeasured(profile, spec)) continue;
-    (changes(profile, at).length === 0 ? fresh : stale).push(profile);
+    const was = profile.measured;
+    if (was.body !== body || !limbHoldsAsMeasured(profile, spec)) continue;
+    const ask = `${was.skill} ${was.limb ?? ""}`, changed = changes(profile, at).length > 0;
+    on.push({ profile, ask, changed });
+    if (!changed) fresh.add(ask);
   }
-  return fresh.length ? fresh : stale;
+  return on.filter(({ ask, changed }) => !changed || !fresh.has(ask)).map(({ profile }) => profile);
 }

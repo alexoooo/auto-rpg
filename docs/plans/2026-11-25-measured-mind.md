@@ -786,14 +786,16 @@ game or to unpark something, and the work goes on meanwhile.
   was mended or is said there as well.
 - **The inventory's listing**, 19 standings: the game's five bodies empty-handed and as armed,
   with the made-up body and item, each in front of the empty-handed man, and him in front of
-  each. 51 numbers set by hand (35 the Mind's own, 11 guesses, 5 preferences); 98 rows that
+  each. 51 numbers set by hand (35 the Mind's own, 11 guesses, 5 preferences); 108 rows that
   fail, the 11 guesses among them; 10 settings in which the default configs differ (step 2's to
-  sort). 84 readings are borrowed. The farthest, 14.45 spans off, are the man's in front of the
+  sort). 142 readings are borrowed. The farthest, 14.45 spans off, are the man's in front of the
   reptile and the rat: his back step read for a target of his own size, and the reptile's
-  punches found by a rule from the man's. The 79 readings stale by their settings are read deciding at
-  10 Hz where they were measured at 60: 75 the empty-handed man's, in his ten standings, and 4
-  the made-up body's, which plays his Mind. The first listing stood each body only in front of the man and read 56 rows; the foe's
-  side, the guesses, and what is missing with a made-up thing on either side are what was added.
+  punches and kicks found by a rule from the man's. The 119 readings stale by their settings
+  are read deciding at 10 Hz where they were measured at 60: 111 the empty-handed man's, in his
+  ten standings, and 8 the made-up body's, which plays his Mind. The first listing stood each
+  body only in front of the man and read 56 rows; the foe's side, the guesses, and what is
+  missing with a made-up thing on either side were added. The man's kicks were profiled after
+  that, under his name: ten more rows, his kick found by a name where it was by hand.
 - **What the made-up body met**, which is what a new body costs today and what the mechanisms'
   steps are to mend: no Mind as the game makes one (the stance's envelope is found by the model's name);
   no walk on offer; no punch, kick, stomp, back step or way up, each record being under another
@@ -803,7 +805,7 @@ game or to unpark something, and the work goes on meanwhile.
   bouts. The made-up item is read as the rows nearest in what a hand holds,
   1.6 spans off, and is offered no weapon strike, its name not being "sword".
 - **Where the prices came from in play**, over all 124,168 offers that had a price, at every
-  decision of the man's mirror (24 bouts). How long an Option takes: given 26.2 %, its own
+  decision of the man's mirror (24 bouts), played before his kicks were profiled. How long an Option takes: given 26.2 %, its own
   20.0 %, by hand 53.7 %. What it deals: given 98.7 % (most offers deal nothing by what they
   are), its own 0.5 %, by hand 0.8 %. What it takes: its own 1.0 %, by hand 50.4 %, not priced
   48.7 %. Where it leaves the body: given 10.9 %, its own 20.0 %, by hand 67.5 %, not priced

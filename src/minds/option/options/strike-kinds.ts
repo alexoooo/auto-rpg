@@ -259,15 +259,18 @@ export const SWORD_THRUST_OPTION = strikeKind("sword-thrust", "Sword thrust", { 
  */
 export const STOMP_OPTION = strikeKind("stomp", "Stomp", { limbs: "either-foot", regions: MIDDLE, aim: CENTRE });
 
-/** The trunk's middle, then its base: a kick's regions, the first a body has taken unless orders name another (`orderedTarget`). */
-const MIDDLE_THEN_BASE: readonly Region[] = deepFreeze([{ kind: "mark", mark: "middle" }, { kind: "mark", mark: "base" }]);
+/**
+ * The trunk's middle, then its base: a kick's regions, the first a body has taken unless orders
+ * name another (`orderedTarget`), and the marks the kicks' sparring throws at.
+ */
+export const KICK_REGIONS = deepFreeze([{ kind: "mark", mark: "middle" }, { kind: "mark", mark: "base" }] as const satisfies readonly Region[]);
 
 /**
  * **The kick** (`kick`, `assets/skills/strikes/kick/kick.json`): with either foot at the trunk's
  * middle, or its base, the belly and hips, where orders name it, aimed at its centre: a drive ahead
  * at a body standing.
  */
-export const KICK_OPTION = strikeKind("kick", "Kick", { limbs: "either-foot", regions: MIDDLE_THEN_BASE, aim: CENTRE });
+export const KICK_OPTION = strikeKind("kick", "Kick", { limbs: "either-foot", regions: KICK_REGIONS, aim: CENTRE });
 
 /** **The bite** (`bite`), with the jaw, at any part of a foe, aimed at the first surface its teeth meet as the jaw closes (`first-exposed`). */
 export const BITE_OPTION = strikeKind("bite", "Bite", { limbs: "jaw", regions: [{ kind: "mark", mark: "any" }], aim: { kind: "first-exposed" } });
