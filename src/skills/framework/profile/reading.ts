@@ -4,9 +4,10 @@
  */
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { EXIT_KEYS, STANDING, startedAt, type Asked, type Exit, type Postures, type Profile, type Trial } from "./profile.ts";
-import { bodyNumbers, eachNearest, numbersAt, sampleOf, type Sample } from "./nearest.ts";
+import { bodyNumbers, eachNearest, numbersAt, sampleOf, STRUCK_SPANS, type Sample } from "./nearest.ts";
 import { acrossBodies, heldPast } from "./across.ts";
 import { struckNumbers } from "./numbers.ts";
+import { gapIn, measuredFrom, type Side, type Source } from "./source.ts";
 import { remembered } from "../../../core/remembered.ts";
 
 /** A reading of a profile whose trials record no body numbers (`bodyNumbers`): asked at none. */
@@ -40,7 +41,7 @@ export interface Expected {
  * profile has no trials of is read at its clear trials. Its trials' hit points are the rules' damage
  * on the body it was measured against, read over the hit points of the body struck now: a blow on a
  * body of another mass delivers it within about one per cent (an arm's reduced mass against a whole
- * body's), so the hit points are taken as they are, and the reading says it is scaled (`scaled`).
+ * body's), so the hit points are taken as they are, and the reading's source says whose body its trials struck (`source`).
  * A rate of blows reads its trials' cycle: the seconds each ran and those until its limb was back
  * at its guard (`Trial.recovers`; none where none of them recorded it).
  */
@@ -56,8 +57,14 @@ export interface ProfileReading {
   peak(phase: string, struck: BodySpec): number;
   /** The fewest seconds it runs from any start of its trials for a body in `phase` where it takes life: its fastest blow; Infinity with none. */
   fastest(phase: string): number;
-  /** Why its trials are read scaled for `struck`, a sentence: another body struck, or either body holding past what its trials held; null where neither. */
-  scaled(struck: BodySpec | null): string | null;
+  /**
+   * Where it comes from, read against `struck` (`Source`). Its body's rows are its own where
+   * they were measured on its model at its stature, holding what it holds, and its target's where
+   * its trials struck a body of `struck`'s stature and mass, holding what it holds. Else each
+   * says which body its rows are of and how far off they are, in each number. What has changed
+   * since it was measured is not its to say: whoever found its profile adds that (`changes`).
+   */
+  source(struck: BodySpec | null): Source;
 }
 
 /** **A reader of profiles** (`profileReading`) for a skill of a body, at the postures it stands in. */
@@ -190,13 +197,17 @@ function profileReading(profile: Profile, striker: BodySpec, postures: Postures,
     },
     peak: (phase, struck) => extremes(read(phase)).peak / struck.wounds.hp.value,
     fastest: (phase) => extremes(read(phase)).fastest,
-    scaled: remembered((struck: BodySpec | null): string | null => {
+    source: remembered((struck: BodySpec | null): Source => {
+      const on = profile.measured, named = on.body === striker.model;
+      const own = [gapIn("stature, m", on.stature, striker.stature.value, STRUCK_SPANS.stature), heldPast(trials, "own", striker)].filter((gap) => gap !== null);
+      const body: Side = { own: named && own.length === 0, of: on.body, by: named ? "name" : "numbers", gaps: own };
       // A profile of a skill at a foe is one whose trials record the body they struck.
-      const was = struck ? trials.find((trial) => trial.start.struck)?.start.struck : undefined, now = struck && struckNumbers(struck);
-      const why = [...was && now && (was.stature !== now.stature || was.mass !== now.mass)
-        ? [`measured against a body of ${was.stature} m and ${was.mass} kg, read against one of ${now.stature} m and ${now.mass} kg`] : [],
-        ...[heldPast(trials, "own", striker), struck && was ? heldPast(trials, "target", struck) : null].filter((one) => one !== null)];
-      return why.length ? why.join("; ") : null;
+      const was = struck ? trials.find((trial) => trial.start.struck)?.start.struck : undefined;
+      if (!struck || !was) return measuredFrom({ body, target: null });
+      const now = struckNumbers(struck);
+      const far = [gapIn("stature, m", was.stature, now.stature, STRUCK_SPANS.stature), gapIn("mass, kg", was.mass, now.mass, STRUCK_SPANS.mass), heldPast(trials, "target", struck)]
+        .filter((gap) => gap !== null);
+      return measuredFrom({ body, target: { own: far.length === 0, of: `a body of ${was.stature} m and ${was.mass} kg`, by: "numbers", gaps: far } });
     }),
   };
 }

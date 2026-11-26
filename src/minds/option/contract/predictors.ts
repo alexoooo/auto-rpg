@@ -99,6 +99,8 @@ export interface Guesses {
   blow(seen: Seen, blow: NonNullable<Seen["blow"]>, range: number): ProfileReading;
   /** How long a way up, a regain or a brace takes and how often it does what it does, where no drill measured it. */
   way(kind: GuessedWay): Prior;
+  /** The entries in the registry of numbers set by hand (`handSet`) that each guess is made of, by their names: what a reading by that guess gives as its source. */
+  readonly entries: Readonly<Record<"strike" | "limb" | "blow" | GuessedWay, readonly string[]>>;
 }
 
 /** **An Option on offer as one try of it is modelled** (`Terms`): its kind, whether it is open, and its seconds and the life it deals and takes. */

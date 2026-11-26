@@ -3,6 +3,8 @@ import { handSet } from "../../../../core/hand-set.ts";
 import { heldNumbers, holdsAlike, struckNumbers } from "../../../../skills/framework/profile/numbers.ts";
 import { STRUCK_SPANS } from "../../../../skills/framework/profile/nearest.ts";
 import { type BodyHeld } from "../../../../skills/framework/profile/profile.ts";
+import { gapIn, measuredFrom, type Side, type Source } from "../../../../skills/framework/profile/source.ts";
+import { remembered } from "../../../../core/remembered.ts";
 
 /**
  * **A body as a pressure table is found by** (`pressureBody`): its stature, m, and mass, kg, as a
@@ -132,6 +134,21 @@ function pairingApart(pairing: { readonly measured: PressureBody; readonly targe
     holdsAlike(a.held, b.held) ? Math.max(Math.abs(a.stature - b.stature) / STRUCK_SPANS.stature, Math.abs(a.mass - b.mass) / STRUCK_SPANS.mass) : Infinity;
   return Math.max(apart(pairing.measured, pressureBody(striker)), apart(pairing.target, pressureBody(struck)));
 }
+
+/** One body of a table's pairing as a side of the table's source (`Side`): the body it was measured on, as its numbers, and each number in which a body of `spec` differs from it. A table is found by numbers alone. */
+function sideOf(measured: PressureBody, spec: BodySpec): Side {
+  const now = pressureBody(spec);
+  const gaps = [gapIn("stature, m", measured.stature, now.stature, STRUCK_SPANS.stature), gapIn("mass, kg", measured.mass, now.mass, STRUCK_SPANS.mass)].filter((gap) => gap !== null);
+  return { own: gaps.length === 0, of: `a body of ${measured.stature} m and ${measured.mass} kg`, by: "numbers", gaps };
+}
+
+/**
+ * **Where `table` comes from, read of `striker` fighting `struck`** (`Source`): bouts of the two
+ * bodies it was measured on, so a table that had to be measured for the pairing. Its body is the
+ * striker and its target the body struck. Made once a table and each of the two specs.
+ */
+export const tableSource = remembered((table: PressureTable) => remembered((striker: BodySpec) => remembered((struck: BodySpec): Source =>
+  measuredFrom({ body: sideOf(table.measured, striker), target: sideOf(table.target, struck), pairing: true }))));
 
 /** Each table's curves read, by phase (`any` for every phase) and range. A cache: a table is data, which never changes. */
 const CURVES = new WeakMap<PressureTable, Map<string, PressureCurve | null>>();

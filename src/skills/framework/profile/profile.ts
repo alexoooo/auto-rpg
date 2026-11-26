@@ -22,9 +22,11 @@
  * nearest what each body holds (`bodyNumbers`), within what they held (`heldPast`). The code it
  * was measured on is no part of what finds it: a retrained network or a tuned setting leaves it
  * read until its own tool measures it again, and where it came from is kept on it (`Origin`), which labels it and finds nothing. One of another
- * body, skill or limb answers another question (`askedOtherwise`) and is never read for
- * it; one measured at another rate, delay or reaction time is stale (`staleness`) and still read,
- * so a chooser prices a skill by hand only where nothing measured it.
+ * skill or limb answers another question and is never read for it. One of another body is read
+ * only where the body has none of its own, the nearest in stature (`profilesFor`), and its
+ * reading says whose rows it reads (`ProfileReading.source`). One measured at another rate, delay
+ * or reaction time is stale (`changes`) and still read, so a chooser prices a skill by hand only
+ * where nothing measured it.
  *
  * Each dataset owner declares and loads its profiles. Readers use `readProfile`; identity
  * selects the loaded data each provider declares relevant to a subject (`dataIdentity`).

@@ -15,12 +15,17 @@ import type { Position } from "../../../../control/ground-reading.ts";
 import type { ExchangePredictor, FoeMove, Guesses, Placing } from "../../contract/predictors.ts";
 import type { ModelledStrike, Seen, Situation } from "../../contract/situation.ts";
 import type { Terms } from "../../contract/terms.ts";
-import { pressureTable, type PressureTable } from "./pressure-table.ts";
-import { pricedBy, UNMEASURED_TURN } from "../by-hand.ts";
+import { pressureTable, tableSource, type PressureTable } from "./pressure-table.ts";
+import { UNMEASURED_TURN } from "../by-hand.ts";
 import { blowLife } from "../damage.ts";
 import { reactionOf, carriedStances } from "../../situation/percepts.ts";
 import { type Model, modelOf, strikesOf, pooled } from "./model.ts";
 import { pressureBy, type PressureFields, ProfilePressure, NO_PRESSURE } from "./pressure.ts";
+import { foundBy, type Source } from "../../../../skills/framework/profile/source.ts";
+import { remembered } from "../../../../core/remembered.ts";
+
+/** A measured strike's source with its rows said to be picked by a rule (`foundBy`); made once a source. */
+const BY_RULE = remembered((source: Source): Source => foundBy(source, "rule"));
 
 /**
  * **What the profile predictor is built with** (`ProfileExchange`): the body's own strikes, each
@@ -82,7 +87,9 @@ export class ProfileExchange implements ExchangePredictor {
     const focus = seen.focus;
     if (!focus) return NO_PRESSURE;
     const rate = this.ratePressure(seen, focus), table = this.measuredAgainst(seen);
-    return new ProfilePressure(table ? { ...rate, latency: 0, priced: `${rate.priced}; measured in bouts`, measured: { table, doing: foePhase(focus, seen.blow) } } : rate, null);
+    if (!table) return new ProfilePressure(rate, null);
+    const bouts = { what: "fighting, in bouts", source: tableSource(table)(focus.spec)(seen.spec) };
+    return new ProfilePressure({ ...rate, latency: 0, reads: [...rate.reads, bouts], measured: { table, doing: foePhase(focus, seen.blow) } }, null);
   }
 
   /** What a second down costs in each posture (`downRateOf`) against the focus, and with none one of its own kind; each found once a posture. */
@@ -139,17 +146,17 @@ export class ProfileExchange implements ExchangePredictor {
    * it) and thrown with the limb it names (`Measured.limb`); and each other limb the foe strikes
    * with (`defaultStrikeLimbs`), left to its guess. A foe's strikes are not sensed, so its limbs
    * stand for them: a limb no measured strike throws is priced by hand while the others are
-   * measured, or not priced where the Mind has no guesses (`pricedBy`).
+   * measured, or not priced where the Mind has no guesses (`standIn`). A foe with no strike
+   * measured on its body is read throwing this body's own strikes: a rule picked those rows, not
+   * the foe's numbers, and each such reading's source says so (`foundBy`).
    */
   private foeModel(seen: Seen, foe: BodySpec, postures: Postures): Model {
-    const reaction = reactionOf(seen), on = profilesOn(this.tables.measured, foe, { hz: seen.hz, reaction, rate: seen.rate, delay: seen.delay });
-    const strikes: readonly ModelledStrike[] = on.read.length ? strikesOf(on.read)
+    const on = profilesOn(this.tables.measured, foe, { hz: seen.hz, reaction: reactionOf(seen), rate: seen.rate, delay: seen.delay });
+    const strikes: readonly ModelledStrike[] = on.length ? strikesOf(on)
       : this.tables.strikes.filter((strike) => profileAgainst(strike.profiles, seen.spec) !== null);
     const thrown = new Set(strikes.flatMap((strike) => strike.limbs)), limbs = defaultStrikeLimbs(foe).filter((limb) => !thrown.has(limb));
-    const unread = pricedBy(this.guesses);
     const model = modelOf(seen, { strikes: [...strikes, ...limbs.map((limb) => ({ name: limb, limbs: [limb], profiles: [] }))], striker: foe, struck: seen.spec, postures, guesses: this.guesses });
-    const source = on.read.length ? (on.stale === null ? "measured" : `measured, stale, ${on.stale}`) : strikes.length ? `as its own strikes, ${on.stale}` : `${unread}, ${on.stale}`;
-    return { ...model, priced: limbs.length && strikes.length ? `${source}; ${unread}: ${limbs.join(", ")}` : source };
+    return on.length ? model : { ...model, reads: model.reads.map((read) => ({ what: read.what, source: BY_RULE(read.source) })) };
   }
 
   /**

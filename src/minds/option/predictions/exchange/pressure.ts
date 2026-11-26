@@ -3,6 +3,7 @@ import { deepFreeze } from "../../../../core/state.ts";
 import { handSet } from "../../../../core/hand-set.ts";
 import type { StanceNumbers, Stances } from "../../../../skills/framework/profile/profile.ts";
 import type { ProfileReading } from "../../../../skills/framework/profile/reading.ts";
+import { notPriced, type Read } from "../../../../skills/framework/profile/source.ts";
 import type { Guesses, Placing } from "../../contract/predictors.ts";
 import type { Pressure, Seen, Situation, Span } from "../../contract/situation.ts";
 import { pressureCurve, type PressureTable } from "./pressure-table.ts";
@@ -14,8 +15,8 @@ import { within } from "../../situation/reach-memory.ts";
  * **What makes the pressure** (`PressureFields`) of strikes `model` by a body of `striker` on a body of `struck` in
  * `phase`: each measured, and, where the Mind has `guesses`, the guess of each limb its model
  * has no profile of (`Model.unmeasured`, `Guesses.limb`), placed by `placing`: null where the two
- * stand so that no guess is of it (a body lying, or struck lying, deals none by a guess). With no
- * guesses such a limb adds nothing. Its latency takes the striker's mind for one like this (its rethink, `RETHINK`, and its
+ * stand so that no guess is of it (a body lying, or struck lying, deals none by a guess), and
+ * such a limb's reading says it is not priced (`NO_GUESS`). With no guesses such a limb adds nothing. Its latency takes the striker's mind for one like this (its rethink, `RETHINK`, and its
  * command's delay, `Seen.delay`) and adds its fastest blow's run (`ProfileReading.fastest`).
  */
 export function pressureBy(seen: Seen, { model, phase, striker, struck, placing, guesses }: { readonly model: Model; readonly phase: string; readonly striker: BodySpec; readonly struck: BodySpec; readonly placing: Placing | null; readonly guesses: Guesses | null }): PressureFields {
@@ -23,14 +24,18 @@ export function pressureBy(seen: Seen, { model, phase, striker, struck, placing,
   if (guesses && placing !== null) for (const limb of model.unmeasured) readings.push(guesses.limb(seen, { striker, struck, limb, placing }));
   let peak = 0, fastest = Infinity;
   for (const reading of readings) { peak = Math.max(peak, reading.peak(phase, struck)); fastest = Math.min(fastest, reading.fastest(phase)); }
-  return { model: readings, phase, struck, peak, latency: RETHINK + seen.delay / seen.hz + fastest, priced: model.priced };
+  const reads = placing !== null ? model.reads : model.reads.map((read) => read.source.kind === "hand" ? { what: read.what, source: NO_GUESS } : read);
+  return { model: readings, phase, struck, peak, latency: RETHINK + seen.delay / seen.hz + fastest, reads };
 }
+
+/** Where a limb's reading comes from where the two stand so that no guess is of it: nothing. */
+const NO_GUESS = notPriced("no strike measured it, and as the two lie no guess is of it");
 
 /**
  * **What a `ProfilePressure` is made of**: the strikes it is modelled by (`model`, each read
  * through its profile at how the two stand, `ProfileReading`), read at the struck body's phase
  * (`phase`) and in its life (`struck`); the most of them a second at any range (`peak`), its
- * latency and how it is priced (`Pressure`); how the striker and the struck body stand toward
+ * latency and what it reads (`Pressure`); how the striker and the struck body stand toward
  * each other (`stance`), at which its model is read, alike any where absent; and what bouts
  * measured the focus's fighting took from the body (`measured`: a `PressureTable`, read where
  * it reads, `pressureCurve`, the focus in `doing` as now).
@@ -41,7 +46,7 @@ export interface PressureFields {
   readonly struck: BodySpec | null;
   readonly peak: number;
   readonly latency: number;
-  readonly priced: string;
+  readonly reads: readonly Read[];
   readonly stance?: Stances;
   readonly measured?: { readonly table: PressureTable; readonly doing: string };
 }
@@ -96,7 +101,7 @@ const STANCED = new WeakMap<ProfilePressure, WeakMap<object, ProfilePressure>>()
 export class ProfilePressure implements Pressure {
   readonly latency: number;
   readonly peak: number;
-  readonly priced: string;
+  readonly reads: readonly Read[];
   private readonly fields: PressureFields;
   // A cache: one search's exact starts and the rate read at each. Null where it keeps none.
   private readonly starts: Starts | null;
@@ -104,7 +109,7 @@ export class ProfilePressure implements Pressure {
   constructor(fields: PressureFields, starts: Starts | null) {
     this.latency = fields.latency;
     this.peak = fields.peak;
-    this.priced = fields.priced;
+    this.reads = fields.reads;
     this.fields = fields;
     this.starts = starts;
   }
@@ -191,4 +196,4 @@ export class ProfilePressure implements Pressure {
 }
 
 /** No pressure: no focus. */
-export const NO_PRESSURE = deepFreeze(new ProfilePressure({ model: [], phase: "clear", struck: null, peak: 0, latency: Infinity, priced: "no focus" }, null));
+export const NO_PRESSURE = deepFreeze(new ProfilePressure({ model: [], phase: "clear", struck: null, peak: 0, latency: Infinity, reads: [] }, null));

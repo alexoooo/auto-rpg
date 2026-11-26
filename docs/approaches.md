@@ -745,7 +745,7 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   skill and limb, never by the body struck; each trial records the body it struck (its stature,
   mass, Steadiness and Haste, `struckNumbers`), and a reading takes the trials struck at the
   measured body nearest in stature and mass (`profileAgainst`, spans 0.1 m and 10 kg), saying so
-  (`ProfileReading.scaled`). The strikes went from 51 profiles to 17 and the empty-handed mirror
+  (`ProfileReading.source`). The strikes went from 51 profiles to 17 and the empty-handed mirror
   played 24 of 24 to the bit (`540ddff7b`). The nearest body can be far: the reptile (0.325 m,
   8 kg) reads as the skeleton (1.62 m, 15 kg). *Shown.*
 - **What a struck body loses read as the nearest measured body is not settled.** A struck body's

@@ -1,5 +1,6 @@
 import { measuredOn } from "../../../skills/framework/profile/lookup.ts";
 import { type Expected } from "../../../skills/framework/profile/reading.ts";
+import { notPriced, staler } from "../../../skills/framework/profile/source.ts";
 import { legsReadiness } from "../../../skills/locomotion/shared/locomotion.ts";
 import { gaitStance } from "../../../skills/locomotion/move/gaits.ts";
 import { BACK_STEP_GAIT, BACK_STEP_SECONDS, SWAYS_FROM } from "../../../skills/locomotion/back-step/index.ts";
@@ -55,6 +56,7 @@ export function backStepping({ spec, outcomes, walk, hz, rate, delay }: Pick<Opt
     if (at.apart > reading.reach(at.phase)) return null;
     return reading.expect({ range: at.apart, phase: at.phase, velocity: startOf(at), stance: at.stances }, focus.spec);
   };
+  const NO_PROFILE = notPriced("no profile against its focus");
   const NO_FOE = blocked("no foe within the back step's measured range"), CARRIAGE = blocked("not standing in the back step's carriage");
   return [{
     name: "back step", kind: "back step", state, claims: LEGS,
@@ -69,9 +71,9 @@ export function backStepping({ spec, outcomes, walk, hz, rate, delay }: Pick<Opt
     status: (now): Status => state.since === null || now.time < state.since + BACK_STEP_SECONDS.swayed ? "committed" : now.time < state.since + BACK_STEP_SECONDS.held ? "yields" : "over",
     begin(now) { state.since = now.time; },
     end() { state.since = null; },
-    priced: (now) => {
-      const focus = now.focus;
-      return focus && act?.reading(focus.spec, spec) ? "measured" : "no profile against its focus";
+    reads: (now) => {
+      const focus = now.focus, reading = focus && act?.reading(focus.spec, spec);
+      return [{ what: "back step", source: focus && act && reading ? staler(reading.source(focus.spec), act.stale) : NO_PROFILE }];
     },
     model(at): Terms | null {
       if (!standing(at) || at.stances.own !== carriage) return null;

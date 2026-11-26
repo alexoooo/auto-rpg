@@ -1,5 +1,6 @@
 import type { Estimate } from "../skills/framework/estimate.ts";
 import type { Readiness, TargetRef } from "../skills/framework/action.ts";
+import type { Read } from "../skills/framework/profile/source.ts";
 
 /**
  * What an offer was weighed from, as a readout shows it, each in life (a share of a body's full
@@ -75,6 +76,8 @@ export interface Engagement {
   readonly foe?: string;
   readonly lost?: boolean;
   readonly details?: readonly EngagementDetail[];
+  /** What its last decision read to price the fight, and where each reading comes from (`Read`), where it reads any: an Option Mind's Options' readings, then its focus's, named as the foe's. */
+  readonly reads?: readonly Read[];
   readonly offers?: readonly Offer[];
   readonly candidates?: readonly EngagementCandidate[];
   readonly pending?: EngagementPending | null;

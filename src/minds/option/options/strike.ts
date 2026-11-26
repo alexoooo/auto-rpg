@@ -3,11 +3,12 @@ import type { Readiness, Resource, TargetRef, Window } from "../../../skills/fra
 import { heldBeside, placeInWindow, SIDES, windowHolds, windowSpot, type Side } from "../../../skills/intent/action-window.ts";
 import { orderAllows, orderedTargets } from "../../orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../../../skills/config.ts";
-import { measuredOn, staleness, strikeSkill } from "../../../skills/framework/profile/lookup.ts";
+import { changes, measuredOn, strikeSkill } from "../../../skills/framework/profile/lookup.ts";
 import { type Expected, type ProfileReading } from "../../../skills/framework/profile/reading.ts";
+import { staler } from "../../../skills/framework/profile/source.ts";
 import { type Asked as StartAsked, type Postures, type Measured } from "../../../skills/framework/profile/profile.ts";
 import type { ActOutcomes } from "../../../skills/framework/outcomes.ts";
-import { pricedBy } from "../predictions/by-hand.ts";
+import { standIn } from "../predictions/by-hand.ts";
 import type { OptionContext, Walker } from "../contract/context.ts";
 import type { GuessedStrike, Guesses } from "../contract/predictors.ts";
 import { asking, blocked, READY, standing } from "./readiness.ts";
@@ -52,13 +53,13 @@ export const strikeMeasure = ({ spec, outcomes, hz, rate = hz, delay }: Pick<Opt
 };
 
 /**
- * **A strike option** (`strike`): how its model is priced (`Option.priced`); its sites
+ * **A strike option** (`strike`): what its model reads (`Option.reads`); its sites
  * (`Option.sites`), the spots in its window; what it deals a second (`Option.rate`), the most any
  * cell of its profile takes at the focus's phase from any start (`ProfileReading.peak`) where its
  * model reads its profile now, else its guess's (`Guesses.strike`), 0 with neither; and the strike its body is modelled by
  * (`Option.modelled`), the profiles its outcome model answers it from (`ActOutcomes.read`).
  */
-type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" | "modelled">>;
+type StrikeOption = Option & Required<Pick<Option, "reads" | "rate" | "sites" | "modelled">>;
 
 /**
  * **A strike's site as last read with the body up**, for the focus `focus` standing at `foe` (x, z):
@@ -123,6 +124,8 @@ export function strike({ action, walk, throws, measure, guesses, name }: Strikin
     // Whether its blow leaves the legs to a walk (`onTheWay`), null until it is first read.
     leaves: null as boolean | null };
   const { measured, act } = measure, read = act?.read ?? [];
+  /** Where its reading comes from where its outcome model answers nothing of it: its Mind's guess, else nothing. */
+  const NEVER_MEASURED = standIn(guesses, "strike", "no fight measured it");
   /** What its outcome model answers against the body of `now`'s focus, the body standing as `postures`; null where it answers nothing. */
   const readingOf = (now: Situation, postures?: Postures): ProfileReading | null => act?.reading(now.focus?.spec ?? null, measure.spec, postures) ?? null;
   /**
@@ -302,14 +305,10 @@ export function strike({ action, walk, throws, measure, guesses, name }: Strikin
     sites,
     begin(now) { state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; state.began = null; state.place = null; },
     end() { state.id = null; state.target = null; state.began = null; state.place = null; },
-    priced(now) {
-      const unread = pricedBy(guesses);
-      if (!act) return `${unread}, no fight measured it`;
-      const reading = readingOf(now), stale = reading ? staleness(reading.profile, { ...measured, reaction: now.reaction }) : act.stale;
-      if (!reading) return `${unread}, ${stale}`;
-      if (!expected(now)) return `${unread}, no trial of its profile reads here`;
-      const scaled = reading.scaled(now.focus?.spec ?? null);
-      return ["measured", ...(scaled === null ? [] : [scaled]), ...(stale === null ? [] : [`stale, ${stale}`])].join(", ");
+    reads(now) {
+      const reading = readingOf(now);
+      // Its profile was found without the senses' reaction time (`StrikeMeasure`), so what has changed is read here, at the time they have now.
+      return [{ what: name, source: reading ? staler(reading.source(now.focus?.spec ?? null), changes(reading.profile, { ...measured, reaction: now.reaction })) : NEVER_MEASURED }];
     },
     model(at) {
       if (!at.focus || !standing(at)) return null;

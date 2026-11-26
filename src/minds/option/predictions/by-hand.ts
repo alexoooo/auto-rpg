@@ -5,6 +5,7 @@ import { landed } from "../../../skills/framework/action-instances.ts";
 import type { Ended } from "../../../skills/framework/action.ts";
 import { regionSegments } from "../../../skills/framework/action-aim.ts";
 import { readProfile, type ProfileReading } from "../../../skills/framework/profile/reading.ts";
+import { byHand, notPriced, type Source } from "../../../skills/framework/profile/source.ts";
 import type { GuessedWay, Guesses, Prior } from "../contract/predictors.ts";
 import type { Situation } from "../contract/situation.ts";
 import { blowLife, limbReach } from "./damage.ts";
@@ -85,24 +86,36 @@ interface Guessed { readonly striker: BodySpec; readonly struck: BodySpec; reado
 /** Each reading made by `reading`, by its striker's spec, the struck body's, its range, its life and its seconds. A cache: a reading is made of these alone, and a spec never changes. */
 const READINGS = new WeakMap<BodySpec, WeakMap<BodySpec, Map<number, Map<number, Map<number, ProfileReading>>>>>();
 
+/** The registry entries each guess is made of (`Guesses.entries`). */
+const ENTRIES: Guesses["entries"] = Object.freeze({
+  strike: ["PRIOR", "BLOW_SPEED", "CLINCH"], limb: ["RATE", "PRIOR", "BLOW_SPEED"], blow: ["LANDS"],
+  way: ["WAYS"], regain: ["WAYS"], settle: ["WAYS"],
+});
+
+/** Where a guessed limb's reading and a guessed blow's come from: the guess, by hand. */
+const LIMB_SOURCE = byHand(ENTRIES.limb, "a guess of a limb no measured strike is thrown with"), BLOW_SOURCE = byHand(ENTRIES.blow, "a guess of a blow coming from a limb no measured strike is thrown with");
+
 /**
  * **A guessed strike as a reading**: what a strike of `striker` is taken to bring before a drill
  * measures it, a profile of one trial read like any measured one (`readProfile`): within `range` m
  * centre to centre, in any phase and at any velocity, `life` of `struck`'s life every `seconds` s,
- * its whole cycle (it records no recovery, `Trial.recovers`). Made anew at each call.
+ * its whole cycle (it records no recovery, `Trial.recovers`). Its trial was never played, so it
+ * says it comes from `source`, a guess by hand. Made anew at each call.
  */
-const readingOf = ({ striker, struck, range, life, seconds }: Guessed): ProfileReading =>
-  readProfile({ measured: { body: striker.model, stature: striker.stature.value, skill: "by hand", hz: 0, reaction: null },
-    trials: [{ start: { range, phase: "clear" }, done: true, dealt: life * struck.wounds.hp.value, taken: 0, seconds, recovers: null, down: false }] }, striker);
+const readingOf = ({ striker, struck, range, life, seconds }: Guessed, source: Source): ProfileReading => ({
+  ...readProfile({ measured: { body: striker.model, stature: striker.stature.value, skill: "by hand", hz: 0, reaction: null },
+    trials: [{ start: { range, phase: "clear" }, done: true, dealt: life * struck.wounds.hp.value, taken: 0, seconds, recovers: null, down: false }] }, striker),
+  source: () => source,
+});
 
 /**
- * A guessed strike as a reading (`readingOf`), made once for what it is made of: a caller's
+ * A guessed limb as a reading (`readingOf`), made once for what it is made of: a caller's
  * numbers come from a few (a limb's reach, a share of its record's blows). A -0 is read as given,
  * since a key takes it for 0.
  */
 function reading(guessed: Guessed): ProfileReading {
   const { striker, struck, range, life, seconds } = guessed;
-  if (Object.is(range, -0) || Object.is(life, -0) || Object.is(seconds, -0)) return readingOf(guessed);
+  if (Object.is(range, -0) || Object.is(life, -0) || Object.is(seconds, -0)) return readingOf(guessed, LIMB_SOURCE);
   let byStruck = READINGS.get(striker);
   if (!byStruck) READINGS.set(striker, byStruck = new WeakMap());
   let byRange = byStruck.get(struck);
@@ -112,7 +125,7 @@ function reading(guessed: Guessed): ProfileReading {
   let bySeconds = byLife.get(life);
   if (!bySeconds) byLife.set(life, bySeconds = new Map());
   let made = bySeconds.get(seconds);
-  if (!made) bySeconds.set(seconds, made = readingOf(guessed));
+  if (!made) bySeconds.set(seconds, made = readingOf(guessed, LIMB_SOURCE));
   return made;
 }
 
@@ -151,12 +164,18 @@ export const BY_HAND: Guesses = Object.freeze<Guesses>({
     const lands = record(seen.sight.report.ledger, null).lands;
     return reading({ striker, struck, range: placing === "over" ? 0 : limbReach(striker, limb), life: lands * blowLife(seen.rules, striker, limb, struck, BLOW_SPEED), seconds: 1 / RATE });
   },
-  blow: (seen, blow, range) => readingOf({ striker: blow.foe.spec, struck: seen.spec, range, life: LANDS * blowLife(seen.rules, blow.foe.spec, blow.limb, seen.spec, blow.closing), seconds: 1 }),
+  blow: (seen, blow, range) => readingOf({ striker: blow.foe.spec, struck: seen.spec, range, life: LANDS * blowLife(seen.rules, blow.foe.spec, blow.limb, seen.spec, blow.closing), seconds: 1 }, BLOW_SOURCE),
   way: (kind) => WAYS[kind],
+  entries: ENTRIES,
 });
 
-/** **How what no measurement prices is priced**, the words a `priced` sentence begins with: by hand where the Mind has `guesses`, else not at all. */
-export const pricedBy = (guesses: Guesses | null): string => guesses ? "by hand" : "not measured here";
+/**
+ * **Where a reading comes from where nothing measured reads** (`Source`): the Mind's guess `of`
+ * it, by hand, where the Mind has `guesses`; else nothing, and it is not priced. `why` says why
+ * nothing measured reads.
+ */
+export const standIn = (guesses: Guesses | null, of: keyof Guesses["entries"], why: string): Source =>
+  guesses ? byHand(guesses.entries[of], why) : notPriced(why);
 
 // The numbers read always.
 

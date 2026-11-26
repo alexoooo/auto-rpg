@@ -7,6 +7,7 @@ import type { BearingEnd, BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Cover } from "../../../skills/framework/intent.ts";
 import type { Spot } from "../../../skills/framework/menu.ts";
 import type { Profile, StanceNumbers, Stances } from "../../../skills/framework/profile/profile.ts";
+import type { Read } from "../../../skills/framework/profile/source.ts";
 import type { LegsUnmet } from "../../../skills/framework/skill.ts";
 import type { FoePhase, threatReader } from "../../../skills/perception/threat.ts";
 import type { Sight } from "../../decider.ts";
@@ -156,8 +157,8 @@ export interface Pressure {
   readonly latency: number;
   /** The most it takes in a second, the struck body's life, for a report. */
   readonly peak: number;
-  /** How it was priced, as a sentence for a report. */
-  readonly priced: string;
+  /** Each thing it is priced by, and where that reading comes from (`Read`), for a report. None with no focus. */
+  readonly reads: readonly Read[];
   /** The share of the struck body's life it takes over `span` (`Span`), from `now`. */
   dealt(now: Situation, span: Span): number;
   /** How far it reaches, m head to head, as the range at `now` places it; 0 where it has no blow. */
