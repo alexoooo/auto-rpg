@@ -44,6 +44,7 @@ import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/con
 import { SIDES } from "../../core/bodies/bilateral.ts";
 import { STAGGERED } from "../../skills/locomotion/shared/locomotion.ts";
 import { inCarriage } from "../../minds/option/assembly/config.ts";
+import { KICK_REGIONS } from "../../minds/option/options/strike-kinds.ts";
 import { between } from "../twin.ts";
 
 /**
@@ -452,11 +453,13 @@ const SPARRING_STANCES = deepFreeze({ ...SPARRING, models: ["man"] as BodyModel[
 
 /**
  * **Sparring with the feet**, the `sparring-feet` rung: sparring's starts on a stream of their own,
- * thrown with each foot at the middle mark, where a kick at a standing foe aims, as many as
- * `sparring-drawn` and `sparring-judge` together, which a profile the Mind fights by rests on. Its
- * own rung, so the hands' draws stay as they were.
+ * thrown with each foot at each mark a kick at a standing foe aims at, the kick Option's own
+ * (`KICK_REGIONS`), by turns, as many as `sparring-drawn` and `sparring-judge` together, which a
+ * profile the Mind fights by rests on. A kick whose height band does not reach a mark refuses it,
+ * and a trial so refused is not begun. Its own rung, so the hands' draws stay as they were.
  */
-const SPARRING_FEET = deepFreeze({ ...SPARRING, hands: [] as Hand[], feet: [...SIDES] as Hand[], marks: ["middle"] as Mark[], seed: 6,
+const SPARRING_FEET = deepFreeze({ ...SPARRING, hands: [] as Hand[], feet: [...SIDES] as Hand[], seed: 6,
+  marks: KICK_REGIONS.map((region): Mark => region.mark),
   trials: SPARRING_DRAWN.trials + SPARRING_JUDGE.trials });
 
 /**

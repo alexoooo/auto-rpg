@@ -162,9 +162,15 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   none. A reach read about the pelvis's tilt was tried and taken out: the stance rights the pelvis
   during a catch's swing, and the push kick's catches read tilted fell short and it went down (7 of
   16 on its base with empty hand and sword, against 2 without).
-- **Next**: step 4 again for the front kick; then step 5, as the owner asked:
-  confirmed at 120 and 480 Hz, its look at the best's code, its profiles, and the match and
-  scorecard against the push kick as the Warrior's kick. It lands as the kick the Warrior holds
+- **The front kick's step 4 and the first of step 5**: its search ranks as its confirmation keeps
+  (score within the start's falls); the g39 best is the man's record, 0.103 and 1 fall in 32
+  against the record's 0.042 and 1, its look at e3278a9e51e1. Both kicks are profiled on
+  `sparring-feet`, a foot's sparring at the kick Option's own marks: against foes that fight
+  back, the front kick goes down in 26% of what it begins against the push kick's 54%, and lands
+  more of it (31% against 21%); it refuses more as beyond its height band (5,198 of 9,600 against
+  760), most at the woman's and the Skeleton's base and the man's middle.
+- **Next**: the match on the game's Mind with both kicks profiled, each side's kicks counted, and
+  the scorecard against the push kick as the Warrior's kick. It lands as the kick the Warrior holds
   only if it measures no worse, and stays pickable either way.
 
 ## After it
