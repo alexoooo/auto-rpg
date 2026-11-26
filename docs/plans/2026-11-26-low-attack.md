@@ -21,6 +21,17 @@ the scorecard (warrior-drawn), read by its knockouts within 60 s, its time to a 
 share of a bout with either body down. Everything it is searched, looked at and read on is the
 empty-handed man.
 
+Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
+- **Its pace**: the scorecard's mirrors of three subjects in one run, the Warrior with no kick,
+  with the front kick, and with the front kick and the low front kick: knockouts within 60 s,
+  time to a knockout and ground share. The front kick's row against the front and low kick's
+  says what the low kick adds; the no-kick row, whether it reaches the punching pace.
+- **Its winning**: the match of the Warrior with the front and low kick against the Warrior with
+  no kick, the punching Warrior. The owner, on the punching Warrior falling less on his own: "if
+  we can['t] beat it then that's an indicator that one or both of front/low kick needs more work.
+  If the front and low kick are working properly, then I don't see why they wouldn't win." So a
+  lost match is not a trade recorded: it is more work on whichever kick the readings point to.
+
 ## Where it stands
 
 - **The low front kick (`stomp/front`), authored**: the front kick's executor (`frontKickExecutor`,
