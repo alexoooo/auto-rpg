@@ -58,13 +58,30 @@ export interface Measured {
 }
 
 /**
- * **Where a profile came from**, which finds and refuses none: the digests of its body's spec and
- * of its skill, as its trials were played (`research/skills/profile-origin.mjs`); and the commit its trials were played on,
- * whether a build input differed from it, and the day, where its tool knew them.
+ * **One Mind that played a measurement's trials**: the body it drove (its model's name and its
+ * spec's digest), its config's digest, and the digest of each record it read, by the record's
+ * key, as that body reads it (`playedBy`, `research/skills/profile-origin.mjs`). The digests are
+ * taken when the measuring tool makes the asset, which is before it writes it.
+ */
+export interface Played {
+  readonly body: string;
+  readonly spec: string;
+  readonly mind: string;
+  readonly read: Readonly<Record<string, string>>;
+}
+
+/**
+ * **Where a measurement came from**, which finds and refuses none: the digests of its body's spec
+ * and of its skill, as its trials were played (`research/skills/profile-origin.mjs`); the Minds
+ * that played them (`Played`), both sides'; and the commit its trials were played on, whether a
+ * build input differed from it, and the day, where its tool knew them. The inventory
+ * (`scripts/inventory.mjs`) sets each beside the same today, so what has changed since is read
+ * without playing anything. A field is absent where the tool that made the asset did not write it.
  */
 export interface Origin {
   readonly spec?: string;
   readonly skill?: string;
+  readonly minds?: readonly Played[];
   readonly commit?: string;
   readonly changed?: boolean;
   readonly date?: string;
@@ -225,8 +242,11 @@ const profileHeld = (value: unknown): boolean => profileObject(value) && [value.
   || profileObject(body) && Object.values(body).every((item) => profileObject(item) && profileNonnegative(item.mass) && profileNonnegative(item.reach)));
 const profileStruck = (value: unknown): boolean => profileObject(value) && [value.stature, value.mass].every((one) => profileNumber(one) && one > 0)
   && [value.steadiness, value.haste].every(profileNumber);
+const profilePlayed = (value: unknown): boolean => profileObject(value) && [value.body, value.spec, value.mind].every(profileText)
+  && profileObject(value.read) && Object.values(value.read).every(profileText);
 const profileOrigin = (value: unknown): boolean => profileObject(value)
   && [value.spec, value.skill, value.commit, value.date].every((one) => one === undefined || profileText(one))
+  && (value.minds === undefined || Array.isArray(value.minds) && value.minds.every(profilePlayed))
   && (value.changed === undefined || typeof value.changed === "boolean");
 const profileMeasured = (value: unknown): boolean => profileObject(value) && profileText(value.body)
   && profileNumber(value.stature) && value.stature > 0

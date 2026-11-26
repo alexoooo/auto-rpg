@@ -27,6 +27,7 @@ import { savedBouts } from "../skills/strikes/bout-save.mjs";
 import { execSync } from "node:child_process";
 import { resolveCharacter } from "../../src/core/bodies/models.ts";
 import { pressureBody } from "../../src/minds/option/predictions/exchange/pressure-table.ts";
+import { playedOnce } from "../skills/profile-origin.mjs";
 
 const OUT = "assets/minds/pressure-profiles.json", SCRIPT = "research/minds/pressure-profiles.mjs";
 /** The seconds after a moment its life lost is read at. */
@@ -50,8 +51,9 @@ for (const file of files) {
       const rows = record.decisions[i], foe = record.sides[1 - i], own = record.sides[i];
       const measured = pressureBody(resolveCharacter({ model: foe.model }).spec), target = pressureBody(resolveCharacter({ model: own.model }).spec);
       const key = JSON.stringify([measured, target]);
-      const table = tables.get(key) ?? { measured, target, bins: new Map() };
+      const table = tables.get(key) ?? { measured, target, minds: [], bins: new Map() };
       tables.set(key, table);
+      table.minds.push(...record.played);
       const falls = [...record.downs[0], ...record.downs[1]];
       /** The side's bar at `t`: its last decision's at or before it; past the bout's end, its last. */
       const barAt = (t) => { if (t >= record.seconds) return record.bars[i]; let bar = rows[0].life; for (const row of rows) { if (row.t > t) break; bar = row.life; } return bar; };
@@ -71,7 +73,7 @@ for (const file of files) {
   }
 }
 const commit = execSync("git rev-parse --short HEAD").toString().trim();
-const profiles = [...tables.values()].map((table) => ({ measured: table.measured, target: table.target, horizons: HORIZONS,
+const profiles = [...tables.values()].map((table) => ({ measured: table.measured, target: table.target, horizons: HORIZONS, from: { minds: playedOnce(table.minds) },
   bins: [...table.bins.values()].sort((a, b) => a.phase.localeCompare(b.phase) || a.range - b.range).map((bin) => ({ phase: bin.phase, range: bin.range, n: bin.n, lost: bin.lost.map((sum) => round(sum / bin.n)) })) }));
 for (const profile of profiles) {
   const by = {};

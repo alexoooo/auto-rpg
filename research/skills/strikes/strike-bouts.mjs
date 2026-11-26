@@ -45,6 +45,9 @@ import { writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { BOUT_SCHEMA, savedBouts } from "./bout-save.mjs";
+import { ANSWERS } from "../../../src/minds/engagement.ts";
+import { standingOf, STANDINGS, STANDING_WORDS } from "../../../src/skills/framework/profile/source.ts";
+import { playedBy } from "../profile-origin.mjs";
 import { workerJobs } from "../../worker-jobs.mjs";
 import { medianOf } from "../../../src/evaluation/stats.ts";
 import { defaultLanes, simulationWorker } from "../../../scripts/lanes.mjs";
@@ -92,10 +95,10 @@ if (isMainThread) {
   const played = jobs.filter(job => !job.result), started = Date.now();
   await workerJobs(played, { lanes, create: () => simulationWorker(new URL(import.meta.url)),
     message: ({ result: _, ...settings }) => settings,
-    result: ({ result, fault }, job) => {
+    result: ({ result, fault, sources }, job) => {
       // A bout whose body's control threw is a fault: counted and named, kept out of what is saved and read, the rest played on.
       if (fault) { job.fault = fault.split("\n")[0]; process.stderr.write(`${key(job)}: faulted, ${job.fault}\n`); return; }
-      job.result = result;
+      job.result = result; job.sources = sources;
       process.stderr.write(`${key(job)}: ${result.seconds.toFixed(1)} s ${result.ending}\n`);
     } });
   const faulted = jobs.filter(job => job.fault);
@@ -117,6 +120,15 @@ if (isMainThread) {
       console.log(`  ${model}: committed ${mine.length}, target-touch ${mine.filter(attempt => attempt.contacts.counts.commit.target > 0).length}, blocked ${mine.filter(attempt => attempt.contacts.counts.commit.block > 0).length}, `
         + `stance recovery ${mine.filter(attempt => attempt.recoveries > 0).length}, down within ${DOWN} s ${mine.filter(attempt => attempt.down).length}; `
         + `correlated effector wound records ${sum(mine.map(attempt => attempt.wounds.length))}`);
+    }
+    // Where each answer of the prices came from, over the bouts played now: a saved bout does not keep the count.
+    const counted = jobs.filter(job => job.held === held && job.sources).map(job => job.sources);
+    if (counted.length) {
+      console.log(`  where each answer of a price came from, over every offer of every decision of the ${counted.length} bouts played now:`);
+      for (const [answer, words] of Object.entries(ANSWERS)) {
+        const by = Object.fromEntries(STANDINGS.map(standing => [standing, sum(counted.map(one => one[answer][standing]))])), all = sum(Object.values(by));
+        console.log(`    ${words}: ${STANDINGS.map(standing => `${STANDING_WORDS[standing]} ${(100 * by[standing] / all).toFixed(1)} %`).join(", ")} (of ${all})`);
+      }
     }
     const minutes = sum(bouts.map(bout => bout.seconds)) / 60;
     for (const side of ["left", "right"]) {
@@ -160,6 +172,8 @@ if (isMainThread) {
         byId[side].set(action.id, attempt); track[side].attempts.push(attempt); return attempt;
       };
       // When each side went down; and each decision of its mind (its offers anew).
+      // Where each answer of each offer's price came from (`OfferSources`), counted over both sides by how good the source is (`standingOf`).
+      const sources = Object.fromEntries(Object.keys(ANSWERS).map(answer => [answer, Object.fromEntries(STANDINGS.map(standing => [standing, 0]))]));
       const downs = { left: [], right: [] }, wasDown = { left: false, right: false }, grounded = [], state = { groundedSince: null }, decisions = { left: [], right: [] }, offered = { left: null, right: null };
       while (!duel.verdict && duel.clock < seconds) {
         world.step();
@@ -174,6 +188,7 @@ if (isMainThread) {
           const engagement = me.minded.report.engagement, offers = engagement?.offers;
           if (offers && offers !== offered[side]) {
             offered[side] = offers;
+            for (const offer of offers) if (offer.terms) for (const answer in ANSWERS) sources[answer][standingOf(offer.terms.from[answer])]++;
             const chosen = offers.find((offer) => offer.name === engagement.phase), terms = chosen?.terms, a = me.body.view.stance.centre, b = foe.body.view.stance.centre;
             /** An offer's terms: how long, s, and the life it deals and takes; null with none. */
             const termsOf = (t) => t ? { duration: +t.duration.toFixed(3), dealt: +t.dealt.toFixed(5), taken: +t.taken.toFixed(5) } : null;
@@ -258,7 +273,9 @@ if (isMainThread) {
         }
         return [...keyed.values()];
       });
-      parentPort.postMessage({ result: { schema: BOUT_SCHEMA, held, strikes, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
+      // The Mind that played each side, and what it read (`Played`): what a table measured from the bout names as where it came from.
+      const played = SIDES.map((side) => playedBy(specOf(side), duel.duelists[side].mind));
+      parentPort.postMessage({ sources, result: { schema: BOUT_SCHEMA, held, played, strikes, seconds: duel.clock, ending: duel.verdict?.ending ?? "time", winner: duel.verdict?.winner ?? null,
         bars: SIDES.map(side => duel.duelists[side].pool.bar()), hp: SIDES.map(side => duel.duelists[side].body.built.spec.wounds.hp.value), downs: SIDES.map(side => downs[side]), grounded: state.groundedSince === null ? grounded : [...grounded, [state.groundedSince, duel.clock]], decisions: SIDES.map(side => decisions[side]), sides: SIDES.map(side => track[side]) } });
     } catch (error) { parentPort.postMessage({ fault: String(error?.stack ?? error) }); }
     finally { dispose?.(); }

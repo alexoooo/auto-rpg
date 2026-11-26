@@ -37,8 +37,8 @@
  * its guard (the trial's end where it was not), and the hit points the striker lost meanwhile.
  * A profile is of one limb, as one Option strikes with one (`limbAction`), and names it
  * (`Measured.limb`) beside its skill as the body holds it (`strikeSkill`). Where it came from
- * (`Origin`) is the digests of its body and of the action struck with that limb, and its rows' commit and day where they share one (`RowOrigin`, each row's own), with
- * whether a build input differed from that commit under any of them.
+ * (`Origin`) is the digests of its body and of the action struck with that limb, the Minds that played its rows, both sides' (`Played`),
+ * and its rows' commit and day where they share one (`RowOrigin`, each row's own), with whether a build input differed from that commit under any of them.
  *
  *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/strike-profiles.mjs <run.json> ... [--write]
  *
@@ -49,7 +49,9 @@
  * not among these are not kept beside these.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { duelSpec } from "../../../src/game/arena/duel.ts";
+import { duelMinds, duelSpec, SIDES } from "../../../src/game/arena/duel.ts";
+import { defaultMind } from "../../../src/app/catalog.ts";
+import { playedBy, playedOnce } from "../profile-origin.mjs";
 import { marksOf, strikeKey, strikesOf } from "./strike-keys.mjs";
 import { letGoTrial, strikeTrial } from "../../../src/evaluation/strike/trial.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
@@ -108,8 +110,11 @@ for (const path of paths) {
     const struck = specOf(recipe, "right"), { measured, digests } = strikeKey(spec, mind, executors, action, led.limb, hz, reaction, delay);
     const key = JSON.stringify(measured);
     const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${led.skill} with ${led.limb}`,
-      digests, commits: new Set(), dates: new Set(), changed: false, trials: [] };
+      digests, minds: new Set(), commits: new Set(), dates: new Set(), changed: false, trials: [] };
     profiles.set(key, profile);
+    // The Minds that played the row, both sides' (`Played`).
+    const minds = duelMinds(recipe, defaultMind);
+    for (const side of SIDES) profile.minds.add(playedBy(specOf(recipe, side), minds[side]));
     profile.commits.add(row.from.commit);
     profile.dates.add(row.from.date.slice(0, 10));
     profile.changed ||= row.from.changed;
@@ -125,7 +130,7 @@ const order = (a, b) => (a.start.postures?.target ?? "").localeCompare(b.start.p
 const shared = (values) => values.size === 1 ? [...values][0] ?? undefined : undefined;
 const made = [...profiles.values()].map((profile) => {
   const commit = shared(profile.commits), date = shared(profile.dates);
-  return { measured: profile.measured, from: { ...profile.digests, ...(commit === undefined ? {} : { commit, changed: profile.changed }), ...(date === undefined ? {} : { date }) }, trials: [...profile.trials].sort(order) };
+  return { measured: profile.measured, from: { ...profile.digests, minds: playedOnce(profile.minds), ...(commit === undefined ? {} : { commit, changed: profile.changed }), ...(date === undefined ? {} : { date }) }, trials: [...profile.trials].sort(order) };
 });
 for (const profile of profiles.values()) {
   const m = profile.measured, run = profile.trials.filter((t) => !t.letGo), lets = profile.trials.length - run.length;

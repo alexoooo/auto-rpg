@@ -8,6 +8,7 @@ import type { Situation } from "../../contract/situation.ts";
 import type { Terms } from "../../contract/terms.ts";
 import { treesAt, validTrees, type Trees } from "./boosted-trees.ts";
 import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
+import type { Origin } from "../../../../skills/framework/profile/profile.ts";
 
 /**
  * **What a state is read as for a value fitted to what followed it** (`featuresOf`): how the two
@@ -134,6 +135,8 @@ export function featuresOf(r: Reading): number[] {
  */
 export interface FittedValue {
   readonly origin: string;
+  /** The Minds that played the bouts it was fitted to (`Origin.minds`), where its tool wrote them. */
+  readonly from?: Origin;
   /** The bodies its bouts played, each its model and what it held (`bodyOf`): it reads a state between two of them alone (`fittedOn`). */
   readonly bodies: readonly string[];
   readonly features: readonly string[];

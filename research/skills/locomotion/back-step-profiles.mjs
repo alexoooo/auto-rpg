@@ -26,10 +26,11 @@
  * body, skill and target.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { duelSpec } from "../../../src/game/arena/duel.ts";
+import { duelMinds, duelSpec, SIDES } from "../../../src/game/arena/duel.ts";
+import { defaultMind } from "../../../src/app/catalog.ts";
 import { measuredOn } from "../../../src/skills/framework/profile/lookup.ts";
 import { startHeld, struckNumbers, trialExit } from "../../../src/skills/framework/profile/numbers.ts";
-import { specDigest } from "../profile-origin.mjs";
+import { playedBy, playedOnce, specDigest } from "../profile-origin.mjs";
 import { everyOf } from "../../../src/minds/option/assembly/pace.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 import { medianOf } from "../../../src/evaluation/stats.ts";
@@ -66,8 +67,11 @@ for (const path of paths) {
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const measured = measuredOn(spec, { skill: SKILL, limb: null }, { hz, reaction, rate: hz / everyOf(mind.rate, hz), delay }), key = JSON.stringify(measured);
     const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${SKILL} at ${struck.model}`, digests: { spec: specDigest(spec) },
-      commits: new Set(), dates: new Set(), changed: false, trials: [] };
+      minds: new Set(), commits: new Set(), dates: new Set(), changed: false, trials: [] };
     profiles.set(key, profile);
+    // The Minds that played the row, both sides' (`Played`).
+    const minds = duelMinds(recipe, defaultMind);
+    for (const side of SIDES) profile.minds.add(playedBy(specOf(recipe, side), minds[side]));
     profile.commits.add(row.from.commit);
     profile.dates.add(row.from.date.slice(0, 10));
     profile.changed ||= row.from.changed;
@@ -85,7 +89,7 @@ const order = (a, b) => (a.start.postures?.target ?? "").localeCompare(b.start.p
 const shared = (values) => values.size === 1 ? [...values][0] ?? undefined : undefined;
 const made = [...profiles.values()].filter((profile) => profile.trials.length).map((profile) => {
   const commit = shared(profile.commits), date = shared(profile.dates);
-  return { measured: profile.measured, from: { ...profile.digests, ...(commit === undefined ? {} : { commit, changed: profile.changed }), ...(date === undefined ? {} : { date }) }, trials: [...profile.trials].sort(order) };
+  return { measured: profile.measured, from: { ...profile.digests, minds: playedOnce(profile.minds), ...(commit === undefined ? {} : { commit, changed: profile.changed }), ...(date === undefined ? {} : { date }) }, trials: [...profile.trials].sort(order) };
 });
 for (const profile of profiles.values()) {
   const t = profile.trials, ranges = t.map((one) => one.start.range), taken = t.map((one) => one.taken);

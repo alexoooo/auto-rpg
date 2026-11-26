@@ -4,6 +4,7 @@
  * from how far off, what a person wrote in by hand, and what is not priced at all.
  */
 import { deepFreeze } from "../../../core/state.ts";
+import { asWritten } from "./numbers.ts";
 
 /** One number in which the rows a reading takes differ from the body it is asked about. */
 export interface Gap {
@@ -127,18 +128,21 @@ export function weakest(reads: readonly Read[]): Source | null {
   return worst;
 }
 
+/** A number as a readout words it: at the places a trial's numbers are written at (`asWritten`), so a stature computed from a build does not print sixteen digits. */
+const worded = (value: number | string | null): string => typeof value === "number" ? String(asWritten(value)) : String(value);
+
 /** One side in words: `its own rows, by name`, or `rows of man, by numbers, stature, m 1.8 read at 1.6`. */
 function sideWords(side: Side): string {
-  const gaps = side.gaps.map((gap) => `${gap.number} ${gap.measured} read at ${gap.asked}`);
+  const gaps = side.gaps.map((gap) => `${gap.number} ${worded(gap.measured)} read at ${worded(gap.asked)}`);
   return [`${side.own ? "its own rows" : `rows of ${side.of}`}, by ${side.by}`, ...gaps].join(", ");
 }
 
 /** **`source` in words**, for a readout: where it came from, how far off, and how stale. */
 export function sourceWords(source: Source): string {
-  if (source.kind === "hand") return `by hand (${source.entries.join(", ")}), ${source.why}`;
+  if (source.kind === "hand") return `by hand${source.entries.length ? ` (${source.entries.join(", ")})` : ""}, ${source.why}`;
   if (source.kind === "none") return `not priced, ${source.why}`;
   if (source.kind === "given") return `given, ${source.why}`;
-  const stale = source.stale.map((change) => `${change.what} ${change.measured} read at ${change.asked}`);
+  const stale = source.stale.map((change) => `${change.what} ${worded(change.measured)} read at ${worded(change.asked)}`);
   return [`measured${source.pairing ? " for the pairing" : ""}`, `its body ${sideWords(source.body)}`, ...source.target ? [`its target ${sideWords(source.target)}`] : [],
     ...stale.length ? [`stale: ${stale.join(", ")}`] : []].join("; ");
 }

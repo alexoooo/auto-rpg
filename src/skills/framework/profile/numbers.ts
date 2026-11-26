@@ -18,7 +18,7 @@ const PLACES = handSet({
 });
 
 /** `x` at the rounding a trial's numbers are written at (`PLACES`). */
-const asWritten = (x: number): number => Number(x.toFixed(PLACES));
+export const asWritten = (x: number): number => Number(x.toFixed(PLACES));
 
 /**
  * **A trial's exit** (`Trial.exit`) from where the two stood as it ended, `exit` (head to head,

@@ -18,7 +18,7 @@ export async function edgeTrial(job, given) {
   const { tumbling } = await import("../../../src/control/ground-reading.ts");
   const { heldNumbers } = await import("../../../src/skills/framework/profile/numbers.ts");
   const { measuredOn, techniqueSkill } = await import("../../../src/skills/framework/profile/lookup.ts");
-  const { specDigest, techniqueDigest } = await import("../profile-origin.mjs");
+  const { playedBy, specDigest, techniqueDigest } = await import("../profile-origin.mjs");
   const { groundStart } = await import("../../../src/skills/recovery/data/profiles.ts");
   // Its priors alone (`PRIOR_PREDICTIONS`), so what it measures does not depend on what it measured before.
   const template = given ?? MINDS.option.config;
@@ -73,11 +73,11 @@ export async function edgeTrial(job, given) {
     const r = built.reading(), stood = r.stood && r.verified !== null, g = built.combatant.body.view.ground, t = built.world.time;
     for (const trial of [...open, ...waiting]) close(trial, t, g, stood, null);
     return { job, reading: r, trials: trials.map((trial) => ({ ...trial, measured: measuredOn(spec, { skill: techniqueSkill(spec, trial.skill), limb: null }, { hz, reaction: null, rate: hz, delay }),
-      origin: { spec: specDigest(spec), skill: techniqueDigest(partLookup, spec, trial.skill) }, postures: groundStart(trial.from), held: heldNumbers(spec) ?? null })) };
+      origin: { spec: specDigest(spec), skill: techniqueDigest(partLookup, spec, trial.skill), minds: [playedBy(spec, mind)] }, postures: groundStart(trial.from), held: heldNumbers(spec) ?? null })) };
   } finally { built.dispose(); }
 }
 
-/** The measured ground trials grouped in the writer's deterministic order, each profile with the digests it came from (`Origin`). */
+/** The measured ground trials grouped in the writer's deterministic order, each profile with the digests it came from and the Mind that played its falls (`Origin`). */
 export function edgeProfiles(all) {
   const profiles = new Map();
   for (const trial of all) {

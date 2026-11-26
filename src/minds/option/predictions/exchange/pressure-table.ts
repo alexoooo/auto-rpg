@@ -2,7 +2,7 @@ import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
 import { handSet } from "../../../../core/hand-set.ts";
 import { heldNumbers, holdsAlike, struckNumbers } from "../../../../skills/framework/profile/numbers.ts";
 import { STRUCK_SPANS } from "../../../../skills/framework/profile/nearest.ts";
-import { type BodyHeld } from "../../../../skills/framework/profile/profile.ts";
+import { type BodyHeld, type Origin } from "../../../../skills/framework/profile/profile.ts";
 import { gapIn, measuredFrom, type Side, type Source } from "../../../../skills/framework/profile/source.ts";
 import { remembered } from "../../../../core/remembered.ts";
 
@@ -38,9 +38,11 @@ interface MeasuredPairing {
  * **A measured pressure**: what a striker's fighting took from a struck body in bouts, by how far
  * apart the two stood centre to centre, what the striker was doing (`striking`, else `clear`), and
  * the seconds after (`research/minds/pressure-profiles.mjs`, `assets/minds/pressure-profiles.json`).
- * It is the minds' that fought the bouts it was read from, and is read again where those change.
+ * It is the minds' that fought the bouts it was read from, and is read again where those change:
+ * it names them (`from`, `Origin.minds`), where its tool wrote them.
  */
 export interface PressureTable extends MeasuredPairing {
+  readonly from?: Origin;
   readonly bins: readonly PressureBin[];
 }
 
