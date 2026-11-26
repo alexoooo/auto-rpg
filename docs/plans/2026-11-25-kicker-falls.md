@@ -178,4 +178,4 @@ man's run on its confirmation, +0.39 s (82e2c881); the woman's run holding a buc
 sit-back on the standard falls, +2.13 s an attempt (b71b3fd0); the Skeleton's front-sit-back
 holding a buckler and club, +2.16 s (b71b3fd0); the man's staged-down so held, +1.21 s
 (ecf5182e). And the Skeleton's sit-back's backward tip under `regain`, a step-1 item (above).
-After the front kick lands, before the low kick.
+They wait on the front kick landing; the order after it stands (the low kick next).
