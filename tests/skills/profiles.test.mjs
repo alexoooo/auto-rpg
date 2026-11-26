@@ -88,6 +88,26 @@ test("a foe is modelled alike whatever skills its character holds", () => {
 });
 
 /**
+ * **A body's strikes are each read by their own freshness** (`profilesOn`): it read a body's fresh
+ * profiles, else its stale, all together, so a foe with one strike measured at the reader's
+ * settings and another at others was modelled without the other, and said nothing. The kicks
+ * measured with the Mind at 10 Hz beside the punches at 60 dropped the punches from a 10 Hz
+ * reader's model of a Warrior. A family of the man's stored punches is read as measured at another
+ * rate beside the rest.
+ */
+test("a body's strikes measured at different settings are each read, the fresh as fresh", () => {
+  const { profiles } = JSON.parse(readFileSync(new URL("../../assets/skills/strikes/strike-profiles/strike-profiles.json", import.meta.url), "utf8"));
+  const spec = resolveCharacter({ model: "man" }).spec, on = profiles.filter((profile) => profile.measured.body === "man" && limbHoldsAsMeasured(profile, spec));
+  const skills = [...new Set(on.map(({ measured }) => measured.skill))];
+  assert.ok(skills.length >= 2, `the stored profiles hold two of a man's strikes: ${skills.join(", ")}`);
+  const [moved] = skills, { hz, reaction, rate, delay } = on[0].measured, at = { hz, reaction, rate: rate ?? hz, delay: delay ?? 0 };
+  const mixed = profiles.map((profile) => profile.measured.body === "man" && profile.measured.skill === moved ? { ...profile, measured: { ...profile.measured, rate: at.rate / 6 } } : profile);
+  const read = profilesOn(mixed, spec, at);
+  assert.deepEqual([...new Set(read.read.map(({ measured }) => measured.skill))].sort(), [...skills].sort());
+  assert.equal(read.stale, `measured with its mind at ${at.rate / 6} Hz, read at ${at.rate} Hz`);
+});
+
+/**
  * **A bout's first decisions read each strike's measured profile**: a profile is measured at the
  * senses' reaction time (`Senses.reaction`), and a foe carried for less than that is shown as it
  * stood when the bout began. Read at how old that showing was, every strike was priced by hand
