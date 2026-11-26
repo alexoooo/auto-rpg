@@ -128,7 +128,9 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
 - **Ordered by the owner**, on the forward cap and the run's start: "good catch, i think we'll need
   to fix both these issues". First, the man's walk-run envelope re-measured and landed; then the
   run's start, why its first second does not move, looked at in frames, authored to reach pace as
-  fast as its body holds, and the envelope measured with it. The window a route runs to, changing
+  fast as its body holds, and the envelope measured with it; then the back walk, 0.7 m/s against
+  1.5, a regression fixed (the owner: "I don't care if it make something worse, that just reveals
+  another broken thing that must be fixed."). The window a route runs to, changing
   foot and side between decisions, is the lever after them, not started; the run's overshoot is
   noted, not started.
 - **Next**: the low front kick searched again at the empty-handed man, as the bite is, on the rung
