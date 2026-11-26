@@ -20,9 +20,17 @@ unlanded), knockouts within 60 s read and not a gate.
   its chamber and its firm, straight drive through the target, the trunk upright) with its window
   where the low kick's (`stomp/kick`) is, at a lying trunk. Its look,
   `research/looks/man/stomp-front/f1766baa92a3`: on the stomping twin it lands 5 of 18 and none
-  fall, the legs lying nearest taking the foot in 10; the low kick on the push kick's record,
+  fall, 10 meeting the body off the mark (below); the low kick on the push kick's record,
   searched on that rung, lands 14 of 18 there with 1 fall, a short jab with no chamber
   (`research/looks/man/stomp-kick/6f2961845d25`). Pickable under Stomp in the Arena's Skills panel.
+- **Where its foot lands off the mark is its aim along the body, not the place it stands.** On
+  the look's 18 trials, the first blows of its misses: the pelvis (`lowerTrunk`) 3, the head 3, a
+  thigh 1; the kicker stands beside the body, 0.6 to 0.7 m off its length near its hips (the
+  strips' side-on camera reads it as the feet end). A place chosen with the strike's way to the
+  target's region clear of the rest of the body (a line at the target's height, followed to where
+  it first meets the region) moved the thigh's one trial and nothing else, and was not kept; its
+  first form, followed to the mark itself, refused 5 of 17, the pelvis's collider overlapping the
+  trunk's mark from every side.
 - **Next**: its timings and window searched on the stomping twin (`research/skills/skill-search.mjs
   stomp/front`); then its profile, at a foe laid down fighting back, so the Mind prices it; then
   the Warrior with it against the Warrior without it.
