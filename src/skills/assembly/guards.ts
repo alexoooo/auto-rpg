@@ -15,9 +15,16 @@ export function guardConfigs(parts: PartLookup, spec: BodySpec, given?: ConfigFo
   return parts.selected("guard", spec).filter(config => selectsVariation(given, config)).map(config => ({ ...config, ...given }));
 }
 
-/** A single guard's initial pose; several choices start in the body's reference pose until the mind chooses. */
+/** The body's reference pose: no channel posed. */
+const REFERENCE_POSE: Pose = Object.freeze({});
+
+/**
+ * A single guard's initial pose; several choices start in the body's reference pose until the mind
+ * chooses. Either is frozen: every motor made with it points its state at it, and a load writes
+ * into what is not frozen.
+ */
 export const initialGuardPosture = (parts: PartLookup, spec: BodySpec, configs: readonly PartConfig[]): Pose =>
-  configs.length === 1 ? parts.of("guard", configs[0]!).posture(spec, configs[0]!) : {};
+  configs.length === 1 ? parts.of("guard", configs[0]!).posture(spec, configs[0]!) : REFERENCE_POSE;
 
 /** All enabled guards, made once, with the mind's current choice and every guard's memory saved together. */
 export function guardRepertoire(parts: PartLookup, built: ReadBody, configs: readonly PartConfig[]): GuardSkill {

@@ -21,7 +21,7 @@ import { covers, skillOf } from "../../skills/framework/menu.ts";
 import { faceOf } from "../../skills/strikes/shared/held-face.ts";
 import type { Mechanism } from "../../combat/rulebook.ts";
 import type { BuiltBout } from "../bout.ts";
-import type { HostedBody } from "../../minds/seat/hosted-body.ts";
+import type { CommandedBody } from "../../minds/seat/hosted-body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { BodyView } from "../../control/body.ts";
 import { modelSpec } from "../../core/bodies/models.ts";
@@ -532,8 +532,8 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   trunk?.update();
   const built = trunk ? trunk.centre.y : 0;
   let lay: boolean | null = null;
-  /** The striker's view, where its body is hosted: where its fists were as its last step read them. */
-  const view = "view" in striker.body ? (striker.body as HostedBody).view : null;
+  /** The striker's view, where its body is under the command layers: where its fists were as its last step read them. */
+  const view = "view" in striker.body ? (striker.body as CommandedBody).view : null;
   let asked: StrikeReading["asked"] = null;
   /** The target's phase and where it was, as the striker sensed them where its trial began, and where the drill had the body. */
   let foeBegan: Sensed | null = null, atHand: Sensed | null = null;

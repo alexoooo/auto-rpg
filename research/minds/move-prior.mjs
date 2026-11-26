@@ -38,8 +38,8 @@ async function collect(mindPath, protocol, from, to, out) {
   const { EVALUATIONS, playCase } = await import("../../src/app/node/evaluation.ts");
   const { DEFAULT_ENGINE } = await import("../../src/core/physics/engines.ts");
   const { isRefused } = await import("../../src/core/refusal.ts");
-  const { graceAt } = await import("../../src/minds/option/percepts.ts");
-  const { bodyOf, featuresOf, offeredOf, readingAt } = await import("../../src/minds/option/fitted-value.ts");
+  const { graceAt } = await import("../../src/minds/option/situation/reach-memory.ts");
+  const { bodyOf, featuresOf, offeredOf, readingAt } = await import("../../src/minds/option/predictions/value/fitted-value.ts");
   const mind = JSON.parse(readFileSync(mindPath, "utf8")), evaluation = EVALUATIONS.match, cases = evaluation.protocols[protocol];
   if (!cases) throw new Error(`no match protocol ${protocol}`);
   const [subject] = evaluation.subjects([{ id: "mind", label: "mind", value: mind }, { id: "mind2", label: "mind", value: mind }]);
@@ -83,7 +83,7 @@ function lineFeatures(kinds, line, best) {
 
 /** Fit the trees to the roots in `files` and say each reading's held-out nats. */
 async function fitAll(files) {
-  const { FEATURES } = await import("../../src/minds/option/fitted-value.ts");
+  const { FEATURES } = await import("../../src/minds/option/predictions/value/fitted-value.ts");
   // Each root's run shares beyond the one run each Option has first; a root none of whose runs went further is left out.
   const roots = [], kindsSeen = new Map(), bodies = new Set();
   for (const file of files) for await (const text of createInterface({ input: createReadStream(file), crlfDelay: Infinity })) {

@@ -1,8 +1,8 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { MindConfig } from "../../../minds/catalog/config.ts";
-import { HOLD_AT_OPTION } from "../../../minds/option/kinds.ts";
-import { isOptionMind } from "../../../minds/option/config.ts";
+import { HOLD_AT_OPTION } from "../../../minds/option/options/kinds.ts";
+import { isOptionMind } from "../../../minds/option/assembly/config.ts";
 import { hypot } from "../../../core/math/real.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, ScenarioRun } from "./lab-scenario.ts";

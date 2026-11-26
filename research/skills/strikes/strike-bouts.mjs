@@ -6,6 +6,9 @@
  *
  * node research/skills/strikes/strike-bouts.mjs --models man --gaps 3 --held empty --seconds 8 --workers 1
  *
+ * Every model fights every model of `--models`, the humanoids where none are named; with `--against`
+ * (`--models rat --against man`), each of `--models` fights each of those instead, on either side.
+ *
  * Each action is read apart by side: begun, committed, committed with a foot off the ground (the
  * lead foot, the one opposite the striking hand, among them), touched (a wound dealt at all),
  * landed (at least `LANDED`), and the damage its touching blows took (the wounds its effector
@@ -13,9 +16,10 @@
  *
  * `--set <path>=<JSON>` has both sides fight their model's own mind (`defaultMind`) with what is at
  * `path` replaced by the JSON, or by the JSON file it names (`replacedAt`, as `evaluate --ablate`);
- * `--set left:<path>=<JSON>`, that side's alone; one flag a setting, each in turn. The few terms at
- * aggression 3, `chooser.objective={"kind":"few-terms","aggression":3}`;
- * a foe's pressure as its strikes' rate alone, `predictions={"kind":"measured","pressure":"rate"}`.
+ * `--set left:<path>=<JSON>`, that side's alone, and `--set rat:<path>=<JSON>` that body's on
+ * whichever side it fights; one flag a setting, each in turn. The few terms at aggression 3,
+ * `chooser.objective={"kind":"few-terms","aggression":3}`; a foe's pressure as its strikes' rate
+ * alone, `predictions={"kind":"measured","pressure":"rate"}`.
  *
  * A saved bout keeps its winner, each side's life left (`bars`), when each went down, and each
  * side's decisions (`decisions`): at each of a mind that reports its offers (`Engagement.offers`),
@@ -54,27 +58,33 @@ if (isMainThread) {
   const { values } = parseArgs({ options: {
     models: { type: "string" }, gaps: { type: "string", default: "3,4,5" }, held: { type: "string", default: "club" },
     seconds: { type: "string", default: "120" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
-    set: { type: "string", multiple: true, default: [] },
+    set: { type: "string", multiple: true, default: [] }, against: { type: "string" },
   } });
-  /** A `--set`: the side it is for (null, both), the path and the value, the JSON given or the JSON file it names. */
+  /** A `--set`: the side or the body it is for (null, both), the path and the value, the JSON given or the JSON file it names. */
   const sets = values.set.map((text) => {
-    const at = text.indexOf("="), side = /^(left|right):/.exec(text)?.[1] ?? null, given = text.slice(at + 1);
-    if (at <= 0) throw new Error(`--set is [left:|right:]<path>=<JSON or a JSON file>: ${text}`);
+    const at = text.indexOf("="), side = /^(\w+):/.exec(text.slice(0, Math.max(0, at)))?.[1] ?? null, given = text.slice(at + 1);
+    if (at <= 0) throw new Error(`--set is [left:|right:|<model>:]<path>=<JSON or a JSON file>: ${text}`);
     return { side, path: text.slice(side === null ? 0 : side.length + 1, at), value: JSON.parse(existsSync(given) ? readFileSync(given, "utf8") : given) };
   });
-  const [{ HUMANOID_MODELS }, { LANDED }, { CONTEXT }, { replacedAt }, { recordingKey }, { sha256Text }] = await Promise.all([import("../../../src/core/bodies/models.ts"),
+  const [{ HUMANOID_MODELS, BODY_MODELS }, { LANDED }, { CONTEXT }, { replacedAt }, { recordingKey }, { sha256Text }] = await Promise.all([import("../../../src/core/bodies/models.ts"),
     import("../../../src/evaluation/strike/read.ts"), import("../../../src/app/node/context.ts"), import("../../../src/app/catalog.ts"),
     import("../../../src/core/world/recording.ts"), import("../../../src/evaluation/sha256.ts")]);
-  /** Both sides' minds, `left`'s and `right`'s: each its model's own with what `--set` gives it, in that order; null where it gives nothing. */
-  const mindsOf = (left, right) => sets.length === 0 ? null : Object.fromEntries(["left", "right"].map((side) =>
-    [side, sets.filter((one) => one.side === null || one.side === side).reduce((mind, { path, value }) => replacedAt(mind, path, value), CONTEXT.defaultMind(side === "left" ? left : right))]));
-  const models = values.models?.split(",") ?? HUMANOID_MODELS, gaps = values.gaps.split(",").map(Number), seconds = Number(values.seconds);
+  /** Both sides' minds, `left`'s and `right`'s: each its model's own with what `--set` gives that side or its body, in that order; null where it gives nothing. */
+  const mindsOf = (left, right) => sets.length === 0 ? null : Object.fromEntries(["left", "right"].map((side) => {
+    const model = side === "left" ? left : right;
+    return [side, sets.filter((one) => one.side === null || one.side === side || one.side === model).reduce((mind, { path, value }) => replacedAt(mind, path, value), CONTEXT.defaultMind(model))];
+  }));
+  const models = values.models?.split(",") ?? HUMANOID_MODELS, against = values.against?.split(",") ?? null, gaps = values.gaps.split(",").map(Number), seconds = Number(values.seconds);
   const lanes = Number(values.workers ?? defaultLanes()), helds = values.held.split(",");
-  if (!models.length || models.some(model => !HUMANOID_MODELS.includes(model)) || gaps.some(gap => !Number.isFinite(gap) || gap <= 0)
+  if (!models.length || [...models, ...against ?? []].some(model => !BODY_MODELS.includes(model)) || gaps.some(gap => !Number.isFinite(gap) || gap <= 0)
     || !Number.isFinite(seconds) || seconds <= 0 || !Number.isSafeInteger(lanes) || lanes < 1 || helds.some(held => !["club", "empty"].includes(held)))
     throw new Error("invalid models, gaps, seconds, workers or held selection");
+  const unknown = sets.find((one) => one.side !== null && one.side !== "left" && one.side !== "right" && !BODY_MODELS.includes(one.side));
+  if (unknown) throw new Error(`--set for ${unknown.side}: neither a side nor a body`);
   const jobs = [];
-  for (const held of helds) for (const gap of gaps) for (const left of models) for (const right of models) jobs.push({ left, right, gap, held, seconds, minds: mindsOf(left, right) });
+  // Each model against each, or, with `--against`, each of `models` against each of those, on either side.
+  const pairs = against ? models.flatMap((one) => against.flatMap((other) => [[one, other], [other, one]])) : models.flatMap((left) => models.map((right) => [left, right]));
+  for (const held of helds) for (const gap of gaps) for (const [left, right] of pairs) jobs.push({ left, right, gap, held, seconds, minds: mindsOf(left, right) });
   /** A bout's key: its bodies, gap, what they hold and its seconds, and a digest of its minds. */
   const key = (job) => `${job.left} ${job.right} ${job.gap} ${job.held} ${job.seconds} ${sha256Text(recordingKey({ minds: job.minds })).slice(0, 16)}`;
   const loaded = new Map(values.load ? savedBouts(values.load) : []);
@@ -168,14 +178,14 @@ if (isMainThread) {
             /** An offer's terms: how long, s, and the life it deals and takes; null with none. */
             const termsOf = (t) => t ? { duration: +t.duration.toFixed(3), dealt: +t.dealt.toFixed(5), taken: +t.taken.toFixed(5) } : null;
             const hold = offers.find((offer) => offer.name === "hold")?.terms;
-            /** The best worth of each kind of offer (`Choice.kind`). */
+            /** The best worth of each kind of offer (`Option.kind`). */
             const bestByKind = (all) => { const best = {}; for (const offer of all) best[offer.kind] = Math.max(best[offer.kind] ?? -Infinity, +offer.worth.toFixed(5)); return best; };
             decisions[side].push({
               t: +duel.clock.toFixed(4),
               /** How far apart the two bodies' centres are, m. */
               apart: +Math.hypot(a.x - b.x, a.z - b.z).toFixed(3),
               chosen: engagement.phase, terms: termsOf(terms),
-              /** What the search found the chosen offer worth (`Priced.worth`), and the best of each kind on offer. */
+              /** What the search found the chosen offer worth (`Offer.worth`), and the best of each kind on offer. */
               worth: chosen ? +chosen.worth.toFixed(5) : null, worths: bestByKind(offers),
               /** Its own life then, and the foe's. */
               life: +me.pool.bar().toFixed(5), foeLife: +foe.pool.bar().toFixed(5),

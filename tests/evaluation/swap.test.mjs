@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 const { BOUT_ENGINE } = await import("../../research/bout.mjs");
 const { MINDS, partLookup } = await import("../../src/app/catalog.ts");
-const { optionsOf } = await import("../../src/minds/option/config.ts");
+const { optionsOf } = await import("../../src/minds/option/assembly/config.ts");
 const { EVALUATIONS } = await import("../../src/app/node/evaluation.ts");
 const { resolveSubjects } = await import("../../scripts/evaluation-subjects.mjs");
 const { casesOf } = await import("../../src/evaluation/run.ts");

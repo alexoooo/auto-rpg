@@ -8,11 +8,11 @@ import type { World } from "../../core/world/world.ts";
 import type { Reader } from "../evaluation.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
 import { dataOf } from "../../core/data/store.ts";
-import { measuredReach } from "../../minds/option/percepts.ts";
+import { measuredReach } from "../../minds/option/predictions/exchange/model.ts";
 import { wrap } from "../../core/math/turn.ts";
 import { centreReading } from "../../control/observation.ts";
 import type { Stances } from "../../skills/framework/profile/profile.ts";
-import type { HostedBody } from "../../minds/seat/hosted-body.ts";
+import type { CommandedBody } from "../../minds/seat/hosted-body.ts";
 import { LANDED, sensedFoe } from "../strike/read.ts";
 import { stepBlows } from "../contest.ts";
 
@@ -28,7 +28,7 @@ export function inReach(duel: Duel): boolean {
   const subject = duel.duelists.left, attacker = duel.duelists.right;
   let kept = REACHES.get(duel);
   if (!kept) REACHES.set(duel, kept = { by: new Map(), head: centreReading(subject.built, "head") });
-  const view = "view" in subject.body ? (subject.body as HostedBody).view : null;
+  const view = "view" in subject.body ? (subject.body as CommandedBody).view : null;
   if (view) kept.head.update();
   const phase = view ? sensedFoe({ spec: subject.built.spec, senses: subject.senses(), head: kept.head.centre, view, at: view.stance.centre, going: view.stance.velocity }, attacker.id).phase : "clear";
   let reach = kept.by.get(phase);
@@ -159,7 +159,7 @@ type Settling = { readonly sway: Omit<Sway, "down" | "facing">; readonly facing:
  */
 function followSways(duel: Duel, { chosen }: { readonly chosen: boolean }): { readonly sways: readonly Sway[]; afterStep(now: number, lost: number): void } {
   const subject = duel.duelists.left, attacker = duel.duelists.right;
-  const view = "view" in subject.body ? (subject.body as HostedBody).view : null, head = centreReading(subject.built, "head"), theirHead = centreReading(attacker.built, "head");
+  const view = "view" in subject.body ? (subject.body as CommandedBody).view : null, head = centreReading(subject.built, "head"), theirHead = centreReading(attacker.built, "head");
   const sways: Sway[] = [], settling: Settling[] = [];
   let going: Going | null = null;
   /** Where the two stand now (`Places`); null where the subject has no view or its legs no heading, or it does not see the attacker. */

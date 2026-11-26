@@ -2,15 +2,17 @@
 
 The testbed plan was deleted at `76b8da80e` on six bars the reviewing session wrote, none of which
 named these. This plan holds everything that plan named and nothing built, but for bodies and
-what they hold, which is [the numbers plan](2026-11-18-numbers.md)'s; the ground, struck from that
-plan by the owner, is item 14 here. **The numbers
-plan's items are the owner's must-haves; these are a list kept so none is lost, and which of them
-is needed is the owner's to say.** Not begun, and none is begun until the owner orders it; it
-sits, none of it pending or next (the owner, 2026-11-18, through the reviewing session: "re the
-testbed-rest, i'm not sure yet exactly what parts of that we need. that plan can just sit there
-for now, it doesn't have to be pending"). The
-order of this plan and the numbers plan is the owner's
-to give.
+what they hold as numbers: that was the numbers plan's, folded on 2026-11-25 into
+[the measured Mind plan](2026-11-25-measured-mind.md). The ground, struck from the numbers plan
+by the owner, is item 14 here. **The numbers plan's items are the owner's must-haves; these are a
+list kept so none is lost, and which of them is needed is the owner's to say.** It sits, none of
+it pending or next (the owner, 2026-11-18, through the reviewing session: "re the testbed-rest,
+i'm not sure yet exactly what parts of that we need. that plan can just sit there for now, it
+doesn't have to be pending"). None is begun here until the owner orders it.
+
+Items 4, 8 and 10 are worked in the measured Mind plan, by the owner's order of it, and parts of
+11 and 18; each says so below. Such an item leaves this list as any does: built and read by 19
+to 21, or struck by the owner by name.
 
 ## The goal, in the owner's words
 
@@ -58,20 +60,21 @@ going."
 
 Built of the testbed, in [the approaches](../approaches.md#minds): the scorecard
 (`src/evaluation/scorecard/`) and the match chosen on `warrior` and held out on `warrior-drawn`
-(`src/evaluation/match/cases.ts`), both the Warrior empty-handed against itself alone; the
-contracts (`OutcomeModel`, `src/skills/framework/outcomes.ts`; `OthersModel`,
-`src/minds/option/percepts.ts`; the search's leaf, `src/minds/option/chooser.ts`; a chooser, `Selection`,
-`src/minds/choice.ts`). Their kinds:
+(`src/evaluation/match/cases.ts`), both the Warrior empty-handed against itself alone, and since
+then the rat against him (the tournament's `gaps`, `src/evaluation/tournament/cases.ts`); the
+contracts (`OutcomeModel`, `src/skills/framework/outcomes.ts`; `ExchangePredictor`,
+`src/minds/option/contract/predictors.ts`; the search's leaf, `src/minds/option/choosers/leaves.ts`; a chooser, `Chooser`,
+`src/minds/option/contract/chooser.ts`). Their kinds:
 
 | Contract | Built | Named and not built |
 | --- | --- | --- |
 | the outcome model | by hand; the nearest trials; a written form (the game's); a coarse table, removed | a forest; the world itself played forward |
-| the others' model | the rate; the measured pressure (the game's); the foe's steps persisting and as measured, removed | the Mind's own choosing in the foe's place |
-| the line's end | the tail (the game's); a half-life, by distance and by the next exchange two ways, removed | a line played out by a cheap policy |
-| the chooser | tree (the game's), valued, ranked; a warm start, removed | the four kinds below that keep their work; a trained policy |
+| the others' model | the rate; the measured pressure (the game's); the foe's replies searched, for a foe of the same body; the foe's steps persisting and as measured, removed | the Mind's own choosing in the place of a foe of another body |
+| the line's end | the tail (the game's); a value fitted to what followed (the empty-handed man's); a half-life, by distance and by the next exchange two ways, removed | a line played out by a cheap policy |
+| the chooser | tree (the game's), valued, ranked; a warm start (`keeps`, `option-warm`); a prior fitted to past searches' runs, removed | the other three kinds below that keep their work; a trained policy |
 
-The tree chooser decides by 100 runs (`RUNS`, `src/minds/option/chooser.ts`) of a tree made anew,
-its budget handed in as runs alone (`Budget`, `src/minds/option/parts.ts`). A strike is read one
+The tree chooser decides by 50 runs (`RUNS`, `src/minds/option/choosers/parts.ts`) of a tree made anew,
+its budget handed in as runs alone (`TreeConfig.runs`). A strike is read one
 way in a drill and in a bout (`readFought`, `strikeTrial`, `src/evaluation/strike/`) and profiles
 can be built from bouts (`research/skills/strikes/bout-profiles.mjs`), but the game's tables are
 the drills', and the back step's sways and the pressure's moments are each gathered by a script
@@ -95,10 +98,13 @@ moved: it is used again by how like the new situation is and how old it is.
 | a table by situation | each rounded situation's worths, across decisions and bouts | a rounding too coarse joins unlike situations |
 | a prior fitted from past searches | each Option's worth, as a model | its fitting, again as skills change |
 
-1. **The search spread over steps**, a chooser kind beside the tree. Taken by the Warrior's Mind plan (its findings in [the approaches](../approaches.md#minds)).
-2. **The branch kept**, likewise. Taken by the Warrior's Mind plan (its findings in [the approaches](../approaches.md#minds)).
-3. **A table by situation**, likewise.
-4. **A prior fitted from past searches**, likewise.
+1. **The search spread over steps**, a chooser kind beside the tree. The Warrior's Mind plan took
+   it and closed with it not read ([the approaches](../approaches.md#minds), "Not yet read").
+2. **The branch kept**, a chooser kind beside the tree, and likewise taken and not read.
+3. **A table by situation**, a chooser kind beside the tree.
+4. **A prior fitted from past searches**, a chooser kind beside the tree. Built once, read and
+   removed (the approaches). Worked in [the measured Mind plan](2026-11-25-measured-mind.md), as
+   its action prior.
 5. **The budget handed in as time** as well as runs.
 
 Each of 1 to 4 is read against the tree chooser at the same budget, and by a step's worst
@@ -111,24 +117,31 @@ bout makes again and the bout plays the same without.
 7. **The world itself played forward**, an outcome model off the game's clock: the truth each
    other outcome kind is read against.
 8. **The Mind's own choosing in the foe's place**, an others' model: what the foe does next is
-   what the Mind would choose standing where the foe stands.
+   what the Mind would choose standing where the foe stands. Built for a foe of the same body
+   (`repliedSearch`). For any foe it is worked in the measured Mind plan: the foe's Options
+   built from his own body, weighted by the action prior.
 9. **A line played out by a cheap policy**, off the game's clock: what each line's end is read
    against.
-10. **A trained policy**, a chooser.
+10. **A trained policy**, a chooser. Worked in the measured Mind plan: a body deciding by the
+    action prior alone.
 
 **Built in part.**
 
 11. **One log**: a drill's trial and a bout's decision write the same row (the situation, the
     action, what followed over the seconds asked); every table the game's Mind reads (the
-    strikes', the back step's, the pressure's, the foe's steps') is built from rows by one
-    builder; drawn against chosen is a weight on rows.
+    strikes', the back step's, the pressure's) is built from rows by one builder; drawn against
+    chosen is a weight on rows. The measured Mind plan's fight record is the row a bout's
+    decision writes, and its fits read from rows. A drill's trial writing the same row, the one
+    builder of the strikes' and the sways' tables, and the weight are left here.
 12. **The scorecard and the match by body**: their readings sliced by body and by what it holds,
-    on a set that is not the Warrior empty-handed alone (the set is the numbers plan's item 4 to
-    make; this item reads on it).
+    on a set that is not the Warrior empty-handed alone. The set (bodies and the club crossed)
+    does not exist; it was the numbers plan's to make and is now the measured Mind plan's,
+    parked there by the owner with what a body holds. This item reads on it.
 13. **Several units**: what several foes cost against what the Mind expects of them, read beyond
     two men on one (two on two, three on one, each body), with its spread; where the two differ
     past it, the cause found and mended. (The Skeletons priced at about 20 times what they deal
-    is the numbers plan's item 3.)
+    are likely priced by the rate, having no pressure table. The measured Mind plan's
+    mechanism for what a foe deals needs no table; its reading on the Skeletons is this item's.)
 
 **Named by the testbed plan and found unbuilt later.**
 
@@ -145,13 +158,17 @@ bout makes again and the bout plays the same without.
 16. **A model's own reading held out by bout** on the scorecard: a kind's table (the pressure's)
     built from half the bouts and read on the rest.
 17. **The strikes' exits split** into the body's own change and the foe's, as the back step's is
-    (`exit.own`), the foe's asked of the others' model.
-18. **A line's end written over the state**, taken by the Warrior's Mind plan (its findings in [the approaches](../approaches.md#minds)); the owner's authored evaluation (the goal): each
+    (`sways: "own"`), the foe's asked of the others' model.
+18. **A line's end written over the state**. The Warrior's Mind plan built and read it for the
+    empty-handed man, by hand-chosen terms and as a value fitted to what followed
+    ([the approaches](../approaches.md#minds)). The fitted value for every body is worked in
+    the measured Mind plan; the authored terms and weights below are left here.
+    The owner's authored evaluation (the goal): each
     side's life, range by each one's reach, who is how far into what, who is down, and what the
     back step found (the body's facing, whether a strike is on offer), several weights fitted by
-    bouts won and held out. Built of a written line's end: `ByDistance` (three numbers, one scale
-    fitted), `ByExchange` and `ByNext` (one number each, `src/minds/option/chooser.ts`); none
-    reads the state past distance and the next exchange. What [the back step](../approaches.md#guarding)'s
+    bouts won and held out. The written line's ends built before it (by distance, and by the
+    next exchange two ways) read nothing of the state past those, and are removed. What
+    [the back step](../approaches.md#guarding)'s
     order asks of a sway's pricing. The owner (through the reviewing session, 2026-11-18): "my
     suspition is that the pricing problems can be fixed with a proper Stockfish-style authored
     features + weights design. it's on if we don't have one universal best value function, we can
@@ -180,8 +197,8 @@ Carried so they are not lost; none is a bar here.
 - **What the chosen moments hold that a start does not**: the foe's action and its progress, the
   seconds since the body's own last action ended and since it last decided.
 - **A value read from bouts is the Minds' that fought them.** How a table is kept true as the Mind
-  that reads it changes what it does is not answered.
+  that reads it changes what it does: it is not, by the owner's word (2026-11-25, in
+  [the measured Mind plan](2026-11-25-measured-mind.md)'s goal). A measurement is a best effort
+  that goes stale as others are made, and is refreshed from time to time.
 - **Whether a long price is made of short ones**: the next 0.2 s by the foe's state, and the
   chance the foe begins a strike.
-
-## Steps

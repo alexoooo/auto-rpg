@@ -12,6 +12,9 @@ import { deepFreeze } from "../../core/state.ts";
  */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "tree", leaf: "fitted", best: 0, objective: { kind: "few-terms", aggression: 4, initiative: .3 } }, rate: 60 });
 
+/** `option-lean`: the defaults deciding ten times a second, the foe kept moving over a line's first half second, its own body priced truer (`walkStart`, `sways`). */
+const LEAN = deepFreeze({ ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, carry: .5 }, rate: 10, predictions: { kind: "measured", walkStart: "signed", sways: "own" } }) satisfies OptionMindConfig;
+
 /**
  * Its config, on any body it fits, for fights and for measuring its profiles; and the drills' mind
  * (`option-drill`), on no menu: on its priors (`PRIOR_PREDICTIONS`), its
@@ -29,11 +32,15 @@ const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: 
  * gait's lag (`walkStart` signed), a sway leaving the body by its own steps (`sways` own), and the
  * foe kept moving over a line's first half second (`carry`), as strong as `option-reply`. And that
  * one deciding ten times a second with no reply searched (`option-lean`): as strong, at about half
- * its thinking.
+ * its thinking. And the Mind that presses its attack (`option-presses`): each state worth its
+ * best line (`best` 1), at aggression 5 and initiative 0.3, the rat's, which bites the Warrior more
+ * often than it waits. And `option-lean` given no guesses (`option-measured`): a strike, a
+ * foe's limb, a blow coming or a way up with no measurement is not priced by hand but left out.
  */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   option: { label: "Option Mind", config: OPTION_DEFAULTS },
   "option-drill": { label: "Option Mind for drills", config: { ...OPTION_DEFAULTS, chooser: { kind: "ranked" }, predictions: { kind: "prior" } }, offered: false },
+  "option-presses": { label: "Presses in", config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, best: 1, objective: { kind: "few-terms", aggression: 5, initiative: .3 } } } },
   "option-tail": { label: "Rushes in", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree" } } },
   "option-fitted": { label: "Option Mind, fitted mean", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree", leaf: "fitted", best: 0, objective: { kind: "few-terms", aggression: 4 } } } },
   "option-fitted-horizon": { label: "Option Mind, fitted mean, horizon 60 s", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree", leaf: "fitted", best: 0, horizon: 60, objective: { kind: "few-terms", aggression: 4 } } } },
@@ -45,8 +52,6 @@ export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
     label: "Thinks ahead, foe's reply",
     config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, replies: 1, against: "mean", carry: .5 }, predictions: { kind: "measured", walkStart: "signed", sways: "own" } },
   },
-  "option-lean": {
-    label: "Thinks ahead",
-    config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, carry: .5 }, rate: 10, predictions: { kind: "measured", walkStart: "signed", sways: "own" } },
-  },
+  "option-lean": { label: "Thinks ahead", config: LEAN },
+  "option-measured": { label: "Option Mind, measured only", config: { ...LEAN, predictions: { ...LEAN.predictions, kind: "measured-only" } } },
 });

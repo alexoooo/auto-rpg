@@ -5,5 +5,4 @@ export type { MindWiring, MindMade } from "./catalog/controller.ts";
 export type { MindDescription, ComponentDescription } from "./catalog/description.ts";
 export type { BodyHost } from "./mind.ts";
 export type { Entrant } from "./catalog/entrant.ts";
-export { selectSet, type Choice, type Selection, type Chosen } from "./choice.ts";
-export type { Decider, Sight } from "./decider.ts";
+export type { Sight } from "./decider.ts";

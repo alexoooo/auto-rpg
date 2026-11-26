@@ -23,7 +23,7 @@ const REGAIN_OFF = .3;
  * timed out past `REGAIN_LIMIT`.
  */
 export function stanceRegain(own: OwnBody, view: BodyView, motor: Carrying<"stance">, climb: number) {
-  const feet = Object.keys(stanceFeetOf(own.spec));
+  const feet = Object.freeze(Object.keys(stanceFeetOf(own.spec)));
   const state = { time: 0, off: 0, reached: 0, height: 0, heading: 0 };
   return {
     state,

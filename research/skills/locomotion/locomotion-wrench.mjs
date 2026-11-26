@@ -295,7 +295,7 @@ function running(stand, { labActor, startLocomotion, trackOf, LAB_MIND }, pace) 
   const run = startLocomotion(actor, trackOf(LINE.pieces), { top: pace, facing: LINE.facing });
   if (isRefused(run)) { actor.dispose(); stand.dispose(); throw new Error(run.refused); }
   const { body } = run;
-  return { muscles: body.muscles, stance: body.state.mind.host.motor.stance, reading: body.view.stance, down: () => body.view.down,
+  return { muscles: body.muscles, stance: body.state.mind.layers.motor.stance, reading: body.view.stance, down: () => body.view.down,
     advance: () => stand.step(stand.seconds(0.1)), frame: () => run.frame(), dispose: () => run.dispose() };
 }
 

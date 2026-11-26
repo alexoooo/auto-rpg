@@ -33,8 +33,7 @@ import { describeMind } from "../../minds/catalog/catalog.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import { kitOf, kitOffers, type KitEntry } from "../../skills/framework/menu.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { BodyModel } from "../../core/bodies/models.ts";
-import { modelHolding, modelSpec } from "../../core/bodies/models.ts";
+import { type BodyModel, modelHolding, modelSpec } from "../../core/bodies/models.ts";
 import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { seatBody, sideCharacters, type BoutTiming, type Cases, type Json, type Seat, type Subject } from "../evaluation.ts";
@@ -44,7 +43,7 @@ import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/context.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
 import { STAGGERED } from "../../skills/locomotion/shared/locomotion.ts";
-import { inCarriage } from "../../minds/option/config.ts";
+import { inCarriage } from "../../minds/option/assembly/config.ts";
 import { between } from "../twin.ts";
 
 /**
@@ -468,6 +467,9 @@ const SPARRING_FEET = deepFreeze({ ...SPARRING, hands: [] as Hand[], feet: [...S
 const SPARRING_BITE = deepFreeze({ ...SPARRING, models: ["rat"] as BodyModel[], hands: [] as Hand[], effectors: ["head"], marks: ["legs"] as Mark[], seed: 7,
   trials: SPARRING.trials });
 
+/** The bite's sparring twin, `sparring-bite-twin`: a fifth of its starts, from another stream, for a search of the bite to score its candidates on. */
+const SPARRING_BITE_TWIN = deepFreeze({ ...SPARRING_BITE, seed: 8, trials: SPARRING_BITE.trials / 5 });
+
 /**
  * **Sparring at a foe laid down**, the `sparring-laid` rung: the stomping rung's sampled starts
  * (`STOMPING_SAMPLED`), with each foot, at each of the game's foes laid down and fighting back
@@ -626,7 +628,8 @@ export const createStrikeCases = perContext((context: GameContext) => {
     "sparring-stances": stillCases(SPARRING_STANCES, sampledConditions(SPARRING_STANCES)),
     "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
     "sparring-feet": stillCases(SPARRING_FEET, sampledConditions(SPARRING_FEET)),
-    "sparring-bite": stillCases(SPARRING_BITE, sampledConditions(SPARRING_BITE)),
+    "sparring-bite": { ...stillCases(SPARRING_BITE, sampledConditions(SPARRING_BITE)), twin: "sparring-bite-twin" },
+    "sparring-bite-twin": stillCases(SPARRING_BITE_TWIN, sampledConditions(SPARRING_BITE_TWIN)),
     "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), ...twinned("middle", MIDDLE), ...twinned("base", BASE), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT, fightGrid(FIGHT)), fights: fightCases(FIGHTS, fightGrid(FIGHTS)),

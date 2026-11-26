@@ -1,4 +1,4 @@
-import { FEW_TERMS_PART, REACH_PLACE_PART } from "../../minds/option/objective.ts";
+import { FEW_TERMS_PART, REACH_PLACE_PART } from "../../minds/option/choosers/objectives.ts";
 
 /**
  * **Every objective, by its kind** (`ObjectivePart`), in the order a picker offers them: a line here

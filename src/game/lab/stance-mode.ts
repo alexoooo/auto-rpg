@@ -1,7 +1,7 @@
 import type { StancePhase } from "../../control/stance/goal.ts";
 import { isRefused, type Refused } from "../../core/refusal.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
-import type { HostedBody } from "../../minds/seat/hosted-body.ts";
+import type { CommandedBody } from "../../minds/seat/hosted-body.ts";
 import type { BuiltSegment } from "../../core/bodies/build/build-body.ts";
 import { NO_COVER, type Intent } from "../../skills/framework/intent.ts";
 import type { Script } from "../../minds/decider.ts";
@@ -61,7 +61,7 @@ export interface StanceFrame {
 
 interface StanceSession {
   readonly state: { readonly actor: Actor["state"]; readonly orders: StanceOrders; readonly shoving: { shove: Vector3 | null } };
-  readonly body: HostedBody;
+  readonly body: CommandedBody;
   readonly orders: StanceOrders;
   /** Shove the middle trunk by `impulse` N s, level, `degrees` about up from the heading (90 to its right). */
   shove(impulse: number, degrees: number): void;
@@ -90,7 +90,7 @@ export const LAB_TURN_RATE = 1;
  */
 function stanceScript(orders: StanceOrders): Script {
   return {
-    name: "keys", state: { orders },
+    state: { orders },
     decide({ report }, dt): Intent {
       const walking = orders.forward !== 0 || orders.right !== 0;
       return {
@@ -144,7 +144,7 @@ export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impul
 }
 
 /** Queue a level impulse on the middle trunk before physics, relative to the supplied heading. */
-export function shoveBody(body: Pick<HostedBody, "built">, world: World, heading: () => number,
+export function shoveBody(body: Pick<CommandedBody, "built">, world: World, heading: () => number,
   pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void) {
   const built = body.built;
   const trunk = built.segments.get("middleTrunk");

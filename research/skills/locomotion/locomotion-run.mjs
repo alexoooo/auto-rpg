@@ -139,7 +139,7 @@ async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, sec
   const [{ modelSpec }, { labActor }, { startLocomotion }, { TRACKS, trackOf }, { commandsOf }, { LAB_MIND }, { STANCE_GAIT }, { coreStand }, { armedWith }, { withLegs }] = await Promise.all([
     import("../../../src/core/bodies/models.ts"), import("../../../src/app/node/game.ts"), import("../../../src/game/lab/locomotion-mode.ts"), import("../../../src/game/lab/track.ts"),
     import("../../../src/game/lab/commands.ts"), import("../../../src/app/node/setup.ts"), import("../../../src/control/stance/stance-tuning.ts"), import("../../../tests/harness/core-stand.mjs"),
-    import("../../../src/core/bodies/items/held.ts"), import("../../../src/minds/option/config.ts"),
+    import("../../../src/core/bodies/items/held.ts"), import("../../../src/minds/option/assembly/config.ts"),
   ]);
   const line = LINES[id];
   const info = id === "random" ? { facing: undefined } : line === undefined ? TRACKS[id] : { pieces: [{ kind: "corner", metres: 0, turn: line }, { kind: "straight", metres: 80 }], facing: 0 };
@@ -178,7 +178,7 @@ async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, sec
   const trail = [];
   let steps = 0, shortfall = 0;
   // The steps' readings: landings, the friction asked, the shortfall by phase and component.
-  const stanceState = run.body.state.mind.host.motor.stance, g = -stand.built.physics.gravity[1];
+  const stanceState = run.body.state.mind.layers.motor.stance, g = -stand.built.physics.gravity[1];
   const mass = [...stand.built.segments.values()].reduce((sum, s) => sum + s.rigid.mass, 0);
   const landings = [], velocities = [], friction = { one: [], two: [] };
   const PHASES = ["stand", "shift", "early", "late"], PARTS = ["force", "pitch", "roll", "yaw"];

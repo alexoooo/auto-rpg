@@ -1,5 +1,5 @@
 import type { Hook } from "../../../core/bodies/step-host.ts";
-import type { HostedBody } from "../../../minds/seat/hosted-body.ts";
+import type { CommandedBody } from "../../../minds/seat/hosted-body.ts";
 import type { Skills } from "../../../skills/framework/skills.ts";
 import type { World } from "../../../core/world/world.ts";
 
@@ -51,7 +51,7 @@ function said({ report }: Pick<Skills, "report">): Readonly<Record<string, strin
 }
 
 /** Note in `log`, after each of `world`'s steps, each thing said of `skills`' report that is not what was last said of its kind, at the time `body`'s mind saw. */
-export function watchSkills(world: World, body: HostedBody, skills: Pick<Skills, "report">, log: MindLog): Hook {
+export function watchSkills(world: World, body: CommandedBody, skills: Pick<Skills, "report">, log: MindLog): Hook {
   const last: Record<string, string | null> = {};
   return world.afterStep(() => {
     for (const [kind, text] of Object.entries(said(skills))) {
@@ -63,7 +63,7 @@ export function watchSkills(world: World, body: HostedBody, skills: Pick<Skills,
 }
 
 /** Note in `log` who has `body` (`Body.has`) whenever it is not who last had it, after each of `world`'s steps, at the time its mind saw. */
-export function watchHas(world: World, body: HostedBody, log: MindLog): Hook {
+export function watchHas(world: World, body: CommandedBody, log: MindLog): Hook {
   let last = body.has;
   return world.afterStep(() => {
     if (body.has === last) return;

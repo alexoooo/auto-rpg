@@ -11,7 +11,7 @@ import type { PartLookup } from "../../parts/lookup.ts";
 export interface MotorAndGuard {
   /** What makes a motor control: the mind's motor (`MotorPart.make`). */
   readonly motor: MotorMaker;
-  /** The initial posture: one selected guard's, or the reference pose until a choice among several. */
+  /** The initial posture: one selected guard's, or the reference pose until a choice among several. Frozen. */
   readonly posture: Pose;
   /** The mind's guard, made for `built` (`GuardPart.make`). */
   guard(built: ReadBody): GuardSkill;

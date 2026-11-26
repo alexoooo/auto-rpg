@@ -276,7 +276,19 @@
   "option-truer": {
     "note": "scored 0.502 against Option Mind, foe's closing reply over 576 bouts (0.542 and 0.462 on the two halves); 80.1% knockouts within 60 s (that Mind 88.4%), 1.20 downs a bout (0.75); its step as that Mind's at the same roots"
   },
+  "option-presses": {
+    "bodies": {
+      "rat": {
+        "loadouts": {
+          "empty,empty": "at least 1 HP from the empty-handed Warrior within 60 s in 40 of 48 bouts of the tournament's gaps (Option Mind 29, Rushes in 8)"
+        }
+      }
+    }
+  },
   "option-lean": {
     "note": "scored 0.486 (0.431 to 0.542) against Thinks ahead, foe's reply over 288 warrior-drawn bouts, as that Mind at 10 decisions a second and no reply searched; 45.1% knockouts within 60 s (that Mind 38.6%), 3.59 downs a bout (4.01); its thinking 135 ms a simulated second against that Mind's 251"
+  },
+  "option-measured": {
+    "note": "scored 0.358 (0.292 to 0.421) against Thinks ahead over 120 bouts of the standard match, as that Mind with no guess set by hand; 8.3% knockouts within 60 s (that Mind 25.0%); the regain, which no drill measured, is never on offer"
   }
 }

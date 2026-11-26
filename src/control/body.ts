@@ -20,42 +20,37 @@ import type { GroundReading } from "./ground-reading.ts";
 import type { ReadBody } from "../core/bodies/read-body.ts";
 
 /**
- * **A body, commanded and seen**: the body its drivers have under the command layers
- * (`commandLayers`, `src/minds/motor-layers.ts`), any mind's to build on its own body.
- * Its muscles are under motor control, commanded by goals and read through a view: whoever drives
- * it at this level -- a decider's skills, the lab's routine, a test -- sees the view and hands back
- * a command. A mind may drive muscles itself instead (`Mind`, `src/minds/mind.ts`).
+ * **A body, commanded and seen**: the body under the command layers (`commandLayers`,
+ * `src/minds/motor-layers.ts`), any mind's to build on its own body. Its muscles are under motor
+ * control, commanded by goals and read through a view: whatever works at this level -- a mind's
+ * skills, the lab's routine, a test -- sees the view and hands back a command (`BodyCommand`). A
+ * mind may drive muscles itself instead (`Mind`, `src/minds/mind.ts`).
  *
- * Each control step the body reads its view, asks its driver for a command, and gives the command
- * to motor control, all before the solver step, so a command acts in the step it was made for.
- * While a mind that hands its body over (`hosting`) has given it to another, the view is read all
- * the same, the driver is not asked, and the other writes the muscles.
+ * Each control step the Mind that owns the layers has them read the view and gives the command
+ * now due to motor control (`CommandingMind`, `src/minds/commanding-mind.ts`), all before the
+ * solver step, so a command acts in the step it was made for. While that Mind has given its body
+ * to another, the view is read all the same and the other writes the muscles.
  */
 export interface Body {
   readonly dt: number;
   readCommand(out: Pick<BodyControl, "muscles" | "assist">): void;
   readonly built: ReadBody;
-  /** The muscles, for readings (a view of the torques); a driver commands through `drive`. */
+  /** The muscles, for readings (a view of the torques); they are commanded through the layers. */
   readonly muscles: MuscleReading;
   /** The view as the last step left it, or as built before the first. */
   readonly view: BodyView;
   /**
-   * What the stance was measured to hold with this body (`stance-envelope.ts`), so a driver asks for
+   * What the stance was measured to hold with this body (`stance-envelope.ts`), so its mind asks for
    * its fastest walk and not a number; null under a stance tuning other than the core's, which the
    * measurement did not see, or while the envelope is being measured (`LayerOptions.measuring`).
    */
   readonly envelope: StanceEnvelope | null;
   /** Its assist (`Assist`), for its meter; a fight withdraws it. */
   readonly assist: AssistReading;
-  /** The steps between a driver's command and motor control carrying it out (`OwnBody.delay`). */
+  /** The steps between a decision and motor control carrying it out (`OwnBody.delay`). */
   readonly delay: number;
   /** What a contact with another physics body is read as (`OwnBody.contactIdentity`), where the body is told; a skill that reads a touch of its own reads it so. */
   readonly contactIdentity?: ContactIdentity;
-  /**
-   * Drive each control step; null keeps the command. Replaced, a driver's decisions not yet carried
-   * out are dropped. `released` discards pending driver work on sub-mind takeover or idle.
-   */
-  drive(driver: BodyDriver | null, released?: (view: BodyView, reason: "takeover" | "idle" | "replaced") => void): void;
   /** Observe completed physics intervals after effector feedback is sampled, at full level under any holder (`CommandLayers.observe`). */
   afterPhysics(listener: (step: number, time: number) => void): () => void;
 }
@@ -66,30 +61,6 @@ export const COMMAND = "command";
 /** Whether the command layers currently drive this body, rather than a sub-mind or nobody. */
 export function commandsBody(body: { readonly has: string; readonly level: BodyLevel }): boolean {
   return body.level === "full" && body.has === COMMAND;
-}
-
-/**
- * What drives a body: given the view and the step, the command for this step, or null to keep the
- * last (after a sub-mind had the body, the last is its posture alone). The body keeps the command's goals in its state, and a load writes into whatever of a
- * state is not frozen. So a command, and whatever it holds, is made for the step, or frozen
- * (`deepFreeze`), or part of a state saved and loaded with the body's, as the skills' is
- * (`Skills.state`).
- * A function driver is stateless; a driver that remembers between steps supplies `SplitDriver.state`.
- */
-type BodyDriver = ((view: BodyView, dt: number) => BodyCommand | null) | SplitDriver<unknown>;
-
-/**
- * **A driver in two parts**: what it decides on the view as sensed (`decide`), and the command it
- * carries the decision out with on the body as it is (`carry`, null to keep the command). It
- * decides in `think` and carries out the due decision in `act`, on a view whose body is current
- * and whose senses are those the last decision read. A driver that is one function decides its
- * command whole.
- */
-export interface SplitDriver<T> {
-  /** All memory carried between decisions, saved under the Mind that owns these layers. */
-  readonly state: object;
-  decide(view: BodyView, dt: number): T;
-  carry(view: BodyView, decision: T, dt: number): BodyCommand | null;
 }
 
 /**
@@ -134,7 +105,7 @@ export interface BodyCommand {
   readonly held?: number;
 }
 
-/** **What a body shows its driver**, read at the start of each control step from the step before. */
+/** **What a body shows the mind that commands it**, read at the start of each control step from the step before. */
 export interface BodyView {
   /** Every segment's current physical pose, world coordinates. */
   readonly segments: Readonly<Record<string, { readonly position: Vector3; readonly rotation: Quaternion;
@@ -151,7 +122,7 @@ export interface BodyView {
   readonly time: number;
   /**
    * Seconds of the world's clock at the body's first view, as it was built, that a command is made
-   * on: at a delay, the first step its driver's decision is carried out. Where its own time starts,
+   * on: at a delay, the first step a decision is carried out. Where its own time starts,
    * so a body behaves the same in a world that has run before it, and what it takes at birth (the
    * legs' heading, `locomotion`) it takes from the body as it was built.
    */
@@ -187,7 +158,7 @@ export interface BodyView {
    * while the host stands.
    */
   readonly ground: GroundReading | null;
-  /** Whether a sub-mind had the body until this step: whatever its driver had under way is over. */
+  /** Whether its mind has the body back this step from another holder or from nobody: whatever the mind had under way is over. */
   readonly resumed: boolean;
   /** What the body reads once a step for all its callers (`StepReading`). */
   readonly reading: StepReading;

@@ -30,7 +30,7 @@ import { duelSpec } from "../../../src/game/arena/duel.ts";
 import { measuredOn } from "../../../src/skills/framework/profile/lookup.ts";
 import { startHeld, struckNumbers, trialExit } from "../../../src/skills/framework/profile/numbers.ts";
 import { specDigest } from "../profile-origin.mjs";
-import { everyOf } from "../../../src/minds/decider.ts";
+import { everyOf } from "../../../src/minds/option/assembly/pace.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 import { medianOf } from "../../../src/evaluation/stats.ts";
 

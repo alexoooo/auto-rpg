@@ -117,7 +117,7 @@ Motor control (`src/control/`) turns a `BodyCommand` (a posture, effector goals,
 driven points, a stance goal) into muscle commands.
 
 - **The command layers** (`commandLayers`) are what a mind builds on its own body, read each step
-  through a `BodyView` (`src/control/body.ts`); they are independent of skills and deciders.
+  through a `BodyView` (`src/control/body.ts`); they are independent of skills and of whatever decides.
 - **The motor** is a part of role `motor` (`MOTORS`); the game's is the whole-body solve
   (`motorControl`, `solve.ts`): the bearing solve and the servo in one weighted least-squares
   problem. A body on paws has the paw support (`pawMotor`, `src/control/quadruped/paw-motor.ts`).
@@ -144,7 +144,7 @@ beneath, executors running discrete actions over them. What a mind holds is one 
 - **An action** (`ActionRequest`, `action.ts`) has an id, a name, an effector and a sensed target
   region. Admission reads readiness and reserves resources; actions overlap where reservations
   allow. An executor runs `prepare`, `commit` and `release` and ends once (`Ended`). It never
-  closes distance; the decider does.
+  closes distance; the mind does.
 - **Skills live in an area** of `src/skills/` (`guard/`, `locomotion/`, `strikes/`, `recovery/`),
   a folder a skill: the skill's part (`straight-punch/index.ts`) names its variations, and a
   variation with code of its own keeps it in its own folder (`stomp/stomp/`). Code that skills
@@ -184,7 +184,7 @@ A body is a different type to each holder:
 | `BuiltBody` | `src/core/bodies/build/build-body.ts` | the world's side | the body in the engine, with what acts on it |
 | `ReadBody` | `src/core/bodies/read-body.ts` | a mind and its skills | the built body's readings alone; nothing in it moves a body |
 | `OwnBody` | `src/core/bodies/own-body.ts` | a mind's maker | what a mind is made with: the spec, the readings, the muscles' and assist's reading side, the first senses |
-| `Body` | `src/control/body.ts` | whatever drives the command layers | the body under motor control: a view to read and a command to hand back (`Body.drive`) |
+| `Body` | `src/control/body.ts` | a mind's skills, a skill or a script | the body under motor control: a view to read; the Mind that owns its command layers hands them each command (`CommandingMind`, `src/minds/commanding-mind.ts`) |
 | `PhysicalBody` | `src/minds/seat/physical-body.ts` | a fight | the body whatever its mind: the built body, whether it is down, who has it, its level, its saved state, its disposal |
 
 - **Made by its config.** A `MindConfig` is plain data tagged by kind; `createMind`
@@ -207,17 +207,59 @@ A body is a different type to each holder:
   saying why a body cannot carry it out (`fits`) and what is wrong with its config (`faults`).
   A slot's config is typed by its role (`ConfigFor`, `lookup.ts`).
 
-**Option Mind** (`src/minds/option/`, `optionMind`) is the game's decision framework, for the
-humanoids and the bodies on paws alike. It chooses among Options, each a skill applied to a
-target: its entry (`Readiness`), the resources it claims, its model (`Terms`: duration, what it
-deals and takes, the ways it ends) and its step. `mind.ts` is the controller, `config.ts` the
-config, `description.ts` what a config builds, `build.ts` the running mind.
+**Option Mind** (`src/minds/option/`) is the game's decision framework, for the humanoids and
+the bodies on paws alike. It is two classes and five ideas.
 
-- **Predictions** price an Option from measured profiles (`Profile`,
-  `src/skills/framework/profile/profile.ts`): a sample of trials, a strike's thrown sparring and a ground
-  Option's tried in falls. A profile is found by its skill and variation, its limb and the body's
-  model; what each body held is on each trial as numbers (`Start.held`: an item's mass and reach),
-  read by the trials nearest it.
+**Two classes.** `CommandingMind` (`src/minds/commanding-mind.ts`) is a Mind that runs its body
+through the command layers: each step it reads the senses into the layers and queues what it
+decides, and when a decision comes due, after the body's reaction time, it turns the decision into
+a body command and has the motor carry it out. A subclass says what it decides (`decide`), how a
+decision becomes a command (`carry`) and what it lets go of when its body is taken from it
+(`released`). `OptionMind` (`option-mind.ts`) is one subclass: each decision it reads its
+situation, chooses among its Options by what they are predicted to bring, and asks its skills to
+carry out what the chosen Options ask. The scripted Mind (`src/minds/scripted-mind.ts`) is the
+other.
+
+**Five ideas**, the first four interfaces in `contract/`, which imports nothing from the rest of
+the folder, and the fifth the skills' own:
+
+| Idea | Interface | Says |
+| --- | --- | --- |
+| What I know | `Situation` (`situation.ts`) | the body's knowledge at one moment, real or imagined |
+| What I can do | `Option` (`option.ts`) | a skill applied to a target: whether it can be played here (`Readiness`), the resources it claims, what it is predicted to bring (its model, `Terms`: duration, what it deals and takes, the ways it ends), and what it asks of the skills each step |
+| What I cannot see from my own Options | `ExchangePredictor`, `ValuePredictor` (`predictors.ts`) | what the foe and the body do to each other; what a state is worth where a line stops |
+| How I pick | `Chooser` (`chooser.ts`) | picks Options, reading the future only through the two rows above |
+| How I act | `Skills` (`src/skills/framework/skills.ts`) | turns what the chosen Options ask into a body command |
+
+**Six folders** beside `option-mind.ts` and `index.ts` (what the folder publishes):
+
+| Folder | Holds |
+| --- | --- |
+| `contract/` | the interfaces above, and the roles a Mind's parts have (`parts.ts`) |
+| `situation/` | what reads the body's situation each decision (`reader.ts`, `percepts.ts`), the state an Option is imagined to leave (`imagined.ts`), and what the reader remembers of reach and of rising |
+| `predictions/` | the kinds of predictions (`part.ts`), the numbers set by hand (`by-hand.ts`), the exchange predictor read from measured profiles (`exchange/`), the fitted value (`value/`), what a blow is predicted to cost (`damage.ts`), the kept data both read (`data/`) |
+| `options/` | each kind of Option (`kinds.ts`, `strike-kinds.ts`), and what Options share: readiness, outcomes, limbs |
+| `choosers/` | the three chooser parts (`parts.ts`), the one policy over a search's prices (`chooser.ts`), the searches, the leaves, the objectives |
+| `assembly/` | what makes a Mind from a config: `controller.ts` (`optionController`), `config.ts`, `description.ts` (what a config builds), `build.ts` (what makes the running Mind) |
+
+Each folder imports from those above it in the table, and `contract/` from none. Three imports
+run the other way: `options/kinds.ts` reads `assembly/config.ts` (`optionApplies`),
+`predictions/part.ts` reads `options/walk.ts` (`WALK_STARTS`), and
+`predictions/exchange/pressure.ts` reads `choosers/select-set.ts` (`RETHINK`).
+
+**Its memory is one tree.** A part that remembers has a `state`, one plain object it makes and
+owns; the Option Mind's constructor points its own `state` at its parts' (`OptionMindState`), and
+nothing else adds to the tree. [The code recipe](recipes/code.md#code) says the three kinds of
+memory and what checks them.
+
+- **Predictions** (a part of role `predictions`, `predictions/part.ts`) price an Option from
+  measured profiles (`Profile`, `src/skills/framework/profile/profile.ts`): a sample of trials, a
+  strike's thrown sparring and a ground Option's tried in falls. A profile is found by its skill
+  and variation, its limb and the body's model; what each body held is on each trial as numbers
+  (`Start.held`: an item's mass and reach), read by the trials nearest it. Where nothing measured
+  reads, the kind `measured` answers by a number set by hand (`Guesses`, `BY_HAND`), all of them
+  in `predictions/by-hand.ts`; the kind `measured-only` guesses nothing, so what no drill
+  measured is not priced; the kind `prior` reads no profile.
 - **The chooser** (`CHOOSERS`): the tree chooser prices each Option by a Monte Carlo tree search
   over the models (`treeSearch`) and is the application's default; the valued chooser searches one
   or two deep; the ranked chooser (`RANKED_CHOOSER`) prices nothing and takes firm orders first,
@@ -225,7 +267,7 @@ config, `description.ts` what a config builds, `build.ts` the running mind.
   chooser.
 - **Its config is Options** (`OptionMindConfig`) in rank order: each strike its own kind
   (`strike-<skill>`), one Option a limb; each way up and mode of the ground an Option naming its
-  technique (`rise.ts`); a walk an Option a gait, to the sites the other Options name.
+  technique (`options/rise.ts`); a walk an Option a gait, to the sites the other Options name.
 
 **Entrants.** An `Entrant` (`src/minds/catalog/entrant.ts`) is one AI: its kinds of mind, parts and
 presets, each kind scoped `<name>:`, listed in `ENTRANTS` (`src/app/entrants.ts`).

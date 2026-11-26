@@ -13,8 +13,8 @@ interface StrokeAt {
   readonly since: number;
   readonly touched: number | null;
   readonly guard: Pose;
-  /** What the stroke keeps from step to step of one commit: empty at its start. */
-  readonly kept: Record<string, number>;
+  /** What the stroke keeps from step to step of one commit: whether its arm is thrown at once (`NEARER`), null until its first step says. */
+  readonly kept: { near: boolean | null };
   /** How far past the target the fist is steered toward, m (`StraightDrive.through`, its record's). */
   readonly through: number;
   /** The arm's pose with its striking point `out(apart, along)` m from the shoulder on the line to the target, the `trunk` as it stands or turned (`StraightTechnique`'s `reach`). */
@@ -39,14 +39,15 @@ const borneOf = (body: Body, hand: Side): ReadonlySet<string> => new Set((body.b
 export const MOVING_THROW: ThrowMaker = ({ body, guard, technique, settings, policy }) => {
   const sides = { left: [segmentResource("hand.left"), TRUNK_RESOURCE], right: [segmentResource("hand.right"), TRUNK_RESOURCE] };
   const borne = { left: borneOf(body, "left"), right: borneOf(body, "right") };
-  let kept: Record<string, number> = {};
+  const state: StrokeAt["kept"] = { near: null };
   return {
+    state,
     holds: (hand) => sides[hand],
     quiet: () => true,
-    begin() { kept = {}; },
+    begin() { state.near = null; },
     touches: (met) => !(met?.kind === "body" && met.guard),
     drive(view, hand, since, touched, pushes) {
-      const posture = drive({ view, since, touched, guard, kept, through: settings.through, reach: (out, trunk) => technique.reach(view, hand, { out, trunk }) }, pushes);
+      const posture = drive({ view, since, touched, guard, kept: state, through: settings.through, reach: (out, trunk) => technique.reach(view, hand, { out, trunk }) }, pushes);
       if (settings.steered) technique.steer(view, hand, since, pushes, policy);
       return posture;
     },
@@ -119,7 +120,7 @@ function drive(at: StrokeAt, pushes: MusclePush[]): Pose {
     for (const goal of pose) held(goal.channel);
     return posture;
   }
-  kept.near ??= reached.apart <= reached.arm - NEARER ? 1 : 0;
+  kept.near ??= reached.apart <= reached.arm - NEARER;
   if (!kept.near && at.since < TRUNK_FIRST) {
     for (const goal of pose) held(goal.channel);
     return posture;

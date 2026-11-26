@@ -1,4 +1,4 @@
-import { RANKED_CHOOSER, TREE_CHOOSER, VALUED_CHOOSER } from "../../minds/option/chooser.ts";
+import { RANKED_CHOOSER, TREE_CHOOSER, VALUED_CHOOSER } from "../../minds/option/choosers/parts.ts";
 
 /**
  * **Every chooser, by its kind** (`ChooserPart`), in the order a picker offers them: a line here

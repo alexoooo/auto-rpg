@@ -10,7 +10,7 @@ import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
 import { coreStand } from "../../../../tests/harness/core-stand.mjs";
 import { createMind } from "../../../../src/minds/seat/create-mind.ts";
 import { GAME, defaultMind } from "../../../../src/app/catalog.ts";
-import { optionsOf } from "../../../../src/minds/option/config.ts";
+import { optionsOf } from "../../../../src/minds/option/assembly/config.ts";
 import { quadrupedSpec } from "../../../../src/core/bodies/quadruped/spec.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { STAND_ORDERS } from "../../../../src/minds/orders.ts";
@@ -37,10 +37,15 @@ export const rightingOf = (minded) => {
   return { get phase() { return run()?.phase ?? "idle"; }, get lie() { return run()?.lie ?? null; } };
 };
 
-/** **The fight a fork is of**: `model`, bare, against the sword Warrior `gap` m away; its mind's righting `recipe` where one is given. */
-export const forkBout = (model, gap, recipe) => ({ left: model, right: "man", gap,
-  loadouts: { left: BARE, right: SWORD },
-  ...recipe ? { minds: { left: withRecipe(model, recipe), right: defaultMind("man", SWORD) } } : {} });
+/**
+ * **The fight a fork is of**: `model`, bare, against the Warrior `gap` m away holding `held` (a sword
+ * unless `"empty"`); its mind's righting `recipe` where one is given.
+ */
+export const forkBout = (model, gap, recipe, held = "sword") => {
+  const his = held === "empty" ? BARE : SWORD;
+  return { left: model, right: "man", gap, loadouts: { left: BARE, right: his },
+    ...recipe ? { minds: { left: withRecipe(model, recipe), right: defaultMind("man", his) } } : {} };
+};
 
 const forksRead = new Map();
 /**
@@ -49,8 +54,8 @@ const forksRead = new Map();
  */
 async function fightTrial(model, recipe, file, fork, seconds) {
   if (!forksRead.has(file)) forksRead.set(file, deserialize(readFileSync(file)));
-  const { gap, save } = forksRead.get(file)[fork];
-  const { duel, world, dispose } = await buildBout(forkBout(model, gap, recipe));
+  const { gap, held, save } = forksRead.get(file)[fork];
+  const { duel, world, dispose } = await buildBout(forkBout(model, gap, recipe, held));
   try {
   world.physics.load(save.physics); loadState(duel.state, save.state); duel.senses.show(); world.loaded();
   const body = duel.duelists.left.body, righting = rightingOf(duel.duelists.left.minded), trunk = body.built.segments.get("trunk"), rest = Quaternion.Inverse(trunk.rest), up = new Vector3();

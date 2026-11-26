@@ -144,7 +144,7 @@ function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleReading["cha
  * down, those it leaves are let go, the centre of mass is at the place and slow, and the pelvis
  * is at its pitch. What its patches cannot give it asks of its assist, within the body's ceiling.
  *
- * `view` is its host's, read this step before it is asked (`hosting`): whether the body is down
+ * `view` is its host's, read this step before it is asked (`ScriptedMind`): whether the body is down
  * and how its centre of mass moves are the host's readings, so a body its host holds low on
  * purpose is not taken from it. What only a rise needs it reads itself: how it lies, the ground's
  * level, and where its limbs are.

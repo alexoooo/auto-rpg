@@ -1,10 +1,10 @@
-import { skillsOf } from "../../src/minds/option/skills.ts";
-import { optionsOf } from "../../src/minds/option/config.ts";
+import { skillsOf } from "../../src/minds/option/assembly/skills.ts";
+import { optionsOf } from "../../src/minds/option/assembly/config.ts";
 import { allParts, MINDS, treeLookup } from "../../src/app/catalog.ts";
 import { presetFitsModel } from "../../src/minds/catalog/controller.ts";
 import { BODY_MODELS, modelHolds, resolveCharacter } from "../../src/core/bodies/models.ts";
 import { LOADOUTS, loadoutFaults, withLoadout } from "../../src/core/bodies/items/held.ts";
-import { limbAction } from "../../src/minds/option/kinds.ts";
+import { limbAction } from "../../src/minds/option/options/strike-kinds.ts";
 import { measuredOn, strikeSkill, techniqueSkill } from "../../src/skills/framework/profile/lookup.ts";
 
 /** **What a profile is found by** (`Measured`), a key: its body's model, its skill as the body holds it, and its limb. */

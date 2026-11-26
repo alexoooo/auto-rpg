@@ -1,10 +1,10 @@
 /** Named calibrations narrower than their configurations' physical fit. */
-import { optionMind } from "../../../../src/minds/option/mind.ts";
-import { optionsOf } from "../../../../src/minds/option/config.ts";
+import { optionController } from "../../../../src/minds/option/assembly/controller.ts";
+import { optionsOf } from "../../../../src/minds/option/assembly/config.ts";
 import { OPTION } from "../../../../src/entrants/option/index.ts";
 import { OPTION_KINDS } from "../../../../src/app/registration/option-kinds.ts";
 import { partOffered } from "../../../../src/parts/fields.ts";
-const OPTION_MIND = optionMind({ chooser: { kind: "tree" }, predictions: { kind: "measured" } });
+const OPTION_MIND = optionController({ chooser: { kind: "tree" }, predictions: { kind: "measured" } });
 
 const defaults = Object.freeze({ ...OPTION.presets.option.config, kind: "swap:option" });
 const unarmed = Object.freeze({ ...defaults,

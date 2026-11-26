@@ -18,8 +18,10 @@
  *   is the cell's subject, the drills' Option Mind, its stomp so tuned (`withTuning`); a trial scores
  *   its value as the cell values it, a blow short of the bar graded below it (`searchScore`), and the
  *   confirmation keeps a record on the value.
- * - The bite: the same way, on the cells of the body's bite row, each the Strike drill's `biting`
- *   rung (the head at each leg of a standing Warrior).
+ * - The bite: the same way, its row's cells valuing the trials, but played on the Strike drill's
+ *   `sparring-bite` rung, its twin searched and its own cases confirmed: the head at the legs of a
+ *   foe fighting back, where a bite that holds on is struck over (a profile's rung, which the Mind
+ *   prices the bite by).
  * - The front kick (`kick/front`): the same way, on the cells of the body's kick row, the trials
  *   its variation is offered (`offered`: its base rung), played with the body running it. Its
  *   timings and gains alone are searched; its poses are authored.
@@ -92,10 +94,13 @@ const runningOf = (trial, variation) => {
 /**
  * A strike's trials on `model`: the drill's trials of each cell of the body's row of `skill`
  * (`rowOf`; `loadout`'s cell alone where given), its training twin's (`twin`, the search's) or the
- * cell's own (`cell`, the confirmation's); running `variation` where given, those it is offered (`offered`).
+ * cell's own (`cell`, the confirmation's). Given `rung`, the trials are that rung's (and its
+ * twin's) on the same bodies and loadouts, judged as the cells judge. Given `variation`, they are
+ * those it is offered (`offered`), played with the body running it.
  */
-const strikeTrials = (skill, variation) => (model, held, loadout) => rowOf({ body: model, skill, ...(loadout ? { loadout } : {}) })
-  .flatMap((cell) => drillTrials(cell, held)).filter((trial) => variation === undefined || offered(trial, runningOf(trial, variation)));
+const strikeTrials = (skill, { rung, variation } = {}) => (model, held, loadout) => rowOf({ body: model, skill, ...(loadout ? { loadout } : {}) })
+  .flatMap((cell) => drillTrials(rung ? { ...cell, readings: cell.readings.map((reading) => ({ ...reading, protocol: rung })) } : cell, held))
+  .filter((trial) => variation === undefined || offered(trial, runningOf(trial, variation)));
 
 /**
  * One drill trial of a strike's whole `settings` at `hz`, running `variation` where given: the
@@ -189,17 +194,17 @@ export const SEARCHES = {
     task: "the Strike drill's stomping rung (each foot at the middle mark of each of the game's foes lying limp), the body's stomp row" },
   bite: { dims: [["open", .4, .7], ["contactAt", .3, .9], ["biteAlign", .005, .04], ["biteShift", .02, .09], ["biteEntry", .002, .02],
       ["prepare", .12, .4], ["snap", .06, .2], ["closeRate", 2, 8], ["contactSeconds", .1, 1]],
-    trials: strikeTrials("bite"), search: "twin", confirm: "cell",
-    said: (held) => held === "twin" ? "on its cells' training twins at 120 Hz" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
+    trials: strikeTrials("bite", { rung: "sparring-bite" }), search: "twin", confirm: "cell",
+    said: (held) => held === "twin" ? "on sparring-bite's training twin at 120 Hz" : "on sparring-bite's own cases at 120 and 480 Hz, the worse counting",
     trial: strikeTrial, error: -3, lost: "falls", rates: CONFIRM_RATES,
     lengths: ["biteAlign", "biteShift", "biteEntry"], heights: [],
-    task: "the Strike drill's biting rung (the head at a standing Warrior's legs), the body's bite row" },
+    task: "the Strike drill's sparring-bite rung (the head at the legs of a foe fighting back, from starts drawn at random), valued as the body's bite row values its trials" },
   // The front kick's timings and gains: its stages' times, its paths' response, the push through, the set-down's drive back and its window (shares of the leg's reach). Its poses are authored, never searched.
   "kick/front": { dims: [["chamberSeconds", .1, .35], ["extendSeconds", .06, .25], ["retractSeconds", .08, .3], ["pathSeconds", .01, .08],
       ["transferSeconds", .1, .35], ["follow", 0, .2], ["decel", 100, 600], ["alongNear", .62, .83], ["alongFar", .78, 1.04]],
     // alongFar kept past alongNear.
     settle: (settings) => settings.alongFar <= settings.alongNear + .1 ? { ...settings, alongFar: Number((settings.alongNear + .1).toFixed(4)) } : settings,
-    trials: strikeTrials("kick", "kick/front"), search: "twin", confirm: "cell",
+    trials: strikeTrials("kick", { variation: "kick/front" }), search: "twin", confirm: "cell",
     said: (held) => held === "twin" ? "on its cells' training twins at 120 Hz" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
     trial: strikeTrialOf("kick/front"), error: -3, lost: "falls", rates: CONFIRM_RATES, lengths: [], heights: [],
     task: "the kick's row on the Strike drill, the trials the front kick is offered (its base rung)" },

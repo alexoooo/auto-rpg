@@ -11,7 +11,7 @@ import { readProfile } from "../../src/skills/framework/profile/reading.ts";
 import { loadData } from "../../src/core/data/store.ts";
 import { profileAgainst } from "../../src/skills/framework/profile/across.ts";
 import { skillDigest } from "../../research/skills/profile-origin.mjs";
-import { record } from "../../src/minds/option/value.ts";
+import { record } from "../../src/minds/option/predictions/by-hand.ts";
 import { buildBout } from "../../src/app/node/evaluation.ts";
 import { recipeOf } from "../../src/app/node/setup.ts";
 import { reportNow } from "../../src/minds/seat/apart.ts";

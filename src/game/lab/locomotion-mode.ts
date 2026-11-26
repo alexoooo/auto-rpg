@@ -1,5 +1,5 @@
 import { isRefused, type Refused } from "../../core/refusal.ts";
-import type { HostedBody } from "../../minds/seat/hosted-body.ts";
+import type { CommandedBody } from "../../minds/seat/hosted-body.ts";
 import { carried, paceRound, turnAt, type StanceEnvelope } from "../../control/stance/stance-envelope.ts";
 import { NO_COVER, type Intent } from "../../skills/framework/intent.ts";
 import { wrap } from "../../core/math/turn.ts";
@@ -91,7 +91,7 @@ export interface LocomotionFrame {
 
 interface LocomotionSession {
   readonly state: { readonly actor: Actor["state"]; readonly gait: object; readonly wind: object };
-  readonly body: HostedBody;
+  readonly body: CommandedBody;
   frame(): LocomotionFrame;
   /** The wind's settings: changed, they hold from the next step. */
   wind: WindSettings;
@@ -187,7 +187,7 @@ function trackScript(track: Track, { top, pace: most, turn, facing }: TrackOptio
     setOff: null as number | null, last: null as number | null,
     onPiece: track.lengths.map(() => ({ metres: 0, seconds: 0 })) };
   return {
-    name: "track", state,
+    state,
     decide({ view, report, legs: { envelope } }, dt): Intent {
       const c = view.stance.centre, v = view.stance.velocity, fastest = Math.min(top ?? fastestOf(envelope, facing), most ?? Infinity);
       if (view.time > 0) {
@@ -265,7 +265,7 @@ function commandsScript(commands: Commands, { top }: { readonly top?: number } =
     pace: 0, bending: false, face: 0, standUntil: null as number | null, from: [0, 0] as [number, number], progress: 0 };
   const stand = (): Intent => ({ move: null, face: state.face, guard: NO_COVER, actions: [] });
   return {
-    name: "commands", state,
+    state,
     decide({ view, report, legs: { envelope } }): Intent {
       if (view.time <= 0) return stand();
       const c = view.stance.centre, v = view.stance.velocity, dt = state.last === null ? 0 : view.time - state.last;

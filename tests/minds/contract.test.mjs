@@ -16,14 +16,13 @@ import { embody } from "../../src/minds/seat/embodiment.ts";
 import { loadState, saveState } from "../../src/core/state.ts";
 import { freshEngine, coreStand } from "../harness/core-stand.mjs";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
-import { commandedMind } from "../../src/minds/sub-mind.ts";
-import { driveBy } from "../../src/minds/decider.ts";
+import { commandedMind } from "../../src/minds/scripted-mind.ts";
 import { standingSkills } from "../../src/app/standing-skills.ts";
 import { standIntent } from "../../src/skills/framework/intent.ts";
 import { stockMotor } from "../../src/app/registration/stock-motor.ts";
 import { isOrdersEntry } from "../../src/game/arena/duel.ts";
 import { MOVE_PART } from "../../src/skills/locomotion/move/index.ts";
-import { optionsOf } from "../../src/minds/option/config.ts";
+import { optionsOf } from "../../src/minds/option/assembly/config.ts";
 import { partLookup } from "../../src/app/catalog.ts";
 import { PAW_MOVE } from "../../src/skills/locomotion/paw-move/index.ts";
 
@@ -133,19 +132,18 @@ test("a fresh physics fork resets exactly the forces pending at its save", async
 });
 
 /**
- * Detect decider and skill memory saved only through a separate controller result. Load the
- * published Mind state into a fresh commanded mind and verify its decider continues from the saved
- * count; a whole-bout fork can hide the omission by saving a second memory root.
+ * Detect a driver's and its skills' memory saved only through a separate controller result. Load
+ * the published Mind state into a fresh commanded mind and verify its driver continues from the
+ * saved count; a whole-bout fork can hide the omission by saving a second memory root.
  */
 test("a commanded Mind restores its driver's memory from its own state", async () => {
   const make = async () => {
     const stand = await coreStand(modelSpec("man"));
     const embodied = embody(stand.built, stand.world, own => commandedMind(own, { servoSeconds: SERVO_SECONDS, motor: stockMotor() }, stand.world));
-    const memory = { decisions: 0 };
-    driveBy(embodied.construction.body, { name: "counted stand", state: memory, decide() {
-      memory.decisions++;
-      return standIntent(0);
-    } }, standingSkills(embodied.construction.body));
+    const memory = { decisions: 0 }, skills = standingSkills(embodied.construction.body);
+    embodied.construction.drive({ state: { memory, skills: skills.state },
+      decide() { memory.decisions++; return standIntent(0); },
+      carry: (view, intent, dt) => skills.command(view, intent, dt) }, skills.release);
     return { stand, embodied, memory, dispose() { embodied.dispose(); stand.dispose(); } };
   };
   const original = await make(), fork = await make();
@@ -322,16 +320,17 @@ test("a fallback recovery Option does not count its own transition as an ordinar
   const { GAME } = await import("../../src/app/catalog.ts");
   const { catalogOf } = await import("../../src/minds/catalog/catalog.ts");
   const { toolkitLists } = await import("../../src/app/toolkit.ts");
-  const { REPOSITION_OPTION, WAY_UP_OPTION, waysUpIn, withWaysUp } = await import("../../src/minds/option/rise.ts");
-  const { walker } = await import("../../src/minds/option/walk.ts");
-  const { optionRecord } = await import("../../src/minds/option/record.ts");
+  const { REPOSITION_OPTION, WAY_UP_OPTION, waysUpIn, withWaysUp } = await import("../../src/minds/option/options/rise.ts");
+  const { walker } = await import("../../src/minds/option/options/walk.ts");
+  const { optionRecord } = await import("../../src/minds/option/situation/record.ts");
+  const { BY_HAND } = await import("../../src/minds/option/predictions/by-hand.ts");
   const { nearestTrials } = await import("../../src/skills/framework/outcomes.ts");
   const spec = modelSpec("man"), [fallback] = REPOSITION_OPTION.each(REPOSITION_OPTION.defaults, GAME.partLookup);
   const technique = GAME.partLookup.of("technique", fallback.skill), from = technique.edges[0]?.from;
   assert.equal(technique.fits(spec, fallback.skill, GAME.partLookup), null, "the real fallback technique must fit the fixture body");
   assert.ok(from && technique.starts.length, "the fallback must expose a transition and a declared beginning");
   const [option] = REPOSITION_OPTION.make(fallback, { spec, hz: 120, rate: 120, delay: 0, parts: GAME.partLookup, legs: { kind: "move", rules: [], otherwise: "braced" },
-    options: [fallback], outcomes: nearestTrials({}), walk: walker(spec, "speed"), record: optionRecord(), sites: { all: [], names: [] } });
+    options: [fallback], outcomes: nearestTrials({}), guesses: BY_HAND, walk: walker(spec, "speed"), record: optionRecord(), sites: { all: [], names: [] } });
   assert.ok(option, "the fallback constructor must produce its transition Option");
   const ground = { settled: true, position: from, raw: from, side: "left", velocity: new Vector3(), spin: 0 };
   const now = { ground, sight: { view: { ground }, actions: { around: { heading: 0, placed: false, lower: 0, support: null, walk: null }, readiness: () => ({ kind: "ready" }) } } };

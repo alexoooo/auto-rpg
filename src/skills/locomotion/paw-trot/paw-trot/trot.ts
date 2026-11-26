@@ -60,7 +60,13 @@ export function trot(body: PawGaitBody, T: typeof REPTILE_TROT): Gait {
     reach: { forward: Math.min(T.speed, fastest), aside: T.sideways, turn: T.turnRate },
     travel: { speed: T.speed, stopping: T.acceleration },
     command(view, intent, dt) {
-      const error = headingError(intent, state.yaw), moving = !!intent.move || Math.abs(error) > T.turnError;
+      const error = headingError(intent, state.yaw), move = intent.move;
+      const length = move ? Math.sqrt(move.x * move.x + move.z * move.z) : 0;
+      // The trunk travels as fast as it faces the way it is ordered, and mostly along itself; asked a way behind it, it backs
+      // along itself, no faster than its share of travel aside and back (`sideways`), facing as it faces.
+      const along = length ? cos(atan2(move!.x, move!.z) - view.yaw) : 0, facing = Math.max(0, along), backing = along < 0;
+      // It steps to travel or to turn: asked a way it would not travel, it would only tread in place on two paws, and stands on four.
+      const moving = facing > 0 || backing || Math.abs(error) > T.turnError;
       state.time += dt; state.since += dt;
       const free = groups[state.paw]!;
       view.feet.forEach((e, i) => { if (e.contact && (!free.includes(i) || state.phase === "settle")) anchorAt(state.anchors[i]!, e); });
@@ -68,12 +74,12 @@ export function trot(body: PawGaitBody, T: typeof REPTILE_TROT): Gait {
       let vx = 0, vz = 0;
       const delayed = state.phase === "return" || state.phase === "land" && state.time >= T.landingWait
         || state.phase === "settle" && state.time >= T.landingWait && !view.feet.every(foot => foot.contact);
-      if (intent.move && !delayed) {
-        const length = Math.sqrt(intent.move.x * intent.move.x + intent.move.z * intent.move.z);
-        // The trunk travels as fast as it faces the way it is ordered, and mostly along itself.
-        const facing = length ? Math.max(0, cos(atan2(intent.move.x, intent.move.z) - view.yaw)) : 0;
+      if (move && backing && !delayed) {
+        const back = Math.min(T.speed, fastest) * Math.min(1, length) * -along, most = Math.min(T.speed, fastest) * T.sideways;
+        vx = -sin(view.yaw) * Math.min(back, most); vz = -cos(view.yaw) * Math.min(back, most);
+      } else if (move && !delayed) {
         const scale = length ? Math.min(T.speed, fastest) * facing * Math.min(1, length) / length : 0;
-        vx = intent.move.x * scale; vz = intent.move.z * scale;
+        vx = move.x * scale; vz = move.z * scale;
         const s = sin(view.yaw), c = cos(view.yaw), sideways = (vx * c - vz * s) * (1 - T.sideways);
         vx -= sideways * c; vz += sideways * s;
       }
@@ -105,7 +111,9 @@ export function trot(body: PawGaitBody, T: typeof REPTILE_TROT): Gait {
       state.standing = !travelling;
       state.command.centre[0] = state.centre[0]; state.command.centre[2] = state.centre[2];
       state.command.centre[1] = ground + reference[1] * (travelling || state.phase !== "settle" ? (intent.height ?? T.height) : 1);
-      if (state.phase === "settle" && moving && state.time >= T.settle && view.feet.every(down)) {
+      // It steps while it is asked to travel or turn, and on while it still carries pace: planted paws under a trunk that slows by
+      // `acceleration` would let it vault over them.
+      if (state.phase === "settle" && travelling && state.time >= T.settle && view.feet.every(down)) {
         state.phase = "swing"; state.time = 0; state.since = 0; state.sequence++;
         state.liftedPaws.fill(false);
         for (const i of free) place(view, i, ground);

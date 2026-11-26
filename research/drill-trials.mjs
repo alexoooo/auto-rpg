@@ -26,7 +26,7 @@ import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
 import { EVALUATIONS, playCase, tableCells } from "../src/app/node/evaluation.ts";
 import { partLookup } from "../src/app/catalog.ts";
-import { optionsOf } from "../src/minds/option/config.ts";
+import { optionsOf } from "../src/minds/option/assembly/config.ts";
 import { casesOf } from "../src/evaluation/run.ts";
 import { caseName } from "../src/evaluation/results.ts";
 import { casesOn, FALL_PRICE, keep, trialValue, unitOf } from "../src/evaluation/table/judge.ts";

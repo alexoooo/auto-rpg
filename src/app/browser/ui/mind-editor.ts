@@ -1,5 +1,5 @@
 import { describeMind } from "../../../minds/catalog/catalog.ts";
-import { optionApplies } from "../../../minds/option/parts.ts";
+import { optionApplies } from "../../../minds/option/assembly/config.ts";
 import { editorRow as row, partFieldInput as fieldInput } from "./editor-inputs.ts";
 import { buttonInput, selectInput } from "./inputs.ts";
 import { techniqueEditor } from "./mind-ground.ts";

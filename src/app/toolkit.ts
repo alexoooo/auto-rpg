@@ -25,7 +25,7 @@ import { RECOVERY_DATA } from "../skills/recovery/data/registration.ts";
 import { RIGHTING_DATA } from "../skills/recovery/righting-recipe/data/registration.ts";
 import { BITE_DATA } from "../skills/strikes/bite/data/registration.ts";
 import { STEP_PROFILES_DATA } from "../skills/locomotion/back-step/data/registration.ts";
-import { FITTED_VALUE_DATA, PRESSURE_PROFILES_DATA } from "../minds/option/data/registration.ts";
+import { FITTED_VALUE_DATA, PRESSURE_PROFILES_DATA } from "../minds/option/predictions/data/registration.ts";
 import { LEG_ADAPTERS } from "./registration/leg-adapters.ts";
 
 /** The config of every kind a role below a mind registers (`RoleConfigs`). */

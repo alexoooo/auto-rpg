@@ -231,6 +231,8 @@ export interface StraightDriveOptions {
  * are the drive's (`straightDriveExecutor`).
  */
 export interface Throw {
+  /** Its memory (`src/core/state.ts`): what it keeps through one commit. */
+  readonly state: object;
   /** What it holds as `hand` strikes: the hand, the trunk, and the legs where it stands on them. */
   holds(hand: Side): readonly Resource[];
   /** Whether `view`'s body is quiet enough to begin its commit, once its `settle` s have passed. */
@@ -346,14 +348,14 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
   /** The channels each hand's schedule names, which are pushed only on it. */
   const leg = legOf(body.built.spec), steeredChannels = { left: steerChannels("left", leg, layout), right: steerChannels("right", leg, layout) };
   const scheduled = { left: new Set((settings.timed?.left ?? []).map((p) => p.channel)), right: new Set((settings.timed?.right ?? []).map((p) => p.channel)) };
-  /**
-   * What it sees of its target each step (`faceOf`), read afresh from the senses as it aims, so no
-   * memory a save keeps: the way the target's body faces, world, null where none is seen; and
-   * where its forearms are (`guardOf`).
-   */
-  const seen = { facing: null as [number, number, number] | null, guard: null as number[] | null };
   const state = {
     hand: null as Side | null, phase: null as Phase | null,
+    /**
+     * What it last saw of its target as it aimed: the way the target's body faces, world, null
+     * where none was seen (`faceOf`); and where its forearms are (`guardOf`). A commit that no
+     * longer aims steers on by what it last saw.
+     */
+    seen: { facing: null as [number, number, number] | null, guard: null as number[] | null },
     /** Where it aims, world, the last target asked, and how fast that moved over the last step, m/s (`aimAt`); the way it faces as the drive began. */
     target: [0, 0, 0] as [number, number, number], aimed: [0, 0, 0] as [number, number, number], face: 0,
     /** Seconds stood at the stand-off on both feet; when the drive began, when its hand began to touch, whether it touched last step, and when it came back. */
@@ -477,7 +479,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
       pointAtToRef(limb.trunkChain, angles, limb.shoulder, apart);
       steerFeatures({ body, view, hand, channels: steeredChannels[hand], since, fromShoulder: apart.set(target.x - apart.x, target.y - apart.y, target.z - apart.z),
         target: state.target, aimed: state.aimed, touching: (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, arm: limb.arm,
-        strike: limb.behind ? struck(view, hand, limb) : null, facing: seen.facing, guard: seen.guard }, learner.inputs);
+        strike: limb.behind ? struck(view, hand, limb) : null, facing: state.seen.facing, guard: state.seen.guard }, learner.inputs);
     }
     steerPushes(pushes, steeredChannels[hand], outputs);
   };
@@ -523,7 +525,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightDrive, { l
     return { apart: state.apart, along: state.along, arm: limb.arm, trunk: limb.goals.map((g) => ({ channel: g.channel, angle: g.angle })), turns: limb.turns, elbow: limb.elbow,
       pose: limb.free.map((f) => ({ channel: f.name, angle: limb.angles[f.joint]![f.k]! })) };
   };
-  return { state, seen, end, enter, read, standOff, chamber, drive, steer, reach, sense, steeredChannels, aimAt,
+  return { state, end, enter, read, standOff, chamber, drive, steer, reach, sense, steeredChannels, aimAt,
     heightFits: (hand: Side, up: number) => Math.abs(up - state.shoulders[hand][1]) <= settings.reach * limbs[hand].arm
       && (settings.above === undefined || up - state.shoulders[hand][1] <= settings.above) };
 }
@@ -547,6 +549,7 @@ const NONE: ReadonlySet<string> = new Set();
 export const DRIVE_THROW: ThrowMaker = ({ technique, settings, policy }) => {
   const motion = technique.state, sides = { left: [segmentResource("hand.left"), TRUNK_RESOURCE, LEG_RESOURCE], right: [segmentResource("hand.right"), TRUNK_RESOURCE, LEG_RESOURCE] };
   return {
+    state: {},
     holds: (hand) => sides[hand],
     quiet: quietToStrike,
     begin() {},
@@ -609,7 +612,7 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
     if (effector === "hand.right") return "right";
     throw new Error(`${label} has no effector ${effector}`);
   };
-  const state = { motion, live: null as null | { request: ActionRequest; hand: Side; phase: "prepare" | "commit" | "release";
+  const state = { motion, throws: throws.state, live: null as null | { request: ActionRequest; hand: Side; phase: "prepare" | "commit" | "release";
     stage: "admitting" | "settle" | "swing" | "return"; time: number; quiet: number; lower: number;
     withdrawn: boolean; ending: ActionEnding } };
   const release = (ending: ActionEnding) => {
@@ -657,7 +660,8 @@ export function straightDriveExecutor(body: Body, guard: Pose, actions: readonly
       if (at && !live.withdrawn && live.phase !== "release") {
         technique.aimAt(at, dt);
         const foe = sensedActionTarget(view, source.target);
-        technique.seen.facing = faceOf(foe, technique.seen.facing); technique.seen.guard = guardOf(foe, technique.seen.guard);
+        const seen = technique.state.seen;
+        seen.facing = faceOf(foe, seen.facing); seen.guard = guardOf(foe, seen.guard);
       }
       live.time += dt;
       if (live.phase === "prepare") {

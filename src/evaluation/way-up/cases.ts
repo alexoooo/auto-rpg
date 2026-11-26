@@ -18,8 +18,8 @@ import { type GameContext, mindFaultsOf, perContext } from "../../game/arena/con
 import type { TechniqueName } from "../../skills/recovery/shared/technique.ts";
 import { mindOf, seatBody, seatCharacter, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { FALL_AFTER, FALL_CAP, fallCases, readFall, type BuiltFall, type FallReading } from "../fall.ts";
-import { declaredWaysUp } from "../../minds/option/rise.ts";
-import { optionsOf, type OptionMindConfig } from "../../minds/option/config.ts";
+import { declaredWaysUp } from "../../minds/option/options/rise.ts";
+import { optionsOf, type OptionMindConfig } from "../../minds/option/assembly/config.ts";
 import { FRESH_OFFSET, risingJobs } from "../rising.ts";
 import type { BuiltBout } from "../bout.ts";
 import { BOUT_PLACES, BOUT_SECONDS, boutFallWorld, boutFalls, readBoutFall, TWIN_PLACES, type WayUpBoutCondition } from "./bouts.ts";

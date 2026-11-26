@@ -1,5 +1,5 @@
 /**
- * **The value fitted to what followed** (`FittedValue`, `src/minds/option/fitted-value.ts`;
+ * **The value fitted to what followed** (`FittedValue`, `src/minds/option/predictions/value/fitted-value.ts`;
  * `assets/minds/fitted-value.json`): the life a body dealt and the life it took over each of
  * `HORIZONS` s after the states the game's Mind decided at, each fitted by boosted regression trees
  * to those states as the fitted leaf reads one (`readingAt`, `featuresOf`).
@@ -44,8 +44,8 @@ async function collect(protocol, from, to, dir, mindPath) {
   const { EVALUATIONS, playCase } = await import("../../src/app/node/evaluation.ts");
   const { DEFAULT_ENGINE } = await import("../../src/core/physics/engines.ts");
   const { isRefused } = await import("../../src/core/refusal.ts");
-  const { graceAt } = await import("../../src/minds/option/percepts.ts");
-  const { bodyOf, offeredOf, readingAt } = await import("../../src/minds/option/fitted-value.ts");
+  const { graceAt } = await import("../../src/minds/option/situation/reach-memory.ts");
+  const { bodyOf, offeredOf, readingAt } = await import("../../src/minds/option/predictions/value/fitted-value.ts");
   const evaluation = EVALUATIONS.match, cases = evaluation.protocols[protocol], [subject] = evaluation.subjects(mindPath ? [mindPath, mindPath].map((path, k) => ({ id: `mind${k}`, label: "mind", value: JSON.parse(readFileSync(path, "utf8")) })) : ["option", "option"]);
   if (!cases) throw new Error(`no match protocol ${protocol}`);
   mkdirSync(dir, { recursive: true });
@@ -77,7 +77,7 @@ async function collect(protocol, from, to, dir, mindPath) {
 
 /** Fit each horizon to the states in `dirs`, say each one's held-out R², and keep them in the asset `out` where given. */
 async function fitAll(dirs, out) {
-  const { FEATURES, featuresOf } = await import("../../src/minds/option/fitted-value.ts");
+  const { FEATURES, featuresOf } = await import("../../src/minds/option/predictions/value/fitted-value.ts");
   const F = FEATURES.length, xs = [], after = HORIZONS.map(() => ({ dealt: [], taken: [] })), held = [], bouts = new Set(), bodies = new Set();
   for (const dir of dirs) for (const name of readdirSync(dir).filter((file) => /^states-.*\.jsonl$/.test(file)).sort())
     for (const line of readFileSync(`${dir}/${name}`, "utf8").split("\n")) {

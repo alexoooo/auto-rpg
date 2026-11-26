@@ -1,7 +1,7 @@
 {
   "mass": 8,
   "stature": 0.325,
-  "steadiness": 0,
+  "steadiness": 25,
   "stiffness": 17000,
   "curvature": 0.25,
   "eccentricCeiling": 1.5,

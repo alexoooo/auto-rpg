@@ -40,7 +40,7 @@ test("a travel answer acts over exactly its own decision interval", async () => 
     const run = learnedRun(body, walkRun(body, WALK_RUN, WALK_RUN_CYCLE), settings, WALK_RUN_CYCLE.settle);
     const { learner, inference } = run.state;
     let goal = null;
-    body.drive((view, dt) => {
+    host.drive((view, dt) => {
       const d = run.goal(view, { walk: [pace, 0], face: 0 }, dt);
       if (d.kind === "drive") return { posture: { ...guard, ...d.posture }, pushes: d.pushes, stance: null };
       goal = d.goal ?? goal;

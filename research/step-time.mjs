@@ -54,7 +54,7 @@ const build = async () => {
   const stop = (dispose) => () => { dispose(); place?.dispose(); };
   if (crowd) { const { world, bout, dispose } = await buildTeamBout(crowd, { engine: BOUT_ENGINE, ...minds }); return { world, over: () => bout.verdict !== null, reach: () => [], dispose: stop(dispose) }; }
   const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, ...minds });
-  return { world, over: () => duel.verdict !== null, reach: () => place ? [] : SIDES.map((side) => ({ side, ...duel.duelists[side].body.state.mind.host.motor.reach })), dispose: stop(dispose) };
+  return { world, over: () => duel.verdict !== null, reach: () => place ? [] : SIDES.map((side) => ({ side, ...duel.duelists[side].body.state.mind.layers.motor.reach })), dispose: stop(dispose) };
 };
 
 const collections = [];

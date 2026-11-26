@@ -31,7 +31,7 @@ const CLIMB = deepFreeze({ seconds: .6, response: .08, below: .9 });
  */
 export function regaining(own: OwnBody, view: BodyView, fitted: MotorAndGuard) {
   const motor = carrying(fitted.motor.make(own.built, own.muscles, SERVO_SECONDS, fitted.posture, undefined, own.assist), ["stance"], "the regain");
-  const feet = stanceFeetOf(own.spec), legs = locomotion(feet, null, { segments: stanceSegmentsOf(own.spec), builtFooting: standingFooting(own.built) }), both = Object.keys(feet);
+  const feet = stanceFeetOf(own.spec), legs = locomotion(feet, null, { segments: stanceSegmentsOf(own.spec), builtFooting: standingFooting(own.built) }), both = Object.freeze(Object.keys(feet));
   const state = {
     begun: null as number | null,
     climb: { on: false, done: false, time: 0, centre: [0, 0], velocity: [0, 0], to: [0, 0], height: 0, rise: 0, pitch: 0,

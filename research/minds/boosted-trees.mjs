@@ -1,6 +1,6 @@
 /**
  * **Boosted trees**, as the fitted value and the move prior are fitted (`research/minds/fitted-value.mjs`,
- * `research/minds/move-prior.mjs`) and kept (`Trees`, `src/minds/option/boosted-trees.ts`): each
+ * `research/minds/move-prior.mjs`) and kept (`Trees`, `src/minds/option/predictions/value/boosted-trees.ts`): each
  * feature binned at its quantiles, then trees grown on a loss's gradients.
  */
 

@@ -1,6 +1,6 @@
 /**
- * **Which measured body a struck body never measured is read as, held out** (the numbers plan's bar
- * 4, over the trials in the assets, nothing played): for each strike's profile
+ * **Which measured body a struck body never measured is read as, held out** (over the trials in
+ * the assets, nothing played): for each strike's profile
  * (`strike-profiles.json`) and each body its trials struck, that body's trials taken away and
  * priced from the rest, by the trials struck at the measured body nearest its stature and mass
  * (`profileAgainst`, `STRUCK_SPANS`) and by those struck at the first body the profile's trials

@@ -2,7 +2,7 @@ import { isRefused } from "../core/refusal.ts";
 import type { MindConfig } from "../minds/catalog/config.ts";
 import { modelHoldingChecked, type BodyModel } from "../core/bodies/models.ts";
 import type { Loadout } from "../core/bodies/items/held.ts";
-import { bodyOf } from "../minds/option/fitted-value.ts";
+import { bodyOf } from "../minds/option/predictions/value/fitted-value.ts";
 import type { BodyAsked } from "../game/arena/context.ts";
 import { catalogOf, type Catalog, type EntryRule } from "../minds/catalog/catalog.ts";
 import { toolkitLists } from "./toolkit.ts";
@@ -19,9 +19,14 @@ export const { controllers: CONTROLLERS, minds: MINDS, loadData, controllerOf, a
 
 export { FIGHT_ENTRY, type EntryRule, type Offered } from "../minds/catalog/catalog.ts";
 
-/** **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): the Option Mind on the tail's leaf. */
+/**
+ * **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): the
+ * Option Mind on the tail's leaf. The rat plays the Mind that presses its attack (`option-presses`),
+ * which values the Warrior's life five times its own and a blow sooner more than one later, so it
+ * goes back in to bite him where the tail's Mind waits at the edge of his reach.
+ */
 const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
-  man: "option-tail", woman: "option-tail", skeleton: "option-tail", reptile: "option-tail", rat: "option-tail",
+  man: "option-tail", woman: "option-tail", skeleton: "option-tail", reptile: "option-tail", rat: "option-presses",
 });
 
 /**

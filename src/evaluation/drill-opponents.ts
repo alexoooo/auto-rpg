@@ -1,8 +1,9 @@
 import type { MindConfig } from "../minds/catalog/config.ts";
 import type { BeatsConfig } from "../minds/command/beats.ts";
 import type { CommanderConfig } from "../minds/command/kind.ts";
-import { optionsOf, standingOptions, type OptionMindConfig } from "../minds/option/config.ts";
-import { ORDERS_OPTION, COVER_OPTION, BONK_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../minds/option/kinds.ts";
+import { optionsOf, standingOptions, type OptionMindConfig } from "../minds/option/assembly/config.ts";
+import { ORDERS_OPTION, COVER_OPTION } from "../minds/option/options/kinds.ts";
+import { BONK_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../minds/option/options/strike-kinds.ts";
 import { deepFreeze } from "../core/state.ts";
 import { type GameContext, perContext } from "../game/arena/context.ts";
 

@@ -43,7 +43,7 @@ export interface BodyHost {
   /**
    * Where in each period its periodic work falls, a fraction in [0, 1): the fight's for this body
    * (`phaseOf`); 0 unless the fight gives one. A decision made every so often is made on its
-   * phase's steps (`driveBy`), so bodies built together do not all decide on one step.
+   * phase's steps (`Pace`), so bodies built together do not all decide on one step.
    */
   readonly phase: number;
   /** The rules the fight is played by (`Rulebook`), as the fight gives them. */

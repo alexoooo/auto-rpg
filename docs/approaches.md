@@ -484,7 +484,7 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   the Warrior mirror, in reach at a foe striking, a walk, a hold at reach's edge and a punch were
   priced 7 to 8% of a life taken against about 3% given, the back step 3.9% against 2.0%; a sway
   read 4 points better than the rest where it was 1. With the measured pressure holding it
-  (`OthersModel.holdsBlow`) they read 0.7 to 0.9 of what they get, and the old pricing scored 0.503
+  (`ExchangePredictor.danger`) they read 0.7 to 0.9 of what they get, and the old pricing scored 0.503
   (0.451 to 0.556) against the new on `warrior-drawn`. A cover is priced as a hold there; it was
   chosen 5 times in 45,000 decisions. *Shown.*
 - **The Option Mind's prices ran over what a fight gives**: in Warrior mirror bouts it expected
@@ -570,9 +570,14 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   runs: 0.646 (0.606 to 0.686) over 576 bouts held out against the tail leaf's best line, its
   mirror knocking out within 60 s in 81.0% (91.2%). By the owner's word, the empty-handed man's
   default since e5eacbb22 (`DEFAULT_BODIES` by `bodyOf`), the body it was measured on. Every
-  other body keeps the Mind before it (`option-tail`): off the empty-handed man its fitted models
-  stand aside (`fittedOn`), and the mean backup with initiative 0.3 on the tail's leaf knocked out
-  in 0.0% on the Warrior. *Shown.*
+  other body but the rat keeps the Mind before it (`option-tail`): off the empty-handed man its
+  fitted models stand aside (`fittedOn`), and the mean backup with initiative 0.3 on the tail's
+  leaf knocked out in 0.0% on the Warrior. The rat (steadiness 25 %) plays `option-presses`,
+  each state worth its best line at aggression 5 and initiative 0.3: against the empty-handed
+  Warrior in the tournament's `gaps` it took 0.395 (0.323 to 0.470) of his life by 60 s, at least
+  1 HP in 40 of 48 bouts, its pressure tables measured on its own bouts (38 of 48 on
+  `option`'s), against `option`'s 0.238 and 29 of 48 and `option-tail`'s 0.119 and 8. Without
+  initiative it read 19 of 44; at initiative 0.6, 32 of 46; at aggression 4, 36 of 46. *Shown.*
 - **A line priced against the foe's replies as well as the foe standing is as strong and quicker
   to a knockout**: each root line worth the mean of a tree search's price with the foe standing and
   with the foe running each reply over the line's first step (`repliedSearch`), a foe of the
@@ -642,7 +647,7 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   rethink phase (`Deciding.phase`) had the right decide 0.618 of a 0.2 s period after the left
   (12 to 15 steps). Swapping the phases leaned it to the left (0.465), and both at one phase read
   0.507 and 0.486; enlisting the right first did not move it (0.573). Since 3bdd5b168 every body's
-  periods start at one time, the decider's step offset alone keeping two bodies on neighbouring
+  periods start at one time, the mind's step offset alone keeping two bodies on neighbouring
   steps: the right 0.479 on 288. The duel's mean step rose from 1.77 to 2.17 ms, the crowd's fell
   from 30.5 to 21.3, and a page drops no frame it did not before. Why a stagger leans, and to which
   side, is not known. *Shown.*
@@ -736,6 +741,48 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   body's pooled and read as a written form beat the nearest body in 11 of 18 sets, 9 of 12 where
   the others had hundreds of trials, and lost where they had about 60, as the man's do
   (`5f394cae0`, `b7d2fb56a`). *Shown.*
+- **The struck body is numbers on a strike's trials, and three measured bodies do not price a
+  fourth**: a profile is found by the striker's body, skill and limb, never by the body struck;
+  each trial records the body it struck (its stature, mass, Steadiness and Haste,
+  `struckNumbers`), and a reading takes the trials struck at the measured body nearest in stature
+  and mass (`profileAgainst`, spans 0.1 m and 10 kg), saying so (`ProfileReading.scaled`). The
+  strikes went from 51 profiles to 17 and the empty-handed mirror played 24 of 24 to the bit
+  (`540ddff7b`). Held out over the trials in the assets
+  (`research/skills/strikes/struck-held-out.mjs`; 47 held-out bodies, 7,124 trials; `08c342acd`,
+  `e5fee3269`), a body read as the nearest loses much of what its own trials give: squared error
+  of landed 0.313 against 0.170 (0.143 ± 0.009 worse), of dealt 0.0058 against 0.0041
+  (0.0017 ± 0.0003). The rule before it, the first body a profile's trials struck, reads the
+  same (0.313, 0.0058): the two name the same body for all but 6 of the held-out bodies. The
+  rest pooled as a written form, the struck body's numbers among its terms, reads landed 0.278
+  (0.108 ± 0.007 worse than its own) and dealt 0.0080 (0.0039 ± 0.0005 worse), further than
+  either on dealt. 1,068 trials were unread by one rule or more, no trial begun at that posture.
+  The nearest body can be far: the reptile (0.325 m, 8 kg) reads as the skeleton (1.62 m,
+  15 kg). What makes a body read well is its own trials struck, added to each striker's
+  profile, never a table of a pair. *Shown.*
+- **What a body holds is numbers on a trial, and a reading merged across loadouts moved a body
+  that had its own**: an item's mass and its reach past the hand are read from its spec (the
+  short sword 0.75 kg and 0.62 m, the club 1.16 kg and 0.70 m, the buckler 0.90 kg and 0.23 m;
+  `Start.held`, `bodyNumbers`), their spans (1 kg, 0.1 m) set on no reading. No loadout finds a
+  profile: the edges went from 83 profiles to 17 (`93f128cab`). A foe's limb is read throwing a
+  strike only where it holds as its trials' limb held (`limbHoldsAsMeasured`). That commit's
+  claim that the empty-handed cases played to the bit rested on the fingerprint alone and was
+  wrong: the empty-handed mirror (24 gaps 2.65 to 5.41 m, 120 s) moved in 5 of 24 bouts, the
+  winners the same, a body reading every loadout's falls where its own began from no such
+  position (the flatten, from the front, the right side and the crouch). The fingerprint's
+  empty-handed cases end before a fall's price matters. A loadout's own trials read where it had
+  any put the mirror back to 24 of 24 (`168168a0f`); the cleanup then read what is held one way,
+  as numbers among the trials' (`6d4d692ec`), so the written form fits every loadout's falls at
+  once and the edges' readings moved again: in the fingerprint the 13 cases where a body holds
+  an item and, empty-handed, `option-back-step`'s man against woman, not read by bouts since. A
+  Warrior holding a sword then priced its foe by the rate from measured strikes, not by hand,
+  and the walker's bout at a sword allocated 789 KiB a step against the ceiling's 570, the
+  nearest search's distances boxed as numbers; written to arrays, 382. *Shown.*
+- **The pressure is found by its two bodies' numbers, and is still a table a pairing**: a table
+  records the striker and the struck as stature, mass and what each holds (`PressureBody`), and
+  is read by a pairing within a span of both (`pressureTable`, `pairingApart`; `19d6a6d39`), the
+  empty-handed mirror 24 of 24 to the bit. A pairing near no table is priced by its strikes'
+  rate. Three tables since the rat's work: a man on a man, a man on a rat, a rat on a man.
+  *Shown.*
 - **Two foes cost a little less than the sum of each, and the Option Mind prices them so**: a man
   in an open Crypt room lost 0.79 (0.65 to 0.96) of what two men took from him alone, summed, and
   the Mind's expectation of each foe fell with two as the loss did, within about 15%; skeletons
@@ -745,11 +792,11 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   one model a skill across bodies in the game (the nearest body's trials scaled is). What a body
   holds is numbers on a profile's trials (`Start.held`) and no part of what finds one, but no
   trial yet crosses a loadout with a skill measured without it: a body holding a sword reads its
-  punches' and its stomp's empty-handed trials, coarse; the pressure is still found by what each
-  body holds (`holdsOf`, `pressure.ts`). The skeletons' overprice two on
-  one is likely their pricing by rate: the measured pressure has a table for a man on a man only,
-  so any other foe is priced by the most its strikes could deal at reach (`measuredOthers`,
-  `ratePressure`); not isolated. The kinds were fitted by bouts on the Warrior empty-handed
+  punches' and its stomp's empty-handed trials, coarse; a pressure table is read only by bodies
+  holding as its own held (`holdsAlike`, `pressure-table.ts`). The skeletons' overprice two on
+  one is likely their pricing by rate: the measured pressure has no table of a skeleton, so it
+  is priced by the most its strikes could deal at reach (`ProfileExchange.ratePressure`); not
+  isolated. The kinds were fitted by bouts on the Warrior empty-handed
   alone, the stature reading went into the game on held-out trials with no bouts, and the
   written form into it with no look in a browser. *Suspected* where a cause is named.
 - **The game's Mind's play does not move with how it models its foe; its search's runs move it**:

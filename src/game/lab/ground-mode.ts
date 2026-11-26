@@ -2,7 +2,7 @@ import { constructionScope } from "../../core/construction.ts";
 import { isRefused } from "../../core/refusal.ts";
 import type { BuiltBody, BuiltSegment } from "../../core/bodies/build/build-body.ts";
 import { commandsBody } from "../../control/body.ts";
-import { type HostedBody } from "../../minds/seat/hosted-body.ts";
+import { type CommandedBody } from "../../minds/seat/hosted-body.ts";
 import type { World } from "../../core/world/world.ts";
 import type { Vector3 } from "../../core/math/vector.ts";
 import { recoveryMeasurement } from "./recovery-measurement.ts";
@@ -78,7 +78,7 @@ type CheckStage = "standing" | "rising" | "holding" | "walking" | "stood" | "fel
 
 /** What a stand's verification reads of a body: it, its muscles and world, when its rise has taken it over, and whether its host has it at the end. */
 interface Checked {
-  readonly body: Pick<HostedBody, "built" | "muscles">;
+  readonly body: Pick<CommandedBody, "built" | "muscles">;
   readonly world: World;
   takenOver(): boolean;
   inCommand(): boolean;
@@ -160,7 +160,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
   scope.own(dummy ? options.hears?.(dummy.fighter.built) : null);
   if (dummy) hub.add({ id: "ground-foe", side: "ground-foe", built: dummy.fighter.built, out: () => false });
   const check = standCheck(actorChecked(actor), options.cap ?? STAND_CHECK.cap);
-  const driven = actor.drive({ name: "ground stand", decide: () => standIntent(0) }, { senses,
+  const driven = actor.drive({ decide: () => standIntent(0) }, { senses,
     orders: () => environment.approach && address.ground.start === "shoved" && world.time < ROUND_FIRST
       ? { ...STAND_ORDERS, move: directMovement(environment.approach.x, environment.approach.z), pace: STAND_CHECK.pace } : check.orders() });
   if (isRefused(driven)) return driven;

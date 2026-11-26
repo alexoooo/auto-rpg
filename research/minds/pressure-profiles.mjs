@@ -1,11 +1,12 @@
 /**
- * **The measured pressure** (`PressureTable`, `src/minds/option/pressure.ts`;
+ * **The measured pressure** (`PressureTable`, `src/minds/option/predictions/exchange/pressure-table.ts`;
  * `assets/minds/pressure-profiles.json`): what a foe's fighting took from a body in bouts, by how
  * far apart the two stood centre to centre, what the foe was doing, and the seconds after.
  *
  *   node research/minds/pressure-profiles.mjs <bouts>... [--write]
  *
- * `--write` puts the tables in the game's asset; a table not yet kept is tried so in a worktree.
+ * `--write` puts the tables in the game's asset beside its tables of pairings these bouts do not
+ * measure; a table not yet kept is tried so in a worktree.
  *
  * Each of `<bouts>` is a bout record `strike-bouts.mjs --save` wrote, or a directory of them. Each
  * decision of a side (its record's `decisions`) is a moment: the two `range` m apart centre to
@@ -13,7 +14,7 @@
  * field, `Engagement.foe`: the reading the mind prices by, `FoePhase`; a row with none, from before
  * it was written, is no moment); and the life the side lost (its pool's bar, a share of its full
  * life: the drain on a stalled bout is not in it) by each of `HORIZONS` s after, out to as far as
- * the chooser looks (`HORIZON`, `src/minds/option/chooser.ts`), at any range: a foe out of reach
+ * the chooser looks (`HORIZON`, `src/minds/option/choosers/parts.ts`), at any range: a foe out of reach
  * comes, and what it takes on arriving is in the later horizons. Past the end of a bout a body's
  * life ended, its last bars hold; a moment whose last horizon is past the end of a bout that
  * ended otherwise is none, as is one within `UNSETTLED` s of either side's fall. Moments are kept summed in bins of `BIN` m by phase. A table is of
@@ -21,11 +22,11 @@
  * measured from the minds that fought them, and read again where those change. Bouts are empty-handed
  * (a record's `held` `empty`), so a table is of bodies holding nothing; others are refused.
  */
-import { readdirSync, statSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { savedBouts } from "../skills/strikes/bout-save.mjs";
 import { execSync } from "node:child_process";
 import { resolveCharacter } from "../../src/core/bodies/models.ts";
-import { pressureBody } from "../../src/minds/option/pressure.ts";
+import { pressureBody } from "../../src/minds/option/predictions/exchange/pressure-table.ts";
 
 const OUT = "assets/minds/pressure-profiles.json", SCRIPT = "research/minds/pressure-profiles.mjs";
 /** The seconds after a moment its life lost is read at. */
@@ -79,6 +80,10 @@ for (const profile of profiles) {
 }
 console.log(`${moments} moments from ${bouts} bouts in ${files.length} files`);
 if (write) {
-  writeFileSync(OUT, `${JSON.stringify({ source: { script: SCRIPT, commit, bouts: paths }, profiles }, null, 1)}\n`);
+  // The asset's tables of other pairings are kept, with how they were made (`kept`); a pairing measured again is replaced.
+  const asset = JSON.parse(readFileSync(OUT, "utf8")), pairing = (table) => JSON.stringify([table.measured, table.target]), made = new Set(profiles.map(pairing));
+  const kept = asset.profiles.filter((table) => !made.has(pairing(table)));
+  const source = { script: SCRIPT, commit, bouts: paths, ...kept.length ? { kept: asset.source } : {} };
+  writeFileSync(OUT, `${JSON.stringify({ source, profiles: [...kept, ...profiles] }, null, 1)}\n`);
   console.log(`wrote ${OUT}`);
 }

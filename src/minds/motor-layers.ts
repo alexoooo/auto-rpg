@@ -1,7 +1,7 @@
 import { rigidPoints } from "../core/bodies/build/rigid.ts";
 import type { BodyControl } from "../core/bodies/body-control.ts";
 import { Quaternion, Vector3 } from "../core/math/vector.ts";
-import { COMMAND, type Body, type BodyCommand, type BodyView, type PointMotion, type LayerOptions, type SplitDriver } from "../control/body.ts";
+import { COMMAND, type Body, type BodyCommand, type BodyView, type PointMotion, type LayerOptions } from "../control/body.ts";
 import type { Clock } from "../core/world/clock.ts";
 import type { OwnBody } from "../core/bodies/own-body.ts";
 import { NOTHING_SENSED, type Senses } from "../core/bodies/senses.ts";
@@ -13,30 +13,50 @@ import { effectorFeedback } from "../control/effector-feedback.ts";
 import { uprightness } from "../control/ground.ts";
 import { rootFrameToRef } from "../control/kinematics.ts";
 import { carries, carrying, sameEffectorGoal, type EffectorGoal, type FreedomPath, type PointTask } from "../control/motor.ts";
-import type { Mind } from "./mind.ts";
 
 /**
- * Motor control under a split driver. `think` queues decisions; `act` reads the current body and
- * carries the due decision into motor commands. `observe` samples completed physics before any
- * holder acts. Releasing clears pending work and motor goals; resuming tells the driver.
+ * The command layers over a body: its motor, the view of it, and the queue that holds each
+ * decision for the body's reaction time. They are a tool with steps and decide nothing. The Mind
+ * that owns them (`CommandingMind`) calls the steps in order each control step; `D` is what that
+ * Mind decides.
  */
-interface CommandLayers extends LayersMind {
+export interface CommandLayers<D> {
   readonly name: string;
-  dispose(): void;
+  /** All they remember, saved under the Mind that owns them. */
+  readonly state: object;
   /** The view as the last step left it, or as built before the first. */
   readonly view: BodyView;
-  /** The body its drivers have: the one to hand a decider's skills, a skill or a script. */
+  /** The body under them: the one to hand a mind's skills, a skill or a script. */
   readonly body: Body;
   /**
-   * Read the body as it stands, once, before the first step: the view a driver first finds. Called
+   * Read the body as it stands, once, before the first step: the view its Mind first finds. Called
    * after whatever is made over the view, which so finds it as built.
    */
   firstLook(): void;
+  /** Show `senses` in the view, and read the body too unless `take` or `feel` read it this step. */
+  look(senses: Senses): void;
+  /** Sample the effectors' touch and tell the listeners of the physics just completed, before any holder acts. */
+  observe(control: BodyControl): void;
+  /** Read the body for this step while another holder acts on it. */
+  feel(): void;
+  /** Queue what was decided this step, to be carried out once the body's delay has passed. A null keeps the command the body already has. */
+  decided(decision: D | null): void;
+  /** Read the body for this step and hand back the decision that is now due. Null where none is due yet, or the one due keeps the command. */
+  take(control: BodyControl): D | null;
+  /** Obey `command` where there is one, then have the motor write the muscles for this step. */
+  apply(command: BodyCommand | null, control: BodyControl): void;
+  /** Drop the decisions queued and not yet carried out. The motor keeps its goals. */
+  forget(): void;
+  /** Let the body go, to another holder or to nobody: the queue is dropped and the motor's goals are cleared. */
+  release(): void;
+  /** Take the body back. The view says so until the next decision is queued (`BodyView.resumed`). */
+  resume(): void;
+  dispose(): void;
 }
 
 /**
- * **The command layers over `own`** (`CommandLayers`), holding its reference pose until something
- * drives them, on `clock`: motor control of the maker `options` names, the view, and the effectors'
+ * **The command layers over `own`** (`CommandLayers`), holding its reference pose until a
+ * command is applied, on `clock`: motor control of the maker `options` names, the view, and the effectors'
  * touch where `options` asks for it (`LayerOptions.feedback`),
  * labelled by the body's own contact labels (`OwnBody.contactIdentity`). They read the body as its
  * spec has it: motion of each effector's named points, the head where another body aims
@@ -46,7 +66,7 @@ interface CommandLayers extends LayersMind {
  * before each full-level action (`CommandLayers.observe`), before any observer added after
  * them.
  */
-export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock): CommandLayers {
+export function commandLayers<D>(own: OwnBody, options: LayerOptions, clock: Clock): CommandLayers<D> {
   const { servoSeconds, stance, feedback: feedbackEnabled, contacts, motor: makeMotor } = options;
   const { built, muscles } = own;
   // The command layers' vocabulary is every goal a motor may carry out (`BodyCommand`): its effectors' places, and whichever of the rest it carries.
@@ -93,16 +113,14 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     /** The height the last command held the body low at with no stance (`BodyCommand.held`), m, or null. */
     held: null as number | null,
     ground: ground.state,
-    /** Whether the layers are released (`LayersMind.release`): another has the body, and the ground is read whatever the stance. */
+    /** Whether the layers are released (`CommandLayers.release`): another has the body, and the ground is read whatever the stance. */
     released: false,
     groundActive: false,
     resumed: false,
-    /** At a delay, what the driver decided that it has not yet carried out, oldest first: null keeps the command. */
-    pending: [] as unknown[],
+    /** At a delay, what was decided and is not yet carried out, oldest first: null keeps the command. */
+    pending: [] as (D | null)[],
     /** Whether the body was read this step, by the motor part before the look. */
     felt: false,
-    /** The registered driver's memory, including its skills, decider and pacing. */
-    driver: null as object | null,
   };
   // The step's reading: its stamp moves wherever the view may, so it is no state and carries nothing on.
   let stamp = 0;
@@ -125,9 +143,6 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     get resumed() { return state.resumed; },
     reading,
   };
-  let driver: SplitDriver<unknown> | null = null;
-  let released: ((view: BodyView, reason: "takeover" | "idle" | "replaced") => void) | undefined;
-
   let current: BodyControl | null = null;
   const obey = (command: BodyCommand, control?: BodyControl): void => {
     if (command.assist && control) { control.assist.force.copyFrom(command.assist.force); control.assist.moment.copyFrom(command.assist.moment); }
@@ -171,7 +186,6 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   const feel = (time: number): void => {
     moved();
     state.time = time;
-    // At a delay the body is born on the first step its driver's decision is carried out.
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
     for (let i = 0; i < points.length; i++) points[i]!.sample.update();
     rootFrameToRef(motor.root, state.root);
@@ -197,32 +211,25 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     state.felt = false;
     view.senses = senses;
   };
-  const think = (): void => {
-    const dt = clock.dt;
-    state.pending.push(driver ? driver.decide(view, dt) : null);
+  const decided = (decision: D | null): void => {
+    state.pending.push(decision);
     state.resumed = false;
     moved();
   };
-  const act = (control: BodyControl): void => {
+  const take = (control: BodyControl): D | null => {
     current = control;
-    const dt = clock.dt;
     feel(clock.time);
     state.felt = true;
-    if (state.pending.length >= own.delay) {
-      const due = state.pending.shift();
-      if (due !== null && due !== undefined) state.born ??= clock.time;
-      const next = due === null || due === undefined ? null : driver?.carry(view, due, dt);
-      if (next) obey(next, control);
-    }
-    motor.control(muscles, control, dt);
-    moved();
+    if (state.pending.length < own.delay) return null;
+    const due = state.pending.shift() ?? null;
+    // At a delay the body is born on the first step a decision is carried out.
+    if (due !== null) state.born ??= clock.time;
+    return due;
   };
-  const drive: Body["drive"] = (next, onRelease) => {
-    const split = typeof next === "function" ? { state: {}, decide: next, carry: carried } : next;
-    if (driver && split?.decide !== driver.decide) { released?.(view, "replaced"); state.pending.length = 0; }
-    driver = split;
-    state.driver = split === null ? null : split.state;
-    released = onRelease;
+  const apply = (command: BodyCommand | null, control: BodyControl): void => {
+    if (command) obey(command, control);
+    motor.control(muscles, control, clock.dt);
+    moved();
   };
   const listeners = new Set<(step: number, time: number) => void>();
   const afterPhysics: Body["afterPhysics"] = listener => { listeners.add(listener); return () => { listeners.delete(listener); }; };
@@ -232,11 +239,11 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
       if (!current) { out.muscles.activation.fill(0); out.muscles.velocity.fill(0); out.assist.force.setAll(0); out.assist.moment.setAll(0); return; }
       out.muscles.activation.set(current.muscles.activation); out.muscles.velocity.set(current.muscles.velocity);
       out.assist.force.copyFrom(current.assist.force); out.assist.moment.copyFrom(current.assist.moment);
-    }, built, muscles, assist: own.assist, view, envelope, drive, afterPhysics, delay: own.delay,
+    }, built, muscles, assist: own.assist, view, envelope, afterPhysics, delay: own.delay,
     ...(own.contactIdentity ? { contactIdentity: own.contactIdentity } : {}) };
   return {
     name: COMMAND,
-    view, body, look, think, act, state,
+    view, body, look, decided, take, apply, state,
     observe(control) {
       current = control;
       moved(); feedback?.read(clock.steps);
@@ -250,21 +257,17 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
       feedback?.read(clock.steps);
       look(own.first);
     },
-    interrupt() { this.release("idle"); },
-    release(reason = "takeover") {
+    forget() { state.pending.length = 0; },
+    release() {
       state.released = true;
       state.pending.length = 0;
-      released?.(view, reason);
       motor.reset();
       for (const segment in goals) goals[segment] = null;
     },
     resume() { state.released = false; state.resumed = true; },
-    dispose() { drive(null); listeners.clear(); },
+    dispose() { listeners.clear(); },
   };
 }
-
-/** A driver that decides its command whole carries out the command it decided. */
-const carried = (_view: BodyView, command: unknown): BodyCommand | null => command as BodyCommand | null;
 
 /** No point driven. */
 const NO_POINTS: readonly PointTask[] = Object.freeze([]);
@@ -298,13 +301,4 @@ function pointMotionOf(built: ReadBody, segment: string, point: string): { motio
       motion.velocity.addInPlace(Vector3.CrossToRef(angular, lever, angular));
     },
   };
-}
-
-/** The host reads its body before deciding who controls it. */
-export interface LayersMind extends Mind {
-  look(senses: Senses): void;
-  observe(control: BodyControl): void;
-  feel(): void;
-  release(reason?: "takeover" | "idle"): void;
-  resume(): void;
 }

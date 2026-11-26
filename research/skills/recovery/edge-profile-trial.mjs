@@ -13,7 +13,7 @@ export async function edgeTrial(job, given) {
   await import("../../../tests/harness/preload-data.mjs");
   const { buildFall } = await import("../../../src/app/node/evaluation.ts");
   const { MINDS, partLookup } = await import("../../../src/app/catalog.ts");
-  const { optionsOf } = await import("../../../src/minds/option/config.ts");
+  const { optionsOf } = await import("../../../src/minds/option/assembly/config.ts");
   const { TECHNIQUES } = await import("../../../src/app/registration/techniques.ts");
   const { tumbling } = await import("../../../src/control/ground-reading.ts");
   const { heldNumbers } = await import("../../../src/skills/framework/profile/numbers.ts");
@@ -33,7 +33,7 @@ export async function edgeTrial(job, given) {
   if (isRefused(built)) throw new Error(built.refused);
   const spec = built.combatant.body.built.spec, hz = built.world.hz, delay = built.world.delay;
   const trials = [], open = [], waiting = [];
-  const record = built.combatant.minded.state.mind.decider.model.record;
+  const record = built.combatant.minded.state.mind.record;
   let phase = null, tried = new Map();
   /** Where `trial`'s Option takes the body: a way up's edge from where it began, flatten's lie. */
   const toOf = (trial) => trial.name === "flatten" ? trial.lie

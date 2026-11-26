@@ -1,7 +1,7 @@
 import type { MindMade, MindWiring } from "../../minds/catalog/controller.ts";
 import type { Refused } from "../../core/refusal.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
-import type { HostedBody } from "../../minds/seat/hosted-body.ts";
+import type { CommandedBody } from "../../minds/seat/hosted-body.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import type { AssistCeiling } from "../../core/bodies/assist.ts";
 import type { Experiment } from "../../control/body.ts";
@@ -40,7 +40,7 @@ interface Driving {
 export interface Actor {
   /** The body, the active script's memory and its once-per-step order cache. */
   readonly state: { readonly body: object; readonly mind: object; script: ScriptOrdersState | null };
-  readonly body: HostedBody;
+  readonly body: CommandedBody;
   readonly world: World;
   /** Hand the body to its mind with orders and senses, or a scenario script made orders (`scriptOrders`). Returns the mind so driven. */
   drive(script?: Script, driving?: Driving): LabMind | Refused;
@@ -80,7 +80,7 @@ interface ScriptOrdersState { memory: object | null; time: number | null; orders
  * once a step, on the step's first ask, from what the mind's skills see; any later ask that step is
  * given the same.
  */
-function scriptOrders(state: ScriptOrdersState, script: Script, watch: Watch | undefined, body: HostedBody, world: World, skills: LabMind["skills"]): () => Orders {
+function scriptOrders(state: ScriptOrdersState, script: Script, watch: Watch | undefined, body: CommandedBody, world: World, skills: LabMind["skills"]): () => Orders {
   const sight = sightOf(body, skills);
   return () => {
     if (state.orders === null || state.time !== body.view.time) {
@@ -109,7 +109,7 @@ export function labActor(context: GameContext, built: BuiltBody, world: World, {
     own.body.dispose();
     return { refused: `${partOf(mind).label} runs no skills the Lab can read` };
   }
-  const made: LabMind = { state: own.state, skills, report }, body = own.body as HostedBody;
+  const made: LabMind = { state: own.state, skills, report }, body = own.body as CommandedBody;
   const state: Actor["state"] = { body: body.state, mind: made.state, script: null };
   return {
     state, body, world,

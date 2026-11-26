@@ -51,9 +51,30 @@ of a test.
 - **A flag fixed for a caller is set when it builds.**
 - **A module that owns a rule exports its predicate.** A published field needs a reader; an
   export needs an importer.
+- **A name is filed by what it is**, whoever reads it, one idea a file; a default is in the file
+  of the part it is a default of.
 - **What changes step to step is plain data in one `state` object** per module
   (`src/core/state.ts`), so a bout forks by copying its state; a constant a state points at is
-  frozen.
+  frozen. A class or a closure holds three kinds of memory, told apart by where each sits:
+  - **parts**: `readonly` fields, made once and never replaced;
+  - **memory**: `state`, which a parent points at and never copies. A load writes back into the
+    objects a state holds, so an owner may keep hold of one; it puts a new object in a slot that
+    was null, frozen or of another length, or whose object another state read earlier shares,
+    and such a slot is reached through `state` each time;
+  - **caches**: a field or a module's map whose comment says what it is keyed by and why that
+    never changes (a spec, a data table, a config, none written after it is made; one step's own
+    reading), so dropping one changes no result.
+- **The fingerprint's relay checks that** (`node scripts/fingerprint.mjs --relay 127`): each arena
+  fight is played again with a fresh bout, its Minds new, taking over from a save every 127
+  steps (a count no decision period divides, so the handovers fall at every phase of a Mind's
+  decisions), and must end on straight play's save. A fresh bout drops what a Mind or a skill
+  keeps in a field or a closure outside `state`. It does not drop a module's map; it plays only
+  the arena's fights; it compares only the saves the two end on; and it loads only into a bout
+  that has not played. It found three ways the rule above breaks: a punch that kept one commit's
+  memory in a closure (`MOVING_THROW`); an empty posture every motor's state pointed at that
+  was not frozen, so a load wrote one motor's pose into all of them (`initialGuardPosture`);
+  and a goal that held the state's arrays from when it was made, where a load had put new ones
+  (`rightingByRoutes`). *Shown.*
 - **The step's dear functions work in arrays made once**, which carry nothing between calls,
   under the step's allocation ceilings (`tests/core-step-cost.test.mjs`); a
   speed rewrite does the same operations in the same order, moves no fingerprint, and reads its

@@ -147,7 +147,7 @@ By hand, on its drill, read by its score ([a skill's value](#a-skills-value)):
   (`sparring`, `sparring-laid`). What it read the foe do is the foe's Mind's: read that before
   pricing a range by it ([the approaches](../approaches.md#minds)).
 - **A part that reads a skill's record reads the search's tuning too** (`aimFor`,
-  `src/minds/option/kinds.ts`): the bite's aim read the record while the search tuned the executor.
+  `src/minds/option/options/strike-kinds.ts`): the bite's aim read the record while the search tuned the executor.
 - **A skill read on falls is developed on its drill's twin** (the way-up drill's `fresh` falls):
   placed starts never hold what the game's falls do (`55d4839f`).
 
@@ -240,3 +240,6 @@ given a field loads none of them, so move the learner's folders aside with the c
 - **Removing the actor to read its controller after a learned warm-up**: the controller may not
   continue from where the actor left it, and its failure is then the removal's.
 - **A source copied into a run's folder** imports the live `src` and nothing type-checks it.
+- **A fall in a fight blamed on the foe**: trace one before reading a fight's falls (what
+  touched the body, and what its gait was asked). The rat's trot, asked to back off a foe it
+  faced, trod in place and tipped over with the man touching nothing (`425cc6643`).

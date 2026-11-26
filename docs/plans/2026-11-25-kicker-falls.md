@@ -163,7 +163,9 @@ The owner's order: the low attack in the game's Mind (the low kick's own profile
 prices it by measurement, and whether, its falls fewer, it takes bar 2 back), then the game's
 Mind's knockouts within 60 s by the skills, the way up first (the owner, 2026-11-24: "it will take
 more than just hyperparameter tuning, it wmight require significant skill iteration (which is
-fine)"). Numbers and the testbed's rest stay parked. Each gets its own plan when begun.
+fine)"). The testbed's rest stays parked; the numbers plan is folded into
+[the measured Mind](2026-11-25-measured-mind.md). The low attack and the knockouts each get a
+plan of their own when begun.
 
 A decision still lands in the one step it is made in (the approaches' Minds,
 `research/runs/lean-time/`): spreading it over the steps until the next one is the lever, not yet
