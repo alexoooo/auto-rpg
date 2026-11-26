@@ -25,6 +25,8 @@ export interface Chooser {
    * runs the set at the one whose best is worth most, priced afresh; else at `now`.
    */
   decide(now: Situation, others?: () => readonly Situation[]): Chosen;
+  /** When it next decides afresh unasked, s of the world's clock (`Deciding.rethink`): at once before its first decision. */
+  readonly next: number;
   /** The set running, as the last decision left it. */
   readonly running: readonly Option[];
   /** What it chose among at its last decision. */

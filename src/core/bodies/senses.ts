@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from "../math/vector.ts";
+import { sourced } from "../quantity.ts";
 import type { BodySpec } from "./spec/body.ts";
 import type { ObjectSense, SolidSense } from "./object-senses.ts";
 /**
@@ -21,9 +22,9 @@ export interface Senses {
   /** When the fight's clock gives its verdict at the latest, s of the world's clock: absent where no clock ends it. */
   readonly ends?: number;
   /**
-   * How late it shows another body once it has carried it that long, s (`createSenses`'s delay):
-   * the reaction time a profile is measured at. A body carried for less is shown as it stood when
-   * it was added (`BodySense.time`). Absent where a caller supplies readings of its own.
+   * How late it shows another body once it has carried it that long, s: its body's reaction time
+   * to the nearest step (`reactionSteps`), the one a profile is measured at. A body carried for
+   * less is shown as it stood when it was added (`BodySense.time`). Absent where a caller supplies readings of its own.
    */
   readonly reaction?: number;
   /** Every other body the senses carry, as they pass it (`createSenses`): in the order added. */
@@ -115,6 +116,14 @@ export function shownSegments(names: readonly string[]) {
       return map;
     },
   };
+}
+
+/** A body's reaction time unless its character sets another (`AttributeSpec.reaction`): every body's, in every family. */
+export const REACTION = sourced(0.15, "s", "owner-reaction-time", "every other body seen 0.15 s late");
+
+/** How many whole steps late a body of `spec` sees every other body in a world stepping `hz` times a second: its reaction time (`AttributeSpec.reaction`), to the nearest step. */
+export function reactionSteps(spec: BodySpec, hz: number): number {
+  return Math.round(spec.attributes.reaction.value * hz);
 }
 
 /** What a body senses before anything has been read for it: no time, no side, its life whole, nobody. */

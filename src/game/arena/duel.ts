@@ -22,7 +22,7 @@ import { watchBlows, type BlowWatch, type LandedBlow } from "../../combat/blows.
 import type { Pool } from "../../combat/pool.ts";
 import { seedOf } from "../../core/math/random.ts";
 import { phaseOf } from "../../minds/seat/host.ts";
-import { reactionSteps, rulebook, type Rulebook, type RulebookOverride } from "../../combat/rulebook.ts";
+import { rulebook, type Rulebook, type RulebookOverride } from "../../combat/rulebook.ts";
 import type { BodySpec, SegmentSpec, SkillChoices } from "../../core/bodies/spec/body.ts";
 import { derive, type Vec3 } from "../../core/quantity.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
@@ -49,8 +49,8 @@ import { type ArenaSeat as Side, otherSeat as otherSide, ARENA_SEATS as SIDES, b
  * - **Each side, left to itself**, does as its mind decides: a planner picks its foe from the
  *   bodies it senses (`targets.ts`) and closes on it, strikes or holds off as its parts choose.
  *   What each sees of the other is the bout's senses'
- *   (`createSenses`): both see the same moment, `DuelRecipe.senseDelay` old, the rulebook's
- *   reaction time unless the recipe gives its own.
+ *   (`createSenses`): each sees the other as late as its own reaction time, its character's
+ *   (`AttributeSpec.reaction`).
  * - **A side given orders** (`Duel.order`) does what it is ordered and nothing else, until it is
  *   handed back to itself or is out of the fight. Every order is kept with the step it was given
  *   before (`Duel.tape`), so the recipe and the tape are the whole of what made a bout, and
@@ -120,8 +120,6 @@ export interface DuelRecipe {
   readonly gap?: number;
   /** `CAP_SECONDS` unless given. */
   readonly capSeconds?: number;
-  /** How old what each side sees of the other is, s, in place of the rulebook's reaction time (`Rulebook.reaction`, `senseDelayOf`). */
-  readonly senseDelay?: number;
   /** The bout's seed, a 32-bit word, each side's mind drawing from its own (`seedOf` with the side); 0 unless given (`boutSeedOf`). */
   readonly seed?: number;
   /** Each side's steadiness, per cent of its weight, in place of its character's (`AttributeSpec.steadiness`): an experiment's, or a link's. */
@@ -153,9 +151,6 @@ export interface DuelRecipe {
   /** A shove given a side's body once (`Shove`): a drill's. */
   readonly shove?: Shove;
 }
-
-/** How old what each side of a bout of `recipe` sees of the other is, s: the recipe's, or its rules' reaction time. */
-export const senseDelayOf = (recipe: Pick<DuelRecipe, "senseDelay" | "rules">): number => recipe.senseDelay ?? rulebook("arena", recipe.rules).reaction.value;
 
 /** The seed of a bout of `recipe`: the recipe's, or 0. */
 export const boutSeedOf = (recipe: Pick<DuelRecipe, "seed">): number => recipe.seed ?? 0;
@@ -380,7 +375,7 @@ export class Duel {
     this.ends = (recipe.ends ?? GAME_ENDS).map((config) => { const rule = endRuleOf(config); return [rule, { ...rule.defaults, ...config }] as const; });
     const solids = solidSenses(hooks.solids ?? arenaSolids(level));
     const effective = JSON.parse(recipeKey({ ...this.recipe, level, gap, capSeconds: recipe.capSeconds ?? CAP_SECONDS,
-      senseDelay: senseDelayOf(recipe), seed: boutSeedOf(recipe), recoverySeconds: recipe.recoverySeconds === null ? null : recipe.recoverySeconds ?? 0,
+      seed: boutSeedOf(recipe), recoverySeconds: recipe.recoverySeconds === null ? null : recipe.recoverySeconds ?? 0,
       loadouts: { left: loadoutIn(recipe, "left"), right: loadoutIn(recipe, "right") },
       minds,
     })) as Record<string, unknown>;
@@ -408,7 +403,7 @@ export class Duel {
     for (const [rule, config] of this.ends) ends = Math.min(ends, rule.drainedBy?.(config) ?? Infinity);
     const lifetime = constructionScope();
     try {
-    this.senses = lifetime.own(createSenses(world, reactionSteps(senseDelayOf(recipe), world.hz), { begins: start, ends: start + ends }));
+    this.senses = lifetime.own(createSenses(world, { begins: start, ends: start + ends }));
     // In the step's sensing phase, after the senses and before every mind: a taped order is given
     // before the step it names.
     this.feeding = lifetime.own(world.sense(() => {

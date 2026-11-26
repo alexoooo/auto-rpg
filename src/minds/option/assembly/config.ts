@@ -10,7 +10,7 @@ import { FILLED, type Filled } from "../../../skills/assembly/filled.ts";
 import { partOffered } from "../../../parts/fields.ts";
 
 /**
- * **An Option Mind's config**: the selected chooser, decision provider, options and decision rate.
+ * **An Option Mind's config**: the selected chooser, decision provider, options, and its two clocks.
  * Omitted or null options are every registered Option on offer (`optionsOf`); omitted predictions,
  * the calling assembly's (`OptionAssembly`, `resolveConfig`). Research tuning replaces the
  * configured continuous services by their declared place.
@@ -20,8 +20,13 @@ export interface OptionMindConfig {
   readonly chooser: ConfigFor<"chooser">;
   readonly options?: readonly ConfigFor<"option">[] | null;
   readonly predictions?: ConfigFor<"predictions"> | null;
-  /** The rate it decides at, Hz (`everyOf`, `Pace`): every control step unless given; its skills make the command every step from what it last decided. */
+  /**
+   * How often it looks for a change it watches, Hz (`everyOf`, `Pace`): every control step unless
+   * given; its skills make the command every step from what it last decided.
+   */
   readonly rate?: number;
+  /** How often its chooser decides afresh with no change to wake it, s (`Deciding.rethink`): `RETHINK` unless given, whatever its rate. */
+  readonly rethink?: number;
   /** An experiment's research tuning, which a link does not carry: `parts`, a part in place of what lies under its skills, by its place (`Filled`). */
   readonly tuning?: { readonly parts?: Filled };
 }
@@ -118,9 +123,10 @@ function tunedFaults(config: OptionMindConfig): readonly string[] {
   return Object.keys(given ?? {}).filter(place => !Object.hasOwn(FILLED, place)).map(place => `tuning: no place ${place} under its skills`);
 }
 
-/** **What is wrong with `config`**, each a sentence: duplicate choices, service settings, and a rate that is not positive. */
+/** **What is wrong with `config`**, each a sentence: duplicate choices, service settings, and a rate or a search period that is not positive. */
 export function optionMindFaults(config: ResolvedConfig): readonly string[] {
   const options = config.options, faults = [...optionsFaults(options), ...tunedFaults(config)];
   if (config.rate !== undefined && !(Number.isFinite(config.rate) && config.rate > 0)) faults.push("rate: a positive number of times a second");
+  if (config.rethink !== undefined && !(Number.isFinite(config.rethink) && config.rethink > 0)) faults.push("rethink: a positive number of seconds");
   return faults;
 }

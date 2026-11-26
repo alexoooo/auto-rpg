@@ -81,6 +81,22 @@ export function optionalChoice<C, K extends keyof C & string>(key: K, label: str
 }
 
 /**
+ * The rate field `key` of a config, Hz, shown and written as the time between, s, from `least`
+ * to `most`, offered at `step`, shown to three figures (60 Hz as 0.0167 s). Absent, it shows empty;
+ * empty text is refused, as a number field refuses it, so a typo the browser cannot read changes nothing.
+ */
+export function period<C, K extends keyof C & string>(key: K, label: string, least: number, most: number, step: number): NumberField<C> {
+  return {
+    kind: "number", key, label, least, most, step, unit: "s",
+    read: (config) => config[key] === undefined ? "" : String(Number((1 / Number(config[key])).toPrecision(3))),
+    write: (config, text) => {
+      const value = text.trim() === "" ? NaN : Number(text);
+      return Number.isFinite(value) && value >= least && value <= most ? { ...config, [key]: 1 / value } : null;
+    },
+  };
+}
+
+/**
  * The numeric field `key` of a config, from `least` to `most`; given `preset`, the value an absent
  * key means, shown where it is absent and written as absent, so a config at it equals one without it.
  */

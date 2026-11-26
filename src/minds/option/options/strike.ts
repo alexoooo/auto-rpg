@@ -45,7 +45,7 @@ interface StrikeMeasure {
 
 /**
  * The measure (`StrikeMeasure`) of `action`, carried out by one of `executors`, thrown with its one
- * limb by a body of `spec` at `hz` whose mind decides at `rate` Hz (its world's unless given) and
+ * limb by a body of `spec` at `hz` whose mind looks `rate` times a second (its world's unless given) and
  * whose command is `delay` steps late, asked of `outcomes`.
  */
 export const strikeMeasure = ({ spec, outcomes, hz, rate = hz, delay }: Pick<OptionContext, "spec" | "outcomes" | "hz" | "rate" | "delay">, executors: readonly ExecutorEntry[], action: ActionConfig): StrikeMeasure => {

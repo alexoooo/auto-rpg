@@ -13,7 +13,10 @@ open work is in this plan, and what it found is in [the approaches](../approache
 only notice it on some but not others), then what we need is a general fix." And: "I want a
 comprehensive plan to fix all of these ad-hoc hacks with general and simple mechanisms." And on
 the action prior: "I want action prior for PUCT and other uses in the plan. My guess is that the
-agent didn't seriously try it and just gave up, we need it for scalability."
+agent didn't seriously try it and just gave up, we need it for scalability." On 2026-11-26: "We
+will revisit PUCT, it's already in the plan -- we will be adding dozens of skills and UCT won't
+scale to that many options. I do agree about removing 'kind'." The forks that label every Option
+on offer are [the forked record](2026-11-26-forked-record.md)'s; what is fitted from them stays here.
 
 **At the game's scale** (2026-11-25): "This game will have dozens of bodies and items, with
 hundreds of skills. Will the plan allow us to scale up to this while maintaining fast development
@@ -302,7 +305,7 @@ body. It replaces any reading taken across every body.
 | --- | --- | --- | --- |
 | A body | the settings every body shares, on the nearest body's profiles, value and prior, each marked borrowed | its own skills' drills, and its bouts against the foes in hand | another body measured again; a table for each foe |
 | An item | its mass and reach, read from its spec; the trials nearest in those numbers | trials holding it, of the skills that use it | a table for each loadout |
-| A skill | its kind and its model, which the action prior reads; its outcomes from the nearest body that has drilled it, marked borrowed | its drill, on the body that has it | another skill measured again |
+| A skill | its model, which the action prior reads; its outcomes from the nearest body that has drilled it, marked borrowed | its drill, on the body that has it | another skill measured again |
 
 A skill no body has drilled has no outcomes: its profile is empty, and nothing is written in by
 hand to fill it. An Option with no outcomes is not offered in a fight, and the inventory lists
@@ -351,9 +354,9 @@ for every body.
    (`fittedOn`). A fit from one more collection is one more entry beside the others. What has to
    be fitted grows with the bodies worked on.
 5. **What a body does here, learned: the action prior.** For a state and each Option on offer, the
-   chance a body takes it. It reads an Option by what it is and what its model says (its kind,
-   whether it is open, its seconds, what it deals and takes, its price), never by its name, so a
-   new skill has a prior the day it is added. It is used four ways: to guide the search (PUCT), to
+   chance a body takes it. It reads an Option by what its model says (whether it is open, its
+   seconds, what it deals and takes, its price), never by its kind or its name (the owner,
+   2026-11-26), so a new skill has a prior the day it is added. It is used four ways: to guide the search (PUCT), to
    predict the foe (3), to narrow a wide body's Options before the search, and to decide alone,
    with no search, for a body that cannot afford one. A fit names its bodies, as the fitted
    value's does, and is read by the same rule.
@@ -662,8 +665,9 @@ weighted by their runs, so PUCT's uneven runs bias that mean toward what the pri
 removed in the settings' tidy-up (`dca2ce824`).
 
 **What was not tried.** The cause's fix; fewer runs, where a prior earns its keep; a body with
-many Options; a prior refitted on the guided search's own runs; the prior at the root; and every
-use but PUCT. It was read once, on the one body where a prior can help least, at the one run count
+many Options; a prior refitted on the guided search's own runs; the prior at the root; a prior
+that does not read an Option's kind; a target that does not depend on where the search's runs
+went; and every use but PUCT. It was read once, on the one body where a prior can help least, at the one run count
 where it is needed least.
 
 **What is tried now, and kept pickable in the game whatever it reads**:
@@ -676,9 +680,14 @@ where it is needed least.
 - **Wide bodies.** The man offered every Option registered that fits him empty-handed, so the
   reading is where scale will be. The body with the most Options the game offers is armed, and
   is read on the owner's word (parked, below).
-- **Two targets.** Fitted to where the search's runs went (the search taught by itself, refitted on
-  the guided search's runs for two or three rounds, and no further: rule 4), and fitted to what
-  bodies did in the record.
+- **Three targets.** Fitted to where the search's runs went (the search taught by itself, refitted
+  on the guided search's runs for two or three rounds, and no further: rule 4); to what bodies did
+  in the record; and to each Option's forked worth, a softmax of what each Option on offer was
+  worth when the state was forked once for each ([the forked record](2026-11-26-forked-record.md)).
+  The last does not depend on where the search's runs went, which is what PUCT changes.
+- **No kind.** Every variant reads an Option by its model alone (mechanism 5).
+- **Screened on the regret bank first**, where the forked record has built it: each variant's
+  regret at the banked states, then a match for those that pass.
 - **The bound.** Exploration 0.5 to 8; an untried Option valued at its prior's chance of its
   parent's worth, at the floor, or at the mean; the prior at the root as well as below it.
 - **Its other uses, each read on its own**: the foe predicted by it (step 8), a wide body's Options
@@ -716,15 +725,21 @@ game or to unpark something, and the work goes on meanwhile.
    body; the third stays where it was read. The agent's sorting to start from, each checked in
    the code first: a walk's start signed, a sway by its own steps, the foe carried on and the
    fitted leaf are prices made truer, so fixes (off the man the fitted leaf stands aside until
-   step 5); deciding at 10 Hz halves the thinking, so speed, if `staleness` shows each body's
-   profiles hold at that rate; the backup, the aggression and the initiative were chosen by
+   step 5); deciding at 10 Hz is no gain: alone it saves a sixth of the thinking and loses to
+   60 Hz (0.344, the approaches' "The rate alone"), while 40, 30 and 20 Hz each play 60 Hz even;
+   searching every 0.1 s, the clocks apart, 20 Hz still plays 60 Hz even (0.472) for a sixth less
+   thinking and 10 Hz still loses (0.378); a shorter search period is a gain (every 0.1 s against
+   0.2 s, 0.642, for about 15 % more thinking: the approaches' "The search period");
+   the rate and search period every body shares are the cheapest of those that hold on the rat; the backup, the aggression and the initiative were chosen by
    reading one body, so a situation's. Scope: the empty-handed Warrior and the rat against him,
    by the procedure's step 4. Nothing is played for the other bodies: the fingerprint names
    each case moved, and the report lists them as moved and not read.
 3. **The fight record and the measuring command, which holds rules 2 and 4.** One row format
    that each fit and profile reads: the decision states `fitted-value.mjs` keeps, with every
    Option on offer and its model (as `move-prior.mjs` keeps them), the share of the search's
-   runs each took, the Option run, what followed, and where the foe went. The measuring command
+   runs each took, the Option run, what followed, and where the foe went; and room for each
+   Option's forked worth and what it did, where [the forked record](2026-11-26-forked-record.md)
+   has forked the state. The measuring command
    is given what is in hand, plays that, adds its rows and fits that body's entries, and refuses
    as rules 2 and 4 say. Scope: the empty-handed Warrior's mirror. Its first rows are a new
    collection, its price said from its first chunk: the fitted value's 1044 bouts are in
@@ -737,12 +752,13 @@ game or to unpark something, and the work goes on meanwhile.
    leaf. Then a fit from the rat's bouts against the Warrior, both sides' decisions in it, its
    cost said first against the man's 1044 bouts. Scope: the rat against the Warrior; the
    Warrior's mirror shown unmoved.
-6. **The action prior** (mechanism 5): fitted on the record, both targets; read in the game as an
-   asset, as the fitted value is. Its held-out nats against the price's softmax, by how many
-   Options were on offer. Scope: the empty-handed Warrior's record, step 3's.
+6. **The action prior** (mechanism 5): fitted on the record, on each target it has (the forked
+   worth once the forked record has landed it, the others meanwhile), reading no Option's kind;
+   read in the game as an asset, as the fitted value is. Its held-out nats against the price's
+   softmax, by how many Options were on offer. Scope: the empty-handed Warrior's record, step 3's.
 7. **PUCT with the prior**, tried as the section above says: the prior-weighted mean first, then
    the run counts, the wide body, the refits on its own runs and the bound. Each variant
-   pickable. Kept as a body's search if it plays as well for less thinking, or better. Scope: the
+   screened on the regret bank where it exists, and pickable. Kept as a body's search if it plays as well for less thinking, or better. Scope: the
    empty-handed Warrior, and him offered every Option that fits him.
 8. **Where the foe goes** (mechanism 3): the foe's Options built from his own body and weighted by
    the prior, read along every line where `carry` and the same-body reply search are read now;
@@ -758,7 +774,8 @@ game or to unpark something, and the work goes on meanwhile.
 10. **What each Option does** (mechanism 2), one kind at a time, each its own commit and its own
     scope: the walks' falls and the clinch together (where `CLINCH` and the walk's no-fall are
     read now); then the ways up, the regain, the settle and the brace; then the cover; then where
-    a fall leaves the body; then the unmeasured blows; then the stances.
+    a fall leaves the body; then the unmeasured blows; then the stances. Where the forked record
+    has read each Option's model against its forks, its largest errors go first.
 11. **The prior's other uses at scale**: a wide body's Options narrowed by the prior before the
     search, and a body deciding by the prior alone, each read for strength and thinking. Scope:
     the empty-handed Warrior offered every Option that fits him. A Crypt room of many is armed
@@ -816,7 +833,8 @@ game or to unpark something, and the work goes on meanwhile.
 - **No asset names the Minds that played it yet.** The measuring tools write them from now on;
   the inventory says "not recorded" of each asset measured before, and none is measured again
   for it (rule 4).
-- **Next: step 2.**
+- **Next: step 2.** [The forked record](2026-11-26-forked-record.md) runs beside steps 2 to 5,
+  which do not need it.
 
 ## Parked by the owner
 

@@ -70,7 +70,7 @@ import { DEFAULT_ENGINE, loadEngine } from "../src/core/physics/engines.ts";
 import { createWorld } from "../src/core/world/world.ts";
 import { createSenses } from "../src/core/world/senses.ts";
 import { seedOf } from "../src/core/math/random.ts";
-import { reactionSteps, rulebook } from "../src/combat/rulebook.ts";
+import { rulebook } from "../src/combat/rulebook.ts";
 import { enlist } from "../src/game/combatant.ts";
 import { duelSpec, SIDES } from "../src/game/arena/duel.ts";
 import { levelSpawn } from "../src/game/arena/levels.ts";
@@ -152,7 +152,7 @@ function standing(engine, body, foe) {
   const world = createWorld(engine), rules = rulebook("arena"), solids = arenaSolids("open");
   try {
     addArenaSolids(world.physics, solids);
-    const senses = createSenses(world, reactionSteps(rules.reaction.value, world.hz), { begins: 0, ends: 60 }), made = {};
+    const senses = createSenses(world, { begins: 0, ends: 60 }), made = {};
     for (const side of SIDES) {
       const one = side === "left" ? body : foe, spawn = levelSpawn("open", side);
       made[side] = enlist(world, { id: side, side, name: `inventory ${side}`, spec: one.spec, at: spawn.position, heading: spawn.heading, rules, senses, solids: solidSenses(solids),

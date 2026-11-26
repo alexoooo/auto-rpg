@@ -24,7 +24,7 @@ import { riseMemory } from "./rise-memory.ts";
 interface Reading {
   readonly spec: BodySpec;
   readonly hz: number;
-  /** The rate its mind decides at, Hz (`OptionMindConfig.rate`, the world's where it names none). */
+  /** How often its mind looks for a change it watches, Hz (`OptionMindConfig.rate`, the world's where it names none). */
   readonly rate: number;
   /** The steps its body's command waits (`Body.delay`), at which a profile is read. */
   readonly delay: number;

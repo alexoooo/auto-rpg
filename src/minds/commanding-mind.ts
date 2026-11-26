@@ -9,8 +9,8 @@ export interface Commanding { readonly layers: object; idle: boolean }
 
 /**
  * A Mind that runs its body through the command layers. Each step it reads the body's senses
- * into the layers and queues what it decides; when a decision comes due, after the body's
- * reaction time, it turns the decision into a body command and has the motor carry it out.
+ * into the layers and queues what it decides; when a decision comes due, after the command's
+ * delay (`World.delay`), it turns the decision into a body command and has the motor carry it out.
  * A subclass says what it decides, how a decision becomes a command, and what it lets go of
  * when its body is taken from it.
  */

@@ -1,5 +1,7 @@
 import { motorRequirementRefusal } from "../../../control/motor-part.ts";
 import { deepFreeze } from "../../../core/state.ts";
+import { number, period } from "../../../parts/fields.ts";
+import { RETHINK } from "../choosers/select-set.ts";
 import { slotList, slotOne, type PartConfig, type Slot } from "../../../parts/parts.ts";
 import { partRequirements, whenEmpty } from "../../../parts/tree.ts";
 import { FILLED, filledOf, filledRefusal, motorOf } from "../../../skills/assembly/filled.ts";
@@ -29,8 +31,10 @@ export function optionController(assembly: OptionAssembly) {
   const optionParts = (config: OptionMindConfig, parts: PartLookup): readonly (readonly [OptionPart, PartConfig])[] =>
     resolvedFor(config, parts).options.flatMap((option) => { const part = parts.find("option", option); return part ? [[part, option] as const] : []; });
   return controller<OptionMindConfig>({
-    role: "mind", label: "Option Mind", fields: [], slots, defaults,
-    keys: { kind: true, chooser: true, options: true, predictions: true, rate: true, tuning: true }, tuning: ["parts"],
+    role: "mind", label: "Option Mind", slots, defaults,
+    // Its two clocks, each a time: how soon it notices a change it watches (the least, every control step), and how often it searches with none.
+    fields: [period<OptionMindConfig, "rate">("rate", "Notices changes every", .001, 1, .001), number<OptionMindConfig, "rethink">("rethink", "Searches every", .01, 1, .01, "s", RETHINK)],
+    keys: { kind: true, chooser: true, options: true, predictions: true, rate: true, rethink: true, tuning: true }, tuning: ["parts"],
     // The parts an experiment passes in under its skills, each at its place in the config.
     children: config => isSettings(config.tuning?.parts) ? Object.entries(config.tuning.parts).flatMap(([place, value]) => Object.hasOwn(FILLED, place)
       ? [{ path: ["tuning", "parts", place], role: FILLED[place as keyof typeof FILLED], config: value }] : []) : [],

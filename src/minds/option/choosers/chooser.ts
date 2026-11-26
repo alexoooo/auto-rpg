@@ -42,9 +42,10 @@ export const chooser = ({ options, appraise, deciding, chance, objective, holdin
 
 /**
  * The chooser `config` names, as `parts` finds it, over `given`'s `options`, its chances drawn from its
- * `seed`, for its `body` (`bodyOf`), its search asking its `exchange` of the foe.
+ * `seed`, for its `body` (`bodyOf`), its search asking its `exchange` of the foe, deciding afresh
+ * unasked every `rethink` s.
  */
-export const chooserOf = (parts: PartLookup, config: PartConfig, given: { readonly options: readonly Option[]; readonly seed: number; readonly body: string; readonly exchange: ExchangePredictor }): Chooser =>
+export const chooserOf = (parts: PartLookup, config: PartConfig, given: { readonly options: readonly Option[]; readonly seed: number; readonly body: string; readonly exchange: ExchangePredictor; readonly rethink: number }): Chooser =>
   parts.of("chooser", config).make({ config, parts, ...given });
 
 /**

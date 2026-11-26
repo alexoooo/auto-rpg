@@ -300,6 +300,11 @@ export interface AttributeSpec {
    * force a muscle does not give.
    */
   readonly haste: Quantity<number>;
+  /**
+   * How late it sees every other body, s: the senses show it each other body as that body stood
+   * this long ago, to the nearest step (`reactionSteps`), and its own body at once.
+   */
+  readonly reaction: Quantity<number>;
 }
 
 /**

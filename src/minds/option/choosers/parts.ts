@@ -10,7 +10,7 @@ import type { Objective, Obedience, ObedienceLevel } from "../contract/objective
 import type { Situation } from "../contract/situation.ts";
 import { randomStream } from "../../../core/math/random.ts";
 import { OBEDIENCE, STEADY } from "./obedience.ts";
-import { RETHINK, type Holding } from "./select-set.ts";
+import type { Holding } from "./select-set.ts";
 import { chooser, searching } from "./chooser.ts";
 import { LEAVES, type LeafName } from "./leaves.ts";
 import { pricedLines, COLD, warmStart } from "./tree-search.ts";
@@ -126,10 +126,10 @@ export const VALUED_CHOOSER = deepFreeze<ChooserPart<ValuedConfig>>({
   role: "chooser", label: "By worth", fields: [obedienceField<ValuedConfig>(), horizonField<ValuedConfig>(), carryField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, carry: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config.depth), ...searchFaults(config)],
-  make: ({ config, options, seed, parts, exchange }) => {
+  make: ({ config, options, seed, parts, exchange, rethink }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON;
     const searched = { options, objective, obedience, horizon, exchange, carry: config.carry ?? 0, depth: config.depth };
-    return chooser({ options, appraise: searching((now) => search(now, searched)), deciding: { rethink: RETHINK, keep: KEEP },
+    return chooser({ options, appraise: searching((now) => search(now, searched)), deciding: { rethink, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: {} });
   },
 });
@@ -220,11 +220,11 @@ export const TREE_CHOOSER = deepFreeze<ChooserPart<TreeConfig>>({
     ...config.against === undefined || isAgainst(config.against) ? [] : [`against: one of ${Object.keys(AGAINST).join(", ")}`],
     ...config.keeps === undefined || Number.isFinite(config.keeps) && config.keeps > 0 ? [] : ["keeps: a finite time, more than none"],
     ...config.best === undefined || Number.isFinite(config.best) && config.best >= 0 && config.best <= 1 ? [] : ["best: a number from 0 to 1"]],
-  make: ({ config, options, seed, parts, body, exchange }) => {
+  make: ({ config, options, seed, parts, body, exchange, rethink }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
     const searched = { options, objective, obedience, horizon, exchange, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, stream, leaf: LEAVES[config.leaf ?? "tail"].make(body), replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
-    return chooser({ options, appraise: searching((now) => pricedLines(repliedSearch(now, searched))), deciding: { rethink: RETHINK, keep: KEEP },
+    return chooser({ options, appraise: searching((now) => pricedLines(repliedSearch(now, searched))), deciding: { rethink, keep: KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },
 });
@@ -242,9 +242,9 @@ interface RankedConfig { readonly kind: "ranked" }
 export const RANKED_CHOOSER = deepFreeze<ChooserPart<RankedConfig>>({
   role: "chooser", label: "By rank", offered: false, fields: [], slots: [],
   defaults: { kind: "ranked" }, keys: { kind: true }, fits: anyBody, faults: () => [],
-  make: ({ options, seed }) =>
+  make: ({ options, seed, rethink }) =>
     chooser({ options, appraise: (option, i) => ({ name: option.name, kind: option.kind, worth: options.length - i, terms: null, moves: null, letGo: 0 }),
-      deciding: { rethink: RETHINK, keep: 0 }, chance: { margin: 0, seed }, objective: null, holding: null, own: {} }),
+      deciding: { rethink, keep: 0 }, chance: { margin: 0, seed }, objective: null, holding: null, own: {} }),
 });
 
 declare module "../contract/parts.ts" {

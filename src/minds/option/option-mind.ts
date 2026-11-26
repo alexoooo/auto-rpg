@@ -117,7 +117,7 @@ export class OptionMind extends CommandingMind<Intent> {
   /** Asked every step it has its body. It chooses anew only when its pace says a decision is due. */
   protected decide(view: BodyView, dt: number): Intent | null {
     if (view.resumed) this.skills.resume(view);
-    const since = this.pace.since(view, dt, lastEnded(this.skills.report.ledger));
+    const since = this.pace.since(view, dt, lastEnded(this.skills.report.ledger), this.chooser.next);
     if (since !== null) this.state.asked = this.choose(since);
     return this.state.asked;
   }

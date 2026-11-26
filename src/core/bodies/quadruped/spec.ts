@@ -5,6 +5,7 @@ import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 import type { SourceKey } from "../../sources.ts";
 import { deepFreeze } from "../../state.ts";
 import { vec3 } from "../spec/vec.ts";
+import { REACTION } from "../senses.ts";
 
 /** What a body file says losing a limb does (`LimbSpec.lost`); a thrown error for anything else. */
 const lostOf = (lost: string): LimbSpec["lost"] => {
@@ -81,7 +82,7 @@ export function quadrupedSpec(data: QuadrupedData, model: string, source: Source
     wounds: { hp: sourced(1, "HP", "owner-hp-pool", `${model} 1`), vital: data.wounds.vital, whole: data.wounds.whole,
       limbs: data.wounds.limbs.map((limb) => ({ name: limb.name, segments: limb.segments,
         share: sourced(limb.share, "1", "owner-life", `${limb.name}: ${limb.share} of full life`), lost: lostOf(limb.lost) })) },
-    attributes: { steadiness: q(data.steadiness, "%", "/steadiness"), haste: sourced(0, "%", "owner-haste", `${model} 0`) }, substance: "flesh",
+    attributes: { steadiness: q(data.steadiness, "%", "/steadiness"), haste: sourced(0, "%", "owner-haste", `${model} 0`), reaction: REACTION }, substance: "flesh",
     down: { kind: "low", root: data.down.root, height: q(data.down.height, "1", "/down/height"), up: q(data.down.up, "1", "/down/up") },
     marks: data.marks });
 }

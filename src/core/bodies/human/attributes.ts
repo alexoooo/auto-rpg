@@ -4,10 +4,11 @@ import type { HumanFigure } from "./figure.ts";
 import type { HumanModel } from "./rig.ts";
 import { attributeError } from "../character-attributes.ts";
 import type { Exertion } from "./tables/joint-torques.ts";
+import { REACTION } from "../senses.ts";
 
-/** A human figure's attributes: the figure's. */
+/** A human figure's attributes: the figure's, and every body's reaction time. */
 export function humanAttributes(figure: HumanFigure): AttributeSpec {
-  return { steadiness: figure.steadiness, haste: figure.haste };
+  return { steadiness: figure.steadiness, haste: figure.haste, reaction: REACTION };
 }
 
 /** A human's haste: its legs' muscles at a person's speed, nothing over it: every character's. */

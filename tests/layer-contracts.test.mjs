@@ -188,9 +188,9 @@ test("command layers deliver changed tracking, bracing and moving-frame goals", 
 test("pacing detects changed orders from a provider reusing its object", () => {
   const view = { time: 0, resumed: false, senses: {} }, orders = { face: null, pace: 1 };
   const pace = new Pace(10, 0, () => orders);
-  assert.notEqual(pace.since(view, 1 / 120, 0), null, "its first decision is due at once");
+  assert.notEqual(pace.since(view, 1 / 120, 0, Infinity), null, "its first decision is due at once");
   view.time = 1 / 120; orders.pace = 0;
-  assert.notEqual(pace.since(view, 1 / 120, 0), null, "changed orders make a decision due off its phase");
+  assert.notEqual(pace.since(view, 1 / 120, 0, Infinity), null, "changed orders make a decision due off its phase");
 });
 
 /**

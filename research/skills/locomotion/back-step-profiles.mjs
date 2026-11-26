@@ -32,6 +32,7 @@ import { measuredOn } from "../../../src/skills/framework/profile/lookup.ts";
 import { startHeld, struckNumbers, trialExit } from "../../../src/skills/framework/profile/numbers.ts";
 import { playedBy, playedOnce, specDigest } from "../profile-origin.mjs";
 import { everyOf } from "../../../src/minds/option/assembly/pace.ts";
+import { reactionSteps } from "../../../src/core/bodies/senses.ts";
 import { harnessRule } from "../../../src/evaluation/results.ts";
 import { medianOf } from "../../../src/evaluation/stats.ts";
 
@@ -64,7 +65,7 @@ for (const path of paths) {
     const recipe = row.world?.recipe, mind = recipe?.minds?.left;
     if (row.fault || !row.reading?.sways || row.world.kind !== "bout") continue;
     const spec = specOf(recipe), struck = specOf(recipe, "right");
-    const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
+    const reaction = reactionSteps(spec, hz) / hz;
     const measured = measuredOn(spec, { skill: SKILL, limb: null }, { hz, reaction, rate: hz / everyOf(mind.rate, hz), delay }), key = JSON.stringify(measured);
     const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${SKILL} at ${struck.model}`, digests: { spec: specDigest(spec) },
       minds: new Set(), commits: new Set(), dates: new Set(), changed: false, trials: [] };

@@ -1,5 +1,5 @@
 import { configurationCode, configurationAt } from "../bodies/build/configurations.ts";
-import { NOTHING_SENSED, OFF_BODY, sensedSpec, shownSegments, type Senses, type BodySense } from "../bodies/senses.ts";
+import { NOTHING_SENSED, OFF_BODY, reactionSteps, sensedSpec, shownSegments, type Senses, type BodySense } from "../bodies/senses.ts";
 import { Vector3 } from "../math/vector.ts";
 import type { BuiltBody, BuiltSegment } from "../bodies/build/build-body.ts";
 import { centreOfToRef } from "../bodies/read-motion.ts";
@@ -25,7 +25,8 @@ interface Sensed {
 export interface SensesHub {
   /**
    * Carry `sensed`. Returns what it senses: every body carried but itself, whether added before
-   * it or after. Until the next step the others see it as it stands now, in the fight.
+   * it or after, each as late as its reaction time (`reactionSteps`). Until the next step the
+   * others see it as it stands now, in the fight.
    */
   add(sensed: Sensed): () => Senses;
   /** Stop carrying a body before its physics is disposed. */
@@ -58,18 +59,19 @@ function frameLength(segments: number): number { return (3 + 4 + 3 + 3 + 3 + 1) 
 /**
  * **The one layer between the world and every mind's `Senses`.** In the step's sensing phase
  * (`World.sense`) it reads every body it carries as the last solver step left it, and shows each
- * to the others `delay` steps late. Every mind in a step therefore sees the same moment, and none
- * sees another through its view.
+ * to every other as late as that other's reaction time (`reactionSteps`). Every mind of one
+ * reaction time in a step therefore sees the same moment, and none sees another through its view.
  *
- * `delay` is whole steps, 0 unless given; `clock`, when the fight's clock started and when it gives
- * its verdict at the latest (`Senses.begins`, `Senses.ends`), none unless given. The frames a body's delay holds are its memory
+ * `clock` is when the fight's clock started and when it gives its verdict at the latest
+ * (`Senses.begins`, `Senses.ends`), none unless given. Each body's frames are its memory
  * (`Remembered`), plain numbers, and the hub's state.
  */
-export function createSenses(world: World, delay = 0, clock?: { readonly begins: number; readonly ends: number }): SensesHub {
-  if (!Number.isInteger(delay) || delay < 0) throw new Error(`a delay is whole steps, not ${delay}`);
+export function createSenses(world: World, clock?: { readonly begins: number; readonly ends: number }): SensesHub {
   const carried: Carried[] = [];
   const state = new Map<string, Remembered>();
   const p = new Vector3(), v = new Vector3(), w = new Vector3();
+  // The longest reaction time of any body carried, steps: every body's frames hold that many steps back.
+  let longest = 0;
 
   /** `entry`'s body as it stands, into `frame`: each segment, then the centre of the parts on it, its velocity, whether it is out, whether it is down, its life and its observation time. */
   const read = (entry: Carried, frame: Float64Array, out: boolean, down: boolean, life: number): void => {
@@ -95,9 +97,8 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
     frame[k++] = life;
     frame[k++] = world.time;
   };
-  /** `frame` into what the others are shown of `entry`. */
-  const show = (entry: Carried, frame: Float64Array): void => {
-    const { view } = entry;
+  /** `frame` of `entry` into what one of its showings (`Shown`) shows. */
+  const show = (entry: Carried, frame: Float64Array, { view, sense }: Shown): void => {
     let k = 0;
     for (let i = 0; i < view.all.length; i++) {
       const s = view.all[i]!;
@@ -110,22 +111,38 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
       view.mark(i, pose !== OFF_BODY);
       if (pose >= 0) s.configuration = configurationAt(entry.segments[i]!.spec, pose);
     }
-    entry.shown.segments = view.settle();
-    entry.shown.centre.set(frame[k++]!, frame[k++]!, frame[k++]!);
-    entry.shown.velocity.set(frame[k++]!, frame[k++]!, frame[k++]!);
-    entry.shown.out = frame[k++] === 1;
-    entry.shown.down = frame[k++] === 1;
-    entry.shown.life = frame[k++]!;
-    entry.shown.time = frame[k++]!;
+    sense.segments = view.settle();
+    sense.centre.set(frame[k++]!, frame[k++]!, frame[k++]!);
+    sense.velocity.set(frame[k++]!, frame[k++]!, frame[k++]!);
+    sense.out = frame[k++] === 1;
+    sense.down = frame[k++] === 1;
+    sense.life = frame[k++]!;
+    sense.time = frame[k++]!;
+  };
+  /** Each of `entry`'s showings from the frame as many steps old as the reaction time it is shown at. */
+  const showAll = (entry: Carried): void => {
+    const memory = state.get(entry.sensed.id)!;
+    for (const [steps, shown] of entry.shown) show(entry, aged(memory, steps), shown);
+  };
+  /** What `entry` is shown as to a body seeing `steps` late: made, and shown from its frames, the first time such a body is carried. */
+  const shownAt = (entry: Carried, steps: number): BodySense => {
+    let shown = entry.shown.get(steps);
+    if (!shown) {
+      const view = shownSegments(entry.names), { id, side } = entry.sensed;
+      shown = { view, sense: { id, side, spec: entry.spec, out: false, down: false, life: 1, time: world.time, centre: new Vector3(), velocity: new Vector3(), segments: view.settle() } };
+      entry.shown.set(steps, shown);
+      show(entry, aged(state.get(id)!, steps), shown);
+    }
+    return shown.sense;
   };
 
   const hook = world.sense(() => {
     for (const entry of carried) {
-      // The newest frame goes where the oldest was; the one after it is now `delay` steps old.
+      // The newest frame goes where the oldest was.
       const memory = state.get(entry.sensed.id)!;
       read(entry, memory.frames[memory.at]!, entry.sensed.out(), entry.sensed.down?.() ?? false, entry.sensed.life?.() ?? 1);
       memory.at = (memory.at + 1) % memory.frames.length;
-      show(entry, memory.frames[memory.at]!);
+      showAll(entry);
     }
   });
 
@@ -141,27 +158,23 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
         if (other >= 0) entry.others.splice(other, 1);
       }
     },
-    show() {
-      for (const entry of carried) {
-        const memory = state.get(entry.sensed.id)!;
-        show(entry, memory.frames[memory.at]!);
-      }
-    },
+    show() { for (const entry of carried) showAll(entry); },
     add(sensed) {
       if (state.has(sensed.id)) throw new Error(`the senses carry a body called ${sensed.id} already`);
-      const segments = [...sensed.built.segments.values()], view = shownSegments([...sensed.built.segments.keys()]);
-      const shown = {
-        id: sensed.id, side: sensed.side, spec: sensedSpec(sensed.built.spec), out: false, down: false, life: 1, time: world.time,
-        centre: new Vector3(), velocity: new Vector3(), segments: view.settle(),
-      };
-      const entry: Carried = { sensed, segments, attached: attachment(sensed.built), view, shown, others: [] };
+      const names = [...sensed.built.segments.keys()], segments = [...sensed.built.segments.values()], late = reactionSteps(sensed.built.spec, world.hz);
+      const entry: Carried = { sensed, names, segments, attached: attachment(sensed.built), spec: sensedSpec(sensed.built.spec), late, shown: new Map(), others: [] };
+      // A body that sees later than any before lengthens every body's frames by copies of its oldest, which were never kept: until the
+      // steps catch up, it is shown each other body as it stood in the oldest frame kept of it.
+      if (late > longest) {
+        for (const memory of state.values()) memory.frames.splice(memory.at, 0, ...Array.from({ length: late - longest }, () => memory.frames[memory.at]!.slice()));
+        longest = late;
+      }
       // Every frame starts as the body stands, in the fight, up and with the life it has: `out` and `down` are first asked at the next step.
       const standing = new Float64Array(frameLength(segments.length)), memory: Remembered = { at: 0, frames: [] };
       read(entry, standing, false, false, sensed.life?.() ?? 1);
-      for (let i = 0; i <= delay; i++) memory.frames.push(standing.slice());
+      for (let i = 0; i <= longest; i++) memory.frames.push(standing.slice());
       state.set(sensed.id, memory);
-      show(entry, standing);
-      for (const other of carried) { other.others.push(shown); entry.others.push(other.shown); }
+      for (const other of carried) { other.others.push(shownAt(entry, other.late)); entry.others.push(shownAt(other, late)); }
       carried.push(entry);
       const senses: Senses = {
         get time() { return world.time; },
@@ -169,7 +182,7 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
         get out() { return sensed.out(); },
         get life() { return sensed.life?.() ?? 1; },
         ...(clock === undefined ? {} : { begins: clock.begins, ends: clock.ends }),
-        reaction: delay / world.hz,
+        reaction: late / world.hz,
         others: entry.others,
       };
       if (sensed.solids) Object.defineProperty(senses, "solids", { enumerable: true, get: () => sensed.solids });
@@ -179,21 +192,33 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
   };
 }
 
+/** **A body as the others of one reaction time are shown it**: its segments' view, and the sense that view is settled into. */
+interface Shown {
+  readonly view: ReturnType<typeof shownSegments>;
+  readonly sense: { -readonly [K in keyof BodySense]: BodySense[K] };
+}
+
 interface Carried {
   readonly sensed: Sensed;
+  readonly names: readonly string[];
   readonly segments: readonly BuiltSegment[];
   /** Whether a segment is on the body (`attachment`). */
   readonly attached: (segment: BuiltSegment) => boolean;
-  /** The senses the others are shown of its segments. */
-  readonly view: ReturnType<typeof shownSegments>;
-  /** What the others are shown of it. */
-  readonly shown: { -readonly [K in keyof BodySense]: BodySense[K] };
-  /** What it is shown: the others' `shown`. */
+  /** Its spec as the others sense it (`sensedSpec`), the same in every showing. */
+  readonly spec: BodySense["spec"];
+  /** How many steps late it sees the others (`reactionSteps`). */
+  readonly late: number;
+  /** What the others are shown of it, one showing for each reaction time among them, by its steps. */
+  readonly shown: Map<number, Shown>;
+  /** What it is shown: each other's showing at its own reaction time. */
   readonly others: BodySense[];
 }
 
-/** **What the senses remember of a body**: `delay + 1` frames, and the one shown. The newest is the one before it. */
+/** **What the senses remember of a body**: a frame for each step back to the longest reaction time carried, and the next to be written over, the oldest. The newest is the one before it. */
 interface Remembered {
   readonly frames: Float64Array[];
   at: number;
 }
+
+/** The frame of `memory` written `steps` steps ago: the newest is the one before `at`. */
+const aged = (memory: Remembered, steps: number): Float64Array => memory.frames[(memory.at + memory.frames.length - 1 - steps) % memory.frames.length]!;

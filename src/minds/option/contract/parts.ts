@@ -18,10 +18,11 @@ export interface ChooserPart<C extends PartConfig = PartConfig> extends Part<C> 
   readonly keys: KeysOf<C>;
   /**
    * The chooser over `options`, its chances drawn from `seed`, the parts its slots name found by
-   * `parts`, for `body`: its model and what it holds (`bodyOf`). A chooser that searches asks
-   * `exchange` where the foe is later and how it replies.
+   * `parts`, for `body`: its model and what it holds (`bodyOf`), deciding afresh unasked every
+   * `rethink` s (`Deciding.rethink`). A chooser that searches asks `exchange` where the foe is
+   * later and how it replies.
    */
-  make(making: { readonly config: C; readonly options: readonly Option[]; readonly seed: number; readonly parts: PartLookup; readonly body: string; readonly exchange: ExchangePredictor }): Chooser;
+  make(making: { readonly config: C; readonly options: readonly Option[]; readonly seed: number; readonly parts: PartLookup; readonly body: string; readonly exchange: ExchangePredictor; readonly rethink: number }): Chooser;
 }
 
 /** Static capabilities used when deciding whether a configured Option builds any behavior. */

@@ -13,7 +13,7 @@ import { watchBlows, type BlowWatch, type LandedBlow } from "../../combat/blows.
 import type { Pool } from "../../combat/pool.ts";
 import { seedOf } from "../../core/math/random.ts";
 import { phaseOf } from "../../minds/seat/host.ts";
-import { reactionSteps, rulebook, type Rulebook } from "../../combat/rulebook.ts";
+import { rulebook, type Rulebook } from "../../combat/rulebook.ts";
 import { type BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/quantity.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
@@ -22,7 +22,7 @@ import { sensedBounds } from "../../skills/locomotion/shared/navigation/sensed-b
 import { arenaSolids } from "./solids.ts";
 import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
 import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-rule.ts";
-import { CAP_SECONDS, SIDES, senseDelayOf, type Verdict } from "./duel.ts";
+import { CAP_SECONDS, SIDES, type Verdict } from "./duel.ts";
 import { otherSeat as otherSide, type ArenaSeat as Side } from "./seat.ts";
 
 /**
@@ -73,8 +73,6 @@ export interface TeamRecipe {
   readonly capSeconds?: number;
   /** The bout's seed, a 32-bit word, each body's mind drawing from its own (`seedOf` with its id); 0 unless given. */
   readonly seed?: number;
-  /** How old what each body sees is, s, in place of the rulebook's reaction time. */
-  readonly senseDelay?: number;
   /** What puts a body out, in order: the game's (`GAME_ENDS`) unless given. */
   readonly ends?: readonly EndRuleConfig[];
 }
@@ -151,7 +149,7 @@ export class TeamBout {
     for (const [rule, config] of this.ends) ends = Math.min(ends, rule.drainedBy?.(config) ?? Infinity);
     const lifetime = constructionScope();
     try {
-    this.senses = lifetime.own(createSenses(world, reactionSteps(senseDelayOf(recipe), world.hz), { begins: start, ends: start + ends }));
+    this.senses = lifetime.own(createSenses(world, { begins: start, ends: start + ends }));
     const contactLabels = new Map<number, ContactTarget>();
     const members: Member[] = [];
     let order = 0;

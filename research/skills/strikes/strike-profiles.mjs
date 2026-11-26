@@ -59,6 +59,7 @@ import { profileKey, profileKeys } from "../../../tests/harness/profile-keys.mjs
 import { rulebook } from "../../../src/combat/rulebook.ts";
 import { medianOf } from "../../../src/evaluation/stats.ts";
 import { covers } from "../../../src/skills/framework/menu.ts";
+import { reactionSteps } from "../../../src/core/bodies/senses.ts";
 
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
 /** The Strike drill's rungs a profile is measured on: a strike thrown from drawn starts at a foe fighting back (`SPARRING`, `SPARRING_LAID`, `SPARRING_FEET`, `SPARRING_BITE`, `src/evaluation/strike/cases.ts`). */
@@ -106,7 +107,7 @@ for (const path of paths) {
     const marks = marksOf(action);
     // A trial at a mark the action takes an order at (`covers`: the bite's `any` takes the legs).
     if (marks && !action.regions.some((region) => covers(region, { kind: "mark", mark: row.condition.mark }))) continue;
-    const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
+    const reaction = reactionSteps(spec, hz) / hz;
     const struck = specOf(recipe, "right"), { measured, digests } = strikeKey(spec, mind, executors, action, led.limb, hz, reaction, delay);
     const key = JSON.stringify(measured);
     const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${led.skill} with ${led.limb}`,

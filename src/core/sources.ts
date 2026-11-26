@@ -202,8 +202,8 @@ const SOURCES = Object.freeze({
   },
   "owner-reaction-time": {
     kind: "tuned",
-    for: "A mind sees every other body 0.15 s late, the quick end of a person's response to a seen cue, "
-      + "and its own body at once.",
+    for: "Every body sees every other 0.15 s late unless its character sets another reaction time, the quick end "
+      + "of a person's response to a seen cue, and its own body at once.",
   },
   "owner-steadiness": {
     kind: "tuned",

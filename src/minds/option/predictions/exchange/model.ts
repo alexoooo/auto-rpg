@@ -1,4 +1,5 @@
 import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
+import { reactionSteps } from "../../../../core/bodies/senses.ts";
 import { deepFreeze } from "../../../../core/state.ts";
 import { changes, limbHoldsAsMeasured } from "../../../../skills/framework/profile/lookup.ts";
 import { STANDING, measuredAt, type Postures, type Profile } from "../../../../skills/framework/profile/profile.ts";
@@ -8,7 +9,6 @@ import { staler, weaker, type Read, type Source } from "../../../../skills/frame
 import type { Guesses } from "../../contract/predictors.ts";
 import type { ModelledStrike, Seen } from "../../contract/situation.ts";
 import { standIn } from "../by-hand.ts";
-import { reactionOf } from "../../situation/percepts.ts";
 
 /**
  * **The strikes a body is modelled by**: each measured, read for its striker (`readProfile`), with
@@ -37,7 +37,7 @@ const unreadAt = (profile: Profile | null, postures: Postures): string | null =>
  * `guesses` (`standIn`).
  */
 export function modelOf(seen: Seen, { strikes, striker, struck, postures, guesses }: { readonly strikes: readonly ModelledStrike[]; readonly striker: BodySpec; readonly struck: BodySpec; readonly postures: Postures; readonly guesses: Guesses | null }): Model {
-  const at = { hz: seen.hz, reaction: reactionOf(seen), rate: seen.rate, delay: seen.delay };
+  const at = { hz: seen.hz, reaction: reactionSteps(striker, seen.hz) / seen.hz, rate: seen.rate, delay: seen.delay };
   const measured: Model["measured"][number][] = [], unmeasured = new Set<string>(), reads: Read[] = [];
   for (const strike of strikes) {
     const profile = profileAgainst(strike.profiles, struck), why = unreadAt(profile, postures);

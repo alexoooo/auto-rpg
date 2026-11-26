@@ -20,7 +20,7 @@ import type { Situation } from "./situation.ts";
 export interface OptionContext {
   readonly spec: BodySpec;
   readonly hz: number;
-  /** The rate its Mind decides at, Hz (`OptionMindConfig.rate`, the world's where it names none). */
+  /** How often its Mind looks for a change it watches, Hz (`OptionMindConfig.rate`, the world's where it names none). */
   readonly rate: number;
   /** The steps its body's command waits (`Body.delay`). */
   readonly delay: number;

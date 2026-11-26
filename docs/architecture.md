@@ -195,7 +195,7 @@ A body is a different type to each holder:
   (`execution.ts`): `answer` calls `Mind.act`, which writes the command decided on the step
   before; `think` reads the senses and calls `Mind.think`, which decides the next.
 - **Senses** (`Senses`, `src/core/bodies/senses.ts`): the clock, its side and life, and every other body, read
-  once before any mind, others late by `Rulebook.reaction`. They are all a mind knows of another
+  once before any mind, others as late as its body's reaction time (`AttributeSpec.reaction`). They are all a mind knows of another
   body: never its mind, nor the skills its character holds (a sensed spec has none,
   `sensedSpec`). A mind's source reaches neither the world nor the characters' registry
   (`tests/core-boundary.test.mjs`).
@@ -212,7 +212,7 @@ the bodies on paws alike. It is two classes and five ideas.
 
 **Two classes.** `CommandingMind` (`src/minds/commanding-mind.ts`) is a Mind that runs its body
 through the command layers: each step it reads the senses into the layers and queues what it
-decides, and when a decision comes due, after the body's reaction time, it turns the decision into
+decides, and when a decision comes due, after the command's delay (`World.delay`), it turns the decision into
 a body command and has the motor carry it out. A subclass says what it decides (`decide`), how a
 decision becomes a command (`carry`) and what it lets go of when its body is taken from it
 (`released`). `OptionMind` (`option-mind.ts`) is one subclass: each decision it reads its

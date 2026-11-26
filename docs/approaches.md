@@ -813,10 +813,64 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   each within noise; at 10 runs, not 50, it lost 0.299. A foe's strike onset is predictable from
   what a body sees of it (within 0.5 s: AUC 0.94 held out by bout, 0.87 from distance alone), and
   the fitted leaf already reads the same quantities. Deciding 10 times a second with no reply
-  searched (`option-lean`) thinks 135 ms a simulated second against 251 and plays as well: a
-  decision costs more as decisions get rarer, so the rate halves the thinking, not divides it by
-  six. On the scorecard it knocks out within 60 s in 45.1 % of its mirror bouts against 38.6 %
-  (`b207cee32`); it is the empty-handed man's Mind. Its decision lands in the one step it is made in: with the
+  searched (`option-lean`) thinks 135 ms a simulated second against 251 and plays as well. On
+  the scorecard it knocks out within 60 s in 45.1 % of its mirror bouts against 38.6 %
+  (`b207cee32`); it is the empty-handed man's Mind.
+- **The rate alone saves a sixth of the thinking, and 10 Hz loses**: `option-lean` with no kick,
+  at `9d1de3287`, its rate the only change. The search comes every 0.2 s (`RETHINK`) and at once
+  on a change it watches at any rate; the rate is how soon a change is noticed, on top of the
+  senses' 0.15 s, so the 60 Hz checks between searches are cheap. Thinking, both bodies, in eight
+  Warrior mirror bouts each, interleaved on the performance cores: 216 ms a simulated second at
+  60 Hz, 207 at 40, 172 at 30, 168 at 20, 179 at 10 (30 and 20 flattered: their mirrors ran
+  longer, and a long bout thinks less a second); the 99.9th percentile step 12 ms at 60 Hz, 20 ms
+  at 10. Against 60 Hz over the 288 bouts of `warrior-drawn`: 40 Hz 0.495 (0.438 to 0.552), 30 Hz
+  0.507 (0.451 to 0.566), 20 Hz 0.495 (0.434 to 0.559), 10 Hz 0.344 (0.295 to 0.392), 60 Hz then
+  knocking out within 60 s in 48.6 % of bouts against 24.0 %. Why 10 Hz loses is not read. *Shown.*
+- **Seeing sooner is worth a little, about as much for each 50 ms**: the same Mind at 60 Hz with
+  no kick, one side's character at a shorter reaction time (`AttributeSpec.reaction`) than the
+  other's 0.15 s, over the 288 bouts of `warrior-drawn`. At 0.1 s (`c8c400ed4`): 0.545 (0.493
+  to 0.597), knocking out within 60 s in 33.7 % of bouts against 29.9 %, taking 72.2 % of the
+  other's life by 60 s against 69.1 %. At 0.05 s (`dc6b412d5`): 0.583 (0.524 to 0.642), 41.3 %
+  against 28.5 %, 74.5 % against 67.9 %. The quicker side's own skills and profiles were tuned
+  and measured at 0.15 s (its readings say they are stale), so this is what seeing sooner gives a
+  body that does not yet use it. Noticing up to 100 ms later (10 Hz, above) costs far more than
+  this gains; why is not read. *Counted.*
+- **The search period is the strongest of the timings: every 0.05 s wins 0.807 for 40 % more
+  thinking**: the same Mind at 60 Hz with no kick, one side's tree chooser searching every so
+  often against the other's 0.2 s, over the 288 bouts of `warrior-drawn`, played while the
+  period was the chooser's setting and a timed search waited for a look (at 60 Hz up to a step
+  late; `OptionMindConfig.rethink` since `0a5b7fdd7`, on time). Score, then knockouts within 60 s and the other's life taken by 60 s, each
+  against the 0.2 s side's: 0.05 s 0.807 (0.757 to 0.852), 48.6 % against 9.4 %, 77.5 % against
+  49.5 %; 0.1 s 0.642 (0.587 to 0.698), 37.8 % against 18.8 %, 73.7 % against 58.1 % (both at
+  `0e79d9e37`); 0.15 s 0.554 (0.500 to 0.611), 38.5 % against 22.6 %, 72.1 % against 62.9 %;
+  0.25 s 0.389 (0.337 to 0.448), 27.1 % against 39.2 %, 64.8 % against 72.6 % (both at
+  `09c2b151d`). Thinking, both bodies, the mean of eight Warrior mirror bouts each, interleaved
+  on the performance cores: 296 ms a simulated second at 0.05 s, 242 at 0.1, 211 at 0.15, 211 at
+  0.2, 186 at 0.25; the 99th percentile step 10 ms at 0.05 s, 7 to 8 ms at the rest. Down to
+  0.15 s a search comes mostly at once on a change it watches, so the period costs little; below
+  it the timed searches tell. *Counted.*
+- **Seeing at 0.1 s, deciding at 20 Hz and searching every 0.15 s beats today's timings for the
+  same thinking**: the same Mind with no kick on both sides, one side's character at a reaction
+  time of 0.1 s, its Mind at 20 Hz searching every 0.15 s, against 0.15 s, 60 Hz and 0.2 s, over
+  the 288 bouts of `warrior-drawn` at `d90569a87`: 0.615 (0.563 to 0.667), margin 0.099 (0.050
+  to 0.146), knocking out within 60 s in 42.7 % of bouts against 28.5 %, taking 75.2 % of the
+  other's life by 60 s against 65.1 %. Each as a Warrior mirror, eight bouts, interleaved on the
+  performance cores: thinking, both bodies, 219 ms a simulated second against 218 (the means of
+  bouts 232 against 221), the 99th percentile step 7 ms at each; the mirrors at the new timings
+  ran 381 s against 310, three of eight drained against none. The 20 Hz rate did not show the
+  saving its own reading did here. Played while a timed search waited for a look: at 20 Hz each
+  came up to 0.05 s late. *Counted.*
+- **Searching every 0.1 s, 20 Hz still plays 60 Hz even and 10 Hz still loses, the clocks apart**:
+  the same Mind with no kick, both sides searching every 0.1 s (`OptionMindConfig.rethink`) at
+  `0a5b7fdd7`, a timed search on time whatever the rate, over the 288 bouts of
+  `warrior-drawn` against 60 Hz: 20 Hz 0.472 (0.420 to 0.528), knocking out within 60 s in 27.1 %
+  of bouts against 28.5 %; 10 Hz 0.378 (0.326 to 0.434), 22.6 % against 41.7 %. Thinking, both
+  bodies, the mean of eight Warrior mirror bouts each, interleaved on the performance cores: 270 ms
+  a simulated second at 60 Hz, 229 at 20 (the mirrors 492 s and 498 s long), 250 at 10 (268 s:
+  short bouts think more a second). So with the search period on time, noticing a watched change
+  within 0.05 s is as good as within 0.017 s and a sixth cheaper, and within 0.1 s is not.
+  *Counted.*
+- **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of
   a bout's CPU against the physics' 22 %, the profiles' nearest lookup the largest part
