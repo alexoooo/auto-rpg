@@ -834,17 +834,19 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   and measured at 0.15 s (its readings say they are stale), so this is what seeing sooner gives a
   body that does not yet use it. Noticing up to 100 ms later (10 Hz, above) costs far more than
   this gains; why is not read. *Counted.*
-- **Searching every 0.2 s sits on a slope: sooner wins, later loses**: the same Mind at 60 Hz with
-  no kick, one side's tree chooser searching every 0.15 s or 0.25 s (`SearchConfig.rethink`)
-  against the other's 0.2 s, over the 288 bouts of `warrior-drawn` at `09c2b151d`. At 0.15 s:
-  0.554 (0.500 to 0.611), margin 0.090 (0.044 to 0.137), knocking out within 60 s in 38.5 % of
-  bouts against 22.6 %, taking 72.1 % of the other's life by 60 s against 62.9 %. At 0.25 s:
-  0.389 (0.337 to 0.448), knocking out in 27.1 % against 39.2 %, taking 64.8 % against 72.6 %.
-  The period barely moves the thinking: both bodies, eight Warrior mirror bouts each, interleaved
-  on the performance cores, 210 ms a simulated second at 0.15 s, 218 at 0.2, 195 at 0.25 (0.15
-  and 0.25 flattered: their mirrors ran half as long again, and a long bout thinks less a second),
-  the 99th percentile step 7 to 8 ms at each; a search also comes at once on a change it watches,
-  whatever the period. *Counted.*
+- **The search period is the strongest of the timings: every 0.05 s wins 0.807 for 40 % more
+  thinking**: the same Mind at 60 Hz with no kick, one side's tree chooser searching every so
+  often (`SearchConfig.rethink`) against the other's 0.2 s, over the 288 bouts of
+  `warrior-drawn`. Score, then knockouts within 60 s and the other's life taken by 60 s, each
+  against the 0.2 s side's: 0.05 s 0.807 (0.757 to 0.852), 48.6 % against 9.4 %, 77.5 % against
+  49.5 %; 0.1 s 0.642 (0.587 to 0.698), 37.8 % against 18.8 %, 73.7 % against 58.1 % (both at
+  `0e79d9e37`); 0.15 s 0.554 (0.500 to 0.611), 38.5 % against 22.6 %, 72.1 % against 62.9 %;
+  0.25 s 0.389 (0.337 to 0.448), 27.1 % against 39.2 %, 64.8 % against 72.6 % (both at
+  `09c2b151d`). Thinking, both bodies, the mean of eight Warrior mirror bouts each, interleaved
+  on the performance cores: 296 ms a simulated second at 0.05 s, 242 at 0.1, 211 at 0.15, 211 at
+  0.2, 186 at 0.25; the 99th percentile step 10 ms at 0.05 s, 7 to 8 ms at the rest. Down to
+  0.15 s a search comes mostly at once on a change it watches, so the period costs little; below
+  it the timed searches tell. *Counted.*
 - **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of
