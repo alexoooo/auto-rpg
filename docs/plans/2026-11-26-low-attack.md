@@ -49,6 +49,13 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   it first meets the region) moved the thigh's one trial and nothing else, and was not kept; its
   first form, followed to the mark itself, refused 5 of 17, the pelvis's collider overlapping the
   trunk's mark from every side.
-- **Next**: its timings and window searched on the stomping twin (`research/skills/skill-search.mjs
-  stomp/front`); then its profile, at a foe laid down fighting back, so the Mind prices it; then
-  the Warrior with it against the Warrior without it.
+- **Its search kept the authored record.** Searched on the stomping twin at the man alone
+  (`skill-search.mjs stomp/front man --target man`, 13 generations to its plateau), its best
+  shortened the chamber (0.35 to 0.25 s), halved the brake and widened the window's far edge
+  (0.71 to 0.86): on the man's own cases it read 0.405 at 120 Hz with no fall against the
+  record's 0.290 and 1, and 0.173 at 480 Hz with 4 falls against 0.100 and 3, so the record holds.
+- **Its profile** (`sparring-laid`, a foe laid down fighting back, 240 starts): of the starts it
+  began, landed 44 % with the left foot and 30 % with the right, the kicker down after 5 % and
+  17 %; the push-based low kick on the same rung landed 15.8 % and fell 31.5 %. At the man, 33 of
+  its 80 starts were beyond its height band, the foe sitting up out of it first.
+- **Next**: the readings above, the scorecard's three mirrors and the match.

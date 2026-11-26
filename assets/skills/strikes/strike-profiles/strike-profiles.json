@@ -1029153,6 +1029153,4524 @@
           "down": false
         }
       ]
+    },
+    {
+      "measured": {
+        "body": "man",
+        "stature": 1.77,
+        "skill": "stomp/front",
+        "limb": "foot.left",
+        "hz": 120,
+        "reaction": 0.15,
+        "rate": 60,
+        "delay": 1
+      },
+      "from": {
+        "spec": "40ce72cc8e9a11fa",
+        "skill": "bf254ab221fa9958",
+        "minds": [
+          {
+            "body": "man",
+            "spec": "40ce72cc8e9a11fa",
+            "mind": "5c43c10b24dee0f5",
+            "read": {
+              "bite/bite": "61a1b8003e759cfa",
+              "bonk/swing": "cd30223ae19938e0",
+              "club-blow/swing": "6654dd6e5fdda128",
+              "edge-profiles": "9a9b829ef9de2e14",
+              "fitted-value": "a045ab77d0990029",
+              "kick/front": "3a991efe9c8d98a8",
+              "kick/kick": "dcc26b2f26872611",
+              "kick/push": "c4017ba4dd188dd2",
+              "pressure-profiles": "052ab194d259433a",
+              "righting": "d08e79efd9904eb9",
+              "sit-back": "f6e6dc359580c0f3",
+              "step-profiles": "276a83358d301f6b",
+              "step-up": "c128b2aead10ad0c",
+              "stomp/front": "2bea74badbda6890",
+              "stomp/kick": "dc5346b2417476ac",
+              "stomp/stomp": "c423a1f4ca9d5d9e",
+              "straight-punch/drive": "0978ad4ea6686d04",
+              "straight-punch/moving": "d8a646e76cbe7dfd",
+              "strike-profiles": "f2d00fcf3541adc9",
+              "sword-thrust/drive": "afb04821f3db1b6f",
+              "walk-run": "6604a269e724433b"
+            }
+          },
+          {
+            "body": "skeleton",
+            "spec": "afd47317d652612d",
+            "mind": "5c43c10b24dee0f5",
+            "read": {
+              "bite/bite": "61a1b8003e759cfa",
+              "bonk/swing": "cd30223ae19938e0",
+              "club-blow/swing": "6654dd6e5fdda128",
+              "edge-profiles": "9a9b829ef9de2e14",
+              "fitted-value": "a045ab77d0990029",
+              "kick/front": "3a991efe9c8d98a8",
+              "kick/kick": "dcc26b2f26872611",
+              "kick/push": "c4017ba4dd188dd2",
+              "pressure-profiles": "052ab194d259433a",
+              "righting": "d08e79efd9904eb9",
+              "sit-back": "f6e6dc359580c0f3",
+              "step-profiles": "276a83358d301f6b",
+              "step-up": "c128b2aead10ad0c",
+              "stomp/front": "2bea74badbda6890",
+              "stomp/kick": "dc5346b2417476ac",
+              "stomp/stomp": "c423a1f4ca9d5d9e",
+              "straight-punch/drive": "0978ad4ea6686d04",
+              "straight-punch/moving": "d8a646e76cbe7dfd",
+              "strike-profiles": "f2d00fcf3541adc9",
+              "sword-thrust/drive": "afb04821f3db1b6f",
+              "walk-run": "6604a269e724433b"
+            }
+          },
+          {
+            "body": "woman",
+            "spec": "9a12363e773535ac",
+            "mind": "5c43c10b24dee0f5",
+            "read": {
+              "bite/bite": "61a1b8003e759cfa",
+              "bonk/swing": "cd30223ae19938e0",
+              "club-blow/swing": "6654dd6e5fdda128",
+              "edge-profiles": "9a9b829ef9de2e14",
+              "fitted-value": "a045ab77d0990029",
+              "kick/front": "3a991efe9c8d98a8",
+              "kick/kick": "dcc26b2f26872611",
+              "kick/push": "c4017ba4dd188dd2",
+              "pressure-profiles": "052ab194d259433a",
+              "righting": "d08e79efd9904eb9",
+              "sit-back": "f6e6dc359580c0f3",
+              "step-profiles": "276a83358d301f6b",
+              "step-up": "c128b2aead10ad0c",
+              "stomp/front": "2bea74badbda6890",
+              "stomp/kick": "dc5346b2417476ac",
+              "stomp/stomp": "c423a1f4ca9d5d9e",
+              "straight-punch/drive": "0978ad4ea6686d04",
+              "straight-punch/moving": "d8a646e76cbe7dfd",
+              "strike-profiles": "f2d00fcf3541adc9",
+              "sword-thrust/drive": "afb04821f3db1b6f",
+              "walk-run": "6604a269e724433b"
+            }
+          }
+        ],
+        "commit": "4ed9aa41f4a943c2867e30e14baf9b137f1f73b6",
+        "changed": false,
+        "date": "2026-11-26"
+      },
+      "trials": [
+        {
+          "start": {
+            "range": 0.5558,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.2714,
+              -0.0839
+            ],
+            "window": [
+              0.1381,
+              -0.1279
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.065,
+                "width": 0.155,
+                "height": 0.969
+              },
+              "target": {
+                "stagger": -0.144,
+                "width": 0.133,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.8282,
+          "taken": 0,
+          "seconds": 1.625,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5559,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.3523,
+              0.2441
+            ],
+            "window": [
+              0.1331,
+              0.0804
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.07,
+                "width": 0.261,
+                "height": 0.96
+              },
+              "target": {
+                "stagger": 0.185,
+                "width": 0.143,
+                "height": 0.118
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.1524,
+          "taken": 0.0033,
+          "seconds": 1.9083,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5563,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.2602,
+              -0.0403
+            ],
+            "window": [
+              0.1372,
+              -0.0664
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.12,
+                "width": 0.152,
+                "height": 0.974
+              },
+              "target": {
+                "stagger": -0.171,
+                "width": 0.143,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.5184,
+          "taken": 0,
+          "seconds": 1.6333,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5604,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.2143,
+              -0.3756
+            ],
+            "window": [
+              0.137,
+              -0.0286
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.053,
+                "width": 0.185,
+                "height": 0.965
+              },
+              "target": {
+                "stagger": -0.182,
+                "width": 0.129,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.3823,
+          "taken": 0.2203,
+          "seconds": 2.5583,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5619,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.5662,
+              0.0355
+            ],
+            "window": [
+              0.133,
+              -0.2332
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.099,
+                "width": 0.175,
+                "height": 0.967
+              },
+              "target": {
+                "stagger": -0.116,
+                "width": 0.159,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0.1121,
+          "seconds": 1.4083,
+          "recovers": null,
+          "down": true
+        },
+        {
+          "start": {
+            "range": 0.5653,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.0984,
+              0.0473
+            ],
+            "window": [
+              0.1385,
+              -0.0277
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.065,
+                "width": 0.18,
+                "height": 0.975
+              },
+              "target": {
+                "stagger": -0.18,
+                "width": 0.125,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 1.3158,
+          "taken": 0,
+          "seconds": 1.8417,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5671,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.1843,
+              0.0681
+            ],
+            "window": [
+              0.1376,
+              0.005
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.073,
+                "width": 0.187,
+                "height": 0.974
+              },
+              "target": {
+                "stagger": -0.185,
+                "width": 0.118,
+                "height": 0.12
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.8629,
+          "taken": 0,
+          "seconds": 1.975,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5693,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.1149,
+              0.0651
+            ],
+            "window": [
+              0.1385,
+              -0.0041
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.061,
+                "width": 0.187,
+                "height": 0.976
+              },
+              "target": {
+                "stagger": -0.184,
+                "width": 0.115,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 1.4073,
+          "taken": 0,
+          "seconds": 2.25,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.57,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.0624,
+              -0.1195
+            ],
+            "window": [
+              0.1386,
+              -0.0005
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.038,
+                "width": 0.193,
+                "height": 0.972
+              },
+              "target": {
+                "stagger": -0.197,
+                "width": 0.127,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 3.4397,
+          "taken": 0,
+          "seconds": 1.825,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.571,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.0791,
+              0.132
+            ],
+            "window": [
+              0.1379,
+              0.0007
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.014,
+                "width": 0.199,
+                "height": 0.97
+              },
+              "target": {
+                "stagger": 0.176,
+                "width": 0.109,
+                "height": 0.12
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.3886,
+          "taken": 0,
+          "seconds": 1.5583,
+          "recovers": 0.45,
+          "down": false,
+          "exit": {
+            "range": 1.045,
+            "stays": 0,
+            "moved": 0.1174
+          }
+        },
+        {
+          "start": {
+            "range": 0.5741,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.0722,
+              -0.0408
+            ],
+            "window": [
+              0.1385,
+              0.0187
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.04,
+                "width": 0.186,
+                "height": 0.961
+              },
+              "target": {
+                "stagger": -0.189,
+                "width": 0.116,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 1.0272,
+          "taken": 0,
+          "seconds": 1.6833,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5745,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.2074,
+              -0.4412
+            ],
+            "window": [
+              0.135,
+              0.0136
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.058,
+                "width": 0.25,
+                "height": 0.952
+              },
+              "target": {
+                "stagger": -0.175,
+                "width": 0.093,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 1.16,
+          "taken": 0.1361,
+          "seconds": 2.3,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.591,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.3634,
+              0.159
+            ],
+            "window": [
+              0.1349,
+              -0.0583
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.14,
+                "width": 0.196,
+                "height": 0.946
+              },
+              "target": {
+                "stagger": 0.114,
+                "width": 0.974,
+                "height": -0.088
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.0167,
+          "taken": 0.0373,
+          "seconds": 2.5417,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5926,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.2351,
+              0.1235
+            ],
+            "window": [
+              0.1374,
+              -0.0213
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.046,
+                "width": 0.144,
+                "height": 0.967
+              },
+              "target": {
+                "stagger": 0.086,
+                "width": 0.973,
+                "height": -0.088
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.0453,
+          "taken": 0.0239,
+          "seconds": 1.95,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5934,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.2158,
+              0.0025
+            ],
+            "window": [
+              0.1359,
+              0.1305
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.071,
+                "width": 0.194,
+                "height": 0.964
+              },
+              "target": {
+                "stagger": 0.188,
+                "width": 0.095,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.4334,
+          "taken": 0,
+          "seconds": 2.4333,
+          "recovers": 1,
+          "down": false,
+          "exit": {
+            "range": 1.397,
+            "stays": 0,
+            "moved": 0.5366
+          }
+        },
+        {
+          "start": {
+            "range": 0.5976,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.3278,
+              0.2361
+            ],
+            "window": [
+              0.118,
+              0.2461
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.023,
+                "width": 0.192,
+                "height": 0.957
+              },
+              "target": {
+                "stagger": 0.186,
+                "width": 0.109,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.1339,
+          "taken": 0,
+          "seconds": 2.525,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6031,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.1791,
+              -0.2349
+            ],
+            "window": [
+              0.1234,
+              0.2427
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.13,
+                "width": 0.048,
+                "height": 0.972
+              },
+              "target": {
+                "stagger": -0.181,
+                "width": 0.105,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.2037,
+          "taken": 0.1364,
+          "seconds": 1.7,
+          "recovers": null,
+          "down": true
+        },
+        {
+          "start": {
+            "range": 0.6094,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.311,
+              -0.0117
+            ],
+            "window": [
+              0.1308,
+              0.1519
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.051,
+                "width": 0.158,
+                "height": 0.963
+              },
+              "target": {
+                "stagger": 0.116,
+                "width": 0.195,
+                "height": 0.077
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.1964,
+          "taken": 0.0573,
+          "seconds": 1.9583,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6113,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.0548,
+              -0.3302
+            ],
+            "window": [
+              0.1384,
+              -0.0208
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.027,
+                "width": 0.337,
+                "height": 0.974
+              },
+              "target": {
+                "stagger": -0.176,
+                "width": 0.057,
+                "height": 0.12
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.7365,
+          "taken": 0.0134,
+          "seconds": 2.4833,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6204,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.0238,
+              -0.2903
+            ],
+            "window": [
+              0.1366,
+              0.1269
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.038,
+                "width": 0.285,
+                "height": 0.975
+              },
+              "target": {
+                "stagger": -0.218,
+                "width": 0.063,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.1667,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6466,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.2454,
+              -0.0216
+            ],
+            "window": [
+              0.2505,
+              0.1348
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.027,
+                "width": 0.192,
+                "height": 0.965
+              },
+              "target": {
+                "stagger": -0.209,
+                "width": 0.537,
+                "height": -0.238
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.0295,
+          "taken": 0.0277,
+          "seconds": 1.575,
+          "recovers": 1.9083,
+          "down": false,
+          "exit": {
+            "range": 1.1877,
+            "stays": 1
+          }
+        },
+        {
+          "start": {
+            "range": 0.6525,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.5373,
+              0.417
+            ],
+            "window": [
+              0.1362,
+              0.2091
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.111,
+                "width": 0.297,
+                "height": 0.956
+              },
+              "target": {
+                "stagger": -0.09,
+                "width": 0.292,
+                "height": -0.177
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.0553,
+          "taken": 0.1058,
+          "seconds": 2.4583,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6718,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.4466,
+              0.3041
+            ],
+            "window": [
+              0.1346,
+              0.0036
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.083,
+                "width": 0.229,
+                "height": 0.951
+              },
+              "target": {
+                "stagger": 0.714,
+                "width": 0.379,
+                "height": -0.188
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 3.9827,
+          "taken": 0.0091,
+          "seconds": 1.6167,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7076,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.4499,
+              0.1087
+            ],
+            "window": [
+              0.1364,
+              -0.1129
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.079,
+                "width": 0.175,
+                "height": 0.973
+              },
+              "target": {
+                "stagger": 0.338,
+                "width": 0.548,
+                "height": -0.274
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.4662,
+          "taken": 0,
+          "seconds": 1.975,
+          "recovers": 0.25,
+          "down": false,
+          "exit": {
+            "range": 1.8758,
+            "stays": 0,
+            "moved": 0.6238
+          }
+        },
+        {
+          "start": {
+            "range": 0.7113,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.2539,
+              -0.4002
+            ],
+            "window": [
+              0.1363,
+              -0.0831
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.009,
+                "width": 0.27,
+                "height": 0.95
+              },
+              "target": {
+                "stagger": -0.213,
+                "width": 0.018,
+                "height": 0.106
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.25,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7187,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.0695,
+              -0.3201
+            ],
+            "window": [
+              0.1386,
+              -0.0228
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.035,
+                "width": 0.191,
+                "height": 0.95
+              },
+              "target": {
+                "stagger": -0.921,
+                "width": 0.363,
+                "height": -0.279
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 1.6833,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7453,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.4393,
+              -0.0212
+            ],
+            "window": [
+              0.1314,
+              -0.1049
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.067,
+                "width": 0.339,
+                "height": 0.971
+              },
+              "target": {
+                "stagger": 0.479,
+                "width": 0.137,
+                "height": -0.151
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0.0088,
+          "seconds": 1.5917,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7694,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.4637,
+              0.0174
+            ],
+            "window": [
+              0.1324,
+              -0.0086
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.107,
+                "width": 0.149,
+                "height": 0.971
+              },
+              "target": {
+                "stagger": -0.249,
+                "width": 0.018,
+                "height": 0.096
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.532,
+          "taken": 0,
+          "seconds": 1.9833,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.9941,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.2027,
+              0.1551
+            ],
+            "window": [
+              0.1359,
+              -0.0559
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.025,
+                "width": 0.204,
+                "height": 0.965
+              },
+              "target": {
+                "stagger": 0.098,
+                "width": 0.169,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 2.2477,
+          "taken": 0,
+          "seconds": 1.675,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6334,
+            "phase": "rising",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.3148,
+              0.1807
+            ],
+            "window": [
+              0.1349,
+              -0.1723
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.033,
+                "width": 0.169,
+                "height": 0.965
+              },
+              "target": {
+                "stagger": -0.423,
+                "width": 0.068,
+                "height": -0.269
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.2931,
+          "taken": 0.6298,
+          "seconds": 1.9333,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6576,
+            "phase": "rising",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.2055,
+              -0.0757
+            ],
+            "window": [
+              0.1355,
+              -0.104
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.004,
+                "width": 0.23,
+                "height": 0.974
+              },
+              "target": {
+                "stagger": -0.436,
+                "width": 0.013,
+                "height": -0.068
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 3.804,
+          "taken": 0.4237,
+          "seconds": 2.5667,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6241,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.2778,
+              0.3347
+            ],
+            "window": [
+              0.061,
+              -0.2401
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.078,
+                "width": 0.161,
+                "height": 0.949
+              },
+              "target": {
+                "stagger": -0.166,
+                "width": 0.08,
+                "height": -0.129
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.3432,
+          "taken": 0,
+          "seconds": 1.55,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6777,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.1024,
+              0.3616
+            ],
+            "window": [
+              0.138,
+              -0.0428
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.009,
+                "width": 0.228,
+                "height": 0.95
+              },
+              "target": {
+                "stagger": -0.147,
+                "width": 0.04,
+                "height": 0.054
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.2754,
+          "taken": 0.0157,
+          "seconds": 1.8,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6802,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              -0.0334,
+              -0.0745
+            ],
+            "window": [
+              0.0245,
+              -0.2388
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.174,
+                "width": 0.117,
+                "height": 0.975
+              },
+              "target": {
+                "stagger": -0.133,
+                "width": 0.078,
+                "height": 0.056
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.3315,
+          "taken": 0,
+          "seconds": 2.4167,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6803,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              -0.0241,
+              -0.0136
+            ],
+            "window": [
+              0.0711,
+              -0.2311
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.136,
+                "width": 0.14,
+                "height": 0.952
+              },
+              "target": {
+                "stagger": -0.143,
+                "width": 0.051,
+                "height": 0.062
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.6107,
+          "taken": 0.0566,
+          "seconds": 2.15,
+          "recovers": null,
+          "down": true
+        },
+        {
+          "start": {
+            "range": 0.6868,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.0667,
+              0.1209
+            ],
+            "window": [
+              0.1321,
+              0.2334
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.031,
+                "width": 0.165,
+                "height": 0.972
+              },
+              "target": {
+                "stagger": -0.473,
+                "width": 0.297,
+                "height": 0.037
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0.047,
+          "seconds": 1.925,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6964,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.1066,
+              0.6036
+            ],
+            "window": [
+              0.1375,
+              0.0994
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.004,
+                "width": 0.418,
+                "height": 0.973
+              },
+              "target": {
+                "stagger": -0.238,
+                "width": 0.069,
+                "height": 0.008
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 1.8237,
+          "taken": 0,
+          "seconds": 1.825,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7058,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.1999,
+              -0.2525
+            ],
+            "window": [
+              0.137,
+              -0.0773
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.003,
+                "width": 0.242,
+                "height": 0.955
+              },
+              "target": {
+                "stagger": 0.142,
+                "width": 0.008,
+                "height": -0.053
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 4.6081,
+          "taken": 0,
+          "seconds": 1.825,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7284,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.4481,
+              -0.0118
+            ],
+            "window": [
+              0.1334,
+              -0.1861
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.018,
+                "width": 0.197,
+                "height": 0.952
+              },
+              "target": {
+                "stagger": -0.178,
+                "width": 0.004,
+                "height": -0.049
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 2.4148,
+          "taken": 0,
+          "seconds": 2.1583,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7353,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.0659,
+              0.4057
+            ],
+            "window": [
+              0.1373,
+              0.0321
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.091,
+                "width": 0.148,
+                "height": 0.961
+              },
+              "target": {
+                "stagger": -0.233,
+                "width": 0.089,
+                "height": 0.001
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.3667,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.8925,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              -0.0137,
+              0.547
+            ],
+            "window": [
+              0.1015,
+              0.2319
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.112,
+                "width": 0.385,
+                "height": 0.955
+              },
+              "target": {
+                "stagger": -0.161,
+                "width": 0.163,
+                "height": -0.098
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.5758,
+          "taken": 0,
+          "seconds": 4.25,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.667,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "left"
+            },
+            "velocity": [
+              0.2354,
+              0.0516
+            ],
+            "window": [
+              0.1378,
+              -0.201
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.103,
+                "width": 0.307,
+                "height": 0.971
+              },
+              "target": {
+                "stagger": 0.486,
+                "width": 0.533,
+                "height": 0.04
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.3208,
+          "taken": 0,
+          "seconds": 2.325,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7479,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "left"
+            },
+            "velocity": [
+              0.4895,
+              -0.112
+            ],
+            "window": [
+              0.134,
+              0.0624
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.018,
+                "width": 0.178,
+                "height": 0.953
+              },
+              "target": {
+                "stagger": -0.204,
+                "width": 0.04,
+                "height": 0.066
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.625,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7649,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "left"
+            },
+            "velocity": [
+              0.4168,
+              -0.1639
+            ],
+            "window": [
+              0.0931,
+              -0.2446
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.075,
+                "width": 0.369,
+                "height": 0.971
+              },
+              "target": {
+                "stagger": -0.302,
+                "width": 0.023,
+                "height": 0.104
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.0417,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7852,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "left"
+            },
+            "velocity": [
+              0.1897,
+              -0.0798
+            ],
+            "window": [
+              0.1345,
+              -0.1458
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.068,
+                "width": 0.165,
+                "height": 0.975
+              },
+              "target": {
+                "stagger": -0.085,
+                "width": 0.015,
+                "height": 0.022
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.2167,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7011,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.4382,
+              0.1581
+            ],
+            "window": [
+              0.1357,
+              -0.0392
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.037,
+                "width": 0.19,
+                "height": 0.952
+              },
+              "target": {
+                "stagger": -0.625,
+                "width": 0.111,
+                "height": -0.006
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.6083,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7129,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.4264,
+              0.1702
+            ],
+            "window": [
+              0.1369,
+              -0.0849
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.032,
+                "width": 0.192,
+                "height": 0.961
+              },
+              "target": {
+                "stagger": -0.625,
+                "width": 0.136,
+                "height": 0.001
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.4148,
+          "taken": 0,
+          "seconds": 1.8333,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7159,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.3084,
+              0.2055
+            ],
+            "window": [
+              0.1357,
+              -0.0379
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.018,
+                "width": 0.198,
+                "height": 0.951
+              },
+              "target": {
+                "stagger": -0.984,
+                "width": 0.391,
+                "height": -0.004
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.4583,
+          "recovers": 1.05,
+          "down": false,
+          "exit": {
+            "range": 0.882,
+            "stays": 1
+          }
+        },
+        {
+          "start": {
+            "range": 0.7374,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.2512,
+              -0.1791
+            ],
+            "window": [
+              0.1369,
+              -0.0955
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.159,
+                "width": 0.233,
+                "height": 0.973
+              },
+              "target": {
+                "stagger": -0.935,
+                "width": 0.483,
+                "height": -0.003
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 1.2261,
+          "taken": 0.0485,
+          "seconds": 2.8417,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7385,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.4083,
+              0.2286
+            ],
+            "window": [
+              0.1331,
+              -0.1052
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.049,
+                "width": 0.195,
+                "height": 0.97
+              },
+              "target": {
+                "stagger": -0.802,
+                "width": 0.328,
+                "height": 0.003
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 1.2195,
+          "taken": 0,
+          "seconds": 1.7417,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7558,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.2163,
+              0.1774
+            ],
+            "window": [
+              0.136,
+              0.0247
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.044,
+                "width": 0.227,
+                "height": 0.965
+              },
+              "target": {
+                "stagger": -0.839,
+                "width": 0.631,
+                "height": -0.005
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 1.0506,
+          "taken": 0,
+          "seconds": 1.9583,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7577,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.5488,
+              0.2251
+            ],
+            "window": [
+              0.1355,
+              -0.0114
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.076,
+                "width": 0.215,
+                "height": 0.957
+              },
+              "target": {
+                "stagger": 0.089,
+                "width": 0.054,
+                "height": 0.008
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0.0052,
+          "seconds": 2.525,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7622,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.347,
+              0.0641
+            ],
+            "window": [
+              0.1348,
+              -0.0291
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.031,
+                "width": 0.2,
+                "height": 0.951
+              },
+              "target": {
+                "stagger": -0.803,
+                "width": 0.687,
+                "height": -0.003
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 3.5174,
+          "taken": 0,
+          "seconds": 1.7,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7744,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.2771,
+              0.2594
+            ],
+            "window": [
+              0.134,
+              -0.0971
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.049,
+                "width": 0.185,
+                "height": 0.949
+              },
+              "target": {
+                "stagger": 0.065,
+                "width": 0.01,
+                "height": 0.01
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.5583,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.8565,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.3163,
+              -0.0216
+            ],
+            "window": [
+              0.1224,
+              -0.0575
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.18,
+                "width": 0.215,
+                "height": 0.973
+              },
+              "target": {
+                "stagger": -0.603,
+                "width": 0.821,
+                "height": -0.004
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 2.0265,
+          "taken": 0,
+          "seconds": 1.9167,
+          "recovers": 1.0417,
+          "down": false,
+          "exit": {
+            "range": 1.1792,
+            "stays": 0,
+            "moved": 0.3689
+          }
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "man",
+        "stature": 1.77,
+        "skill": "stomp/front",
+        "limb": "foot.right",
+        "hz": 120,
+        "reaction": 0.15,
+        "rate": 60,
+        "delay": 1
+      },
+      "from": {
+        "spec": "40ce72cc8e9a11fa",
+        "skill": "f15d9169a482fbcf",
+        "minds": [
+          {
+            "body": "man",
+            "spec": "40ce72cc8e9a11fa",
+            "mind": "5c43c10b24dee0f5",
+            "read": {
+              "bite/bite": "61a1b8003e759cfa",
+              "bonk/swing": "cd30223ae19938e0",
+              "club-blow/swing": "6654dd6e5fdda128",
+              "edge-profiles": "9a9b829ef9de2e14",
+              "fitted-value": "a045ab77d0990029",
+              "kick/front": "3a991efe9c8d98a8",
+              "kick/kick": "dcc26b2f26872611",
+              "kick/push": "c4017ba4dd188dd2",
+              "pressure-profiles": "052ab194d259433a",
+              "righting": "d08e79efd9904eb9",
+              "sit-back": "f6e6dc359580c0f3",
+              "step-profiles": "276a83358d301f6b",
+              "step-up": "c128b2aead10ad0c",
+              "stomp/front": "2bea74badbda6890",
+              "stomp/kick": "dc5346b2417476ac",
+              "stomp/stomp": "c423a1f4ca9d5d9e",
+              "straight-punch/drive": "0978ad4ea6686d04",
+              "straight-punch/moving": "d8a646e76cbe7dfd",
+              "strike-profiles": "f2d00fcf3541adc9",
+              "sword-thrust/drive": "afb04821f3db1b6f",
+              "walk-run": "6604a269e724433b"
+            }
+          },
+          {
+            "body": "skeleton",
+            "spec": "afd47317d652612d",
+            "mind": "5c43c10b24dee0f5",
+            "read": {
+              "bite/bite": "61a1b8003e759cfa",
+              "bonk/swing": "cd30223ae19938e0",
+              "club-blow/swing": "6654dd6e5fdda128",
+              "edge-profiles": "9a9b829ef9de2e14",
+              "fitted-value": "a045ab77d0990029",
+              "kick/front": "3a991efe9c8d98a8",
+              "kick/kick": "dcc26b2f26872611",
+              "kick/push": "c4017ba4dd188dd2",
+              "pressure-profiles": "052ab194d259433a",
+              "righting": "d08e79efd9904eb9",
+              "sit-back": "f6e6dc359580c0f3",
+              "step-profiles": "276a83358d301f6b",
+              "step-up": "c128b2aead10ad0c",
+              "stomp/front": "2bea74badbda6890",
+              "stomp/kick": "dc5346b2417476ac",
+              "stomp/stomp": "c423a1f4ca9d5d9e",
+              "straight-punch/drive": "0978ad4ea6686d04",
+              "straight-punch/moving": "d8a646e76cbe7dfd",
+              "strike-profiles": "f2d00fcf3541adc9",
+              "sword-thrust/drive": "afb04821f3db1b6f",
+              "walk-run": "6604a269e724433b"
+            }
+          },
+          {
+            "body": "woman",
+            "spec": "9a12363e773535ac",
+            "mind": "5c43c10b24dee0f5",
+            "read": {
+              "bite/bite": "61a1b8003e759cfa",
+              "bonk/swing": "cd30223ae19938e0",
+              "club-blow/swing": "6654dd6e5fdda128",
+              "edge-profiles": "9a9b829ef9de2e14",
+              "fitted-value": "a045ab77d0990029",
+              "kick/front": "3a991efe9c8d98a8",
+              "kick/kick": "dcc26b2f26872611",
+              "kick/push": "c4017ba4dd188dd2",
+              "pressure-profiles": "052ab194d259433a",
+              "righting": "d08e79efd9904eb9",
+              "sit-back": "f6e6dc359580c0f3",
+              "step-profiles": "276a83358d301f6b",
+              "step-up": "c128b2aead10ad0c",
+              "stomp/front": "2bea74badbda6890",
+              "stomp/kick": "dc5346b2417476ac",
+              "stomp/stomp": "c423a1f4ca9d5d9e",
+              "straight-punch/drive": "0978ad4ea6686d04",
+              "straight-punch/moving": "d8a646e76cbe7dfd",
+              "strike-profiles": "f2d00fcf3541adc9",
+              "sword-thrust/drive": "afb04821f3db1b6f",
+              "walk-run": "6604a269e724433b"
+            }
+          }
+        ],
+        "commit": "4ed9aa41f4a943c2867e30e14baf9b137f1f73b6",
+        "changed": false,
+        "date": "2026-11-26"
+      },
+      "trials": [
+        {
+          "start": {
+            "range": 0.5561,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.3732,
+              0.2838
+            ],
+            "window": [
+              0.1363,
+              0.0678
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.066,
+                "width": 0.299,
+                "height": 0.955
+              },
+              "target": {
+                "stagger": 0.161,
+                "width": 0.127,
+                "height": 0.12
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 1.9083,
+          "recovers": null,
+          "down": true
+        },
+        {
+          "start": {
+            "range": 0.5616,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.3392,
+              -0.0456
+            ],
+            "window": [
+              0.1359,
+              -0.0186
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.135,
+                "width": 0.149,
+                "height": 0.97
+              },
+              "target": {
+                "stagger": -0.181,
+                "width": 0.12,
+                "height": 0.12
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.6696,
+          "taken": 0.001,
+          "seconds": 2.2917,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5682,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.1827,
+              0.0015
+            ],
+            "window": [
+              0.1367,
+              -0.0067
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.093,
+                "width": 0.151,
+                "height": 0.971
+              },
+              "target": {
+                "stagger": -0.218,
+                "width": 0.141,
+                "height": 0.118
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.6954,
+          "taken": 0.0043,
+          "seconds": 1.8667,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.578,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.0896,
+              0.0827
+            ],
+            "window": [
+              0.1384,
+              0.0146
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.077,
+                "width": 0.188,
+                "height": 0.973
+              },
+              "target": {
+                "stagger": -0.184,
+                "width": 0.104,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.2781,
+          "taken": 0,
+          "seconds": 1.5833,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5818,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.524,
+              0.1037
+            ],
+            "window": [
+              0.1301,
+              -0.0385
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.091,
+                "width": 0.149,
+                "height": 0.948
+              },
+              "target": {
+                "stagger": 0.26,
+                "width": 0.137,
+                "height": 0.09
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 1.5264,
+          "taken": 0.0405,
+          "seconds": 1.2833,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.585,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.1628,
+              -0.0911
+            ],
+            "window": [
+              0.137,
+              -0.0928
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.006,
+                "width": 0.186,
+                "height": 0.97
+              },
+              "target": {
+                "stagger": -0.208,
+                "width": 0.118,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.296,
+          "taken": 0,
+          "seconds": 2.3833,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5863,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.1041,
+              -0.1195
+            ],
+            "window": [
+              0.1376,
+              -0.0635
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.032,
+                "width": 0.196,
+                "height": 0.971
+              },
+              "target": {
+                "stagger": -0.199,
+                "width": 0.1,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.3137,
+          "taken": 0.0036,
+          "seconds": 1.4,
+          "recovers": 0.7,
+          "down": true,
+          "exit": {
+            "range": 1.6458,
+            "stays": 0,
+            "moved": 0.8038
+          }
+        },
+        {
+          "start": {
+            "range": 0.5903,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.266,
+              0.0928
+            ],
+            "window": [
+              0.1327,
+              0.1773
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.092,
+                "width": 0.145,
+                "height": 0.972
+              },
+              "target": {
+                "stagger": 0.176,
+                "width": 0.103,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 1.1783,
+          "taken": 0,
+          "seconds": 1.8333,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5955,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.1816,
+              -0.12
+            ],
+            "window": [
+              0.1376,
+              -0.0905
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.085,
+                "width": 0.207,
+                "height": 0.971
+              },
+              "target": {
+                "stagger": 0.2,
+                "width": 0.086,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.5461,
+          "taken": 0,
+          "seconds": 1.7083,
+          "recovers": 0.65,
+          "down": false,
+          "exit": {
+            "range": 1.0604,
+            "stays": 1
+          }
+        },
+        {
+          "start": {
+            "range": 0.6013,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.3188,
+              0.0251
+            ],
+            "window": [
+              0.1325,
+              0.1623
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.107,
+                "width": 0.156,
+                "height": 0.962
+              },
+              "target": {
+                "stagger": 0.199,
+                "width": 0.093,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 1.5735,
+          "taken": 0.0546,
+          "seconds": 1.4333,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6035,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.2416,
+              0.1838
+            ],
+            "window": [
+              0.1352,
+              -0.0063
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.06,
+                "width": 0.125,
+                "height": 0.978
+              },
+              "target": {
+                "stagger": 0.153,
+                "width": 0.881,
+                "height": -0.201
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.1229,
+          "taken": 0.0863,
+          "seconds": 2.4917,
+          "recovers": null,
+          "down": true
+        },
+        {
+          "start": {
+            "range": 0.6255,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.1246,
+              -0.0405
+            ],
+            "window": [
+              0.1384,
+              -0.1575
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.066,
+                "width": 0.185,
+                "height": 0.957
+              },
+              "target": {
+                "stagger": 0.202,
+                "width": 0.066,
+                "height": 0.119
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.6719,
+          "taken": 0,
+          "seconds": 2.2167,
+          "recovers": null,
+          "down": true
+        },
+        {
+          "start": {
+            "range": 0.6291,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.3694,
+              -0.1575
+            ],
+            "window": [
+              0.1356,
+              -0.0887
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.005,
+                "width": 0.24,
+                "height": 0.961
+              },
+              "target": {
+                "stagger": -0.098,
+                "width": 0.102,
+                "height": -0.02
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 1.3764,
+          "taken": 0,
+          "seconds": 1.6417,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6702,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.1464,
+              -0.1789
+            ],
+            "window": [
+              0.1372,
+              -0.0258
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.032,
+                "width": 0.205,
+                "height": 0.976
+              },
+              "target": {
+                "stagger": -0.725,
+                "width": 0.609,
+                "height": -0.088
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.8929,
+          "taken": 0,
+          "seconds": 1.65,
+          "recovers": 1.2667,
+          "down": false,
+          "exit": {
+            "range": 0.6968,
+            "stays": 0,
+            "moved": 0.2576
+          }
+        },
+        {
+          "start": {
+            "range": 0.672,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.1101,
+              -0.0868
+            ],
+            "window": [
+              0.1381,
+              -0.0273
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.038,
+                "width": 0.202,
+                "height": 0.956
+              },
+              "target": {
+                "stagger": -0.708,
+                "width": 0.6,
+                "height": -0.099
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.4417,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6896,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.2664,
+              0.4505
+            ],
+            "window": [
+              0.1315,
+              0.1743
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.088,
+                "width": 0.368,
+                "height": 0.956
+              },
+              "target": {
+                "stagger": -0.566,
+                "width": 0.358,
+                "height": -0.28
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.2297,
+          "taken": 0.0945,
+          "seconds": 2.4833,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6963,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            },
+            "velocity": [
+              0.1754,
+              0.199
+            ],
+            "window": [
+              0.1377,
+              0.1062
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.041,
+                "width": 0.234,
+                "height": 0.952
+              },
+              "target": {
+                "stagger": -0.333,
+                "width": 0.582,
+                "height": -0.279
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 1.1951,
+          "taken": 0.0686,
+          "seconds": 1.9,
+          "recovers": 0.8917,
+          "down": false,
+          "exit": {
+            "range": 0.5689,
+            "stays": 0,
+            "moved": -0.1842
+          }
+        },
+        {
+          "start": {
+            "range": 0.5499,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.666,
+              -0.5266
+            ],
+            "window": [
+              -0.0922,
+              0.2407
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.231,
+                "width": 0.04,
+                "height": 0.957
+              },
+              "target": {
+                "stagger": 0.138,
+                "width": 0.062,
+                "height": -0.13
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0.0014,
+          "seconds": 1.0917,
+          "recovers": null,
+          "down": true
+        },
+        {
+          "start": {
+            "range": 0.5839,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.2137,
+              0.1797
+            ],
+            "window": [
+              0.1362,
+              0.0235
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.023,
+                "width": 0.201,
+                "height": 0.953
+              },
+              "target": {
+                "stagger": -0.279,
+                "width": 0.082,
+                "height": -0.055
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.7205,
+          "taken": 0,
+          "seconds": 1.8083,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5965,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.285,
+              -0.2284
+            ],
+            "window": [
+              0.131,
+              0.0739
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.078,
+                "width": 0.272,
+                "height": 0.968
+              },
+              "target": {
+                "stagger": 0.172,
+                "width": 0.063,
+                "height": -0.149
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 1.0174,
+          "taken": 0.0004,
+          "seconds": 1.9417,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6243,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.2693,
+              -0.53
+            ],
+            "window": [
+              0.1356,
+              0.0126
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.032,
+                "width": 0.268,
+                "height": 0.974
+              },
+              "target": {
+                "stagger": 0.068,
+                "width": 0.118,
+                "height": -0.178
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.2264,
+          "taken": 0.0051,
+          "seconds": 2.0083,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6347,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.2539,
+              -0.1506
+            ],
+            "window": [
+              0.1369,
+              -0.1514
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.047,
+                "width": 0.21,
+                "height": 0.964
+              },
+              "target": {
+                "stagger": 0.23,
+                "width": 0.095,
+                "height": -0.086
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.1926,
+          "taken": 0.0611,
+          "seconds": 1.675,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6365,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.2188,
+              -0.095
+            ],
+            "window": [
+              0.1361,
+              0.0511
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.057,
+                "width": 0.173,
+                "height": 0.953
+              },
+              "target": {
+                "stagger": 0.343,
+                "width": 0.14,
+                "height": -0.02
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.9818,
+          "taken": 0,
+          "seconds": 1.6917,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6378,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.36,
+              0.3254
+            ],
+            "window": [
+              0.1334,
+              0.0651
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.035,
+                "width": 0.307,
+                "height": 0.977
+              },
+              "target": {
+                "stagger": -0.206,
+                "width": 0.064,
+                "height": -0.05
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 0.8083,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6689,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.3491,
+              -0.2786
+            ],
+            "window": [
+              0.135,
+              0.0144
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.065,
+                "width": 0.179,
+                "height": 0.957
+              },
+              "target": {
+                "stagger": 0.229,
+                "width": 0.083,
+                "height": 0.038
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 1.5306,
+          "taken": 0.0011,
+          "seconds": 1.825,
+          "recovers": null,
+          "down": true
+        },
+        {
+          "start": {
+            "range": 0.6762,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.2773,
+              0.3932
+            ],
+            "window": [
+              0.1356,
+              -0.0196
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.105,
+                "width": 0.124,
+                "height": 0.972
+              },
+              "target": {
+                "stagger": -0.254,
+                "width": 0.024,
+                "height": 0.045
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.0148,
+          "taken": 0.0447,
+          "seconds": 0.9333,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7068,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.2737,
+              0.0402
+            ],
+            "window": [
+              0.1367,
+              -0.1128
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.005,
+                "width": 0.175,
+                "height": 0.973
+              },
+              "target": {
+                "stagger": -0.4,
+                "width": 0.047,
+                "height": -0.016
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.737,
+          "taken": 0,
+          "seconds": 1.65,
+          "recovers": null,
+          "down": true
+        },
+        {
+          "start": {
+            "range": 0.7192,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.1051,
+              -0.0395
+            ],
+            "window": [
+              0.1378,
+              -0.0454
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.058,
+                "width": 0.196,
+                "height": 0.954
+              },
+              "target": {
+                "stagger": 0.174,
+                "width": 0.021,
+                "height": -0.044
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 1.0205,
+          "taken": 0,
+          "seconds": 1.825,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7359,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.146,
+              -0.1497
+            ],
+            "window": [
+              0.1362,
+              0.2365
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.163,
+                "width": 0.166,
+                "height": 0.957
+              },
+              "target": {
+                "stagger": 0.242,
+                "width": 0.051,
+                "height": 0.069
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0.0027,
+          "seconds": 2.1583,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7409,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.3011,
+              0.2436
+            ],
+            "window": [
+              0.1342,
+              0.0822
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.128,
+                "width": 0.196,
+                "height": 0.96
+              },
+              "target": {
+                "stagger": 0.358,
+                "width": 0.223,
+                "height": -0.082
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0.0219,
+          "seconds": 2.45,
+          "recovers": 0.4167,
+          "down": false,
+          "exit": {
+            "range": 1.0931,
+            "stays": 0,
+            "moved": 0.2052
+          }
+        },
+        {
+          "start": {
+            "range": 0.7564,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.1348,
+              -0.1913
+            ],
+            "window": [
+              0.1337,
+              -0.2287
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.132,
+                "width": 0.231,
+                "height": 0.953
+              },
+              "target": {
+                "stagger": 0.124,
+                "width": 0.074,
+                "height": -0.056
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0.046,
+          "seconds": 2.6083,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7731,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.3206,
+              -0.3419
+            ],
+            "window": [
+              0.0771,
+              -0.2289
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.023,
+                "width": 0.239,
+                "height": 0.974
+              },
+              "target": {
+                "stagger": -0.604,
+                "width": 0.045,
+                "height": 0.088
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.1061,
+          "taken": 0,
+          "seconds": 2.0833,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.811,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.5143,
+              0.0132
+            ],
+            "window": [
+              0.1419,
+              -0.0566
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.138,
+                "width": 0.192,
+                "height": 0.956
+              },
+              "target": {
+                "stagger": -0.528,
+                "width": 0.167,
+                "height": -0.001
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 2.9263,
+          "taken": 0,
+          "seconds": 1.5917,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6189,
+            "phase": "rising",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.5559,
+              -0.0766
+            ],
+            "window": [
+              0.1251,
+              0.0437
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.027,
+                "width": 0.196,
+                "height": 0.948
+              },
+              "target": {
+                "stagger": 0.274,
+                "width": 0.078,
+                "height": -0.086
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.8481,
+          "taken": 0,
+          "seconds": 1.6583,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7146,
+            "phase": "rising",
+            "postures": {
+              "own": "standing",
+              "target": "front"
+            },
+            "velocity": [
+              0.3023,
+              0.5437
+            ],
+            "window": [
+              0.1395,
+              0.0455
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.048,
+                "width": 0.329,
+                "height": 0.958
+              },
+              "target": {
+                "stagger": -0.278,
+                "width": 0.042,
+                "height": -0.022
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 2.2404,
+          "taken": 0,
+          "seconds": 3.1917,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7335,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "left"
+            },
+            "velocity": [
+              0.4785,
+              -0.2212
+            ],
+            "window": [
+              0.0468,
+              -0.2415
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.08,
+                "width": 0.396,
+                "height": 0.973
+              },
+              "target": {
+                "stagger": -0.262,
+                "width": 0.02,
+                "height": 0.101
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.4048,
+          "taken": 0,
+          "seconds": 2.0583,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.775,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "left"
+            },
+            "velocity": [
+              0.3575,
+              -0.1815
+            ],
+            "window": [
+              0.1332,
+              -0.1784
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.08,
+                "width": 0.201,
+                "height": 0.958
+              },
+              "target": {
+                "stagger": -0.268,
+                "width": 0.04,
+                "height": 0.089
+              }
+            },
+            "struck": {
+              "stature": 1.62,
+              "mass": 15,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.1253,
+          "taken": 0,
+          "seconds": 1.9667,
+          "recovers": null,
+          "down": true
+        },
+        {
+          "start": {
+            "range": 0.7973,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "left"
+            },
+            "velocity": [
+              0.5813,
+              -0.241
+            ],
+            "window": [
+              0.1339,
+              -0.0079
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.012,
+                "width": 0.221,
+                "height": 0.949
+              },
+              "target": {
+                "stagger": -0.166,
+                "width": 0.08,
+                "height": 0.062
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.2667,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.5816,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.1731,
+              -0.0789
+            ],
+            "window": [
+              0.1377,
+              -0.1369
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.001,
+                "width": 0.182,
+                "height": 0.964
+              },
+              "target": {
+                "stagger": -0.051,
+                "width": 0.031,
+                "height": 0.019
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.006,
+          "taken": 0.1583,
+          "seconds": 4.8917,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6109,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.0469,
+              -0.0406
+            ],
+            "window": [
+              0.1985,
+              -0.1599
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.022,
+                "width": 0.214,
+                "height": 0.953
+              },
+              "target": {
+                "stagger": 0.083,
+                "width": 0.024,
+                "height": -0.018
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0.9975,
+          "taken": 0.0196,
+          "seconds": 2.8167,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.6439,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.2558,
+              0.1715
+            ],
+            "window": [
+              0.127,
+              0.1984
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.03,
+                "width": 0.14,
+                "height": 0.969
+              },
+              "target": {
+                "stagger": -0.149,
+                "width": 0.092,
+                "height": -0.012
+              }
+            },
+            "struck": {
+              "stature": 1.77,
+              "mass": 79,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.0417,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7092,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.2412,
+              0.2542
+            ],
+            "window": [
+              0.144,
+              0.1064
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.014,
+                "width": 0.216,
+                "height": 0.95
+              },
+              "target": {
+                "stagger": -1.025,
+                "width": 0.188,
+                "height": -0.004
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.2,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7194,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.3211,
+              -0.072
+            ],
+            "window": [
+              0.1355,
+              -0.0522
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.128,
+                "width": 0.187,
+                "height": 0.97
+              },
+              "target": {
+                "stagger": -0.991,
+                "width": 0.411,
+                "height": -0.002
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 1.9899,
+          "taken": 0,
+          "seconds": 1.65,
+          "recovers": 0.5,
+          "down": false,
+          "exit": {
+            "range": 1.1217,
+            "stays": 0,
+            "moved": 0.1979
+          }
+        },
+        {
+          "start": {
+            "range": 0.7332,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.301,
+              0.0584
+            ],
+            "window": [
+              0.1357,
+              -0.0931
+            ],
+            "stance": {
+              "own": {
+                "stagger": -0.022,
+                "width": 0.183,
+                "height": 0.964
+              },
+              "target": {
+                "stagger": -0.947,
+                "width": 0.461,
+                "height": -0.006
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 0.565,
+          "taken": 0,
+          "seconds": 2.125,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7345,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.3666,
+              0.0192
+            ],
+            "window": [
+              0.1391,
+              -0.0417
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.134,
+                "width": 0.178,
+                "height": 0.957
+              },
+              "target": {
+                "stagger": -0.95,
+                "width": 0.393,
+                "height": -0.006
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": true,
+          "dealt": 3.8212,
+          "taken": 0,
+          "seconds": 1.525,
+          "recovers": null,
+          "down": false
+        },
+        {
+          "start": {
+            "range": 0.7454,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "right"
+            },
+            "velocity": [
+              0.3845,
+              0.011
+            ],
+            "window": [
+              0.1346,
+              -0.138
+            ],
+            "stance": {
+              "own": {
+                "stagger": 0.012,
+                "width": 0.198,
+                "height": 0.948
+              },
+              "target": {
+                "stagger": -0.935,
+                "width": 0.504,
+                "height": -0.003
+              }
+            },
+            "struck": {
+              "stature": 1.6288,
+              "mass": 57.5726,
+              "steadiness": 0,
+              "haste": 0
+            }
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.5583,
+          "recovers": 0.7167,
+          "down": false,
+          "exit": {
+            "range": 0.8965,
+            "stays": 0,
+            "moved": 0.0558
+          }
+        }
+      ]
     }
   ]
 }
