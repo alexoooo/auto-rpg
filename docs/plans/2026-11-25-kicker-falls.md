@@ -168,3 +168,14 @@ fine)"). Numbers and the testbed's rest stay parked. Each gets its own plan when
 A decision still lands in the one step it is made in (the approaches' Minds,
 `research/runs/lean-time/`): spreading it over the steps until the next one is the lever, not yet
 asked for.
+
+Rows reading worse than the readings they replaced, that the exact step did not cause (the A/B on
+5c313dc61 with `damping` alone at the explicit gains reads them the same): broken by code since
+their readings, each to be bisected on its row's protocol to the commit that moved it and fixed
+at its root. The woman's walk, +0.72 s lost against the orders (replaced reading 82e2c881); the
+man's run on its confirmation, +0.39 s (82e2c881); the woman's run holding a buckler and club,
++1.37 s (82e2c881); the man's bonk with a club, -0.056 hp a second (6d797e47); the woman's
+sit-back on the standard falls, +2.13 s an attempt (b71b3fd0); the Skeleton's front-sit-back
+holding a buckler and club, +2.16 s (b71b3fd0); the man's staged-down so held, +1.21 s
+(ecf5182e). And the Skeleton's sit-back's backward tip under `regain`, a step-1 item (above).
+After the front kick lands, before the low kick.
