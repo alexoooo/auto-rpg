@@ -11,7 +11,7 @@ import { aimRecovery, catchStep, LEAST_HEIGHT, named, otherFoot, ownStep, paceTo
 import { gravityOf, makeStance, type Stance } from "./state.ts";
 import { type FootState, type SoleEnd, bearingEdge, bearingEnd, bearingOf, bearingSole, clearAcross, clearAlong, endPast, groundContact, heldBy, landingHeading, landingHeight, legLength, lowestCorner, pivotWithin, readSupport, rolledRows, soleFlatTurn, soleHeight, soleMiddleToRef, withinSupport } from "../support.ts";
 import { angularMomentumToRef, massCentreToRef, motionAtToRef, pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
-import { sin, cos, atan2, exp, sinh, cosh, hypot } from "../../core/math/real.ts";
+import { sin, cos, asin, atan2, exp, sinh, cosh, hypot } from "../../core/math/real.ts";
 import type { BearingEnd, DofSpec } from "../../core/bodies/spec/body.ts";
 import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../../core/math/turn.ts";
 import { approachToRef, damping, turnToRef } from "../approach.ts";
@@ -737,6 +737,13 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning, assist: Ass
       // The reference pose faces +z: its forward, turned as the pelvis has turned since.
       p.set(0, 0, 1).applyRotationQuaternionToRef(turnOfToRef(pelvis, whole), p);
       reading.facing = atan2(p.x, p.z);
+      // Each hip's frame's up as it has turned since the reference pose, along the facing and out to the leg's side.
+      const fx = sin(reading.facing), fz = cos(reading.facing);
+      for (const foot of feet) {
+        const up = v.set(0, 1, 0).applyRotationQuaternionToRef(turnOfToRef(foot.chain[0]!.parent, whole), v), sign = foot.side === "right" ? 1 : -1;
+        foot.memory.tilt.ahead = asin(Math.max(-1, Math.min(1, up.x * fx + up.z * fz)));
+        foot.memory.tilt.out = asin(Math.max(-1, Math.min(1, sign * (up.x * fz - up.z * fx))));
+      }
       const on = s.state.last;
       readSupport(feet, on ? feet.filter((foot) => on.includes(foot.name)) : feet, reading.support);
       for (const foot of feet) if ((reading.ends[foot.name]!.touching = soleOnGround(s, foot))) foot.memory.ground = soleGroundHeight(s, foot);

@@ -327,7 +327,7 @@ function reachableStep({ foot, dx, dz, cx, cz, rx, rz, sign, tuning, hip, bend, 
   readonly foot: FootState; readonly dx: number; readonly dz: number; readonly cx: number; readonly cz: number; readonly rx: number; readonly rz: number;
   readonly sign: number; readonly tuning: GaitTuning; readonly hip: number; readonly bend: number | null; readonly reserve: number; readonly bends: boolean;
 }): [number, number, boolean] {
-  const [sx, sz, within] = reachableSole({ leg: foot.leg, dx, dz, cx, cz, at: foot.memory.hip, rx, rz, sign, hip: hip - foot.ankle, long: legLength(foot, bend), back: foot.back, reserve, bends });
+  const [sx, sz, within] = reachableSole({ leg: foot.leg, dx, dz, cx, cz, at: foot.memory.hip, rx, rz, sign, hip: hip - foot.ankle, long: legLength(foot, bend), back: foot.back, reserve, bends, tilt: foot.memory.tilt });
   const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = hypot(sx, sz);
   return far > longest ? [sx * longest / far, sz * longest / far, false] : [sx, sz, within];
 }
@@ -350,7 +350,7 @@ function landingLeanOf(foot: FootState, dx: number, dz: number, cx: number, cz: 
  * sole's middle.
  */
 function bearingShare(foot: FootState, cx: number, cz: number, rx: number, rz: number, sign: number, hip: number, bend: number | null, reserve: number): number {
-  return withinReach(foot.leg, 0, 0, cx / reserve, cz / reserve, foot.memory.hip, rx, rz, sign, hip - foot.ankle, legLength(foot, bend), foot.back);
+  return withinReach(foot.leg, 0, 0, cx / reserve, cz / reserve, foot.memory.hip, rx, rz, sign, hip - foot.ankle, legLength(foot, bend), foot.back, foot.memory.tilt);
 }
 
 /**
