@@ -35,7 +35,7 @@ game's own terms. The cells and their readings are `src/evaluation/table/cells.t
   on the conditions both counted (`compareValues`): better or worse where the 95 % paired
   bootstrap interval of the mean difference leaves zero on that side, else within noise.
 - **Every protocol a cell reads names its training twin** (`Cases.twin`,
-  `src/evaluation/twin.ts`), as many situations as the cell's drawn between them, which research
+  `src/evaluation/twin.ts`), as many situations as the cell's at none of its, which research
   scores on ([the skill recipe](../recipes/skill.md#research-scores-on-its-drill)). The table itself reads
   120 Hz only.
 - **A reading stands as it was read**, shown with its commit and date, until its cell is asked
