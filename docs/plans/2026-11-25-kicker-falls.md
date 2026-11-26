@@ -217,3 +217,10 @@ kick that lands and falls is rewarded above one that misses and stands. To be br
 order, or said why not. And a trial the kick refuses through its window (`beyond`) leaves the mean
 and the count of falls, in the search and the confirmation alike: whether it should count as not
 thrown (0) is read on the search's best against the record, refused trials counted.
+
+The strike profiles' asset is written indented (`research/skills/strikes/strike-profiles.mjs`,
+`bout-profiles.mjs`): 24 MB and over a million lines, its data under half that compact, so each
+profile measured again adds hundreds of thousands of lines to Git, and its chunk is past the
+build's size warning. To be written compact, as other generated data is if it is; then whether
+the bundle carries trial arrays the Mind never reads as it fights, the reason of the test that
+profiles keep every exit percept read before anything is trimmed.
