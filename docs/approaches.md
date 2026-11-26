@@ -825,6 +825,14 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   at 10. Against 60 Hz over the 288 bouts of `warrior-drawn`: 40 Hz 0.495 (0.438 to 0.552), 30 Hz
   0.507 (0.451 to 0.566), 20 Hz 0.495 (0.434 to 0.559), 10 Hz 0.344 (0.295 to 0.392), 60 Hz then
   knocking out within 60 s in 48.6 % of bouts against 24.0 %. Why 10 Hz loses is not read. *Shown.*
+- **Seeing 50 ms sooner is worth little, if anything**: the same Mind at 60 Hz with no kick, one
+  side's character at a reaction time of 0.1 s (`AttributeSpec.reaction`) against the other's
+  0.15 s, over the 288 bouts of `warrior-drawn` at `c8c400ed4`: 0.545 (0.493 to 0.597), knocking
+  out within 60 s in 33.7 % of bouts against 29.9 %, and taking 72.2 % of the other's life by
+  60 s against 69.1 %. The quicker side's own skills and profiles were tuned and measured at
+  0.15 s (its readings say they are stale), so this is what seeing sooner gives a body that does
+  not yet use it. Noticing up to 100 ms later (10 Hz, above) costs far more than this gains; why
+  is not read. *Counted.*
 - **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of
