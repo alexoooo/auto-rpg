@@ -825,15 +825,26 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   at 10. Against 60 Hz over the 288 bouts of `warrior-drawn`: 40 Hz 0.495 (0.438 to 0.552), 30 Hz
   0.507 (0.451 to 0.566), 20 Hz 0.495 (0.434 to 0.559), 10 Hz 0.344 (0.295 to 0.392), 60 Hz then
   knocking out within 60 s in 48.6 % of bouts against 24.0 %. Why 10 Hz loses is not read. *Shown.*
-- **Seeing sooner is worth a little: 50 ms little, 100 ms more**: the same Mind at 60 Hz with no kick, one
-  side's character at a reaction time of 0.1 s (`AttributeSpec.reaction`) against the other's
-  0.15 s, over the 288 bouts of `warrior-drawn` at `c8c400ed4`: 0.545 (0.493 to 0.597), knocking
-  out within 60 s in 33.7 % of bouts against 29.9 %, and taking 72.2 % of the other's life by
-  60 s against 69.1 %. At 0.05 s against 0.15 s (at `dc6b412d5`): 0.583 (0.524 to 0.642),
-  knocking out within 60 s in 41.3 % against 28.5 %, taking 74.5 % against 67.9 %. The quicker side's own skills and profiles were tuned and measured at
-  0.15 s (its readings say they are stale), so this is what seeing sooner gives a body that does
-  not yet use it. Noticing up to 100 ms later (10 Hz, above) costs far more than this gains; why
-  is not read. *Counted.*
+- **Seeing sooner is worth a little, about as much for each 50 ms**: the same Mind at 60 Hz with
+  no kick, one side's character at a shorter reaction time (`AttributeSpec.reaction`) than the
+  other's 0.15 s, over the 288 bouts of `warrior-drawn`. At 0.1 s (`c8c400ed4`): 0.545 (0.493
+  to 0.597), knocking out within 60 s in 33.7 % of bouts against 29.9 %, taking 72.2 % of the
+  other's life by 60 s against 69.1 %. At 0.05 s (`dc6b412d5`): 0.583 (0.524 to 0.642), 41.3 %
+  against 28.5 %, 74.5 % against 67.9 %. The quicker side's own skills and profiles were tuned
+  and measured at 0.15 s (its readings say they are stale), so this is what seeing sooner gives a
+  body that does not yet use it. Noticing up to 100 ms later (10 Hz, above) costs far more than
+  this gains; why is not read. *Counted.*
+- **Searching every 0.2 s sits on a slope: sooner wins, later loses**: the same Mind at 60 Hz with
+  no kick, one side's tree chooser searching every 0.15 s or 0.25 s (`SearchConfig.rethink`)
+  against the other's 0.2 s, over the 288 bouts of `warrior-drawn` at `09c2b151d`. At 0.15 s:
+  0.554 (0.500 to 0.611), margin 0.090 (0.044 to 0.137), knocking out within 60 s in 38.5 % of
+  bouts against 22.6 %, taking 72.1 % of the other's life by 60 s against 62.9 %. At 0.25 s:
+  0.389 (0.337 to 0.448), knocking out in 27.1 % against 39.2 %, taking 64.8 % against 72.6 %.
+  The period barely moves the thinking: both bodies, eight Warrior mirror bouts each, interleaved
+  on the performance cores, 210 ms a simulated second at 0.15 s, 218 at 0.2, 195 at 0.25 (0.15
+  and 0.25 flattered: their mirrors ran half as long again, and a long bout thinks less a second),
+  the 99th percentile step 7 to 8 ms at each; a search also comes at once on a change it watches,
+  whatever the period. *Counted.*
 - **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of
