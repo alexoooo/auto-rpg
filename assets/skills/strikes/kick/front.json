@@ -1,13 +1,13 @@
 {
   "man": {
-    "made": "Authored: the extension carried to the push kick's drive through (its strike point 0.15 m past the target, level, the knee straight), on the timings and window searched for the bent-knee extension at 6e48b9c8.",
+    "made": "Authored: the extension carried to the push kick's drive through (its strike point 0.15 m past the target, level, the knee straight), followed firm, the trunk upright on the standing foot (lean 0), on the timings and window searched for the bent-knee extension at 6e48b9c8.",
     "settings": {
       "transferLimit": 2,
       "setLimit": 3,
       "recenterLimit": 3,
       "transferSeconds": 0.1624,
       "transferSlow": 0.12,
-      "lean": -0.3,
+      "lean": 0,
       "ahead": 0,
       "hold": 0.03,
       "lower": 0.03,

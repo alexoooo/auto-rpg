@@ -185,9 +185,55 @@ stretch with no blow taking life.
   back, the front kick goes down in 26% of what it begins against the push kick's 54%, and lands
   more of it (31% against 21%); it refuses more as beyond its height band (5,198 of 9,600 against
   760), most at the woman's and the Skeleton's base and the man's middle.
-- **Next**: the match on the game's Mind with both kicks profiled, each side's kicks counted, and
-  the scorecard against the push kick as the Warrior's kick. It lands as the kick the Warrior holds
-  only if it measures no worse, and stays pickable either way.
+- **The front kick's step 5: a firm, upright leg, the Warrior's kick, and no better than no kick.** Profiled, the
+  bent-knee front kick lost the match to the push kick (0.429): thrown rarely and light, its knee
+  bent at contact and its path slack there. Driven through with the knee straight and its
+  extension followed firm (`FreedomPath.firm`, `eb2aa9f79`) it read level with the push kick
+  (0.492, 0.442 to 0.542) and fell less after its own kicks (10 downs within 2 s of a kick against
+  22, man v man). Its blows were still light: a bare foot spares the first 36.8 J of its share
+  (`Rulebook.fist`), the push kick's median landing was 47.6 J and the front kick's 31.4 J. A
+  longer drive through (0.3, 0.5 m) read the same, the straight leg ending where its length does;
+  a faster extension (0.08 s) was no faster at the foot and fell more. Its trunk held upright
+  (lean 0, against -0.3) put the push kick's mass behind the foot (5.9 kg against 3.9, median)
+  and fell less (14 % of what it begins against 16 %); its look,
+  `research/looks/man/kick-front/30f351662049`, lands 13 of 16 at the base twin, none down. The
+  record holds lean 0, profiled on its own fresh run.
+
+  **No kick measures better than either kick.** Judged against the Warrior with no kick (the
+  owner, above), empty-handed man on man, the scorecards at `49f4ce1c9`:
+
+  | | no kick | front kick, lean 0 | push kick | front kick, lean -0.3 |
+  |---|---|---|---|---|
+  | match score against no kick (warrior-drawn, 288) | | 0.465 (0.406 to 0.524) | | 0.371 (0.310 to 0.431), 248 |
+  | match margin | | -0.090 (-0.146 to -0.035) | | -0.123 |
+  | out of reach, scorecard | 23.6 % | 24.9 % | 21.1 % | 23.3 % |
+  | longest unlanded, s | 10.8 | 15.8 | 23.0 | 18.9 |
+  | downs a bout, both sides | 0.97 | 2.01 | 2.71 | 2.44 |
+  | knockouts within 60 s (a reading) | 73.6 % | 43.1 % | 48.6 % | 32.1 % |
+  | blows taking life a second, both standing | 2.79 | 1.72 | 1.80 | 1.74 |
+  | share of a bout with either down | 30.7 % | 45.2 % | 69.8 % | 53.7 % |
+
+  The lean -0.3 column's scorecard was read at `f9e622ec7`, before the stance's plan was tied to
+  its body (`49f4ce1c9`, which a bout of it had thrown on); the push kick's beside it, by the
+  match, scored 0.492 (0.442 to 0.542) against the firm front kick.
+
+  So either kick, on the Warrior, measures worse than none: its bouts spend more of their time on
+  the ground, where nothing finishes a foe, and standing they land fewer blows. At lean 0 the
+  match score's interval still holds an even match, but its margin does not. Whether the Warrior
+  goes without a kick is the owner's to say from this. Of the two kicks, the front kick at lean 0
+  falls less (2.01 downs a bout against 2.71, a quarter of its bouts' time with either down less)
+  and leaves the longest stretch unlanded shorter (15.8 s against 23.0); the push kick knocks out
+  a little more within 60 s, inside the intervals (48.6 %, 42.0 to 55.2, against 43.1 %, 36.6 to
+  49.7). So the front kick is the Warrior's kick (`assets/characters/characters.json`), as the
+  order above said it would be if no worse than the push kick. The push kick stays pickable: the
+  Arena's Skills panel offers every kick its body can do, push among them, unchecked.
+
+  The front kick is refused at the man's middle (its height band, above), and the table's kick
+  cell for the man reads null there; at its base the fingerprint's single trial moved from 0.51 to
+  0.16 empty-handed and from 0.95 to 0.13 holding a club.
+
+  A low attack that takes a downed foe's life (the owner: "we don't have any good way to
+  capitalize on opponent falls") is the work that would change this reading.
 
 ## After it
 

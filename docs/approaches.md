@@ -235,9 +235,10 @@ though it lands on the mark in few trials. What it found:
   (`466c57285`), and searched on the table's value, still landed on the mark in none of 32
   trials. Searched with only blows on the mark counting (`--on-mark`, `effcac59c`), it lands
   in 11 of 32 at 120 and at 480 Hz against the old kick's 2 and 0; it falls more (10 and 15
-  against 4 and 6), and its foot goes over the kicker's head in 13 % of kicks. The Warrior holds it
-  (`kick/push`); the old kick is the variation `kick/kick` (`ecf5182ef`). The owner, looking at
-  it: "the kick looks better now". Its table cells read worse in every loadout, 0.19 to 0.30 hp a
+  against 4 and 6), and its foot goes over the kicker's head in 13 % of kicks. The Warrior held it
+  (`kick/push`) until the front kick (`kick/front`, the kicker-falls plan); the old kick is the
+  variation `kick/kick` (`ecf5182ef`). The owner, looking at it: "the kick looks better now".
+  Its table cells read worse in every loadout, 0.19 to 0.30 hp a
   second against 0.40 to 0.78, landing on the mark in 7 to 13 of 32 where the old kick landed in
   2: the old kick's value was traded off the mark. In the game's Mind it costs nothing measured:
   with it the Mind beat the Mind without a kick in 0.613 of 288 warrior-drawn bouts (the old

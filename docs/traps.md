@@ -111,6 +111,11 @@ its kind or running those tools.
 - **A background wait ends on its own**: a watcher loop outlives the tool that started it, so it
   gets a timeout or an exit condition, and its pattern must be able to match (a training run's
   checkpoints are named by decisions, `model-12060672`, not round millions).
+- **A background chain stopped by its tool goes on**: stopping the task leaves `npm`'s and
+  `node`'s children and the shell's chain alive, and the chain's later lines still run, a
+  restore `cp` among them, over whatever was set in its place since. A chain is stopped by its
+  tree's PID (`taskkill /PID <pid> /T /F`), and a chain that restores a file is not left to run
+  past a change to that file.
 - **A saved evaluation result is found again when only the foe's character changed**: a strike
   rung's foe is its body as its character holds its skills (`assets/characters/characters.json`),
   and the key a result is kept by does not hold them. A subject played against a foe holding one
