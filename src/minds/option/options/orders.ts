@@ -6,7 +6,7 @@ import { asking, blocked, READY, standing } from "./readiness.ts";
 import type { Option } from "../contract/option.ts";
 import type { Situation } from "../contract/situation.ts";
 import { threatened } from "../situation/reach-memory.ts";
-import { NO_BLOW, UNMOVED } from "./outcomes.ts";
+import { NO_BLOW, PRESSED, UNMOVED } from "./outcomes.ts";
 import type { TermSources } from "../contract/terms.ts";
 import { given, notPriced } from "../../../skills/framework/profile/source.ts";
 import type { Walker } from "../contract/context.ts";
@@ -32,7 +32,7 @@ const fights = (now: Situation): boolean => now.orders?.foe !== undefined && (no
  * the body is not priced: its model leaves the body where it stands.
  */
 const ORDERED: TermSources = Object.freeze({
-  duration: given("it is priced over a set time ahead"), dealt: NO_BLOW, taken: "pressure",
+  duration: given("it is priced over a set time ahead"), dealt: NO_BLOW, taken: PRESSED,
   leaves: notPriced("where its orders take the body"),
 });
 
@@ -73,7 +73,7 @@ export function followOrders(gaits: readonly GaitName[], walk: Pick<Walker, "obe
     status: (now) => now.orders?.firm && now.orders.move !== undefined && now.orders.foe === undefined ? "committed" : "yields",
     begin() {},
     end() {},
-    model: (at) => standing(at) && ordered(at) ? { duration: AHEAD, dealt: 0, taken: at.predictions.danger + threatened(at, AHEAD), orders: fights(at) ? 0 : by(at).speed * AHEAD,
+    model: (at) => standing(at) && ordered(at) ? { duration: AHEAD, dealt: 0, taken: at.predictions.danger.life + threatened(at, AHEAD), orders: fights(at) ? 0 : by(at).speed * AHEAD,
       outcomes: UNMOVED, from: ORDERED } : null,
     step(now) {
       const { guard: _, ...ordered } = orderedIntent(now.sight, now.orders!, NO_COVER);

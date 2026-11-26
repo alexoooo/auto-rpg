@@ -5,7 +5,7 @@ import type { TargetRef } from "../../../skills/framework/action.ts";
 import type { Expected, ProfileReading } from "../../../skills/framework/profile/reading.ts";
 import type { OutcomeModel } from "../../../skills/framework/outcomes.ts";
 import type { WalkStart } from "./context.ts";
-import type { ModelledStrike, Pressure, Seen, Situation } from "./situation.ts";
+import type { Coming, DownCost, ModelledStrike, Pressure, Seen, Situation } from "./situation.ts";
 import type { Terms } from "./terms.ts";
 import type { Source } from "../../../skills/framework/profile/source.ts";
 
@@ -23,12 +23,12 @@ export interface FoeMove {
  * The last two are asked by a search, of a state already read.
  */
 export interface ExchangePredictor {
-  /** The share of the body's life the blow already coming is expected to take; 0 with none, or where `pressure` counts it already. */
-  danger(seen: Seen): number;
+  /** The blow already coming (`Coming`): no life with none, or where `pressure` counts it already. */
+  danger(seen: Seen): Coming;
   /** What the foe's fighting is expected to take from the body as the two stand now. */
   pressure(seen: Seen): Pressure;
-  /** What a second spent down in each posture is expected to cost the body, own life. */
-  downRate(seen: Seen): (posture: Position) => number;
+  /** What a second spent down in each posture is expected to cost the body (`DownCost`). */
+  down(seen: Seen): (posture: Position) => DownCost;
   /** How fast the foe turns to face, rad/s; Infinity with no foe. */
   turns(seen: Seen): number;
   /** The share of the foe's life a blow of a limb of the body's takes at a segment of the foe's, closing on it at `closing` m/s; 0 with no foe. */

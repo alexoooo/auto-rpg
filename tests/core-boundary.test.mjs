@@ -524,18 +524,27 @@ test("the code that prices a fight writes a number of its own only as a registry
     const WRONG = handSet({ name: "RIGHT", sort: "own", says: "Named as another constant.", value: 4 });
     const TWICE = [handSet({ name: "TWICE", sort: "own", says: "Not a constant of its own.", value: 7 })];
     const NOT_IN_ORDER = { first: 0, fourth: 3 };
+    const HALF = 1 / 2, SIGNED = +1 as const;
+    let count = 0; for (let at = 0; at < 2; at++) count += 1;
+    const EITHER = 1 || 2, PICKED = count ? 1 : 2, SURE = 1!;
   `;
   assert.deepEqual(handSetScan([["src/minds/option/probe.ts", probe], ["src/minds/option/again.ts", `const CLINCH = handSet({ name: "CLINCH", sort: "guess", says: "A second clinch.", value: 0 });`]]), {
     entries: [{ file: "src/minds/option/probe.ts", name: "CLINCH" }, { file: "src/minds/option/again.ts", name: "CLINCH" }],
     faults: [
       "src/minds/option/probe.ts:13 a registry entry is named as the constant it makes",
       "src/minds/option/probe.ts:14 a registry entry is named as the constant it makes",
+      "src/minds/option/probe.ts:9 4 is written outside the registry",
       "src/minds/option/probe.ts:10 RATE is a number set by hand, outside the registry",
       "src/minds/option/probe.ts:11 5 is written outside the registry",
       "src/minds/option/probe.ts:11 .7 is written outside the registry",
       "src/minds/option/probe.ts:12 3.5 is written outside the registry",
       "src/minds/option/probe.ts:12 1e-9 is written outside the registry",
       "src/minds/option/probe.ts:15 3 is written outside the registry",
+      "src/minds/option/probe.ts:16 HALF is a number set by hand, outside the registry",
+      "src/minds/option/probe.ts:16 SIGNED is a number set by hand, outside the registry",
+      "src/minds/option/probe.ts:18 EITHER is a number set by hand, outside the registry",
+      "src/minds/option/probe.ts:18 PICKED is a number set by hand, outside the registry",
+      "src/minds/option/probe.ts:18 SURE is a number set by hand, outside the registry",
       "src/minds/option/again.ts CLINCH is a registry entry's name twice",
     ],
   });

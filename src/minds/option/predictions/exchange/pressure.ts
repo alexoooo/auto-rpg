@@ -25,8 +25,12 @@ export function pressureBy(seen: Seen, { model, phase, striker, struck, placing,
   let peak = 0, fastest = Infinity;
   for (const reading of readings) { peak = Math.max(peak, reading.peak(phase, struck)); fastest = Math.min(fastest, reading.fastest(phase)); }
   const reads = placing !== null ? model.reads : model.reads.map((read) => read.source.kind === "hand" ? { what: read.what, source: NO_GUESS } : read);
-  return { model: readings, phase, struck, peak, latency: RETHINK + seen.delay / seen.hz + fastest, reads };
+  return { model: readings, phase, struck, peak, latency: RETHINK + seen.delay / seen.hz + fastest, reads, source: weakestOf(reads) };
 }
+
+/** The weakest of what a pressure reads (`PressureFields.source`); not priced where it reads nothing, which is a foe with no strike measured and none guessed. */
+export const weakestOf = (reads: readonly Read[]): Source => weakest(reads) ?? NOTHING_READ;
+const NOTHING_READ = notPriced("nothing is read of the foe's strikes");
 
 /** Where a limb's reading comes from where the two stand so that no guess is of it: nothing. */
 const NO_GUESS = notPriced("no strike measured it, and as the two lie no guess is of it");
@@ -47,6 +51,8 @@ export interface PressureFields {
   readonly peak: number;
   readonly latency: number;
   readonly reads: readonly Read[];
+  /** The weakest of `reads` (`Pressure.source`), found where the reads are made, so a pressure made again at another stance does not look for it again. */
+  readonly source: Source;
   readonly stance?: Stances;
   readonly measured?: { readonly table: PressureTable; readonly doing: string };
 }
@@ -109,13 +115,13 @@ export class ProfilePressure implements Pressure {
   // A cache: one search's exact starts and the rate read at each. Null where it keeps none.
   private readonly starts: Starts | null;
 
-  /** The weakest of what it reads (`Pressure.source`). It is asked only for a report, so it is found when asked and not kept. */
-  get source(): Source { return weakest(this.reads) ?? NO_FOE; }
+  readonly source: Source;
 
   constructor(fields: PressureFields, starts: Starts | null) {
     this.latency = fields.latency;
     this.peak = fields.peak;
     this.reads = fields.reads;
+    this.source = fields.source;
     this.fields = fields;
     this.starts = starts;
   }
@@ -202,4 +208,4 @@ export class ProfilePressure implements Pressure {
 }
 
 /** No pressure: no focus. */
-export const NO_PRESSURE = deepFreeze(new ProfilePressure({ model: [], phase: "clear", struck: null, peak: 0, latency: Infinity, reads: [] }, null));
+export const NO_PRESSURE = deepFreeze(new ProfilePressure({ model: [], phase: "clear", struck: null, peak: 0, latency: Infinity, reads: [], source: NO_FOE }, null));

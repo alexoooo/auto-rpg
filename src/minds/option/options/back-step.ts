@@ -7,7 +7,7 @@ import { gaitStance } from "../../../skills/locomotion/move/gaits.ts";
 import { BACK_STEP_GAIT, BACK_STEP_SECONDS, SWAYS_FROM } from "../../../skills/locomotion/back-step/index.ts";
 import type { Status, Option } from "../contract/option.ts";
 import { blocked, READY, standing } from "./readiness.ts";
-import { exitOutcomes, NO_BLOW, STILL } from "./outcomes.ts";
+import { exitOutcomes, NO_BLOW, STILL, takenFrom } from "./outcomes.ts";
 import type { Situation } from "../contract/situation.ts";
 import { LEGS } from "../../../skills/framework/action.ts";
 import { startOf } from "../situation/start.ts";
@@ -65,7 +65,7 @@ export function backStepping({ spec, outcomes, walk, hz, rate, delay }: Pick<Opt
    * seconds, the life it loses and where it leaves the body are all its trials'. It throws no
    * blow. Made once a source.
    */
-  const fromOf = remembered((source: Source): TermSources => Object.freeze({ duration: source, dealt: NO_BLOW, taken: source, leaves: source }));
+  const fromOf = remembered((source: Source): TermSources => Object.freeze({ duration: source, dealt: NO_BLOW, taken: takenFrom(source), leaves: source }));
   const NO_FOE = blocked("no foe within the back step's measured range"), CARRIAGE = blocked("not standing in the back step's carriage");
   return [{
     name: "back step", kind: "back step", state, claims: LEGS,

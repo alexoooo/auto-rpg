@@ -17,7 +17,7 @@ import { bearingAround } from "../situation/percepts.ts";
 import { graceAt } from "../situation/reach-memory.ts";
 import { gaitStance } from "../../../skills/locomotion/move/gaits.ts";
 import { CLINCH, CLINCH_FALLS, clinched } from "../predictions/by-hand.ts";
-import { NO_BLOW, STILL, upOrDown } from "./outcomes.ts";
+import { NO_BLOW, PRESSED, STILL, upOrDown } from "./outcomes.ts";
 import type { Terms, TermSources } from "../contract/terms.ts";
 import { byHand } from "../../../skills/framework/profile/source.ts";
 import type { Walker } from "../contract/context.ts";
@@ -94,10 +94,10 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
     }
     x = point.x; z = point.z;
   }
-  if (!focus) return { duration, dealt: 0, taken: at.predictions.danger, orders: 0, outcomes: upOrDown({ where: { x: spot.x, z: spot.z, face: spot.face }, velocity: STILL, ...(stance ? { stance } : {}) }, 0), from: WALKED };
+  if (!focus) return { duration, dealt: 0, taken: at.predictions.danger.life, orders: 0, outcomes: upOrDown({ where: { x: spot.x, z: spot.z, face: spot.face }, velocity: STILL, ...(stance ? { stance } : {}) }, 0), from: WALKED };
   const where = { x: spot.x, z: spot.z, face: spot.face }, apart = hypot(where.x - focus.centre.x, where.z - focus.centre.z), bearing = bearingAround(focus, where.x, where.z);
   const around = (bearing < 0 ? -1 : 1) * Math.max(0, Math.abs(bearing) - at.predictions.turns * duration);
-  return { duration, dealt: 0, taken: at.predictions.danger + taken, orders: 0,
+  return { duration, dealt: 0, taken: at.predictions.danger.life + taken, orders: 0,
     outcomes: upOrDown({ where, around, velocity: STILL, grace, ...(stance ? { stance } : {}) }, apart >= CLINCH.within ? 0 : clinched(at, duration)), from: WALKED };
 }
 
@@ -109,7 +109,7 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
  */
 const WALKED: TermSources = Object.freeze({
   duration: byHand([], "no drill measured a walk: its seconds are its gait's own reckoning of its pace"),
-  dealt: NO_BLOW, taken: "pressure", leaves: CLINCH_FALLS,
+  dealt: NO_BLOW, taken: PRESSED, leaves: CLINCH_FALLS,
 });
 
 /** No site to walk to. */

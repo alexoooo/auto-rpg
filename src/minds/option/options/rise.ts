@@ -16,7 +16,7 @@ import { onFeet } from "../situation/rise-memory.ts";
 import type { OptionContext, Tried } from "../contract/context.ts";
 import { recorded } from "../situation/record.ts";
 import type { GuessedWay } from "../contract/predictors.ts";
-import { NO_BLOW, STAYS, STILL, UNMOVED } from "./outcomes.ts";
+import { LAIN, NO_BLOW, STAYS, STILL, UNMOVED } from "./outcomes.ts";
 import type { Outcome, Terms, TermSources } from "../contract/terms.ts";
 import type { NamedSkills, OptionPart } from "../contract/parts.ts";
 
@@ -35,25 +35,25 @@ const HERE: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });
 
 /**
  * **The terms of `seconds` s down where `at` lies**, ending as `outcomes` say: each second costing
- * what a second down in its posture costs (`Predictions.downRate`), and the blow coming; its
+ * what a second down in its posture costs (`Predictions.down`), and the blow coming; its
  * answers come from where `from` says. A search calls it for every state it prices lying, so it
  * takes its arguments by place and no argument object is made.
  */
 const downTerms = (at: Situation, seconds: number, outcomes: readonly Outcome[], from: TermSources): Terms => ({ duration: seconds, dealt: 0, orders: 0, outcomes,
-  taken: at.predictions.danger + at.predictions.downRate(at.posture) * seconds, from });
+  taken: at.predictions.danger.life + at.predictions.down(at.posture).rate * seconds, from });
 
 /**
  * Where each answer of a price down comes from (`Terms.from`), where its seconds and where it
- * leaves the body are read from `source`: it throws no blow, and what it takes is the focus's pressure.
+ * leaves the body are read from `source`: it throws no blow, and what it takes is what a second down costs.
  */
-const downSources = (source: Source): TermSources => Object.freeze({ duration: source, dealt: NO_BLOW, taken: "pressure", leaves: source });
+const downSources = (source: Source): TermSources => Object.freeze({ duration: source, dealt: NO_BLOW, taken: LAIN, leaves: source });
 
 /** Lying where it is for one step: priced over that step, moving nothing. */
-const A_STEP: TermSources = Object.freeze({ duration: given("it is priced over one step"), dealt: NO_BLOW, taken: "pressure", leaves: STAYS });
+const A_STEP: TermSources = Object.freeze({ duration: given("it is priced over one step"), dealt: NO_BLOW, taken: LAIN, leaves: STAYS });
 
 /** Tumbling under a brace: how long the brace is held for is set by hand (`BRACED`), and where the tumble leaves the body is not priced. */
 const TUMBLING: TermSources = Object.freeze({
-  duration: byHand(["BRACED"], "no drill measured how long a body tumbles under a brace"), dealt: NO_BLOW, taken: "pressure",
+  duration: byHand(["BRACED"], "no drill measured how long a body tumbles under a brace"), dealt: NO_BLOW, taken: LAIN,
   leaves: notPriced("where its tumble leaves the body"),
 });
 

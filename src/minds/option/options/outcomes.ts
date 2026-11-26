@@ -1,17 +1,24 @@
-import type { Ground, Leaves, Outcome } from "../contract/terms.ts";
+import type { Ground, Leaves, Outcome, TakenFrom } from "../contract/terms.ts";
 import type { Position } from "../../../control/ground-reading.ts";
 import { FALLEN } from "../predictions/by-hand.ts";
 import type { Spot } from "../../../skills/framework/menu.ts";
 import type { Exit } from "../../../skills/framework/profile/profile.ts";
 import type { Situation } from "../contract/situation.ts";
 import { atan2, cos, sin } from "../../../core/math/real.ts";
-import { given } from "../../../skills/framework/profile/source.ts";
+import { given, weaker, type Source } from "../../../skills/framework/profile/source.ts";
 
 /** Leaving the body as it is: nothing changed. */
 export const AS_IS: Leaves = Object.freeze({});
 
 /** **Ending one way**: leaving the body as it is (`AS_IS`), for certain. */
 export const UNMOVED: readonly Outcome[] = Object.freeze([Object.freeze({ leaves: AS_IS, chance: 1 })]);
+
+/** What a body on its feet takes over an Option's run: the blow coming (`Predictions.danger`) and what the focus's fighting deals it (`Predictions.pressure`). The answer is the weaker of where the two come from. */
+export const PRESSED: TakenFrom = (at) => weaker(at.predictions.danger.source, at.predictions.pressure.source);
+/** What a body lying takes: the blow coming and what a second down costs it in its posture (`Predictions.down`). The answer is the weaker of where the two come from. */
+export const LAIN: TakenFrom = (at) => weaker(at.predictions.danger.source, at.predictions.down(at.posture).source);
+/** What an Option takes read from the one `source`, wherever it is priced. */
+export const takenFrom = (source: Source): TakenFrom => () => source;
 
 /** Where a price's answer comes from where it needs no measuring (`TermSources`): an Option that throws no blow deals nothing, */
 export const NO_BLOW = given("it throws no blow");

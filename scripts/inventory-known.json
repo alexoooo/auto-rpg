@@ -1,58 +1,815 @@
-[
- "a made-up thing is not given front-sit-back: the sit-back is not tuned for made-up",
- "a made-up thing is not given kick: the kick push is not tuned for made-up",
- "a made-up thing is not given sit-back: the sit-back is not tuned for made-up",
- "a made-up thing is not given staged-down: the step up is not tuned for made-up",
- "a made-up thing is not given staged-roll: the step up is not tuned for made-up",
- "a made-up thing is not given stomp: the stomp stomp is not tuned for made-up",
- "a made-up thing is not given straight-punch: the straight punch moving is not tuned for made-up",
- "a made-up thing is not given sword-thrust: its Option names no limb or skill on this body",
- "a made-up thing is not offered a walk, which the body it copies is offered",
- "by hand: how long it takes, of a walk",
- "by hand: reading kick foot.left (PRIOR, BLOW_SPEED, CLINCH)",
- "by hand: reading kick foot.right (PRIOR, BLOW_SPEED, CLINCH)",
- "by hand: reading regain (WAYS)",
- "by hand: reading righting-recipe (WAYS)",
- "by hand: reading righting-routes (WAYS)",
- "by hand: reading roll (WAYS)",
- "by hand: reading roll-back (WAYS)",
- "by hand: reading sword-thrust hand.right (PRIOR, BLOW_SPEED, CLINCH)",
- "by hand: reading the foe's stomp/stomp foot.left (RATE, PRIOR, BLOW_SPEED)",
- "by hand: reading the foe's stomp/stomp foot.right (RATE, PRIOR, BLOW_SPEED)",
- "by hand: what it takes, of a guard (RATE, PRIOR, BLOW_SPEED)",
- "by hand: what it takes, of a hold (RATE, PRIOR, BLOW_SPEED)",
- "by hand: what it takes, of a walk (RATE, PRIOR, BLOW_SPEED)",
- "by hand: where it leaves the body, of a guard (CLINCH)",
- "by hand: where it leaves the body, of a hold (CLINCH)",
- "by hand: where it leaves the body, of a walk (CLINCH)",
- "by hand: where the foe goes meanwhile, of a guard",
- "by hand: where the foe goes meanwhile, of a hold",
- "by hand: where the foe goes meanwhile, of a walk",
- "found by a name: reading back step",
- "found by a name: reading bite head",
- "found by a name: reading brace while tumbling",
- "found by a name: reading flatten",
- "found by a name: reading front-sit-back",
- "found by a name: reading sit-back",
- "found by a name: reading staged-down",
- "found by a name: reading staged-roll",
- "found by a name: reading stomp foot.left",
- "found by a name: reading stomp foot.right",
- "found by a name: reading straight-punch hand.left",
- "found by a name: reading straight-punch hand.right",
- "found by a name: reading the foe's straight-punch/drive hand.left",
- "found by a name: reading the foe's straight-punch/drive hand.right",
- "found by a name: reading the foe's straight-punch/moving hand.left",
- "found by a name: reading the foe's straight-punch/moving hand.right",
- "its Mind is not made: the stance's envelope was not measured on made-up",
- "measured for the pairing: reading the foe's fighting, in bouts",
- "measured for the pairing: what its line's end is worth, of a guard",
- "measured for the pairing: what its line's end is worth, of a hold",
- "measured for the pairing: what its line's end is worth, of a walk",
- "not priced: what its line's end is worth, of a guard",
- "not priced: what its line's end is worth, of a hold",
- "not priced: what its line's end is worth, of a walk",
- "not priced: where the foe goes meanwhile, of a guard",
- "not priced: where the foe goes meanwhile, of a hold",
- "not priced: where the foe goes meanwhile, of a walk"
-]
+{
+ "a body in front of a made-up thing does not read the foe's fighting, in bouts, which it in front of the body copied reads": [
+  "man, empty-handed, in front of a made-up body, empty-handed"
+ ],
+ "a body in front of a made-up thing does not read the foe's stomp/stomp foot.left, which it in front of the body copied reads": [
+  "man, empty-handed, in front of a made-up body, empty-handed"
+ ],
+ "a body in front of a made-up thing does not read the foe's stomp/stomp foot.right, which it in front of the body copied reads": [
+  "man, empty-handed, in front of a made-up body, empty-handed"
+ ],
+ "a body in front of a made-up thing does not read the foe's straight-punch/drive hand.left, which it in front of the body copied reads": [
+  "man, empty-handed, in front of a made-up body, empty-handed"
+ ],
+ "a body in front of a made-up thing does not read the foe's straight-punch/drive hand.right, which it in front of the body copied reads": [
+  "man, empty-handed, in front of a made-up body, empty-handed"
+ ],
+ "a body in front of a made-up thing does not read the foe's straight-punch/moving hand.left, which it in front of the body copied reads": [
+  "man, empty-handed, in front of a made-up body, empty-handed"
+ ],
+ "a body in front of a made-up thing does not read the foe's straight-punch/moving hand.right, which it in front of the body copied reads": [
+  "man, empty-handed, in front of a made-up body, empty-handed"
+ ],
+ "a guess in the registry: BLOW_SPEED": [
+  "wherever it is read"
+ ],
+ "a guess in the registry: BRACED": [
+  "wherever it is read"
+ ],
+ "a guess in the registry: CLINCH": [
+  "wherever it is read"
+ ],
+ "a guess in the registry: FALLEN": [
+  "wherever it is read"
+ ],
+ "a guess in the registry: LANDS": [
+  "wherever it is read"
+ ],
+ "a guess in the registry: PRIOR": [
+  "wherever it is read"
+ ],
+ "a guess in the registry: RATE": [
+  "wherever it is read"
+ ],
+ "a guess in the registry: STOPS": [
+  "wherever it is read"
+ ],
+ "a guess in the registry: TRUNK_OPENING": [
+  "wherever it is read"
+ ],
+ "a guess in the registry: UNMEASURED_TURN": [
+  "wherever it is read"
+ ],
+ "a guess in the registry: WAYS": [
+  "wherever it is read"
+ ],
+ "a made-up thing does not read back step, which the body it copies reads": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing does not read front-sit-back, which the body it copies reads": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing does not read kick foot.left, which the body it copies reads": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing does not read kick foot.right, which the body it copies reads": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing does not read sit-back, which the body it copies reads": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing does not read staged-down, which the body it copies reads": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing does not read staged-roll, which the body it copies reads": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing does not read stomp foot.left, which the body it copies reads": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing does not read stomp foot.right, which the body it copies reads": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing does not read straight-punch hand.left, which the body it copies reads": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing does not read straight-punch hand.right, which the body it copies reads": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing does not read sword-thrust hand.right, which the body it copies reads": [
+  "the man holding a made-up item, in front of man, empty-handed"
+ ],
+ "a made-up thing does not read the foe's fighting, in bouts, which the body it copies reads": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing is not given front-sit-back: the sit-back is not tuned for made-up": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing is not given kick: the kick push is not tuned for made-up": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing is not given sit-back: the sit-back is not tuned for made-up": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing is not given staged-down: the step up is not tuned for made-up": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing is not given staged-roll: the step up is not tuned for made-up": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing is not given stomp: the stomp stomp is not tuned for made-up": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing is not given straight-punch: the straight punch moving is not tuned for made-up": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "a made-up thing is not given sword-thrust: its Option names no limb or skill on this body": [
+  "the man holding a made-up item, in front of man, empty-handed"
+ ],
+ "a made-up thing is not offered a walk, which the body it copies is offered": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "by hand: how long it takes, of a walk": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: reading kick foot.left (PRIOR, BLOW_SPEED, CLINCH)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: reading kick foot.right (PRIOR, BLOW_SPEED, CLINCH)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: reading regain (WAYS)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: reading righting-recipe (WAYS)": [
+  "rat, empty-handed, in front of man, empty-handed"
+ ],
+ "by hand: reading righting-routes (WAYS)": [
+  "reptile, empty-handed, in front of man, empty-handed"
+ ],
+ "by hand: reading roll (WAYS)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: reading roll-back (WAYS)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: reading sword-thrust hand.right (PRIOR, BLOW_SPEED, CLINCH)": [
+  "man, holding sword, in front of man, empty-handed"
+ ],
+ "by hand: reading the foe's foot.left (RATE, PRIOR, BLOW_SPEED)": [
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword"
+ ],
+ "by hand: reading the foe's foot.right (RATE, PRIOR, BLOW_SPEED)": [
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword"
+ ],
+ "by hand: reading the foe's hand.right (RATE, PRIOR, BLOW_SPEED)": [
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: reading the foe's head (RATE, PRIOR, BLOW_SPEED)": [
+  "man, empty-handed, in front of reptile, empty-handed"
+ ],
+ "by hand: reading the foe's stomp foot.left (RATE, PRIOR, BLOW_SPEED)": [
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed"
+ ],
+ "by hand: reading the foe's stomp foot.right (RATE, PRIOR, BLOW_SPEED)": [
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed"
+ ],
+ "by hand: reading the foe's stomp/stomp foot.left (RATE, PRIOR, BLOW_SPEED)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: reading the foe's stomp/stomp foot.right (RATE, PRIOR, BLOW_SPEED)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: what it takes, of a guard (RATE, PRIOR, BLOW_SPEED)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: what it takes, of a hold (RATE, PRIOR, BLOW_SPEED)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: what it takes, of a walk (RATE, PRIOR, BLOW_SPEED)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: where it leaves the body, of a guard (CLINCH)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: where it leaves the body, of a hold (CLINCH)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: where it leaves the body, of a walk (CLINCH)": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: where the foe goes meanwhile, of a guard": [
+  "man, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: where the foe goes meanwhile, of a hold": [
+  "man, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "by hand: where the foe goes meanwhile, of a walk": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading back step": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading bite head": [
+  "rat, empty-handed, in front of man, empty-handed"
+ ],
+ "found by a name: reading brace while tumbling": [
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed"
+ ],
+ "found by a name: reading flatten": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading front-sit-back": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading sit-back": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading staged-down": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading staged-roll": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading stomp foot.left": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading stomp foot.right": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading straight-punch hand.left": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading straight-punch hand.right": [
+  "man, empty-handed, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading the foe's bite/bite head": [
+  "man, empty-handed, in front of rat, empty-handed"
+ ],
+ "found by a name: reading the foe's straight-punch/drive hand.left": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading the foe's straight-punch/drive hand.right": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of skeleton, empty-handed"
+ ],
+ "found by a name: reading the foe's straight-punch/moving hand.left": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "found by a name: reading the foe's straight-punch/moving hand.right": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of skeleton, empty-handed"
+ ],
+ "found by a name: what its line's end is worth, of a walk": [
+  "man, empty-handed, in front of man, empty-handed"
+ ],
+ "found by a rule: reading the foe's straight-punch hand.left": [
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed"
+ ],
+ "found by a rule: reading the foe's straight-punch hand.right": [
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed"
+ ],
+ "its Mind is not made: the stance's envelope was not measured on made-up": [
+  "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "measured for the pairing: reading the foe's fighting, in bouts": [
+  "man, empty-handed, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed"
+ ],
+ "measured for the pairing: what it takes, of a guard": [
+  "man, empty-handed, in front of rat, empty-handed"
+ ],
+ "measured for the pairing: what it takes, of a hold": [
+  "man, empty-handed, in front of rat, empty-handed"
+ ],
+ "measured for the pairing: what it takes, of a walk": [
+  "man, empty-handed, in front of rat, empty-handed"
+ ],
+ "measured for the pairing: what its line's end is worth, of a walk": [
+  "man, empty-handed, in front of man, empty-handed"
+ ],
+ "not priced: what its line's end is worth, of a guard": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "not priced: what its line's end is worth, of a hold": [
+  "man, empty-handed, in front of man, empty-handed",
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "a made-up body, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "not priced: what its line's end is worth, of a walk": [
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed",
+  "man, empty-handed, in front of man, holding sword",
+  "man, empty-handed, in front of woman, empty-handed",
+  "man, empty-handed, in front of woman, holding sword",
+  "man, empty-handed, in front of skeleton, empty-handed",
+  "man, empty-handed, in front of skeleton, holding sword",
+  "man, empty-handed, in front of reptile, empty-handed",
+  "man, empty-handed, in front of rat, empty-handed",
+  "man, empty-handed, in front of a made-up body, empty-handed",
+  "man, empty-handed, in front of the man holding a made-up item"
+ ],
+ "not priced: where the foe goes meanwhile, of a guard": [
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed"
+ ],
+ "not priced: where the foe goes meanwhile, of a hold": [
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "rat, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed"
+ ],
+ "not priced: where the foe goes meanwhile, of a walk": [
+  "man, holding sword, in front of man, empty-handed",
+  "woman, empty-handed, in front of man, empty-handed",
+  "woman, holding sword, in front of man, empty-handed",
+  "skeleton, empty-handed, in front of man, empty-handed",
+  "skeleton, holding sword, in front of man, empty-handed",
+  "reptile, empty-handed, in front of man, empty-handed",
+  "the man holding a made-up item, in front of man, empty-handed"
+ ]
+}

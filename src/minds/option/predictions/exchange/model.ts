@@ -4,7 +4,7 @@ import { changes, limbHoldsAsMeasured } from "../../../../skills/framework/profi
 import { STANDING, measuredAt, type Postures, type Profile } from "../../../../skills/framework/profile/profile.ts";
 import { profileAgainst } from "../../../../skills/framework/profile/across.ts";
 import { readProfile, type ProfileReading } from "../../../../skills/framework/profile/reading.ts";
-import { staler, type Read } from "../../../../skills/framework/profile/source.ts";
+import { staler, weaker, type Read, type Source } from "../../../../skills/framework/profile/source.ts";
 import type { Guesses } from "../../contract/predictors.ts";
 import type { ModelledStrike, Seen } from "../../contract/situation.ts";
 import { standIn } from "../by-hand.ts";
@@ -13,11 +13,12 @@ import { reactionOf } from "../../situation/percepts.ts";
 /**
  * **The strikes a body is modelled by**: each measured, read for its striker (`readProfile`), with
  * the limbs that throw it; the limbs the rest are thrown with, each read by its guess where the
- * Mind has guesses and the two stand so that one is of it (`pressureBy`, `lifeOf`); and each
+ * Mind has guesses and the two stand so that one is of it (`pressureBy`, `ProfileExchange.coming`); and each
  * strike with where its reading comes from (`reads`).
  */
 export interface Model {
-  readonly measured: readonly { readonly limbs: readonly string[]; readonly reading: ProfileReading }[];
+  /** Each measured strike's reading, with where it comes from against the struck body and what has changed since (its `Read`'s source). */
+  readonly measured: readonly { readonly limbs: readonly string[]; readonly reading: ProfileReading; readonly source: Source }[];
   readonly unmeasured: readonly string[];
   readonly reads: readonly Read[];
 }
@@ -41,9 +42,9 @@ export function modelOf(seen: Seen, { strikes, striker, struck, postures, guesse
   for (const strike of strikes) {
     const profile = profileAgainst(strike.profiles, struck), why = unreadAt(profile, postures);
     if (why === null) {
-      const reading = readProfile(profile!, striker, postures);
-      measured.push({ limbs: strike.limbs, reading });
-      reads.push({ what: strike.name, source: staler(reading.source(struck), changes(profile!, at)) });
+      const reading = readProfile(profile!, striker, postures), source = staler(reading.source(struck), changes(profile!, at));
+      measured.push({ limbs: strike.limbs, reading, source });
+      reads.push({ what: strike.name, source });
     } else {
       reads.push({ what: strike.name, source: standIn(guesses, "limb", why) });
       for (const limb of strike.limbs) unmeasured.add(limb);
@@ -86,7 +87,8 @@ const POOLS: Pools = { next: new WeakMap() };
  * one profile, read for `striker` at `postures`, thrown with any of their limbs. A foe throws one
  * blow at a time, which of them unsensed: read as one, what it deals from a start is the mean of the
  * trials nearest it of whichever strikes were measured there, where the most of each strike's own
- * reading is the most of noisy readings. A model of one profile or none is as it is.
+ * reading is the most of noisy readings. It comes from the weakest of their sources. A model of
+ * one profile or none is as it is.
  */
 export function pooled(model: Model, striker: BodySpec, postures: Postures): Model {
   if (model.measured.length < 2) return model;
@@ -96,5 +98,7 @@ export function pooled(model: Model, striker: BodySpec, postures: Postures): Mod
   const { limb: _, ...measured } = first.measured;
   at.pool ??= deepFreeze({ measured: { ...measured, skill: profiles.map((profile) => `${profile.measured.skill} ${profile.measured.limb ?? ""}`.trim()).join(" + ") },
     trials: profiles.flatMap((profile) => profile.trials) });
-  return { ...model, measured: [{ limbs: [...new Set(model.measured.flatMap((one) => one.limbs))], reading: readProfile(at.pool, striker, postures) }] };
+  let source = model.measured[0]!.source;
+  for (const one of model.measured) source = weaker(source, one.source);
+  return { ...model, measured: [{ limbs: [...new Set(model.measured.flatMap((one) => one.limbs))], reading: readProfile(at.pool, striker, postures), source }] };
 }

@@ -246,7 +246,7 @@ type Work = { -readonly [K in keyof Step]: Step[K] };
 /** No model yet: what a step is made with before it is written. */
 const UNPRICED = notPriced("no model is written yet");
 const UNWRITTEN: Terms = Object.freeze({ duration: 0, dealt: 0, taken: 0, orders: 0, outcomes: Object.freeze([]),
-  from: Object.freeze({ duration: UNPRICED, dealt: UNPRICED, taken: UNPRICED, leaves: UNPRICED }) });
+  from: Object.freeze({ duration: UNPRICED, dealt: UNPRICED, taken: () => UNPRICED, leaves: UNPRICED }) });
 const blankStep = (): Work => ({ terms: UNWRITTEN, dealt: 0, taken: 0, orders: 0, seconds: 0, cut: false });
 /** A path that has brought nothing yet: where every line begins. */
 export const UNBEGUN: Tally = Object.freeze({ dealt: 0, taken: 0, orders: 0, seconds: 0 });

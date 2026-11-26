@@ -27,7 +27,7 @@ npm run evaluate -- <id>  # an evaluation's cases where no row has them; --fresh
 npm run evaluate -- table # the grid from saved results; plays nothing (its flags: docs/reference/the-table.md)
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 node scripts/fingerprint.mjs          # what the game computes: --json <file> before a change, --compare <file> after names every fight, mirror bout and table reading it moved
-node scripts/inventory.mjs            # what each body's Mind reads to price a fight, and where each reading comes from; plays nothing: --json <file> before a change, --compare <file> after names every row it moved
+node scripts/inventory.mjs            # what each body's Mind reads to price a fight, and where each reading comes from; plays no bout: --json <file> before a change, --compare <file> after names every row it moved
 ```
 
 ## Checks and landing

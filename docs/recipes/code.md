@@ -87,16 +87,21 @@ of a test.
   `src/core/hand-set.ts`): where the code reads it, with its name, its sort (a guess of what
   happens in a fight, a preference a player sets, or the Mind's own working) and a sentence that
   says what it is. A scan of the parsed source fails one written any other way in the code that
-  prices a fight (`scripts/hand-set.mjs`, held by `tests/core-boundary.test.mjs`, which says what
-  the scan cannot see).
+  prices a fight (`scripts/hand-set.mjs`, held by `tests/core-boundary.test.mjs`). The scan's
+  header lists what it cannot see, among them a guess of 0, 1 or 2 that is no constant of its
+  own, a number not written as one, and a guess imported from outside the code it reads.
 - **A reading and a price say where they come from** (`Source`,
   `src/skills/framework/profile/source.ts`): measured (whose rows, found by numbers, by a name or
   by a rule, and how far off), by hand (which registry entries), given, or not priced. None is
   built without one: an Option's price carries its four (`Terms.from`), a priced line the foe's
   and its end's, and the Mind's report all six for each offer. The inventory
-  (`node scripts/inventory.mjs`) lists them for every body and plays nothing; its rows that fail
-  are held to the list known today (`scripts/inventory-known.json`, by
-  `tests/minds/inventory.test.mjs`), which a mended row leaves and none joins.
+  (`node scripts/inventory.mjs`) lists them as a bout begins and plays no bout: each body in
+  front of the empty-handed man, and him in front of each. Its rows that fail, each guess in the
+  registry among them, are held to the list known today with the standings each fails for
+  (`scripts/inventory-known.json`, by `tests/minds/inventory.test.mjs`). A mended row leaves the
+  list, and a row joins it only with the change that says why. The price of an Option that is
+  not on offer as a bout begins is not on the list: the bout trace counts its answers
+  (`research/skills/strikes/strike-bouts.mjs`).
 - **A screen is an explicit argument**, never inferred from a state machine. Pause freezes the
   world, not the camera.
 - **Two watchers on one body**: set a flag in the callback; act on it at the next control step.

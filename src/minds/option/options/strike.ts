@@ -13,7 +13,7 @@ import { standIn } from "../predictions/by-hand.ts";
 import type { OptionContext, Walker } from "../contract/context.ts";
 import type { GuessedStrike, Guesses } from "../contract/predictors.ts";
 import { asking, blocked, READY, standing } from "./readiness.ts";
-import { exitOutcomes } from "./outcomes.ts";
+import { exitOutcomes, PRESSED } from "./outcomes.ts";
 import type { Asked, Option, Site } from "../contract/option.ts";
 import type { Situation } from "../contract/situation.ts";
 import { startOf } from "../situation/start.ts";
@@ -145,7 +145,7 @@ export function strike({ action, walk, throws, measure, guesses, name }: Strikin
    * seconds, what it deals and where it leaves the body are that reading's, and what it takes
    * meanwhile is the focus's pressure. Made once a source.
    */
-  const fromOf = remembered((source: Source): TermSources => Object.freeze({ duration: source, dealt: source, taken: "pressure", leaves: source }));
+  const fromOf = remembered((source: Source): TermSources => Object.freeze({ duration: source, dealt: source, taken: PRESSED, leaves: source }));
   /** Its outcome model's reading against the focus's body as the two stand at `now`, the body standing; null with no focus, or where it answers nothing so. */
   const readingAt = (now: Situation): ProfileReading | null => now.focus ? readingOf(now, { own: "standing", target: now.foePosture }) : null;
   /**
@@ -251,7 +251,7 @@ export function strike({ action, walk, throws, measure, guesses, name }: Strikin
     const e = read ?? guesses?.strike(at, guessed, progress) ?? null;
     if (!e) return null;
     const duration = Math.max(0, e.seconds + e.recovers - progress);
-    const terms: { -readonly [K in keyof Terms]: Terms[K] } = { duration, dealt: met ? 0 : e.dealt, taken: at.predictions.danger + threatened(at, duration), orders: 0,
+    const terms: { -readonly [K in keyof Terms]: Terms[K] } = { duration, dealt: met ? 0 : e.dealt, taken: at.predictions.danger.life + threatened(at, duration), orders: 0,
       outcomes: exitOutcomes(at, e.exit, e.down), from: fromOf(read && reading ? sourceAt(at, reading) : NEVER_MEASURED) };
     if (preparing && e.letGo) terms.letGo = e.letGo;
     return terms;

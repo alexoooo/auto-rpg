@@ -13,15 +13,15 @@ import { foePhase, sensedPosture } from "../../../../skills/perception/threat.ts
 import { turned } from "../../../../skills/perception/stance-numbers.ts";
 import type { Position } from "../../../../control/ground-reading.ts";
 import type { ExchangePredictor, FoeMove, Guesses, Placing } from "../../contract/predictors.ts";
-import type { ModelledStrike, Seen, Situation } from "../../contract/situation.ts";
+import type { Coming, DownCost, ModelledStrike, Seen, Situation } from "../../contract/situation.ts";
 import type { Terms } from "../../contract/terms.ts";
 import { pressureTable, tableSource, type PressureTable } from "./pressure-table.ts";
 import { UNMEASURED_TURN } from "../by-hand.ts";
 import { blowLife } from "../damage.ts";
 import { reactionOf, carriedStances } from "../../situation/percepts.ts";
 import { type Model, modelOf, strikesOf, pooled } from "./model.ts";
-import { pressureBy, type PressureFields, ProfilePressure, NO_PRESSURE } from "./pressure.ts";
-import { foundBy, type Source } from "../../../../skills/framework/profile/source.ts";
+import { pressureBy, type PressureFields, ProfilePressure, NO_PRESSURE, weakestOf } from "./pressure.ts";
+import { foundBy, given, notPriced, type Source } from "../../../../skills/framework/profile/source.ts";
 import { remembered } from "../../../../core/remembered.ts";
 
 /** A measured strike's source with its rows said to be picked by a rule (`foundBy`); made once a source. */
@@ -64,6 +64,12 @@ const REPLY_LEAST = handSet({
   value: .01,
 });
 
+/** The blow coming where there is none; where the focus's fighting measured in bouts counts it already, for a body on its feet; where those bouts are read and the body lies, which they do not price; and where nothing is read of the limb it comes from (`Coming`). */
+const NONE_COMING: Coming = Object.freeze({ life: 0, source: given("no blow is coming") });
+const COUNTED: Coming = Object.freeze({ life: 0, source: given("the focus's fighting measured in bouts counts the blow coming") });
+const UNCOUNTED: Coming = Object.freeze({ life: 0, source: notPriced("the bouts measured price a body on its feet, and nothing else prices the blow coming at one lying") });
+const BLOW_UNREAD: Coming = Object.freeze({ life: 0, source: notPriced("nothing is read of the limb the blow comes from") });
+
 /**
  * **The exchange as measured profiles predict it** (`ExchangePredictor`), built with its tables
  * (`ProfileTables`). The focus's pressure is its strikes' rate (`ratePressure`): the focus
@@ -72,7 +78,8 @@ const REPLY_LEAST = handSet({
  * (`measuredAgainst`), the rate is read by that (`ProfilePressure.measured`), the focus doing as it is
  * now (`foePhase`): its moments carry how soon its blows came, so no grace is kept of it (its
  * latency none), and what a blow under way took, so the blow coming is priced at none beside it
- * (`danger`).
+ * (`danger`). A body lying is not priced by those bouts (`down`), so there the blow coming is
+ * priced at none and is not priced by anything.
  */
 export class ProfileExchange implements ExchangePredictor {
   private readonly tables: ProfileTables;
@@ -81,24 +88,27 @@ export class ProfileExchange implements ExchangePredictor {
 
   constructor({ guesses, ...tables }: ProfileTables & { readonly guesses: Guesses | null }) { this.tables = tables; this.guesses = guesses; }
 
-  danger(seen: Seen): number { return this.measuredAgainst(seen) ? 0 : this.lifeOf(seen, seen.blow); }
+  danger(seen: Seen): Coming {
+    if (this.measuredAgainst(seen)) return !seen.blow ? NONE_COMING : seen.sight.view.down ? UNCOUNTED : COUNTED;
+    return seen.blow ? this.coming(seen, seen.blow) : NONE_COMING;
+  }
 
   pressure(seen: Seen): ProfilePressure {
     const focus = seen.focus;
     if (!focus) return NO_PRESSURE;
     const rate = this.ratePressure(seen, focus), table = this.measuredAgainst(seen);
     if (!table) return new ProfilePressure(rate, null);
-    const bouts = { what: "fighting, in bouts", source: tableSource(table)(focus.spec)(seen.spec) };
-    return new ProfilePressure({ ...rate, latency: 0, reads: [...rate.reads, bouts], measured: { table, doing: foePhase(focus, seen.blow) } }, null);
+    const reads = [...rate.reads, { what: "fighting, in bouts", source: tableSource(table)(focus.spec)(seen.spec) }];
+    return new ProfilePressure({ ...rate, latency: 0, reads, source: weakestOf(reads), measured: { table, doing: foePhase(focus, seen.blow) } }, null);
   }
 
-  /** What a second down costs in each posture (`downRateOf`) against the focus, and with none one of its own kind; each found once a posture. */
-  downRate(seen: Seen): (posture: Position) => number {
-    const foe = seen.focus?.spec ?? seen.spec, rates = new Map<Position, number>();
+  /** What a second down costs in each posture (`downCostOf`) against the focus, and with none one of its own kind; each found once a posture. */
+  down(seen: Seen): (posture: Position) => DownCost {
+    const foe = seen.focus?.spec ?? seen.spec, costs = new Map<Position, DownCost>();
     return (posture) => {
-      let rate = rates.get(posture);
-      if (rate === undefined) rates.set(posture, rate = this.downRateOf(seen, foe, posture));
-      return rate;
+      let cost = costs.get(posture);
+      if (cost === undefined) costs.set(posture, cost = this.downCostOf(seen, foe, posture));
+      return cost;
     };
   }
 
@@ -156,7 +166,7 @@ export class ProfileExchange implements ExchangePredictor {
       : this.tables.strikes.filter((strike) => profileAgainst(strike.profiles, seen.spec) !== null);
     const thrown = new Set(strikes.flatMap((strike) => strike.limbs)), limbs = defaultStrikeLimbs(foe).filter((limb) => !thrown.has(limb));
     const model = modelOf(seen, { strikes: [...strikes, ...limbs.map((limb) => ({ name: limb, limbs: [limb], profiles: [] }))], striker: foe, struck: seen.spec, postures, guesses: this.guesses });
-    return on.length ? model : { ...model, reads: model.reads.map((read) => ({ what: read.what, source: BY_RULE(read.source) })) };
+    return on.length ? model : { ...model, measured: model.measured.map((one) => ({ ...one, source: BY_RULE(one.source) })), reads: model.reads.map((read) => ({ what: read.what, source: BY_RULE(read.source) })) };
   }
 
   /**
@@ -171,23 +181,28 @@ export class ProfileExchange implements ExchangePredictor {
   }
 
   /**
-   * **The own life `blow` is expected to take**: the most its striker's measured strikes thrown with
-   * its limb (`foeModel`) are expected to take at the striker's range, the two bodies' velocities
-   * (`startVelocity`) and this body's phase, to their reach (a blow predicted to reach the head is in
-   * reach); with none, its guess where the Mind has guesses (`Guesses.blow`). 0 with neither, and
-   * with no blow.
+   * **The own life `blow` is expected to take** (`Coming`): the most its striker's measured strikes
+   * thrown with its limb (`foeModel`) are expected to take at the striker's range, the two bodies'
+   * velocities (`startVelocity`) and this body's phase, to their reach (a blow predicted to reach
+   * the head is in reach), from the source of the strike that takes the most, the first of them
+   * where none takes any; with none, its guess where the Mind has guesses (`Guesses.blow`). No
+   * life with neither, and that is not priced.
    */
-  private lifeOf(seen: Seen, blow: Seen["blow"]): number {
+  private coming(seen: Seen, blow: NonNullable<Seen["blow"]>): Coming {
     const { spec, sight } = seen;
-    if (!blow) return 0;
     const centre = sight.view.stance.centre, foe = blow.foe, range = hypot(foe.centre.x - centre.x, foe.centre.z - centre.z), phase = ownPhase(seen);
     const own = sight.view.stance.velocity, velocity = startVelocity({ x: foe.centre.x - centre.x, z: foe.centre.z - centre.z }, { x: own.x - foe.velocity.x, z: own.z - foe.velocity.z });
-    const measured = this.foeModel(seen, blow.foe.spec, STANDING).measured.filter((one) => one.limbs.includes(blow.limb)).map((one) => one.reading);
-    const guessed = measured.length ? null : this.guesses?.blow(seen, blow, range) ?? null, model = guessed ? [guessed] : measured;
-    let most = 0;
+    const measured = this.foeModel(seen, blow.foe.spec, STANDING).measured.filter((one) => one.limbs.includes(blow.limb));
+    const guessed = measured.length ? null : this.guesses?.blow(seen, blow, range) ?? null, model = guessed ? [{ reading: guessed, source: guessed.source(spec) }] : measured;
+    if (!model.length) return BLOW_UNREAD;
+    let life = 0, source = model[0]!.source;
     const stance = turned(carriedStances(spec, sight.view, foe));
-    for (const reading of model) most = Math.max(most, reading.expect({ range: Math.min(range, reading.reach(phase)), phase, velocity, stance }, spec)?.dealt ?? 0);
-    return most;
+    for (const one of model) {
+      const dealt = one.reading.expect({ range: Math.min(range, one.reading.reach(phase)), phase, velocity, stance }, spec)?.dealt ?? 0;
+      if (dealt > life) source = one.source;
+      life = Math.max(life, dealt);
+    }
+    return { life, source };
   }
 
   /**
@@ -197,8 +212,9 @@ export class ProfileExchange implements ExchangePredictor {
    * posture, in the phase down; a foe lying deals none by a guess, `placingAt`). What a second on its
    * feet brings is priced by the Options that begin there, as the search reaches them.
    */
-  private downRateOf(seen: Seen, foe: BodySpec, posture: Position): number {
+  private downCostOf(seen: Seen, foe: BodySpec, posture: Position): DownCost {
     const foeAt = seen.focus ? sensedPosture(seen.focus) : "standing", postures = { own: foeAt, target: posture };
-    return pressureBy(seen, { model: pooled(this.foeModel(seen, foe, postures), foe, postures), phase: "down", striker: foe, struck: seen.spec, placing: placingAt(foeAt) && "over", guesses: this.guesses }).peak;
+    const over = pressureBy(seen, { model: pooled(this.foeModel(seen, foe, postures), foe, postures), phase: "down", striker: foe, struck: seen.spec, placing: placingAt(foeAt) && "over", guesses: this.guesses });
+    return { rate: over.peak, source: over.source };
   }
 }

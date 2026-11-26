@@ -31,7 +31,11 @@ export type FoundBy = "numbers" | "name" | "rule";
  * body's own or borrowed from another.
  */
 export interface Side {
-  /** Whether the rows are this body's own: measured on it, as it is and holding what it holds. */
+  /**
+   * Whether the rows are this body's own. Found by its name, they were measured on a body of that
+   * name, as it is and holding what it holds. Found by its numbers, they are of a body the same in
+   * every number compared, which two different bodies can be: the lookup cannot tell them apart.
+   */
   readonly own: boolean;
   /** The body the rows were measured on: its model's name, or its numbers where the rows record no name. */
   readonly of: string;
@@ -118,13 +122,27 @@ export const STANDING_WORDS: Readonly<Record<Standing, string>> = Object.freeze(
 export const standingOf = (source: Source): Standing =>
   source.kind !== "measured" ? source.kind : source.body.own && (source.target?.own ?? true) ? "own" : "borrowed";
 
-/** The weakest source among `reads` by standing (`STANDINGS`): the first of them where several are as weak, null of none. */
+/** The ways a side's rows are found (`Side.by`), the most general first. */
+const FOUND: readonly Side["by"][] = Object.freeze(["numbers", "name", "rule"]);
+
+/** How narrowly a measured source was found: by its less general side (`FOUND`), and past them all where it was measured for the one pairing. 0 of a source that is not measured. */
+const narrowness = (source: Source): number => source.kind !== "measured" ? 0 : source.pairing ? FOUND.length
+  : Math.max(FOUND.indexOf(source.body.by), source.target ? FOUND.indexOf(source.target.by) : 0);
+
+/**
+ * The weaker of two sources: by standing (`STANDINGS`), and of two measured ones as weak, the
+ * one found more narrowly (`narrowness`). The first where they are as weak in both. One source
+ * stands for several here, so it is a bound: the other can fail in a way this one does not.
+ */
+export function weaker(a: Source, b: Source): Source {
+  const by = STANDINGS.indexOf(standingOf(b)) - STANDINGS.indexOf(standingOf(a));
+  return by > 0 || by === 0 && narrowness(b) > narrowness(a) ? b : a;
+}
+
+/** The weakest source among `reads` (`weaker`), null of none. */
 export function weakest(reads: readonly Read[]): Source | null {
-  let worst: Source | null = null, rank = -1;
-  for (const { source } of reads) {
-    const at = STANDINGS.indexOf(standingOf(source));
-    if (at > rank) { worst = source; rank = at; }
-  }
+  let worst: Source | null = null;
+  for (const { source } of reads) worst = worst === null ? source : weaker(worst, source);
   return worst;
 }
 

@@ -5,7 +5,7 @@
  * played its trials (`playedBy`). A digest labels a profile and finds none.
  */
 import { treeData } from "../../src/app/catalog.ts";
-import { dataIdentity } from "../../src/core/data/store.ts";
+import { dataIdentity, dataOf } from "../../src/core/data/store.ts";
 import { chosenVariation } from "../../src/skills/framework/variations.ts";
 
 /** Each object's digest, found once: what is digested is frozen. */
@@ -70,20 +70,33 @@ export const specDigest = (spec) => {
   return digest;
 };
 
+/** Each record's digest (`recordDigest`), by its key: a record is loaded once and frozen. */
+const RECORD_DIGESTS = new Map();
+
+/**
+ * **A whole record's digest**, by its data key (`dataOf`). It is the whole record, not one
+ * body's rows of it: a Mind reads other bodies' rows too, its foe's and those it borrows.
+ */
+export function recordDigest(key) {
+  let digest = RECORD_DIGESTS.get(key);
+  if (digest === undefined) RECORD_DIGESTS.set(key, digest = digestOf(dataOf(key)));
+  return digest;
+}
+
 /** Each Mind that played (`playedBy`), by its body's digest and its config's: the same object for the same two. */
 const PLAYED = new Map();
 
 /**
  * **One Mind that played a measurement's trials** (`Played`): the Mind `mind` configures, on a
  * body of `spec`. It keeps the body's name and digest, the config's digest, and the digest of
- * each record the Mind's parts read (`treeData`), as that body reads it (`dataIdentity`). So
- * the inventory can say which of them has changed since, without playing anything.
+ * each whole record the Mind's parts read (`treeData`, `recordDigest`). So the inventory can
+ * say which of them has changed since, without playing anything.
  */
 export function playedBy(spec, mind) {
   const body = specDigest(spec), config = digestOf(mind), key = `${body} ${config}`;
   let played = PLAYED.get(key);
   if (!played) PLAYED.set(key, played = Object.freeze({ body: spec.model, spec: body, mind: config,
-    read: Object.freeze(Object.fromEntries([...new Set(treeData(mind))].sort().map((data) => [data, digestOf(dataIdentity(data, spec.model))]))) }));
+    read: Object.freeze(Object.fromEntries([...new Set(treeData(mind))].sort().map((data) => [data, recordDigest(data)]))) }));
   return played;
 }
 

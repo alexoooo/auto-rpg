@@ -7,20 +7,25 @@ import { blocked, READY, NOTHING } from "./readiness.ts";
 import type { Situation } from "../contract/situation.ts";
 import type { Option } from "../contract/option.ts";
 import { GUARDING, holding, PLAIN, type Held } from "./rest.ts";
-import { byHand } from "../../../skills/framework/profile/source.ts";
+import { byHand, weaker } from "../../../skills/framework/profile/source.ts";
+import type { TakenFrom } from "../contract/terms.ts";
 import { type Side, pairedSegment, sidesWith } from "../../../core/bodies/bilateral.ts";
 
 /** No drill measured what a cover keeps off a blow, so a number set by hand says it (`STOPS`). */
 const KEPT_OFF = byHand(["STOPS"], "no drill measured what a cover keeps off a blow");
 
+/** Where what a covered hold takes comes from: as the hold's (`held`), and by the cover's number too where a blow is coming for it to keep off. */
+const covered = (held: TakenFrom): TakenFrom => (at) => at.predictions.danger.life > 0 ? weaker(held(at), KEPT_OFF) : held(at);
+
 /**
  * **Holding behind a cover** (`Held`): the share of the blow coming that the cover does not keep
- * off gets through, so what it takes is by that number. The rest is as any hold's (`PLAIN`).
+ * off gets through, so what it takes is by that number as well as by what any hold's is. The
+ * rest is as any hold's (`PLAIN`).
  */
 const COVERED: Held = Object.freeze({
-  coming: (at: Situation) => (1 - STOPS) * at.predictions.danger,
-  lying: Object.freeze({ ...PLAIN.lying, taken: KEPT_OFF }),
-  standing: Object.freeze({ ...PLAIN.standing, taken: KEPT_OFF }),
+  coming: (at: Situation) => (1 - STOPS) * at.predictions.danger.life,
+  lying: Object.freeze({ ...PLAIN.lying, taken: covered(PLAIN.lying.taken) }),
+  standing: Object.freeze({ ...PLAIN.standing, taken: covered(PLAIN.standing.taken) }),
 });
 
 /**

@@ -152,7 +152,8 @@ export interface Sample {
 /** **`at`'s coordinates** as a sample of its shape keeps them (`COORDINATE`), its bodies at the body numbers `asked` (`bodyNumbers`' order), into `out` from `from`; a stance number it does not record NaN. */
 function coordinatesInto(shape: Pick<Sample, "kept" | "dims" | "stanced">, at: Asked, asked: Float64Array, out: Float64Array, from = 0): void {
   const velocity = at.velocity ?? STILL, place = at.window ?? STILL;
-  out[from] = at.range; out[from + 1] = velocity[0]; out[from + 2] = velocity[1]; out[from + 3] = place[0]; out[from + 4] = place[1];
+  out[from + COORDINATE.range] = at.range; out[from + COORDINATE.closing] = velocity[0]; out[from + COORDINATE.across] = velocity[1];
+  out[from + COORDINATE.ahead] = place[0]; out[from + COORDINATE.aside] = place[1];
   for (let k = 0; k < shape.kept.length; k++) out[from + COORDINATE.levels + k] = asked[shape.kept[k]!]!;
   if (shape.dims > shape.stanced) stanceInto(at.stance, out, from + shape.stanced);
 }

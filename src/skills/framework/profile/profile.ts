@@ -59,9 +59,12 @@ export interface Measured {
 
 /**
  * **One Mind that played a measurement's trials**: the body it drove (its model's name and its
- * spec's digest), its config's digest, and the digest of each record it read, by the record's
- * key, as that body reads it (`playedBy`, `research/skills/profile-origin.mjs`). The digests are
- * taken when the measuring tool makes the asset, which is before it writes it.
+ * spec's digest), its config's digest, and the digest of each whole record it read, by the
+ * record's key (`playedBy`, `research/skills/profile-origin.mjs`). A tool that plays its trials,
+ * or makes its asset from saved bouts, takes them as the trials were played. The two that make
+ * profiles from a drill's saved rows (the strikes' and the back step's) take them when they
+ * make the file, from the Minds the drill's recipe names then. That is the Minds that played
+ * only where the rows were played on the same code, and each row's commit says whether they were.
  */
 export interface Played {
   readonly body: string;
@@ -72,8 +75,8 @@ export interface Played {
 
 /**
  * **Where a measurement came from**, which finds and refuses none: the digests of its body's spec
- * and of its skill, as its trials were played (`research/skills/profile-origin.mjs`); the Minds
- * that played them (`Played`), both sides'; and the commit its trials were played on, whether a
+ * and of its skill (`research/skills/profile-origin.mjs`); the Minds that played its trials
+ * (`Played`, which says when each digest is taken), both sides'; and the commit its trials were played on, whether a
  * build input differed from it, and the day, where its tool knew them. The inventory
  * (`scripts/inventory.mjs`) sets each beside the same today, so what has changed since is read
  * without playing anything. A field is absent where the tool that made the asset did not write it.

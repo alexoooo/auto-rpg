@@ -11,7 +11,9 @@ import type { Source } from "../../../skills/framework/profile/source.ts";
 /**
  * **What a search's leaf is worth**, made once a search at its `root` over the states it reads
  * (`search`): the worth of a state, after what the path to it brought (`worth`), and where that
- * comes from (`source`), which is where the end of every line of the search is priced from.
+ * comes from (`source`), which is where a line that reaches a leaf has its end priced from. It
+ * is said once a search, so it is a bound: a state the leaf has no reading of is priced as the
+ * tail prices it, and a line cut before it reaches a leaf is not priced at its end at all.
  */
 export type Leaf = (search: Space, root: Situation) => LeafAt;
 interface LeafAt {

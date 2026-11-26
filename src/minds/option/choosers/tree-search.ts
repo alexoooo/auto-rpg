@@ -5,7 +5,7 @@ import { exp, log } from "../../../core/math/real.ts";
 import type { Terms } from "../contract/terms.ts";
 import { type Pair, type Searched, space, type Step, UNBEGUN } from "./space.ts";
 import type { Leaf } from "./leaves.ts";
-import { foeSource, type Lines, type PricedLine } from "./search.ts";
+import { END_UNPRICED, foeSource, type Lines, type PricedLine } from "./search.ts";
 
 /** A completed tree's lookup captures only root prices, without its nodes or search workspace. */
 export function pricedLines(prices: readonly PricedLine[]): Lines {
@@ -194,8 +194,9 @@ export function treeSearch(root: Situation, searched: Searched & { readonly runs
   for (let k = 0; k < Math.max(runs, edgesOf(top).length); k++) run();
   const edges = top.edges!, prices = new Array<PricedLine>(edges.length);
   started.keep(edges);
-  const foe = foeSource(searched.carry), end = leafAt.source;
-  for (let i = 0; i < edges.length; i++) { const edge = edges[i]!; prices[i] = { pair: edge.pair, worth: edge.worth, terms: edge.step.terms, foe, end }; }
+  // A line cut at its first step is priced by where that step leaves the body (`cutWorth`) and reaches no leaf, so its end is not priced.
+  const foe = foeSource(searched.carry);
+  for (let i = 0; i < edges.length; i++) { const edge = edges[i]!; prices[i] = { pair: edge.pair, worth: edge.worth, terms: edge.step.terms, foe, end: edge.step.cut ? END_UNPRICED : leafAt.source }; }
   return prices;
 }
 

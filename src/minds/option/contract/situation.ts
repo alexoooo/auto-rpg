@@ -117,18 +117,27 @@ export interface Percepts {
   readonly contact: number;
 }
 
+/** **The blow already coming**: the share of the body's own life it is expected to take, and where that reading comes from. */
+export interface Coming { readonly life: number; readonly source: Source }
+
+/** **What lying costs a body**: the own life a second down is expected to cost it (`rate`), and where that comes from (`source`). */
+export interface DownCost {
+  readonly rate: number;
+  readonly source: Source;
+}
+
 /**
  * **Every prediction an Option Mind reads**, by name: what data a drill, a training run or the
  * rules make says of the situation, stale with that data; read when an Option or the objective
  * asks for it, once a step at most, each by its Mind's exchange predictor (`ExchangePredictor`).
  */
 export interface Predictions {
-  /** The own life the blow coming is expected to take; 0 with none, or where the focus's pressure holds it already. */
-  readonly danger: number;
+  /** The blow coming (`Coming`): no life with none, or where the focus's pressure holds it already. */
+  readonly danger: Coming;
   /** What the focus's fighting is expected to deal the body (`Pressure`). */
   readonly pressure: Pressure;
-  /** What a second down in each posture is expected to cost the body, own life. */
-  readonly downRate: (posture: Position) => number;
+  /** What a second down in each posture is expected to cost the body (`DownCost`). */
+  readonly down: (posture: Position) => DownCost;
   /** How fast the focus turns to face, rad/s; Infinity with none. */
   readonly turns: number;
   /** The focus's life a blow of a limb of the body's takes at a segment of the focus's, closing on it at `closing` m/s, by the rules; 0 with no focus. */

@@ -98,7 +98,8 @@ work, told to refute it (the procedure's step 5).
    from play: "your recommendation makes sense".)
    *Held by* the inventory's check, which fails on a name or a pairing that finds a reading and
    is not on its list. The list is `scripts/inventory-known.json`: the rows that failed on the
-   day step 1 landed, which this plan's two tables describe. It only shrinks. And by the
+   day step 1 landed, which this plan's two tables describe. A row is taken off it when it is
+   mended, and one joins it only with the change that says why. And by the
    made-up body (the inventory, below): it has no rows, so a reading it finds as its own was
    found by a name. A lookup that is mended takes a body as its numbers alone, as the struck
    body is taken already (`struckNumbers`), so it cannot see a name.
@@ -206,12 +207,14 @@ three is step 2.
 
 ## The inventory
 
-A script that plays nothing (`node scripts/inventory.mjs`). For each body, empty-handed and as
+A script that plays no bout (`node scripts/inventory.mjs`). For each body, empty-handed and as
 the game arms it, and for the config named (the body's default where none is), it lists each
 thing the Mind reads by it and where the reading comes from: its own, borrowed (from which
 body), stale, by hand, or a table that had to be measured for the pairing. What depends on the
-foe is listed against each foe named, the empty-handed man where none is. It is built from the
-assets, the registry of numbers set by hand, and the lookups the Mind itself uses.
+foe is listed against each foe named. Where none is named, each body stands in front of the
+empty-handed man and then he stands in front of each, so every body is listed once as the one
+that prices and once as the foe that is priced. It is built from the records the Minds read,
+the registry of numbers set by hand, and the lookups the Mind itself uses.
 
 It is used as the fingerprint is: written before a change (`--json`), compared after
 (`--compare`), each row that changed named. Its check fails where a body reads by hand, by a
@@ -228,20 +231,49 @@ step's report.
 **How it reads.** It stands each body in front of the foe as a bout begins, takes its Mind's
 first decision (one step of the world), and lists what that decision read and offered, so every
 row comes from the code the game runs and none from a second description of it. A row is keyed
-by what is read and not by the body, so the list that fails is one row for a walk's duration by
-hand, whichever bodies walk. That list is `scripts/inventory-known.json`, held in the gate by
-`tests/minds/inventory.test.mjs`: a failing row not on it fails, and so does a row on it that
-no longer fails, so the list is exactly what fails today.
+by what is read, and holds the standings it fails for (a body in front of a foe), so the list
+that fails is one row for a walk's duration by hand, with every standing a body walks in. A
+reading that fails in two ways is two rows. Each guess in the registry is a row of its own,
+whichever body reads it: most guesses are read only once a fight is on, and a first decision
+would not show them. That list is `scripts/inventory-known.json`, held in the gate by
+`tests/minds/inventory.test.mjs`: a failing row not on it fails, so does a row on it that no
+longer fails, and so does a row that fails for other standings than the list says. So the list
+is exactly what fails today.
 
 **What it cannot show**, each said where it prints:
 
-- A strike is not on offer at a bout's first decision. Its readings are listed (the lookups are
-  called), and its price's answers are counted over decisions that were played (rule 6's trace).
+- An Option that is not on offer at a bout's first decision (a strike, a way up, a back step)
+  has its readings listed, since the lookups are called when the Mind is made. Its price's six
+  answers are not on the list that fails: they are counted over decisions that were played
+  (rule 6's trace), and nothing in the gate holds them.
+- Only the empty-handed man is stood in front of every body. A body other than him in front of
+  a foe other than him is listed where `--foe` asks, and checked against no list.
 - A foe's pressure names one source, the weakest of what it read (`weakest`): a bound, not a
-  share.
-- "Its own" means the rows were measured on a body of this model's name, as it is and holding
-  what it holds. A man scaled by his attributes keeps the name "man", so a lookup by name calls
-  the unscaled man's rows his own. The made-up body is under another name for that reason.
+  share. So does a line's end: the leaf says once a search where it reads from, a state it has
+  no reading of is priced as the tail prices it, and only a line cut at its first step is said
+  to have no priced end. What an Option takes names one source too, the weakest of those its
+  number reads (`weaker`): the blow already coming, with the foe's pressure for a body on its
+  feet, with what a second down costs for one lying, and with the cover's number where a cover
+  has a blow to keep off. A back step's is its trials' alone. Where two are as weak, the one
+  found more narrowly is named: for the pairing, then by a rule, then by a name. The other can
+  fail in a way the row does not say. The man in front of the rat is on the list as taking what
+  was measured for the pairing, and the rat's bite found by a name is not named in that row.
+  Of two by hand, only one's registry entries are named.
+- "Its own", of rows found by a name, means they were measured on a body of this model's name,
+  as it is and holding what it holds. A man scaled by his attributes keeps the name "man", so a
+  lookup by name calls the unscaled man's rows his own. The made-up body is under another name
+  for that reason. Of rows found by numbers it means no number compared differs, which two
+  different bodies can share: the reptile reads the rat's pressure table as its own, both being
+  0.325 m and 8 kg. A profile's body side compares stature and what is held, and never mass.
+- "Stale" counts only the settings a reading was measured at that differ from the Mind's
+  (`Source.stale`: the engine's rate, the reaction, the Mind's rate and delay). What has changed
+  in a body, a skill or the Minds that played since is listed by record, not by reading, and no
+  row in the repository names Minds yet.
+- A by-hand source names its registry entries in words. The listing stops with an error where
+  one names no entry; nothing checks that the entry named is the one the code read.
+- The registry's sorts are a judgment. A session that read them all found none plainly wrong,
+  and these arguable: `TRADE` and `REGAIN_TRY` (the Mind's own, or a guess), and `STRUCK_SPANS`,
+  `HELD_SPANS` and `NEAREST` (the Mind's own, though each decides which rows count as near).
 - The made-up body's Mind is not made as the game makes it: the stance's envelope is found by
   the model's name and a new name has none. That is a row that fails. The listing then stands
   the body with a stance that measures its envelope as it goes, so the rest of its rows can be
@@ -251,7 +283,11 @@ no longer fails, so the list is exactly what fails today.
 and mass no measured body has, and an item of a mass and reach no trial held. They are made in
 the script and no file is added for them. Both must be offered Options and have each priced,
 every row borrowed. A row that says "its own" was found by a name. A row that says "none" is a
-mechanism that does not reach a new body. This is the count in "What a new thing costs", run,
+mechanism that does not reach a new body. Each plays the Mind of the body it copies, so the
+two differ in the body or the item alone. A skill the body it copies is given, a record that
+body reads, or an Option it is offered, where the made-up thing is not, is a row that fails. So
+is what the empty-handed man reads or is offered in front of the body copied and not in front
+of the made-up thing. This is the count in "What a new thing costs", run,
 where a clean listing of five bodies cannot show it. A skill cannot be made up without its code,
 so a skill's count is read on the next skill the game adds.
 
@@ -338,7 +374,7 @@ is where they are listed. "Where" says so of each.
 | --- | --- | --- | --- |
 | The end of a line is not priced | `objectives.ts` `fewTermsWorth` never reads `path.end`; `space.ts` `cutWorth` | A line cut at the horizon, and every hold or guard, is worth the same ending on its back as on its feet | 4 |
 | The fitted value reads only the man | `assets/minds/fitted-value.json` fitted on man against man; `fittedOn` | Every other body, and the man against any other, falls back to the tail's leaf | 1, 4 |
-| A second down is priced at the foe's peak | `profile.ts` `downRateOf` (`PressureFields.peak`) | Lying 5 m away costs as much as lying at his feet: 0.075 of the rat's life a second, where its time down in fights cost about 0.004 | 3 |
+| A second down is priced at the foe's peak | `profile.ts` `downCostOf` (`PressureFields.peak`) | Lying 5 m away costs as much as lying at his feet: 0.075 of the rat's life a second, where its time down in fights cost about 0.004 | 3 |
 | The foe stands still in imagined lines, or carries on as he was | `carry` 0 by default, 0.5 s on `option-lean`; `imagined.ts` | Waiting near a foe who would close looks free, or is priced by where his velocity takes him | 3, 5 |
 | The foe's replies are searched only against the same body | `replies.ts` `repliedSearch` (`bodyOf(focus.spec) !== searched.body`) | Against any other body, replies are never searched | 3, 5: the foe's Options built from his own body, weighted by the prior |
 | A walk never falls outside a clinch | `places.ts` `walkTerms` | Walks look safer than strikes, whose falls are measured | 2 |
@@ -352,15 +388,15 @@ is where they are listed. "Where" says so of each.
 | Stances read by the model's name | `gaitStance`, `carriageOf` (`places.ts`, `back-step.ts`, `percepts.ts`) | A model with no entry gets no stance and no back step | 2, its stance measured like any Option's |
 | The foe is the same at every state of a line | `imagined.ts` `placedWith`: a rule, no number. His posture, his stance and his life are read as at the root | A foe down now is down at the end of every line, and one the line strikes reads no weaker for it | 3, 5 |
 | No blow is coming, and nothing of the body's own is under way, past a line's first step | `imagined.ts` `afterDanger` (`danger` 0), `afterActions`, and `placedWith` (`incoming` null): zeros written as a rule | A blow seen coming is priced once at the root. The cover has no model at any later state (`cover.ts`) | 3 |
-| A blow seen coming costs nothing where a bout table reads | `profile.ts` `ProfileExchange.danger` returns 0 where `measuredAgainst` finds a table, and `pressure` sets the latency to 0: zeros written as a rule | Against a standing foe of a pairing measured, the cover keeps off a share of nothing, so it is priced as holding | 3 |
+| A blow seen coming costs nothing where a bout table reads | `profile.ts` `ProfileExchange.danger` returns 0 where `measuredAgainst` finds a table, and `pressure` sets the latency to 0: zeros written as a rule | Against a standing foe of a pairing measured, the cover keeps off a share of nothing, so it is priced as holding. A body lying there is priced by what a second down costs, which does not read the table, so nothing prices the blow coming at it, and its source says "not priced" | 3 |
 | The foe's mind is taken for one like this one | `pressure.ts` `pressureBy`: his latency is `RETHINK`, this body's command delay and his fastest blow. `profile.ts` `foeModel` reads his profiles at this mind's rate and delay; `reach-memory.ts` `reachMemory` spends the latency in his reach and restores it out of it. Rules | How soon any foe's first blow comes is this mind's timing, a rat's or a Warrior's | 3, 5 |
 | The foe throws his best strike back to back | `pressure.ts` `ProfilePressure.read` and `dealt`: the most of his strikes' rates, times the seconds, where no table reads. `foeModel` gives him every strike measured on his model that his limbs hold as its trials did (`profilesOn`), and guesses each other limb of `default-strike-limbs.ts` `defaultStrikeLimbs`. A rule | Standing in his reach costs his best blow's rate for every second, whatever he holds as a skill | 3, 5 |
-| A blow seen coming is priced as his worst strike with that limb, both bodies standing | `profile.ts` `lifeOf`: the postures are `STANDING`, the reading is the most of his measured strikes with the limb, and a range past a strike's reach is read at its reach (as `strike.ts` `expected` reads the body's own). A rule | A blow coming at a body on the ground is priced from trials at a standing one, and at its worst | 3, 5 |
-| With no foe in sight, a second down costs what the body's own kind would deal | `profile.ts` `ProfileExchange.downRate` models a foe of `seen.spec` where there is no focus: a rule | Lying alone in a room has a price | 3 |
+| A blow seen coming is priced as his worst strike with that limb, both bodies standing | `profile.ts` `coming`: the postures are `STANDING`, the reading is the most of his measured strikes with the limb, and a range past a strike's reach is read at its reach (as `strike.ts` `expected` reads the body's own). A rule | A blow coming at a body on the ground is priced from trials at a standing one, and at its worst | 3, 5 |
+| With no foe in sight, a second down costs what the body's own kind would deal | `profile.ts` `ProfileExchange.down` models a foe of `seen.spec` where there is no focus: a rule | Lying alone in a room has a price | 3 |
 | A walk arrives at its spot, at rest, on a rule's time | `places.ts` `walkTerms` (outside a clinch one outcome, `velocity: STILL`; inside one, up at the spot or fallen); `walk.ts` `walker` `seconds` by `travel.ts` `legSeconds` (its `PIECE`; `slowFrom`, which reads the gait's `stopping` and `lag`; `ROUTE_MARGIN` through `cornersOf`: `locomotion.ts` `STANCE_STOPPING`, `STANCE_LAG`); its pace by `stance-envelope.ts` `heldPace`'s ellipse. These files are outside the pricing folders, so the registry holds none of them | A walk's seconds and its end are a braking rule's, no trial's. A gait with no limits is timed as its length over the pace its orders allow | 2 |
 | Along a walk the foe stays where he is | `places.ts` `walkTerms`: the pressure along the way is read against the focus where he stands now, and he turns to face for the whole walk (`turns`). A rule | Walking past a foe is priced as walking past a post that turns | 3 |
 | A guard and a brace are priced as holding | `rest.ts` `guard` and `brace`: each model is `holding`. A rule | The hands at guard, a shield held between, and a brace on the ground change no price | 2 |
-| A way up costs the flat down rate for its whole length | `rise.ts` `downTerms` (`downRate` times the seconds); `endings` leaves each try still, where it began. Its profile is read with no foe (`recovery/data/profiles.ts` `edgeExpected`, `groundStart`). Rules | Rising at a foe's feet and rising alone take as long and end the same, and a body half up costs as one flat | 2, 3 |
+| A way up costs the flat down rate for its whole length | `rise.ts` `downTerms` (`Predictions.down`'s rate times the seconds); `endings` leaves each try still, where it began. Its profile is read with no foe (`recovery/data/profiles.ts` `edgeExpected`, `groundStart`). Rules | Rising at a foe's feet and rising alone take as long and end the same, and a body half up costs as one flat | 2, 3 |
 | A strike's own measured cost is dropped, and the back step's is all it pays | `strike.ts` `priceOf`: `taken` is the blow coming and the foe's pressure, never the profile's `Expected.taken`. `back-step.ts` `backStepping`: `taken` is its trials' alone, with no blow coming and no pressure. Rules | The two are priced by different rules, so one cannot be weighed against the other fairly | 2, 3 |
 | A profile with no trial in the foe's phase reads its "clear" trials | `reading.ts` `phaseOf`: a rule | A strike at a foe who is striking or rising, never measured so, is priced as at one standing clear | 1, 2 |
 | A strike with no recovery recorded recovers at once | `reading.ts` `nearestRun` and `cycleAt`, `form.ts` `formRun`: `recovers` 0 where no trial has one. A zero written as a rule | Such a strike looks quicker than it is, and its rate higher | 1, 2 |
@@ -743,27 +779,38 @@ game or to unpark something, and the work goes on meanwhile.
 - **Step 1 landed.** It changed no fight: the fingerprint moved no pose, and the empty-handed
   man's mirror played the same 24 bouts to the bit. What it built is in
   [the code recipe](../recipes/code.md#code): the registry and its scan, a reading's and a
-  price's source, the inventory and its list.
-- **The inventory's first listing**, the game's five bodies empty-handed and as armed, with the
-  made-up body and item, in front of the empty-handed man: 51 numbers set by hand (35 the
-  Mind's own, 11 guesses, 5 preferences); 56 rows that fail; 10 settings in which the default
-  configs differ (step 2's to sort). 40 readings are borrowed, the farthest the reptile as the
-  target of the man's punches, 12.95 spans off. The 9 stale readings are all the empty-handed
-  man's, read deciding at 10 Hz where they were measured at 60.
+  price's source, the inventory and its list. A session that was given the commits and the
+  listing, and not the work's report, was told to refute it. It refuted ten claims, and each
+  was mended or is said under "What it cannot show" above. A second session was then told to
+  refute the mends. It found eight places where they were not as claimed, and each of those
+  was mended or is said there as well.
+- **The inventory's listing**, 19 standings: the game's five bodies empty-handed and as armed,
+  with the made-up body and item, each in front of the empty-handed man, and him in front of
+  each. 51 numbers set by hand (35 the Mind's own, 11 guesses, 5 preferences); 98 rows that
+  fail, the 11 guesses among them; 10 settings in which the default configs differ (step 2's to
+  sort). 84 readings are borrowed. The farthest, 14.45 spans off, are the man's in front of the
+  reptile and the rat: his back step read for a target of his own size, and the reptile's
+  punches found by a rule from the man's. The 79 readings stale by their settings are read deciding at
+  10 Hz where they were measured at 60: 75 the empty-handed man's, in his ten standings, and 4
+  the made-up body's, which plays his Mind. The first listing stood each body only in front of the man and read 56 rows; the foe's
+  side, the guesses, and what is missing with a made-up thing on either side are what was added.
 - **What the made-up body met**, which is what a new body costs today and what the mechanisms'
   steps are to mend: no Mind as the game makes one (the stance's envelope is found by the model's name);
-  no walk on offer; and no punch, kick, stomp or way up given, each refused because its record
-  is under another model's name. What it does read, it borrows by numbers: the brace from the
-  woman, the flatten from the man. The made-up item is read as the rows nearest in what a hand
-  holds, 1.6 spans off, and is offered no weapon strike, its name not being "sword".
-- **Where the prices came from in play**, over all 124,168 offers of every decision of the
-  man's mirror (24 bouts). How long an Option takes: given 26.2 %, its own 20.0 %, by hand
-  53.7 %. What it deals: given 98.7 % (most offers deal nothing by what they are), its own
-  0.5 %, by hand 0.8 %. What it takes: its own 1.0 %, by hand 50.4 %, not priced 48.6 %. Where
-  it leaves the body: given 10.9 %, its own 20.0 %, by hand 67.5 %, not priced 1.5 %. Where the
-  foe goes meanwhile: by hand 100 %. What the line's end is worth: its own 100 %, which is the
-  fitted value, measured for the one pairing of the man against himself (a row that fails).
-  Nothing was borrowed, since this is the one body everything was measured on.
+  no walk on offer; no punch, kick, stomp, back step or way up, each record being under another
+  model's name; and no reading of the foe's fighting in bouts. What it does read, it borrows by
+  numbers: the brace from the woman, the flatten from the man. As a foe, its punches are found
+  by a rule from the man's, its stomps are not read, and nothing is read of its fighting in
+  bouts. The made-up item is read as the rows nearest in what a hand holds,
+  1.6 spans off, and is offered no weapon strike, its name not being "sword".
+- **Where the prices came from in play**, over all 124,168 offers that had a price, at every
+  decision of the man's mirror (24 bouts). How long an Option takes: given 26.2 %, its own
+  20.0 %, by hand 53.7 %. What it deals: given 98.7 % (most offers deal nothing by what they
+  are), its own 0.5 %, by hand 0.8 %. What it takes: its own 1.0 %, by hand 50.4 %, not priced
+  48.7 %. Where it leaves the body: given 10.9 %, its own 20.0 %, by hand 67.5 %, not priced
+  1.5 %. Where the foe goes meanwhile: by hand 100 %. What the line's end is worth: its own
+  73.8 %, which is the fitted value, measured for the one pairing of the man against himself (a
+  row that fails); not priced 26.2 %, the lines cut at their first step, every hold and guard
+  among them. Nothing was borrowed, since this is the one body everything was measured on.
 - **No asset names the Minds that played it yet.** The measuring tools write them from now on;
   the inventory says "not recorded" of each asset measured before, and none is measured again
   for it (rule 4).

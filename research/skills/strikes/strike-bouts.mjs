@@ -124,7 +124,7 @@ if (isMainThread) {
     // Where each answer of the prices came from, over the bouts played now: a saved bout does not keep the count.
     const counted = jobs.filter(job => job.held === held && job.sources).map(job => job.sources);
     if (counted.length) {
-      console.log(`  where each answer of a price came from, over every offer of every decision of the ${counted.length} bouts played now:`);
+      console.log(`  where each answer of a price came from, over every offer that has a price, at every decision of the ${counted.length} bouts played now:`);
       for (const [answer, words] of Object.entries(ANSWERS)) {
         const by = Object.fromEntries(STANDINGS.map(standing => [standing, sum(counted.map(one => one[answer][standing]))])), all = sum(Object.values(by));
         console.log(`    ${words}: ${STANDINGS.map(standing => `${STANDING_WORDS[standing]} ${(100 * by[standing] / all).toFixed(1)} %`).join(", ")} (of ${all})`);
