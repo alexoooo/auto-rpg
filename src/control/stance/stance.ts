@@ -795,7 +795,9 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning, assist: Ass
       readSupport(feet, stance, reading.support);
       const c = reading.centre, vel = reading.velocity, g = gravityOf(s);
       const height = c.y - reading.support.y;
-      if (!plan.on) {
+      // The plan is the body's: one gone from it by more than a leg's whole length, which no stance
+      // reaches, is begun again from the body.
+      if (!plan.on || hypot(plan.at.x - c.x, plan.at.y - height, plan.at.z - c.z) > legLength(stance[0]!, null)) {
         plan.at.set(c.x, height, c.z);
         plan.velocity.copyFrom(vel);
         plan.on = true;
