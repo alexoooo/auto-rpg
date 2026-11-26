@@ -9,7 +9,7 @@ import { rulebook } from "../src/combat/rulebook.ts";
  * change and compare after, on the same machine. It is not a test: a change that means to change
  * how a fight plays changes its lines, and says so.
  *
- *   node scripts/fingerprint.mjs [--workers 12] [--character] [--only <regex>] [--json <file>] [--compare <file> [--variation <skill/variation>]...]
+ *   node scripts/fingerprint.mjs [--workers 12] [--character] [--only <regex>] [--json <file>] [--compare <file> [--variation <skill/variation>]...] [--relay <steps>]
  *
  * It plays every mind. `--only` runs the cases whose names match. `--json` writes each case's record as well, and
  * `--compare` reads such a file and names every case whose record differs: it fails on a pose,
@@ -18,6 +18,15 @@ import { rulebook } from "../src/combat/rulebook.ts";
  * (`variationsOf`); given `--variation`, a change to those variations' code, `--compare` lets a case
  * that runs one of them move and fails on any other that moves, so a change to one variation is
  * shown to move only the cases that run it. The engine is `CORE_ENGINE`'s (`tests/harness/core-stand.mjs`).
+ *
+ * `--relay` plays each arena fight a second time as a relay (`relayed`): every that many steps the
+ * bout is saved and a fresh bout of its recipe, with new Minds, loads the save and plays on. A
+ * relay must end on the save straight play ends on, and the command fails naming each fight whose
+ * does not and where the two saves first differ. So what a Mind remembers from step to step is in
+ * its saved state: a fresh bout drops whatever it keeps elsewhere. It does not drop what a module
+ * keeps in a map of its own, it plays only the fights `arena` builds, it compares only the saves
+ * the two end on, and it loads only into a bout that has not played. A count no decision period
+ * divides (127) hands over at every phase of a Mind's decisions; 120 always at the same one.
  *
  * `--character` prints instead what the Character Lab's checks measure on its two models: the
  * lines a change to `scripts/character-lab/validation.mjs` or `contact.mjs` must leave as they were.
@@ -30,7 +39,7 @@ import { rulebook } from "../src/combat/rulebook.ts";
  */
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
-import { parseArgs } from "node:util";
+import { isDeepStrictEqual, parseArgs } from "node:util";
 import { isMainThread, parentPort } from "node:worker_threads";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
@@ -75,6 +84,15 @@ import { defaultLanes, simulationWorker } from "./lanes.mjs";
 
 // An engine announces itself with the time of day, which no two runs share.
 Logger.LogLevels = Logger.NoneLogLevel;
+
+/** What the command was asked: read by the main thread, and by each worker, which is given the same arguments. */
+const { values: ASKED } = parseArgs({ options: {
+  workers: { type: "string" }, character: { type: "boolean" }, only: { type: "string" }, json: { type: "string" }, compare: { type: "string" },
+  variation: { type: "string", multiple: true }, relay: { type: "string" },
+} });
+/** How many steps a relay's bout plays before a fresh one takes over (`--relay`); null where no relay is asked. */
+const RELAY = ASKED.relay === undefined ? null : Number(ASKED.relay);
+if (RELAY !== null && !(Number.isInteger(RELAY) && RELAY > 0)) throw new Error(`--relay takes a whole number of steps, not ${ASKED.relay}`);
 
 const digestOf = (hash) => hash.digest("hex").slice(0, 16);
 /**
@@ -136,13 +154,63 @@ function downMeter(body, hz) {
 }
 
 /**
+ * **The save a relay of `recipe` ends on** after `steps` steps: every `every` steps the bout is
+ * saved, a fresh bout of the recipe loads the save, and play goes on in the fresh one. Its Minds
+ * are new, so they hold only what the save holds; a Mind the load starts fresh is a defect here.
+ */
+async function relayed(recipe, every, steps) {
+  let bout = await buildBout(recipe, { engine: BOUT_ENGINE });
+  try {
+    for (let done = 0; done < steps; done++) {
+      if (done > 0 && done % every === 0) {
+        const saved = bout.duel.save();
+        bout.dispose();
+        bout = await buildBout(recipe, { engine: BOUT_ENGINE });
+        const fresh = bout.duel.load(saved);
+        if (fresh.length > 0) throw new Error(`a relay's load at step ${done} started fresh the mind of ${fresh.join(" and ")}`);
+      }
+      bout.world.step();
+    }
+    return bout.duel.save();
+  } finally { bout.dispose(); }
+}
+
+/** **Where two saves first differ**, a path from `at` and the two values there; null where they are deeply equal (`isDeepStrictEqual`). */
+function difference(straight, relay, at) {
+  if (isDeepStrictEqual(straight, relay)) return null;
+  const record = (v) => v !== null && typeof v === "object" && !ArrayBuffer.isView(v);
+  if (record(straight) && record(relay) && Object.getPrototypeOf(straight) === Object.getPrototypeOf(relay)) {
+    const entries = (v) => new Map(v instanceof Map ? v : v instanceof Set ? [...v].entries() : Object.entries(v));
+    const a = entries(straight), b = entries(relay);
+    for (const key of new Set([...a.keys(), ...b.keys()])) {
+      const where = difference(a.get(key), b.get(key), `${at}.${String(key)}`);
+      if (where) return where;
+    }
+    return `${at}: no entry differs (its keys' order, or what a Map or Set holds by identity)`;
+  }
+  if (ArrayBuffer.isView(straight) && ArrayBuffer.isView(relay)) {
+    if (straight.length !== relay.length) return `${at}: ${straight.length} long straight, ${relay.length} relayed`;
+    const first = straight.findIndex((value, i) => !Object.is(value, relay[i]));
+    return first < 0 ? `${at}: no element differs (another kind of array, or a NaN's bits)` : `${at}[${first}] of ${straight.length}: ${straight[first]} straight, ${relay[first]} relayed`;
+  }
+  const brief = (v) => Object.is(v, -0) ? "-0" : (written(v) ?? String(v)).slice(0, 80);
+  return `${at}: ${brief(straight)} straight, ${brief(relay)} relayed`;
+}
+
+/** Where two bouts' saves first differ (`difference`), the state read before the physics' bytes, whose difference says less; null where nowhere. */
+const saveDifference = (straight, relay) => difference(straight.state, relay.state, "state") ?? difference(straight, relay, "save");
+
+/**
  * A bout of `recipe` capped at 30 s unless it says, to its verdict, then 2 s more: a body that fell
  * goes on moving, and so does the stance under it. Its record has the pose, the bout's state and the
  * physics' bytes at the verdict and 2 s on, the verdict and the blows; with `watch`, also how long that
- * side was down and which minds had its body (`downMeter`), over the whole case.
+ * side was down and which minds had its body (`downMeter`), over the whole case. Under `--relay` it
+ * is told with `relay`: where the save a relay of it ends on differs from its own (`relayed`,
+ * `saveDifference`), null where nowhere.
  */
-async function arena(recipe, { watch } = {}) {
-  const { world, duel, dispose } = await buildBout({ ...recipe, capSeconds: recipe.capSeconds ?? 30 }, { engine: BOUT_ENGINE });
+async function arena(asked, { watch } = {}) {
+  const recipe = { ...asked, capSeconds: asked.capSeconds ?? 30 };
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
   try {
     const trace = traceOf(SIDES.map((side) => duel.duelists[side].built));
     const meter = watch ? downMeter(duel.duelists[watch].body, world.hz) : null;
@@ -160,7 +228,9 @@ async function arena(recipe, { watch } = {}) {
     const later = taken();
     const down = meter ? { down: `${watch} ${meter.reading()}` } : {};
     const variations = variationsOf(SIDES.map((side) => duel.duelists[side]));
+    const relay = RELAY === null ? {} : { relay: saveDifference(duel.save(), await relayed(recipe, RELAY, world.steps)) };
     return {
+      ...relay,
       line: `${verdict}, blows ${blows}, ${down.down ? `${down.down}, ` : ""}pose ${then.pose}, 2 s on ${later.pose}`,
       record: { pose: `${then.pose} ${later.pose}`, state: `${then.state} ${later.state}`, physics: `${then.physics} ${later.physics}`, verdict, blows, ...down, variations },
     };
@@ -459,26 +529,22 @@ const CASES = [
 ];
 
 if (isMainThread) {
-  const { values } = parseArgs({ options: {
-    workers: { type: "string" }, character: { type: "boolean" }, only: { type: "string" }, json: { type: "string" }, compare: { type: "string" },
-    variation: { type: "string", multiple: true },
-  } });
-  const only = values.only === undefined ? null : new RegExp(values.only);
-  const chosen = CASES.keys().filter((id) => !!CASES[id].character === !!values.character && (!only || only.test(CASES[id].name))).toArray();
+  const only = ASKED.only === undefined ? null : new RegExp(ASKED.only);
+  const chosen = CASES.keys().filter((id) => !!CASES[id].character === !!ASKED.character && (!only || only.test(CASES[id].name))).toArray();
   console.log(`engine ${CORE_ENGINE}, ${chosen.length} cases`);
-  const lanes = Number(values.workers ?? defaultLanes());
+  const lanes = Number(ASKED.workers ?? defaultLanes());
   const lines = new Array(CASES.length);
   await workerJobs(chosen, { lanes,
     create: () => simulationWorker(new URL(import.meta.url), { argv: process.argv.slice(2) }),
     result: ({ told }, id) => { lines[id] = told; return told; } });
   for (const id of chosen) console.log(`${CASES[id].name}: ${lines[id].line}`);
   const cases = Object.fromEntries(chosen.map((id) => [CASES[id].name, lines[id].record]));
-  if (values.json) await writeFile(values.json, JSON.stringify({ harness: "Node, core world (src/core/world/world.ts), 120 Hz", engine: CORE_ENGINE, cases }, null, 1));
-  if (values.compare) {
-    const before = JSON.parse(await readFile(values.compare, "utf8"));
-    if (before.engine !== CORE_ENGINE) throw new Error(`${values.compare} was taken on ${before.engine}, this on ${CORE_ENGINE}`);
+  if (ASKED.json) await writeFile(ASKED.json, JSON.stringify({ harness: "Node, core world (src/core/world/world.ts), 120 Hz", engine: CORE_ENGINE, cases }, null, 1));
+  if (ASKED.compare) {
+    const before = JSON.parse(await readFile(ASKED.compare, "utf8"));
+    if (before.engine !== CORE_ENGINE) throw new Error(`${ASKED.compare} was taken on ${before.engine}, this on ${CORE_ENGINE}`);
     // The variations changed; a case runs one where its record says so before or after.
-    const changed = new Set(values.variation ?? []);
+    const changed = new Set(ASKED.variation ?? []);
     const runs = (...records) => records.flatMap((record) => record?.variations ?? []).filter((one) => changed.has(one));
     let moved = 0, expected = 0;
     for (const [name, record] of Object.entries(cases)) {
@@ -493,6 +559,12 @@ if (isMainThread) {
     if (expected) console.log(`${expected} cases that run ${[...changed].join(" ")} moved`);
     console.log(moved ? `${moved} cases moved${changed.size ? " that run none of the changed variations" : ""}` : changed.size ? "no other pose moved" : "no pose moved");
     if (moved) process.exitCode = 1;
+  }
+  if (RELAY !== null) {
+    const fights = chosen.filter((id) => lines[id].relay !== undefined), apart = fights.filter((id) => lines[id].relay !== null);
+    for (const id of apart) console.log(`RELAY DIFFERS: ${CASES[id].name}: ${lines[id].relay}`);
+    console.log(`a relay every ${RELAY} steps: ${apart.length ? `${apart.length} of ${fights.length} fights end on another save than straight play's` : fights.length ? `each of ${fights.length} fights ends on straight play's save` : "none of the cases asked for is an arena fight, so nothing was relayed"}`);
+    if (apart.length || !fights.length) process.exitCode = 1;
   }
 } else {
   // One case at a time: each is answered only when it is done. A case answers its line, or its line and record; a line alone is its pose.

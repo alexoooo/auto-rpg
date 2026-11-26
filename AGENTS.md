@@ -36,7 +36,8 @@ node scripts/fingerprint.mjs          # what the game computes: --json <file> be
   to what a config resolves to, a headless one at the Arena with the mind editor open (the pages
   build Minds from the same configs, so code checks alone do not show they open); a change to
   what a Mind or a skill does, or a refactor claiming none, the fingerprint, each case it moves
-  named; prose only, `node --test tests/documents.test.mjs` (the links) and `git diff --check`,
+  named; a change to what a Mind or a skill remembers, the fingerprint with `--relay 127`; prose
+  only, `node --test tests/documents.test.mjs` (the links) and `git diff --check`,
   nothing more.
 - **Landing**: commit each landable change on main, naming the checks run and any failure left.
   No push and no branch unless the owner asks: a push to main publishes the README's Play link.

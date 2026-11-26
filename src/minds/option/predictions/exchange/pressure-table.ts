@@ -117,7 +117,7 @@ function pairingApart(pairing: { readonly measured: PressureBody; readonly targe
   return Math.max(apart(pairing.measured, pressureBody(striker)), apart(pairing.target, pressureBody(struck)));
 }
 
-/** Each table's curves read, by phase (`any` for every phase) and range. */
+/** Each table's curves read, by phase (`any` for every phase) and range. A cache: a table is data, which never changes. */
 const CURVES = new WeakMap<PressureTable, Map<string, PressureCurve | null>>();
 
 /**

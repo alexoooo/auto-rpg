@@ -97,9 +97,11 @@ export function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, fit
     rootFrameToRef(root, frame); Quaternion.InverseToRef(frame.rotation, inverse);
     inverse.multiplyToRef(heading.set(0, sin(state.yaw / 2), 0, cos(state.yaw / 2)), flat).normalize();
     descending.set(0, -REPTILE_CRAWL.plantSpeed, 0).applyRotationQuaternionToRef(inverse, descending);
-    riseGoal.sequence = state.sequence;
+    // The goal points at the state's arrays as they are this step: a load may have put new ones in the slots.
+    riseGoal.centre = state.centre; riseGoal.rotation = state.rotation; riseGoal.sequence = state.sequence;
     for (let i = 0; i < riseEnds.length; i++) {
       const end = riseEnds[i]!, swing = swings[i]!;
+      end.target = state.targets[i]!; end.rotation = state.turns[i]!;
       end.bearing = feet[i]!.contact;
       end.swing = end.bearing ? null : swing;
       if (end.bearing) continue;

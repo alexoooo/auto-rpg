@@ -77,7 +77,7 @@ function initiativeWeight(initiative: number): NonNullable<Objective["weigh"]> {
   return (side, from, span, horizon) => side === "taken" ? 1 : 1 / meanDecay(0, horizon) * meanDecay(from, span);
 }
 
-/** **The few terms** (`fewTermsWorth`) at `aggression` and `initiative` (none at 0, `initiativeWeight`): combat's objective, the lives a path trades, its orders and the lead at the verdict; made once a pair. */
+/** **The few terms** (`fewTermsWorth`) at `aggression` and `initiative` (none at 0, `initiativeWeight`): combat's objective, the lives a path trades, its orders and the lead at the verdict. A cache, made once a pair: an objective is made of those two numbers alone. */
 const FEW_TERMS = new Map<string, Objective>();
 function fewTerms(aggression: number, initiative: number): Objective {
   const key = `${aggression} ${initiative}`;

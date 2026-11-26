@@ -19,7 +19,7 @@ const afterActions = (sight: Sight): Sight => Object.create(sight, {
 /** Predictions past the blow coming, inheriting every other prediction. */
 const afterDanger = (predictions: Predictions): Predictions => Object.create(predictions, { danger: { value: 0 } });
 
-/** Each overlay of predictions at another own stance (`stancedPredictions`), by the predictions and the stance. */
+/** Each overlay of predictions at another own stance (`stancedPredictions`), by the predictions and the stance. A cache: neither ever changes. */
 const STANCED_PREDICTIONS = new WeakMap<Predictions, WeakMap<object, Predictions>>();
 
 /** **`predictions` with the body standing at `own`**: its focus's pressure on it read there (`Pressure.stanced`); made once for the two. */

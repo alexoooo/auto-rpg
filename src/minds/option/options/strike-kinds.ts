@@ -31,7 +31,7 @@ export interface StrikeConfig<K extends string = keyof ExecutorConfigs> {
 /** **A kind of strike**: a kind of option (`OptionPart`) that strikes by one skill, the executor kind it names (`skill`). */
 export type StrikeKindPart<K extends string = keyof ExecutorConfigs> = OptionPart<StrikeConfig<K>> & { readonly skill: K };
 
-/** Each executor's config as its body's skills hold it (`ExecutorEntry`), by the variation it runs and the name it goes by: a skill is one config a mind. */
+/** Each executor's config as its body's skills hold it (`ExecutorEntry`), by the variation it runs and the name it goes by: a skill is one config a mind. A cache: a config is data, which never changes. */
 const ENTRIES = new WeakMap<ConfigFor<"executor">, Map<string, ExecutorEntry>>();
 
 /**

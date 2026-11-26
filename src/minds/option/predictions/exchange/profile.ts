@@ -33,7 +33,7 @@ interface ProfileTables {
   readonly pressures: readonly PressureTable[] | null;
 }
 
-/** Each spec's turn standing measured on its body, rad/s, found once; where none was measured, what it is taken for (`UNMEASURED_TURN`). */
+/** Each spec's turn standing measured on its body, rad/s, found once; where none was measured, what it is taken for (`UNMEASURED_TURN`). A cache: a spec never changes. */
 const TURNS = new WeakMap<BodySpec, number>();
 
 /** **How fast a body of `spec` turns to face**, rad/s: its measured turn walking slowest (`turnAt`, `stanceEnvelopeOf`); where none was measured, what it is taken for (`UNMEASURED_TURN`). */
