@@ -1,6 +1,6 @@
 {
   "man": {
-    "made": "Searched on the man at 6e48b9c8 (research/skills/skill-search.mjs): CMA over chamberSeconds, extendSeconds, retractSeconds, pathSeconds, transferSeconds, follow, decel, alongNear, alongFar from its record, searched on the stance's catch fixes, ranked as its confirmation keeps, 46 generations of 16, on the kick's row on the Strike drill, the trials the front kick is offered (its base rung) on its cells' training twins at 120 Hz, 64 trials a candidate, 6785 s; on fresh trials on its cells' own cases at 120 and 480 Hz, the worse counting the search's best scored 0.103 (1 falls) and the record it replaces 0.042 (1 falls): the best is kept.",
+    "made": "Authored: the extension carried to the push kick's drive through (its strike point 0.15 m past the target, level, the knee straight), on the timings and window searched for the bent-knee extension at 6e48b9c8.",
     "settings": {
       "transferLimit": 2,
       "setLimit": 3,
@@ -24,12 +24,10 @@
       "chamberLift": 0.2,
       "chamberKnee": 2.1,
       "extendSeconds": 0.1479,
-      "extendKnee": 0.1,
-      "extendAnkle": 0.2,
+      "through": 0.15,
       "retractSeconds": 0.08,
       "counter": 0,
-      "pathSeconds": 0.0172,
-      "aimAbove": 0.17
+      "pathSeconds": 0.0172
     }
   }
 }
