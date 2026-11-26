@@ -16,8 +16,8 @@ import { within } from "../../situation/reach-memory.ts";
  * `phase`: each measured, and, where the Mind has `guesses`, the guess of each limb its model
  * has no profile of (`Model.unmeasured`, `Guesses.limb`), placed by `placing`: null where the two
  * stand so that no guess is of it (a body lying, or struck lying, deals none by a guess), and
- * such a limb's reading says it is not priced (`NO_GUESS`). With no guesses such a limb adds nothing. Its latency takes the striker's mind for one like this (its rethink, `RETHINK`, and its
- * command's delay, `Seen.delay`) and adds its fastest blow's run (`ProfileReading.fastest`).
+ * such a limb's reading says it is not priced (`NO_GUESS`). With no guesses such a limb adds nothing. Its latency takes the striker's mind for one rethinking every `RETHINK` s, its chooser not
+ * being seen, with this body's command delay (`Seen.delay`), and adds its fastest blow's run (`ProfileReading.fastest`).
  */
 export function pressureBy(seen: Seen, { model, phase, striker, struck, placing, guesses }: { readonly model: Model; readonly phase: string; readonly striker: BodySpec; readonly struck: BodySpec; readonly placing: Placing | null; readonly guesses: Guesses | null }): PressureFields {
   const readings = model.measured.map((one) => one.reading);
