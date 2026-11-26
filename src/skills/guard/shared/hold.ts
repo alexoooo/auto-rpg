@@ -5,6 +5,7 @@ import { bodyEffectors } from "../../../control/effectors.ts";
 import type { PointTask } from "../../../control/motor.ts";
 import { turnOfToRef } from "../../../core/bodies/read-motion.ts";
 import { atan2 } from "../../../core/math/real.ts";
+import { damping } from "../../../control/approach.ts";
 import type { ReadBody } from "../../../core/bodies/read-body.ts";
 
 /** The time constant a held item's line is turned up at, s: about the guard's posture's own. */
@@ -18,8 +19,7 @@ const HOLD_SECONDS = 0.1;
  * line up as the body stands in its reference pose (`guardPosture`); a hold keeps it up however
  * the trunk leans and whatever the item's weight does to the wrist. An empty hand holds nothing.
  */
-export function holdUp(built: ReadBody): (hand: string) => PointTask | null {
-  const n = 1 / HOLD_SECONDS;
+export function holdUp(built: ReadBody): (hand: string, dt: number) => PointTask | null {
   const hands = new Map(bodyEffectors(built).flatMap((effector) => {
     const name = effector.model.segment, segment = built.segments.get(name), held = heldAt(built.spec, name);
     if (!segment || !held) return [];
@@ -27,14 +27,15 @@ export function holdUp(built: ReadBody): (hand: string) => PointTask | null {
     return [[name, { segment, point: effector.model.point, along: new Vector3(x / size, y / size, z / size) }] as const];
   }));
   const turn = new Quaternion(), line = new Vector3(), spin = new Vector3();
-  return (name) => {
+  return (name, dt) => {
     const hand = hands.get(name);
     if (!hand) return null;
     hand.along.applyRotationQuaternionToRef(turnOfToRef(hand.segment, turn), line);
     hand.segment.body.angularVelocityToRef(spin);
     // The turn that brings the line up: about line x up, by the angle between them.
-    const ax = -line.z, az = line.x, across = Math.sqrt(ax * ax + az * az), angle = atan2(across, line.y), k = across > 0 ? n * n * angle / across : 0;
+    const gain = damping(1 / HOLD_SECONDS, dt);
+    const ax = -line.z, az = line.x, across = Math.sqrt(ax * ax + az * az), angle = atan2(across, line.y), k = across > 0 ? gain.error * angle / across : 0;
     return { segment: name, point: hand.point, accel: null,
-      spin: [k * ax - 2 * n * spin.x, -2 * n * spin.y, k * az - 2 * n * spin.z] };
+      spin: [k * ax - gain.rate * spin.x, -gain.rate * spin.y, k * az - gain.rate * spin.z] };
   };
 }

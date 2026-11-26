@@ -1,4 +1,5 @@
 import type { MuscleCommand, MuscleReading } from "../core/bodies/muscle/driver.ts";
+import { damping } from "./approach.ts";
 
 /**
  * **The joint servo**: freedoms pulled toward goal angles by their own muscles, each as a
@@ -8,6 +9,9 @@ import type { MuscleCommand, MuscleReading } from "../core/bodies/muscle/driver.
  *
  * taken one world step at a time, with the torques the body's dynamics say that motion takes
  * (computed torque), bounded by the muscles.
+ *
+ * Its gains are the approach's exact over the world's step (`damping`), n^2 and 2n where a response
+ * is many steps long: a response is a time, alike at every rate.
  *
  * **In the joints' angles.** A freedom's angle is the engine's measure, and its rate is not the
  * speed its motor drives (`src/core/bodies/build/joint-state.ts`). The change of rate each freedom asks
@@ -66,11 +70,11 @@ export function servoAsk(driver: MuscleReading, command: MuscleCommand, goal: (c
   // The change of each freedom's rate asked over the step; NaN where the goal leaves a channel be,
   // whose torque is then its command's.
   for (let i = 0; i < count; i++) {
-    const g = goal(i), n = 1 / (feed?.seconds?.(i) ?? seconds);
+    const g = goal(i), { error, rate } = damping(1 / (feed?.seconds?.(i) ?? seconds), dt);
     fixed[i] = g === undefined ? 1 : 0;
     change[i] = g === undefined ? NaN : feed
-      ? dt * (feed.acceleration(i) + n * n * (g - driver.angle(i)) + 2 * n * (feed.rate(i) - driver.rate(i)))
-      : dt * (n * n * (g - driver.angle(i)) - 2 * n * driver.rate(i));
+      ? dt * (feed.acceleration(i) + error * (g - driver.angle(i)) + rate * (feed.rate(i) - driver.rate(i)))
+      : dt * (error * (g - driver.angle(i)) - rate * driver.rate(i));
     if (g === undefined) {
       const push = command.velocity[i]! - driver.speed(i), sense = push >= 0 ? 1 : -1;
       torque[i] = sense * Math.max(0, Math.min(1, command.activation[i]!)) * driver.strength(i, sense);

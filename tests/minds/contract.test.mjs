@@ -232,7 +232,8 @@ test("a bout's save made on another build loads its bodies, and starts fresh a m
 /**
  * Reproduce a save refused as another bout's recipe by a bout whose striker runs a tuning, which
  * kept a search's candidate from a start a fight was saved at. Load the opening save of a Strike
- * drill's still trial into a bout of that trial built under a tuned punch: it loads with no mind
+ * drill's still trial into a bout of that trial built under a tuned punch, unsteered as no trainer
+ * steers it here (a tuning drops the record's network): it loads with no mind
  * started fresh, and 90 steps on its bodies are a fresh tuned bout's to the bit and not the
  * untuned bout's; a bout of another trial refuses the save. A save loaded only into its own recipe
  * never meets a mind under other settings.
@@ -241,7 +242,7 @@ test("a bout's save loads under another tuning of its striker's punch, and plays
   const cases = EVALUATIONS.strike.protocols.still, [subject] = EVALUATIONS.strike.subjects(["option/straight-punch"]);
   const [condition, further] = cases.conditions.filter((one) => one.model === "man" && one.mark === "middle" && one.across === 0 && one.gap >= .9);
   const tuned = { ...subject.value, mind: { ...subject.value.mind, options: optionsOf(subject.value.mind, partLookup).map((option) =>
-    option.skill?.kind !== "straight-punch" ? option : { ...option, skill: { ...option.skill, tuning: { hips: .2 } } }) } };
+    option.skill?.kind !== "straight-punch" ? option : { ...option, skill: { ...option.skill, tuning: { hips: .2, steered: false } } }) } };
   const build = async (value, at) => {
     const world = cases.world([value], at, cases.engine ?? DEFAULT_ENGINE, [subject]), built = await BOUT_WORLD.build(world, {});
     BOUT_WORLD.start(built, world);

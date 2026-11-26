@@ -66,7 +66,7 @@ node research/skills/skill-search.mjs <sit-back | roll> <model> --out .tmp/skill
 node research/skills/skill-search.mjs <sit-back | roll> <model> --confirm .tmp/skill-search/<model>.json --write
 ```
 
-- **What it moves** is `SEARCHES`: the sit-back's stage angles, never their times; the roll's
+- **What it moves** is `SEARCHES`: the sit-back's stage times, its postures authored; the roll's
   pose angles and each pose's time. The Skeleton has roll poses of its own; the Warrior's and the
   Rogue's are the game's (`ROLL_POSES`).
 - **It plays the twins** of the cells the record drives, one body at a time, and ends as

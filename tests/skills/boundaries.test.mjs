@@ -132,7 +132,7 @@ test("takeover clears a paced ward and staged toe support restores into a fresh 
     loadState(fresh.state, saveState(first.state));
     for (const made of [first, fresh]) {
       made.read({ ground: 1, overProp: false, toes, centre: { x: 0, z: -100 } });
-      for (let i = 0; i < made.limbs.length; i++) if (toes[i]) made.bear(i, 1, { goal: new Float64Array(own.muscles.channels.length), rate: 1, ground: 1, transfer: false });
+      for (let i = 0; i < made.limbs.length; i++) if (toes[i]) made.bear(i, 1, { goal: new Float64Array(own.muscles.channels.length), rate: 1, ground: 1, transfer: false, dt: 1 / 120 });
     }
     const rows = made => made.limbs.filter((_, i) => toes[i]).map(limb => limb.work.rows);
     assert.ok(rows(first).some(row => row !== null), "the controller actually latched a rolled toe support");

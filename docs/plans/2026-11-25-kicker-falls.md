@@ -107,10 +107,55 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   and 3. The hips driven through behind the foot (the centre 0.1 and 0.2 m further ahead through
   the extension) landed 4 and 3, lighter, and fell 2 and 3: not kept. The push kick on that rung:
   landed 11, down after 2, value 0.577 (`research/looks/man/`).
-- **Next**: step 4 of [the procedure](../recipes/skill.md#the-procedure), the front kick's timings
-  and gains searched on its base rung (its verdict passes the gate); then, its value nearer the
-  push kick's, its own profiles and a match of the Warrior holding it against holding the push kick,
-  where its falls are the question.
+- **A search found a kick that stands only at 120 Hz: the servo's step was not exact.** The front
+  kick's timings, gains and window searched at 120 Hz on its empty-handed base trials: its best by
+  generation 35, 0.368 (no falls), a faster kick (chamber 0.106 s, extension 0.071 s, path response
+  0.013 s); on the cells' cases, 0.332 and 1 fall in 32 at 120 Hz, 0.054 and 21 falls at 480. Every
+  damped aim took the continuous motion's gains (n^2, 2n) as one explicit step, right only while a
+  response is many steps long, so a time meant one thing at 120 Hz and another at 480. The aims now
+  take the gains exact over the world's step (`damping`), one source: that best reads 0.103 with 17
+  falls at 120 Hz and 0.065 with 16 at 480, the record 0.040 (1) and 0.048 (0), and the reptile's
+  righting (its placing leg at 8 ms) rights it at both. A search reads its rising best at 480 Hz as
+  it goes.
+- **What the exact step moved** (the fingerprint, 253 cases: every servoed body; the table's cells
+  one case each, so each reading is a sign, not a measure). A response of 30 to 100 ms acts 10 to
+  25 % softer at 120 Hz than the explicit step made it. Read worse there: the ways up on the
+  standard falls (the man's sit-back 3.06 to 5.79 s, front-sit-back 6.87 to 7.48; the woman's
+  sit-back 3.15 to 6.04, front-sit-back 8.47 to 9.36, staged-down 5.64 to 6.76; the Skeleton's
+  staged-down 8.92 to 12.40, front-sit-back 8.51 to 10.83, staged-roll 8.89 to 10.13); the kick
+  (base 0.586 to 0.278, middle 0.398 to 0.281); the man's punch walking (1.23 to 0.69); the bonk
+  (0.267 to 0.130); the man's cover against the sword (1.55 to 2.42). Read better: the man's run,
+  his staged-down, his thrust, his punch still, the stomp.
+- **Measured** (each warned row played fresh at 5c313dc61, against the reading it replaced): the
+  punch better in all nine cells; the kick, the cover and the bonk walking within noise; worse, on
+  48 pairs or more: the woman's sit-back (+2.13 s), the Skeleton's front-sit-back holding a buckler
+  and club (+2.16), the man's staged-down so held (+1.21), the man's bonk with a club (-0.056), the
+  woman's walk (+0.72), the man's run (+0.39), the woman's run with buckler and club (+1.37). Then
+  each of those protocols played again on the same commit with `damping` alone back at the explicit
+  gains, case by case: the walk, the runs and the bonk read the same on both (their losses are older
+  code's, their replaced readings of 82e2c881 and 6d797e47); the ways up of the man and the woman
+  differ by -0.6 to +0.2 s an attempt, within two standard errors (the woman's front-sit-back 0.64
+  s faster on the exact step). One reads worse: the Skeleton's sit-back, +1.61 s an attempt (0.74
+  s standard error, 119 pairs), 37 falls failing only on the exact step and 22 only on the
+  explicit. Its look (21 of 38 falls with an attempt reached) fails one way: up from the heels,
+  once the stance has it (`regain`), its weight behind its feet, it tips backward onto its back; the
+  same failure that held it to 38 rises in 90 at its search's confirmation before the exact step
+  (`research/runs/sit-back-search`). Its record is its three stage times: searched alone on the
+  empty-handed cell (168 falls a candidate), sixteen candidates over a fifth of each time scored
+  within 0.03 s of each other for two generations, so they are not the cause and the run was
+  stopped; its up stage authored with the trunk and arms forward did worse (12 of 38), still going
+  over backward. The tip under `regain` is a step-1 item of the Skeleton's sit-back: what the
+  stance is handed and why it does not bring the weight over the feet.
+- **The gate, made to work for a way up**: the look played a bout alone, so no way up could be
+  looked at or searched since the gate came in; it now draws a fall's riser and counts a way up
+  reached. Its code hashed a skill's own record folder, not a staged way up's
+  (`assets/skills/recovery/staged/`); it now hashes the records of each folder of the group's
+  shared code too. The sit-back's search moved its stages' postures, which step 4 forbids; it
+  moves their times alone (the roll's search still moves its poses' angles, the same rule).
+- **Next**: step 4 again for the front kick; then step 5, as the owner asked:
+  confirmed at 120 and 480 Hz, its look at the best's code, its profiles, and the match and
+  scorecard against the push kick as the Warrior's kick. It lands as the kick the Warrior holds
+  only if it measures no worse, and stays pickable either way.
 
 ## After it
 
@@ -125,3 +170,14 @@ plan of their own when begun.
 A decision still lands in the one step it is made in (the approaches' Minds,
 `research/runs/lean-time/`): spreading it over the steps until the next one is the lever, not yet
 asked for.
+
+Rows reading worse than the readings they replaced, that the exact step did not cause (the A/B on
+5c313dc61 with `damping` alone at the explicit gains reads them the same): broken by code since
+their readings, each to be bisected on its row's protocol to the commit that moved it and fixed
+at its root. The woman's walk, +0.72 s lost against the orders (replaced reading 82e2c881); the
+man's run on its confirmation, +0.39 s (82e2c881); the woman's run holding a buckler and club,
++1.37 s (82e2c881); the man's bonk with a club, -0.056 hp a second (6d797e47); the woman's
+sit-back on the standard falls, +2.13 s an attempt (b71b3fd0); the Skeleton's front-sit-back
+holding a buckler and club, +2.16 s (b71b3fd0); the man's staged-down so held, +1.21 s
+(ecf5182e). And the Skeleton's sit-back's backward tip under `regain`, a step-1 item (above).
+They wait on the front kick landing; the order after it stands (the low kick next).

@@ -6,6 +6,7 @@
 import { Vector3 } from "../../../../core/math/vector.ts";
 import type { Limb, LimbTask, Row } from "../../../../control/bearing.ts";
 import { UNHELD, type BearingPoint } from "../../../../control/contact-wrench.ts";
+import { damping } from "../../../../control/approach.ts";
 import { lowsOf } from "../../../../control/ground.ts";
 import { chainTo } from "../../../../control/kinematics.ts";
 import { SOLE_MARGIN } from "../../../../control/stance/stance-tuning.ts";
@@ -90,6 +91,8 @@ export interface Bearing {
   readonly rate: number;
   readonly ground: number;
   readonly transfer: boolean;
+  /** The world's step, s: the gains at `rate` are exact over it (`damping`). */
+  readonly dt: number;
 }
 
 /** A limb, and its kind's part of a step. */
@@ -149,13 +152,13 @@ function unknownEnd(end: never): never {
 const taskOf = (freedoms: number): LimbTask => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(freedoms) });
 
 /** `limb` bears at its point: the point held across the ground and brought to `ground`, its segment's spin damped. */
-function hold(limb: Limb, rate: number, ground: number): void {
-  const { task, work } = limb;
+function hold(limb: Limb, { rate, ground, dt }: Bearing): void {
+  const { task, work } = limb, gain = damping(rate, dt);
   motionAtToRef(limb.segment, work.at, task.linear, task.angular);
   const fall = task.linear.y;
-  task.linear.scaleInPlace(-rate);
-  task.linear.y = rate * rate * (ground - work.at.y) - 2 * rate * fall;
-  task.angular.scaleInPlace(-rate);
+  task.linear.scaleInPlace(-gain.decay);
+  task.linear.y = gain.error * (ground - work.at.y) - gain.rate * fall;
+  task.angular.scaleInPlace(-gain.decay);
   task.on = true;
   task.bearing = true;
 }
@@ -205,10 +208,10 @@ function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb, policy?: 
   const jointAcceleration = new Float64Array(channels.length);
   return {
     channels, stem: names.stem.map((name) => muscles.channel(name)), ahead, toward,
-    ask({ goal, rate, transfer }: Bearing): void {
+    ask({ goal, rate, transfer, dt }: Bearing): void {
       for (let k = 0; k < channels.length; k++) {
-        const i = channels[k]!, r = !transfer && takes[k] && within > 0 ? within : rate;
-        jointAcceleration[k] = r * r * (goal[i]! - muscles.angle(i)) - 2 * r * muscles.rate(i);
+        const i = channels[k]!, gain = damping(!transfer && takes[k] && within > 0 ? within : rate, dt);
+        jointAcceleration[k] = gain.error * (goal[i]! - muscles.angle(i)) - gain.rate * muscles.rate(i);
       }
       // The posture closes joint angles; the bearing task and dynamics use motor-axis speeds.
       for (let k = 0; k < channels.length; k++) {
@@ -262,7 +265,7 @@ function endLimb(own: OwnBody, spec: EndLimb, support: Pick<Recipe, "heldSupport
       }
     },
     bear(bearing) {
-      hold(limb, bearing.rate, bearing.ground);
+      hold(limb, bearing);
       chain.ask(bearing);
     },
   };
@@ -366,10 +369,9 @@ function proppedLimb(own: OwnBody, spec: ProppedLimb, prop: FootState, policy?: 
       }
     },
     bear(bearing) {
-      const { rate } = bearing;
-      hold(limb, rate, bearing.ground);
+      hold(limb, bearing);
       // A turn about up x along brings the foot down: asked by how far up it is, critically damped.
-      const down = lies.span > 0 ? rate * rate * lies.up / lies.span : 0;
+      const down = lies.span > 0 ? damping(bearing.rate, bearing.dt).error * lies.up / lies.span : 0;
       limb.task.angular.scaleInPlace(2).addInPlaceFromFloats(down * along.z, 0, -down * along.x);
       chain.ask(bearing);
     },
@@ -402,7 +404,7 @@ function footLimb(own: OwnBody, spec: FootLimb, foot: FootState, index: number):
       at.copyFrom(toes ? foot.ends.front.middle : rolledEdge(foot)?.middle ?? foot.middle);
     },
     bear(bearing) {
-      hold(limb, bearing.rate, bearing.ground);
+      hold(limb, bearing);
       limb.work.rows = foot.memory.rolled ? rolledRows(foot) : null;
       limb.work.patch = bearingSole(foot, 1 - SOLE_MARGIN);
       chain.ask(bearing);
