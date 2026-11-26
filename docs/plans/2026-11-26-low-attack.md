@@ -94,6 +94,17 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
     three times as much, and a start at a striking foe reads that phase's trials alone
     (`readProfile`). Where the price comes from is the first thing traced.
   - **The low front kick on a body down**: 0.75 blows a second there against the stomp's 1.04.
+- **Its time goes to the walk to the foe.** The owner, on its arriving too late: "Re a faster
+  approach, yes that might be necessary to make this work." On sparring-laid's 80 empty-handed
+  starts at the man, at 120 Hz, the record: the foe is down by 0.3 s and at rest about 2.2 m off by
+  1.3 s (the shove); the striker stands 0.4 s more, then closes at 0.31 m/s (median), and is in its
+  window at 6.1 s (median); the 22 kicks begun began 0.01 s after their window first admitted them,
+  at 0.37 m/s, under the admitting speed (0.6), and took 0.59 s to commit. Of its 43 starts
+  `beyond` its band, 26 came as the foe began to rise, at 4.4 s (median), his trunk's centre
+  0.3 m up; the other 17 within 1.5 s of the shove, the foe just landed, where a trial ends at its
+  first `beyond` (`Ending`: "standing as the drill stands it, it stays so", which a body laid down
+  does not), and a trial not offered is not counted. So the lever is how the Mind closes on a
+  lying foe, not the kick's admitting speed.
 - **Next**: the low front kick searched again at the empty-handed man, as the bite is, on the rung
   its profile is measured on: `sparring-laid`'s twin (`sparring-laid-twin`, its starts from
   another stream), its own cases confirming (`skill-search.mjs stomp/front man --loadout
