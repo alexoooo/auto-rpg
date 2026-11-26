@@ -1,11 +1,15 @@
 /**
  * **How the scorecard reads a bout**: at each decision of each side's mind that reports its offers
  * (`Engagement.offers`), what the chosen offer was priced to deal and take against what the bout gave
- * (`pricesOf`); the strikes each side began, and its falls.
+ * (`pricesOf`); the strikes each side began, and its falls; how long the two stood out of each other's
+ * reach, and when each blow that took life landed.
  */
 import { SIDES } from "../../game/arena/duel.ts";
 import { hypot } from "../../core/math/real.ts";
 import { ARRIVED } from "../../skills/framework/movement.ts";
+import { dataOf } from "../../core/data/store.ts";
+import { lifeTaken } from "../../combat/blows.ts";
+import { measuredReach } from "../../minds/option/predictions/exchange/model.ts";
 import { readBout, type BoutReading } from "../contest.ts";
 import type { BuiltBout } from "../bout.ts";
 import type { Reader } from "../evaluation.ts";
@@ -41,12 +45,37 @@ export type SideReading = {
 /**
  * A bout as the scorecard reads it: the contest's reading (`BoutReading`), each side's own
  * (`SideReading`), and when either body was down, each stretch from the step one went down to the
- * step both stood again, s (`grounded`).
+ * step both stood again, s (`grounded`); the seconds with both bodies standing farther apart than
+ * either's strikes reach the other (`outOfReach`, `apartReach`); and when each blow that took
+ * life landed, s on the bout's clock (`landed`).
  */
 export type ScorecardReading = BoutReading & {
   readonly sides: readonly [SideReading, SideReading];
   readonly grounded: readonly (readonly [number, number])[];
+  readonly outOfReach: number;
+  readonly landed: readonly number[];
 };
+
+/**
+ * **How far either of a bout's bodies reaches the other**, m centre to centre: the farther of the
+ * two, each the farthest any strike measured on its body reads against the other's standing clear
+ * (`measuredReach`, as a Mind reads a foe's reach).
+ */
+function apartReach(duel: BuiltBout["duel"]): number {
+  const [a, b] = SIDES.map((side) => duel.duelists[side].built.spec);
+  return Math.max(measuredReach(dataOf("strike-profiles"), a!, b!, "clear"), measuredReach(dataOf("strike-profiles"), b!, a!, "clear"));
+}
+
+/**
+ * **The longest stretch of a bout `seconds` long with no blow taking life**, s: between its start,
+ * each blow `landed` that took life, and its end.
+ */
+export function longestUnlanded({ landed, seconds }: { readonly landed: readonly number[]; readonly seconds: number }): number {
+  const marks = [0, ...[...landed].sort((a, b) => a - b), seconds];
+  let longest = 0;
+  for (let i = 1; i < marks.length; i++) longest = Math.max(longest, marks[i]! - marks[i - 1]!);
+  return longest;
+}
 
 /** A decision: when, the Option it chose (`name`), whether that Option is held (`OfferTerms.open`), its priced terms, and the slices it is read in. */
 export type Decision = { readonly t: number; readonly name: string; readonly open: boolean; readonly duration: number; readonly dealt: number; readonly taken: number; readonly slices: readonly string[] };
@@ -89,12 +118,23 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
   const { duel } = built, contest = readBout(built);
   const times: number[] = [], lives: [number[], number[]] = [[], []];
   const decisions: [Decision[], Decision[]] = [[], []], strikes: [number[], number[]] = [[], []], downs = [0, 0], wasDown = [false, false];
-  const offered: unknown[] = [null, null], sequence = [0, 0], grounded: [number, number][] = [];
-  let groundedSince: number | null = null;
+  const offered: unknown[] = [null, null], sequence = [0, 0], grounded: [number, number][] = [], landed: number[] = [];
+  let groundedSince: number | null = null, reach: number | null = null, outOfReach = 0, blowsRead = 0, last = 0;
   return {
     afterStep() {
       contest.afterStep();
+      const step = duel.clock - last;
+      last = duel.clock;
       times.push(duel.clock);
+      for (; blowsRead < duel.blows.length; blowsRead++) {
+        const blow = duel.blows[blowsRead]!;
+        // A blow lands on the world's clock; the bout's runs from its start.
+        if (blow.sides.some((side) => lifeTaken(side) > 0)) landed.push(blow.time - built.world.time + duel.clock);
+      }
+      if (SIDES.every((side) => !duel.duelists[side].body.down)) {
+        const a = duel.duelists.left.body.physical.centre, b = duel.duelists.right.body.physical.centre;
+        if (hypot(a.x - b.x, a.z - b.z) > (reach ??= apartReach(duel))) outOfReach += step;
+      }
       SIDES.forEach((side, s) => {
         const me = duel.duelists[side], foe = duel.duelists[SIDES[1 - s]!];
         lives[s]!.push(duel.life(side));
@@ -133,7 +173,7 @@ export function readScorecard(built: BuiltBout): Reader<ScorecardReading> {
         const prices = pricesOf(decisions[s]!, (side, t) => lifeAt(side === 0 ? s : 1 - s, t), end, carried);
         return { decisions: decisions[s]!.length, prices, strikes: strikes[s]!, downs: downs[s]! };
       }) as unknown as readonly [SideReading, SideReading];
-      return { ...read, sides, grounded: groundedSince === null ? grounded : [...grounded, [groundedSince, end] as [number, number]] };
+      return { ...read, sides, grounded: groundedSince === null ? grounded : [...grounded, [groundedSince, end] as [number, number]], outOfReach, landed };
     },
   };
 }

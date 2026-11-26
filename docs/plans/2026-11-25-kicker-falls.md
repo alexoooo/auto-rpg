@@ -25,6 +25,22 @@ So the kicker stays up after a kick, the push kick's and the low kick's alike (b
 executor, `src/skills/strikes/shared/kick.ts`), without losing what the kick lands, and the game's
 Mind's knockouts within 60 s come back toward what they were before the kick.
 
+On 2026-11-26, on judging the front kick against the push kick: "comparing the old kick, which
+was totally broken, vs the new kick, makes no sense. shouldn't we compare with the kick vs
+without the kick? but that also is not perfect because we don't have any good way to capitalize
+on opponent falls." So the front kick is judged against the Warrior without a kick: the match and
+the scorecard, and what the kick does itself, a kick begun's foe downs within 2 s, own downs and
+damage dealt. Capitalizing on a foe's fall is the owner's point, recorded here, not begun.
+
+On the pace bar, the same day: "given that a good kick will slow down fights without a good way to
+damage downed opponents, i think we need to revisit the 90% within 60s bar. i want to have faster
+fights, but that's a separate concern from winning fights. i just want to avoid a situation where
+a player gets one hit in and then spends teh rest of the fight running away (and winning on the
+clock)"; and, on reading the kick on knockouts within 60 s first, "you recommend comparing the
+kick using the broken gate?". So knockouts within 60 s are read, not a gate; the scorecard reads
+instead how much of a bout's first 60 s the two stand out of each other's reach, and the longest
+stretch with no blow taking life.
+
 ## What is known before it starts
 
 - **The kick costs the game's Mind bar 2 by its falls**: on the scorecard (warrior-drawn) the
