@@ -21,10 +21,10 @@ import { acos, asin, atan2, cos, cosh, exp, hypot, sin, sinh } from "../core/mat
 import { swingPathToRef, SWING_PEAK, swingProgressToRef, type SwingBow } from "./swing-path.ts";
 import type { ReadJoint } from "../core/bodies/read-body.ts";
 
-/** A leg as a pendulum about its hip: the segments from the hip joint to the ankle's child, on the straight leg. */
-/** How far a hip's frame leans from upright, rad, ahead and out to its leg's side (`FootMemory.tilt`). */
-export interface Tilt { readonly ahead: number; readonly out: number }
+/** How far a hip's frame leans from upright, rad, ahead and out to its leg's side, as last read (`FootMemory.tilt`). */
+export interface Tilt { ahead: number; out: number }
 
+/** A leg as a pendulum about its hip: the segments from the hip joint to the ankle's child, on the straight leg. */
 export interface SwingLeg {
   /** The hip to the ankle, straight, m. */
   readonly length: number;
@@ -170,7 +170,7 @@ const leanOf = (lean: number): number => Math.min(Math.max(lean, 0), Math.PI / 2
  * range stops the thigh, its knee bends for the rest if it `bends`. Scalars and a flag, as
  * `reachAt`'s, for the same reason.
  */
-function shareOfReach(leg: SwingLeg, ahead: number, out: number, hip: number, long: number, bends: boolean, tilt: Tilt): number {
+function shareOfReach(leg: SwingLeg, ahead: number, out: number, hip: number, long: number, bends: boolean, tilt: Readonly<Tilt>): number {
   const ra = ahead >= 0 ? reachAt(leg, leanOf(leg.range.ahead - tilt.ahead), false, hip, long) : reachAt(leg, leanOf(leg.range.behind + tilt.ahead), bends, hip, long);
   const ro = reachAt(leg, out >= 0 ? leanOf(leg.range.out - tilt.out) : leanOf(leg.range.in + tilt.out), false, hip, long);
   if (ra <= 0 || ro <= 0) return 0;
@@ -188,7 +188,7 @@ function shareOfReach(leg: SwingLeg, ahead: number, out: number, hip: number, lo
  * bearing leg's sole is its own, at (0, 0), where the body's centre has gone ahead of it by the
  * landing.
  */
-export function withinReach(leg: SwingLeg, dx: number, dz: number, cx: number, cz: number, at: Vector3, rx: number, rz: number, sign: number, hip: number, long: number, back: number, tilt: Tilt): number {
+export function withinReach(leg: SwingLeg, dx: number, dz: number, cx: number, cz: number, at: Vector3, rx: number, rz: number, sign: number, hip: number, long: number, back: number, tilt: Readonly<Tilt>): number {
   const [ahead, out] = ankleFromHip(dx, dz, cx, cz, at, rx, rz, sign, back);
   return shareOfReach(leg, ahead, out, hip, long, true, tilt);
 }
@@ -203,7 +203,7 @@ export function withinReach(leg: SwingLeg, dx: number, dz: number, cx: number, c
  */
 export function reachableSole({ leg, dx, dz, cx, cz, at, rx, rz, sign, hip, long, back, reserve, bends, tilt }: {
   readonly leg: SwingLeg; readonly dx: number; readonly dz: number; readonly cx: number; readonly cz: number; readonly at: Vector3; readonly rx: number; readonly rz: number;
-  readonly sign: number; readonly hip: number; readonly long: number; readonly back: number; readonly reserve: number; readonly bends: boolean; readonly tilt: Tilt;
+  readonly sign: number; readonly hip: number; readonly long: number; readonly back: number; readonly reserve: number; readonly bends: boolean; readonly tilt: Readonly<Tilt>;
 }): [number, number, boolean] {
   const [ahead, out] = ankleFromHip(dx, dz, cx, cz, at, rx, rz, sign, back);
   const share = shareOfReach(leg, ahead / reserve, out / reserve, hip, long, bends, tilt);

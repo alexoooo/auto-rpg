@@ -7,7 +7,7 @@ import { Quaternion, Vector3 } from "../core/math/vector.ts";
 import type { Row } from "./bearing.ts";
 import type { AnkleHold, BearingSole } from "./contact-wrench.ts";
 import { chainTo, specChainTo } from "./kinematics.ts";
-import { swingLegOf, type SwingLeg } from "./swing-leg.ts";
+import { swingLegOf, type SwingLeg, type Tilt } from "./swing-leg.ts";
 import type { Vec3 } from "../core/quantity.ts";
 import { turnOfToRef, partsOn, type Parts } from "../core/bodies/read-motion.ts";
 import { SUPPORT_INSET } from "./stance/stance-tuning.ts";
@@ -69,7 +69,7 @@ export interface FootMemory {
    * hip's range about this lean (`shareOfReach`): a pelvis tipped back leaves the thigh less of its
    * reach behind.
    */
-  readonly tilt: { ahead: number; out: number };
+  readonly tilt: Tilt;
   /**
    * The ground's height under the sole, m: the bearing contact's for an articulated foot, the
    * lowest corner's for a rigid sole, or the ground a rising body is given. Read where the ground
