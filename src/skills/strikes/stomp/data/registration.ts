@@ -5,4 +5,5 @@ import type { DataLoaders } from "../../../../core/data/store.ts";
 export const STOMP_DATA = {
   "stomp/stomp": bodyRecords(() => import("./stomp.ts").then((m) => m.STOMP_RECORDS)),
   "stomp/kick": bodyRecords(() => import("./kick.ts").then((m) => m.LOW_KICK_RECORDS)),
+  "stomp/front": bodyRecords(() => import("./front.ts").then((m) => m.LOW_FRONT_KICK_RECORDS)),
 } satisfies DataLoaders;

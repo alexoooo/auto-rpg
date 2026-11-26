@@ -1,0 +1,33 @@
+{
+  "man": {
+    "made": "Authored: the front kick's record (`kick/front`), its window where the low kick's (`stomp/kick`) is, its height band 0 to 0.45 of the leg's reach, a lying body's trunk, and its along band.",
+    "settings": {
+      "transferLimit": 2,
+      "setLimit": 3,
+      "recenterLimit": 3,
+      "transferSeconds": 0.1624,
+      "transferSlow": 0.12,
+      "lean": 0,
+      "ahead": 0,
+      "hold": 0.03,
+      "lower": 0.03,
+      "follow": 0.0841,
+      "decel": 267.2544,
+      "alongNear": 0.41741078620416966,
+      "alongFar": 0.7064240095810518,
+      "across": 0.25886821185469516,
+      "low": 0,
+      "high": 0.45,
+      "facing": 0.5,
+      "admitSpeed": 0.6,
+      "chamberSeconds": 0.35,
+      "chamberLift": 0.2,
+      "chamberKnee": 2.1,
+      "extendSeconds": 0.1479,
+      "through": 0.15,
+      "retractSeconds": 0.08,
+      "counter": 0,
+      "pathSeconds": 0.0172
+    }
+  }
+}

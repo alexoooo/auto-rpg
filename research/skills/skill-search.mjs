@@ -26,6 +26,8 @@
  * - The front kick (`kick/front`): the same way, on the cells of the body's kick row, the trials
  *   its variation is offered (`offered`: its base rung), played with the body running it. Its
  *   timings and gains alone are searched; its poses are authored.
+ * - The low front kick (`stomp/front`): the same way, on the cells of the body's stomp row, the
+ *   trials it is offered, its window nearer; its timings and gains alone.
  * - The sit-back: its record drives two ways up (`front-sit-back`, `sit-back`), so it is searched
  *   on the twin of both their table cells on the body, every loadout or `--loadout`'s (the way-up
  *   drill's fresh falls and bouts, `research/skills/recovery/way-up-trials.mjs`), each fall risen by the
@@ -209,6 +211,15 @@ export const SEARCHES = {
     said: (held) => held === "twin" ? "on its cells' training twins at 120 Hz" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
     trial: strikeTrialOf("kick/front"), error: -3, lost: "falls", rates: CONFIRM_RATES, lengths: [], heights: [],
     task: "the kick's row on the Strike drill, the trials the front kick is offered (its base rung)" },
+  // The low front kick's: the front kick's timings and gains, its window nearer, at a body lying.
+  "stomp/front": { dims: [["chamberSeconds", .1, .35], ["extendSeconds", .06, .25], ["retractSeconds", .08, .3], ["pathSeconds", .01, .08],
+      ["transferSeconds", .1, .35], ["follow", 0, .2], ["decel", 100, 600], ["alongNear", .25, .6], ["alongFar", .45, .9]],
+    // alongFar kept past alongNear.
+    settle: (settings) => settings.alongFar <= settings.alongNear + .1 ? { ...settings, alongFar: Number((settings.alongNear + .1).toFixed(4)) } : settings,
+    trials: strikeTrials("stomp", { variation: "stomp/front" }), search: "twin", confirm: "cell",
+    said: (held) => held === "twin" ? "on its cells' training twins at 120 Hz" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
+    trial: strikeTrialOf("stomp/front"), error: -3, lost: "falls", rates: CONFIRM_RATES, lengths: [], heights: [],
+    task: "the stomp's row on the Strike drill (each foot at the middle mark of each of the game's foes lying limp), the trials the low front kick is offered" },
   // Its three stages' times; their postures are authored (the recipe's step 4: timings and gains, never shape).
   "sit-back": { dims: [["plant: scale", .5, 1.5], ["sit back: scale", .5, 1.5], ["up: scale", .5, 1.5]],
     get: sitBackTime, set: sitBackTimed, channels: postureChannels,
