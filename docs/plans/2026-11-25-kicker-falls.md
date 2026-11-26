@@ -152,6 +152,16 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   (`assets/skills/recovery/staged/`); it now hashes the records of each folder of the group's
   shared code too. The sit-back's search moved its stages' postures, which step 4 forbids; it
   moves their times alone (the roll's search still moves its poses' angles, the same rule).
+- **The front kick's falls at 480 Hz were the stance's catch, not the kick.** The set-down hands
+  the foot to the stance's own catch, as it is written to. A catch lifts with no pre-swing, and
+  lifting from a knee at its extension stop, the solve asked the knee almost nothing: the hip
+  dragged the foot along the ground until it bore the body, and the pelvis flipped back
+  (`research/looks/man/kick-front/8e8965bb3368/verdict.md`). A swing's foot still pressed now has
+  its knee bent at least to the walk's pre-swing bend, the walk's own mechanism (`preswinging`,
+  `src/control/stance/stance.ts`). The g5 best at 480 Hz: from 5 landed and 3 down in 16 to 9 and
+  none. A reach read about the pelvis's tilt was tried and taken out: the stance rights the pelvis
+  during a catch's swing, and the push kick's catches read tilted fell short and it went down (7 of
+  16 on its base with empty hand and sword, against 2 without).
 - **Next**: step 4 again for the front kick; then step 5, as the owner asked:
   confirmed at 120 and 480 Hz, its look at the best's code, its profiles, and the match and
   scorecard against the push kick as the Warrior's kick. It lands as the kick the Warrior holds
@@ -181,3 +191,15 @@ sit-back on the standard falls, +2.13 s an attempt (b71b3fd0); the Skeleton's fr
 holding a buckler and club, +2.16 s (b71b3fd0); the man's staged-down so held, +1.21 s
 (ecf5182e). And the Skeleton's sit-back's backward tip under `regain`, a step-1 item (above).
 They wait on the front kick landing; the order after it stands (the low kick next).
+
+From the catch's work, to read after the front kick: the woman's front-sit-back holding a club,
+40 reached of its twin's 89 without the tilted reach against 49 with it; the push kick's base with
+empty hand and sword, played fresh; the front kick's record going down backward at 120 Hz after a
+kick that leaves the body moving back (trial f2a8a236).
+
+The step-cost gate's mind ceiling (`tests/core-step-cost.test.mjs`) was raised from 1226 to 1650
+KiB on taking the tilted reach out, though no code there allocates: a mind's allocation goes with
+its bout's path, 10 to 30 % between neighbouring commits, so the ceiling measures the path and not
+the change, and will go on being raised until it guards nothing. Either the minds' per-step
+allocation made independent of the path (what each allocates a step, found and taken out), or the
+reading made so (a bout whose path is fixed).
