@@ -9,7 +9,7 @@ import { REPRESENTATIVE } from "../loadouts.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import { readBout, type BoutReading } from "../contest.ts";
 import { mindOf, sideCharacters, type Cases, type Json } from "../evaluation.ts";
-import { WARRIOR_GAPS } from "../scorecard/cases.ts";
+import { drawnGap, WARRIOR_GAPS } from "../scorecard/cases.ts";
 
 /**
  * How a pair meets: once on each side at each gap, m, to the Arena's time limit, with no limit on
@@ -25,6 +25,13 @@ export const TOURNAMENT = Object.freeze({
  * gap is enough only to rate the field.
  */
 const GAPS = Object.freeze({ ...TOURNAMENT, gaps: WARRIOR_GAPS });
+
+/**
+ * The same 24 gaps on six further draws, 3 to 8, each shifted 0.5 cm more (`gaps-drawn`, as the
+ * match's `warrior-drawn`): 144 gaps, 288 bouts a pair, where 48 cannot tell apart readings of a
+ * rat that differ by a tenth of the score.
+ */
+const GAPS_DRAWN = Object.freeze({ ...TOURNAMENT, gaps: Object.freeze([3, 4, 5, 6, 7, 8].flatMap((draw) => WARRIOR_GAPS.map((gap) => drawnGap(gap, draw)))) });
 
 /** An entrant as a case's subject: its mind's config, its character and what each hand holds. */
 export type Entrant = { readonly mind: Json; readonly model: BodyModel; readonly loadout: Loadout };
@@ -53,5 +60,5 @@ function tournamentCases(protocol: typeof TOURNAMENT): Cases<TournamentCondition
 
 /** Every protocol the tournament is played on, by name. */
 export const TOURNAMENT_CASES: Readonly<Record<string, Cases<TournamentCondition, BoutReading>>> = Object.freeze({
-  standard: tournamentCases(TOURNAMENT), gaps: tournamentCases(GAPS),
+  standard: tournamentCases(TOURNAMENT), gaps: tournamentCases(GAPS), "gaps-drawn": tournamentCases(GAPS_DRAWN),
 });
