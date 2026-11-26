@@ -20,7 +20,7 @@ import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } f
 import type { Catalog } from "../minds/catalog/catalog.ts";
 
 /** **What a fight enlists a body with**: who it is, its body, where it stands, and what drives it. */
-interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdentity" | "seed" | "phase"> {
+interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdentity" | "seed" | "phase" | "experiment"> {
   readonly id: string;
   readonly side: string;
   /** Its body, with what it holds (`armedWith`). */
@@ -115,6 +115,7 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
     ...(enlisting.contactIdentity ? { contactIdentity: enlisting.contactIdentity } : {}),
     ...(enlisting.seed !== undefined ? { seed: enlisting.seed } : {}),
     ...(enlisting.phase !== undefined ? { phase: enlisting.phase } : {}),
+    ...(enlisting.experiment ? { experiment: enlisting.experiment } : {}),
   }, sheets ?? undefined);
   completed = true;
   return { id, side, built, pool, minded, mind, senses, body: minded.body, muscles: minded.body.muscles, sheets };

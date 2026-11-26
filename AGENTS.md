@@ -27,6 +27,7 @@ npm run evaluate -- <id>  # an evaluation's cases where no row has them; --fresh
 npm run evaluate -- table # the grid from saved results; plays nothing (its flags: docs/reference/the-table.md)
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 node scripts/fingerprint.mjs          # what the game computes: --json <file> before a change, --compare <file> after names every fight, mirror bout and table reading it moved
+node scripts/inventory.mjs            # what each body's Mind reads to price a fight, and where each reading comes from; plays nothing: --json <file> before a change, --compare <file> after names every row it moved
 ```
 
 ## Checks and landing
@@ -36,9 +37,10 @@ node scripts/fingerprint.mjs          # what the game computes: --json <file> be
   to what a config resolves to, a headless one at the Arena with the mind editor open (the pages
   build Minds from the same configs, so code checks alone do not show they open); a change to
   what a Mind or a skill does, or a refactor claiming none, the fingerprint, each case it moves
-  named; a change to what a Mind or a skill remembers, the fingerprint with `--relay 127`; prose
-  only, `node --test tests/documents.test.mjs` (the links) and `git diff --check`,
-  nothing more.
+  named; a change to what a Mind reads to price a fight (a lookup, a measured asset, a number
+  set by hand, a body's default config), the inventory, each row it moves named; a change to
+  what a Mind or a skill remembers, the fingerprint with `--relay 127`; prose only,
+  `node --test tests/documents.test.mjs` (the links) and `git diff --check`, nothing more.
 - **Landing**: commit each landable change on main, naming the checks run and any failure left.
   No push and no branch unless the owner asks: a push to main publishes the README's Play link.
 - **Pull and merge** with `npm run pull:merge`; resolve conflicts by meaning, stage only those
