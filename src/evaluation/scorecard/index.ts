@@ -11,7 +11,7 @@ import type { Evaluation, Json } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import { createLocomotionIndex } from "../locomotion/index.ts";
 import { createScorecardCases, type ScorecardCondition } from "./cases.ts";
-import { readingSilence, type Prices, type ScorecardReading } from "./read.ts";
+import { longestUnlanded, readingSilence, type Prices, type ScorecardReading } from "./read.ts";
 import { KNOCKOUT_WITHIN } from "../contest.ts";
 import { type GameContext, perContext } from "../../game/arena/context.ts";
 
@@ -41,6 +41,8 @@ export const createScorecardIndex = perContext((context: GameContext) => {
       { name: "knockout", unit: "share of bouts ended by a body's life", kind: "rate", better: "higher", of: (r) => knockedOut(r) },
       { name: `knockout within ${KNOCKOUT_WITHIN} s`, unit: `share of bouts ended by a body's life within ${KNOCKOUT_WITHIN} s`, kind: "rate", better: "higher", of: (r) => knockedOut(r) && r.seconds <= KNOCKOUT_WITHIN },
       { name: "downs", unit: "falls a bout, both sides", kind: "mean", better: "lower", of: (r) => r.sides[0].downs + r.sides[1].downs },
+      { name: "out of reach", unit: "share of a bout with both bodies standing farther apart than either's strikes reach the other", kind: "mean", better: "lower", of: (r) => r.outOfReach / r.seconds },
+      { name: "longest unlanded", unit: "the longest stretch of a bout with no blow taking life, s", kind: "mean", better: "lower", of: (r) => longestUnlanded(r) },
     ],
     /** For each subject: its bouts by draw and pooled, and its prices by slice. */
     summary({ subjects, cases }) {

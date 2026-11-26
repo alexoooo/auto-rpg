@@ -26,6 +26,10 @@
  * - The front kick (`kick/front`): the same way, on the cells of the body's kick row, the trials
  *   its variation is offered (`offered`: its base rung), played with the body running it. Its
  *   timings and gains alone are searched; its poses are authored.
+ * - The low front kick (`stomp/front`): the same way, on the cells of the body's stomp row, the
+ *   trials it is offered, played as the bite is on a profile's rung, `sparring-laid` (a foe laid
+ *   down fighting back, which sits up as it would), its twin searched and its own cases confirmed;
+ *   its window nearer; its timings and gains alone.
  * - The sit-back: its record drives two ways up (`front-sit-back`, `sit-back`), so it is searched
  *   on the twin of both their table cells on the body, every loadout or `--loadout`'s (the way-up
  *   drill's fresh falls and bouts, `research/skills/recovery/way-up-trials.mjs`), each fall risen by the
@@ -62,6 +66,7 @@
  *   ... --source <model>: the start carried over from that body's record
  *   ... --set '{"lift": 0.7}': the start with those settings in its place, for a search or a --try
  *   ... --loadout <left,right>: one loadout's cells of its row, for a search, a --try or a --confirm
+ *   ... --target <model>: of a strike's trials, those at that body alone (its condition's `target`), for a search, a --try or a --confirm
  *   node research/skills/skill-search.mjs <skill> <model> --confirm <file.json> [--write [--from "<what the search started from>"]]
  *
  * Harness: Node on Rapier (`DEFAULT_ENGINE`), each command one step late. The stomp: the bout
@@ -209,6 +214,15 @@ export const SEARCHES = {
     said: (held) => held === "twin" ? "on its cells' training twins at 120 Hz" : "on its cells' own cases at 120 and 480 Hz, the worse counting",
     trial: strikeTrialOf("kick/front"), error: -3, lost: "falls", rates: CONFIRM_RATES, lengths: [], heights: [],
     task: "the kick's row on the Strike drill, the trials the front kick is offered (its base rung)" },
+  // The low front kick's: the front kick's timings and gains, its window nearer, at a body lying.
+  "stomp/front": { dims: [["chamberSeconds", .1, .35], ["extendSeconds", .06, .25], ["retractSeconds", .08, .3], ["pathSeconds", .01, .08],
+      ["transferSeconds", .1, .35], ["follow", 0, .2], ["decel", 100, 600], ["alongNear", .25, .6], ["alongFar", .45, .9]],
+    // alongFar kept past alongNear.
+    settle: (settings) => settings.alongFar <= settings.alongNear + .1 ? { ...settings, alongFar: Number((settings.alongNear + .1).toFixed(4)) } : settings,
+    trials: strikeTrials("stomp", { rung: "sparring-laid", variation: "stomp/front" }), search: "twin", confirm: "cell",
+    said: (held) => held === "twin" ? "on sparring-laid's training twin at 120 Hz" : "on sparring-laid's own cases at 120 and 480 Hz, the worse counting",
+    trial: strikeTrialOf("stomp/front"), error: -3, lost: "falls", rates: CONFIRM_RATES, lengths: [], heights: [],
+    task: "the Strike drill's sparring-laid rung (each foot at a foe laid down fighting back, from starts drawn at random), valued as the body's stomp row values its trials, the trials the low front kick is offered" },
   // Its three stages' times; their postures are authored (the recipe's step 4: timings and gains, never shape).
   "sit-back": { dims: [["plant: scale", .5, 1.5], ["sit back: scale", .5, 1.5], ["up: scale", .5, 1.5]],
     get: sitBackTime, set: sitBackTimed, channels: postureChannels,
@@ -313,18 +327,25 @@ if (!isMainThread && workerData?.search) {
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values, positionals: [skill, model] } = parseArgs({ allowPositionals: true, options: { out: { type: "string" }, confirm: { type: "string" }, write: { type: "boolean" },
     from: { type: "string" }, generations: { type: "string" }, lambda: { type: "string" }, sigma: { type: "string" }, workers: { type: "string" }, seed: { type: "string" }, resume: { type: "boolean" },
-    until: { type: "string" }, patience: { type: "string" }, try: { type: "boolean" }, loadout: { type: "string" }, set: { type: "string" }, source: { type: "string" } } });
+    until: { type: "string" }, patience: { type: "string" }, try: { type: "boolean" }, loadout: { type: "string" }, target: { type: "string" }, set: { type: "string" }, source: { type: "string" } } });
   const search = searchOn(skill, model);
   if (!search || !model) throw new Error(`usage: <skill> <model>, skill one of ${Object.keys(SEARCHES).join(", ")}`);
   const recordName = search.record ?? skill;
   if (values.loadout !== undefined && !search.rates) throw new Error(`${skill}'s trials are not a table row's: --loadout is not theirs`);
+  /** Of `trials`, those at the body `target` alone where one is given (`--target`). */
+  const atTarget = (trials, target) => {
+    if (target === undefined) return trials;
+    const kept = trials.filter((trial) => trial.condition.target === target);
+    if (kept.length === 0) throw new Error(`${skill} has no trial at ${target}`);
+    return kept;
+  };
   const workers = Number(values.workers ?? defaultLanes());
   const pool = workerPool(fileURLToPath(import.meta.url), { search: true, skill }, workers);
   const body = modelSpec(model).model, started = Date.now();
   // The movement the search tunes, as its look names it (`requireLook`).
   const looked = recordName.includes("/") ? recordName : `${recordName}/${recordName}`;
   if (values.confirm) {
-    const found = JSON.parse(readFileSync(values.confirm, "utf8")), trials = search.trials(model, search.confirm, values.loadout ?? found.loadout);
+    const found = JSON.parse(readFileSync(values.confirm, "utf8")), trials = atTarget(search.trials(model, search.confirm, values.loadout ?? found.loadout), values.target ?? found.target);
     // What the best must beat: the record the body plays now, which a search resumed after an install no longer starts from; its start where the body has none.
     const recorded = recordsOf(recordName)[body], record = recorded?.settings, against = record ? "record" : "start";
     const base = await confirmed(pool, record ?? found.start, trials, search.rates), best = await confirmed(pool, found.best.settings, trials, search.rates);
@@ -358,7 +379,7 @@ if (!isMainThread && workerData?.search) {
   const set = values.set ? JSON.parse(values.set) : null;
   const saved = values.resume && existsSync(values.out) ? JSON.parse(readFileSync(values.out, "utf8")) : null, resume = saved?.checkpoint, before = saved?.seconds ?? 0;
   if (saved && (saved.skill !== skill || saved.body !== body)) throw new Error(`${values.out} is a search of ${saved.skill} on ${saved.body}, not of ${skill} on ${body}`);
-  const loadout = saved?.loadout ?? values.loadout, start = saved?.start ?? { ...startOf(skill, model, values.source), ...set }, trials = search.trials(model, search.search, loadout), lambda = Number(values.lambda ?? 16);
+  const loadout = saved?.loadout ?? values.loadout, target = saved?.target ?? values.target, start = saved?.start ?? { ...startOf(skill, model, values.source), ...set }, trials = atTarget(search.trials(model, search.search, loadout), target), lambda = Number(values.lambda ?? 16);
   // With a plateau to end on and no count given, the search runs until it ends on one.
   const generations = Number(values.generations ?? (values.patience === undefined ? 10 : Number.MAX_SAFE_INTEGER));
   const sourceBody = modelSpec(values.source ?? (recordsOf(recordName)[body] ? model : "man")).model;
@@ -369,7 +390,7 @@ if (!isMainThread && workerData?.search) {
     const r = await scored(pool, start, trials), rates = [];
     for (const hz of (search.rates ?? []).slice(1)) { const at = await scored(pool, start, trials, hz); rates.push({ hz, score: at.score, falls: at.falls }); }
     const seconds = Math.round((Date.now() - started) / 1000);
-    save(values.out, JSON.stringify({ skill, body, ...(loadout ? { loadout } : {}), from, start, lambda: 0, trials: trials.length, dims: search.dims, log: [], seconds, best: { score: r.score, settings: start, falls: r.falls, each: r.each } }));
+    save(values.out, JSON.stringify({ skill, body, ...(loadout ? { loadout } : {}), ...(target ? { target } : {}), from, start, lambda: 0, trials: trials.length, dims: search.dims, log: [], seconds, best: { score: r.score, settings: start, falls: r.falls, each: r.each } }));
     console.log(JSON.stringify({ skill, body, start: { score: r.score, falls: r.falls }, rates, seconds }));
     await pool.terminate();
     process.exit(0);
@@ -399,7 +420,7 @@ if (!isMainThread && workerData?.search) {
       raised = best.g ?? raised;
       // How the search ended, once it has: on its plateau, at `--until`'s score, or at its count of generations with neither reached.
       ended = best.score >= until ? "until" : entry.g - raised >= patience ? "plateau" : entry.g + 1 >= generations ? "generations" : null;
-      save(values.out, JSON.stringify({ skill, body, ...(loadout ? { loadout } : {}), from, start, lambda, trials: trials.length, dims: search.dims, log: checkpoint.log,
+      save(values.out, JSON.stringify({ skill, body, ...(loadout ? { loadout } : {}), ...(target ? { target } : {}), from, start, lambda, trials: trials.length, dims: search.dims, log: checkpoint.log,
         seconds: before + Math.round((Date.now() - started) / 1000), ...(ended ? { ended } : {}),
         best: { score: best.score, settings: decode(search, start, best.u), falls: best.r.falls, each: best.r.each }, checkpoint }));
       if (ended) return false;

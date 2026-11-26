@@ -484,6 +484,9 @@ const SPARRING_BITE_TWIN = deepFreeze({ ...SPARRING_BITE, seed: 8, trials: SPARR
 const SPARRING_LAID = deepFreeze({ ...STOMPING_SAMPLED, targets: FOES, trials: 240, opponent: SPARRING_FOE,
   laid: { ...LAID, speed: 2 }, settled: .6, gaps: [.5, .8], closer: [.8, 1.2] });
 
+/** Its training twin, `sparring-laid-twin`: its starts drawn from another stream (`seed`), for research to tune on while `sparring-laid` stays held out. */
+const SPARRING_LAID_TWIN = deepFreeze({ ...SPARRING_LAID, seed: 9 });
+
 export const createStrikeCases = perContext((context: GameContext) => {
   const { treeObeys, controllers: CONTROLLERS, minds: MINDS, partLookup } = context.catalog;
   const mindFaults = mindFaultsOf(context);
@@ -629,7 +632,8 @@ export const createStrikeCases = perContext((context: GameContext) => {
     "sparring-drawn": stillCases(SPARRING_DRAWN, sampledConditions(SPARRING_DRAWN)),
     "sparring-judge": stillCases(SPARRING_JUDGE, sampledConditions(SPARRING_JUDGE)),
     "sparring-stances": stillCases(SPARRING_STANCES, sampledConditions(SPARRING_STANCES)),
-    "sparring-laid": stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)),
+    "sparring-laid": { ...stillCases(SPARRING_LAID, sampledConditions(SPARRING_LAID)), twin: "sparring-laid-twin" },
+    "sparring-laid-twin": stillCases(SPARRING_LAID_TWIN, sampledConditions(SPARRING_LAID_TWIN)),
     "sparring-feet": stillCases(SPARRING_FEET, sampledConditions(SPARRING_FEET)),
     "sparring-bite": { ...stillCases(SPARRING_BITE, sampledConditions(SPARRING_BITE)), twin: "sparring-bite-twin" },
     "sparring-bite-twin": stillCases(SPARRING_BITE_TWIN, sampledConditions(SPARRING_BITE_TWIN)),

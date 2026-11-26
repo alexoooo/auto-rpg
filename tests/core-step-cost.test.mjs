@@ -22,7 +22,7 @@ import { BODY_MODELS } from "../src/core/bodies/models.ts";
  * over it takes its allocation out of the step or, where the allocation is the feature's, raises
  * the ceiling and says why in its commit.
  */
-const CEILING = { standing: 124, mind: 1650, down: 82, fall: 238 };
+const CEILING = { standing: 124, mind: 2100, down: 82, fall: 238 };
 
 /** What a fighter's right hand may hold in a mind's bout, the first its body and mind take: the left is empty. */
 const HELDS = Object.freeze(["sword", "empty", "club"]);

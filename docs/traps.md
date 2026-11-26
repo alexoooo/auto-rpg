@@ -111,13 +111,19 @@ its kind or running those tools.
 - **A background wait ends on its own**: a watcher loop outlives the tool that started it, so it
   gets a timeout or an exit condition, and its pattern must be able to match (a training run's
   checkpoints are named by decisions, `model-12060672`, not round millions).
+- **A background chain stopped by its tool goes on**: stopping the task leaves `npm`'s and
+  `node`'s children and the shell's chain alive, and the chain's later lines still run, a
+  restore `cp` among them, over whatever was set in its place since. A chain is stopped by its
+  tree's PID (`taskkill /PID <pid> /T /F`), and a chain that restores a file is not left to run
+  past a change to that file.
 - **A saved evaluation result is found again when only the foe's character changed**: a strike
   rung's foe is its body as its character holds its skills (`assets/characters/characters.json`),
   and the key a result is kept by does not hold them. A subject played against a foe holding one
   variation is "found" against a foe holding another and reads the first; play it with `--fresh`.
-- **A tree moved to another commit finds the rows it played there**: a row's key holds the
-  question and the mind data it loads, not the code (`keyOf`, `run.ts`), so a match in a worktree
-  checked out at one commit and then another reads the first commit's rows. The header says it
-  (`0 cases to play, 288 found`; "the oldest row read was played on" another commit, and the four
-  played again "reads differently now"). A reading of code a tree has not played is read where
-  its header says `0 found`, or with `--fresh`.
+- **A change to code alone finds the rows played before it**: a row's key holds the question and
+  the mind data it loads, not the code (`keyOf`, `run.ts`), so a reading of a code change made in
+  place, committed or not, or of a worktree moved from one commit to another, reads the old code's
+  rows as the new code's. A records change plays fresh rows; a code change does not. The header
+  says it (`0 cases to play, 1200 found`, then "4 of the 1200 rows found from other code played
+  again: 3 read as kept", the one other a row the new code no longer plays). An A/B of code is
+  read where its header says `0 found`, or with `--fresh`.

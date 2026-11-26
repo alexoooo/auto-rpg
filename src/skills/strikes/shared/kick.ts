@@ -105,18 +105,19 @@ export const KICK_PATH = Object.freeze({
  * drive's, the keys every body's record of it holds, each record whole. The kicking leg is carried
  * along timed paths, the stance on the standing leg solving for what they ask of it. Chamber: the
  * knee brought up at the target, the hip flexed `chamberLift` past where it points the leg at the
- * target, and the knee folded to `chamberKnee`, over `chamberSeconds`; extend: the knee opened to
- * `extendKnee` along the line at the target, the hip pointing the leg at it, the ankle to
- * `extendAnkle`, over `extendSeconds`, held until `follow` s after the foot touches or after the
- * extension; retract: back to the chamber over `retractSeconds`. Throughout, the trunk counters the
+ * target, and the knee folded to `chamberKnee`, over `chamberSeconds`; extend: the leg carried to
+ * the push kick's drive through (`solveThrough`), its strike point `through` m past the target,
+ * level at its height, the knee straight, over `extendSeconds`, its paths followed firm
+ * (`FreedomPath.firm`), so the foot meets the target at speed with the leg held behind it, not
+ * met limp where its path asks little torque, until `follow` s after the foot touches or after
+ * the extension; retract: back to the chamber over `retractSeconds`. Throughout, the trunk counters the
  * leg: the lumbar extended by `counter` of the hip's flexion. Each path is followed at
  * `pathSeconds`' response: at the motor's own, the stance's solve holds a leg reaching forward short
- * of its path. The leg's line is aimed `aimAbove` m over the target: the foot meets a body with the
- * knee still bent, under that line.
+ * of its path.
  */
 export const FRONT_KICK_PATH = Object.freeze({
   ...KICK_STAGES,
-  aimAbove: 0, chamberSeconds: .2, chamberLift: .2, chamberKnee: 2.1, extendSeconds: .12, extendKnee: .1, extendAnkle: .2, retractSeconds: .15, counter: .1, pathSeconds: .03,
+  chamberSeconds: .2, chamberLift: .2, chamberKnee: 2.1, extendSeconds: .12, through: .15, retractSeconds: .15, counter: .1, pathSeconds: .03,
 });
 
 type StageTuning = { readonly [K in keyof typeof KICK_STAGES]: number };
@@ -135,9 +136,9 @@ export function validKickTuning(tuning: KickTuning): boolean {
     && (Object.keys(KICK_PUSHES) as PushName[]).every((name) => Math.abs(tuning[`${name}Level`]) <= 1 && tuning[`${name}From`] >= 0 && tuning[`${name}Length`] >= 0);
 }
 
-/** Whether `tuning` is a front kick's: its stages' (`validStages`), and its paths' times positive. */
+/** Whether `tuning` is a front kick's: its stages' (`validStages`), its paths' times positive and its reach through not negative. */
 export function validFrontKickTuning(tuning: FrontKickTuning): boolean {
-  return validStages(tuning) && [tuning.chamberSeconds, tuning.extendSeconds, tuning.retractSeconds, tuning.pathSeconds].every((v) => v > 0);
+  return validStages(tuning) && [tuning.chamberSeconds, tuning.extendSeconds, tuning.retractSeconds, tuning.pathSeconds].every((v) => v > 0) && tuning.through >= 0;
 }
 
 /** Whether each setting `tuning` names is one of `path`'s, and finite. */
@@ -240,28 +241,44 @@ function kick(body: Body, actions: readonly string[], resolve: TargetResolver, d
   const hipsMost = { left: hipMost("left"), right: hipMost("right") };
   const target = new Vector3(), hipAt = new Vector3(), strikeAt = new Vector3();
   /**
+   * `side`'s leg solved toward `at` from where `view` has it, into its chain's angles
+   * (`legs[side].angles`): its strike point at `at`'s height, `reach(level)` m out from the hip
+   * toward `at`, `level` m from the hip along the ground; the knee straight where `straight`, else
+   * folded, each other freedom it moves nearest where it stands.
+   */
+  const solveToward = (view: BodyView, side: Side, at: Vec3, reach: (level: number) => number, straight: boolean): void => {
+    const leg = legs[side], { chain, angles, hip, free, work } = leg;
+    chain.forEach((joint, j) => joint.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(joint, k)] ?? 0; }));
+    // The hip, in the root's frame, in the world.
+    hipAt.set(hip[0], hip[1], hip[2]).applyRotationQuaternionToRef(view.root.rotation, hipAt).addInPlace(view.root.position);
+    const dx = at[0] - hipAt.x, dz = at[2] - hipAt.z, level = hypot(dx, dz) || 1, out = reach(level);
+    intoFrameToRef(view.root, [hipAt.x + dx / level * out, at[1], hipAt.z + dz / level * out], target);
+    for (const f of free) f.preferred = /^knee/.test(f.name) ? (straight ? f.min : f.max) : angles[f.joint]![f.k]!;
+    solveReach(chain, angles, free, [{ point: leg.point, target: [target.x, target.y, target.z] }], undefined, work);
+  };
+  /**
+   * **A kick's drive through**, both kicks': `side`'s leg solved (`solveToward`) for its strike
+   * point `through` m past `at`, level at its height, with the knee straight. Out level from a
+   * chamber, the sole meets the target at speed with the leg behind it, where a foot carried onto
+   * the target slows onto it, and one driven at it from below meets the thighs before the mark.
+   */
+  const solveThrough = (view: BodyView, side: Side, at: Vec3, through: number): void => solveToward(view, side, at, (level) => level + through, true);
+  /**
    * The aimed drive's step `since` s into `live`'s drive onto `posture` and `pushes`, a push kick:
    * the leg solved for its chamber, its strike point at the target's height `chamber` m out from
    * the hip toward it with the knee folded; then, once the strike point has risen to that height or
-   * `knee` s after `lead`, for its strike point `through` m past the target, level at its height,
-   * with the knee straight; each freedom its schedule does not push driven toward it (`driven`).
-   * Out level from the chamber, the sole meets the target with the leg behind it; a foot driven
-   * at the target from below meets the thighs before the mark.
+   * `knee` s after `lead`, for its drive through (`solveThrough`); each freedom its schedule does
+   * not push driven toward it (`driven`).
    */
   const aimed = (view: BodyView, live: Motion, since: number, posture: Record<string, number>, pushes: MusclePush[]): void => {
-    const side = live.foot, at = live.aim, leg = legs[side], { chain, angles, hip, free, work } = leg;
-    chain.forEach((joint, j) => joint.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(joint, k)] ?? 0; }));
-    // The hip and the strike point, each in the root's frame, in the world.
-    hipAt.set(hip[0], hip[1], hip[2]).applyRotationQuaternionToRef(view.root.rotation, hipAt).addInPlace(view.root.position);
+    const side = live.foot, at = live.aim, leg = legs[side], push = pushed!;
+    // The strike point, in the root's frame, in the world.
     view.effectors[`foot.${side}`]!.points.strike!.applyRotationQuaternionToRef(view.root.rotation, strikeAt).addInPlace(view.root.position);
-    const push = pushed!;
     if (!live.out && (since >= push.lead + push.knee || strikeAt.y >= at[1])) live.out = true;
-    const dx = at[0] - hipAt.x, dz = at[2] - hipAt.z, level = hypot(dx, dz) || 1, reach = live.out ? level + push.through : push.chamber;
-    intoFrameToRef(view.root, [hipAt.x + dx / level * reach, at[1], hipAt.z + dz / level * reach], target);
-    for (const f of free) f.preferred = /^knee/.test(f.name) ? (live.out ? f.min : f.max) : angles[f.joint]![f.k]!;
-    solveReach(chain, angles, free, [{ point: leg.point, target: [target.x, target.y, target.z] }], undefined, work);
+    if (live.out) solveThrough(view, side, at, push.through);
+    else solveToward(view, side, at, () => push.chamber, false);
     const part = stepShare(since, live.step, push.lead, Infinity);
-    for (const f of free) driven(view, f.name, angles[f.joint]![f.k]!, leg.scheduled.has(f.name) ? 0 : part, posture, pushes);
+    for (const f of leg.free) driven(view, f.name, leg.angles[f.joint]![f.k]!, leg.scheduled.has(f.name) ? 0 : part, posture, pushes);
   };
   /**
    * `channel` set to `goal` in `posture`, and driven toward it at `part` of its strength: at the speed
@@ -275,38 +292,47 @@ function kick(body: Body, actions: readonly string[], resolve: TargetResolver, d
   };
   const sampled: [number, number, number] = [0, 0, 0];
   /**
-   * The authored drive's paths this step, `live` in one of its stages: each of the kicking leg's
-   * flexions, its ankle and the lumbar from where the stage found it (`live.from`) toward the
-   * stage's goal over the stage's seconds.
+   * The authored drive's paths this step, `live` in one of its stages: each freedom of the stage's
+   * goals (`Motion.goals`) from where the stage found it (`live.from`) toward its goal over the
+   * stage's seconds, the extension's firm (`FreedomPath.firm`).
    */
   const authored = (live: Motion): Record<string, FreedomPath> => {
-    const foot = live.foot, extend = live.stage === "extend", path = paced!;
-    const hip = extend ? live.aimHip : Math.min(live.aimHip + path.chamberLift, hipsMost[foot]), seconds = live.stage === "chamber" ? path.chamberSeconds : extend ? path.extendSeconds : path.retractSeconds;
-    const goals: Record<string, number> = {
-      [`hip.${foot} flexion`]: hip, [`knee.${foot} flexion`]: extend ? path.extendKnee : path.chamberKnee,
-      [`ankle.${foot} dorsiflexion`]: extend ? path.extendAnkle : live.posture[`ankle.${foot} dorsiflexion`] ?? 0,
-      "lumbar flexion": (live.posture["lumbar flexion"] ?? 0) - path.counter * hip,
-    };
+    const path = paced!, extend = live.stage === "extend", seconds = live.stage === "chamber" ? path.chamberSeconds : extend ? path.extendSeconds : path.retractSeconds;
     const paths: Record<string, FreedomPath> = {};
-    for (const [channel, goal] of Object.entries(goals)) {
+    for (const [channel, goal] of Object.entries(live.goals)) {
       const from = live.from[channel] ?? [goal, 0];
       scalarPathToRef(from[0], from[1], goal, live.time, seconds, sampled);
-      paths[channel] = { angle: sampled[0], rate: sampled[1], acceleration: sampled[2], seconds: path.pathSeconds };
+      paths[channel] = { angle: sampled[0], rate: sampled[1], acceleration: sampled[2], seconds: path.pathSeconds, ...(extend ? { firm: true } : {}) };
     }
     live.paths = paths;
     return paths;
   };
-  /** The authored drive's next stage: each path starting from where its freedom is, at the rate the last step's path had it moving. */
+  /**
+   * The authored drive's next stage: its goals (`Motion.goals`), and each path starting from where
+   * its freedom is, at the rate the last step's path had it moving. The chamber and the retraction:
+   * the hip flexed `chamberLift` past where it points the leg at the target, the knee folded to
+   * `chamberKnee`, the leg's other freedoms where the drive found them; the extension: the leg's
+   * drive through (`solveThrough`). The lumbar counters the hip's flexion in each.
+   */
   const nextPaths = (view: BodyView, next: "chamber" | "extend" | "retract") => {
-    const live = state.live!, foot = live.foot;
-    live.from = Object.fromEntries([`hip.${foot} flexion`, `knee.${foot} flexion`, `ankle.${foot} dorsiflexion`, "lumbar flexion"]
-      .map((channel) => [channel, [view.angles[channel] ?? 0, live.paths[channel]?.rate ?? 0] as const]));
+    const live = state.live!, foot = live.foot, leg = legs[foot], path = paced!, hipFlexion = `hip.${foot} flexion`, lumbar = "lumbar flexion";
     if (next !== "retract") {
       // The hip's flexion that points the leg, hip to sole, at the target: in the body frame's sagittal plane, less the leg's own at rest.
-      const hip = legs[foot].hip;
-      intoFrameToRef(view.root, [live.aim[0], live.aim[1] + paced!.aimAbove, live.aim[2]], target);
-      live.aimHip = Math.min(Math.max(atan2(target.z - hip[2], hip[1] - target.y) - rests[foot], 0), hipsMost[foot]);
+      intoFrameToRef(view.root, live.aim, target);
+      live.aimHip = Math.min(Math.max(atan2(target.z - leg.hip[2], leg.hip[1] - target.y) - rests[foot], 0), hipsMost[foot]);
     }
+    const goals: Record<string, number> = {};
+    if (next === "extend") {
+      solveThrough(view, foot, live.aim, path.through);
+      for (const f of leg.free) goals[f.name] = leg.angles[f.joint]![f.k]!;
+    } else {
+      for (const f of leg.free) goals[f.name] = live.posture[f.name] ?? view.angles[f.name] ?? 0;
+      goals[hipFlexion] = Math.min(live.aimHip + path.chamberLift, hipsMost[foot]);
+      goals[`knee.${foot} flexion`] = path.chamberKnee;
+    }
+    goals[lumbar] = (live.posture[lumbar] ?? 0) - path.counter * goals[hipFlexion]!;
+    live.goals = goals;
+    live.from = Object.fromEntries(Object.keys(goals).map((channel) => [channel, [view.angles[channel] ?? 0, live.paths[channel]?.rate ?? 0] as const]));
     stage(next);
   };
   const world = new Vector3(), turn = new Quaternion();
@@ -321,8 +347,11 @@ function kick(body: Body, actions: readonly string[], resolve: TargetResolver, d
     time: number; step: number; held: number; heading: number; height: number; bearing: ReturnType<typeof footing>; posture: Pose; aim: Vec3;
     /** Whether the aimed drive has left its chamber. */
     out: boolean; touched: number | null; withdrawn: boolean; ending: ActionEnding;
-    /** The authored drive's: where each path of its stage began, angle and rate; the paths of the last step; the hip's flexion the extension aims. */
-    from: Record<string, readonly [number, number]>; paths: Record<string, FreedomPath>; aimHip: number };
+    /**
+     * The authored drive's: each freedom's goal in its stage; where each path of its stage began,
+     * angle and rate; the paths of the last step; the hip's flexion that points the leg at the target.
+     */
+    goals: Record<string, number>; from: Record<string, readonly [number, number]>; paths: Record<string, FreedomPath>; aimHip: number };
   const state = { live: null as Motion | null };
   const stage = (next: Motion["stage"]) => { const live = state.live!; live.stage = next; live.time = 0; live.held = 0; };
   const release = (ending: ActionEnding, next: "set" | "recenter") => { const live = state.live!; live.ending = ending; live.phase = "release"; stage(next); };
@@ -356,7 +385,7 @@ function kick(body: Body, actions: readonly string[], resolve: TargetResolver, d
       const foot = sideOf(request.effector);
       state.live = { request: { ...request }, foot, stage: "transfer", phase: "prepare", time: 0, step: 0, held: 0, heading: around.heading,
         height: supportHeight(view) - around.lower - tuning.lower, bearing: footing(view, otherSide(foot)), posture: {}, aim: [0, 0, 0],
-        out: false, touched: null, withdrawn: false, ending: { kind: "completed" }, from: {}, paths: {}, aimHip: 0 };
+        out: false, touched: null, withdrawn: false, ending: { kind: "completed" }, goals: {}, from: {}, paths: {}, aimHip: 0 };
     },
     update(view, continued, _around, dt) {
       const live = state.live;

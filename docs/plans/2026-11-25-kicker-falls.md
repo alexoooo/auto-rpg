@@ -25,6 +25,22 @@ So the kicker stays up after a kick, the push kick's and the low kick's alike (b
 executor, `src/skills/strikes/shared/kick.ts`), without losing what the kick lands, and the game's
 Mind's knockouts within 60 s come back toward what they were before the kick.
 
+On 2026-11-26, on judging the front kick against the push kick: "comparing the old kick, which
+was totally broken, vs the new kick, makes no sense. shouldn't we compare with the kick vs
+without the kick? but that also is not perfect because we don't have any good way to capitalize
+on opponent falls." So the front kick is judged against the Warrior without a kick: the match and
+the scorecard, and what the kick does itself, a kick begun's foe downs within 2 s, own downs and
+damage dealt. Capitalizing on a foe's fall is the owner's point, recorded here, not begun.
+
+On the pace bar, the same day: "given that a good kick will slow down fights without a good way to
+damage downed opponents, i think we need to revisit the 90% within 60s bar. i want to have faster
+fights, but that's a separate concern from winning fights. i just want to avoid a situation where
+a player gets one hit in and then spends teh rest of the fight running away (and winning on the
+clock)"; and, on reading the kick on knockouts within 60 s first, "you recommend comparing the
+kick using the broken gate?". So knockouts within 60 s are read, not a gate; the scorecard reads
+instead how much of a bout's first 60 s the two stand out of each other's reach, and the longest
+stretch with no blow taking life.
+
 ## What is known before it starts
 
 - **The kick costs the game's Mind bar 2 by its falls**: on the scorecard (warrior-drawn) the
@@ -169,9 +185,56 @@ Mind's knockouts within 60 s come back toward what they were before the kick.
   back, the front kick goes down in 26% of what it begins against the push kick's 54%, and lands
   more of it (31% against 21%); it refuses more as beyond its height band (5,198 of 9,600 against
   760), most at the woman's and the Skeleton's base and the man's middle.
-- **Next**: the match on the game's Mind with both kicks profiled, each side's kicks counted, and
-  the scorecard against the push kick as the Warrior's kick. It lands as the kick the Warrior holds
-  only if it measures no worse, and stays pickable either way.
+- **The front kick's step 5: a firm, upright leg, the Warrior's kick, and no better than no kick.** Profiled, the
+  bent-knee front kick lost the match to the push kick (0.429): thrown rarely and light, its knee
+  bent at contact and its path slack there. Driven through with the knee straight and its
+  extension followed firm (`FreedomPath.firm`, `eb2aa9f79`) it read level with the push kick
+  (0.492, 0.442 to 0.542) and fell less after its own kicks (10 downs within 2 s of a kick against
+  22, man v man). Its blows were still light: a bare foot spares the first 36.8 J of its share
+  (`Rulebook.fist`), the push kick's median landing was 47.6 J and the front kick's 31.4 J. A
+  longer drive through (0.3, 0.5 m) read the same, the straight leg ending where its length does;
+  a faster extension (0.08 s) was no faster at the foot and fell more. Its trunk held upright
+  (lean 0, against -0.3) put the push kick's mass behind the foot (5.9 kg against 3.9, median)
+  and fell less (14 % of what it begins against 16 %); its look,
+  `research/looks/man/kick-front/30f351662049`, lands 13 of 16 at the base twin, none down. The
+  record holds lean 0, profiled on its own fresh run.
+
+  **No kick measures better than either kick.** Judged against the Warrior with no kick (the
+  owner, above), empty-handed man on man, the scorecards at `49f4ce1c9`:
+
+  | | no kick | front kick, lean 0 | push kick | front kick, lean -0.3 |
+  |---|---|---|---|---|
+  | match score against no kick (warrior-drawn, 288) | | 0.465 (0.406 to 0.524) | | 0.371 (0.310 to 0.431), 248 |
+  | match margin | | -0.090 (-0.146 to -0.035) | | -0.123 |
+  | out of reach, scorecard | 23.6 % | 24.9 % | 21.1 % | 23.3 % |
+  | longest unlanded, s | 10.8 | 15.8 | 23.0 | 18.9 |
+  | downs a bout, both sides | 0.97 | 2.01 | 2.71 | 2.44 |
+  | knockouts within 60 s (a reading) | 73.6 % | 43.1 % | 48.6 % | 32.1 % |
+  | blows taking life a second, both standing | 2.79 | 1.72 | 1.80 | 1.74 |
+  | share of a bout with either down | 30.7 % | 45.2 % | 69.8 % | 53.7 % |
+
+  The lean -0.3 column's scorecard was read at `f9e622ec7`, before the stance's plan was tied to
+  its body (`49f4ce1c9`, which a bout of it had thrown on); the push kick's beside it, by the
+  match, scored 0.492 (0.442 to 0.542) against the firm front kick.
+
+  So either kick, on the Warrior, measures worse than none: its bouts spend more of their time on
+  the ground, where nothing finishes a foe, and standing they land fewer blows. At lean 0 the
+  match score's interval still holds an even match, but its margin does not. The owner, on
+  2026-11-26, on that: "Yes the warrior should use the new front kick, that way we will see falls
+  for the low kick to act on". Of the two kicks, the front kick at lean 0
+  falls less (2.01 downs a bout against 2.71, a quarter of its bouts' time with either down less)
+  and leaves the longest stretch unlanded shorter (15.8 s against 23.0); the push kick knocks out
+  a little more within 60 s, inside the intervals (48.6 %, 42.0 to 55.2, against 43.1 %, 36.6 to
+  49.7). So the front kick is the Warrior's kick (`assets/characters/characters.json`), as the
+  order above said it would be if no worse than the push kick. The push kick stays pickable: the
+  Arena's Skills panel offers every kick its body can do, push among them, unchecked.
+
+  The front kick is refused at the man's middle (its height band, above), and the table's kick
+  cell for the man reads null there; at its base the fingerprint's single trial moved from 0.51 to
+  0.16 empty-handed and from 0.95 to 0.13 holding a club.
+
+  A low attack that takes a downed foe's life (the owner: "we don't have any good way to
+  capitalize on opponent falls") is the work that would change this reading.
 
 ## After it
 
@@ -224,3 +287,10 @@ profile measured again adds hundreds of thousands of lines to Git, and its chunk
 build's size warning. To be written compact, as other generated data is if it is; then whether
 the bundle carries trial arrays the Mind never reads as it fights, the reason of the test that
 profiles keep every exit percept read before anything is trimmed.
+
+A reading of a code change through `npm run evaluate` reads the rows of the code before it as
+its own, its key holding no code (`docs/traps.md`): the front kick's firm extension's first sample
+read the plain path's rows. Rows carry their commit and build, and a few found from other code are
+played again (`drawFound`), but one that reads differently changes nothing: 3 of 4 kept, and the
+1,200 old rows were read on. To be made to tell, or to play the rest fresh, when a row played again
+reads differently.
