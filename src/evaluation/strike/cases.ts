@@ -615,7 +615,7 @@ export const createStrikeCases = perContext((context: GameContext) => {
 
   /**
    * A rung a table cell reads, `name`, beside its training twin, `<name>-twin`: the rung's places
-   * drawn halfway between its gaps and its offsets across (`between`), research's to tune on.
+   * drawn between its gaps and its offsets across, as many (`between`), research's to tune on.
    */
   const twinned = (name: string, rung: Parameters<typeof stillCases>[0]): Record<string, Cases<StrikeCondition, StrikeReading>> =>
     ({ [name]: { ...stillCases(rung), twin: `${name}-twin` }, [`${name}-twin`]: stillCases(deepFreeze({ ...rung, gaps: between(rung.gaps), across: between(rung.across) })) });

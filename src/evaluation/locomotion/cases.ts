@@ -119,7 +119,7 @@ const EVERY = deepFreeze({ ...SCREEN, models: ["man", "woman", "skeleton"] as Bo
 /**
  * **The walk's training twin** (`src/evaluation/twin.ts`): `EVERY`'s trials drawn at other points,
  * research's to tune on, the cell's held out: its ways and its shoves' turned half their spacing
- * (each way's fastest walk read at its own way), its paces and impulses halfway between, its turns
+ * (each way's fastest walk read at its own way), its paces and impulses drawn between, as many, its turns
  * aside half as far, and the next seed.
  */
 const EVERY_TWIN = deepFreeze({ ...EVERY, ways: turned(EVERY.ways), paces: between(EVERY.paces), turns: EVERY.turns.map((way) => way < 180 ? way / 2 : 360 - (360 - way) / 2),

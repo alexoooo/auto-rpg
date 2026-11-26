@@ -7,7 +7,7 @@
  * way up are read from its mind's ledger (`groundLedger`), as the fall bed reads them. A bout
  * nobody falls in within `BOUT_WAIT` s is a fall not made (no takeover). The two start a gap
  * apart, the right side moved across the line between them, at each of `BOUT_PLACES`; the twin
- * draws them halfway between (`between`).
+ * draws as many between them (`between`).
  */
 import { otherSide, SIDES, type Side } from "../../core/bodies/bilateral.ts";
 import type { HumanoidModel } from "../../core/bodies/models.ts";
@@ -42,7 +42,7 @@ export const boutFalls = (places: { readonly gaps: readonly number[]; readonly a
   HUMANOID_MODELS.flatMap((model) => REPRESENTATIVE.flatMap((loadout) => places.gaps.flatMap((gap) => places.across.map((across): WayUpBoutCondition =>
     ({ model, loadout, start: "bout", gap, across })))));
 
-/** The twin's places: halfway between the drill's (`between`). */
+/** The twin's places: drawn between the drill's, as many (`between`). */
 export const TWIN_PLACES = deepFreeze({ gaps: between(BOUT_PLACES.gaps), across: between(BOUT_PLACES.across) });
 
 /** The bout world of `condition`: `mind` on both sides, each `seat`'s character, the bout ended by the reader alone. */

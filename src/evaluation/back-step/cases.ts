@@ -191,7 +191,7 @@ export const createBackStepCases = perContext((context: GameContext) => {
     };
   }
 
-  /** A rung a table reads, `name`, beside its training twin, `<name>-twin`: its gaps halfway between (`between`). */
+  /** A rung a table reads, `name`, beside its training twin, `<name>-twin`: its gaps drawn between, as many (`between`). */
   const twinned = (name: string, rung: Rung): Record<string, Cases<BackStepCondition, BackStepReading>> =>
     ({ [name]: { ...backStepCases(name, rung), twin: `${name}-twin` }, [`${name}-twin`]: backStepCases(`${name}-twin`, { ...rung, gaps: between(rung.gaps) }) });
 

@@ -93,7 +93,7 @@ export const createCoverCases = perContext((context: GameContext) => {
     };
   }
 
-  /** A rung a table cell reads, `name`, beside its training twin, `<name>-twin`: its places halfway between its gaps and its offsets across (`between`). */
+  /** A rung a table cell reads, `name`, beside its training twin, `<name>-twin`: its places drawn between its gaps and its offsets across, as many (`between`). */
   const twinned = (name: string, rung: Rung): Record<string, Cases<CoverCondition, CoverReading>> =>
     ({ [name]: { ...coverCases(rung), twin: `${name}-twin` }, [`${name}-twin`]: coverCases(deepFreeze({ ...rung, gaps: between(rung.gaps), across: between(rung.across) })) });
 
