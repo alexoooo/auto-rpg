@@ -224,3 +224,10 @@ profile measured again adds hundreds of thousands of lines to Git, and its chunk
 build's size warning. To be written compact, as other generated data is if it is; then whether
 the bundle carries trial arrays the Mind never reads as it fights, the reason of the test that
 profiles keep every exit percept read before anything is trimmed.
+
+A reading of a code change through `npm run evaluate` reads the rows of the code before it as
+its own, its key holding no code (`docs/traps.md`): the front kick's firm extension's first sample
+read the plain path's rows. Rows carry their commit and build, and a few found from other code are
+played again (`drawFound`), but one that reads differently changes nothing: 3 of 4 kept, and the
+1,200 old rows were read on. To be made to tell, or to play the rest fresh, when a row played again
+reads differently.

@@ -106,10 +106,11 @@ export const KICK_PATH = Object.freeze({
  * along timed paths, the stance on the standing leg solving for what they ask of it. Chamber: the
  * knee brought up at the target, the hip flexed `chamberLift` past where it points the leg at the
  * target, and the knee folded to `chamberKnee`, over `chamberSeconds`; extend: the leg carried to
- * the push kick's drive through (`reachThrough`), its strike point `through` m past the target,
- * level at its height, the knee straight, over `extendSeconds`, so the foot meets the target at
- * speed with the leg behind it, held until `follow` s after the foot touches or after the
- * extension; retract: back to the chamber over `retractSeconds`. Throughout, the trunk counters the
+ * the push kick's drive through (`solveThrough`), its strike point `through` m past the target,
+ * level at its height, the knee straight, over `extendSeconds`, its paths followed firm
+ * (`FreedomPath.firm`), so the foot meets the target at speed with the leg held behind it, not
+ * met limp where its path asks little torque, until `follow` s after the foot touches or after
+ * the extension; retract: back to the chamber over `retractSeconds`. Throughout, the trunk counters the
  * leg: the lumbar extended by `counter` of the hip's flexion. Each path is followed at
  * `pathSeconds`' response: at the motor's own, the stance's solve holds a leg reaching forward short
  * of its path.
@@ -293,15 +294,15 @@ function kick(body: Body, actions: readonly string[], resolve: TargetResolver, d
   /**
    * The authored drive's paths this step, `live` in one of its stages: each freedom of the stage's
    * goals (`Motion.goals`) from where the stage found it (`live.from`) toward its goal over the
-   * stage's seconds.
+   * stage's seconds, the extension's firm (`FreedomPath.firm`).
    */
   const authored = (live: Motion): Record<string, FreedomPath> => {
-    const path = paced!, seconds = live.stage === "chamber" ? path.chamberSeconds : live.stage === "extend" ? path.extendSeconds : path.retractSeconds;
+    const path = paced!, extend = live.stage === "extend", seconds = live.stage === "chamber" ? path.chamberSeconds : extend ? path.extendSeconds : path.retractSeconds;
     const paths: Record<string, FreedomPath> = {};
     for (const [channel, goal] of Object.entries(live.goals)) {
       const from = live.from[channel] ?? [goal, 0];
       scalarPathToRef(from[0], from[1], goal, live.time, seconds, sampled);
-      paths[channel] = { angle: sampled[0], rate: sampled[1], acceleration: sampled[2], seconds: path.pathSeconds };
+      paths[channel] = { angle: sampled[0], rate: sampled[1], acceleration: sampled[2], seconds: path.pathSeconds, ...(extend ? { firm: true } : {}) };
     }
     live.paths = paths;
     return paths;

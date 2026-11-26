@@ -118,13 +118,15 @@ type MotorGoal = "effectors" | "points" | "stance" | "support" | "paths";
 
 /**
  * **A freedom carried along a path**: its angle, rad, its rate, rad/s, and its acceleration,
- * rad/s^2, this step, followed at `seconds`' response where it names one, the motor's own else.
+ * rad/s^2, this step, followed at `seconds`' response where it names one, the motor's own else;
+ * `firm` as an effector's goal is (`EffectorGoal.firm`).
  */
 export interface FreedomPath {
   readonly angle: number;
   readonly rate: number;
   readonly acceleration: number;
   readonly seconds?: number;
+  readonly firm?: boolean;
 }
 
 /** **A motor that takes effectors to places** (`EffectorGoal`). */
@@ -222,7 +224,7 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose, st
   let whole: ReturnType<typeof makeWholeBody> | null = null;
   let driven: WholeBodyAsk | null = null;
   const unmet: MotorUnmet = { pushes: new Uint8Array(freedoms), points: 0 };
-  // Each firm freedom's speed at the step's end as the servo asks it (`EffectorGoal.firm`); NaN where none is firm.
+  // Each firm freedom's speed at the step's end as the servo asks it (`EffectorGoal.firm`, `FreedomPath.firm`); NaN where none is firm.
   const firm = new Float64Array(freedoms);
   const state = { pose: posture, pushes: [] as readonly MusclePush[], points: [] as readonly PointTask[], paths: NO_PATHS, standing: null as StanceGoal | null,
     effectors: tracker.state.effectors, reach: tracker.state.reach, stance: stance.state, unmet };
@@ -264,7 +266,9 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose, st
     });
     let anyFirm = false;
     for (let i = 0; i < freedoms; i++) {
-      firm[i] = !path(i) && !work.fixed[i] && owned(i) && tracker.firm(i) ? driver.speed(i) + work.accel[i]! * dt : NaN;
+      // A path is followed where the stance does not own its freedom (above).
+      const pathed = standing && stance.owned[i] ? undefined : path(i);
+      firm[i] = !work.fixed[i] && (pathed ? pathed.firm === true : !path(i) && owned(i) && tracker.firm(i)) ? driver.speed(i) + work.accel[i]! * dt : NaN;
       if (!Number.isNaN(firm[i]!)) anyFirm = true;
     }
     const ask = standing ? stance.ask(driver) : null;
