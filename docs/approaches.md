@@ -859,6 +859,16 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   ran 381 s against 310, three of eight drained against none. The 20 Hz rate did not show the
   saving its own reading did here. Played while a timed search waited for a look: at 20 Hz each
   came up to 0.05 s late. *Counted.*
+- **Searching every 0.1 s, 20 Hz still plays 60 Hz even and 10 Hz still loses, the clocks apart**:
+  the same Mind with no kick, both sides searching every 0.1 s (`OptionMindConfig.rethink`) at
+  `0a5b7fdd7`, a timed search on time whatever the rate, over the 288 bouts of
+  `warrior-drawn` against 60 Hz: 20 Hz 0.472 (0.420 to 0.528), knocking out within 60 s in 27.1 %
+  of bouts against 28.5 %; 10 Hz 0.378 (0.326 to 0.434), 22.6 % against 41.7 %. Thinking, both
+  bodies, the mean of eight Warrior mirror bouts each, interleaved on the performance cores: 270 ms
+  a simulated second at 60 Hz, 229 at 20 (the mirrors 492 s and 498 s long), 250 at 10 (268 s:
+  short bouts think more a second). So with the search period on time, noticing a watched change
+  within 0.05 s is as good as within 0.017 s and a sixth cheaper, and within 0.1 s is not.
+  *Counted.*
 - **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of
