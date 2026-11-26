@@ -52,7 +52,7 @@
    "landed": 9,
    "down": 0,
    "endedAsItMust": 16,
-   "value": 0.177
+   "value": 0.186
   }
  },
  "strips": [
@@ -104,15 +104,19 @@
      "stage": "kick:set"
     },
     {
-     "time": 6.26,
+     "time": 6.36,
      "stage": "kick:recenter"
     },
     {
-     "time": 6.631,
+     "time": 6.46,
+     "stage": "kick:recenter"
+    },
+    {
+     "time": 6.85,
      "stage": "standing"
     },
     {
-     "time": 7.331,
+     "time": 7.55,
      "stage": "standing"
     }
    ]
@@ -137,7 +141,7 @@
      "stage": "kick:transfer"
     },
     {
-     "time": 5.156,
+     "time": 5.056,
      "stage": "kick:transfer"
     },
     {
@@ -149,6 +153,10 @@
      "stage": "kick:extend"
     },
     {
+     "time": 5.517,
+     "stage": "kick:extend"
+    },
+    {
      "time": 5.523,
      "stage": "kick:retract"
     },
@@ -157,7 +165,7 @@
      "stage": "kick:set"
     },
     {
-     "time": 5.731,
+     "time": 5.831,
      "stage": "kick:set"
     },
     {
@@ -165,19 +173,15 @@
      "stage": "kick:set"
     },
     {
-     "time": 6.26,
+     "time": 6.404,
      "stage": "kick:recenter"
     },
     {
-     "time": 6.56,
-     "stage": "kick:recenter"
-    },
-    {
-     "time": 6.888,
+     "time": 6.76,
      "stage": "standing"
     },
     {
-     "time": 7.588,
+     "time": 7.46,
      "stage": "standing"
     }
    ]
@@ -230,15 +234,19 @@
      "stage": "kick:set"
     },
     {
-     "time": 6.598,
+     "time": 6.819,
+     "stage": "kick:set"
+    },
+    {
+     "time": 7.077,
      "stage": "kick:recenter"
     },
     {
-     "time": 7.142,
-     "stage": "standing"
+     "time": 7.277,
+     "stage": "kick:recenter"
     },
     {
-     "time": 7.842,
+     "time": 7.596,
      "stage": "standing"
     }
    ]
@@ -295,15 +303,15 @@
      "stage": "kick:set"
     },
     {
-     "time": 6.796,
+     "time": 6.604,
      "stage": "kick:recenter"
     },
     {
-     "time": 7.127,
+     "time": 7.031,
      "stage": "standing"
     },
     {
-     "time": 7.827,
+     "time": 7.731,
      "stage": "standing"
     }
    ]
