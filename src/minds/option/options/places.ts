@@ -81,7 +81,7 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
           const within = leave - enter, pieces = Math.max(1, Math.ceil(within / WALK_SPACING)), dt = within / pace / pieces;
           const moving = { x: ux * pace - focus.velocity.x, z: uz * pace - focus.velocity.z };
           for (let i = 0; i < pieces; i++) {
-            const along = enter + (i + .5) / pieces * within, tx = fx - (x + along * ux), tz = fz - (z + along * uz);
+            const along = enter + (i + 1 / 2) / pieces * within, tx = fx - (x + along * ux), tz = fz - (z + along * uz);
             const spent = Math.min(grace, dt);
             grace -= spent;
             taken += pressure.dealt(at, { apart: hypot(tx, tz) - offset, velocity: startVelocity({ x: tx, z: tz }, moving), seconds: dt - spent,

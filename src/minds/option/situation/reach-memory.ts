@@ -1,11 +1,16 @@
 import type { ReachMemory, Situation } from "../contract/situation.ts";
 import { startOf } from "./start.ts";
+import { handSet } from "../../../core/hand-set.ts";
 
 /**
  * How near a range may come to a reach and still read as at its edge, m: the rounding of one range
  * found by two routes (a spot placed at the edge of a reach, then measured back from where it is).
  */
-const ROUNDING = 1e-9;
+const ROUNDING = handSet({
+  name: "ROUNDING", sort: "own",
+  says: "How near a range may come to a reach and still read as at its edge, m: the rounding of one range found by two routes.",
+  value: 1e-9,
+});
 
 /** **Whether `range` m is within `reach` m**: short of it; a range at its edge, rounding aside (`ROUNDING`), is out of it. */
 export const within = (range: number, reach: number): boolean => range < reach - ROUNDING;

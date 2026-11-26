@@ -1,4 +1,5 @@
 import { deepFreeze } from "../../../core/state.ts";
+import { handSet } from "../../../core/hand-set.ts";
 import { number, type PartField } from "../../../parts/fields.ts";
 import type { ConfigFor, PartLookup } from "../../../parts/lookup.ts";
 import type { ChooserPart } from "../contract/parts.ts";
@@ -21,13 +22,21 @@ import { repliedSearch, DIRECTIONS, AGAINST, type AgainstName } from "./replies.
  * sooner, for another near alike, was chosen for a worth it was never given the time to earn, and
  * two such are walked toward by turns.
  */
-const KEEP = 1;
+const KEEP = handSet({
+  name: "KEEP", sort: "own",
+  says: "How long a chooser keeps the target an Option runs at before it may take another, s.",
+  value: 1,
+});
 
 /**
  * How long the valued chooser holds its price of a foe other than its focus (`Holding`): until
  * that foe has moved `moved` m about the body, gone down or got up, or `rethink` s have passed.
  */
-const HELD_FOE = Object.freeze({ moved: .3, rethink: .6 });
+const HELD_FOE = handSet({
+  name: "HELD_FOE", sort: "own",
+  says: "How long a chooser holds its price of a foe other than its focus: until that foe has moved this far, m, or this long has passed, s.",
+  value: { moved: .3, rethink: .6 },
+});
 
 /** The valued chooser's hold of each other foe's situation (`HELD_FOE`), by the foe. */
 const FOE_HOLDING: Holding = Object.freeze({
@@ -35,7 +44,7 @@ const FOE_HOLDING: Holding = Object.freeze({
   key: (other: Situation) => other.focus?.id ?? "",
   drift: (other: Situation) => {
     const foe = other.focus, centre = other.sight.view.stance.centre;
-    return foe ? [{ at: [foe.centre.x - centre.x, foe.centre.z - centre.z], within: HELD_FOE.moved }, { at: [foe.down ? 1 : 0], within: .5 }] : [];
+    return foe ? [{ at: [foe.centre.x - centre.x, foe.centre.z - centre.z], within: HELD_FOE.moved }, { at: [foe.down ? 1 : 0], within: 1 / 2 }] : [];
   },
 });
 
@@ -46,7 +55,11 @@ const VALUED_DEPTHS: readonly number[] = Object.freeze([1, 2]);
  * How far ahead the valued chooser looks unless its config says (`ValuedConfig.horizon`), s: set
  * so that from every posture the body lies in, a way up's standing falls within it.
  */
-const HORIZON = 20;
+const HORIZON = handSet({
+  name: "HORIZON", sort: "preference", field: "horizon",
+  says: "How far ahead a searching chooser looks, s.",
+  value: 20,
+});
 
 /** A depth other than those the valued chooser looks (`VALUED_DEPTHS`), as a fault. */
 const depthFaults = (depth: number): readonly string[] =>
@@ -122,13 +135,21 @@ export const VALUED_CHOOSER = deepFreeze<ChooserPart<ValuedConfig>>({
 });
 
 /** How many runs the tree chooser makes a decision unless its config says (`TreeConfig.runs`). */
-const RUNS = 50;
+const RUNS = handSet({
+  name: "RUNS", sort: "preference", field: "runs",
+  says: "How many runs the tree chooser makes a decision.",
+  value: 50,
+});
 
 /**
  * How far the tree chooser looks beyond an Option's worth unless its config says
  * (`TreeConfig.exploration`), in spreads of its siblings' worths.
  */
-const EXPLORATION = 1;
+const EXPLORATION = handSet({
+  name: "EXPLORATION", sort: "preference", field: "exploration",
+  says: "How far the tree chooser looks beyond an Option's worth, in spreads of its siblings' worths.",
+  value: 1,
+});
 
 /**
  * **The tree chooser's config**: its runs a search (`RUNS` unless given), how far it explores

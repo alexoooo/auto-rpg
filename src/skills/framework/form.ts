@@ -12,9 +12,21 @@
 import { nearestRun, profileReader, type Cycle, type Expected, type ReadsProfile, type RunReading } from "./profile/reading.ts";
 import { COORDINATE, readStartOf, readWithin, type Sample } from "./profile/nearest.ts";
 import { EXIT_KEYS, type Asked, type Exit } from "./profile/profile.ts";
+import { handSet } from "../../core/hand-set.ts";
 
 /** A start's numbers the form always weighs: none, the range, its square, closing and across. */
-const START_TERMS = 5;
+const START_TERMS = handSet({
+  name: "START_TERMS", sort: "own",
+  says: "How many numbers of a start a written form always weighs: a constant, the range, its square, and the speeds closing and across.",
+  value: 5,
+});
+
+/** How small a pivot may be before a fit's trials are taken not to determine its weights. */
+const SINGULAR = handSet({
+  name: "SINGULAR", sort: "own",
+  says: "How small a pivot of a least-squares fit may be before its trials are taken not to determine a written form.",
+  value: 1e-12,
+});
 
 /** The weights that fit `ys` at `xs` (each as long) by least squares, null where they do not determine them. */
 function fitted(xs: readonly Float64Array[], ys: readonly number[]): Float64Array | null {
@@ -25,7 +37,7 @@ function fitted(xs: readonly Float64Array[], ys: readonly number[]): Float64Arra
   for (let c = 0; c < TERMS; c++) {
     let pivot = c;
     for (let r = c + 1; r < TERMS; r++) if (Math.abs(a[r]![c]!) > Math.abs(a[pivot]![c]!)) pivot = r;
-    if (!(Math.abs(a[pivot]![c]!) > 1e-12)) return null;
+    if (!(Math.abs(a[pivot]![c]!) > SINGULAR)) return null;
     [a[c], a[pivot]] = [a[pivot]!, a[c]!];
     for (let r = 0; r < TERMS; r++) if (r !== c) { const f = a[r]![c]! / a[c]![c]!; for (let k = c; k <= TERMS; k++) a[r]![k]! -= f * a[c]![k]!; }
   }

@@ -1,7 +1,12 @@
 import type { OptionRecord, Tried } from "../contract/context.ts";
+import { handSet } from "../../../core/hand-set.ts";
 
 /** How many tries a prior, or a measured profile, counts as against an Option's record of them (`recorded`). */
-const WEIGHT = 2;
+const WEIGHT = handSet({
+  name: "WEIGHT", sort: "own",
+  says: "How many tries a way up's prior or measured profile counts as against the body's own record of its tries.",
+  value: 2,
+});
 
 /** **The share of tries done that `done` is taken at once `tried` moves it**: its tries counted against `WEIGHT` of its own. */
 export const recorded = (done: number, tried: Tried | undefined): number =>

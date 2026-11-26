@@ -1,5 +1,6 @@
 import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../../../core/state.ts";
+import { handSet } from "../../../../core/hand-set.ts";
 import type { StanceNumbers, Stances } from "../../../../skills/framework/profile/profile.ts";
 import type { ProfileReading } from "../../../../skills/framework/profile/reading.ts";
 import type { Guesses, Placing } from "../../contract/predictors.ts";
@@ -46,7 +47,18 @@ export interface PressureFields {
 }
 
 /** A search's scratch holds at most this many exact starts; four ways share each hash bucket. */
-const PRESSURE_CACHE = Object.freeze({ buckets: 64, ways: 4 });
+const PRESSURE_CACHE = handSet({
+  name: "PRESSURE_CACHE", sort: "own",
+  says: "How many exact starts a search's scratch of pressure readings holds: this many buckets, this many starts sharing each.",
+  value: { buckets: 64, ways: 4 },
+});
+
+/** The hash a start is found in the scratch by (FNV-1a over its numbers' words): where it starts, what it multiplies by, and how many high bits it folds down. */
+const PRESSURE_HASH = handSet({
+  name: "PRESSURE_HASH", sort: "own",
+  says: "The hash that finds a start in a search's scratch of pressure readings: FNV-1a's start and multiplier, and the bits folded down.",
+  value: { start: 0x811c9dc5, prime: 0x01000193, fold: 16 },
+});
 
 /**
  * **One search's scratch of a pressure's exact starts** (`ProfilePressure.cached`): each start
@@ -67,7 +79,7 @@ interface Starts {
 
 /** An empty scratch (`Starts`). */
 function startsOf(): Starts {
-  const size = PRESSURE_CACHE.buckets * PRESSURE_CACHE.ways, values = new Float64Array(3);
+  const size = PRESSURE_CACHE.buckets * PRESSURE_CACHE.ways, values = Float64Array.of(0, 0, 0);
   return { ranges: new Float64Array(size), forward: new Float64Array(size), across: new Float64Array(size), rates: new Float64Array(size), ages: new Float64Array(size),
     values, words: new Uint32Array(values.buffer), clock: 0 };
 }
@@ -148,10 +160,10 @@ export class ProfilePressure implements Pressure {
     if (!starts || !Number.isFinite(range) || !Number.isFinite(x) || !Number.isFinite(z)) return this.read(range, velocity);
     const { ranges, forward, across, rates, ages, values, words } = starts, { buckets, ways } = PRESSURE_CACHE;
     values[0] = range; values[1] = x; values[2] = z;
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < words.length; i++) hash = Math.imul(hash ^ words[i]!, 0x01000193);
+    let hash = PRESSURE_HASH.start;
+    for (let i = 0; i < words.length; i++) hash = Math.imul(hash ^ words[i]!, PRESSURE_HASH.prime);
     // Fold high bits into the bucket: nearby floating point values often share their low bits.
-    const from = ((hash ^ hash >>> 16) & (buckets - 1)) * ways;
+    const from = ((hash ^ hash >>> PRESSURE_HASH.fold) & (buckets - 1)) * ways;
     let oldest = from;
     for (let i = from; i < from + ways; i++) {
       if (ages[i]! > 0 && Object.is(ranges[i], range) && Object.is(forward[i], x) && Object.is(across[i], z)) {

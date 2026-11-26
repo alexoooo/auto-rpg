@@ -2,19 +2,28 @@ import { exp, hypot, tanh } from "../../../core/math/real.ts";
 import { anyBody, type KeysOf } from "../../../parts/parts.ts";
 import { number } from "../../../parts/fields.ts";
 import { deepFreeze } from "../../../core/state.ts";
+import { handSet } from "../../../core/hand-set.ts";
 import type { Situation } from "../contract/situation.ts";
 import type { ObjectivePart } from "../contract/parts.ts";
 import { FIRST } from "./obedience.ts";
 import type { Obedience, Objective, Path } from "../contract/objective.ts";
 
-/** The lead, life, past which a wider one is worth less and less at the clock's verdict (`verdict`). */
-const MARGIN = .1;
+/** The lead, life, past which a wider one is worth less and less at the clock's verdict (`atBell`). */
+const MARGIN = handSet({
+  name: "MARGIN", sort: "own",
+  says: "The lead, in life, past which a wider one is worth less and less when the clock ends a bout.",
+  value: .1,
+});
 
 /** What a bout the clock ends even costs each side, life: as much as a lost one (`MARGIN`), so neither waits out an even bout. */
 const DRAW = MARGIN;
 
 /** The lead, life, within which a bout reads as even at the clock (`atBell`): a light touch, short of a landed blow. */
-const EVEN = .02;
+const EVEN = handSet({
+  name: "EVEN", sort: "own",
+  says: "The lead, in life, within which a bout the clock ends reads as even.",
+  value: .02,
+});
 
 /**
  * **What a lead of `lead` is worth at the clock's verdict**, life: as much as the lead where it is
@@ -30,21 +39,26 @@ const atBell = (lead: number): number => MARGIN * tanh(lead / MARGIN) - DRAW * (
  * until the clock moves it (`atBell`). What 2 has two Warriors do, and what it did under other
  * prices, is in `docs/approaches.md` (minds).
  */
-export const AGGRESSION = 2;
+const AGGRESSION = handSet({
+  name: "AGGRESSION", sort: "preference", field: "aggression",
+  says: "How much more a body values a share of the focus's life it takes than as much of its own it loses.",
+  value: 2,
+});
 
 /** **The few terms' config**: its aggression (`AGGRESSION` unless given), and its initiative (`initiativeWeight`; none unless given). */
 export interface FewTermsConfig { readonly kind: "few-terms"; readonly aggression?: number; readonly initiative?: number }
 
 /**
- * **The few terms' settings**, each a number a person sets from `least` to `most`, and what it is
- * where a config leaves it out (`preset`): aggression, from valuing the focus's life as the body's
- * own to five times it; initiative, a rate a second (`initiativeWeight`), from none to 0.6, where
- * over the chooser's 20 s a blow now counts 12 times its mean and one at the horizon almost none.
+ * **The few terms' settings**, each a number a person sets, written as none where it is what a
+ * config that leaves it out means: aggression (`AGGRESSION`), from valuing the focus's life as
+ * the body's own to five times it; initiative, a rate a second (`initiativeWeight`), from none
+ * to 0.6, where over the chooser's 20 s a blow now counts 12 times its mean and one at the
+ * horizon almost none.
  */
-const SETTINGS = deepFreeze({
-  aggression: { label: "Aggression", least: 1, most: 5, step: .1, unit: "×", preset: AGGRESSION },
-  initiative: { label: "Initiative", least: 0, most: .6, step: .01, unit: "/s", preset: 0 },
-});
+const SETTING_FIELDS = [
+  number<FewTermsConfig, "aggression">("aggression", "Aggression", 1, 5, .1, "×", AGGRESSION),
+  number<FewTermsConfig, "initiative">("initiative", "Initiative", 0, .6, .01, "/s", 0),
+];
 
 /**
  * **A path's worth by the few terms**, life: the metres it walks as ordered, at `obedience` (orders
@@ -87,21 +101,16 @@ function fewTerms(aggression: number, initiative: number): Objective {
   return made;
 }
 
-/** Each setting as a person sets it (`SETTINGS`), written as none at its preset. */
-const SETTING_FIELDS = (Object.keys(SETTINGS) as (keyof typeof SETTINGS)[]).map((key) => {
-  const { label, least, most, step, unit, preset } = SETTINGS[key];
-  return number<FewTermsConfig, typeof key>(key, label, least, most, step, unit, preset);
-});
-
 /** **The few terms** (`fewTerms`) as a part of role `objective`: what a chooser that values options prices them by. */
 export const FEW_TERMS_PART = deepFreeze<ObjectivePart<FewTermsConfig>>({
   role: "objective", label: "Combat", fields: SETTING_FIELDS, slots: [], defaults: { kind: "few-terms" }, keys: { kind: true, aggression: true, initiative: true },
   fits: anyBody,
-  faults: (config: FewTermsConfig) => (Object.keys(SETTINGS) as (keyof typeof SETTINGS)[]).flatMap((key) => {
-    const value = config[key], { least, most, unit } = SETTINGS[key];
-    return value === undefined || Number.isFinite(value) && value >= least && value <= most ? [] : [`${key}: a number from ${least} to ${most} ${unit}`];
+  // A field reads a setting left out as what that means, so only a number given and out of its range is a fault.
+  faults: (config: FewTermsConfig) => SETTING_FIELDS.flatMap(({ key, least, most, unit, read }) => {
+    const value = Number(read(config));
+    return value >= least && value <= most ? [] : [`${key}: a number from ${least} to ${most} ${unit}`];
   }),
-  make: (config: FewTermsConfig) => fewTerms(config.aggression ?? SETTINGS.aggression.preset, config.initiative ?? SETTINGS.initiative.preset),
+  make: (config: FewTermsConfig) => fewTerms(config.aggression ?? AGGRESSION, config.initiative ?? 0),
 });
 
 /**
@@ -109,7 +118,11 @@ export const FEW_TERMS_PART = deepFreeze<ObjectivePart<FewTermsConfig>>({
  * standing `down` m further off, and a second spent before holding as `second` m, so of two ways
  * there the quicker is worth more.
  */
-const REACH = deepFreeze({ down: 10, second: .1 });
+const REACH = handSet({
+  name: "REACH", sort: "own",
+  says: "Reaching a place with no foe to fight: lying down costs as much as standing this many metres further off, and a second as this many.",
+  value: { down: 10, second: .1 },
+});
 
 /** **A place on the ground to reach**: where it is, m. */
 interface ReachConfig { readonly kind: "reach-place"; readonly x: number; readonly z: number }

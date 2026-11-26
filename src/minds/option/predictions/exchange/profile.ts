@@ -2,6 +2,7 @@ import { turnAt } from "../../../../control/stance/stance-envelope.ts";
 import { stanceEnvelopeOf } from "../../../../skills/locomotion/shared/stance/envelope.ts";
 import { hypot } from "../../../../core/math/real.ts";
 import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
+import { handSet } from "../../../../core/hand-set.ts";
 import { defaultStrikeLimbs } from "../../../../skills/perception/default-strike-limbs.ts";
 import { profilesOn } from "../../../../skills/framework/profile/lookup.ts";
 import { STANDING, type Postures, type Profile } from "../../../../skills/framework/profile/profile.ts";
@@ -52,7 +53,11 @@ const ownPhase = ({ sight }: Seen): string => sight.report.actions.length > 0 ? 
 const placingAt = (posture: string): Placing | null => posture === "standing" ? "reach" : null;
 
 /** The least a reply moves the foe, m (`ProfileExchange.reply`): a line moving the body less is the foe standing. */
-const REPLY_LEAST = .01;
+const REPLY_LEAST = handSet({
+  name: "REPLY_LEAST", sort: "own",
+  says: "The least a line must move the body, m, for the foe's reply to it to move the foe: below it the foe is taken to stand.",
+  value: .01,
+});
 
 /**
  * **The exchange as measured profiles predict it** (`ExchangePredictor`), built with its tables

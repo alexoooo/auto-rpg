@@ -7,6 +7,7 @@ import type { Asked, ItemNumbers, Stances, StanceNumbers, Start, Trial } from ".
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { heldNumbers, struckNumbers } from "./numbers.ts";
 import { remembered } from "../../../core/remembered.ts";
+import { handSet } from "../../../core/hand-set.ts";
 
 /**
  * **The spans a struck body's stature and mass are compared over**: a tenth of a metre and ten
@@ -14,10 +15,18 @@ import { remembered } from "../../../core/remembered.ts";
  * where it was measured, and the spans choose only which measured body one never measured is read
  * as (`profileAgainst`).
  */
-export const STRUCK_SPANS = Object.freeze({ stature: .1, mass: 10 });
+export const STRUCK_SPANS = handSet({
+  name: "STRUCK_SPANS", sort: "own",
+  says: "The spans over which two struck bodies are compared: this much stature, m, and this much mass, kg, count as one step apart.",
+  value: { stature: .1, mass: 10 },
+});
 
 /** The span each of a body's stance numbers is read over (`STANCES`), m. */
-export const STANCE_SPANS: Readonly<Record<keyof StanceNumbers, number>> = Object.freeze({ stagger: 1, width: .4, height: .02 });
+export const STANCE_SPANS = handSet<Readonly<Record<keyof StanceNumbers, number>>>({
+  name: "STANCE_SPANS", sort: "own",
+  says: "The spans over which two stances are compared: this much of each stance number counts as one step apart.",
+  value: { stagger: 1, width: .4, height: .02 },
+});
 
 /**
  * **The stance numbers a start is compared by**, beside its range, velocity and place: each body's
@@ -52,7 +61,11 @@ export interface BodyNumber {
  * Set on no reading of their error: the edges' profiles hold each loadout's falls apart (a body
  * reads its own loadout's, every one at no distance), and no strike's trials cross loadouts yet.
  */
-export const HELD_SPANS: Readonly<Record<keyof ItemNumbers, number>> = Object.freeze({ mass: 1, reach: .1 });
+export const HELD_SPANS = handSet<Readonly<Record<keyof ItemNumbers, number>>>({
+  name: "HELD_SPANS", sort: "own",
+  says: "The spans over which what two bodies hold is compared: this much mass, kg, and this much reach, m, count as one step apart.",
+  value: { mass: 1, reach: .1 },
+});
 
 /**
  * **The numbers `trials` are compared by** (`BodyNumber`): the mass and reach held in each segment any trial records holding, a trial that
@@ -88,13 +101,21 @@ const STILL: readonly [number, number] = Object.freeze([0, 0]) as readonly [numb
  * alike. Tuned: about a stride's worth of neighbours on the range a strike's window spans, a step's
  * change of pace, and a quarter of the depth of a stomp's window.
  */
-const NEAREST = Object.freeze({ trials: 10, range: .1, speed: .25, place: .1 });
+const NEAREST = handSet({
+  name: "NEAREST", sort: "own",
+  says: "How many of a profile's nearest trials a reading is the mean of, and the spans their starts are compared over: range, m, velocity, m/s, and place in the window, m.",
+  value: { trials: 10, range: .1, speed: .25, place: .1 },
+});
 
 /** The spans over which a reading takes its trials' starts as alike (`NEAREST`): range and place in the window, m, and velocity, m/s. */
 export const PROFILE_SPANS: { readonly range: number; readonly speed: number; readonly place: number } = Object.freeze({ range: NEAREST.range, speed: NEAREST.speed, place: NEAREST.place });
 
 /** How near two distances are taken as one: the nearest trials' ties. */
-const TIE = 1e-9;
+const TIE = handSet({
+  name: "TIE", sort: "own",
+  says: "How near two distances between starts are taken as the same distance.",
+  value: 1e-9,
+});
 
 /**
  * **Where each of a start's coordinates lies** in a sample's (`Sample.coords`): the range, m; the
@@ -205,7 +226,18 @@ interface Tree {
 }
 
 /** How many trials a leaf of a tree holds at most. */
-const LEAF = 12;
+const LEAF = handSet({
+  name: "LEAF", sort: "own",
+  says: "How many trials a leaf holds at most in the tree a profile's nearest trials are found through.",
+  value: 12,
+});
+
+/** How many hits and tree nodes a query's work has room for before it grows. */
+const WORK_ROOM = handSet({
+  name: "WORK_ROOM", sort: "own",
+  says: "How many hits and tree nodes the work of a search for nearest trials has room for before it grows.",
+  value: 64,
+});
 
 /**
  * **`sample`'s trees** (`Tree`), one for the trials that record each set of stance numbers, so each
@@ -264,7 +296,7 @@ interface Nearest { bound: number; start: Float64Array; query: Float64Array; hit
 
 /** One query's work; nested queries use a frame of their own until the outer aggregation ends. Its start, query, hits and stack grow to the most a sample asks. */
 const nearestWork = (): Nearest => ({ bound: 0, start: new Float64Array(COORDINATE.levels + STANCES.length), query: new Float64Array(COORDINATE.levels + STANCES.length),
-  hits: new Int32Array(64), count: 0, mark: 0, nodes: new Int32Array(64), leasts: new Float64Array(64) });
+  hits: new Int32Array(WORK_ROOM), count: 0, mark: 0, nodes: new Int32Array(WORK_ROOM), leasts: new Float64Array(WORK_ROOM) });
 const QUERY_WORK = { depth: 0, frames: [nearestWork()], marks: 0 };
 
 /** Keep `distances`' `i`th among the nearest `want`, returning how many have been found: read from the array, as a number passed is a heap object. */

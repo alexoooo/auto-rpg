@@ -14,6 +14,7 @@ import { followOrders } from "./orders.ts";
 import { gaitsOf, goesBy, walkBy } from "./places.ts";
 import { guardOf, hold, holdAt } from "./rest.ts";
 import { choosingSkill } from "./selection.ts";
+import { handSet } from "../../../core/hand-set.ts";
 
 /** A kind of option with no settings of its own, `kind`, labelled `label`, made by `make`. */
 function kind<K extends string>(kind: K, label: string, make: (given: OptionContext) => readonly Option[]): OptionPart<{ readonly kind: K }> {
@@ -50,6 +51,13 @@ export const WALK_OPTION = deepFreeze<OptionPart<WalkConfig>>({
       .map(gait => choosingSkill(walkBy(gait, given.sites, given.walk, given.spec), navigation, "navigation"))),
 });
 
+/** How near a place the body holds there, m, unless its config says. */
+const HELD_WITHIN = handSet({
+  name: "HELD_WITHIN", sort: "own",
+  says: "How near a place a body holding at it counts as there, m, unless the hold's config says.",
+  value: .3,
+});
+
 /** **A place on the ground** to hold at: where it is, m, and how near its centre the body holds there. */
 interface PlaceConfig { readonly kind: "hold-at-place"; readonly x: number; readonly z: number; readonly within: number }
 
@@ -60,7 +68,7 @@ const placeFaults = (config: PlaceConfig): readonly string[] => [
 
 /** **Holding at a place on the ground** (`holdAt`), whatever the focus: a rest option at the place its config names, which is its site. */
 export const HOLD_AT_OPTION = deepFreeze<OptionPart<PlaceConfig>>({
-  role: "option", label: "Hold at a place", offered: false, stands: false, fields: [], slots: [], defaults: { kind: "hold-at-place", x: 0, z: 0, within: .3 },
+  role: "option", label: "Hold at a place", offered: false, stands: false, fields: [], slots: [], defaults: { kind: "hold-at-place", x: 0, z: 0, within: HELD_WITHIN },
   keys: { kind: true, x: true, z: true, within: true }, fits: anyBody, faults: placeFaults,
   make: (config: PlaceConfig, given: OptionContext) => [holdAt(config.x, config.z, config.within, given.walk)],
 });

@@ -1,4 +1,5 @@
 import { deepFreeze } from "../../../../core/state.ts";
+import { handSet } from "../../../../core/hand-set.ts";
 import { hypot } from "../../../../core/math/real.ts";
 import type { Followed, Offered, ValuePredictor, ValueReader } from "../../contract/predictors.ts";
 import type { Situation } from "../../contract/situation.ts";
@@ -45,7 +46,29 @@ export interface Reading {
 }
 
 /** The longest a reading's seconds are read, s: past it, as long; so a reading is finite throughout. */
-const LONGEST = 5;
+const LONGEST = handSet({
+  name: "LONGEST", sort: "own",
+  says: "The longest a time is read as by the fitted value, s: a longer one reads as this long.",
+  value: 5,
+});
+
+/** The farthest a distance is read as by the fitted value, m: past it, as far. */
+const FARTHEST = handSet({
+  name: "FARTHEST", sort: "own",
+  says: "The farthest a distance is read as by the fitted value, m: a farther one reads as this far.",
+  value: 8,
+});
+
+/**
+ * How much more the life an Option deals counts than the life it takes, where the fitted value
+ * ranks the Options on offer by what each trades a second. The value was fitted with it at the
+ * aggression the Mind then had, and it does not follow the aggression a player sets.
+ */
+const TRADE = handSet({
+  name: "TRADE", sort: "own",
+  says: "How much more the life an Option deals counts than the life it takes, where the fitted value ranks the Options on offer.",
+  value: 2,
+});
 
 /** `at` as it is read (`Reading`), `grace` its reach's (`graceAt`, read by the caller), `offered` its Options' models; null without a focus. */
 export function readingAt(at: Situation, grace: number, offered: readonly Offered[]): Reading | null {
@@ -88,13 +111,13 @@ export function featuresOf(r: Reading): number[] {
     if (kind === "strike") strikes++;
     if (open) { openTakenMax = Math.max(openTakenMax, taken); continue; }
     if (!(duration > 0)) continue;
-    const rate = (2 * dealt - taken) / duration;
+    const rate = (TRADE * dealt - taken) / duration;
     if (rate > bestRate) { bestRate = rate; bestRateDur = duration; }
     runTakenMin = Math.min(runTakenMin, taken); runTakenMax = Math.max(runTakenMax, taken);
     if (kind === "strike") { if (dealt > bestStrikeDealt) { bestStrikeDealt = dealt; bestStrikeDur = duration; } bestStrikeRate = Math.max(bestStrikeRate, rate); }
     if (kind === "walk") bestWalkRate = Math.max(bestWalkRate, rate);
   }
-  return [Math.min(r.range, 8), Math.min(r.apart, 8), rvx * ux + rvz * uz, Math.abs(-rvx * uz + rvz * ux), hypot(...r.velocity), hypot(...r.foeVelocity),
+  return [Math.min(r.range, FARTHEST), Math.min(r.apart, FARTHEST), rvx * ux + rvz * uz, Math.abs(-rvx * uz + rvz * ux), hypot(...r.velocity), hypot(...r.foeVelocity),
     r.down ? 1 : 0, code(POSTURES, r.posture), code(POSTURES, r.foePosture), code(PHASES, r.phase), r.phase === "striking" ? 1 : 0,
     r.incoming ? 1 : 0, r.ward ? 1 : 0, r.contact, r.rising ? 1 : 0, r.around, r.life, r.foeLife, r.lead, r.lateness, ...r.stance, ...r.foeStance,
     finite(bestRate), bestStrikeDealt, finite(bestStrikeRate), finite(bestWalkRate), r.offered.length, strikes, openTakenMax, finite(runTakenMin), runTakenMax,

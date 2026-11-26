@@ -60,7 +60,7 @@ export function measuredOn(spec: BodySpec, { skill, limb }: SkillAsked, { hz, re
 }
 
 /** **Whether a reaction time `now` s reads as `was` s** at `hz`: within half a step, or either unknown. */
-export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= .5 / hz;
+export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= 1 / 2 / hz;
 
 /** **Why `profile` answers another question than `now` asks**, a sentence: another body, skill or limb; null where it answers the same. One that does is never read for it. */
 function askedOtherwise(profile: Profile, now: Measured): string | null {

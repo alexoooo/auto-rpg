@@ -20,9 +20,14 @@ import type { Terms } from "../contract/terms.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { claimsLegs } from "../../../skills/framework/intent.ts";
 import { hypot } from "../../../core/math/real.ts";
+import { handSet } from "../../../core/hand-set.ts";
 
 /** How long a strike may wait to be admitted before it is given up, s. */
-const PATIENCE = 2;
+const PATIENCE = handSet({
+  name: "PATIENCE", sort: "own",
+  says: "How long a strike the Mind chose may wait to be admitted before the Mind gives it up, s.",
+  value: 2,
+});
 
 /**
  * What a strike's profile is looked up by: the body throwing it, the question a profile read by it

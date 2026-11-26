@@ -13,6 +13,7 @@ import type { Option } from "../contract/option.ts";
 import { chosenVariation, type Varied } from "../../../skills/framework/variations.ts";
 import { strike, strikeMeasure } from "./strike.ts";
 import { choosingSkill } from "./selection.ts";
+import { handSet } from "../../../core/hand-set.ts";
 
 /**
  * **A strike's config**: the executor it strikes by (`skill`, of its kind's skill), the limbs it
@@ -222,7 +223,11 @@ const MIDDLE: readonly Region[] = deepFreeze([{ kind: "mark", mark: "middle" }])
 const CENTRE: ConfigFor<"aim"> = deepFreeze({ kind: "centre", lead: 0 });
 
 /** Aimed at the trunk's opening as the learned puncher aims. */
-const TRUNK_OPENING: ConfigFor<"aim"> = deepFreeze({ kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } });
+const TRUNK_OPENING = handSet<ConfigFor<"aim">>({
+  name: "TRUNK_OPENING", sort: "guess",
+  says: "Where on the trunk a strike aims for an opening: the weights the learned punch aims by, given to every strike at the trunk.",
+  value: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } },
+});
 
 /** Its low support, under a blow of the hands: the support fold. */
 const SUPPORT_FOLD: ConfigFor<"support"> = deepFreeze({ kind: "support-fold" });

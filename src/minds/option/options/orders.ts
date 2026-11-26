@@ -9,9 +9,14 @@ import { threatened } from "../situation/reach-memory.ts";
 import { UNMOVED } from "./outcomes.ts";
 import type { Walker } from "../contract/context.ts";
 import type { GaitName } from "../../../skills/framework/skill.ts";
+import { handSet } from "../../../core/hand-set.ts";
 
 /** How far ahead following orders is priced, s. */
-const AHEAD = 1;
+const AHEAD = handSet({
+  name: "AHEAD", sort: "own",
+  says: "How long following orders is priced for, s: an Option held open is priced over a span, and this is its span.",
+  value: 1,
+});
 
 /** Whether `now`'s orders are to move, stand or face: an explicit movement, stop or facing. */
 const ordered = (now: Situation): boolean => now.orders !== null && (now.orders.move !== undefined || (now.orders.face ?? null) !== null);

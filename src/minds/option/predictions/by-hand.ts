@@ -1,6 +1,6 @@
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Position } from "../../../control/ground-reading.ts";
-import { deepFreeze } from "../../../core/state.ts";
+import { handSet } from "../../../core/hand-set.ts";
 import { landed } from "../../../skills/framework/action-instances.ts";
 import type { Ended } from "../../../skills/framework/action.ts";
 import { regionSegments } from "../../../skills/framework/action-aim.ts";
@@ -11,21 +11,33 @@ import { blowLife, limbReach } from "./damage.ts";
 import { REGAIN_TRY } from "../situation/rise-memory.ts";
 
 /**
- * **Every number set by hand that prices something an Option Mind predicts.** There are two sorts.
+ * **The numbers set by hand that say what happens in a fight.** Each is an entry in the registry
+ * of numbers set by hand (`handSet`), where its sort and what it says are written with it.
  *
- * A guess stands in where a measurement is missing: a strike with no profile, a foe's limb with
- * none, a blow coming from such a limb, a way up no drill measured. The guesses are behind one
- * interface (`Guesses`), and a Mind has them only where its predictions part gives them (`BY_HAND`).
+ * Some stand in where a measurement is missing: a strike with no profile, a foe's limb with none,
+ * a blow coming from such a limb, a way up no drill measured. Those are behind one interface
+ * (`Guesses`), and a Mind has them only where its predictions part gives them (`BY_HAND`).
  *
- * A number read always has no measurement to fall back from yet: the clinch, the cover, where a
- * fall leaves the body, the brace, how fast a foe with no turn measured turns. Each is a plain
- * export below, read by every kind of predictions.
+ * The others are read by every kind of predictions, because nothing measured can be read in their
+ * place yet: the clinch, the cover, where a fall leaves the body, the brace, and how fast a foe
+ * with no turn measured turns. Each is a plain export below.
  */
 
 // The guesses.
 
-/** What an action is taken to do before its body has a record of it: land this share of its blows, each running this long, s; worth `weight` records. */
-const PRIOR = Object.freeze({ lands: .3, seconds: .6, weight: 3 });
+/** What an action is taken to do before its body has a record of it. */
+const PRIOR = handSet({
+  name: "PRIOR", sort: "guess",
+  says: "An action its body has no record of lands this share of its blows, each running this long, s.",
+  value: { lands: .3, seconds: .6 },
+});
+
+/** How many records the prior of an action (`PRIOR`) counts as, against the body's own tries. */
+const PRIOR_WEIGHT = handSet({
+  name: "PRIOR_WEIGHT", sort: "own",
+  says: "How many tries an action's prior counts as against the body's own record of it.",
+  value: 3,
+});
 
 /**
  * What a body's own record says of an action of its with its limbs, or of every action with none
@@ -41,7 +53,7 @@ export function record(ledger: readonly Ended[], action: { readonly name: string
     tries += 1; seconds += ended.ended - ended.began;
     if (landed(ended)) hits += 1;
   }
-  return { lands: (hits + PRIOR.lands * PRIOR.weight) / (tries + PRIOR.weight), seconds: (seconds + PRIOR.seconds * PRIOR.weight) / (tries + PRIOR.weight) };
+  return { lands: (hits + PRIOR.lands * PRIOR_WEIGHT) / (tries + PRIOR_WEIGHT), seconds: (seconds + PRIOR.seconds * PRIOR_WEIGHT) / (tries + PRIOR_WEIGHT) };
 }
 
 /**
@@ -49,10 +61,23 @@ export function record(ledger: readonly Ended[], action: { readonly name: string
  * and how many blows a second a standing foe throws within its reach (`RATE`), of which as many
  * land as of the body's own (`record`): two bodies trading blows land alike.
  */
-const LANDS = .3, RATE = 1;
+const LANDS = handSet({
+  name: "LANDS", sort: "guess",
+  says: "The chance a foe's blow predicted to reach the head lands, where no strike of the foe's was measured.",
+  value: .3,
+});
+const RATE = handSet({
+  name: "RATE", sort: "guess",
+  says: "How many blows a second a standing foe throws within its reach, where no strike of the foe's was measured.",
+  value: 1,
+});
 
 /** How fast a limb closes on what it strikes in a blow not under way to measure, m/s. */
-const BLOW_SPEED = 5;
+const BLOW_SPEED = handSet({
+  name: "BLOW_SPEED", sort: "guess",
+  says: "How fast a limb closes on what it strikes, m/s, in a blow that is not under way to measure.",
+  value: 5,
+});
 
 /** What a guessed reading is made of: the striker's spec and the struck body's, the range it reaches to, m, and the share of the struck body's life it takes every so many seconds. */
 interface Guessed { readonly striker: BodySpec; readonly struck: BodySpec; readonly range: number; readonly life: number; readonly seconds: number }
@@ -92,8 +117,10 @@ function reading(guessed: Guessed): ProfileReading {
 }
 
 /** What each of the ground's Options is taken to do where no drill measured it: a way up runs 5 s and stands the body seven times in ten; the regain stands a body on its feet ready in its try (`REGAIN_TRY`) nine times in ten; a brace holds a quarter second until a way up admits the body, after which one does. */
-const WAYS: Readonly<Record<GuessedWay, Prior>> = deepFreeze({
-  way: { seconds: 5, done: .7 }, regain: { seconds: REGAIN_TRY, done: .9 }, settle: { seconds: .25, done: 1 },
+const WAYS = handSet<Readonly<Record<GuessedWay, Prior>>>({
+  name: "WAYS", sort: "guess",
+  says: "How long each of the ground's Options runs, s, and the share of its tries it does what it is for, where no drill measured it.",
+  value: { way: { seconds: 5, done: .7 }, regain: { seconds: REGAIN_TRY, done: .9 }, settle: { seconds: .25, done: 1 } },
 });
 
 /**
@@ -137,19 +164,39 @@ export const pricedBy = (guesses: Guesses | null): string => guesses ? "by hand"
  * A clinch, until a drill measures one: a focus within `within` m, centre to centre, where a body
  * goes down `falls` times a second, standing (tangled with it) or lying (its limbs underfoot).
  */
-export const CLINCH = deepFreeze({ within: .65, falls: .2 });
+export const CLINCH = handSet({
+  name: "CLINCH", sort: "guess",
+  says: "A body within this far of its focus, m centre to centre, goes down this many times a second.",
+  value: { within: .65, falls: .2 },
+});
 
 /** The chance of going down in `seconds` s of a clinch, if the body is in one `apart` m centre to centre from the focus (as it stands at `now` unless given). */
 export const clinched = (now: Situation, seconds: number, apart = now.apart): number => now.focus && apart < CLINCH.within ? Math.min(1, CLINCH.falls * seconds) : 0;
 
 /** The share of a blow's life on the head a cover keeps off. */
-export const STOPS = .6;
+export const STOPS = handSet({
+  name: "STOPS", sort: "guess",
+  says: "The share of a blow's life on the head that a cover keeps off.",
+  value: .6,
+});
 
 /** Where a fall leaves the body where nothing measured where it comes to rest: on its back. */
-export const FALLEN: Position = "back";
+export const FALLEN = handSet<Position>({
+  name: "FALLEN", sort: "guess",
+  says: "The position a fall leaves the body in.",
+  value: "back",
+});
 
 /** What a brace saves a tumbling body, s: its first second tumbling, before a way up is begun on it moving. */
-export const BRACED = 1;
+export const BRACED = handSet({
+  name: "BRACED", sort: "guess",
+  says: "How long a body tumbles before a way up can be begun, s: what a brace saves it.",
+  value: 1,
+});
 
 /** How fast a foe with no turn measured on its body is taken to turn to face, rad/s: at once, so going round it is worth nothing. */
-export const UNMEASURED_TURN = Infinity;
+export const UNMEASURED_TURN = handSet({
+  name: "UNMEASURED_TURN", sort: "guess",
+  says: "How fast a foe turns to face, rad/s, where no turn was measured on its body: at once.",
+  value: Infinity,
+});

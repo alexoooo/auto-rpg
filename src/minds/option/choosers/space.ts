@@ -7,6 +7,14 @@ import type { Objective, Tally, Obedience } from "../contract/objective.ts";
 import type { Leaves, Terms } from "../contract/terms.ts";
 import { unchanged } from "../options/outcomes.ts";
 import { type Rerun, again } from "./again.ts";
+import { handSet } from "../../../core/hand-set.ts";
+
+/** How far the chances of an Option's outcomes may sum from one: the rounding of their sum. */
+const CHANCES_SUM = handSet({
+  name: "CHANCES_SUM", sort: "own",
+  says: "How far the chances of an Option's outcomes may sum from one before the search calls it a defect.",
+  value: 1e-9,
+});
 
 /** An Option and target (0 where it has none), with its slot in each situation's model row, and what its model is asked there (`Option.model`): the same each time, so made once. */
 export interface Pair { readonly option: Option; readonly target: number; readonly slot: number; readonly ask: Readonly<{ target: number; until?: number }> }
@@ -156,7 +164,7 @@ export function space(root: Situation, { options, objective, obedience, horizon,
     const { dealt, taken, orders, seconds } = from, option = pair.option, terms = termsOf(pair, at, seconds), share = terms.duration > 0 ? Math.max(0, Math.min(1, (horizon - seconds) / terms.duration)) : 1;
     let chances = 0;
     for (let i = 0; i < terms.outcomes.length; i++) chances += terms.outcomes[i]!.chance;
-    if (Math.abs(chances - 1) > 1e-9) throw new Error(`${option.name}'s outcomes' chances sum to ${chances}`);
+    if (Math.abs(chances - 1) > CHANCES_SUM) throw new Error(`${option.name}'s outcomes' chances sum to ${chances}`);
     const after = seconds + share * terms.duration, counts = takenWeight(seconds, share * terms.duration), dealing = dealtWeight(seconds, share * terms.duration);
     out.terms = terms; out.dealt = dealt + dealing * share * terms.dealt; out.taken = taken + counts * share * terms.taken; out.orders = orders + share * terms.orders; out.seconds = after;
     out.cut = option.open === true || after >= horizon;
