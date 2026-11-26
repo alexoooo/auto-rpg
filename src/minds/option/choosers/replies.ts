@@ -3,6 +3,10 @@ import { bodyOf } from "../predictions/value/fitted-value.ts";
 import { hypot } from "../../../core/math/real.ts";
 import type { PricedLine } from "./search.ts";
 import { COLD, treeSearch, type TreeSearched } from "./tree-search.ts";
+import { byHand } from "../../../skills/framework/profile/source.ts";
+
+/** A line priced against a reply has the foe making the body's own moves back at it: a rule written by hand, asked only of a foe of the body's own build. */
+const FOE_REPLIES = byHand([], "the foe is imagined making the body's own moves back at it, a foe of the body's own build alone");
 
 /**
  * **The tree's search against the foe's replies** (`TreeConfig.replies`, `against`): each line at
@@ -40,7 +44,7 @@ export function repliedSearch(root: Situation, searched: TreeSearched & { readon
   }
   return own.map((line, i) => {
     const all = worths[i]!;
-    return { ...line, worth: searched.against === "mean" ? all.reduce((sum, worth) => sum + worth, 0) / all.length : Math.min(...all) };
+    return { ...line, worth: searched.against === "mean" ? all.reduce((sum, worth) => sum + worth, 0) / all.length : Math.min(...all), foe: all.length > 1 ? FOE_REPLIES : line.foe };
   });
 }
 

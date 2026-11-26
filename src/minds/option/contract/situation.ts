@@ -7,7 +7,7 @@ import type { BearingEnd, BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Cover } from "../../../skills/framework/intent.ts";
 import type { Spot } from "../../../skills/framework/menu.ts";
 import type { Profile, StanceNumbers, Stances } from "../../../skills/framework/profile/profile.ts";
-import type { Read } from "../../../skills/framework/profile/source.ts";
+import type { Read, Source } from "../../../skills/framework/profile/source.ts";
 import type { LegsUnmet } from "../../../skills/framework/skill.ts";
 import type { FoePhase, threatReader } from "../../../skills/perception/threat.ts";
 import type { Sight } from "../../decider.ts";
@@ -159,6 +159,13 @@ export interface Pressure {
   readonly peak: number;
   /** Each thing it is priced by, and where that reading comes from (`Read`), for a report. None with no focus. */
   readonly reads: readonly Read[];
+  /**
+   * Where the life it takes comes from, said once: the weakest of what it is priced by (`weakest`
+   * of `reads`). It is a bound, not the one reading that answered at a state: a pressure is the
+   * most of several strikes' rates, or a table measured in bouts, and any of them may decide it.
+   * A given with no focus, which takes nothing.
+   */
+  readonly source: Source;
   /** The share of the struck body's life it takes over `span` (`Span`), from `now`. */
   dealt(now: Situation, span: Span): number;
   /** How far it reaches, m head to head, as the range at `now` places it; 0 where it has no blow. */

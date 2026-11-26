@@ -5,8 +5,9 @@ import { orderAllows, orderedTargets } from "../../orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../../../skills/config.ts";
 import { changes, measuredOn, strikeSkill } from "../../../skills/framework/profile/lookup.ts";
 import { type Expected, type ProfileReading } from "../../../skills/framework/profile/reading.ts";
-import { staler } from "../../../skills/framework/profile/source.ts";
-import { type Asked as StartAsked, type Postures, type Measured } from "../../../skills/framework/profile/profile.ts";
+import { staler, type Change, type Source } from "../../../skills/framework/profile/source.ts";
+import { remembered } from "../../../core/remembered.ts";
+import { type Asked as StartAsked, type Postures, type Measured, type Profile } from "../../../skills/framework/profile/profile.ts";
 import type { ActOutcomes } from "../../../skills/framework/outcomes.ts";
 import { standIn } from "../predictions/by-hand.ts";
 import type { OptionContext, Walker } from "../contract/context.ts";
@@ -17,7 +18,7 @@ import type { Asked, Option, Site } from "../contract/option.ts";
 import type { Situation } from "../contract/situation.ts";
 import { startOf } from "../situation/start.ts";
 import { threatened } from "../situation/reach-memory.ts";
-import type { Terms } from "../contract/terms.ts";
+import type { Terms, TermSources } from "../contract/terms.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { claimsLegs } from "../../../skills/framework/intent.ts";
 import { hypot } from "../../../core/math/real.ts";
@@ -129,12 +130,33 @@ export function strike({ action, walk, throws, measure, guesses, name }: Strikin
   /** What its outcome model answers against the body of `now`'s focus, the body standing as `postures`; null where it answers nothing. */
   const readingOf = (now: Situation, postures?: Postures): ProfileReading | null => act?.reading(now.focus?.spec ?? null, measure.spec, postures) ?? null;
   /**
-   * What its profile expects begun where the body stands now, as it moves (`startOf`) and at
-   * `place` in its window (`placeInWindow`; its middle unless given), and, its motion `progress` s
-   * under way, what letting it go there costs (`ProfileReading.expect`); null where none prices it.
+   * Where `reading` comes from at `now`: its source against the focus's body, with what has
+   * changed since its profile was measured (`changes`). Its profile was found without the senses'
+   * reaction time (`StrikeMeasure`), so that is compared here, at the time they have now. Two
+   * caches make each once: what has changed, keyed by the profile and the reaction time, and the
+   * source with it, keyed by the reading's source and what has changed. None of the four changes
+   * through a search, so pricing makes no new source.
    */
-  const expected = (now: Situation, place?: readonly [number, number] | null, progress?: number): Expected | null => {
-    const focus = now.focus, reading = focus ? readingOf(now, { own: "standing", target: now.foePosture }) : null;
+  const changed = remembered((profile: Profile) => remembered((reaction: number | null): readonly Change[] => changes(profile, { ...measured, reaction })));
+  const staled = remembered((source: Source) => remembered((stale: readonly Change[]): Source => staler(source, stale)));
+  const sourceAt = (now: Situation, reading: ProfileReading): Source => staled(reading.source(now.focus?.spec ?? null))(changed(reading.profile)(now.reaction));
+  /**
+   * Where each answer of its price comes from (`Terms.from`), by the source of what it reads: its
+   * seconds, what it deals and where it leaves the body are that reading's, and what it takes
+   * meanwhile is the focus's pressure. Made once a source.
+   */
+  const fromOf = remembered((source: Source): TermSources => Object.freeze({ duration: source, dealt: source, taken: "pressure", leaves: source }));
+  /** Its outcome model's reading against the focus's body as the two stand at `now`, the body standing; null with no focus, or where it answers nothing so. */
+  const readingAt = (now: Situation): ProfileReading | null => now.focus ? readingOf(now, { own: "standing", target: now.foePosture }) : null;
+  /**
+   * What `reading` (`readingAt` of `now`) expects begun where the body stands now, as it moves
+   * (`startOf`) and at `place` in its window (`placeInWindow`; its middle unless given), and, its
+   * motion `progress` s under way, what letting it go there costs (`ProfileReading.expect`); null
+   * where none prices it. A search calls it for every state it prices, so it takes its arguments
+   * by place and no argument object is made.
+   */
+  const expected = (now: Situation, reading: ProfileReading | null, place?: readonly [number, number] | null, progress?: number): Expected | null => {
+    const focus = now.focus;
     if (!reading || !focus) return null;
     const start: StartAsked & { readonly progress?: number } = { range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase, velocity: startOf(now), stance: now.stances,
       ...(place ? { window: place } : {}), ...(progress === undefined ? {} : { progress }) };
@@ -225,11 +247,12 @@ export function strike({ action, walk, throws, measure, guesses, name }: Strikin
   const priceOf = (at: Situation, place: readonly [number, number] | null): Terms | null => {
     const running = live(at), under = running !== undefined && running.phase !== "release";
     const progress = under && state.began !== null ? at.time - state.began : 0, met = under && running.contacts.lastTarget !== null;
-    const preparing = running?.phase === "prepare", e = expected(at, running ? state.place : place, preparing ? progress : undefined) ?? guesses?.strike(at, guessed, progress) ?? null;
+    const preparing = running?.phase === "prepare", reading = readingAt(at), read = expected(at, reading, running ? state.place : place, preparing ? progress : undefined);
+    const e = read ?? guesses?.strike(at, guessed, progress) ?? null;
     if (!e) return null;
     const duration = Math.max(0, e.seconds + e.recovers - progress);
     const terms: { -readonly [K in keyof Terms]: Terms[K] } = { duration, dealt: met ? 0 : e.dealt, taken: at.predictions.danger + threatened(at, duration), orders: 0,
-      outcomes: exitOutcomes(at, e.exit, e.down) };
+      outcomes: exitOutcomes(at, e.exit, e.down), from: fromOf(read && reading ? sourceAt(at, reading) : NEVER_MEASURED) };
     if (preparing && e.letGo) terms.letGo = e.letGo;
     return terms;
   };
@@ -307,8 +330,7 @@ export function strike({ action, walk, throws, measure, guesses, name }: Strikin
     end() { state.id = null; state.target = null; state.began = null; state.place = null; },
     reads(now) {
       const reading = readingOf(now);
-      // Its profile was found without the senses' reaction time (`StrikeMeasure`), so what has changed is read here, at the time they have now.
-      return [{ what: name, source: reading ? staler(reading.source(now.focus?.spec ?? null), changes(reading.profile, { ...measured, reaction: now.reaction })) : NEVER_MEASURED }];
+      return [{ what: name, source: reading ? sourceAt(now, reading) : NEVER_MEASURED }];
     },
     model(at) {
       if (!at.focus || !standing(at)) return null;
@@ -322,8 +344,8 @@ export function strike({ action, walk, throws, measure, guesses, name }: Strikin
     rate(now) {
       const focus = now.focus;
       if (!focus) return 0;
-      const reading = readingOf(now, { own: "standing", target: now.foePosture });
-      if (reading && expected(now)) return reading.peak(now.phase, focus.spec);
+      const reading = readingAt(now);
+      if (reading && expected(now, reading)) return reading.peak(now.phase, focus.spec);
       const guess = guesses?.strike(now, guessed, 0) ?? null;
       return guess && guess.seconds > 0 ? guess.dealt / guess.seconds : 0;
     },

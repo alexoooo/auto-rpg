@@ -5,12 +5,20 @@ import type { Spot } from "../../../skills/framework/menu.ts";
 import type { Exit } from "../../../skills/framework/profile/profile.ts";
 import type { Situation } from "../contract/situation.ts";
 import { atan2, cos, sin } from "../../../core/math/real.ts";
+import { given } from "../../../skills/framework/profile/source.ts";
 
 /** Leaving the body as it is: nothing changed. */
 export const AS_IS: Leaves = Object.freeze({});
 
 /** **Ending one way**: leaving the body as it is (`AS_IS`), for certain. */
 export const UNMOVED: readonly Outcome[] = Object.freeze([Object.freeze({ leaves: AS_IS, chance: 1 })]);
+
+/** Where a price's answer comes from where it needs no measuring (`TermSources`): an Option that throws no blow deals nothing, */
+export const NO_BLOW = given("it throws no blow");
+/** an Option priced over the time it is asked to run runs that long, */
+export const AS_ASKED = given("it runs for the time it is asked to");
+/** and an Option that moves nothing leaves the body as it is. */
+export const STAYS = given("it moves nothing");
 
 /** No motion over the ground. */
 export const STILL: Ground = Object.freeze({ x: 0, z: 0 });

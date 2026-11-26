@@ -7,6 +7,7 @@ import type { OutcomeModel } from "../../../skills/framework/outcomes.ts";
 import type { WalkStart } from "./context.ts";
 import type { ModelledStrike, Pressure, Seen, Situation } from "./situation.ts";
 import type { Terms } from "./terms.ts";
+import type { Source } from "../../../skills/framework/profile/source.ts";
 
 /** A move the foe is expected to make: a velocity over the ground, m/s, and the seconds it keeps it. */
 export interface FoeMove {
@@ -111,8 +112,14 @@ export interface Followed { readonly dealt: number; readonly taken: number }
 
 /** **What a state is worth where a line of a search stops.** */
 export interface ValuePredictor {
-  /** A reader for one search begun at `root`. Null where it has no reading of this body against this foe. */
-  from(root: Situation): ValueReader | null;
+  /** What it gives one search begun at `root` (`Valued`). Null where it has no reading of this body against this foe. */
+  from(root: Situation): Valued | null;
+}
+
+/** **What a value predictor gives one search**: its reader, and where its reading comes from. */
+export interface Valued {
+  readonly read: ValueReader;
+  readonly source: Source;
 }
 
 /**

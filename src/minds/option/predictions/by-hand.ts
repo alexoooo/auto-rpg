@@ -189,6 +189,9 @@ export const CLINCH = handSet({
   value: { within: .65, falls: .2 },
 });
 
+/** Where the chance of a fall while holding or walking comes from (`clinched`): the clinch's numbers, as no drill measured it. */
+export const CLINCH_FALLS = byHand(["CLINCH"], "no drill measured how often a body falls while it holds or walks");
+
 /** The chance of going down in `seconds` s of a clinch, if the body is in one `apart` m centre to centre from the focus (as it stands at `now` unless given). */
 export const clinched = (now: Situation, seconds: number, apart = now.apart): number => now.focus && apart < CLINCH.within ? Math.min(1, CLINCH.falls * seconds) : 0;
 

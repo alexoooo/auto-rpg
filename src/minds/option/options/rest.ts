@@ -4,31 +4,53 @@ import { deepFreeze } from "../../../core/state.ts";
 import { legsReadiness } from "../../../skills/locomotion/shared/locomotion.ts";
 import { facedHands } from "../../../core/bodies/items/held.ts";
 import type { Cover } from "../../../skills/framework/intent.ts";
-import { along, AS_IS, STILL, UNMOVED, upOrDown } from "./outcomes.ts";
+import { along, AS_ASKED, AS_IS, NO_BLOW, STAYS, STILL, UNMOVED, upOrDown } from "./outcomes.ts";
 import { asking, blocked, READY, standing, NOTHING, WHOLE } from "./readiness.ts";
-import type { Ask, Terms } from "../contract/terms.ts";
+import type { Ask, Terms, TermSources } from "../contract/terms.ts";
 import type { Option, Site, Status } from "../contract/option.ts";
 import type { Situation } from "../contract/situation.ts";
 import { inReach, threatened } from "../situation/reach-memory.ts";
 import { startOf } from "../situation/start.ts";
-import { clinched } from "../predictions/by-hand.ts";
+import { CLINCH_FALLS, clinched } from "../predictions/by-hand.ts";
 import type { Walker } from "../contract/context.ts";
 import { atan2, hypot } from "../../../core/math/real.ts";
 
 /**
+ * **A way of holding** (`holding`): what of the blow coming gets through it, in life, and where
+ * each answer of its price comes from, lying and standing (`TermSources`).
+ */
+export interface Held {
+  coming(at: Situation): number;
+  readonly lying: TermSources;
+  readonly standing: TermSources;
+}
+
+/**
+ * **Holding as the body is** (`Held`): the whole blow coming gets through. A hold runs for the
+ * time it is asked to and throws no blow, and what it takes is the focus's pressure. Lying, it
+ * moves nothing. Standing, its falls are the clinch's, which are set by hand.
+ */
+export const PLAIN: Held = Object.freeze({
+  coming: (at: Situation) => at.predictions.danger,
+  lying: Object.freeze({ duration: AS_ASKED, dealt: NO_BLOW, taken: "pressure", leaves: STAYS }),
+  standing: Object.freeze({ duration: AS_ASKED, dealt: NO_BLOW, taken: "pressure", leaves: CLINCH_FALLS }),
+});
+
+/**
  * **Holding the body as it is at `at`** for the seconds `ask` gives (`Ask.until`, none unless
- * given), through `coming` of the blow coming (the whole, `Predictions.danger`, unless given):
+ * given), in the way `held` says (`Held`; as the body is, `PLAIN`, unless given), through what
+ * that lets of the blow coming:
  * down, each second costing what a second down in its posture costs (`Predictions.downRate`),
  * leaving it where it lies; standing, under the focus's pressure where it stands (`threatened`),
  * read with the body still, as holding leaves it, the focus moving as it moves (`startOf`): what
  * the body was going at is not carried through a hold; and in a clinch its falls (`clinched`),
  * lying where a fall leaves it (`upOrDown`).
  */
-export function holding(at: Situation, ask: Ask, coming = at.predictions.danger): Terms {
-  const seconds = ask.until ?? 0;
-  if (at.down) return { duration: seconds, dealt: 0, orders: 0, taken: coming + at.predictions.downRate(at.posture) * seconds, outcomes: UNMOVED };
+export function holding(at: Situation, ask: Ask, held: Held = PLAIN): Terms {
+  const seconds = ask.until ?? 0, coming = held.coming(at);
+  if (at.down) return { duration: seconds, dealt: 0, orders: 0, taken: coming + at.predictions.downRate(at.posture) * seconds, outcomes: UNMOVED, from: held.lying };
   const still = startOf({ focus: at.focus, where: at.where, velocity: STILL });
-  return { duration: seconds, dealt: 0, orders: 0, taken: coming + threatened(at, seconds, still), outcomes: upOrDown(AS_IS, clinched(at, seconds)) };
+  return { duration: seconds, dealt: 0, orders: 0, taken: coming + threatened(at, seconds, still), outcomes: upOrDown(AS_IS, clinched(at, seconds)), from: held.standing };
 }
 
 /**

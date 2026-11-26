@@ -51,7 +51,9 @@ export const chooserOf = (parts: PartLookup, config: PartConfig, given: { readon
  * **A chooser's appraisal by a search** (`search`, `treeSearch`), made once a decision for each
  * state by `make`: a running choice's price, its line, its model's terms with what it is expected to
  * leave as a readout shows it (`OfferTerms`: the range and the chance of being down, by the
- * chances of the ways it ends), how much its line is worth beyond what its own model brings
+ * chances of the ways it ends; and where each answer of its price comes from, its Option's four
+ * with the line's two, what it takes read from the focus's pressure where its Option says so,
+ * `OfferSources`), how much its line is worth beyond what its own model brings
  * (`moves`), and what letting it go costs (`letGo`: the life it loses while it comes back beyond
  * what holding as long costs, `threatened`, none below nothing).
  */
@@ -64,14 +66,15 @@ export function searching(make: (now: Situation) => Lines): Appraise {
     if (!lines) searches.set(now, lines = make(now));
     const priced = lines(option, target);
     if (!priced) return null;
-    const { worth, terms } = priced;
+    const { worth, terms } = priced, by = terms.from;
+    const from = { duration: by.duration, dealt: by.dealt, taken: by.taken === "pressure" ? now.predictions.pressure.source : by.taken, leaves: by.leaves, foe: priced.foe, end: priced.end };
     let range = 0, down = 0;
     for (const outcome of terms.outcomes) {
       const end = unchanged(outcome.leaves) ? now : placed(now, outcome.leaves, terms.duration);
       range += outcome.chance * end.range; down += outcome.chance * (end.down ? 1 : 0);
     }
     const letGo = terms.letGo ? Math.max(0, terms.letGo.taken - threatened(now, terms.letGo.seconds)) : 0;
-    return { name: option.name, kind: option.kind, worth, terms: { open: option.open === true, duration: terms.duration, dealt: terms.dealt, taken: terms.taken, orders: terms.orders, exit: { range, down } },
+    return { name: option.name, kind: option.kind, worth, terms: { open: option.open === true, duration: terms.duration, dealt: terms.dealt, taken: terms.taken, orders: terms.orders, exit: { range, down }, from },
       moves: worth - (terms.dealt - terms.taken), letGo };
   };
 }

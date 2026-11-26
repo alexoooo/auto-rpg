@@ -3,7 +3,7 @@ import { deepFreeze } from "../../../../core/state.ts";
 import { handSet } from "../../../../core/hand-set.ts";
 import type { StanceNumbers, Stances } from "../../../../skills/framework/profile/profile.ts";
 import type { ProfileReading } from "../../../../skills/framework/profile/reading.ts";
-import { notPriced, type Read } from "../../../../skills/framework/profile/source.ts";
+import { given, notPriced, weakest, type Read, type Source } from "../../../../skills/framework/profile/source.ts";
 import type { Guesses, Placing } from "../../contract/predictors.ts";
 import type { Pressure, Seen, Situation, Span } from "../../contract/situation.ts";
 import { pressureCurve, type PressureTable } from "./pressure-table.ts";
@@ -92,6 +92,9 @@ function startsOf(): Starts {
 /** Each pressure read at another own stance (`ProfilePressure.stanced`), by its pressure and that stance: a pressure and a stance are immutable. */
 const STANCED = new WeakMap<ProfilePressure, WeakMap<object, ProfilePressure>>();
 
+/** With no foe a pressure takes nothing, which needs no measuring. */
+const NO_FOE = given("there is no foe to take anything");
+
 /**
  * **A pressure read from measured profiles** (`Pressure`, of `PressureFields`). What it takes
  * over a span is what bouts measured where it holds their table and they measured near, else the
@@ -105,6 +108,9 @@ export class ProfilePressure implements Pressure {
   private readonly fields: PressureFields;
   // A cache: one search's exact starts and the rate read at each. Null where it keeps none.
   private readonly starts: Starts | null;
+
+  /** The weakest of what it reads (`Pressure.source`). It is asked only for a report, so it is found when asked and not kept. */
+  get source(): Source { return weakest(this.reads) ?? NO_FOE; }
 
   constructor(fields: PressureFields, starts: Starts | null) {
     this.latency = fields.latency;

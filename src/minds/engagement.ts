@@ -1,11 +1,28 @@
 import type { Estimate } from "../skills/framework/estimate.ts";
 import type { Readiness, TargetRef } from "../skills/framework/action.ts";
-import type { Read } from "../skills/framework/profile/source.ts";
+import type { Read, Source } from "../skills/framework/profile/source.ts";
+
+/**
+ * **The six answers of an offer's price**, each with what it asks in words: how long it runs, the
+ * life it deals, the life it takes, where it leaves the body, where the foe goes meanwhile, and
+ * what the place its line ends in is worth.
+ */
+export const ANSWERS = Object.freeze({
+  duration: "how long it takes", dealt: "what it deals", taken: "what it takes", leaves: "where it leaves the body",
+  foe: "where the foe goes meanwhile", end: "what its line's end is worth",
+});
+
+/**
+ * **Where each answer of an offer's price comes from** (`ANSWERS`, `Source`). Each of the six
+ * is always said: one the Mind does not price says so (a source of kind `none`).
+ */
+export type OfferSources = Readonly<Record<keyof typeof ANSWERS, Source>>;
 
 /**
  * What an offer was weighed from, as a readout shows it, each in life (a share of a body's full
  * life) or its own unit: how long it runs, s; the life it deals and takes; the metres of the orders
- * it carries out; and where it leaves the body, the range head to head, m, and the chance it is down.
+ * it carries out; where it leaves the body, the range head to head, m, and the chance it is down;
+ * and where each answer of its price comes from (`from`).
  */
 export interface OfferTerms {
   /** Whether it runs as long as it is held (`Option.open`): its duration the seconds it was priced to be held, not one run's. */
@@ -15,6 +32,7 @@ export interface OfferTerms {
   readonly taken: number;
   readonly orders: number;
   readonly exit: { readonly range: number; readonly down: number };
+  readonly from: OfferSources;
 }
 
 /**

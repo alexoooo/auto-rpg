@@ -6,6 +6,7 @@ import type { Situation } from "../contract/situation.ts";
 import type { Objective, Tally, Obedience } from "../contract/objective.ts";
 import type { Leaves, Terms } from "../contract/terms.ts";
 import { unchanged } from "../options/outcomes.ts";
+import { notPriced } from "../../../skills/framework/profile/source.ts";
 import { type Rerun, again } from "./again.ts";
 import { handSet } from "../../../core/hand-set.ts";
 
@@ -243,7 +244,9 @@ export interface Step extends Tally { readonly terms: Terms; readonly cut: boole
 /** A step as it is written (`stepInto`). */
 type Work = { -readonly [K in keyof Step]: Step[K] };
 /** No model yet: what a step is made with before it is written. */
-const UNWRITTEN: Terms = Object.freeze({ duration: 0, dealt: 0, taken: 0, orders: 0, outcomes: Object.freeze([]) });
+const UNPRICED = notPriced("no model is written yet");
+const UNWRITTEN: Terms = Object.freeze({ duration: 0, dealt: 0, taken: 0, orders: 0, outcomes: Object.freeze([]),
+  from: Object.freeze({ duration: UNPRICED, dealt: UNPRICED, taken: UNPRICED, leaves: UNPRICED }) });
 const blankStep = (): Work => ({ terms: UNWRITTEN, dealt: 0, taken: 0, orders: 0, seconds: 0, cut: false });
 /** A path that has brought nothing yet: where every line begins. */
 export const UNBEGUN: Tally = Object.freeze({ dealt: 0, taken: 0, orders: 0, seconds: 0 });

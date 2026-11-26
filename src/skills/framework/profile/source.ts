@@ -61,11 +61,14 @@ export interface Change {
  * - `hand`: nothing measured reads here, so numbers a person wrote stand in. `entries` names them
  *   in the registry of numbers set by hand (`handSet`), and `why` says why nothing measured reads.
  * - `none`: nothing reads here and nothing stands in. The Mind does not price it, and `why` says why.
+ * - `given`: nothing needs measuring. The answer is so by what is asked: a hold lasts as long as
+ *   it is held, and a walk throws no blow. `why` says what makes it so.
  */
 export type Source =
   | { readonly kind: "measured"; readonly body: Side; readonly target: Side | null; readonly pairing: boolean; readonly stale: readonly Change[] }
   | { readonly kind: "hand"; readonly entries: readonly string[]; readonly why: string }
-  | { readonly kind: "none"; readonly why: string };
+  | { readonly kind: "none"; readonly why: string }
+  | { readonly kind: "given"; readonly why: string };
 
 /** One thing a Mind reads, and where that reading comes from: a row of a listing. */
 export interface Read {
@@ -96,6 +99,34 @@ export const byHand = (entries: readonly string[], why: string): Source => deepF
 /** No source (`Source`): nothing reads here, and `why`. */
 export const notPriced = (why: string): Source => deepFreeze({ kind: "none", why });
 
+/** A given (`Source`): nothing needs measuring here, and `why`. */
+export const given = (why: string): Source => deepFreeze({ kind: "given", why });
+
+/**
+ * **How good a source is**, best first. `given` needs no measuring. `own` is measured on the
+ * very bodies asked about. `borrowed` is measured, with another body's rows on either side, or
+ * this body's rows holding something else. `hand` is a number or a rule a person wrote. `none`
+ * is not priced. How stale a measured source is does not change its standing.
+ */
+export const STANDINGS = ["given", "own", "borrowed", "hand", "none"] as const;
+export type Standing = typeof STANDINGS[number];
+/** Each standing in words, for a listing. */
+export const STANDING_WORDS: Readonly<Record<Standing, string>> = Object.freeze({ given: "given", own: "its own", borrowed: "borrowed", hand: "by hand", none: "not priced" });
+
+/** The standing of `source` (`STANDINGS`). A measured source is the body's own only where the rows of both its sides are. */
+export const standingOf = (source: Source): Standing =>
+  source.kind !== "measured" ? source.kind : source.body.own && (source.target?.own ?? true) ? "own" : "borrowed";
+
+/** The weakest source among `reads` by standing (`STANDINGS`): the first of them where several are as weak, null of none. */
+export function weakest(reads: readonly Read[]): Source | null {
+  let worst: Source | null = null, rank = -1;
+  for (const { source } of reads) {
+    const at = STANDINGS.indexOf(standingOf(source));
+    if (at > rank) { worst = source; rank = at; }
+  }
+  return worst;
+}
+
 /** One side in words: `its own rows, by name`, or `rows of man, by numbers, stature, m 1.8 read at 1.6`. */
 function sideWords(side: Side): string {
   const gaps = side.gaps.map((gap) => `${gap.number} ${gap.measured} read at ${gap.asked}`);
@@ -106,6 +137,7 @@ function sideWords(side: Side): string {
 export function sourceWords(source: Source): string {
   if (source.kind === "hand") return `by hand (${source.entries.join(", ")}), ${source.why}`;
   if (source.kind === "none") return `not priced, ${source.why}`;
+  if (source.kind === "given") return `given, ${source.why}`;
   const stale = source.stale.map((change) => `${change.what} ${change.measured} read at ${change.asked}`);
   return [`measured${source.pairing ? " for the pairing" : ""}`, `its body ${sideWords(source.body)}`, ...source.target ? [`its target ${sideWords(source.target)}`] : [],
     ...stale.length ? [`stale: ${stale.join(", ")}`] : []].join("; ");

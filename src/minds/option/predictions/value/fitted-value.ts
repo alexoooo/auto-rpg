@@ -1,7 +1,9 @@
 import { deepFreeze } from "../../../../core/state.ts";
 import { handSet } from "../../../../core/hand-set.ts";
 import { hypot } from "../../../../core/math/real.ts";
-import type { Followed, Offered, ValuePredictor, ValueReader } from "../../contract/predictors.ts";
+import type { Followed, Offered, Valued, ValuePredictor, ValueReader } from "../../contract/predictors.ts";
+import { measuredFrom, type Side } from "../../../../skills/framework/profile/source.ts";
+import { remembered } from "../../../../core/remembered.ts";
 import type { Situation } from "../../contract/situation.ts";
 import type { Terms } from "../../contract/terms.ts";
 import { treesAt, validTrees, type Trees } from "./boosted-trees.ts";
@@ -192,5 +194,9 @@ export function fittedValue(value: unknown, body: string): ValuePredictor {
     const reading = readingAt(at, grace, offered);
     return reading ? fittedOver(value, featuresOf(reading), seconds) : null;
   };
-  return { from: (root) => fittedOn(value.bodies, body, root.focus) ? read : null };
+  // Each body was found by its name among those the value was fitted on, in bouts of the two together.
+  const side = (name: string): Side => ({ own: true, of: name, by: "name", gaps: [] });
+  /** What it gives a search against a foe of the body `foe` (`bodyOf`); made once a foe's body. */
+  const against = remembered((foe: string): Valued => ({ read, source: measuredFrom({ body: side(body), target: side(foe), pairing: true }) }));
+  return { from: (root) => root.focus && fittedOn(value.bodies, body, root.focus) ? against(bodyOf(root.focus.spec)) : null };
 }

@@ -1,16 +1,17 @@
 import { measuredOn } from "../../../skills/framework/profile/lookup.ts";
-import { type Expected } from "../../../skills/framework/profile/reading.ts";
-import { notPriced, staler } from "../../../skills/framework/profile/source.ts";
+import { type Expected, type ProfileReading } from "../../../skills/framework/profile/reading.ts";
+import { notPriced, staler, type Source } from "../../../skills/framework/profile/source.ts";
+import { remembered } from "../../../core/remembered.ts";
 import { legsReadiness } from "../../../skills/locomotion/shared/locomotion.ts";
 import { gaitStance } from "../../../skills/locomotion/move/gaits.ts";
 import { BACK_STEP_GAIT, BACK_STEP_SECONDS, SWAYS_FROM } from "../../../skills/locomotion/back-step/index.ts";
 import type { Status, Option } from "../contract/option.ts";
 import { blocked, READY, standing } from "./readiness.ts";
-import { exitOutcomes, STILL } from "./outcomes.ts";
+import { exitOutcomes, NO_BLOW, STILL } from "./outcomes.ts";
 import type { Situation } from "../contract/situation.ts";
 import { LEGS } from "../../../skills/framework/action.ts";
 import { startOf } from "../situation/start.ts";
-import type { Outcome, Terms } from "../contract/terms.ts";
+import type { Outcome, Terms, TermSources } from "../contract/terms.ts";
 import type { FoePhase } from "../../../skills/perception/threat.ts";
 import type { OptionContext } from "../contract/context.ts";
 
@@ -49,14 +50,22 @@ export function backStepping({ spec, outcomes, walk, hz, rate, delay }: Pick<Opt
   const carriage = gaitStance(SWAYS_FROM, spec.model);
   if (!read.length || !carriage) return [];
   const state = { since: null as number | null };
+  /** Its profile's reading against the focus as the two stand at `at`; null with no focus, or where none reads so. */
+  const readingAt = (at: Situation): ProfileReading | null => at.focus ? act?.reading(at.focus.spec, spec, { own: "standing", target: at.foePosture }) ?? null : null;
+  /** What `reading` (`readingAt` of `at`) expects from there; null where the focus is past its reach. */
+  const expectedBy = (reading: ProfileReading, at: Situation): Expected | null =>
+    at.apart > reading.reach(at.phase) ? null : reading.expect({ range: at.apart, phase: at.phase, velocity: startOf(at), stance: at.stances }, at.focus?.spec ?? null);
   /** What its profile against the focus expects from `at`; null where none reads it there. */
-  const expected = (at: Situation): Expected | null => {
-    const focus = at.focus, reading = focus && act?.reading(focus.spec, spec, { own: "standing", target: at.foePosture });
-    if (!focus || !reading) return null;
-    if (at.apart > reading.reach(at.phase)) return null;
-    return reading.expect({ range: at.apart, phase: at.phase, velocity: startOf(at), stance: at.stances }, focus.spec);
-  };
-  const NO_PROFILE = notPriced("no profile against its focus");
+  const expected = (at: Situation): Expected | null => { const reading = readingAt(at); return reading && expectedBy(reading, at); };
+  const NO_PROFILE = notPriced("no profile against its focus"), stale = act?.stale ?? [];
+  /** A reading's source with what has changed since its profiles were measured (`ActOutcomes.stale`); made once a source. */
+  const staled = remembered((source: Source): Source => staler(source, stale));
+  /**
+   * Where each answer of its price comes from (`Terms.from`), by its reading's source. Its
+   * seconds, the life it loses and where it leaves the body are all its trials'. It throws no
+   * blow. Made once a source.
+   */
+  const fromOf = remembered((source: Source): TermSources => Object.freeze({ duration: source, dealt: NO_BLOW, taken: source, leaves: source }));
   const NO_FOE = blocked("no foe within the back step's measured range"), CARRIAGE = blocked("not standing in the back step's carriage");
   return [{
     name: "back step", kind: "back step", state, claims: LEGS,
@@ -73,13 +82,13 @@ export function backStepping({ spec, outcomes, walk, hz, rate, delay }: Pick<Opt
     end() { state.since = null; },
     reads: (now) => {
       const focus = now.focus, reading = focus && act?.reading(focus.spec, spec);
-      return [{ what: "back step", source: focus && act && reading ? staler(reading.source(focus.spec), act.stale) : NO_PROFILE }];
+      return [{ what: "back step", source: focus && reading ? staled(reading.source(focus.spec)) : NO_PROFILE }];
     },
     model(at): Terms | null {
       if (!standing(at) || at.stances.own !== carriage) return null;
-      const expect = expected(at);
-      if (!expect) return null;
-      return { duration: expect.seconds, dealt: 0, taken: expect.taken, orders: 0, outcomes: phased(expect.exit?.striking, (phase) => exitOutcomes(at, expect.exit, expect.down, { velocity: STILL, stance: carriage, ...(phase ? { phase } : {}) })) };
+      const focus = at.focus, reading = readingAt(at), expect = reading && expectedBy(reading, at);
+      if (!focus || !reading || !expect) return null;
+      return { duration: expect.seconds, dealt: 0, taken: expect.taken, orders: 0, outcomes: phased(expect.exit?.striking, (phase) => exitOutcomes(at, expect.exit, expect.down, { velocity: STILL, stance: carriage, ...(phase ? { phase } : {}) })), from: fromOf(staled(reading.source(focus.spec))) };
     },
     step: (now) => ({ asked: { ...walk.kept(now, { move: null, face: walk.facing(now), actions: [] }, null), gait: BACK_STEP_GAIT.name }, holds: LEGS }),
   }];

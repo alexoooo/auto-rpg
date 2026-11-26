@@ -5,14 +5,14 @@ import { exp, log } from "../../../core/math/real.ts";
 import type { Terms } from "../contract/terms.ts";
 import { type Pair, type Searched, space, type Step, UNBEGUN } from "./space.ts";
 import type { Leaf } from "./leaves.ts";
-import type { Lines, PricedLine } from "./search.ts";
+import { foeSource, type Lines, type PricedLine } from "./search.ts";
 
 /** A completed tree's lookup captures only root prices, without its nodes or search workspace. */
 export function pricedLines(prices: readonly PricedLine[]): Lines {
   return (option, target) => {
     for (let i = 0; i < prices.length; i++) {
       const priced = prices[i]!;
-      if (priced.pair.option === option && priced.pair.target === target) return { worth: priced.worth, terms: priced.terms };
+      if (priced.pair.option === option && priced.pair.target === target) return priced;
     }
     return null;
   };
@@ -119,7 +119,7 @@ export function treeSearch(root: Situation, searched: Searched & { readonly runs
   }) } }) as Situation;
   const at = space(root, searched), leafAt = searched.leaf(at, root);
   const nodeAt = (state: Situation, from: Tally): TreeNode => {
-    const floor = leafAt(state, from);
+    const floor = leafAt.worth(state, from);
     return { at: state, dealt: from.dealt, taken: from.taken, orders: from.orders, seconds: from.seconds, floor, runs: 0, worth: floor, edges: null };
   };
   const top = nodeAt(root, UNBEGUN), started = start(root);
@@ -194,7 +194,8 @@ export function treeSearch(root: Situation, searched: Searched & { readonly runs
   for (let k = 0; k < Math.max(runs, edgesOf(top).length); k++) run();
   const edges = top.edges!, prices = new Array<PricedLine>(edges.length);
   started.keep(edges);
-  for (let i = 0; i < edges.length; i++) { const edge = edges[i]!; prices[i] = { pair: edge.pair, worth: edge.worth, terms: edge.step.terms }; }
+  const foe = foeSource(searched.carry), end = leafAt.source;
+  for (let i = 0; i < edges.length; i++) { const edge = edges[i]!; prices[i] = { pair: edge.pair, worth: edge.worth, terms: edge.step.terms, foe, end }; }
   return prices;
 }
 
