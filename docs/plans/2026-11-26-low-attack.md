@@ -58,4 +58,34 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   began, landed 44 % with the left foot and 30 % with the right, the kicker down after 5 % and
   17 %; the push-based low kick on the same rung landed 15.8 % and fell 31.5 %. At the man, 33 of
   its 80 starts were beyond its height band, the foe sitting up out of it first.
-- **Next**: the readings above, the scorecard's three mirrors and the match.
+- **The confirmation's falls are within chance**: it refused the best on 4 falls against the
+  record's 3 at 480 Hz over 30 cases, where one fall is inside the fall counts' spread; a margin
+  by that spread lands with the 120 and 480 Hz work below.
+- **Read at f5581cb82 (warrior-drawn, `--fresh`)**: the low front kick in place of the stomp is
+  no faster, and lands less on a body down than the stomp does. The scorecard's mirrors, 216
+  each; every bout a knockout, so a bout's seconds are its time to one:
+
+  | | no kick | front kick | front kick, the low front kick in place of the stomp |
+  | --- | --- | --- | --- |
+  | knockouts within 60 s | 0.782 (0.723 to 0.832) | 0.417 (0.353 to 0.483) | 0.468 (0.402 to 0.534) |
+  | time to a knockout, mean (median), s | 44.6 (41.6) | 61.3 (63.1) | 59.0 (60.4) |
+  | share of a bout with either down | 25.5 % | 36.4 % | 33.8 % |
+  | blows a second while one is down | 0.89 | 1.04 | 0.75 |
+  | blows a second while both stand | 2.79 | 1.74 | 1.76 |
+  | downs a bout | 0.95 | 2.58 | 2.39 |
+
+  The match of the front kick with the low front kick in place of the stomp against no kick, 288
+  bouts: 0.406 (0.354 to 0.458), margin −0.127 (−0.179 to −0.074). By the owner's words, more
+  work on the kicks, which the readings point to:
+  - **The front kick's pace standing**: 1.74 blows a second against the punching Warrior's 2.79,
+    most of the gap. In the scorecard's pricing, the front kick's Mind prices its strikes into a
+    striking foe at three times what they give (7.5 % of a life against 2.5 %, over its 1140
+    choices priced to deal there; the punching Mind 1.7 against 2.5, over 984). The front kick's profile is not what overstates it:
+    its trials begun with the foe striking (46 and 34 of 2230 and 2224, against the moving
+    punch's 382 and 366 of about 3950) deal about a third of its clear ones' and take two to
+    three times as much, and a start at a striking foe reads that phase's trials alone
+    (`readProfile`). Where the price comes from is the first thing traced.
+  - **The low front kick on a body down**: 0.75 blows a second there against the stomp's 1.04.
+- **Next**: the 120 and 480 Hz difference found at its root and fixed (the owner: "Ideally 120
+  should not diverge vs 480"; a search mixing in 480 Hz trials only if it is fundamental); the
+  low front kick searched again on the code fixed; the front kick's price into a striking foe.
