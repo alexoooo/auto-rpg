@@ -1,0 +1,290 @@
+{
+ "body": "man",
+ "variation": "kick/front",
+ "code": "cb783007b1fe",
+ "tuning": null,
+ "cell": "man kick strike/middle-twin",
+ "trials": 32,
+ "landed": 7,
+ "down": 1,
+ "ends": [
+  "standing"
+ ],
+ "endedAsItMust": 31,
+ "outcomes": {
+  "beyond": 32,
+  "elsewhere": 10,
+  "landed": 7,
+  "guarded": 10,
+  "outside": 2,
+  "fell": 1,
+  "missed": 2
+ },
+ "rungs": {
+  "base-twin": {
+   "trials": 32,
+   "landed": 7,
+   "down": 1,
+   "endedAsItMust": 31,
+   "value": 0.024
+  }
+ },
+ "strips": [
+  {
+   "strip": "strip-0.png",
+   "trial": "d529beb4",
+   "rung": "base-twin",
+   "outcome": "elsewhere",
+   "down": false,
+   "frames": [
+    {
+     "time": 4.9,
+     "stage": "kick:admitting"
+    },
+    {
+     "time": 4.908,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 5.008,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 5.408,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 5.608,
+     "stage": "kick:chamber"
+    },
+    {
+     "time": 5.817,
+     "stage": "kick:extend"
+    },
+    {
+     "time": 5.917,
+     "stage": "kick:extend"
+    },
+    {
+     "time": 5.967,
+     "stage": "kick:retract"
+    },
+    {
+     "time": 6.117,
+     "stage": "kick:set"
+    },
+    {
+     "time": 6.417,
+     "stage": "kick:set"
+    },
+    {
+     "time": 6.725,
+     "stage": "kick:recenter"
+    },
+    {
+     "time": 6.825,
+     "stage": "kick:recenter"
+    },
+    {
+     "time": 7.5,
+     "stage": "standing"
+    },
+    {
+     "time": 8.2,
+     "stage": "standing"
+    }
+   ]
+  },
+  {
+   "strip": "strip-1.png",
+   "trial": "f7f31586",
+   "rung": "base-twin",
+   "outcome": "guarded",
+   "down": false,
+   "frames": [
+    {
+     "time": 4.875,
+     "stage": "kick:admitting"
+    },
+    {
+     "time": 4.883,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 4.983,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 5.383,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 5.583,
+     "stage": "kick:chamber"
+    },
+    {
+     "time": 5.792,
+     "stage": "kick:extend"
+    },
+    {
+     "time": 5.892,
+     "stage": "kick:extend"
+    },
+    {
+     "time": 5.933,
+     "stage": "kick:retract"
+    },
+    {
+     "time": 6.083,
+     "stage": "kick:set"
+    },
+    {
+     "time": 6.383,
+     "stage": "kick:set"
+    },
+    {
+     "time": 6.783,
+     "stage": "kick:set"
+    },
+    {
+     "time": 6.85,
+     "stage": "kick:recenter"
+    },
+    {
+     "time": 7.375,
+     "stage": "standing"
+    }
+   ]
+  },
+  {
+   "strip": "strip-2.png",
+   "trial": "234cca6b",
+   "rung": "base-twin",
+   "outcome": "landed",
+   "down": false,
+   "frames": [
+    {
+     "time": 4.9,
+     "stage": "kick:admitting"
+    },
+    {
+     "time": 4.908,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 5.008,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 5.508,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 5.625,
+     "stage": "kick:chamber"
+    },
+    {
+     "time": 5.833,
+     "stage": "kick:extend"
+    },
+    {
+     "time": 5.992,
+     "stage": "kick:retract"
+    },
+    {
+     "time": 6.092,
+     "stage": "kick:retract"
+    },
+    {
+     "time": 6.142,
+     "stage": "kick:set"
+    },
+    {
+     "time": 6.642,
+     "stage": "kick:set"
+    },
+    {
+     "time": 6.725,
+     "stage": "kick:recenter"
+    },
+    {
+     "time": 7.225,
+     "stage": "kick:recenter"
+    },
+    {
+     "time": 7.567,
+     "stage": "standing"
+    },
+    {
+     "time": 8.267,
+     "stage": "standing"
+    }
+   ]
+  },
+  {
+   "strip": "strip-3.png",
+   "trial": "7112a41d",
+   "rung": "base-twin",
+   "outcome": "landed",
+   "down": false,
+   "frames": [
+    {
+     "time": 4.875,
+     "stage": "kick:admitting"
+    },
+    {
+     "time": 4.883,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 4.983,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 5.483,
+     "stage": "kick:transfer"
+    },
+    {
+     "time": 5.6,
+     "stage": "kick:chamber"
+    },
+    {
+     "time": 5.808,
+     "stage": "kick:extend"
+    },
+    {
+     "time": 5.967,
+     "stage": "kick:retract"
+    },
+    {
+     "time": 6.067,
+     "stage": "kick:retract"
+    },
+    {
+     "time": 6.117,
+     "stage": "kick:set"
+    },
+    {
+     "time": 6.617,
+     "stage": "kick:set"
+    },
+    {
+     "time": 6.8,
+     "stage": "kick:recenter"
+    },
+    {
+     "time": 7.2,
+     "stage": "kick:recenter"
+    },
+    {
+     "time": 7.617,
+     "stage": "standing"
+    },
+    {
+     "time": 8.317,
+     "stage": "standing"
+    }
+   ]
+  }
+ ]
+}
