@@ -825,11 +825,12 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   at 10. Against 60 Hz over the 288 bouts of `warrior-drawn`: 40 Hz 0.495 (0.438 to 0.552), 30 Hz
   0.507 (0.451 to 0.566), 20 Hz 0.495 (0.434 to 0.559), 10 Hz 0.344 (0.295 to 0.392), 60 Hz then
   knocking out within 60 s in 48.6 % of bouts against 24.0 %. Why 10 Hz loses is not read. *Shown.*
-- **Seeing 50 ms sooner is worth little, if anything**: the same Mind at 60 Hz with no kick, one
+- **Seeing sooner is worth a little: 50 ms little, 100 ms more**: the same Mind at 60 Hz with no kick, one
   side's character at a reaction time of 0.1 s (`AttributeSpec.reaction`) against the other's
   0.15 s, over the 288 bouts of `warrior-drawn` at `c8c400ed4`: 0.545 (0.493 to 0.597), knocking
   out within 60 s in 33.7 % of bouts against 29.9 %, and taking 72.2 % of the other's life by
-  60 s against 69.1 %. The quicker side's own skills and profiles were tuned and measured at
+  60 s against 69.1 %. At 0.05 s against 0.15 s (at `dc6b412d5`): 0.583 (0.524 to 0.642),
+  knocking out within 60 s in 41.3 % against 28.5 %, taking 74.5 % against 67.9 %. The quicker side's own skills and profiles were tuned and measured at
   0.15 s (its readings say they are stale), so this is what seeing sooner gives a body that does
   not yet use it. Noticing up to 100 ms later (10 Hz, above) costs far more than this gains; why
   is not read. *Counted.*
