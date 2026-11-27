@@ -289,3 +289,13 @@ man first:
 **Its gate**: the scorecard's priced dealt over given, by slice, near 1 in every slice; the front
 kick's slice with the foe striking, 3.04 now, the first. A part that proves not simple in the
 code is said so before it is built.
+
+## After the kicks land: shorter fights
+
+The merge of the shared Mind defaults (f3743dea2) made the Warrior's Mind beat its old self and its
+own mirror slower: on the scorecard (warrior-drawn), knockouts within 60 s 0.583 (0.517 to 0.647)
+at f74a3df3b against 0.745 (0.683 to 0.799) at e62f6ff59, downs a bout 1.92 against 1.49. The
+owner, on 2026-11-27: "Stronger and slower is fine for now, but after we land the two kicks and
+other changes, we can come back and see how to make fights shorter (perhaps increase aggression
+or something else)." So once the front and the low front kick have landed, fights are made
+shorter, read on the same scorecard against the baseline then.
