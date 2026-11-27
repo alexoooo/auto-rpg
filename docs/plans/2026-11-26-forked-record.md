@@ -73,11 +73,13 @@ that fits him, because that is where the number of Options is large.
    *Checked*: at every decision of one bout, the trunk's own choice with no nudge ends in the
    trunk's poses, to the bit. At the same decisions, a different Option moves the bout. The
    fingerprint moves nothing.
-2. **The bank, and its price.** The states are decision states from the bouts the work plays: the
-   measured-mind record (its step 3) where it exists, and until then the Warrior's mirror on the
-   scorecard's 24 gaps (`research/skills/strikes/strike-bouts.mjs`). The states are sampled at a
-   fixed stride. Each state is kept as its recipe, its tape and its step, and as a save where
-   that is cheaper than replaying to it (`Duel.save`). Each state is forked once for each Option
+2. **The bank, and its price.** The states are decision states from the bouts of the
+   measured-mind record (its step 3), the Warrior's mirror, played again on the code that played
+   them. The record keeps no saves, and its bouts play again only on that code and those assets;
+   where they have moved, the record's matchup is played anew on the code in hand
+   (`npm run measure`'s `--again`). The states are sampled at a fixed stride. Each is kept as a
+   save (`Duel.save`) with its recipe and its step, so the bank stands when the Mind changes
+   after it. Nothing that moves the Warrior's mirror lands while the bank is played or forked. Each state is forked once for each Option
    on offer, times the nudges (`nudgesOf`), for a horizon of a few seconds, with the Mind playing
    on both sides. Before the rest is run, its price is said from its first chunk: forks a state,
    worker-seconds a fork with today's Mind inside it, and states a night on this machine's
@@ -131,6 +133,9 @@ that fits him, because that is where the number of Options is large.
 - **The Mind can let go of a running Option** at its next decision (`letGo`,
   `src/minds/option/choosers/chooser.ts`). So a forked worth is the worth of starting the Option
   now and then playing on. That is the choice the search's root makes.
+- **The record reads its decisions through the same hook** (`option-fork-hook.mjs`), given
+  nothing to force. A step that changes the hook keeps that path the game's: the option fork's
+  check and the record's bout 0 played again show it.
 - **What a Mind remembers is in the bout's save.** The fingerprint with `--relay 127` checks it.
   A Mind built cold at a saved state differs from one that played up to it (step 6).
 
@@ -150,8 +155,8 @@ navigator. On a 5 s bout, 7 of 12 such forks ended on the trunk's poses. 1,374 f
 on one thread, 2.05 s a fork, beside the measured-mind plan's step 2 on the same machine, so not a
 price. No game file changed, so the fingerprint cannot move and was not played.
 
-Next: step 2. Steps 2 to 5 of the measured-mind plan do not need these forks, so the two plans run
-side by side. Its step 6 fits on the targets it has and reads the forked worth when it is there.
+Next: step 2, once the measured-mind plan's step 3 has landed and before its step 4. The order of
+the two plans on one machine is in [its "Where it stands"](2026-11-25-measured-mind.md#where-it-stands).
 
 ## What done is
 

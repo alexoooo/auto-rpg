@@ -19,6 +19,7 @@
     "match": "node scripts/evaluate.mjs match",
     "evaluate": "node scripts/evaluate.mjs",
     "look": "node research/look.mjs",
+    "measure": "node research/minds/measure.mjs",
     "clean": "node scripts/clean.mjs"
   },
   "dependencies": {

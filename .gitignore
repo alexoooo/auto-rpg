@@ -18,6 +18,9 @@ public/assets/generated/
 # condition (research/starts.mjs). `npm run clean` leaves them.
 .cache/starts/
 
+# The fight record: a bout a row, by matchup (research/minds/record.mjs). `npm run clean` leaves it.
+.cache/record/
+
 # Disposable work: probes, logs, before-readings, screenshots in .tmp/<task>/, worktrees in
 # .tmp/worktrees/<name>/. `npm run clean` deletes what is a day old.
 .tmp/

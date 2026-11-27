@@ -900,6 +900,20 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   (the rest read 109 to 150, the machine busy). The rat's default, on the same shared settings,
   against him over the 288 bouts of the tournament's `gaps-drawn`: 0.208 (0.163 to 0.253), the
   man's life taken by 60 s 0.355, against 0.149 and 0.355 before both changed. *Counted.*
+- **The fitted value refitted to `option-lean`'s own play reads it truer and fights better.** The
+  measuring command (`npm run measure -- option-lean/man/empty,empty`, `91054ef50`) played his
+  mirror's 144 bouts of the tournament's `measuring` draws in 18.6 min on 18 workers (145
+  worker-seconds a bout), 164,537 decision states, 305 MB of record. Fitted on 130,731, read on
+  the 29 bouts held out, R² of dealt, taken and 2 dealt less taken: 0.144, 0.139, 0.047 at 3 s;
+  0.193, 0.195, 0.049 at 8 s; 0.234, 0.219, 0.060 at 20 s. The fit it replaced (1044 bouts of the
+  old `option`, 623,767 states) read the same states 0.125, 0.108, 0.040; 0.132, 0.119, 0.032; and
+  -0.011, 0.010, -0.022 at 20 s, where it read nothing of how this Mind's bouts go on. In play,
+  `option-lean` against `option-tail` (which reads no fitted value) over the 288 bouts of
+  `warrior-drawn`: 0.606 (0.552 to 0.660) on the new fit against 0.566 (0.514 to 0.622) on the old,
+  margin 0.142 against 0.108, knocking out within 60 s in 51.7 % of bouts against 45.1 %, taking
+  0.828 of the other's life by 60 s against 0.787. Two matches against one opponent, not one
+  paired: every figure moved the same way, each by less than its interval. It is the game's.
+  *Counted.*
 - **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of

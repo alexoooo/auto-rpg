@@ -20,17 +20,13 @@
 import { register } from "node:module";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { binned, binsOf, boost, squared } from "./boosted-trees.mjs";
+import { fitValue, followed, HORIZONS } from "./value-fit.mjs";
 
 const SCRIPT = "research/minds/fitted-value.mjs";
 /** The asset `--asset <name>` names, the game's fitted value's where none. */
 const assetOf = (args) => { const at = args.indexOf("--asset"); return `assets/minds/${at < 0 ? "fitted-value" : args[at + 1]}.json`; };
-/** The seconds after a state what followed is read over. */
-const HORIZONS = Object.freeze([3, 8, 20]);
 /** The bouts held out of a fit: the drawn mirror's from its 108th. */
 const HELD = (bout) => bout.startsWith("warrior-drawn/") && Number(bout.split("/")[1]) >= 108;
-/** The trees: as many, as deep, at least so many states a leaf, so shrunk, each on a share of the states and of the features. */
-const TREES = Object.freeze({ rounds: 300, rate: .03, depth: 4, minLeaf: 400, lambda: 50, subsample: .5, colsample: .7 });
 
 const [mode, ...args] = process.argv.slice(2);
 if (mode === "collect") await collect(...args);
@@ -81,35 +77,23 @@ async function collect(protocol, from, to, dir, mindPath) {
 async function fitAll(dirs, out) {
   const { FEATURES, featuresOf } = await import("../../src/minds/option/predictions/value/fitted-value.ts");
   const { playedOnce } = await import("../skills/profile-origin.mjs");
-  const F = FEATURES.length, xs = [], after = HORIZONS.map(() => ({ dealt: [], taken: [] })), held = [], bouts = new Set(), bodies = new Set(), played = [];
+  const states = [], bouts = new Set(), bodies = new Set(), played = [];
   for (const dir of dirs) for (const name of readdirSync(dir).filter((file) => /^states-.*\.jsonl$/.test(file)).sort())
     for (const line of readFileSync(`${dir}/${name}`, "utf8").split("\n")) {
       if (!line) continue;
-      const { bout, end, lives, states, ...row } = JSON.parse(line);
+      const { bout, end, lives, states: roots, ...row } = JSON.parse(line);
       if (!Array.isArray(row.bodies)) throw new Error(`${bout}: no bodies kept`);
       if (!Array.isArray(row.played)) throw new Error(`${bout}: the Minds that played it were not kept; collect it again`);
       bouts.add(bout); for (const body of row.bodies) bodies.add(body);
       played.push(...row.played);
-      for (const { side, t, reading } of states) {
-        xs.push(featuresOf(reading)); held.push(HELD(bout));
-        HORIZONS.forEach((h, k) => { const { dealt, taken } = followed(lives, end, side, t, h); after[k].dealt.push(dealt); after[k].taken.push(taken); });
-      }
+      for (const { side, t, reading } of roots)
+        states.push({ x: featuresOf(reading), held: HELD(bout), weight: 1, after: HORIZONS.map((h) => followed(lives, end, side, t, h)) });
     }
-  const n = xs.length, X = new Float64Array(n * F);
-  xs.forEach((x, i) => X.set(x, i * F));
-  const train = [...Array(n).keys()].filter((i) => !held[i]), test = [...Array(n).keys()].filter((i) => held[i]);
-  console.log(`${n} states of ${bouts.size} bouts: ${train.length} fitted, ${test.length} held out`);
-  const edges = binsOf(X, n, F), B = binned(X, n, F, edges), models = [];
-  const trees = (y) => { const base = mean(train, y), model = boost(B, F, edges, n, train, squared(train, y), { ...TREES, base }); return { base, trees: model.trees, pred: model.pred }; };
-  for (const [k, h] of HORIZONS.entries()) {
-    const dealtY = Float64Array.from(after[k].dealt), takenY = Float64Array.from(after[k].taken), dealt = trees(dealtY), taken = trees(takenY);
-    const tradedY = Float64Array.from(dealtY, (d, i) => 2 * d - takenY[i]), traded = Float64Array.from(dealt.pred, (d, i) => 2 * d - taken.pred[i]), alone = trees(tradedY);
-    console.log(`over ${h} s, R² held out (fitted): dealt ${r2(test, dealt.pred, dealtY).toFixed(3)} (${r2(train, dealt.pred, dealtY).toFixed(3)}), taken ${r2(test, taken.pred, takenY).toFixed(3)} (${r2(train, taken.pred, takenY).toFixed(3)}); 2 dealt less taken from the two ${r2(test, traded, tradedY).toFixed(3)}, fitted alone ${r2(test, alone.pred, tradedY).toFixed(3)}`);
-    models.push({ dealt: { base: dealt.base, trees: dealt.trees }, taken: { base: taken.base, trees: taken.trees } });
-  }
+  console.log(`${states.length} states of ${bouts.size} bouts: ${states.filter((s) => !s.held).length} fitted, ${states.filter((s) => s.held).length} held out`);
+  const { models, fitted, held } = fitValue(states, FEATURES.length);
   if (!out) return;
   const commit = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim(), minds = [...new Set(dirs.map(mindOf))];
-  const origin = `${SCRIPT} fit at ${commit}: ${train.length} states of ${minds.join(" and ")} on both sides, in ${[...bouts].filter((b) => !HELD(b)).length} bouts (${dirs.join(", ")}), ${test.length} held out`;
+  const origin = `${SCRIPT} fit at ${commit}: ${fitted} states of ${minds.join(" and ")} on both sides, in ${[...bouts].filter((b) => !HELD(b)).length} bouts (${dirs.join(", ")}), ${held} held out`;
   writeFileSync(out, JSON.stringify({ origin, from: { minds: playedOnce(played) }, bodies: [...bodies].sort(), features: FEATURES, horizons: HORIZONS, models }) + "\n");
   console.log(`wrote ${out}: ${origin}`);
 }
@@ -119,16 +103,3 @@ function mindOf(dir) {
   const mind = existsSync(`${dir}/mind.json`) ? JSON.parse(readFileSync(`${dir}/mind.json`, "utf8")) : "option";
   return mind === "option" ? "the game's Mind (option)" : `the Mind ${JSON.stringify(mind)}`;
 }
-
-/** What `side` dealt and took over `h` s from `t` (to the bout's `end`), by its lives at each change (`lives`). */
-function followed(lives, end, side, t, h) {
-  const at = (when) => { let lo = 0, hi = lives.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (lives[m][0] <= when + 1e-9) lo = m; else hi = m - 1; } return lives[lo]; };
-  const [, l0, r0] = at(t), [, l1, r1] = at(Math.min(t + h, end));
-  const [own, foe] = side === "left" ? [l0 - l1, r0 - r1] : [r0 - r1, l0 - l1];
-  return { dealt: foe, taken: own };
-}
-
-/** The mean of `y` over the states `idx`. */
-function mean(idx, y) { return idx.reduce((s, i) => s + y[i], 0) / idx.length; }
-/** The share of `y`'s spread over the states `idx` that `pred` reads. */
-function r2(idx, pred, y) { const m = mean(idx, y); let se = 0, st = 0; for (const i of idx) { se += (pred[i] - y[i]) ** 2; st += (y[i] - m) ** 2; } return 1 - se / st; }

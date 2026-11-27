@@ -33,6 +33,13 @@ const GAPS = Object.freeze({ ...TOURNAMENT, gaps: WARRIOR_GAPS });
  */
 const GAPS_DRAWN = Object.freeze({ ...TOURNAMENT, gaps: Object.freeze([3, 4, 5, 6, 7, 8].flatMap((draw) => WARRIOR_GAPS.map((gap) => drawnGap(gap, draw)))) });
 
+/**
+ * The same 24 gaps on six draws no reading is played on, 9 to 14 (`measuring`): the bouts the
+ * measuring command plays (`research/minds/measure.mjs`), so what is fitted to them is read on
+ * other bouts.
+ */
+const MEASURING = Object.freeze({ ...TOURNAMENT, gaps: Object.freeze([9, 10, 11, 12, 13, 14].flatMap((draw) => WARRIOR_GAPS.map((gap) => drawnGap(gap, draw)))) });
+
 /** An entrant as a case's subject: its mind's config, its character and what each hand holds. */
 export type Entrant = { readonly mind: Json; readonly model: BodyModel; readonly loadout: Loadout };
 
@@ -60,5 +67,5 @@ function tournamentCases(protocol: typeof TOURNAMENT): Cases<TournamentCondition
 
 /** Every protocol the tournament is played on, by name. */
 export const TOURNAMENT_CASES: Readonly<Record<string, Cases<TournamentCondition, BoutReading>>> = Object.freeze({
-  standard: tournamentCases(TOURNAMENT), gaps: tournamentCases(GAPS), "gaps-drawn": tournamentCases(GAPS_DRAWN),
+  standard: tournamentCases(TOURNAMENT), gaps: tournamentCases(GAPS), "gaps-drawn": tournamentCases(GAPS_DRAWN), measuring: tournamentCases(MEASURING),
 });
