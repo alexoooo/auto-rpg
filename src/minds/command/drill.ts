@@ -1,6 +1,6 @@
 import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
-import { approachPace, arrivedIn, settledAt, straightSpot, widened, windowArrival, windowHolds } from "../../skills/intent/action-window.ts";
-import { ARRIVED, directMovement, placeMovement, SWAY } from "../../skills/framework/movement.ts";
+import { approachPace, arrivedIn, settledAt, straightSpot, widened, windowArrival, windowHolds, windowNear } from "../../skills/intent/action-window.ts";
+import { directMovement, placeMovement, SWAY } from "../../skills/framework/movement.ts";
 import { isRegion, type Orders } from "../orders.ts";
 import type { ActionStatus, Readiness, Region, Window } from "../../skills/framework/action.ts";
 import { covers, skillOf, type KitEntry, type MenuEntry, type Spot } from "../../skills/framework/menu.ts";
@@ -161,8 +161,7 @@ function drillCommander(config: DrillCommanderConfig): Commander {
   const stay = (face: number): Orders => {
     const spot = state.spot, window = state.window;
     if (spot?.by === undefined || !window) return { move: null, face: heading(face) };
-    const near = Math.min(window.along[1] - window.along[0], window.across[1] - window.across[0]) / 2;
-    return { move: { kind: "place", points: [{ x: spot.x, z: spot.z }], near, by: spot.by }, face: heading(face) };
+    return { move: { kind: "place", points: [{ x: spot.x, z: spot.z }], near: windowNear(window), by: spot.by }, face: heading(face) };
   };
   const decided = (member: MemberView, orders: Orders | null): TeamDecision =>
     ({ orders: new Map(orders ? [[member.id, { ...orders, firm: true as const }]] : []), looked: true });
@@ -241,18 +240,18 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       if (window && (readiness.kind === "position" || readiness.kind === "ready" && state.walked && !state.held && !config.walking)) {
         const within = (one: Window) => windowHolds(one, at.x, at.z, h) && speed <= one.speed;
         // Beside a body lying, the place its menu names and the way round that body; else straight into the window's middle.
-        const spot: Spot = state.spot ?? straightSpot(window, at), distance = hypot(spot.x - at.x, spot.z - at.z);
-        // Arrived at its spot, the window's middle or the place beside a body lying (`arrivedIn`), it stands, and holds there once
+        const spot: Spot = state.spot ?? straightSpot(window, at), distance = hypot(spot.x - at.x, spot.z - at.z), near = spot.near ?? windowNear(window);
+        // Arrived at its spot, the window's middle or the place beside a body lying, within the spot's nearness (`arrivedIn`, `windowNear`), it stands, and holds there once
         // slow enough inside the window, while it sways no further than `SWAY` out of it and until it stands settled outside it.
-        const arrived = arrivedIn(state.arrival, window, at.x, at.z, h, distance, settled);
+        const arrived = arrivedIn(state.arrival, window, at.x, at.z, h, distance, settled, near);
         state.held = state.held ? within(widened(window, SWAY)) && !(settled && !within(window)) : arrived && within(window);
         // Held beside a body lying, it faces as its spot does; else at the foe, where its window still holds facing so, and
         // as its spot does where turning to the foe would carry the window's target out of the window (a short reach beside a leg).
         if (state.held) state.set ??= state.spot || !windowHolds(window, at.x, at.z, toward) ? spot.face : toward;
         if (config.pace === undefined || state.held || arrived) return decided(member, stay(state.set ?? spot.face));
         state.walked = true;
-        const move = spot.route ? { kind: "place" as const, points: spot.route.map((point) => ({ x: point.x, z: point.z })), near: ARRIVED, ...(spot.by === undefined ? {} : { by: spot.by }) }
-          : placeMovement({ x: spot.x, z: spot.z }, ARRIVED);
+        const move = spot.route ? { kind: "place" as const, points: spot.route.map((point) => ({ x: point.x, z: point.z })), near, ...(spot.by === undefined ? {} : { by: spot.by }) }
+          : placeMovement({ x: spot.x, z: spot.z }, near);
         return decided(member, { move, pace: approachPace(config.pace, distance), face: heading(spot.face) });
       }
       const face = state.set ?? toward;

@@ -6,6 +6,7 @@ import type { GaitPart } from "../../framework/locomotion-part.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { STAGGERED, validCarriage, validTurnLimit, validTurnStartup, type Carriage, type TurnStartup } from "../shared/locomotion.ts";
 import { stanceWalk } from "../shared/stance-walk.ts";
+import { measuredStops } from "../shared/stops.ts";
 import { STANCE_GAIT, type GaitTuning } from "../../../control/stance/stance-tuning.ts";
 
 /** **The walk** within the body's stance envelope (`locomotion`). */
@@ -34,9 +35,13 @@ const FOOTWORK_STEPS: GaitTuning = deepFreeze({ ...STANCE_GAIT, startsToward: tr
  */
 const QUICK_START_STEPS: GaitTuning = deepFreeze({ ...STANCE_GAIT, fallsToStart: true });
 
-/** The walk in the stance (`stanceWalk`) as `config` sets it, by the stance's own steps or by `steps`. */
-const walk = (body: Body, config: StanceWalkConfig, steps?: GaitTuning) =>
-  stanceWalk(body, { turnLimit: config.tuning?.turnLimit, turnStartup: config.tuning?.turnStartup, carriage: config.carriage }, steps);
+/**
+ * The walk in the stance (`stanceWalk`) of the variation `variation` as `config` sets it, by the
+ * stance's own steps or by `steps`, stopping as that variation was measured to (`measuredStops`).
+ */
+const walk = (body: Body, config: StanceWalkConfig, variation: string, steps?: GaitTuning) =>
+  stanceWalk(body, { turnLimit: config.tuning?.turnLimit, turnStartup: config.tuning?.turnStartup, carriage: config.carriage,
+    stops: measuredStops(body.built.spec, `stance-walk/${variation}`) ?? undefined }, steps);
 
 /**
  * Walk in the stance's variations: the walk in the stance, by the steps the stance has; the
@@ -46,13 +51,13 @@ const walk = (body: Body, config: StanceWalkConfig, steps?: GaitTuning) =>
  * by steps that fall to start (`QUICK_START_STEPS`).
  */
 const VARIATIONS = {
-  "stance-walk": (body: Body, config: StanceWalkConfig) => walk(body, config),
-  "footwork": (body: Body, config: StanceWalkConfig) => walk(body, config, FOOTWORK_STEPS),
-  "staggered": (body: Body, config: StanceWalkConfig) => walk(body, { ...config, carriage: config.carriage ?? STAGGERED }),
-  "quick-start": (body: Body, config: StanceWalkConfig) => walk(body, config, QUICK_START_STEPS),
+  "stance-walk": (body: Body, config: StanceWalkConfig) => walk(body, config, "stance-walk"),
+  "footwork": (body: Body, config: StanceWalkConfig) => walk(body, config, "footwork", FOOTWORK_STEPS),
+  "staggered": (body: Body, config: StanceWalkConfig) => walk(body, { ...config, carriage: config.carriage ?? STAGGERED }, "staggered"),
+  "quick-start": (body: Body, config: StanceWalkConfig) => walk(body, config, "quick-start", QUICK_START_STEPS),
 };
 
-/** **Walk in the stance** (`locomotion`): it holds the body's stance envelope (`Body.envelope`) and stops at `STANCE_STOPPING`. */
+/** **Walk in the stance** (`locomotion`): it holds the body's stance envelope (`Body.envelope`) and stops as its variation was measured to (`measuredStops`). */
 export const STANCE_WALK_PART = deepFreeze<GaitPart<StanceWalkConfig>>({
   // Two footprints.
   icon: "M8 3.3a2.8 4.2 0 0 1 0 8.4a2.8 4.2 0 0 1 0-8.4ZM8 12.6a1.9 1.9 0 0 1 0 3.8a1.9 1.9 0 0 1 0-3.8ZM16 7.8a2.8 4.2 0 0 1 0 8.4a2.8 4.2 0 0 1 0-8.4ZM16 17.1a1.9 1.9 0 0 1 0 3.8a1.9 1.9 0 0 1 0-3.8Z",

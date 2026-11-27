@@ -20,7 +20,7 @@ const RESPONSE = 1;
  * left, m, in `RESPONSE`, where the place it walks to moves along the way there at `drift` m/s (a
  * foe coming on, less than 0), so that the two closing on each other close it in that time; none
  * where the place comes on that fast itself. What the legs go on once asked to slow is the speed
- * rule's to count (`travelSpeed`, `Locomotion.lag`).
+ * rule's to count (`travelSpeed`, `GaitStop.lag`).
  */
 export const approachPace = (ceiling: number, distance: number, drift = 0): number =>
   Math.max(0, Math.min(ceiling, distance / RESPONSE + drift));
@@ -118,6 +118,12 @@ export function atSpot(spot: Spot, x: number, z: number, heading: number): boole
 }
 
 type Offset = { readonly x: number; readonly z: number; readonly face: number };
+
+/**
+ * How near a walk into `window` stands to the window's middle, m (`Spot.near`): half the window's
+ * depth or width, whichever is less, so a body come that near is in the window.
+ */
+export const windowNear = (window: Window): number => Math.min(window.along[1] - window.along[0], window.across[1] - window.across[0]) / 2;
 
 /** The ground offset from the body's centre to where it stands facing `face` with `window`'s middle on it: x, z and the facing, rad. */
 function offsetAt(view: BodyView, window: Window, face: number): Offset {
@@ -272,7 +278,7 @@ function placeOf(view: BodyView, window: Window, heading: number, side: Side | n
  * round it, held in `kept` where given (`HeldBeside`), else, with no side, on the side `going`
  * goes to, a walk under way beside that body, first (`besideLying`); none where that body lies and
  * no place on the side asked clears the feet, or where it stands and side -1 is asked (`placeOf`).
- * The body is there facing within the window's facing, and the spot moves with the body the
+ * The body is there within `windowNear` of it, facing within the window's facing, and the spot moves with the body the
  * window's target is on (`Window.on`), as the senses show it.
  */
 export function windowSpot(view: BodyView, window: Window, heading: number, side: Side | null, kept?: HeldBeside, going?: MovementRequest | null): Spot | null {
@@ -280,7 +286,7 @@ export function windowSpot(view: BodyView, window: Window, heading: number, side
   if (!place) return null;
   const { offset: { x, z, face }, beside } = place, centre = view.stance.centre;
   const on = window.on === undefined ? undefined : view.senses.others.find((other) => other.id === window.on);
-  const at = { x: centre.x + x, z: centre.z + z, face, facing: window.facing, ...(on ? { velocity: { x: on.velocity.x, z: on.velocity.z } } : {}) };
+  const at = { x: centre.x + x, z: centre.z + z, face, near: windowNear(window), facing: window.facing, ...(on ? { velocity: { x: on.velocity.x, z: on.velocity.z } } : {}) };
   return beside ? { ...at, route: beside.route.map((point) => ({ x: point[0], z: point[2] })), by: beside.by } : at;
 }
 

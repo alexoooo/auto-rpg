@@ -1,0 +1,48 @@
+{
+  "harness": "Node core stand (tests/harness/core-stand.mjs), Rapier",
+  "hz": 120,
+  "played": "each body in the guard, holding each of its holds, sent straight ahead to a place under the speed rule at each rate from a stand and from a walk (`arrive`); `past` the farthest past the place over the trials that stood, null where none did, `fell` how many fell",
+  "rates": [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1, 1.2, 1.5, 2, 3],
+  "walks": {
+    "distances": [0.5, 1, 2, 4],
+    "walking": [0, 1]
+  },
+  "runs": {
+    "distances": [4, 8, 15],
+    "walking": [0, 2]
+  },
+  "models": {
+    "man": {
+      "empty": {
+        "stance-walk/stance-walk": {
+          "measured": "2026-11-27",
+          "lag": 0.38,
+          "past": [0.016, 0.018, 0.022, 0.075, 0.715, 0.707, 0.526, 0.435, 0.537, 0.707, 1.977, 2.115],
+          "fell": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          "trials": [5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7]
+        },
+        "stance-walk/quick-start": {
+          "measured": "2026-11-27",
+          "lag": 0.38,
+          "past": [0.016, 0.018, 0.097, 0.118, 0.252, 0.541, 0.592, 0.941, 1.577, 1.691, 1.056, 1.169],
+          "fell": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          "trials": [5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7]
+        },
+        "stance-walk/staggered": {
+          "measured": "2026-11-27",
+          "lag": 0.38,
+          "past": [0.153, 0.241, 0.281, 0.309, 0.358, 0.396, 0.427, 0.566, 0.619, 0.865, 1.384, 1.84],
+          "fell": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          "trials": [4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7]
+        },
+        "stance-walk/footwork": {
+          "measured": "2026-11-27",
+          "lag": 0.38,
+          "past": [0.016, 0.018, 0.022, 0.075, 0.715, 0.707, 0.526, 0.435, 0.537, 0.707, 1.977, 2.115],
+          "fell": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          "trials": [5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7]
+        }
+      }
+    }
+  }
+}

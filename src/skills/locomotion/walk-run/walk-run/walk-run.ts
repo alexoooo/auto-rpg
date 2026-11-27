@@ -1,4 +1,4 @@
-import type { LegsDrive, Locomotion } from "../../../framework/locomotion-part.ts";
+import type { GaitStop, LegsDrive, Locomotion } from "../../../framework/locomotion-part.ts";
 import { walkRunEnvelope } from "./envelope.ts";
 import { footOn, standingFooting } from "../../../../control/support.ts";
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
@@ -14,6 +14,7 @@ import { runCycle, validRunCycle, type RunCycleSettings, type RunTrim, type RunS
 import { quickness, scaledGait, scaledStride } from "./gait-scale.ts";
 import { legOf } from "../../shared/leg.ts";
 import { STANCE_GAIT, validGaitTuning, type GaitTuning } from "../../../../control/stance/stance-tuning.ts";
+import { deepFreeze } from "../../../../core/state.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "../../shared/stance-feet.ts";
 import { ALL_MET, fieldsOf, maskOf, setIn, type LegsField } from "../../../framework/skill.ts";
 import { otherSide, type Side } from "../../../../core/bodies/bilateral.ts";
@@ -70,12 +71,15 @@ export function validWalkRun(settings: WalkRunSettings): boolean {
 }
 
 /**
- * How fast the walk and run states it stops where it runs, m/s² (`Locomotion.stopping`): under
+ * How fast the walk and run is braked where it runs and its stops are not measured, m/s²: under
  * its run's `brake`, since the run goes faster than the pace asked and slows from it late. Set so
  * that a run to a place stops close past it with how long it goes on before it slows counted in, so
- * it states no lag of its own (`Locomotion.lag`); a higher rate overshoots.
+ * it states no lag of its own (`GaitStop.lag`); a higher rate overshoots.
  */
 const RUN_STOPPING = 0.2;
+
+/** How the walk and run stops where it runs and its stops are not measured: at `RUN_STOPPING` at every speed, taken to stop on its place. */
+const UNMEASURED_RUN: readonly GaitStop[] = deepFreeze([{ below: Infinity, lag: 0, rates: [{ stopping: RUN_STOPPING, past: 0 }] }]);
 
 /**
  * Changing between the walk and the run as a foot lands, m/s: the run begins once the walk asked
@@ -169,9 +173,11 @@ const RUN_LEAVES = maskOf(["carriage", "gait", "feet", "height", "heading", "cen
  * The stance takes the body up as it is, moving (`Locomotion.resume`). Asked to stand while
  * running, the run brakes and the walk stops the body.
  *
- * Its envelope is its run's (`walkRunEnvelope`, or `envelope`), and it states it stops at
- * `RUN_STOPPING`; a run whose envelope holds it no faster forward than the stance's walk's
- * (`Body.envelope`) is not run, and it walks by that envelope at the walk's rate. Its
+ * Its envelope is its run's (`walkRunEnvelope`, or `envelope`), and it stops as `stops` says,
+ * as measured (`measuredStops`: its walk's stretch under the pace its walk is held under, `run`,
+ * then its run's); where none is given, at `RUN_STOPPING` with no lag at every speed, its walk
+ * braked as its run is. A run whose envelope holds it no faster forward than the stance's walk's
+ * (`Body.envelope`) is not run, and it walks by that envelope, stopping as its walk does. Its
  * settings and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`) from the leg
  * they were set for, and quickened by its haste (`quickness`), as the run's envelope is; so is
  * the stride its walk steps by, `stride` (the stance's own, `STANCE_GAIT`, where none is given)
@@ -180,7 +186,8 @@ const RUN_LEAVES = maskOf(["carriage", "gait", "feet", "height", "heading", "cen
  * beginning the cycle on the opposite planted sole; landing entry waits for a walking landing.
  */
 export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE,
-  { braking = givenRun, stride = STANCE_GAIT, steps = {}, envelope, entry = "landing", trim, steer }: { readonly braking?: RunCycleSettings; readonly stride?: GaitTuning; readonly steps?: Partial<GaitTuning>; readonly envelope?: StanceEnvelope;
+  { braking = givenRun, stride = STANCE_GAIT, steps = {}, envelope, entry = "landing", trim, steer, stops }: { readonly braking?: RunCycleSettings; readonly stride?: GaitTuning; readonly steps?: Partial<GaitTuning>; readonly envelope?: StanceEnvelope;
+    readonly stops?: readonly GaitStop[] | null;
     readonly entry?: "landing" | "first-lift"; readonly trim?: RunTrim; readonly steer?: RunSteering } = {}): Locomotion & { readonly state: WalkRunState } {
   if (entry !== "landing" && entry !== "first-lift") throw new Error("run entry is landing or first-lift");
   if (!validWalkRun(given)) throw new Error("a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1");
@@ -258,8 +265,9 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     supports: legs.supports,
     get lower() { return legs.lower; },
     envelope: held,
-    get stopping() { return may ? RUN_STOPPING : legs.stopping; },
-    get lag() { return may ? 0 : legs.lag; },
+    // Braked unmeasured as its run is, its walk too: braked as its walk stops, under its switch, the Warrior closes faster and
+    // runs more, and falls as its run hands a body over at speed (the scorecard's knockouts within 60 s 0.43 to 0.50 against 0.67).
+    stops: may ? stops ?? UNMEASURED_RUN : legs.stops,
     get heading() { return memory.running ? memory.heading : legs.heading; },
     get pace() { return memory.running ? memory.pace : legs.pace; },
     get reference() { return legs.reference; },

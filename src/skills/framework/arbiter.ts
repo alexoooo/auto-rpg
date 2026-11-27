@@ -1,6 +1,6 @@
 import type { StanceGoal } from "../../control/stance/goal.ts";
 import type { Clearance } from "./navigation.ts";
-import type { GaitLimits, Locomotion, LocomotionPart } from "./locomotion-part.ts";
+import type { GaitLimits, GaitStop, Locomotion, LocomotionPart } from "./locomotion-part.ts";
 import { kitOf, menuOf, type SpotFinder } from "./menu.ts";
 import { aimsState, keepingNothing, type Aims } from "./aim-part.ts";
 import { facesTravel, SERVICES, type Intent, type Service } from "./intent.ts";
@@ -24,6 +24,9 @@ import { cos, hypot, sin } from "../../core/math/real.ts";
 import { chainTo } from "../../control/kinematics.ts";
 import { channelName } from "../../core/bodies/muscle/driver.ts";
 import { attachment } from "../../core/bodies/read-body.ts";
+
+/** The stops of legs that state none: no stretch, so the speed rule takes them nowhere. */
+const NO_STOPS: readonly GaitStop[] = Object.freeze([]);
 
 /** Continuous services surround the independently owned action instances. */
 interface SkillParts {
@@ -169,18 +172,18 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   let limits: readonly GaitLimits[] = [], envelopes: readonly (StanceEnvelope | null)[] = [];
   const gaitLimits = (): readonly GaitLimits[] => {
     const names = legs.gaits && legs.limitsOf ? legs.gaits : null, count = names ? names.length : 1;
-    // A gait the legs have no limits for reads as none: no envelope, no stopping, no lag.
+    // A gait the legs have no limits for reads as none: no envelope, no stop. A gait's stops are data the legs keep, read as they are.
     const of = (i: number): Partial<GaitLimits> | null => names ? legs.limitsOf!(names[i]!) : legs;
     let same = limits.length === count;
     for (let i = 0; same && i < count; i++) {
       const was = limits[i]!, one = of(i);
-      same = envelopes[i] === (one?.envelope ?? null) && Object.is(was.stopping, one?.stopping ?? 0) && Object.is(was.lag, one?.lag ?? 0);
+      same = envelopes[i] === (one?.envelope ?? null) && was.stops === (one?.stops ?? NO_STOPS);
     }
     if (!same) {
       const given = Array.from({ length: count }, (_, i) => of(i)?.envelope ?? null);
       limits = given.map((envelope, i) => {
         const one = of(i);
-        return { envelope: envelope === envelopes[i] ? limits[i]!.envelope : envelope && structuredClone(envelope), stopping: one?.stopping ?? 0, lag: one?.lag ?? 0 };
+        return { envelope: envelope === envelopes[i] ? limits[i]!.envelope : envelope && structuredClone(envelope), stops: one?.stops ?? NO_STOPS };
       });
       envelopes = given;
     }
@@ -410,7 +413,7 @@ function legsGoal(asked: LegsGoal, intent: Pick<Intent, "move" | "face" | "lower
  * with no navigation the walk goes as asked.
  */
 function navigated(navigation: Navigator | null, { sight, legs, envelope, requested, dt, available }: {
-  readonly sight: NavigationSight; readonly legs: Pick<Locomotion, "heading" | "envelope" | "stopping" | "lag">; readonly envelope: StanceEnvelope | null;
+  readonly sight: NavigationSight; readonly legs: Pick<Locomotion, "heading" | "envelope" | "stops">; readonly envelope: StanceEnvelope | null;
   readonly requested: Intent; readonly dt: number; readonly available: boolean;
 }): Intent {
   const { view } = sight, h = legs.heading, velocity = requested.move;

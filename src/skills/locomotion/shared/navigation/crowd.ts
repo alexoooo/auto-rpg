@@ -1,4 +1,5 @@
 import type { GaitLimits } from "../../../framework/locomotion-part.ts";
+import { stoppingWithin } from "../travel.ts";
 import { cos, hypot, sin } from "../../../../core/math/real.ts";
 import { heldPace } from "../../../../control/stance/stance-envelope.ts";
 import { bodyClearance, sensedBounds } from "./sensed-bounds.ts";
@@ -120,7 +121,7 @@ const NONE: readonly SolidSense[] = Object.freeze([]);
  * the next `CROWD.horizon` s, or the time it takes to stop, if longer; with none clear, the one that comes within another's room the latest.
  *
  * - **Where a walk takes the body** is judged from its velocity now, not from the walk asked: its
- *   velocity changes toward the walk no faster than its gait stops (`Locomotion.stopping`), so a
+ *   velocity changes toward the walk no faster than its gait stops within `CROWD.margin` (`Locomotion.stops`), so a
  *   body still going one way sweeps that way while it brakes.
  * - **Each walk is as fast** as `want`, no faster than its gait holds that way from `heading`
  *   (`heldPace` on its envelope), and no faster than it stops from before another body ahead of
@@ -134,7 +135,8 @@ const NONE: readonly SolidSense[] = Object.freeze([]);
  * Null where no body of its side is near enough to matter: `want` as it is.
  */
 export function crowdWalk(view: CrowdView, radius: number, heading: number, want: GroundPoint, gait: GaitLimits): CrowdWalk | null {
-  const { centre, velocity } = view.stance, { side, others } = view.senses, stopping = gait.stopping;
+  // It keeps `CROWD.margin` clear, so it is braked as to stop within that margin, at the slowest of its gait's stretches (`stoppingWithin`).
+  const { centre, velocity } = view.stance, { side, others } = view.senses, stopping = gait.stops.length ? Math.min(...gait.stops.map((stop) => stoppingWithin(stop, CROWD.margin))) : 0;
   const speed = hypot(want.x, want.z), going = hypot(velocity.x, velocity.z);
   // It looks as far ahead as it takes to stop from the speed it goes, at least `CROWD.horizon`.
   const H = stopping > 0 ? Math.max(CROWD.horizon, going / stopping) : CROWD.horizon, samples = Math.ceil(H * CROWD.samples / CROWD.horizon);

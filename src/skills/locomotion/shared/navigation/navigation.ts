@@ -30,7 +30,13 @@ const atHeight = (at: GroundPoint, height: number): Vec3 => [at.x, height, at.z]
 const NO_CORNERS: readonly Corner[] = Object.freeze([]);
 
 /** What a step's speed rule is asked (`travelSpeed`), filled each time: made once, it carries nothing between calls. */
-const GOING: Going = { way: [1, 0], left: Infinity, corners: NO_CORNERS, gone: 0, on: 0, ceiling: Infinity };
+const GOING: Going = { way: [1, 0], left: Infinity, corners: NO_CORNERS, gone: 0, on: 0, ceiling: Infinity, near: 0 };
+
+/**
+ * How near the spot it walks to a body asked into a range (`near` to `far` m of its focus) stands,
+ * m: within half the range's depth, and no more than 0.15 m, of the range's middle.
+ */
+export const rangeNear = (request: { readonly near: number; readonly far: number }): number => Math.min(.15, (request.far - request.near) / 2);
 
 /** Whether two sensed solids are the same: the same name, kind and numbers. */
 function sameSolid(a: SolidSense, b: SolidSense): boolean {
@@ -148,15 +154,15 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       const most = hypot(crowd.x, crowd.z);
       return { move: clearMove(centre, solids, report.legs.heading, along(crowd.x, crowd.z, most), radius, .5), face: most > 0 ? atan2(crowd.x, crowd.z) : atan2(x, z) };
     };
-    /** The speed going the ground way (`x`, `z`) with `left` m to stop in and `corners` ahead, from the speed the body has that way. */
-    const going = (x: number, z: number, left: number, corners: readonly Corner[]): number => {
+    /** The speed going the ground way (`x`, `z`) with `left` m to stop in, standing within `near` m of its end, and `corners` ahead, from the speed the body has that way. */
+    const going = (x: number, z: number, left: number, corners: readonly Corner[], near: number): number => {
       const h = report.legs.heading, way = hypot(x, z), velocity = view.stance.velocity, on = way > 0 ? (velocity.x * x + velocity.z * z) / way : 0;
-      GOING.way = [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)]; GOING.left = left; GOING.corners = corners; GOING.on = on; GOING.ceiling = ceiling;
+      GOING.way = [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)]; GOING.left = left; GOING.corners = corners; GOING.on = on; GOING.ceiling = ceiling; GOING.near = near;
       const speed = travelSpeed(gait, GOING);
       return Number.isFinite(speed) ? speed : 0;
     };
     if (request.kind === "direct") {
-      const direction = request.direction, speed = going(direction.x, direction.z, Infinity, NO_CORNERS);
+      const direction = request.direction, speed = going(direction.x, direction.z, Infinity, NO_CORNERS, 0);
       const move = clearMove(centre, solids, report.legs.heading, steered(direction.x, direction.z, speed).move, radius, .5);
       update(move ? "moving" : "stopped", null, null);
       return { move, face: hypot(direction.x, direction.z) > 0 ? atan2(direction.x, direction.z) : null };
@@ -227,14 +233,14 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
           const correction = (distance - (request.near + request.far) / 2) / NAV.rangeResponse;
           const dx = (focus.velocity?.x ?? 0) + (distance > 0 ? (target.x - here.x) * correction / distance : 0);
           const dz = (focus.velocity?.z ?? 0) + (distance > 0 ? (target.z - here.z) * correction / distance : 0);
-          const speed = Math.min(going(dx, dz, Infinity, NO_CORNERS), hypot(dx, dz)), walk = steered(dx, dz, speed);
+          const speed = Math.min(going(dx, dz, Infinity, NO_CORNERS, 0), hypot(dx, dz)), walk = steered(dx, dz, speed);
           update("arrived", 0, here);
           return { move: clearMove(centre, solids, report.legs.heading, walk.move, radius, .5), face: walk.face, destination: 0 };
         }
         const range = (request.near + request.far) / 2, bearing = atan2(here.x - target.x, here.z - target.z);
         const focusRadius = focus.spec ? bodyClearance(focus.spec) : .2;
         solids = [...solids, { name: `focus:${focus.id}`, kind: "box", centre: [target.x, centre.y, target.z], size: [2 * focusRadius, 2, 2 * focusRadius] }];
-        near = Math.min(.15, (request.far - request.near) / 2);
+        near = rangeNear(request);
         // The nearest spot, where no side is asked and it is open and straight ahead, is the one a search would find.
         const nearest = { x: target.x + range * sin(bearing), z: target.z + range * cos(bearing) };
         if (!request.side && clearToFocus(nearest) && clearanceExit(atHeight(nearest, centre.y), radius, solids) === null && clearStep(atHeight(here, centre.y), atHeight(nearest, centre.y), radius, solids)) {
@@ -318,8 +324,9 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     const corners = cornersOf(here, way);
     update("moving", remaining, goal);
     // It brakes for the place itself and arrives once within `near` on the way: braked for the edge of
-    // its reach, a walk that stops a little short of that edge is outside it, and steps again.
-    const walk = steered(next.x - here.x, next.z - here.z, going(next.x - here.x, next.z - here.z, remaining, corners));
+    // its reach, a walk that stops a little short of that edge is outside it, and steps again. It may
+    // come as far past the place as it stands within, so its gait is braked at the rate that stops so near.
+    const walk = steered(next.x - here.x, next.z - here.z, going(next.x - here.x, next.z - here.z, remaining, corners, near));
     return { move: walk.move, face: walk.face ?? atan2(next.x - here.x, next.z - here.z), destination: remaining };
   };
   return { state, get report() { return reported(); }, ...stockClearance(spec),

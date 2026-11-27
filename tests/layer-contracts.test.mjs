@@ -228,7 +228,7 @@ test("fallen footprints retain observed elevation through navigation memory", ()
 
 
 /** The gait every navigation fixture below walks by: no envelope, a metre to stop, no lag. */
-const NAVIGATING = Object.freeze({ envelope: null, stopping: 1, lag: 0 });
+const NAVIGATING = Object.freeze({ envelope: null, stops: [{ below: Infinity, lag: 0, rates: [{ stopping: 1, past: 0 }] }] });
 
 /** Asserts each leg of `route` from `from` clears `solids` for `spec`'s body (`clearStep`). */
 function assertClearRoute(route, from, spec, solids) {
