@@ -200,8 +200,14 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   and 13.8 %), and lands a third as many (5.9 % and 10.1 % against 24.8 % and 23.0 %); the
   scorecard on its own profile, knockouts within 60 s 0.556 (0.489 to 0.620) against 0.509, downs a
   bout 1.62 against 2.08. Its falls now go forward as well as back (its look's one fall,
-  f862c1860d0f). The centre held ahead alone, the trunk upright, fell after 10.3 % of kicks
-  against 15.8 % in 24 bouts replayed: whether it keeps the landing is next.
+  f862c1860d0f). The centre held ahead with the trunk upright lands less still on the drill (4
+  and 5 of 16 at 0.1 and 0.2 m): it is the centre held ahead that lowers the kick.
+- **Searched from there, the front kick is a kick at the knee: landed.** Its window nearer and its
+  extension quicker (414a8c586), it meets the foe's shin or knee on every drill trial. Against a
+  foe fighting back it is begun less (1,891 and 1,882 against 2,252 and 2,247), its kicker down
+  less (5.7 % and 3.4 %), and it deals less and costs more a kick (dealt 0.215 and 0.247, taken
+  0.894 and 0.851). The scorecard: knockouts within 60 s 0.676 (0.611 to 0.735), downs a bout
+  1.44, blows a second 3.02: the Mind kicking less, falling less, fighting more between kicks.
 - **Most time down is both lying, choosing to.** In the 24 bouts of that scorecard, 659 s down over
   1,330 s of bouts (both sides): 55 % on the back, 33 % on the front; 72 % with both down, and in
   4 bouts both lie to the end. A fall on the back lasts 36.6 s on the mean and rises in 4 of 10,
