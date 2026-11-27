@@ -854,8 +854,24 @@ game or to unpark something, and the work goes on meanwhile.
     every 0.1 s, 179 at 10 Hz every 0.2 s).
   - Moved and not read: the woman, the skeleton, the reptile and the armed man (the fingerprint's
     39 cases, in its commit).
-- **Next: step 3.** [The forked record](2026-11-26-forked-record.md) runs beside steps 2 to 5,
-  which do not need it.
+- **Next: step 3.** Then this plan and [the forked record](2026-11-26-forked-record.md) go in
+  this order on one machine (the forked record's steps marked "fork"):
+  1. Step 3.
+  2. Fork steps 2 to 4, on the code step 3 leaves, before anything moves the Warrior's mirror.
+     The record keeps no saves: its bouts play again only on the code and assets that played
+     them. So the bank is taken while that holds, and the forks label the Mind whose run shares
+     the record holds, at the same states, which is what step 6 and fork step 5 compare.
+  3. Step 4.
+  4. Fork steps 5 and 6.
+  5. Step 6, then step 7.
+  6. Step 5, by the owner's choice (2026-11-27: "MM5 after MM7"). The rat's bouts against the
+     Warrior are then played once, against the Warrior's Mind after the prior and PUCT, and the
+     same collection serves steps 5, 8 and 9.
+  7. Step 8 onward. Fork step 7 goes anywhere after fork step 3.
+
+  A run that reads time (a price said from a first chunk, a Mind's thinking) has the machine to
+  itself; runs that read only outcomes may share it. Nothing that moves a fight lands while a
+  pooled run is in flight, since its new workers would load the new code.
 
 ## Parked by the owner
 
