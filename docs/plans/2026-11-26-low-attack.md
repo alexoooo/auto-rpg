@@ -361,8 +361,17 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   and under the front kick's (from 0.9 of the reach, 0.87 m). The low front kick's band (to 0.45,
   0.43 m) misses most of it as well. The rest: the stander's own back step, rising and falling (about 26 s),
   offered and priced under hold (7 s), no site's spot (1 s).
-- **Next**: whether a low attack strikes a body on hands and knees, the low front kick's band raised
-  over that gap, looked at in frames before it is measured; then the price below.
+- **Neither band moved strikes a body on hands and knees.** On sparring-laid's twin (48 trials, the
+  record's settings but the band): the front kick from 0 of the reach began 13 kicks at a body
+  down and landed none; begun at one getting up from its front, it holds its weight transfer 0.55
+  to 0.7 s and meets the foe's shin once it is up. The stomp's top at 0.7 landed the 8 the record
+  lands, at bodies lying, and none of the 4 begun at a body getting up from its front: its setup
+  and transfer take about 1.5 s before its stroke. Each strike's lead-in is longer than the drill's
+  foe stays on all fours. And a band admits by the aim's height, while where a kick lands is its
+  path's (aimed at the trunk, it meets the knee): a band read from where trials meet the target
+  would admit a kick at bodies its aim never reaches.
+- **Next**: why a strike's lead-in (the kick's transfer, the stomp's setup) takes as long as it does
+  after a walk in; then the price below.
 
 ## Then: a strike's price, every start a number
 
