@@ -342,8 +342,14 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   its way is planned grazing the body (`LYING.footRadius`) and checked again at that clearance,
   so a body turning 0.6 rad/s breaks it before the place's own drift (0.3 m, `CROWD.settled`)
   would.
-- **Next**: the place beside a lying body held with its way while the body is within its drift,
-  measured on the try, the scorecard, its falls and the changes a second; then the price below.
+- **Holding that way changes nothing.** The held place checked by its feet alone, its way kept
+  within the drift: the try the same in every trial, the scorecard 0.736 against 0.741, downs 1.66
+  against 1.64, 2.87 changes a second against 3.05 (hold 0.34 against 0.32), closing 0.10 m/s.
+  The re-plan lands about where the hold was. At the flicker read, the near side was not asked for
+  at all that step: which sides the Mind asks for, not the menu's hold.
+- **Next**: whether a step of hold between approach steps slows the walk at all (the stander's
+  speed through them); then the low front kick's arrival, after the owner's word on the gait
+  switch's price; then the price below.
 
 ## Then: a strike's price, every start a number
 
