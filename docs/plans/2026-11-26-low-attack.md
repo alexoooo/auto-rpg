@@ -354,8 +354,15 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   before another site is chosen. A flicker's step keeps the walk's speed (0.48 m/s); the 58 s of
   hold over the downs are long stretches, at 0.31 m/s against an approach's 0.45. The keep is
   the chooser's, with the gait switch's price, for the owner's word.
-- **Next**: why no low attack is on offer for about 0.4 of a down (the long holds); then the price
-  below.
+- **Most of the long holds are a body rising from its front, between the bands.** Of the 76 s over
+  the 24 downs the stander holds with no low attack on offer or does something else, 39 s are the
+  foe on its front getting up (hands and knees), its trunk's middle aimed at 0.43 to 0.62 m: over
+  the stomp's band (its top 0.4 of the leg's reach, 0.385 m; half that time within 0.1 m over it)
+  and under the front kick's (from 0.9 of the reach, 0.87 m). The low front kick's band (to 0.45,
+  0.43 m) misses most of it as well. The rest: the stander's own back step and rising (about 22 s),
+  offered and priced under hold (7 s), no site's spot (1 s).
+- **Next**: whether a low attack strikes a body on hands and knees, the low front kick's band raised
+  over that gap, looked at in frames before it is measured; then the price below.
 
 ## Then: a strike's price, every start a number
 
