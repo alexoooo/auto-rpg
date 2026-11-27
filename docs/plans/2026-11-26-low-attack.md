@@ -194,7 +194,15 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   already off the ground in all but four, and the capture point 0.2 to 1.0 m from where it was to
   land. About 20 never landed before the fall. These are the falls [the kicker's falls](2026-11-25-kicker-falls.md)
   reads ("no catch spares these falls").
-- **Next**: the kicker's falls in a catch step, read on HEAD's default Warrior first and on the
+- **The front kick held forward: landed.** The kick's centre held 0.1 m ahead of the standing
+  sole and its trunk forward (lean 0.4), against 0 and 0: in fights the kicker is down after
+  half as many kicks (sparring-feet, 9,600 trials: 7.3 % and 5.8 % of kicks begun against 13.2 %
+  and 13.8 %), and lands a third as many (5.9 % and 10.1 % against 24.8 % and 23.0 %); the
+  scorecard on its own profile, knockouts within 60 s 0.556 (0.489 to 0.620) against 0.509, downs a
+  bout 1.62 against 2.08. Its falls now go forward as well as back (its look's one fall,
+  f862c1860d0f). The centre held ahead alone, the trunk upright, fell after 10.3 % of kicks
+  against 15.8 % in 24 bouts replayed: whether it keeps the landing is next.
+- **Next**: the kicker's falls in a catch step, read on the default Warrior first and on the
   quick start second; then the quick start the default where it matches
   or beats the default's knockouts, and the walk-run's start read again under it. Then the low front kick searched again at the
   empty-handed man on `sparring-laid`'s twin (`skill-search.mjs stomp/front man --loadout
