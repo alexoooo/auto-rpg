@@ -711,7 +711,10 @@ where it is needed least.
   on the guided search's runs for two or three rounds, and no further: rule 4); to what bodies did
   in the record; and to each Option's forked worth, a softmax of what each Option on offer was
   worth when the state was forked once for each ([the forked record](2026-11-26-forked-record.md)).
-  The last does not depend on where the search's runs went, which is what PUCT changes.
+  The last does not depend on where the search's runs went, which is what PUCT changes. It is not
+  read while the forked record finds a forked worth does not rank a state's Options at a count this
+  machine affords (its step 4: at 2 s, 8 nudges, the spread across nudges is about four times the
+  Options' spread).
 - **No kind.** Every variant reads an Option by its model alone (mechanism 5).
 - **Screened on the regret bank first**, where the forked record has built it: each variant's
   regret at the banked states, then a match for those that pass.
@@ -784,8 +787,9 @@ game or to unpark something, and the work goes on meanwhile.
    check compares only the readings of pairings with rows of their own. Read with it: each
    pairing's own fit against the pooled one on that pairing's held-out bouts. Scope: the rat
    against the Warrior; the Warrior's mirror shown unmoved.
-6. **The action prior** (mechanism 5): fitted on the record, on each target it has (the forked
-   worth once the forked record has landed it, the others meanwhile), reading no Option's kind;
+6. **The action prior** (mechanism 5): fitted on the record, on each target it has (not the forked
+   worth, which [the forked record](2026-11-26-forked-record.md#where-it-stands) found does not
+   rank a state's Options at a count this machine affords), reading no Option's kind;
    read in the game as an asset, as the fitted value is. Its held-out nats against the price's
    softmax, by how many Options were on offer. Scope: the empty-handed Warrior's record, step 3's.
 7. **PUCT with the prior**, tried as the section above says: the prior-weighted mean first, then

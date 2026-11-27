@@ -65,7 +65,7 @@ that fits him, because that is where the number of Options is large.
 
 1. **A fork that takes a given Option.** The research fork (`rollout`, `research/rollouts.mjs`)
    gains a branch that is an Option. At the fork's first search, the side's Mind takes the named
-   Option, then decides as it always does. An Option is named by its key: its place in the Mind's
+   Option, then decides as it always does; held (`hold`), it is taken again while it runs on, to its exit. An Option is named by its key: its place in the Mind's
    Options and its target, as the warm start keys them (`warmStart`,
    `src/minds/option/choosers/tree-search.ts`). This is done with a load hook, the way
    `research/minds/move-prior-hook.mjs` reads the search, so the game's code does not change.
@@ -141,22 +141,56 @@ that fits him, because that is where the number of Options is large.
 
 ## Where it stands
 
-**Step 1 has landed.** `rollout` takes an `option`, by the load hook
-`research/option-fork-hook.mjs`, which rewrites the selection (`selectSet`) where the side's Mind
-takes its first priced choice. The rollout workers register the hook, so a pooled fork may name an
-Option too. A fork refuses an Option the Mind could not take there: its claims taken, not priced
-at this decision, or a target the keep rules out (`Deciding.keep`). The row says whether it was
-taken. `research/option-fork-check.mjs` read the warrior protocol's bout 0 (2.65 m, the game's
-Mind on both sides, left won by draining at 60.88 s). It forked every one of the 687 decisions with
-an Option to take, at 2 s, with no nudge. All 687 forks given the Mind's own choice ended on the
-trunk's trace and poses to the bit. Of the 687 given the worst Option on offer, all were taken and
-684 ended elsewhere. The next best is often a twin of the Mind's own: the same run by another
-navigator. On a 5 s bout, 7 of 12 such forks ended on the trunk's poses. 1,374 forks took 2,821 s
-on one thread, 2.05 s a fork, beside the measured-mind plan's step 2 on the same machine, so not a
-price. No game file changed, so the fingerprint cannot move and was not played.
+**Steps 1 to 4 have landed.** Step 4's answer is that, at the nudge counts this machine affords,
+a forked worth does not rank the Options at a state. By step 4's own rule for that case, it is not used
+to do so.
 
-Next: step 2, once the measured-mind plan's step 3 has landed and before its step 4. The order of
-the two plans on one machine is in [its "Where it stands"](2026-11-25-measured-mind.md#where-it-stands).
+- **The fork** (step 1): `rollout` takes an `option` by the load hook
+  `research/option-fork-hook.mjs`. On the warrior protocol's bout 0, all 687 forks given the
+  Mind's own choice ended on the trunk's trace to the bit. With `hold`, the Mind takes the Option
+  again at each decision it runs on to while it yields, so it runs to its exit as a search's line
+  runs it. An open Option is not held, since a search prices it as an instant. Without `hold`,
+  the Mind cancels at its next rethink, 0.1 s on, what it would not have chosen. That happened to
+  73 % of forced Options in 16 states, and 219 of 468 forks there were identical to another of the
+  same state and nudge. So the bank's forks hold.
+- **The bank and its price** (step 2): `research/minds/bank.mjs` played 87 of the measuring
+  protocol's 144 bouts of option-lean's mirror at `62c688f5f`, before the machine stopped. It
+  kept every 80th decision with an Option to take as a save: 989 states, in
+  `.cache/bank/`. Saving before every step made a bout cost 660 worker-seconds, against 145
+  without. A bank played again should save only where the Mind can decide.
+  `research/minds/fork-bank.mjs` forks a state once for each Option on offer under the same
+  nudges. A state has about 8 Options, so 31 forks under 4 nudges. A held fork 2 s on costs 1.06
+  worker-seconds, so a state under 8 nudges costs 66, and 100 states took 20 minutes on 4 workers.
+  All forks were taken, and every fork of every state started on the bank's poses.
+- **The rows** (step 3): a line a state in the bank's `forks.jsonl`, with each fork's key,
+  nudge, how long the Option ran, the lives and the side's readings every 0.5 s. All 100 forked
+  states join to their root in the record at the bank's commit, where the root priced 98 % of the
+  Options forked. `research/minds/forked-worth.mjs` prices a fork as the Mind prices a line.
+- **How sure a label is** (step 4, `research/minds/fork-sureness.mjs`, on 100 states held, 8
+  nudges of 0.5 N s, 2 s on). Each Option is picked by 4 nudges and judged by the other 4 at 2 s.
+  - Picked at 2 s, the median gain over a random Option is 0.008 life, with 10th to 90th
+    percentiles of -0.26 to 0.54. It does better in 67 % of states.
+  - Picked earlier, the gain is less still: 0.004 at 0.5 s and 0.001 at 1 s.
+  - At 2 s a fork's worth spreads 0.33 life across nudges. The distinct Options' means spread
+    0.087, the best to the next 0.075, and the Options are 5 % of a fork's variance.
+  - Read early, a worth is mostly the fitted value's reading of where the fork then stands (the
+    Mind's horizon is 20 s). At 0.5 s it agreed with itself at 59 to 62 % of states but predicted
+    nothing of 2 s. A fresh reader found this, refuting the first conclusion drawn from 0.5 s.
+  - To bring the spread down to the gaps would take some tens of nudges an Option, about five
+    times these forks' price, and the gaps are themselves small. In this mirror, which of the
+    Options on offer is taken matters little next to how the next 2 s fall out.
+
+What this leaves of the steps after:
+- Step 5's reading of each Option's model against the forks pools many states, so it does not need
+  a state's ranking. It can be read on the forks already played.
+- Step 5's ranking of the Mind's choices, and its forked target for the action prior, need a
+  ranking, so they are not read at this count. The measured-mind plan's step 6 fits on the targets
+  it has.
+- Step 6's regret bank would score a search by these same rankings, so it waits on a way to make
+  them sure.
+
+Next, in the order the measured-mind plan gives: its step 4. Fork step 5's pooled reading needs no
+new forks.
 
 ## What done is
 
