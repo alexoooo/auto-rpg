@@ -21,18 +21,19 @@ export { FIGHT_ENTRY, type EntryRule, type Offered } from "../minds/catalog/cata
 
 /**
  * **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): the
- * Option Mind on the tail's leaf. The rat plays the Mind that presses its attack (`option-presses`),
- * which values the Warrior's life five times its own and a blow sooner more than one later, so it
- * goes back in to bite him where the tail's Mind waits at the edge of his reach.
+ * settings every body shares (`option-shared`), with nothing chosen for one situation. The rat
+ * adds to them what was read for it (`option-presses`): it values the Warrior's life five times
+ * its own and a blow sooner more than one later, so it goes back in to bite him where the tail's
+ * Mind waits at the edge of his reach.
  */
 const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
-  man: "option-tail", woman: "option-tail", skeleton: "option-tail", reptile: "option-tail", rat: "option-presses",
+  man: "option-shared", woman: "option-shared", skeleton: "option-shared", reptile: "option-shared", rat: "option-presses",
 });
 
 /**
  * **The mind a body plays where it is not its model's**, by the body's name (`bodyOf`): the
- * empty-handed man plays the Option Mind with its own body priced truer, deciding ten times a
- * second with no reply searched (`option-lean`), measured on him.
+ * empty-handed man adds to the shared settings the mean backup, aggression and initiative read on
+ * him (`option-lean`).
  */
 const DEFAULT_BODIES: Readonly<Record<string, string>> = Object.freeze({ man: "option-lean" });
 

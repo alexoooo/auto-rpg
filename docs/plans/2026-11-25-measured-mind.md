@@ -183,17 +183,22 @@ work, told to refute it (the procedure's step 5).
    *Held by* the step's naming, which states each of the three as a count, and by the thinking
    read twice, on the man's own Options and on every Option that fits him, both in the report.
 
-## One Mind already, in three configs
+## One Mind, one set of shared settings
 
 Every body runs the one Option Mind (`kind: "option"`): the same code, offering each body the
-registered Options it fits. No body has a Mind of its own. What differs by body is the config
-it plays by default, three today (`src/app/catalog.ts`, `src/entrants/option/mind.ts`):
+registered Options it fits. No body has a Mind of its own. Every body's default config is the
+settings every body shares, and a body's own adds only what was chosen for its situation
+(`src/app/catalog.ts`, `src/entrants/option/mind.ts`):
 
 | Config | The default of | Its settings |
 | --- | --- | --- |
-| `option-tail` | the woman, the skeleton, the reptile, and the man holding anything | the tail's leaf, a state worth its best line, the objective's own defaults, decided at 60 Hz |
-| `option-lean` | the empty-handed man | the fitted leaf, a state worth its lines' mean, aggression 4, initiative 0.3, the foe carried on 0.5 s, decided at 10 Hz, a walk's start signed and a sway by its own steps |
-| `option-presses` | the rat | a state worth its best line, aggression 5, initiative 0.3, decided at 60 Hz; it asks the fitted leaf, which stands aside for the rat |
+| `option-shared` | the woman, the skeleton, the reptile, and the man holding anything | the settings every body shares: the fitted leaf, which stands aside on a body it was not fitted on; the foe carried on 0.5 s; a walk's start signed and a sway by its own steps; looking at 20 Hz and searching every 0.1 s. A state is worth its best line, the objective at its own defaults |
+| `option-lean` | the empty-handed man | the shared settings, with a state worth its lines' mean, aggression 4 and initiative 0.3, read on him |
+| `option-presses` | the rat | the shared settings, with a state worth its best line, aggression 5 and initiative 0.3, read on it |
+
+`option-tail`, the default of the bodies but two before step 2 (the tail's leaf, a state worth its
+best line, the objective's own defaults, looking at 60 Hz and searching every 0.2 s), is
+pickable and no body's default.
 
 A fourth is pickable and no body's default: `option-measured`, which is `option-lean` built
 with no guesses (`predictions.kind: "measured-only"`), so every stand-in is taken away and
@@ -201,12 +206,11 @@ nothing is yet in its place. Against `option-lean` over 120 bouts (`npm run matc
 `25dcc9900`) it scored 0.358 (0.292 to 0.421), with knockouts within 60 s in 8.3 % of bouts
 against 25.0 %. Step 10 measures what the stand-ins stood for.
 
-They are three because each was read on one body and installed for that body alone, the fixes
+There were three because each was read on one body and installed for that body alone, the fixes
 among its settings with the rest. By the owner's rule (the goal) a fix, or a gain in scale or
-speed, belongs to every body, and only what is one situation's is a body's own. So the plan
-ends with one set of settings every body shares, a body's own config holding only what was
-chosen for its situation, each such setting named with its reading (bar 4). Sorting today's
-three is step 2.
+speed, belongs to every body, and only what is one situation's is a body's own. Step 2 sorted
+them into the settings every body shares and each body's own, each such setting named with its
+reading (bar 4).
 
 ## The inventory
 
@@ -378,7 +382,7 @@ is where they are listed. "Where" says so of each.
 | The end of a line is not priced | `objectives.ts` `fewTermsWorth` never reads `path.end`; `space.ts` `cutWorth` | A line cut at the horizon, and every hold or guard, is worth the same ending on its back as on its feet | 4 |
 | The fitted value reads only the man | `assets/minds/fitted-value.json` fitted on man against man; `fittedOn` | Every other body, and the man against any other, falls back to the tail's leaf | 1, 4 |
 | A second down is priced at the foe's peak | `profile.ts` `downCostOf` (`PressureFields.peak`) | Lying 5 m away costs as much as lying at his feet: 0.075 of the rat's life a second, where its time down in fights cost about 0.004 | 3 |
-| The foe stands still in imagined lines, or carries on as he was | `carry` 0 by default, 0.5 s on `option-lean`; `imagined.ts` | Waiting near a foe who would close looks free, or is priced by where his velocity takes him | 3, 5 |
+| The foe stands still in imagined lines, or carries on as he was | `carry` 0 by default, 0.5 s in the settings every body shares; `imagined.ts` | Waiting near a foe who would close looks free, or is priced by where his velocity takes him | 3, 5 |
 | The foe's replies are searched only against the same body | `replies.ts` `repliedSearch` (`bodyOf(focus.spec) !== searched.body`) | Against any other body, replies are never searched | 3, 5: the foe's Options built from his own body, weighted by the prior |
 | A walk never falls outside a clinch | `places.ts` `walkTerms` | Walks look safer than strikes, whose falls are measured | 2 |
 | The clinch | `by-hand.ts` `CLINCH`: 0.65 m centre to centre, 0.2 falls a second, every body | Holds and walks near the foe fall at one rate, rat or Warrior | 2 |
@@ -483,7 +487,7 @@ The numbers plan's census, as the code stands. Rules 1 and 2 ask each of these m
 | Whether a body is offered a skill's Option (`records.ts` `recordFault`, `tunedSettings`; `held-strike.ts`; `staged/records.ts` `STEP_UP_BODIES`) | the model's name among the bodies its record names | a body with no record under its name is offered no such Option; the nearest body's record is never borrowed | the nearest body's that has drilled it, marked borrowed (what a new thing costs) |
 | A weapon's strike (`held-face.ts` `heldFace`; the bonk, the club blow, the sword thrust) | the name of the item in the hand ("club", "sword") | an item of another name is offered no weapon strike | the item by what its spec has: its faces, its mass and its reach |
 | What an evaluation's saved results are kept by (`lookup.ts` `bodyProfiles`, `records.ts` `bodyRecords`) | the profiles and records under the body's own name | a body that borrows has none, so a change to what it borrowed leaves its saved results standing | a result kept by what the body read, borrowed or its own (rule 3) |
-| A body's default Mind (`DEFAULT_MINDS`, `DEFAULT_BODIES`, `src/app/catalog.ts`) | the model, and the body's name | the empty-handed man `option-lean`, the rat `option-presses`, every other `option-tail` | one set of settings every body shares, a body's entry holding only what is its situation's (the owner's rule; steps 2 and 13) |
+| A body's default Mind (`DEFAULT_MINDS`, `DEFAULT_BODIES`, `src/app/catalog.ts`) | the model, and the body's name | the empty-handed man `option-lean`, the rat `option-presses`, every other `option-shared`: the settings every body shares (step 2), the man and the rat each adding their situation's | a body's entry holding only what is its situation's, the rat's read again on the shared settings (the owner's rule; step 13) |
 
 What a body holds is already numbers on a trial (the mass held and its reach past the hand,
 `Start.held`), and no loadout finds a profile. But no trial crosses a loadout with a skill
@@ -803,13 +807,13 @@ game or to unpark something, and the work goes on meanwhile.
   was mended or is said there as well.
 - **The inventory's listing**, 19 standings: the game's five bodies empty-handed and as armed,
   with the made-up body and item, each in front of the empty-handed man, and him in front of
-  each. 51 numbers set by hand (35 the Mind's own, 11 guesses, 5 preferences); 108 rows that
-  fail, the 11 guesses among them; 10 settings in which the default configs differ (step 2's to
-  sort). 142 readings are borrowed. The farthest, 14.45 spans off, are the man's in front of the
+  each. 51 numbers set by hand (34 the Mind's own, 11 guesses, 6 preferences); 109 rows that
+  fail, the 11 guesses among them; 4 settings in which the default configs differ, each a
+  situation's (the backup, the objective, its aggression and its initiative). 142 readings are
+  borrowed. The farthest, 14.45 spans off, are the man's in front of the
   reptile and the rat: his back step read for a target of his own size, and the reptile's
-  punches and kicks found by a rule from the man's. The 119 readings stale by their settings
-  are read deciding at 10 Hz where they were measured at 60: 111 the empty-handed man's, in his
-  ten standings, and 8 the made-up body's, which plays his Mind. The first listing stood each
+  punches and kicks found by a rule from the man's. The 207 readings stale by their settings
+  are every body's, read looking at 20 Hz where they were measured at 60. The first listing stood each
   body only in front of the man and read 56 rows; the foe's side, the guesses, and what is
   missing with a made-up thing on either side were added. The man's kicks were profiled after
   that, under his name: ten more rows, his kick found by a name where it was by hand.

@@ -12,8 +12,23 @@ import { deepFreeze } from "../../core/state.ts";
  */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "tree", leaf: "fitted", best: 0, objective: { kind: "few-terms", aggression: 4, initiative: .3 } }, rate: 60 });
 
-/** `option-lean`: the defaults looking ten times a second, the foe kept moving over a line's first half second, its own body priced truer (`walkStart`, `sways`). */
-const LEAN = deepFreeze({ ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, carry: .5 }, rate: 10, predictions: { kind: "measured", walkStart: "signed", sways: "own" } }) satisfies OptionMindConfig;
+/**
+ * **The settings every body shares** (`option-shared`). A fix, or a gain in scale or speed, is
+ * every body's; only what was chosen for one situation is a body's own. The fixes make prices
+ * truer: the leaf is the fitted value, which stands aside on a body it was not fitted on
+ * (`fittedOn`); the foe is kept moving over a line's first half second (`carry`); a walk starts at
+ * its speed along its way (`walkStart` signed) and a sway leaves the body by its own steps
+ * (`sways` own). The gain is in its timing: it looks for a change it watches 20 times a second
+ * and searches every 0.1 s. On the empty-handed Warrior, searching every 0.1 s beats 0.2 s, and
+ * 20 Hz plays 60 Hz even for a sixth less thinking; the rat plays the Warrior as it did at
+ * 60 Hz every 0.2 s (`docs/approaches.md`).
+ */
+const SHARED = deepFreeze({
+  kind: "option", chooser: { kind: "tree", leaf: "fitted", carry: .5 }, predictions: { kind: "measured", walkStart: "signed", sways: "own" }, rate: 20, rethink: .1,
+}) satisfies OptionMindConfig;
+
+/** `option-lean`: the shared settings, each state worth its lines' mean (`best` 0) at aggression 4 and initiative 0.3, as read on the empty-handed man. */
+const LEAN = deepFreeze({ ...SHARED, chooser: { ...SHARED.chooser, best: 0, objective: { kind: "few-terms", aggression: 4, initiative: .3 } } }) satisfies OptionMindConfig;
 
 /**
  * Its config, on any body it fits, for fights and for measuring its profiles; and the drills' mind
@@ -30,17 +45,22 @@ const LEAN = deepFreeze({ ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.choo
  * knockout still and a step about a fifth slower at its slowest. And that one with its own body
  * priced truer (`option-truer`): a walk starting at its speed along its way, going on away for its
  * gait's lag (`walkStart` signed), a sway leaving the body by its own steps (`sways` own), and the
- * foe kept moving over a line's first half second (`carry`), as strong as `option-reply`. And that
- * one looking ten times a second with no reply searched (`option-lean`): as strong, at about half
- * its thinking. And the Mind that presses its attack (`option-presses`): each state worth its
- * best line (`best` 1), at aggression 5 and initiative 0.3, the rat's, which bites the Warrior more
- * often than it waits. And `option-lean` given no guesses (`option-measured`): a strike, a
- * foe's limb, a blow coming or a way up with no measurement is not priced by hand but left out.
+ * foe kept moving over a line's first half second (`carry`), as strong as `option-reply`.
+ *
+ * The bodies' defaults are built on the settings every body shares (`option-shared`), each adding
+ * only what was chosen for its situation. The empty-handed man's (`option-lean`) adds the mean
+ * backup at aggression 4 and initiative 0.3; looking ten times a second with no reply searched, it
+ * was as strong as `option-truer` at about half its thinking. The rat's (`option-presses`) presses
+ * its attack: each state worth its best line (`best` 1), at aggression 5 and initiative 0.3, so it
+ * bites the Warrior more often than it waits. And `option-lean` given no guesses
+ * (`option-measured`): a strike, a foe's limb, a blow coming or a way up with no measurement is not
+ * priced by hand but left out.
  */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   option: { label: "Option Mind", config: OPTION_DEFAULTS },
   "option-drill": { label: "Option Mind for drills", config: { ...OPTION_DEFAULTS, chooser: { kind: "ranked" }, predictions: { kind: "prior" } }, offered: false },
-  "option-presses": { label: "Presses in", config: { ...OPTION_DEFAULTS, chooser: { ...OPTION_DEFAULTS.chooser, best: 1, objective: { kind: "few-terms", aggression: 5, initiative: .3 } } } },
+  "option-shared": { label: "Shared settings", config: SHARED },
+  "option-presses": { label: "Presses in", config: { ...SHARED, chooser: { ...SHARED.chooser, best: 1, objective: { kind: "few-terms", aggression: 5, initiative: .3 } } } },
   "option-tail": { label: "Rushes in", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree" } } },
   "option-fitted": { label: "Option Mind, fitted mean", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree", leaf: "fitted", best: 0, objective: { kind: "few-terms", aggression: 4 } } } },
   "option-fitted-horizon": { label: "Option Mind, fitted mean, horizon 60 s", config: { ...OPTION_DEFAULTS, chooser: { kind: "tree", leaf: "fitted", best: 0, horizon: 60, objective: { kind: "few-terms", aggression: 4 } } } },
