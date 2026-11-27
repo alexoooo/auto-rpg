@@ -359,7 +359,7 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   foe on its front getting up (hands and knees), its trunk's middle aimed at 0.43 to 0.62 m: over
   the stomp's band (its top 0.4 of the leg's reach, 0.385 m; half that time within 0.1 m over it)
   and under the front kick's (from 0.9 of the reach, 0.87 m). The low front kick's band (to 0.45,
-  0.43 m) misses most of it as well. The rest: the stander's own back step and rising (about 22 s),
+  0.43 m) misses most of it as well. The rest: the stander's own back step, rising and falling (about 26 s),
   offered and priced under hold (7 s), no site's spot (1 s).
 - **Next**: whether a low attack strikes a body on hands and knees, the low front kick's band raised
   over that gap, looked at in frames before it is measured; then the price below.
