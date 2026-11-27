@@ -262,8 +262,17 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   the scorecard's knockouts within 60 s 0.528 against 0.741, downs a bout 2.50 against 1.38, before
   the bearing sole's test; 0.611 against 0.745 after it; and on the shared Mind defaults, 0.542
   (0.475 to 0.607) against 0.597 (0.531 to 0.660) at 44d1aa1dd, downs a bout 2.11 against 1.93. Kept
-  out still, the cost narrowing as the walk's starts are mended.
-- **Next**: the low front kick searched again at the empty-handed
+  out still, the cost narrowing as the walk's starts are mended. Its falls, twelve bouts each: 23
+  against 13, the back step's 13 against 4, 9 of them at more than 1 m/s.
+- **The back step throws a body moving back.** One traced on main (bout 0, 8.4 to 10.1 s, no blow
+  taken): its sway asks the centre 0.1 m past the rear sole (`BEYOND`) as the body already goes
+  back at 0.3 m/s; the stance's catching steps (the left at 8.95 s, the right at 9.15 s) never
+  bring the capture point back within the feet, which it leaves by 0.09, then 0.17, then 0.5 m, and
+  the man goes on back to 2.07 m/s and down. The low front kick's close waits on the same: it
+  brakes at the run's unmeasured 0.2 m/s² over its walk stretch (from 3 s, 0.76 to 0.24 m/s over
+  1.1 m), arriving at 6.5 s, the man rising at 4.4; 40 of its 80 trials on its twin end `beyond`.
+- **Next**: the back step's sway held within what its steps catch, then the walk and run's
+  honest stop read again; beside it, the low front kick searched again at the empty-handed
   man on `sparring-laid`'s twin (`skill-search.mjs stomp/front man --loadout empty,empty --target
   man`, 80 starts each), and the price below.
 
