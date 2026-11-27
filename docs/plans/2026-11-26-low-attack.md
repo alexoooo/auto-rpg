@@ -273,6 +273,12 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   1.1 m), arriving at 6.5 s, the man rising at 4.4; 40 of its 80 trials on its twin end `beyond`.
   Swayed by its capture point since (the approaches' back step), it falls in 1 drill fight of 48
   against 10, and the scorecard reads 0.667 against 0.597.
+- **The walk and run's honest stop still costs.** Read on three trees since: 0.639 against 0.667,
+  0.602 against 0.662, and on 2937bbf5d (the value refit) 0.625 (0.559 to 0.687) against 0.704
+  (0.640 to 0.761), downs 2.12 a bout against 1.82. Its falls in twelve bouts there are as many
+  (27 against 28), more of them at speed (22 over 1 m/s against 15), the quick start's 11 against
+  6; the low front kick's record gains nothing from it on its twin (`beyond` 41 against 40). Kept
+  out. The back step's falls lead on that tree either way: 16 of the 28.
 - **A start fell the way one instant asked.** 33 of the low front kick's 80 trials on its twin
   first walked back, 19 of the 37 `beyond`: on one step, the drill's settling stand beside a foe
   just fallen is walked out of him (`keepOut`, nothing exempt on a stand), and the quick start's
@@ -286,8 +292,8 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   falls: the first generation's best 0.131 (0.030 at 480 Hz, 18 falls), the next three's 0.075,
   0.077 and 0.070, their medians about 0.04, stopped there. With half its trials `beyond`, its
   timings do not move it: its arrival does.
-- **Next**: the walk and run's honest stop read again on the back step swayed by its capture
-  point, the low front kick's close with it; then the price below.
+- **Next**: the drill's straight spot named as a place by its foe; the back step's falls in the
+  fights traced again; then the low front kick's close and the price below.
 
 ## Then: a strike's price, every start a number
 
