@@ -36,14 +36,29 @@ function boutOf(recipe) {
  * that this thread keeps is put there, at the cost of the steps played out and no more, and `tape`
  * is not read. Without, it is the bout played again from its start, in a world of its own.
  *
+ * With `option` (`{ side, key }`) the branch is also an Option: at the first decision `side`'s
+ * Mind makes afresh from the fork on, it takes the Option `key` names ("3:0": its place in the
+ * Mind's Options and its target, as the warm start keys them), then decides as it always does.
+ * That needs the option fork's hook (`option-fork-hook.mjs`) registered before the Mind's code
+ * loads.
+ *
  * The row: the step reached; the poses' digest at the fork (`at`: two forks of one bout at one
  * step agree in it, or one of them is not that bout), the digest of the trace from the fork on,
  * and the poses' digest at the end; the verdict, each side's bar, who is out, and where each
- * side's centre of mass is. Nothing in it says how the fork was reached.
+ * side's centre of mass is. With `option`, also what became of it (`chose`): when that decision
+ * was, s, the key of the Option the Mind would have taken there itself (null for none), and
+ * whether the named one was taken (only where its claims are free and the Mind prices it there);
+ * `chose` is null where the side made no decision afresh in the fork. Nothing in the row says how
+ * the fork was reached.
  */
-export async function rollout({ recipe, tape = [], from, branch = [], steps, nudges = [], save = null }) {
+export async function rollout({ recipe, tape = [], from, branch = [], steps, nudges = [], save = null, option = null }) {
   if (branch.some((entry) => entry.step < from)) throw new Error("a branch cannot order the past");
+  if (option && !globalThis.__optionForkHook) throw new Error("a fork that takes an Option needs research/option-fork-hook.mjs registered before the Mind's code loads");
   const { world, duel, dispose } = await (save ? boutOf(recipe) : buildBout(recipe, { engine: BOUT_ENGINE }));
+  // A fork reports its decisions to no one outside it: an outer watcher is set aside until it is over.
+  const before = globalThis.__optionDecision;
+  globalThis.__optionDecision = undefined;
+  let chose = null;
   try {
     const builts = SIDES.map((side) => duel.duelists[side].built);
     if (save) {
@@ -60,6 +75,14 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
       const root = rootSegment(duel.duelists[side].body.built);
       root.body.applyImpulse(new Vector3(...impulse), centreOfToRef(root, new Vector3()));
     }
+    // Armed only from the fork on: a replay's decisions before it are the trunk's.
+    if (option) {
+      const [index, target] = option.key.split(":").map(Number);
+      globalThis.__optionDecision = (decision) => {
+        if (chose || decision.side !== option.side) return;
+        chose = { time: decision.time, own: decision.pick && `${decision.pick[0]}:${decision.pick[1]}`, taken: decision.force(index, target) };
+      };
+    }
     const trace = traceOf(builts);
     while (!duel.verdict && duel.steps < from + steps) { world.step(); trace.take(); }
     return {
@@ -67,8 +90,12 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
       bars: SIDES.map((side) => duel.duelists[side].pool.bar()),
       out: SIDES.filter((side) => !duel.duelists[side].standing),
       centres: SIDES.map((side) => duel.duelists[side].body.view.stance.centre.asArray()),
+      ...(option ? { chose } : {}),
     };
-  } finally { if (!save) dispose(); }
+  } finally {
+    globalThis.__optionDecision = before;
+    if (!save) dispose();
+  }
 }
 
 /**

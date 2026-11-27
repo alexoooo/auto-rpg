@@ -136,9 +136,22 @@ that fits him, because that is where the number of Options is large.
 
 ## Where it stands
 
-Not begun. Next: step 1. Steps 2 to 5 of the measured-mind plan do not need these forks, so the
-two plans run side by side. Its step 6 fits on the targets it has and reads the forked worth when
-it is there.
+**Step 1 has landed.** `rollout` takes an `option`, by the load hook
+`research/option-fork-hook.mjs`, which rewrites the selection (`selectSet`) where the side's Mind
+takes its first priced choice. The rollout workers register the hook, so a pooled fork may name an
+Option too. A fork refuses an Option the Mind could not take there: its claims taken, not priced
+at this decision, or a target the keep rules out (`Deciding.keep`). The row says whether it was
+taken. `research/option-fork-check.mjs` read the warrior protocol's bout 0 (2.65 m, the game's
+Mind on both sides, left won by draining at 60.88 s). It forked every one of the 687 decisions with
+an Option to take, at 2 s, with no nudge. All 687 forks given the Mind's own choice ended on the
+trunk's trace and poses to the bit. Of the 687 given the worst Option on offer, all were taken and
+684 ended elsewhere. The next best is often a twin of the Mind's own: the same run by another
+navigator. On a 5 s bout, 7 of 12 such forks ended on the trunk's poses. 1,374 forks took 2,821 s
+on one thread, 2.05 s a fork, beside the measured-mind plan's step 2 on the same machine, so not a
+price. No game file changed, so the fingerprint cannot move and was not played.
+
+Next: step 2. Steps 2 to 5 of the measured-mind plan do not need these forks, so the two plans run
+side by side. Its step 6 fits on the targets it has and reads the forked worth when it is there.
 
 ## What done is
 
