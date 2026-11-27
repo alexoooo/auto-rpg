@@ -14,6 +14,7 @@ import { GUARD, guardPosture } from "../../../../src/skills/guard/shared/guard.t
 import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../../../../src/skills/locomotion/walk-run/walk-run/walk-run.ts";
 import { STANCE_WALK_PART } from "../../../../src/skills/locomotion/stance-walk/index.ts";
 import { WALK_RUN_PART } from "../../../../src/skills/locomotion/walk-run/index.ts";
+import { travelSpeed } from "../../../../src/skills/locomotion/shared/travel.ts";
 import "../../../../tests/harness/preload-data.mjs";
 import { startWind } from "../../../../src/game/lab/wind.ts";
 import { coreStand } from "../../../../tests/harness/core-stand.mjs";
@@ -187,6 +188,7 @@ function skillOf(legs, b, stride) {
     case null: case undefined: return null;
     // The walk and run as the game builds it, from the body's record and its learned corrections; a stride searched, over the defaults.
     case "walk-run": return stride === undefined ? WALK_RUN_PART.make(b.commanded, { kind: "walk-run" }) : walkRun(b.commanded, WALK_RUN, WALK_RUN_CYCLE, { stride });
+    case "quick-run": return WALK_RUN_PART.make(b.commanded, { kind: "walk-run", variation: "quick-start" });
     case "braced": return STANCE_WALK_PART.make(b.commanded, { kind: "stance-walk", variation: "stance-walk" });
     case "staggered": return STANCE_WALK_PART.make(b.commanded, { kind: "stance-walk", variation: "staggered" });
     case "quick-start": return STANCE_WALK_PART.make(b.commanded, { kind: "stance-walk", variation: "quick-start" });
@@ -214,6 +216,8 @@ function skillCommand(skill, view, walk, face, dt, posture, keep) {
  * lab's gusts blow on it throughout (`startWind`, `src/game/lab/wind.ts`). `stood` is the soles' distance
  * apart across the way as it sets off, m, and `width` their mean as each lands over the 3 s measured
  * (null if none landed), and the greatest absolute pelvis facing, rad, through travel and rest.
+ * `stop` is how it stopped: the centre's speed the way it walked as the stop was asked (`on`, m/s),
+ * and how far it went on that way from there to the rest's end (`went`, m).
  * `trace` retains each step's motion, stance recovery state and hip rotation readings; `watch`, if
  * given, is called with the body built and the world's time after each step (to draw it).
  */
@@ -272,12 +276,14 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
     const along = ((to.x - from.x) * ux + (to.z - from.z) * uz) / 3, sideways = ((to.x - from.x) * uz - (to.z - from.z) * ux) / 3;
     // The pace the stance walks at, capped by its legs, as measured.
     const strides = b.view.stance.strides, capped = Math.hypot(b.view.stance.pace[0], b.view.stance.pace[1]);
+    const asked = b.view.stance.centre.clone(), going = b.view.stance.velocity, on = going.x * ux + going.z * uz;
     pace = null;
     run(rest - 2);
     const settled = b.view.stance.strides;
     run(2);
     const s = b.view.stance;
     return { strides, capped, fell: low > 0.25 || down || !Number.isFinite(low), facing, ...(trace ? { samples } : {}), along, across: sideways, speed: s.velocity.length(), phase: s.phase,
+      stop: { on, went: (s.centre.x - asked.x) * ux + (s.centre.z - asked.z) * uz },
       stepped: s.strides - settled, off: across(s.centre, s.place), stood, width: widths.length ? widths.reduce((a, w) => a + w, 0) / widths.length : null };
   } finally { blowing?.dispose(); b.dispose(); stand.dispose(); }
 }
@@ -393,4 +399,43 @@ export async function orders({ model, speed, seed, seconds = 30, stance, hz = 12
  */
 const ORDERS = { least: 0.3, most: 2, shoved: 1 / 3 };
 
-export const TRIALS = { stand, edge, step, shove, walk, turn, orders };
+/**
+ * Sent from a stand to a place `distance` m straight ahead by the locomotion skill `legs` names,
+ * the walk each step asked by the speed rule (`travelSpeed`) on the skill's own limits, its
+ * `stopping` (m/s²) and `lag` (s) in place of the skill's where given, for `seconds` s: how far
+ * past the place its centre went at most (`past`, m), where it stood at the end against it
+ * (`off`, m, + past it), when it first came within `ARRIVED.within` m of it below `ARRIVED.speed`
+ * m/s (`arrived`, s from the order, null if it never did), and whether it fell. With `envelope`,
+ * the body reads its stance's measured envelope as a game's does (`body`).
+ */
+export async function arrive({ model, distance, stopping, lag, seconds = 20, stance = {}, hz = 120, held = null, actuation, physique, legs, steadiness = null, envelope = true, stride }) {
+  const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { steadiness, envelope });
+  const skill = skillOf(legs, b, stride);
+  if (!skill) throw new Error("a place is gone to by a locomotion skill");
+  let goal = null, walk = null;
+  b.drive((view, dt) => skillCommand(skill, view, walk, 0, dt, held === null ? {} : guard, (next) => { goal = next ?? goal; return goal; }));
+  try {
+    stand.step(stand.seconds(1));
+    const from = b.view.stance.centre.z, at = from + distance, x = b.view.stance.centre.x;
+    let low = -Infinity, past = -Infinity, arrived = null;
+    const limits = { envelope: skill.envelope, stopping: stopping ?? skill.stopping, lag: lag ?? skill.lag };
+    for (let i = 0; i < stand.seconds(seconds); i++) {
+      const s = b.view.stance, left = at - s.centre.z;
+      // The place ahead, straight along the heading the body faces: the rule's way is forward.
+      const speed = left > 0 ? travelSpeed(limits, { way: [1, 0], left, corners: [], gone: 0, on: s.velocity.z, ceiling: Infinity }) : 0;
+      walk = speed > 0 ? [speed, 0] : null;
+      stand.step(1);
+      if (goal) low = Math.max(low, goal.height - (s.centre.y - s.support.y));
+      if (low > 0.25 || !Number.isFinite(low) || b.view.down) return { fell: true, at: b.view.time, past, arrived };
+      const off = b.view.stance.centre.z - at;
+      past = Math.max(past, off);
+      if (arrived === null && Math.hypot(off, b.view.stance.centre.x - x) <= ARRIVED.within && b.view.stance.velocity.length() < ARRIVED.speed) arrived = i / hz;
+    }
+    return { fell: false, past, off: b.view.stance.centre.z - at, arrived };
+  } finally { b.dispose(); stand.dispose(); }
+}
+
+/** When a body sent to a place has come to it (`arrive`): within `within` m of it, going slower than `speed` m/s. */
+const ARRIVED = { within: 0.1, speed: 0.1 };
+
+export const TRIALS = { stand, edge, step, shove, walk, turn, orders, arrive };

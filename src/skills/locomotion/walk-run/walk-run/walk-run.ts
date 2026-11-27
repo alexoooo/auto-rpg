@@ -13,7 +13,7 @@ import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
 import { runCycle, validRunCycle, type RunCycleSettings, type RunTrim, type RunSteering } from "./cycle-run.ts";
 import { quickness, scaledGait, scaledStride } from "./gait-scale.ts";
 import { legOf } from "../../shared/leg.ts";
-import { validGaitTuning, type GaitTuning } from "../../../../control/stance/stance-tuning.ts";
+import { STANCE_GAIT, validGaitTuning, type GaitTuning } from "../../../../control/stance/stance-tuning.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "../../shared/stance-feet.ts";
 import { ALL_MET, fieldsOf, maskOf, setIn, type LegsField } from "../../../framework/skill.ts";
 import { otherSide, type Side } from "../../../../core/bodies/bilateral.ts";
@@ -173,24 +173,26 @@ const RUN_LEAVES = maskOf(["carriage", "gait", "feet", "height", "heading", "cen
  * `RUN_STOPPING`; a run whose envelope holds it no faster forward than the stance's walk's
  * (`Body.envelope`) is not run, and it walks by that envelope at the walk's rate. Its
  * settings and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`) from the leg
- * they were set for, and quickened by its haste (`quickness`), as the run's envelope is.
+ * they were set for, and quickened by its haste (`quickness`), as the run's envelope is; so is
+ * the stride its walk steps by, `stride` (the stance's own, `STANCE_GAIT`, where none is given)
+ * with `steps` laid over it.
  * The optional first-lift entry takes the first clear swinging foot after facing settles,
  * beginning the cycle on the opposite planted sole; landing entry waits for a walking landing.
  */
 export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE,
-  { braking = givenRun, stride, envelope, entry = "landing", trim, steer }: { readonly braking?: RunCycleSettings; readonly stride?: GaitTuning; readonly envelope?: StanceEnvelope;
+  { braking = givenRun, stride = STANCE_GAIT, steps = {}, envelope, entry = "landing", trim, steer }: { readonly braking?: RunCycleSettings; readonly stride?: GaitTuning; readonly steps?: Partial<GaitTuning>; readonly envelope?: StanceEnvelope;
     readonly entry?: "landing" | "first-lift"; readonly trim?: RunTrim; readonly steer?: RunSteering } = {}): Locomotion & { readonly state: WalkRunState } {
   if (entry !== "landing" && entry !== "first-lift") throw new Error("run entry is landing or first-lift");
   if (!validWalkRun(given)) throw new Error("a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1");
   if (!validRunCycle(givenRun)) throw new Error("a run cycle needs every setting finite, its times and the cycle's positive and its shares of strength within (0, 1]");
   if (!validRunCycle(braking)) throw new Error("a braking cycle needs the run cycle's complete valid settings");
-  if (stride !== undefined && !validGaitTuning(stride)) throw new Error("a travel stride needs complete valid gait settings");
+  if (!validGaitTuning({ ...stride, ...steps })) throw new Error("a travel stride needs complete valid gait settings");
   if (envelope !== undefined && !validStanceEnvelope(envelope)) throw new Error("a travel envelope needs finite nonnegative limits and ordered turn speeds");
   const k = legOf(body.built.spec) / given.leg, quick = quickness(hasteOver(body.built.spec), given.hasted);
   const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick, scaledGait(braking, k, quick), { trim, steer });
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = envelope ? quickened(envelope, quick) : body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
-  const travelStride = stride && scaledStride(stride, k, quick);
+  const travelStride = scaledStride({ ...stride, ...steps }, k, quick);
   // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
   const may = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
   const held = may ? runEnvelope : body.envelope;
