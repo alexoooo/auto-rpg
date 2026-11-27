@@ -219,9 +219,11 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   standing near a foe lying (life taken 0.10 against 0.17, bout 13 at 75 s, the side ahead). What
   would change it: a lying body made costly to lie (the low attack, below), then the value fitted
   again on the empty man's mirror, where a body that lies stays down.
-- **Next**: the kicker's falls in a catch step, read on the default Warrior first and on the
-  quick start second; then the quick start the default where it matches
-  or beats the default's knockouts, and the walk-run's start read again under it. Then the low front kick searched again at the
+- **The quick start is the Warrior's walk.** Under the kick at the knee it matches the braced
+  walk's knockouts (0.671, 0.606 to 0.730, against 0.676), stands silent less (0.169 against
+  0.216) and out of reach less (0.208 against 0.245), downs a bout 1.57 against 1.44; it takes
+  the braced walk's place in the Warrior's skills, the braced walk pickable beside it.
+- **Next**: the walk-run's start read again under the quick start. Then the low front kick searched again at the
   empty-handed man on `sparring-laid`'s twin (`skill-search.mjs stomp/front man --loadout
   empty,empty --target man`, 80 starts each), and the price below.
 
