@@ -320,7 +320,30 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   0.6 to 3 m, the straight-punch data and the option entrant, against 4d44b5579's value. The low
   front kick's try on its twin there scores 0.088 at 120 Hz (0.058 at 480 Hz), 15 falls, 34 of
   80 `beyond`.
-- **Next**: the low front kick's close, read from its try's `beyond` trials; then the price below.
+- **The close on a lying foe stalls, in the drill and in fights.** On the twin, the 34 `beyond`
+  trials share one shape: the foe lies at 0.45 s 1.4 to 2.2 m off, the kicker walks about twice
+  that (a route round the body to its side, re-planned as the body moves 0.6 to 1.4 m) at a pace
+  near 0.6 m/s, arrives 6 to 9 s in, and the foe is up about a second later, the kick ready in 4.
+  The drill's cap (1 m/s, braking on the straight distance) is not what slows it: the navigator
+  slows for the route's corners round the body. Fights close no faster: over 25 downs on
+  7a8b6e60c, the stander 1.27 m off at the fall, 1.91 a second later, 1.35 at the end, closing at
+  0.09 m/s; a stomp begun in 3.
+- **The stander chooses the approach whenever it is offered, and changes it 3 times a second.**
+  Over those downs (160 s): the stomp's approach 0.47 of the time and the stomp 0.07, hold 0.37,
+  the back step 0.06; the low attack, offered, is the one chosen. The chosen Option changed 489
+  times: 0.57 to the same strike and limb by another gait or navigation (run, quick start,
+  staggered; visibility, local), 0.32 to or from hold, 0.09 to another strike or limb. A walk's
+  price matches its route (3.6 to 4.8 m priced 5.2 s with the stomp, near the gaits' speeds); a
+  walk by a gait other than the legs' own is charged nothing for the switch, nor the walk under
+  way credited, so near-equal variants flip: whose that pricing is waits on the owner's word.
+- **Spots beside a lying body come and go.** The hold flickers are the approach's worth falling
+  below hold's for a step: a side's spot drops out, and the other's re-planned route is longer
+  (5.25 s to 7.12). The place held beside the body (`besideLying`) is let go every 0.05 to 0.1 s:
+  its way is planned grazing the body (`LYING.footRadius`) and checked again at that clearance,
+  so a body turning 0.6 rad/s breaks it before the place's own drift (0.3 m, `CROWD.settled`)
+  would.
+- **Next**: the place beside a lying body held with its way while the body is within its drift,
+  measured on the try, the scorecard, its falls and the changes a second; then the price below.
 
 ## Then: a strike's price, every start a number
 
