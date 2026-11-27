@@ -180,14 +180,15 @@ function shoveTrunk(stand, impulse, way) {
 /**
  * The locomotion skill `legs` names, driving `b`: null for the stance's own walk, which a trial asks
  * of the stance's goal itself; `"walk-run"` for the walk and run (`src/skills/locomotion/walk-run/walk-run/walk-run.ts`),
- * free to run; `"braced"` for the braced gait's walk in the stance (`STANCE_WALK_PART`).
+ * free to run; `"braced"` and `"staggered"` for the stance walk's two variations (`STANCE_WALK_PART`), named, as a body may hold both.
  */
 function skillOf(legs, b, stride) {
   switch (legs) {
     case null: case undefined: return null;
     // The walk and run as the game builds it, from the body's record and its learned corrections; a stride searched, over the defaults.
     case "walk-run": return stride === undefined ? WALK_RUN_PART.make(b.commanded, { kind: "walk-run" }) : walkRun(b.commanded, WALK_RUN, WALK_RUN_CYCLE, { stride });
-    case "braced": return STANCE_WALK_PART.make(b.commanded, { kind: "stance-walk" });
+    case "braced": return STANCE_WALK_PART.make(b.commanded, { kind: "stance-walk", variation: "stance-walk" });
+    case "staggered": return STANCE_WALK_PART.make(b.commanded, { kind: "stance-walk", variation: "staggered" });
     default: throw new Error(`no locomotion skill named ${legs}`);
   }
 }
