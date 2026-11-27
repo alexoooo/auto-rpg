@@ -240,8 +240,8 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       if (window && (readiness.kind === "position" || readiness.kind === "ready" && state.walked && !state.held && !config.walking)) {
         const within = (one: Window) => windowHolds(one, at.x, at.z, h) && speed <= one.speed;
         // Beside a body lying, the place its menu names and the way round that body; else straight into the window's middle.
-        const spot: Spot = state.spot ?? straightSpot(window, at), distance = hypot(spot.x - at.x, spot.z - at.z), near = spot.near ?? windowNear(window);
-        // Arrived at its spot, the window's middle or the place beside a body lying, within the spot's nearness (`arrivedIn`, `windowNear`), it stands, and holds there once
+        const spot: Spot = state.spot ?? straightSpot(window, at), distance = hypot(spot.x - at.x, spot.z - at.z), near = spot.near;
+        // Arrived at its spot, the window's middle or the place beside a body lying, within the spot's nearness (`arrivedIn`, `Spot.near`), it stands, and holds there once
         // slow enough inside the window, while it sways no further than `SWAY` out of it and until it stands settled outside it.
         const arrived = arrivedIn(state.arrival, window, at.x, at.z, h, distance, settled, near);
         state.held = state.held ? within(widened(window, SWAY)) && !(settled && !within(window)) : arrived && within(window);

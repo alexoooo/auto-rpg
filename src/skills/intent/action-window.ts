@@ -5,7 +5,7 @@ import { wrap } from "../../core/math/turn.ts";
 import type { Window } from "../framework/action.ts";
 import type { Vec3 } from "../../core/quantity.ts";
 import { groundRoute } from "../perception/downed/route.ts";
-import { ARRIVED, placeMovement, stands, SWAY, type GroundPoint, type MovementRequest } from "../framework/movement.ts";
+import { placeMovement, stands, SWAY, type GroundPoint, type MovementRequest } from "../framework/movement.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import { lyingAxis } from "../perception/targets.ts";
 import { stepObstacle } from "../locomotion/shared/navigation/sensed-bounds.ts";
@@ -72,7 +72,7 @@ export function settledAt(arrival: WindowArrival, speed: number, time: number): 
  * where the action reaches least, and one walked again for each centimetre it sways steps on and
  * never settles.
  */
-export function arrivedIn(arrival: WindowArrival, window: Window, x: number, z: number, heading: number, distance: number, settled: boolean, near = ARRIVED): boolean {
+export function arrivedIn(arrival: WindowArrival, window: Window, x: number, z: number, heading: number, distance: number, settled: boolean, near: number): boolean {
   arrival.arrived = arrival.arrived ? windowHolds(widened(window, SWAY), x, z, heading) && !(settled && !windowHolds(window, x, z, heading)) : stands(distance, near, false);
   return arrival.arrived;
 }
@@ -102,19 +102,20 @@ export function placeInWindow(window: Window, x: number, z: number, heading: num
 }
 
 /**
- * **Where a body at `from` stands with `window`'s middle on it**, walking straight: the ground point
- * and the way it faces there, rad. What a body tells of its window, a leader can walk it to.
+ * **Where a body at `from` stands with `window`'s middle on it**, walking straight: the ground point,
+ * the way it faces there, rad, and how near it stands in the window (`windowNear`). What a body
+ * tells of its window, a leader can walk it to.
  */
-export function straightSpot(window: Window, from: GroundPoint): { readonly x: number; readonly z: number; readonly face: number } {
+export function straightSpot(window: Window, from: GroundPoint): Spot {
   const along = (window.along[0] + window.along[1]) / 2, across = (window.across[0] + window.across[1]) / 2;
   const face = atan2(window.at[0] - from.x, window.at[2] - from.z) - atan2(across, along);
-  return { x: window.at[0] - along * sin(face) - across * cos(face), z: window.at[2] - along * cos(face) + across * sin(face), face };
+  return { x: window.at[0] - along * sin(face) - across * cos(face), z: window.at[2] - along * cos(face) + across * sin(face), face, near: windowNear(window) };
 }
 
 
 /** **Whether a body at (`x`, `z`) facing `heading` stands at `spot`** (`Spot`): within its `near`, facing within its `facing` where it names one. */
 export function atSpot(spot: Spot, x: number, z: number, heading: number): boolean {
-  return hypot(spot.x - x, spot.z - z) <= (spot.near ?? ARRIVED) && (spot.facing === undefined || Math.abs(wrap(spot.face - heading)) <= spot.facing);
+  return hypot(spot.x - x, spot.z - z) <= spot.near && (spot.facing === undefined || Math.abs(wrap(spot.face - heading)) <= spot.facing);
 }
 
 type Offset = { readonly x: number; readonly z: number; readonly face: number };
@@ -303,7 +304,7 @@ export function approachSpot(view: BodyView, spot: Spot, ceiling: number, headin
 } {
   const x = spot.x - view.stance.centre.x, z = spot.z - view.stance.centre.z, distance = hypot(x, z), velocity = spot.velocity;
   const drift = velocity && distance > 0 ? (velocity.x * x + velocity.z * z) / distance : 0;
-  const near = spot.facing !== undefined && Math.abs(wrap(spot.face - heading)) > spot.facing ? 0 : spot.near ?? ARRIVED;
+  const near = spot.facing !== undefined && Math.abs(wrap(spot.face - heading)) > spot.facing ? 0 : spot.near;
   const movement: MovementRequest = spot.route ? { kind: "place", points: spot.route.map((point) => ({ x: point.x, z: point.z })), near, ...(spot.by === undefined ? {} : { by: spot.by }) }
     : placeMovement({ x: spot.x, z: spot.z }, near);
   return { move: null, face: spot.face, movement, pace: approachPace(ceiling, distance, drift) };

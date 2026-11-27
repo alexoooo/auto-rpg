@@ -1,3 +1,4 @@
+import { ARRIVED } from "../../../skills/framework/movement.ts";
 import { GUARD_RESOURCE, type Resource, type TargetRef, LEGS } from "../../../skills/framework/action.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../../core/state.ts";
@@ -72,7 +73,7 @@ const OUT_OF_REACH: Site = Object.freeze({
   name: "the edge of the foe's reach",
   spot(at: Situation) {
     const focus = at.focus;
-    return focus && inReach(at) ? { ...along(at, at.predictions.pressure.edge(at)), velocity: focus.velocity } : null;
+    return focus && inReach(at) ? { ...along(at, at.predictions.pressure.edge(at)), near: ARRIVED, velocity: focus.velocity } : null;
   },
 });
 

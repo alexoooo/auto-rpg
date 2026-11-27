@@ -1,4 +1,3 @@
-import { ARRIVED } from "../../../skills/framework/movement.ts";
 import type { Spot } from "../../../skills/framework/menu.ts";
 import type { GaitName } from "../../../skills/framework/skill.ts";
 import { hypot } from "../../../core/math/real.ts";
@@ -65,8 +64,8 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
   // Walking by the gait, the body stands as the gait stands it, and the focus's pressure is read there.
   const focus = at.focus, from = at.where, offset = at.apart - at.range, pressure = stance ? at.predictions.pressure.stanced(stance) : at.predictions.pressure;
   const reach = focus ? pressure.edge(at) + offset : 0, points = spot.route ?? [spot];
-  // The walk to a spot is ordered as a place to stand within its own nearness of, `ARRIVED` where it states none (`approachSpot`), and priced so.
-  const legs = walk.seconds(at, gait.name, points, focus ? walk.facing(at) : null, spot.near ?? ARRIVED);
+  // The walk to a spot is ordered as a place to stand within its own nearness of (`Spot.near`, `approachSpot`), and priced so.
+  const legs = walk.seconds(at, gait.name, points, focus ? walk.facing(at) : null, spot.near);
   let duration = 0, taken = 0, grace = graceAt(at), x = from.x, z = from.z;
   for (let k = 0; k < points.length; k++) {
     const point = points[k]!, dx = point.x - x, dz = point.z - z, length = hypot(dx, dz);

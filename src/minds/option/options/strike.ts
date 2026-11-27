@@ -277,7 +277,7 @@ export function strike({ action, walk, throws, measure, guesses, name }: Strikin
         kept.time = at.time; kept.focus = focus;
         if (at.sight.view.down || running) {
           const stood = kept.stood?.focus === focus ? kept.stood : null;
-          kept.spot = stood && foe ? { x: stood.spot.x + foe.centre.x - stood.foe[0], z: stood.spot.z + foe.centre.z - stood.foe[1], face: stood.spot.face,
+          kept.spot = stood && foe ? { x: stood.spot.x + foe.centre.x - stood.foe[0], z: stood.spot.z + foe.centre.z - stood.foe[1], face: stood.spot.face, near: stood.spot.near,
             ...(stood.spot.facing === undefined ? {} : { facing: stood.spot.facing }) } : null;
           // Its blow live, the walk is sent its window's `through` past the spot toward the focus, so the body travels into the blow.
           if (kept.spot && foe && stood && stood.through > 0 && running && !at.sight.view.down) {
@@ -291,7 +291,7 @@ export function strike({ action, walk, throws, measure, guesses, name }: Strikin
             : onTheWay(at) && ready.readiness.kind === "ready" ? ready.readiness.window ?? null : null;
           kept.spot = window ? windowSpot(at.sight.view, window, at.sight.report.legs.heading, side, kept.beside) : null;
           kept.place = window && kept.spot ? placeInWindow(window, kept.spot.x, kept.spot.z, kept.spot.face) : null;
-          if (kept.spot && foe) kept.stood = { focus: foe.id, spot: { x: kept.spot.x, z: kept.spot.z, face: kept.spot.face, ...(kept.spot.facing === undefined ? {} : { facing: kept.spot.facing }) },
+          if (kept.spot && foe) kept.stood = { focus: foe.id, spot: { x: kept.spot.x, z: kept.spot.z, face: kept.spot.face, near: kept.spot.near, ...(kept.spot.facing === undefined ? {} : { facing: kept.spot.facing }) },
             place: kept.place, foe: [foe.centre.x, foe.centre.z], through: window?.through ?? 0 };
         }
       }

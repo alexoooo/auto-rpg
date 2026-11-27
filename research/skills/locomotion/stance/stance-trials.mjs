@@ -413,9 +413,10 @@ const ORDERS = { least: 0.3, most: 2, shoved: 1 / 3 };
  * it never did), whether it fell, whether the rule could stop it there at all (`reachable`: as
  * the order is given, it asks at least the speed the body has), and the stretch braked (its `lag`
  * and the top of the first stretch, `below`). With `envelope`, the body reads its stance's measured envelope as a game's
- * does (`body`).
+ * does (`body`). With `trace`, every `trace` s: the time from the order, the m left, the speed
+ * asked, the legs' own pace (`Locomotion.pace`) and the centre's speed ahead (`samples`).
  */
-export async function arrive({ model, distance, rate, stretch = "whole", near = 0.04, walking = 0, seconds = 20, stance = {}, hz = 120, held = null, actuation, physique, legs, steadiness = null, envelope = true, stride }) {
+export async function arrive({ model, distance, rate, stretch = "whole", near = 0.04, walking = 0, seconds = 20, trace = 0, stance = {}, hz = 120, held = null, actuation, physique, legs, steadiness = null, envelope = true, stride }) {
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { steadiness, envelope });
   const skill = skillOf(legs, b, stride);
   if (!skill) throw new Error("a place is gone to by a locomotion skill");
@@ -430,15 +431,17 @@ export async function arrive({ model, distance, rate, stretch = "whole", near = 
     const at = b.view.stance.centre.z + distance, x = b.view.stance.centre.x;
     let low = -Infinity, past = -Infinity, arrived = null;
     const limits = { envelope: skill.envelope, stops }, on = b.view.stance.velocity.z;
-    const reachable = travelSpeed(limits, { way: [1, 0], left: distance, corners: [], gone: 0, on, ceiling: Infinity, near }) >= on;
+    const reachable = travelSpeed(limits, { way: [1, 0], left: distance, corners: [], gone: 0, on, ceiling: Infinity, near }) >= on, samples = [];
     for (let i = 0; i < stand.seconds(seconds); i++) {
       const s = b.view.stance, left = at - s.centre.z;
       // The place ahead, straight along the heading the body faces: the rule's way is forward.
       const speed = left > 0 ? travelSpeed(limits, { way: [1, 0], left, corners: [], gone: 0, on: s.velocity.z, ceiling, near }) : 0;
       walk = speed > 0 ? [speed, 0] : null;
+      if (trace && i % Math.max(1, Math.round(trace * hz)) === 0)
+        samples.push({ t: +(i / hz).toFixed(2), left: +left.toFixed(2), asked: +speed.toFixed(2), pace: +(skill.pace ?? 0).toFixed(2), speed: +s.velocity.z.toFixed(2) });
       stand.step(1);
       if (goal) low = Math.max(low, goal.height - (s.centre.y - s.support.y));
-      const reading = { lag: braked.lag, below: first.below, reachable };
+      const reading = { lag: braked.lag, below: first.below, reachable, ...(trace ? { samples } : {}) };
       if (low > 0.25 || !Number.isFinite(low) || b.view.down) return { fell: true, at: b.view.time, past, arrived, ...reading };
       const off = b.view.stance.centre.z - at;
       past = Math.max(past, off);
