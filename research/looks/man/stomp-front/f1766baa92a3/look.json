@@ -6,23 +6,25 @@
  "cell": "man stomp strike/stomping-twin",
  "trials": 18,
  "landed": 5,
- "down": 0,
+ "down": 3,
  "ends": [
   "standing"
  ],
- "endedAsItMust": 18,
+ "endedAsItMust": 15,
  "outcomes": {
+  "abandoned": 5,
   "landed": 5,
-  "elsewhere": 10,
-  "abandoned": 3
+  "refused": 2,
+  "fell": 3,
+  "elsewhere": 3
  },
  "rungs": {
   "stomping-twin": {
    "trials": 18,
    "landed": 5,
-   "down": 0,
-   "endedAsItMust": 18,
-   "value": 0.187
+   "down": 3,
+   "endedAsItMust": 15,
+   "value": 0.154
   }
  },
  "strips": [
@@ -30,63 +32,63 @@
    "strip": "strip-0.png",
    "trial": "afcc76c6",
    "rung": "stomping-twin",
-   "outcome": "landed",
+   "outcome": "abandoned",
    "down": false,
    "frames": [
     {
-     "time": 7.975,
+     "time": 8.017,
      "stage": "stomp:admitting"
     },
     {
-     "time": 7.983,
+     "time": 8.025,
      "stage": "stomp:transfer"
     },
     {
-     "time": 8.083,
+     "time": 8.125,
      "stage": "stomp:transfer"
     },
     {
-     "time": 8.483,
+     "time": 8.325,
      "stage": "stomp:transfer"
     },
     {
-     "time": 8.833,
-     "stage": "stomp:chamber"
+     "time": 8.525,
+     "stage": "stomp:transfer"
     },
     {
-     "time": 8.933,
-     "stage": "stomp:chamber"
+     "time": 8.725,
+     "stage": "stomp:transfer"
     },
     {
-     "time": 9.183,
-     "stage": "stomp:extend"
+     "time": 8.925,
+     "stage": "stomp:transfer"
     },
     {
-     "time": 9.383,
-     "stage": "stomp:extend"
+     "time": 9.125,
+     "stage": "stomp:transfer"
     },
     {
-     "time": 9.4,
-     "stage": "stomp:retract"
+     "time": 9.325,
+     "stage": "stomp:transfer"
     },
     {
-     "time": 9.483,
-     "stage": "stomp:set"
+     "time": 9.525,
+     "stage": "stomp:transfer"
     },
     {
-     "time": 9.842,
+     "time": 9.725,
+     "stage": "stomp:transfer"
+    },
+    {
+     "time": 9.925,
+     "stage": "stomp:transfer"
+    },
+    {
+     "time": 10.025,
      "stage": "stomp:recenter"
     },
     {
-     "time": 9.942,
-     "stage": "stomp:recenter"
-    },
-    {
-     "time": 10.342,
-     "stage": "stomp:recenter"
-    },
-    {
-     "time": 11.433,
+     "time": 11.058,
      "stage": "standing"
     }
    ]
@@ -95,63 +97,51 @@
    "strip": "strip-1.png",
    "trial": "f141947a",
    "rung": "stomping-twin",
-   "outcome": "elsewhere",
+   "outcome": "abandoned",
    "down": false,
    "frames": [
     {
-     "time": 7.75,
+     "time": 7.558,
      "stage": "stomp:admitting"
     },
     {
-     "time": 7.758,
+     "time": 7.567,
      "stage": "stomp:transfer"
     },
     {
-     "time": 7.858,
+     "time": 7.667,
      "stage": "stomp:transfer"
     },
     {
-     "time": 8.258,
+     "time": 7.967,
      "stage": "stomp:transfer"
     },
     {
-     "time": 8.275,
-     "stage": "stomp:chamber"
+     "time": 8.267,
+     "stage": "stomp:transfer"
     },
     {
-     "time": 8.625,
-     "stage": "stomp:extend"
+     "time": 8.567,
+     "stage": "stomp:transfer"
     },
     {
-     "time": 8.725,
-     "stage": "stomp:extend"
+     "time": 8.867,
+     "stage": "stomp:transfer"
     },
     {
-     "time": 8.858,
-     "stage": "stomp:retract"
+     "time": 9.167,
+     "stage": "stomp:transfer"
     },
     {
-     "time": 8.942,
-     "stage": "stomp:set"
+     "time": 9.467,
+     "stage": "stomp:transfer"
     },
     {
-     "time": 9.242,
-     "stage": "stomp:set"
-    },
-    {
-     "time": 9.583,
+     "time": 9.567,
      "stage": "stomp:recenter"
     },
     {
-     "time": 9.683,
-     "stage": "stomp:recenter"
-    },
-    {
-     "time": 10,
-     "stage": "standing"
-    },
-    {
-     "time": 10.7,
+     "time": 10.775,
      "stage": "standing"
     }
    ]
@@ -160,60 +150,56 @@
    "strip": "strip-2.png",
    "trial": "5acf87c1",
    "rung": "stomping-twin",
-   "outcome": "elsewhere",
+   "outcome": "landed",
    "down": false,
    "frames": [
     {
-     "time": 7.975,
+     "time": 8.017,
      "stage": "stomp:admitting"
     },
     {
-     "time": 7.983,
+     "time": 8.025,
      "stage": "stomp:transfer"
     },
     {
-     "time": 8.083,
+     "time": 8.125,
      "stage": "stomp:transfer"
     },
     {
-     "time": 8.383,
+     "time": 8.425,
      "stage": "stomp:transfer"
     },
     {
-     "time": 8.475,
+     "time": 8.492,
      "stage": "stomp:chamber"
     },
     {
-     "time": 8.775,
+     "time": 8.792,
      "stage": "stomp:chamber"
     },
     {
-     "time": 8.825,
+     "time": 8.842,
      "stage": "stomp:extend"
     },
     {
-     "time": 9.05,
+     "time": 9.092,
      "stage": "stomp:retract"
     },
     {
-     "time": 9.133,
+     "time": 9.175,
      "stage": "stomp:set"
     },
     {
-     "time": 9.233,
+     "time": 9.275,
      "stage": "stomp:set"
     },
     {
-     "time": 9.4,
+     "time": 9.575,
+     "stage": "stomp:set"
+    },
+    {
+     "time": 9.8,
      "stage": "stomp:recenter"
-    },
-    {
-     "time": 9.9,
-     "stage": "standing"
-    },
-    {
-     "time": 10.6,
-     "stage": "standing"
     }
    ]
   },
@@ -225,59 +211,59 @@
    "down": false,
    "frames": [
     {
-     "time": 7.75,
+     "time": 7.558,
      "stage": "stomp:admitting"
     },
     {
-     "time": 7.758,
+     "time": 7.567,
      "stage": "stomp:transfer"
     },
     {
-     "time": 7.858,
+     "time": 7.667,
      "stage": "stomp:transfer"
     },
     {
-     "time": 8.258,
+     "time": 7.967,
      "stage": "stomp:transfer"
     },
     {
-     "time": 8.592,
+     "time": 8.05,
      "stage": "stomp:chamber"
     },
     {
-     "time": 8.692,
+     "time": 8.35,
      "stage": "stomp:chamber"
     },
     {
-     "time": 8.942,
+     "time": 8.4,
      "stage": "stomp:extend"
     },
     {
-     "time": 9.142,
-     "stage": "stomp:extend"
-    },
-    {
-     "time": 9.167,
+     "time": 8.633,
      "stage": "stomp:retract"
     },
     {
-     "time": 9.25,
+     "time": 8.717,
      "stage": "stomp:set"
     },
     {
-     "time": 9.575,
+     "time": 8.817,
+     "stage": "stomp:set"
+    },
+    {
+     "time": 9.117,
+     "stage": "stomp:set"
+    },
+    {
+     "time": 9.283,
      "stage": "stomp:recenter"
     },
     {
-     "time": 9.675,
+     "time": 9.483,
      "stage": "stomp:recenter"
     },
     {
-     "time": 10.083,
-     "stage": "standing"
-    },
-    {
-     "time": 10.783,
+     "time": 10.558,
      "stage": "standing"
     }
    ]
