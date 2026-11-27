@@ -292,8 +292,16 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   falls: the first generation's best 0.131 (0.030 at 480 Hz, 18 falls), the next three's 0.075,
   0.077 and 0.070, their medians about 0.04, stopped there. With half its trials `beyond`, its
   timings do not move it: its arrival does.
-- **Next**: the drill's straight spot named as a place by its foe; the back step's falls in the
-  fights traced again; then the low front kick's close and the price below.
+- **The back step stepped in on a foot in the air.** Traced in a fight's fall with no blow (the
+  bodies at contact, 0.41 m): its step in began while the stance's own catch swung the other
+  foot, bearing on it, and was read lifted by that catch's swing; the foot asked to bear was
+  driven as a swing on the ground, and the body sank 0.4 m in 0.3 s at under 0.2 m/s with the legs
+  under a third of their strength, read as a rise. Its step in now begins on a square stance, as
+  its follow did, and a step is lifted only by its own foot's swing: that fall is gone, the
+  scorecard 0.722 (0.659 to 0.778) against 0.704, downs 1.67 a bout against 1.82, the back step's
+  drill as it was (fell 0.021). The back step still begins 15 of the fights' 32 falls.
+- **Next**: the back step's other falls in the fights traced; then the low front kick's close and
+  the price below.
 
 ## Then: a strike's price, every start a number
 
