@@ -260,9 +260,10 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   his front foot, 0.61 m ahead of his centre, and asked to walk on, he fell back off it at 2 m/s.
 - **The walk and run's walk stretch after its walk's lag, read again**: with its measured stops,
   the scorecard's knockouts within 60 s 0.528 against 0.741, downs a bout 2.50 against 1.38, before
-  the bearing sole's test; the falls of eight bouts, at the quick start and the back step.
-- **Next**: the walk and run's walk stretch braked after its walk's lag, and its measured stops,
-  read again now that a walk takes a body over moving; the low front kick searched again at the empty-handed
+  the bearing sole's test; 0.611 against 0.745 after it; and on the shared Mind defaults, 0.542
+  (0.475 to 0.607) against 0.597 (0.531 to 0.660) at 44d1aa1dd, downs a bout 2.11 against 1.93. Kept
+  out still, the cost narrowing as the walk's starts are mended.
+- **Next**: the low front kick searched again at the empty-handed
   man on `sparring-laid`'s twin (`skill-search.mjs stomp/front man --loadout empty,empty --target
   man`, 80 starts each), and the price below.
 
