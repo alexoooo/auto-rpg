@@ -197,8 +197,10 @@ export function frontKickExecutor(body: Body, actions: readonly string[], tuning
 /**
  * **The kick**: a drive of either foot ahead at a target about hip height, from where the body
  * stands, with no step to square up. Its weight goes onto the other foot; the kicking leg is
- * driven as `drive` says (`Drive`); the stance then steps it down. A transfer, a set-down or a
- * recentre past its deadline ends it `stalled`; the body down ends it `interrupted`.
+ * driven as `drive` says (`Drive`); the stance then steps it down. Its stroke ends (`release`) once
+ * that foot is set down: until then the leg it kicks with bears nothing, and what holds the legs
+ * next would take them with a foot in the air. A transfer, a set-down or a recentre past its
+ * deadline ends it `stalled`; the body down ends it `interrupted`.
  */
 function kick(body: Body, actions: readonly string[], resolve: TargetResolver, drive: Drive): Executor {
   const tuning: StageTuning = drive.tuning, pushed = drive.kind === "pushed" ? drive.tuning : null, paced = drive.kind === "authored" ? drive.tuning : null;
@@ -354,7 +356,8 @@ function kick(body: Body, actions: readonly string[], resolve: TargetResolver, d
     goals: Record<string, number>; from: Record<string, readonly [number, number]>; paths: Record<string, FreedomPath>; aimHip: number };
   const state = { live: null as Motion | null };
   const stage = (next: Motion["stage"]) => { const live = state.live!; live.stage = next; live.time = 0; live.held = 0; };
-  const release = (ending: ActionEnding, next: "set" | "recenter") => { const live = state.live!; live.ending = ending; live.phase = "release"; stage(next); };
+  /** End the stroke as `ending`, its foot set down next (`set`), or already down (`recenter`): its release once that foot is. */
+  const release = (ending: ActionEnding, next: "set" | "recenter") => { const live = state.live!; live.ending = ending; if (next === "recenter") live.phase = "release"; stage(next); };
   /** Whether the kicking foot has met the body it was thrown at, noted at the time it first did. */
   const touches = (view: BodyView, live: Motion): void => {
     const feedback = view.effectors[live.request.effector]?.feedback;
@@ -427,14 +430,14 @@ function kick(body: Body, actions: readonly string[], resolve: TargetResolver, d
           break;
         case "extend":
           touches(view, live);
-          if (live.time >= (live.touched ?? paced!.extendSeconds) + tuning.follow) { nextPaths(view, "retract"); live.phase = "release"; }
+          if (live.time >= (live.touched ?? paced!.extendSeconds) + tuning.follow) nextPaths(view, "retract");
           break;
         case "retract":
           if (live.time >= paced!.retractSeconds) stage("set");
           break;
         case "set": {
           live.held = view.stance.phase === "stand" && support.state.loads[foot] > 0 ? live.held + dt : 0;
-          if (live.held >= tuning.hold) stage("recenter");
+          if (live.held >= tuning.hold) { live.phase = "release"; stage("recenter"); }
           else if (live.time >= tuning.setLimit) return [finish({ kind: "stalled", reason: `set-down deadline after ${live.ending.reason ?? live.ending.kind}` })];
           break;
         }

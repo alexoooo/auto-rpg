@@ -62,9 +62,13 @@ const squared = (view: BodyView): boolean => { const s = view.stance; return s.p
 const stepping = (goal: LegsAsked, step: FootStep): LegsAsked =>
   ({ ...goal, walk: null, feet: [step.bearing], centre: null, swing: { foot: step.foot, to: step.to, seconds: STEP.seconds, lift: STEP.lift } });
 
-/** Whether `step` is over, `dt` s on: landed once lifted, or gone longer than `STEP.most`. */
+/**
+ * Whether `step` is over, `dt` s on: landed once lifted, or gone longer than `STEP.most`. It has
+ * lifted once its foot swings: a swing the stance takes of itself (`own`) is of the foot it names,
+ * so a catch begun before the step lifts is not taken for it.
+ */
 function stepOver(step: FootStep, view: BodyView, dt: number): boolean {
-  if (view.stance.phase === "swing") step.lifted = true;
+  if (view.stance.phase === "swing" && (view.stance.own?.foot ?? step.foot) === step.foot) step.lifted = true;
   step.seconds += dt;
   return step.lifted && view.stance.phase === "stand" || step.seconds > STEP.most;
 }
@@ -126,13 +130,14 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
   };
   /**
    * The step in's legs goal once the body is back (`BackStepConfig.stepIn`): the centre brought in
-   * until the body comes forward (at most `STEP.most`), then the lead foot's step; null once it has
-   * stepped, or where it steps none.
+   * until the body comes forward on both feet, taking no step (`squared`; at most `STEP.most`), then
+   * the lead foot's step; null once it has stepped, or where it steps none. A step begun while the
+   * stance's own is under way would bear on a foot in the air.
    */
   const steppingIn = (view: BodyView, goal: LegsAsked, dt: number): LegsAsked | null => {
     if (!(stepIn > 0) || state.seconds < out || state.stepped) return null;
     const h = walk.heading, fx = sin(h), fz = cos(h);
-    if (!state.step && view.stance.velocity.x * fx + view.stance.velocity.z * fz < STEP.coming) {
+    if (!state.step && (view.stance.velocity.x * fx + view.stance.velocity.z * fz < STEP.coming || !squared(view))) {
       state.waited += dt;
       if (state.waited < STEP.most) return swaying({ ...goal, walk: null, swing: null, centre: [state.from![0] + stepIn * fx, state.from![1] + stepIn * fz] }, dt);
       state.stepped = true;

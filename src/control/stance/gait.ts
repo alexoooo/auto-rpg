@@ -734,12 +734,16 @@ function leadPace(pace: readonly [number, number], walk: readonly [number, numbe
  * capture point within, is pressed back down where it stood (`holdStance`), not stepped. A catch is planned with the hips lowered by the gait's crouch,
  * as a walk's longest steps are (`paceToward`): a step that catches a body crouches for its reach.
  * A walk's or a recovery's step under way is re-aimed each step. Each step runs to its landing
- * unless the goal asks for one of its own. `halted` (`StanceGoal.halt`), a walk's step not yet
- * lifted is not taken, and no step settles the walk's end: it steps only to catch the body.
+ * unless the goal asks for one of its own. A walk's step not yet lifted is not taken where the
+ * walk asked has turned from the one it was planned at, none of it along that one: it is planned
+ * again, so a step from a stand is not fallen into for a walk asked one instant. `halted`
+ * (`StanceGoal.halt`), a walk's step not yet lifted is not taken, and no step settles the walk's
+ * end: it steps only to catch the body.
  */
 export function ownStep(s: Stance, { heading, hip, halted, walk }: { readonly heading: number; readonly hip: number; readonly halted: boolean; readonly walk: StanceGoal["walk"] }): void {
   const { feet, rest, state } = s, { reading, pace, step, gait } = state, { recovery, bend } = s.tuning, hips = hip - state.crouch;
-  if (halted && reading.own && !step.recovering && reading.phase === "shift") {
+  const turned = !!walk && !!state.striding && walk[0] * state.striding[0] + walk[1] * state.striding[1] <= 0;
+  if ((halted || turned) && reading.own && !step.recovering && reading.phase === "shift") {
     reading.own = null;
     reading.phase = "stand";
   }

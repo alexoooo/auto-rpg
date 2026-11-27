@@ -273,13 +273,105 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   1.1 m), arriving at 6.5 s, the man rising at 4.4; 40 of its 80 trials on its twin end `beyond`.
   Swayed by its capture point since (the approaches' back step), it falls in 1 drill fight of 48
   against 10, and the scorecard reads 0.667 against 0.597.
+- **The walk and run's honest stop still costs.** Read on three trees since: 0.639 against 0.667,
+  0.602 against 0.662, and on 2937bbf5d (the value refit) 0.625 (0.559 to 0.687) against 0.704
+  (0.640 to 0.761), downs 2.12 a bout against 1.82. Its falls in twelve bouts there are as many
+  (27 against 28), more of them at speed (22 over 1 m/s against 15), the quick start's 11 against
+  6; the low front kick's record gains nothing from it on its twin (`beyond` 41 against 40). Kept
+  out. The back step's falls lead on that tree either way: 16 of the 28.
+- **A start fell the way one instant asked.** 33 of the low front kick's 80 trials on its twin
+  first walked back, 19 of the 37 `beyond`: on one step, the drill's settling stand beside a foe
+  just fallen is walked out of him (`keepOut`, nothing exempt on a stand), and the quick start's
+  step from a stand, planned from that one step's walk and never re-aimed before it lifts, fell
+  the body back for a second against the spot asked forward after. A step not yet lifted whose
+  walk has turned from the one it was planned at is now planned again: the traced trial arrives at
+  5.26 s against 6.51, the kick's record on the twin scores 0.133 against 0.005 at 120 Hz (0.006 at
+  480 Hz), 39 `beyond` against 40; the scorecard 0.662 (0.597 to 0.722) against 0.667.
 - **The low front kick waits on its arrival.** Searched again at the empty-handed man on
   `sparring-laid`'s twin (`--loadout empty,empty --target man`), its record scoring 0.005 with 17
   falls: the first generation's best 0.131 (0.030 at 480 Hz, 18 falls), the next three's 0.075,
   0.077 and 0.070, their medians about 0.04, stopped there. With half its trials `beyond`, its
   timings do not move it: its arrival does.
-- **Next**: the walk and run's honest stop read again on the back step swayed by its capture
-  point, the low front kick's close with it; then the price below.
+- **The back step stepped in on a foot in the air.** Traced in a fight's fall with no blow (the
+  bodies at contact, 0.41 m): its step in began while the stance's own catch swung the other
+  foot, bearing on it, and was read lifted by that catch's swing; the foot asked to bear was
+  driven as a swing on the ground, and the body sank 0.4 m in 0.3 s at under 0.2 m/s with the legs
+  under a third of their strength, read as a rise. Its step in now begins on a square stance, as
+  its follow did, and a step is lifted only by its own foot's swing: that fall is gone, the
+  scorecard 0.722 (0.659 to 0.778) against 0.704, downs 1.67 a bout against 1.82, the back step's
+  drill as it was (fell 0.021). The back step still begins 15 of the fights' 32 falls.
+- **The back step's falls are fewer than counted.** Of the 15 a fall names the back step in (the
+  gait running as the body lands), 8 chose it on a body already going down, 0.67 to 0.78 m over
+  its support against 0.90 standing, 5 of them after a blow. Of the 7 it chose upright, 3 fell in
+  the sway out, 4 in the sway back; 2 of those after a blow, 2 already going back near 0.9 m/s.
+  The clearest (no blow, standing, 0.91 m apart) never swayed: a kick ended with its foot in the
+  air, the back step waited armed for a square stance, and the stance's catch of that foot,
+  re-aimed each step, never set it down while the bearing foot slid 0.8 m out from under him.
+- **A kick handed the legs over with its foot in the air.** 6 of the fights' 32 falls followed a
+  kick ended with its kicking foot up, 5 of them into the back step: the kick released its stroke
+  at its retract, and the strike Option yields there. Its release now waits for the foot set down.
+  It moves the man's kick/front profiles (`recovers`, 1.083 s to 0.750 on the same 1,383 trials;
+  its run the same), measured again on sparring-feet; stomp/front's trials are the same to the
+  last. With them, the scorecard 0.736 (0.674 to 0.790) against 0.722, downs 1.43 a bout against
+  1.67. The fitted value was fit before it.
+- **The value refit after it** (7a8b6e60c): the scorecard 0.741 (0.678 to 0.795) against 0.736,
+  downs 1.64 a bout (1.38 to 1.94) against 1.43 (1.20 to 1.66), their intervals overlapping: the
+  next reading tells whether the rise holds. It moves the empty man's mirror at every gap from
+  0.6 to 3 m, the straight-punch data and the option entrant, against 4d44b5579's value. The low
+  front kick's try on its twin there scores 0.088 at 120 Hz (0.058 at 480 Hz), 15 falls, 34 of
+  80 `beyond`.
+- **The close on a lying foe stalls, in the drill and in fights.** On the twin, the 34 `beyond`
+  trials share one shape: the foe lies at 0.45 s 1.4 to 2.2 m off, the kicker walks about twice
+  that (a route round the body to its side, re-planned as the body moves 0.6 to 1.4 m) at a pace
+  near 0.6 m/s, arrives 6 to 9 s in, and the foe is up about a second later, the kick ready in 4.
+  The drill's cap (1 m/s, braking on the straight distance) is not what slows it: the navigator
+  slows for the route's corners round the body. Fights close no faster: over 25 downs on
+  7a8b6e60c, the stander 1.27 m off at the fall, 1.91 a second later, 1.35 at the end, closing at
+  0.09 m/s; a stomp begun in 3.
+- **The stander chooses the approach whenever it is offered, and changes it 3 times a second.**
+  Over those downs (160 s): the stomp's approach 0.47 of the time and the stomp 0.07, hold 0.37,
+  the back step 0.06; the low attack, offered, is the one chosen. The chosen Option changed 489
+  times: 0.57 to the same strike and limb by another gait or navigation (run, quick start,
+  staggered; visibility, local), 0.32 to or from hold, 0.09 to another strike or limb. A walk's
+  price matches its route (3.6 to 4.8 m priced 5.2 s with the stomp, near the gaits' speeds); a
+  walk by a gait other than the legs' own is charged nothing for the switch, nor the walk under
+  way credited, so near-equal variants flip: whose that pricing is waits on the owner's word.
+- **Spots beside a lying body come and go.** The hold flickers are the approach's worth falling
+  below hold's for a step: a side's spot drops out, and the other's re-planned route is longer
+  (5.25 s to 7.12). The place held beside the body (`besideLying`) is let go every 0.05 to 0.1 s:
+  its way is planned grazing the body (`LYING.footRadius`) and checked again at that clearance,
+  so a body turning 0.6 rad/s breaks it before the place's own drift (0.3 m, `CROWD.settled`)
+  would.
+- **Holding that way changes nothing.** The held place checked by its feet alone, its way kept
+  within the drift: the try the same in every trial, the scorecard 0.736 against 0.741, downs 1.66
+  against 1.64, 2.87 changes a second against 3.05 (hold 0.34 against 0.32), closing 0.10 m/s.
+  The re-plan lands about where the hold was. At the flicker read, the near side was not asked for
+  at all that step: which sides the Mind asks for, not the menu's hold.
+- **The hold flickers are the chooser's target keep.** Every site beside the body has its spot
+  each step (the near side's one leg away), but within `Deciding.keep` of a walk aimed at a site,
+  each walk claiming the legs is priced at that site alone: when its route grows (5.25 s to 7.12)
+  all of them fall below hold, which has no target and is not held to one, and hold runs a step
+  before another site is chosen. A flicker's step keeps the walk's speed (0.48 m/s); the 58 s of
+  hold over the downs are long stretches, at 0.31 m/s against an approach's 0.45. The keep is
+  the chooser's, with the gait switch's price, for the owner's word.
+- **Most of the long holds are a body rising from its front, between the bands.** Of the 76 s over
+  the 24 downs the stander holds with no low attack on offer or does something else, 39 s are the
+  foe on its front getting up (hands and knees), its trunk's middle aimed at 0.43 to 0.62 m: over
+  the stomp's band (its top 0.4 of the leg's reach, 0.385 m; half that time within 0.1 m over it)
+  and under the front kick's (from 0.9 of the reach, 0.87 m). The low front kick's band (to 0.45,
+  0.43 m) misses most of it as well. The rest: the stander's own back step, rising and falling (about 26 s),
+  offered and priced under hold (7 s), no site's spot (1 s).
+- **Neither band moved strikes a body on hands and knees.** On sparring-laid's twin (48 trials, the
+  record's settings but the band): the front kick from 0 of the reach began 13 kicks at a body
+  down and landed none; begun at one getting up from its front, it holds its weight transfer 0.55
+  to 0.7 s and meets the foe's shin once it is up. The stomp's top at 0.7 landed the 8 the record
+  lands, at bodies lying, and none of the 4 begun at a body getting up from its front: its setup
+  and transfer take about 1.5 s before its stroke. Each strike's lead-in is longer than the drill's
+  foe stays on all fours. And a band admits by the aim's height, while where a kick lands is its
+  path's (aimed at the trunk, it meets the knee): a band read from where trials meet the target
+  would admit a kick at bodies its aim never reaches.
+- **Next**: why a strike's lead-in (the kick's transfer, the stomp's setup) takes as long as it does
+  after a walk in; then the price below.
 
 ## Then: a strike's price, every start a number
 
