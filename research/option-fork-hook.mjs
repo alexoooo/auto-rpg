@@ -7,6 +7,7 @@
  * - `offered`: each choice on offer whose claims are free, as [its place in the Mind's Options,
  *   its target (0 where it has none), its name], the best first;
  * - `pick`: the one the selection takes first, the same three, or null where it takes none;
+ * - `running`: each choice that ran on to this decision, not ended by it, as [its place, its target];
  * - `force(index, target)`: take that Option at that target first instead. It is taken only where
  *   the selection priced it at this decision, its claims are free, the target is one the
  *   selection would price it at (`Deciding.keep`) and it is on offer and priced there; it says
@@ -42,7 +43,7 @@ const BRANCHED = `      const best = stream ? order.find(free) : undefined;
       }
       const keyOf = (i) => [i, Math.max(0, aimed[i]), choices[i].name], pick = drawnFirst ?? order.find(free);
       globalThis.__optionDecision?.({ side: now.sight.view.senses.side, time: now.time, offered: order.filter(free).map(keyOf),
-        pick: pick === undefined ? null : keyOf(pick), force: (i, k) => {
+        pick: pick === undefined ? null : keyOf(pick), running: state.running.map((i) => [i, Math.max(0, state.aims[i])]), force: (i, k) => {
           const choice = choices[i], targets = choice?.targets?.length ?? 0;
           if (!choice || !order.includes(i) || !free(i) || !(Number.isInteger(k) && k >= 0 && k < Math.max(1, targets))) return false;
           // Within the keep of a running choice's target, priced there alone where it has it on offer (\`Deciding.keep\`).

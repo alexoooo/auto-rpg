@@ -2,7 +2,7 @@
  * **The forked record's forks** (its steps 2 and 3): each state of a matchup's bank (`bank.mjs`)
  * forked once for each Option on offer there, under each of the same nudges.
  *
- *   node research/minds/fork-bank.mjs <entrant> [<entrant>] [--horizon 4] [--every 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]
+ *   node research/minds/fork-bank.mjs <entrant> [<entrant>] [--hold] [--horizon 4] [--every 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]
  *
  * It reads the bank of the last commit that changed what the game computes (`gameCommit`), so it
  * refuses with that changed and not committed (`gameChanged`); each line names the commit it was
@@ -11,7 +11,8 @@
  * had on offer there (its key: its place in the Mind's Options and its target) under each of
  * `--nudges` nudges of `--nudge` N s (`nudgesOf`, the same for every Option of the state, rule 5),
  * the side's Mind taking that Option at its first decision and then deciding as it always does,
- * the other's as it always does (`rollout`'s `option`). Each fork keeps what the side met
+ * the other's as it always does (`rollout`'s `option`); with `--hold`, taking it again at each
+ * decision it runs on to, so it runs until it ends of itself, as a search's line runs its Option. Each fork keeps what the side met
  * (`rollout`'s `watch`): the lives, how long the Option ran, and the side's reading at its first
  * search, at the Option's end and every `--every` s.
  *
@@ -34,9 +35,9 @@ import { rolloutPool } from "../rollout-pool.mjs";
 import { nudgesOf } from "../rollouts.mjs";
 import { bankOf, gameChanged, gameCommit } from "./record.mjs";
 
-const USAGE = "usage: node research/minds/fork-bank.mjs <entrant> [<entrant>] [--horizon 4] [--every 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]";
+const USAGE = "usage: node research/minds/fork-bank.mjs <entrant> [<entrant>] [--hold] [--horizon 4] [--every 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]";
 const { values: flags, positionals } = parseArgs({ allowPositionals: true, options: {
-  horizon: { type: "string", default: "4" }, every: { type: "string", default: "1" }, nudges: { type: "string", default: "4" }, nudge: { type: "string", default: "0.5" },
+  hold: { type: "boolean", default: false }, horizon: { type: "string", default: "4" }, every: { type: "string", default: "1" }, nudges: { type: "string", default: "4" }, nudge: { type: "string", default: "0.5" },
   states: { type: "string" }, workers: { type: "string" },
 } });
 if (positionals.length < 1 || positionals.length > 2) { console.error(USAGE); process.exit(1); }
@@ -53,8 +54,8 @@ const tournament = EVALUATIONS.tournament, entrants = positionals.map((id) => to
 const folder = bankOf([entrants[0], entrants[1] ?? entrants[0]], commit), index = join(folder, "bank.jsonl"), out = join(folder, "forks.jsonl");
 if (!existsSync(index)) throw new Error(`no bank of this matchup at ${commit}: node research/minds/bank.mjs first`);
 const states = readFileSync(index, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)).filter((state) => !state.none);
-const settings = { horizon, every, nudge };
-const same = (line) => line.horizon === horizon && line.every === every && line.nudge === nudge;
+const hold = flags.hold, settings = { hold, horizon, every, nudge };
+const same = (line) => (line.hold ?? false) === hold && line.horizon === horizon && line.every === every && line.nudge === nudge;
 const done = new Map();
 if (existsSync(out)) for (const line of readFileSync(out, "utf8").split("\n").filter(Boolean).map((text) => JSON.parse(text))) if (same(line))
   done.set(line.file, Math.max(done.get(line.file) ?? 0, line.trials[1]));
@@ -62,7 +63,7 @@ if (existsSync(out)) for (const line of readFileSync(out, "utf8").split("\n").fi
 const drawn = (name) => { let h = 2166136261; for (const c of name) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0; return h; };
 const todo = states.filter((state) => (done.get(state.file) ?? 0) < nudges).sort((a, b) => drawn(a.file) - drawn(b.file))
   .slice(0, flags.states === undefined ? Infinity : Number(flags.states));
-console.log(`forks of the bank at ${commit}: ${states.length} states, ${todo.length} to fork under nudges to ${nudges}; ${horizon} s on, ${nudge} N s, read every ${every} s, on ${lanes} workers`);
+console.log(`forks of the bank at ${commit}: ${states.length} states, ${todo.length} to fork under nudges to ${nudges}${hold ? ", each Option held" : ""}; ${horizon} s on, ${nudge} N s, read every ${every} s, on ${lanes} workers`);
 
 const pool = rolloutPool(lanes), began = performance.now();
 let forked = 0, statesForked = 0, failed = 0, taken = 0, refused = 0;
@@ -77,7 +78,7 @@ try {
       return Array.from({ length: trials[1] - trials[0] }, (_, k) => trials[0] + k).flatMap((trial) => state.offered.map(([i, target, name]) => ({
         state, trial, key: `${i}:${target}`, name,
         job: { recipe: save.recipe, save, from: state.from, steps: Math.round(horizon * HZ), engine, nudges: nudgesOf(state.from, trial, nudge),
-          option: { side: state.side, key: `${i}:${target}` }, watch: { side: state.side, every } },
+          option: { side: state.side, key: `${i}:${target}`, hold }, watch: { side: state.side, every } },
       })));
     });
     const rows = await pool.run(jobs.map(({ job }) => job));

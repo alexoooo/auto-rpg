@@ -52,7 +52,10 @@ const HOOKED = ["__optionDecision", "__optionSet", "__searchLines"];
  *
  * With `option` (`{ side, key }`) the branch is also an Option: at the first decision `side`'s
  * Mind makes afresh from the fork on, it takes the Option `key` names ("3:0": its place in the
- * Mind's Options and its target, as the warm start keys them), then decides as it always does.
+ * Mind's Options and its target, as the warm start keys them), then decides as it always does;
+ * with `hold` (`{ side, key, hold: true }`) the Mind takes it again at each decision it runs on to,
+ * so it runs until it ends of itself (over, or out of its entry) or is no longer on offer, and the
+ * Mind decides as it always does from then.
  * That needs the option fork's hook (`option-fork-hook.mjs`) registered before the Mind's code
  * loads.
  *
@@ -103,7 +106,9 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
     let choseAt = null;
     if (option) {
       globalThis.__optionDecision = (decision) => {
-        if (chose || decision.side !== option.side) return;
+        if (decision.side !== option.side) return;
+        // Held: at each later decision it ran on to at its target, it is taken again, until it ends of itself or is not on offer.
+        if (chose) { if (option.hold && chose.taken && ended === null && decision.running.some(([i, k]) => i === index && k === target)) decision.force(index, target); return; }
         choseAt = duel.clock;
         chose = { time: decision.time, own: decision.pick && `${decision.pick[0]}:${decision.pick[1]}`, taken: decision.force(index, target) };
       };
