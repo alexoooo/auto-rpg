@@ -38,8 +38,11 @@ function boutOf(recipe, engine) {
   return kept;
 }
 
+/** **What a measured run is** (`rollout`'s `measure`), as a number: a row of an older one is not read as one of this, nor forked on as one. */
+export const MEASURE = 2;
+
 /** The hooks' globals a fork sets: an outer watcher's are set aside while it plays. */
-const HOOKED = ["__optionDecision", "__optionSet", "__searchLines"];
+const HOOKED = ["__optionDecision", "__optionSet", "__optionEnded", "__searchLines"];
 
 /**
  * Where the situation `now` has the body, as a measured run keeps its ends: its place and
@@ -77,20 +80,24 @@ const termsOf = (terms) => terms && {
  * open Option is not held. That needs the option fork's hook (`option-fork-hook.mjs`) registered
  * before the Mind's code loads.
  *
- * With `measure` (`{ side, key, measure: { until } }`) the Option is held, an open one for `until`
- * s, and the fork is played until the Option's run ends and no further. That needs the move
+ * With `measure` (`{ side, key, measure: { until } }`) the Option is held, at its exit too and an
+ * open one for `until` s, and the fork is played until the Option's run ends and no further. That needs the move
  * prior's hook (`minds/move-prior-hook.mjs`) registered too. The row then also holds:
  * - `predicted`: what the Option's model said at the decision it was taken at, as that decision's
  *   search asked it (`modelAt`; an open one asked over `until` s): its kind, whether it is open,
  *   its seconds, the life it deals and takes, and each way it ends with its chance (`Terms`);
  *   null where that decision's search did not run;
  * - `run`: what it did, measured, with nothing estimated: the seconds from that decision to the
- *   one its run ended at; how it ended (`ended`: "exit" at its exit, "over" over or out of its
+ *   one its run ended at; how it ended (`ended`: "over" over or out of its
  *   entry or off offer, "held" an open one held its `until`, "dropped" its claims or its offer
- *   refused it while it yielded, "cap" still running at the fork's end, "verdict" the bout over);
+ *   refused it while it yielded or at its exit, "cap" still running at the fork's end, "verdict" the bout over);
  *   the life it dealt and took meanwhile; and where the body stood at its start and at its end
  *   (`from`, `to`, as the Mind's reading of the situation there has them, `placeOf`; `to` null
- *   where it was cut).
+ *   where it was cut); the seconds to its exit, where it came to one (`exit`, a strike's release),
+ *   else null; and, where the selection ended it over or out of its entry, what the Option said of
+ *   itself as it did, aimed as it ran: its status and its entry (`why`: "ready", or the reason it
+ *   does not admit, as "at its site" or "no site to walk to"); null where it ended otherwise.
+ * The life is the bars' (`Pool.bar`), what blows took: the end rules' drain is not counted.
  * A run ends at a decision, so its seconds are the Mind's: it sees an Option over at its next
  * look (`OptionMindConfig.rate`), and an open one's `until` at its next decision.
  *
@@ -130,13 +137,14 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
     // Armed only from the fork on: a replay's decisions before it are the trunk's.
     const [index, target] = option ? option.key.split(":").map(Number) : [];
     const measure = option?.measure ?? null, hold = option?.hold === true || measure !== null, foe = option && other(option.side);
-    let choseAt = null, open = false, lives = null, start = null, predicted = null, run = null, status = null, first = true, ended = false;
+    let choseAt = null, open = false, lives = null, start = null, predicted = null, run = null, status = null, first = true, ended = false, exit = null, why = null;
+    const bar = (side) => duel.duelists[side].pool.bar();
     // The searches of the side's latest decision, in order: the first at the situation it decides at, any after at another (a foe's reply imagined, `repliedSearch`).
     const searches = [];
     /** The run ended at the situation `now` (null where it was cut), as `how` says. */
     const finish = (how, now) => {
       ended = true;
-      run = { seconds: duel.clock - choseAt, ended: how, dealt: lives[1] - duel.life(foe), taken: lives[0] - duel.life(option.side), from: start, to: now && placeOf(now) };
+      run = { seconds: duel.clock - choseAt, ended: how, dealt: lives[1] - bar(foe), taken: lives[0] - bar(option.side), from: start, to: now && placeOf(now), exit, why };
     };
     if (measure) {
       if (!globalThis.__moveLinesHook) throw new Error("a fork that measures needs research/minds/move-prior-hook.mjs registered before the Mind's code loads");
@@ -154,9 +162,9 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
           const mine = decision.running.find(([i, k]) => i === index && k === target);
           status = mine?.[2] ?? "over";
           if (measure && open && duel.clock - choseAt >= measure.until - 1e-9) return finish("held", decision.now);
-          if (measure && status === "exit") return finish("exit", decision.now);
-          // Held: at each later decision it ran on to at its target, yielding, it is taken again: a committed one runs on anyway, and one at its exit is the Mind's to keep or let go.
-          if (hold && mine && status === "yields" && (!mine[3] || measure)) decision.force(index, target);
+          if (measure && status === "exit") exit ??= duel.clock - choseAt;
+          // Held: at each later decision it ran on to at its target, yielding, it is taken again: a committed one runs on anyway, and one at its exit is the Mind's to keep or let go (measured, it is held through it, as its model runs it to its end).
+          if (hold && mine && (status === "yields" || measure && status === "exit") && (!mine[3] || measure)) decision.force(index, target);
           return;
         }
         choseAt = duel.clock;
@@ -164,18 +172,24 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
         if (!measure || !chose.taken) return;
         const choice = decision.choice(index);
         open = choice.open === true;
-        lives = [duel.life(option.side), duel.life(foe)];
+        lives = [bar(option.side), bar(foe)];
         start = placeOf(decision.now);
         // As this decision's search asked the model, of the same situation: an open one over the time it is held.
+        // One focus, as a duel has: with others to price (`others`, select-set), they are searched before the decision's own, and this would read another's.
         const own = searches[0]?.root.time === decision.time ? searches[0] : null;
         if (own) predicted = { kind: choice.kind, open, ...termsOf(open ? choice.model(own.root, { target, until: measure.until }) : own.space.modelAt(own.space.pairAt(choice, target), own.root)) };
+      };
+      // What the Option said of itself as the selection ended it, over or out of its entry.
+      if (measure) globalThis.__optionEnded = (end) => {
+        if (end.side !== option.side || end.index !== index || end.target !== target || !chose?.taken || ended) return;
+        why = { status: end.status, entry: end.entry.kind === "ready" ? "ready" : end.entry.reason ?? end.entry.kind };
       };
       // The set of the forced decision itself is passed over: from the next decision on, the Option must run on, at its target.
       globalThis.__optionSet = ({ side, now, running }) => {
         if (side !== option.side || !chose?.taken || ended) return;
         if (first) { first = false; return; }
         if (running.some(([i, k, , on]) => i === index && k === target && on)) return;
-        if (measure) finish(status === "yields" ? "dropped" : status, now);
+        if (measure) finish(status === "over" ? "over" : "dropped", now);
         else ended = true;
       };
     }

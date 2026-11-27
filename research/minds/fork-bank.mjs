@@ -3,7 +3,7 @@
  * forked once for each Option on offer there, under each of the same nudges, and what each Option
  * did measured to its exit.
  *
- *   node research/minds/fork-bank.mjs <entrant> [<entrant>] [--cap 3] [--until 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]
+ *   node research/minds/fork-bank.mjs <entrant> [<entrant>] [--cap 6] [--until 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]
  *
  * It reads the bank of the last commit that changed what the game computes (`gameCommit`), so it
  * refuses with that changed and not committed (`gameChanged`); each line names the commit it was
@@ -16,7 +16,8 @@
  * (`rollout`'s `measure`).
  *
  * Its rows are a line a state in the bank's `runs.jsonl`: the state (its bout's key, side, time and
- * save), the settings, and each fork's key, name, nudge, whether it was taken, what its model
+ * save), the settings (what a measured run is, `MEASURE`, among them: a state is forked again, and
+ * read, only under the measure in hand), and each fork's key, name, nudge, whether it was taken, what its model
  * predicted at that decision and what it did (`rollout`'s `predicted` and `run`). A state is forked
  * under nudges it has no line of, so a run stopped by its PID goes on when run again, and more
  * nudges are added by asking for more. `--states` forks only that many states more, in an order
@@ -32,12 +33,12 @@ import { gunzipSync } from "node:zlib";
 import { defaultLanes } from "../../scripts/lanes.mjs";
 import { commitOf } from "../../scripts/build-identity.mjs";
 import { rolloutPool } from "../rollout-pool.mjs";
-import { nudgesOf } from "../rollouts.mjs";
+import { MEASURE, nudgesOf } from "../rollouts.mjs";
 import { bankOf, gameChanged, gameCommit } from "./record.mjs";
 
-const USAGE = "usage: node research/minds/fork-bank.mjs <entrant> [<entrant>] [--cap 3] [--until 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]";
+const USAGE = "usage: node research/minds/fork-bank.mjs <entrant> [<entrant>] [--cap 6] [--until 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]";
 const { values: flags, positionals } = parseArgs({ allowPositionals: true, options: {
-  cap: { type: "string", default: "3" }, until: { type: "string", default: "1" }, nudges: { type: "string", default: "4" }, nudge: { type: "string", default: "0.5" },
+  cap: { type: "string", default: "6" }, until: { type: "string", default: "1" }, nudges: { type: "string", default: "4" }, nudge: { type: "string", default: "0.5" },
   states: { type: "string" }, workers: { type: "string" },
 } });
 if (positionals.length < 1 || positionals.length > 2) { console.error(USAGE); process.exit(1); }
@@ -54,8 +55,8 @@ const tournament = EVALUATIONS.tournament, entrants = positionals.map((id) => to
 const folder = bankOf([entrants[0], entrants[1] ?? entrants[0]], commit), index = join(folder, "bank.jsonl"), out = join(folder, "runs.jsonl");
 if (!existsSync(index)) throw new Error(`no bank of this matchup at ${commit}: node research/minds/bank.mjs first`);
 const states = readFileSync(index, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)).filter((state) => !state.none);
-const settings = { cap, until, nudge };
-const same = (line) => line.cap === cap && line.until === until && line.nudge === nudge;
+const settings = { measure: MEASURE, cap, until, nudge };
+const same = (line) => line.measure === MEASURE && line.cap === cap && line.until === until && line.nudge === nudge;
 const done = new Map();
 if (existsSync(out)) for (const line of readFileSync(out, "utf8").split("\n").filter(Boolean).map((text) => JSON.parse(text))) if (same(line))
   done.set(line.file, Math.max(done.get(line.file) ?? 0, line.trials[1]));

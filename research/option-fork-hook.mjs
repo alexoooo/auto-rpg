@@ -21,10 +21,15 @@
  * the first chosen first. A choice that is not in it, or that did not run on, or runs at another
  * target, has ended or been let go.
  *
+ * And as a decision afresh ends a running choice that is over or out of its entry, before it ends
+ * it, that is handed to `globalThis.__optionEnded`: `side`, `time`, the choice's place and target,
+ * and what it says of itself there, aimed as it ran: its status and its entry (`Readiness`).
+ *
  * An Option is named by its place in the Mind's Options and its target, as the warm start keys it
  * (`warmStart`, `tree-search.ts`). A chance draw the selection makes is still made, so a forced
  * Option that is the selection's own pick leaves the same stream. With no `__optionDecision` set,
- * no argument is even read, and every decision is the game's; with no `__optionSet`, likewise.
+ * no argument is even read, and every decision is the game's; with no `__optionSet` or
+ * `__optionEnded`, likewise.
  */
 const SELECTION = "/src/minds/option/choosers/select-set.ts";
 
@@ -69,6 +74,16 @@ const SET_TOLD = `      globalThis.__optionSet?.({ side: now.sight.view.senses.s
       state.running = [...chosen];
 `;
 
+/** Where a decision afresh ends the running choices that are over or out of their entries. */
+const ENDS = `      if (over) state.running = state.running.filter((i) => { const choice = choices[i]!, ended = done(choice, now); if (ended) choice.end(); return !ended; });
+`;
+
+/** The same, each handed to `__optionEnded` before it is ended. */
+const ENDS_TOLD = `      if (over) state.running = state.running.filter((i) => { const choice = choices[i]!, ended = done(choice, now);
+        if (ended) { globalThis.__optionEnded?.({ side: now.sight.view.senses.side, time: now.time, index: i, target: Math.max(0, state.aims[i]), status: choice.status(now), entry: choice.entry(now) }); choice.end(); }
+        return !ended; });
+`;
+
 /** What the rewritten module sets, so `rollout` knows the hook is in place; and a module already rewritten is left alone. */
 const MARK = "\nglobalThis.__optionForkHook = true;\n";
 
@@ -81,5 +96,6 @@ export async function load(url, context, next) {
   if (text.includes(MARK)) return out;
   if (text.split(FIRST).length !== 2) throw new Error("the selection no longer takes its first choice where the option fork's hook looks");
   if (text.split(SET).length !== 2) throw new Error("the selection no longer makes its set where the option fork's hook looks");
-  return { ...out, source: text.replace(FIRST, BRANCHED).replace(SET, SET_TOLD) + MARK };
+  if (text.split(ENDS).length !== 2) throw new Error("the selection no longer ends its choices where the option fork's hook looks");
+  return { ...out, source: text.replace(FIRST, BRANCHED).replace(SET, SET_TOLD).replace(ENDS, ENDS_TOLD) + MARK };
 }
