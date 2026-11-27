@@ -870,6 +870,18 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   short bouts think more a second). So with the search period on time, noticing a watched change
   within 0.05 s is as good as within 0.017 s and a sixth cheaper, and within 0.1 s is not.
   *Counted.*
+- **The rat neither gains nor loses by the timings: 20 Hz and every 0.1 s hold on it**: the rat's
+  default Mind (`option-presses`) at four timings against the empty-handed Warrior's
+  (`option-lean`, 10 Hz, every 0.2 s), over the 288 bouts of the tournament's `gaps-drawn` each,
+  at `a364f4c7c`. Score, then the man's life taken by 60 s and knockouts within 60 s: 60 Hz every
+  0.2 s, today's, 0.149 (0.108 to 0.191), 0.355, 4.9 %; 20 Hz every 0.1 s 0.149 (0.111 to
+  0.188), 0.315, 2.8 %; 60 Hz every 0.1 s 0.167 (0.125 to 0.212), 0.354, 6.9 %; 20 Hz every 0.2 s
+  0.149 (0.108 to 0.194), 0.328, 4.9 %. The rat took a sixth of the man's bar by 60 s in 234,
+  223, 222 and 221 of the 288 bouts, and was killed within 60 s in 134, 127, 116 and 129. Against
+  today's, bout by bout at the same gap and side, the life taken by 60 s differs by -0.040
+  (-0.075 to 0.006) at 20 Hz every 0.1 s, -0.001 at 60 Hz every 0.1 s and -0.027 at 20 Hz every
+  0.2 s. The tournament's `gaps`, 48 bouts each, had read these timings from 0.125 to 0.292.
+  *Counted.*
 - **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of
