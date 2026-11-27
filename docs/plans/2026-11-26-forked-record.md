@@ -88,9 +88,10 @@ that fits him, because that is where the number of Options is large.
    playing on both sides. Before the rest is run, its price is said from its first chunk: forks a state,
    worker-seconds a fork with today's Mind inside it, and states a night on this machine's
    workers.
-3. **What a row holds: what the Option did, measured to its exit.** Each fork holds its Option
-   (step 1) and plays until it exits: over, at its exit, out of its entry, no longer on offer, or
-   let go by the Mind at its exit. At that step it reads what the Option's model gives (`Terms`,
+3. **What a row holds: what the Option did, measured to its end.** Each fork holds its Option
+   (step 1) while it yields and plays until its run ends: over, out of its entry, no longer on
+   offer, or let go by the Mind at its exit (there it is the Mind's, as in the game: a strike kept
+   on strikes again). At that step it reads what the Option's model gives (`Terms`,
    `src/minds/option/contract/terms.ts`), in the model's units:
    - how long it ran, s, and how it ended;
    - the life it dealt and the life it took over its run, the blow coming at its start included.
@@ -151,59 +152,71 @@ that fits him, because that is where the number of Options is large.
 
 ## Where it stands
 
-**Steps 1 and 2 have landed. Steps 3 and 4 are done again**, on the label step 3 now names: what
-the Option did, measured to its exit. Their first try labelled a fork by its forked worth: the
-life dealt and taken over 2 s, weighed by the Mind's objective, with the rest of the Mind's 20 s
-horizon read from the fitted value where the fork stood. Most of that label was the fitted
-value's own estimate, and it did not rank a state's Options. Nor did the life measured alone.
+**Steps 1 to 4 have landed, and step 5's first reading.** A fork measures what each Option did
+to its end, nothing estimated, beside what its model said at the decision. At 8 nudges those
+labels tell most models' errors from the nudges, and the models are wrong for most Options, some
+by a lot. The first try labelled a fork by its forked worth: the life dealt and taken over 2 s,
+weighed by the Mind's objective, with the rest of the Mind's 20 s horizon read from the fitted
+value. Most of that label was the fitted value's own estimate, and it did not rank a state's
+Options; nor did the life measured alone. So no label ranks a state's Options.
 
 - **The fork** (step 1): `rollout` takes an `option` by the load hook
   `research/option-fork-hook.mjs`. On the warrior protocol's bout 0, all 687 forks given the
   Mind's own choice ended on the trunk's trace to the bit. With `hold`, the Mind takes the Option
-  again at each decision it runs on to while it yields, so it runs to its exit as a search's line
-  runs it. `hold` leaves an open Option to the Mind; step 3's fork holds one a set time. Without `hold`,
-  the Mind cancels at its next rethink, 0.1 s on, what it would not have chosen. That happened to
-  73 % of forced Options in 16 states, and 219 of 468 forks there were identical to another of the
-  same state and nudge. So the bank's forks hold.
-- **The bank and its price** (step 2): `research/minds/bank.mjs` played 87 of the measuring
-  protocol's 144 bouts of option-lean's mirror at `62c688f5f`, before the machine stopped. It
-  kept every 80th decision with an Option to take as a save: 989 states, in
-  `.cache/bank/`. Saving before every step made a bout cost 660 worker-seconds, against 145
-  without. A bank played again should save only where the Mind can decide.
-  `research/minds/fork-bank.mjs` forks a state once for each Option on offer under the same
-  nudges. A state has about 8 Options. A held fork 2 s on costs 1.06 worker-seconds, so a state
-  under 8 nudges costs 66, and 100 states took 20 minutes on 4 workers. All forks were taken, and
-  every fork of every state started on the bank's poses. All 100 forked states join to their root
-  in the record at the bank's commit, where the root priced 98 % of the Options forked.
-- **The first labels** (100 states, held, 8 nudges of 0.5 N s, 2 s on). Each state's best Option
-  by 4 nudges, judged by the other 4:
-  - By the forked worth, it gains a median 0.008 life over an Option drawn at random (10th to
-    90th percentiles -0.26 to 0.54). A fork's worth spreads 0.33 life across nudges, the Options'
-    means 0.087, and the Options are 5 % of a fork's variance. Read at 0.5 s, the worth agreed with itself and predicted nothing of
-    2 s: it was the fitted value reading itself, as a fresh reader found.
-  - By the life dealt less taken over the 2 s, nothing estimated, it gains a median 0.0014 (10th
-    to 90th -0.015 to 0.076), better at 59 % of states and worse at 20 %. The life spreads 0.051
-    across nudges and the Options' means 0.015.
-  - What the Option itself did is mostly which Option it was. Of each quantity's variance at a
-    state, the median share between Options: how long it ran 98 %, the range at its end 89 %,
-    the life it dealt while it ran 28 %.
+  again at each decision it runs on to while it yields. Without it, the Mind cancels at its next
+  rethink, 0.1 s on, what it would not have chosen: 73 % of forced Options in 16 states.
+- **The bank** (step 2): `research/minds/bank.mjs` played 87 of the measuring protocol's 144
+  bouts of option-lean's mirror at `62c688f5f`, keeping every 80th decision with an Option to
+  take as a save: 989 states, in `.cache/bank/`. Saving before every step made a bout cost 660
+  worker-seconds, against 145 without; a bank played again should save only where the Mind can
+  decide.
+- **The measured run** (step 3, `rollout`'s `measure`, `MEASURE` 3; `research/minds/fork-bank.mjs`
+  into the bank's `runs.jsonl`). The Option is held while it yields, an open one 1 s, and at its
+  exit is the Mind's; the fork stops where its run ends, or at 6 s. A fork costs 0.69
+  worker-seconds; a state has about 8 Options, so 43 worker-seconds under 8 nudges, and 100 states
+  took 18 minutes on 4 workers. 638 of 5,872 runs were cut at 6 s or the verdict. On three states,
+  all 26 forks with the model asked and the ending read end on the same poses as without. Two
+  fresh readers' findings are answered: a strike held through its release struck again; the end
+  rules' drain was read as life taken (the life is now the bars'); why an Option ended was read
+  after the Mind had re-aimed it; and the readers dropped Options that were not twins, averaged
+  bearings as numbers, and left out every Option with one run cut.
+- **How sure a label is** (step 4, `research/minds/run-sureness.mjs`, 100 states, 8 nudges of
+  0.5 N s). At a state, the noise of an Option's mean over the nudges against the spread of the
+  Options' means (median over states; about 1 where Options do not differ): its seconds 0.08,
+  place 0.17 to 0.26, range 0.24, heading 0.28, bearing 0.35, velocity 0.35 to 0.37, life taken
+  0.59 (a single fork's life is 17 % which Option it was). The 90th percentiles are near 1: at
+  about a tenth of the states the Options are alike in a quantity. Strikes are few: six states
+  have two or more on offer. The model is wrong by more than twice its mean's noise, and more
+  than the least error worth telling, for 90 % of the Options in seconds, 77 % in bearing, 76 %
+  of strikes in life dealt, 70 and 65 % in place, 55 to 58 % in velocity, 56 % in life taken,
+  42 % in heading and 5 % in standing. So the labels are read at 8 nudges.
+- **Each Option's model against what it did** (step 5's first reading,
+  `research/minds/run-models.mjs`), the surest errors:
+  - Rolls are priced at 5.0 s by the Mind's hand-set guess for a way up
+    (`src/minds/option/predictions/by-hand.ts`) and run 2.6 s.
+  - A punch is modelled at 1.1 s and runs 0.27 s; a kick 2.8 to 2.9 s against 1.1 to 1.4 s. The
+    model counts the recovery after the release (`strike.ts`, the blow's seconds and its
+    recovery), which the Option does not run: it ends just after its release. At eight states the
+    forced strike ended at once, mostly where the Mind's own choice was that strike in its
+    release, which the model prices as a fresh blow. A punch's life taken is modelled 3 times
+    what it takes (1.7 times a second), what it deals 1.9 times.
+  - Walks arrive: "no site to walk to" is a strike's window reached with the limb ready, or the
+    edge of the foe's reach passed. To a punch's window they run about the seconds modelled; to a
+    kick's or a stomp's window 0.3 to 0.6 of them. They end moving where they are modelled still,
+    and their bearing at the end is off by a median 2 rad.
+  - The cover is modelled open for 1 s and ends of itself in 0.05 to 0.1 s, and its model takes
+    what the hold's does: no credit for the blow it covers.
+  - The back step runs 1.57 s against 1.24.
 
-  These rows are not step 3's label. At 2 s many runs had not ended (every roll, and 620 of 664
-  cover guards), the end was read from the side's last search rather than at the exit, and the
-  model's prediction was not kept beside it.
-- **Step 3's fork** (`rollout`'s `measure`, `research/minds/fork-bank.mjs`, into the bank's
-  `runs.jsonl`): the Option held, an open one for `--until` s, the fork stopped where its run
-  ends or at `--cap` s, and what it did read there, beside what its model said as that decision's
-  search asked it. On two states, every Option's fork with the model asked ended on the same poses
-  as without. Step 4's reader is `research/minds/run-sureness.mjs`.
+  These go first in the measured-mind plan's step 10.
 
-What this leaves of the steps after: step 5 reads each Option's model against step 3's labels,
-pooled over states. Nothing in the forks ranks a state's Options, so the action prior gets no
-forked target (the measured-mind plan's step 6 fits on the targets it has) and step 6's regret
-bank waits.
+What this leaves: step 5 on every Option that fits the Warrior; the fits of the Options' models on
+these labels are the measured-mind plan's (its step 10). Nothing ranks a state's Options, so the
+action prior gets no forked target (the measured-mind plan's step 6 fits on the targets it has)
+and step 6's regret bank waits. Step 7 needs no ranking and goes anywhere after step 3.
 
-Next: steps 3 and 4 again, on the bank at `62c688f5f`, before anything moves the Warrior's mirror
-(the measured-mind plan's step 4 would). Their price is said before they run.
+Next, in the order the measured-mind plan gives: its step 4. It moves the Warrior's mirror, so the
+bank at `62c688f5f` is read as it stands and not forked again on the code after it.
 
 ## What done is
 

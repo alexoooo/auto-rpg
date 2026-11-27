@@ -925,11 +925,12 @@ game or to unpark something, and the work goes on meanwhile.
   by it) and 27 fingerprint cases, all the man's (his 25 mirror bouts, the straight punch's data,
   the `option` entrant). Weighing old rows at half for each newer one is built and not yet read:
   every row is of one play.
-- **Next: fork steps 3 and 4 again**, on the label the forked record now names (what each Option
-  did, measured to its exit), on the bank fork step 2 took at `62c688f5f`. This plan and [the forked record](2026-11-26-forked-record.md) go
-  in this order on one machine (the forked record's steps marked "fork"):
+- **Next: step 15, then step 4.** Fork steps 1 to 4 have landed, and fork step 5's first reading
+  of each Option's model against what it did, on the bank at `62c688f5f`
+  ([the forked record](2026-11-26-forked-record.md#where-it-stands)). This plan and the forked
+  record go in this order on one machine (the forked record's steps marked "fork"):
   1. Step 3 (landed).
-  2. Fork steps 2 to 4, on the code step 3 leaves, before anything moves the Warrior's mirror.
+  2. Fork steps 2 to 4 (landed), on the code step 3 leaves, before anything moves the Warrior's mirror.
      The record keeps no saves: its bouts play again only on the code and assets that played
      them. The record's rows were played on the fit step 3 replaced, so the bank first plays the
      mirror again on the code in hand (`npm run measure -- option-lean/man/empty,empty --again`,
@@ -938,7 +939,8 @@ game or to unpark something, and the work goes on meanwhile.
      step 6 and fork step 5 compare.
   3. Step 15, once the forks' bank is taken: the bank reads the record as it is kept now.
   4. Step 4.
-  5. Fork steps 5 and 6.
+  5. Fork step 5 on every Option that fits the Warrior. Fork step 6 waits on a worth that ranks a
+     state's Options, which the forks do not give.
   6. Step 14, which reads fork step 5's twins; then step 6, whose prior is fitted over the
      Options step 14 leaves; then step 7.
   7. Step 5, by the owner's choice (2026-11-27: "MM5 after MM7"). The rat's bouts against the
