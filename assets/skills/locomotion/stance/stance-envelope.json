@@ -20,13 +20,14 @@
   "afters": [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1, 1.125, 1.25, 1.375, 1.5, 3],
   "models": {
     "man": {
-      "byWay": [2, 0.7, 1.4, 0.7],
+      "measured": "2026-11-27",
+      "byWay": [2, 0.7, 1.2, 0.5],
       "wayTrials": 4,
       "wayHeld": [
         [null, null, null, null, null, null, null, null, null, null, 4, 0],
         [null, null, null, null, 4, 0, 0, 0, 0, 0, 0, 0],
-        [null, null, null, null, null, null, null, 4, 1, 0, 0, 0],
-        [null, null, null, null, 4, 0, 0, 0, 0, 0, 0, 0]
+        [null, null, null, null, null, null, 4, 1, 1, 0, 0, 0],
+        [null, null, null, 4, 3, 0, 0, 0, 0, 0, 0, 0]
       ],
       "turns": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
       "turnHeld": [
@@ -44,12 +45,12 @@
       ],
       "holds": {
         "empty": {
-          "byWay": [2, 0.7, 1.4, 0.7],
+          "byWay": [2, 0.7, 1.2, 0.7],
           "wayTrials": 1,
           "wayHeld": [
             [null, null, null, null, null, null, null, null, null, null, 1, 0],
             [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0],
-            [null, null, null, null, null, null, null, 1, 0, 0, 0, 0],
+            [null, null, null, null, null, null, 1, 0, 0, 0, 0, 0],
             [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0]
           ],
           "turns": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
@@ -59,7 +60,7 @@
             [null, null, 56, null, null],
             [null, null, 56, null, null],
             [null, null, 56, null, null],
-            [null, null, null, null, null],
+            [55, null, null, null, null],
             [null, null, null, null, null],
             [null, null, null, null, null],
             [null, null, null, null, null],
@@ -68,13 +69,13 @@
           ]
         },
         "club": {
-          "byWay": [2, 0.7, 1.5, 0.7],
+          "byWay": [2, 0.7, 1.5, 0.5],
           "wayTrials": 1,
           "wayHeld": [
             [null, null, null, null, null, null, null, null, null, null, 1, 0],
             [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0],
             [null, null, null, null, null, null, null, null, 1, 0, 0, 0],
-            [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0]
+            [null, null, null, 1, 0, 0, 0, 0, 0, 0, 0, 0]
           ],
           "turns": [1, 1, 1, 1, 1, 0.25, 0, 0, 0, 0, 0],
           "turnHeld": [
@@ -84,7 +85,7 @@
             [null, null, 56, null, null],
             [null, null, 56, null, null],
             [56, null, null, null, null],
-            [null, null, null, null, null],
+            [55, null, null, null, null],
             [null, null, null, null, null],
             [null, null, null, null, null],
             [null, null, null, null, null],
@@ -92,12 +93,12 @@
           ]
         },
         "buckler": {
-          "byWay": [2, 0.7, 1.4, 0.7],
+          "byWay": [2, 0.7, 1.2, 0.7],
           "wayTrials": 1,
           "wayHeld": [
             [null, null, null, null, null, null, null, null, null, null, 1, 0],
             [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0],
-            [null, null, null, null, null, null, null, 1, 0, 0, 0, 0],
+            [null, null, null, null, null, null, 1, 0, 0, 0, 0, 0],
             [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0]
           ],
           "turns": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
@@ -107,7 +108,7 @@
             [null, null, 56, null, null],
             [null, null, 56, null, null],
             [null, null, 56, null, null],
-            [null, null, null, null, null],
+            [55, null, null, null, null],
             [null, null, null, null, null],
             [null, null, null, null, null],
             [null, null, null, null, null],
@@ -116,12 +117,12 @@
           ]
         },
         "sword": {
-          "byWay": [2, 0.7, 1.4, 0.7],
+          "byWay": [2, 0.7, 1.2, 0.7],
           "wayTrials": 1,
           "wayHeld": [
             [null, null, null, null, null, null, null, null, null, null, 1, 0],
             [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0],
-            [null, null, null, null, null, null, null, 1, 0, 0, 0, 0],
+            [null, null, null, null, null, null, 1, 0, 0, 0, 0, 0],
             [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0]
           ],
           "turns": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
@@ -131,7 +132,7 @@
             [null, null, 56, null, null],
             [null, null, 56, null, null],
             [null, null, 56, null, null],
-            [null, null, null, null, null],
+            [55, null, null, null, null],
             [null, null, null, null, null],
             [null, null, null, null, null],
             [null, null, null, null, null],
