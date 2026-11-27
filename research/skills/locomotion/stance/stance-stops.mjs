@@ -19,7 +19,7 @@ import { defaultLanes, simulationWorker } from "../../../../scripts/lanes.mjs";
 import { PHYSICS_HZ } from "../../../../src/core/world/world.ts";
 
 /** The stopping rates the speed rule is given, m/s². */
-const RATES = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1, 1.2, 1.5, 2, 3];
+const RATES = [0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1, 1.2, 1.5, 2, 3];
 /**
  * A walk's battery: the places' distances, m, and the paces it walks at before the order, m/s (0,
  * from a stand); a trial from a walk at a rate that cannot stop it by the place at all

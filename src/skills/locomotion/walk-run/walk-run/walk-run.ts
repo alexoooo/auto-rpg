@@ -78,8 +78,8 @@ export function validWalkRun(settings: WalkRunSettings): boolean {
  */
 const RUN_STOPPING = 0.2;
 
-/** How the walk and run stops where it runs and its stops are not measured: at `RUN_STOPPING` at every speed, taken to stop on its place. */
-const UNMEASURED_RUN: readonly GaitStop[] = deepFreeze([{ below: Infinity, lag: 0, rates: [{ stopping: RUN_STOPPING, past: 0 }] }]);
+/** A stop at `RUN_STOPPING`, taken to stop on its place: how the walk and run is braked where its stops are not measured. */
+const RUN_RATES: GaitStop["rates"] = deepFreeze([{ stopping: RUN_STOPPING, past: 0 }]);
 
 /**
  * Changing between the walk and the run as a foot lands, m/s: the run begins once the walk asked
@@ -175,8 +175,8 @@ const RUN_LEAVES = maskOf(["carriage", "gait", "feet", "height", "heading", "cen
  *
  * Its envelope is its run's (`walkRunEnvelope`, or `envelope`), and it stops as `stops` says,
  * as measured (`measuredStops`: its walk's stretch under the pace its walk is held under, `run`,
- * then its run's); where none is given, at `RUN_STOPPING` with no lag at every speed, its walk
- * braked as its run is. A run whose envelope holds it no faster forward than the stance's walk's
+ * then its run's); where none is given, its walk's and its run's, each at `RUN_STOPPING` with no
+ * lag. A run whose envelope holds it no faster forward than the stance's walk's
  * (`Body.envelope`) is not run, and it walks by that envelope, stopping as its walk does. Its
  * settings and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`) from the leg
  * they were set for, and quickened by its haste (`quickness`), as the run's envelope is; so is
@@ -265,9 +265,10 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     supports: legs.supports,
     get lower() { return legs.lower; },
     envelope: held,
-    // Braked unmeasured as its run is, its walk too: braked as its walk stops, under its switch, the Warrior closes faster and
-    // runs more, and falls as its run hands a body over at speed (the scorecard's knockouts within 60 s 0.43 to 0.50 against 0.67).
-    stops: may ? stops ?? UNMEASURED_RUN : legs.stops,
+    // Unmeasured, its two stretches, its walk's under its switch and its run's, are braked as its run is, with no lag: braked as its
+    // walk stops under its switch, or after its walk's lag alone, the Warrior's knockouts within 60 s are 0.40 to 0.50 against 0.68,
+    // its downs a bout 2.6 to 2.9 against 1.6, most as its walk takes a body backing off at speed from its back step.
+    stops: may ? stops ?? deepFreeze([{ below: settings.run, lag: 0, rates: RUN_RATES }, { below: Infinity, lag: 0, rates: RUN_RATES }]) : legs.stops,
     get heading() { return memory.running ? memory.heading : legs.heading; },
     get pace() { return memory.running ? memory.pace : legs.pace; },
     get reference() { return legs.reference; },
@@ -310,13 +311,14 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         else return legs.goal(view, { ...goal, walk: walkable(asked), face: way }, dt);
       }
       // Running: along the heading, turning toward the way asked, at what the run's envelope holds; braking to turn round past
-      // `RUN_ROUND`, and, asked to stand or a way it does not run, along the heading as it is.
+      // `RUN_ROUND`, and, asked to stand or a way it does not run, along the heading as it is. Asked slower than its walk takes over
+      // at (`RUN_SWITCH.below` under `run`), it brakes as asked to stand, its stride no slower than its slowest cycle's, and its walk takes the pace asked.
       const speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0;
       const holds = asked && held ? heldPace(held, asked[0], asked[1], REACH) : Infinity, share = speed > holds ? holds / speed : 1;
       const requested = asked ? inputHeading + atan2(asked[1], asked[0]) : memory.heading;
       const on = asked !== null && Math.abs(wrap(requested - face)) <= RUN_WAY && Math.abs(wrap(requested - memory.heading)) <= RUN_ROUND;
       const toward = on ? requested : memory.heading;
-      memory.pace = on ? speed * share : 0;
+      memory.pace = on && speed * share > settings.run - RUN_SWITCH.below ? speed * share : 0;
       if (on) turnToward(view, toward, dt);
       else memory.spin = 0;
       const h = memory.heading;

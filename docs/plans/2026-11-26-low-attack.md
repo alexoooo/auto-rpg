@@ -234,20 +234,25 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   quick start does (`walk-run/quick-start`, e44bacd2f, pickable, not picked) sets off by 0.18 s,
   but under it the scorecard's knockouts within 60 s are 0.542 against 0.671, downs a bout 2.38
   against 1.57, most falls at 1.7 to 2.5 m/s as the walk or the back step takes a body off a run.
-- **The run overshoots its place by a metre.** Sent 4, 8 and 15 m from a stand under the speed
-  rule at its own 0.2 m/s², the empty man's run ends 0.95 to 1.20 m past (the `arrive` trial,
-  `stance-trials.mjs`), against the 0.43 m read when that rate was set (492692906); at every rate
-  from 0.2 to 3 it goes 0.8 m past or more. Not traced.
-- **Each walk's stop is measured; the run's waits on the run.** The speed rule brakes each stretch
+- **The run stops on its place, slower.** At the empty man's envelope the run is about one
+  speed, 1.6 to 1.9 m/s: its slowest clip goes 2.75 m/s, and under it the run shortens its swing at
+  its cadence. Asked slower, it ran on, handing back to its walk only at a landing at 0.954 m/s or
+  slower, and sent 4 to 15 m at its 0.2 m/s² ended 0.95 to 1.20 m past (the `arrive` trial,
+  `stance-trials.mjs`). Asked under its walk's takeover, it now brakes as asked to stand and its
+  walk takes the pace: at 0.2 it ends 0.64 to 1.04 m past, at 0.15 0.04 to 0.32, at 0.1 within
+  3 cm. No bout of the scorecard asks it so.
+- **Each walk's stop is measured; the walk and run's waits.** The speed rule brakes each stretch
   of a gait's speeds at the fastest rate it was measured to stop within the place's nearness at
-  (`assets/skills/locomotion/stops.json`), and a walk to a window stands within half the window
-  (`windowNear`). Measured on the walk and run too, its walk stretch under its switch (0.3 to
-  0.5 m/s² after 0.38 s, against its run's 0.2 with none) costs the scorecard's knockouts within
-  60 s 0.43 to 0.50 against 0.67, downs a bout 2.6 to 2.8 against 1.6: so its entries are kept out
-  of the asset until its run stops and hands over (`stance-stops.mjs --gaits walk-run,quick-run`
-  measures them again).
-- **Next**: the run's stop and its handover at speed, then the walk and run's stops into the
-  asset; the low front kick searched again at the empty-handed
+  (`assets/skills/locomotion/stops.json`, rates from 0.1), and a walk to a spot stands within the
+  spot's own nearness, a window's half the window (`windowNear`). The walk and run's walk stretch
+  braked after its walk's lag (0.38 s), measured or not, costs the scorecard's knockouts within
+  60 s 0.40 to 0.50 against 0.68, downs a bout 2.6 to 2.9 against 1.6: unmeasured, it is braked
+  with no lag, and its entries are kept out of the asset (`stance-stops.mjs --gaits
+  walk-run,quick-run` measures them). The falls that lag brings are a walk taking a body over from
+  the back step moving: one traced, the quick start takes it backing off at 0.94 m/s, and it goes
+  on to 2.78 m/s and falls.
+- **Next**: a walk taking a body over moving (the quick start's step from a stand, planned so
+  with no stride of its own however the body goes), then the walk and run's stops into the asset; the low front kick searched again at the empty-handed
   man on `sparring-laid`'s twin (`skill-search.mjs stomp/front man --loadout empty,empty --target
   man`, 80 starts each), and the price below.
 
