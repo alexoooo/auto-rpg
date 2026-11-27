@@ -4,7 +4,7 @@
  * body's capture point; and which of them a stance takes, and when (`ownStep`), at the pace its
  * walk has reached (`paceToward`).
  */
-import type { SwingGoal } from "./goal.ts";
+import type { StanceGoal, SwingGoal } from "./goal.ts";
 import type { Vector3 } from "../../core/math/vector.ts";
 import { gravityOf, type Stance } from "./state.ts";
 import type { GaitTuning, RecoveryTuning } from "./stance-tuning.ts";
@@ -243,6 +243,30 @@ function outside(s: Stance, velocity: Vector3, of: readonly FootState[]): number
 }
 
 /**
+ * **Whether a step planned from `ask` falls to start** (`GaitTuning.fallsToStart`): its gait's
+ * does, from a stand: no step before it (`last`) or under way, the body's capture point over its
+ * feet, and its bearing sole (the foot it does not start with, `startingSide`) reaching back to
+ * the centre or behind it the way it walks, so that falling about it the body falls the way it
+ * walks. A body taken over moving, with no stride of its own, is not standing, and is caught as it
+ * goes; one stood on a foot ahead of it, as a step back leaves it, would fall back off it.
+ */
+function fallsToStart({ feet, centre, velocity, g, walk, heading, tuning, last, under }: WalkAsk): boolean {
+  if (!tuning.fallsToStart || last || under) return false;
+  const w = pendulumRate(g, overSoles(feet, centre)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
+  const [hx, hz] = withinSupport(heldBy(feet), xi, zi, 0);
+  if (hx !== xi || hz !== zi) return false;
+  const { front, heel } = feet.find((f) => f.side !== startingSide(feet, walk, heading, tuning))!.ends;
+  const along = (point: Vector3): number => (point.x - centre.x) * walk[0] + (point.z - centre.z) * walk[1];
+  return Math.min(along(front.middle), along(heel.middle)) <= 0;
+}
+
+/** How far the stance's body's capture point, at `velocity`, is from `handover`, m. */
+function fromHandover(s: Stance, velocity: Vector3, handover: readonly [number, number]): number {
+  const centre = s.state.reading.centre, w = pendulumRate(gravityOf(s), overSoles(s.feet, centre));
+  return hypot(centre.x + velocity.x / w - handover[0], centre.z + velocity.z / w - handover[1]);
+}
+
+/**
  * Whether a recovery steps for the stance's body held by `holding` of its feet (`holding`): a foot
  * holds nothing, or its capture point, at its carried velocity (`carriedVelocity`), is more than
  * `margin` outside what they hold (`outside`).
@@ -478,7 +502,8 @@ function startingSide(feet: readonly FootState[], walk: readonly [number, number
  * time left. The step is planned with the hips `hip` over the soles, the walk's crouch; the foot
  * lands leaning from `held`, the height the plan holds them at (`landingLeanOf`).
  */
-function walkStep({ feet, centre, velocity, g, walk, heading, tuning, hip, held, bend, last, under }: WalkAsk): Planned {
+function walkStep(ask: WalkAsk): Planned {
+  const { feet, centre, velocity, g, walk, heading, tuning, hip, held, bend, last, under } = ask;
   const side: Side = under ? named(feet, under.foot).side : last ? otherSide(last) : startingSide(feet, walk, heading, tuning);
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The pelvis's right across the ground at the heading the step lands facing: +x at heading 0.
@@ -499,7 +524,9 @@ function walkStep({ feet, centre, velocity, g, walk, heading, tuning, hip, held,
   const [px, pz] = under && under.remaining < tuning.horizon ? [under.pivot.x, under.pivot.z]
     : pivotWithin([bearingOf(bearer)], xi, zi, (sx + nx + shx - xi * run) / (1 - run), (sz + nz + shz - zi * run) / (1 - run), 0);
   const ex = px + (xi - px) * run - shx, ez = pz + (zi - pz) * run - shz;
-  // Starting from a stand, the weight is shifted first and the foot lands where a steady walk puts it.
+  // Starting from a stand, the weight is shifted first and the foot lands where a steady walk puts it;
+  // falling to start (`GaitTuning.fallsToStart`), the shift brings the capture point to where, run
+  // about the bearing sole over the swing, it reaches the capture as the foot lands (`SwingGoal.handover`).
   const steady = last || under;
   let tx = steady ? ex - nx : sx, tz = steady ? ez - nz : sz;
   // The body's centre as the foot lands: about the pivot from the body as it is; starting from a stand, midway to the landing, as a steady walk has it.
@@ -510,7 +537,9 @@ function walkStep({ feet, centre, velocity, g, walk, heading, tuning, hip, held,
   const [wx, wz, within] = reachableStep({ foot, dx: tx - b.x, dz: tz - b.z, cx: cx0, cz: cz0, rx, rz, sign, tuning, hip, bend, reserve: 1, bends: true });
   [tx, tz] = clearOfBearer(bearer, foot, b.x + wx, b.z + wz, tuning.clearance);
   const [lx, lz] = at(tx - b.x, tz - b.z);
-  return { step: { foot: foot.name, to: [tx, tz], seconds: T, lift: tuning.lift, shift: !steady, capture: steady ? [ex, ez] : [tx + nx, tz + nz],
+  const capture: [number, number] = steady ? [ex, ez] : [tx + nx, tz + nz];
+  return { step: { foot: foot.name, to: [tx, tz], seconds: T, lift: tuning.lift, shift: !steady, capture,
+    ...(steady || !fallsToStart(ask) ? {} : { handover: [b.x + (capture[0] - b.x) / grow, b.z + (capture[1] - b.z) / grow] as [number, number] }),
     lean: landingLeanOf(foot, tx - b.x, tz - b.z, lx, lz, rx, rz, sign, held) }, within };
 }
 
@@ -652,12 +681,14 @@ export function paceToward(s: Stance, walk: readonly [number, number] | null | u
  * whether it took one. A shift carries the capture point toward the bearing sole, past what both
  * soles hold if need be; one that has left them and goes on away from that sole would not end,
  * and the body falls with both feet down. A walk of the stance's own goes on from the catch, the
- * other foot next.
+ * other foot next. A double support's shift carries it out of both soles by its plan, not by a
+ * push; a step from a stand's shift carries it toward its handover (`SwingGoal.handover`), and is
+ * pushed when it goes on away from that.
  */
 export function catchStep(s: Stance): boolean {
   const { feet, state } = s, { reading, step } = state, { recovery } = s.tuning, swing = step.swing;
   if (!recovery || reading.phase !== "shift" || !swing || swing.transfer) return false;
-  const bearer = otherFoot(feet, swing.foot), off = outside(s, reading.velocity, [bearer]);
+  const bearer = otherFoot(feet, swing.foot), off = swing.handover ? fromHandover(s, reading.velocity, swing.handover) : outside(s, reading.velocity, [bearer]);
   const away = off > step.off;
   step.off = off;
   const held = assistReach(s), hold = holding(s), carried = carriedVelocity(s);
@@ -682,6 +713,12 @@ export function aimRecovery(s: Stance): void {
   reading.own = step.swing = { ...reading.own, to: aimed.to };
 }
 
+/** `pace` gone toward `walk` by at most `by`, m/s. */
+function leadPace(pace: readonly [number, number], walk: readonly [number, number], by: number): [number, number] {
+  const dx = walk[0] - pace[0], dz = walk[1] - pace[1], d = hypot(dx, dz), k = d > by ? by / d : 1;
+  return [pace[0] + dx * k, pace[1] + dz * k];
+}
+
 /**
  * The step a stance on both feet takes of itself (`reading.own`), facing `heading`, its hips `hip`
  * over the soles by the goal's height, less the walk's crouch (`paceToward`). Standing, it steps to
@@ -694,7 +731,7 @@ export function aimRecovery(s: Stance): void {
  * unless the goal asks for one of its own. `halted` (`StanceGoal.halt`), a walk's step not yet
  * lifted is not taken, and no step settles the walk's end: it steps only to catch the body.
  */
-export function ownStep(s: Stance, { heading, hip, halted }: { readonly heading: number; readonly hip: number; readonly halted: boolean }): void {
+export function ownStep(s: Stance, { heading, hip, halted, walk }: { readonly heading: number; readonly hip: number; readonly halted: boolean; readonly walk: StanceGoal["walk"] }): void {
   const { feet, rest, state } = s, { reading, pace, step, gait } = state, { recovery, bend } = s.tuning, hips = hip - state.crouch;
   if (halted && reading.own && !step.recovering && reading.phase === "shift") {
     reading.own = null;
@@ -705,16 +742,20 @@ export function ownStep(s: Stance, { heading, hip, halted }: { readonly heading:
   // What every walk's step here is planned from but its walk, its held height and its last and under way.
   const asked = { feet, centre: reading.centre, velocity: reading.velocity, g: gravityOf(s), heading, tuning: gait, hip: hips, bend };
   if (!reading.own && reading.phase === "stand") {
-    const walk = pace[0] !== 0 || pace[1] !== 0 ? pace : null, held = assistReach(s), hold = holding(s), carried = carriedVelocity(s);
-    if (walk || (state.stride && recovery && outside(s, carried, hold) > recovery.margin + held)) {
+    const going = pace[0] !== 0 || pace[1] !== 0, held = assistReach(s), hold = holding(s), carried = carriedVelocity(s);
+    if (going || (state.stride && recovery && outside(s, carried, hold) > recovery.margin + held)) {
       // Walking, or stopping a walk still under way: its steps keep their alternation, each at the
       // pace the leg can take it (`reachablePace`), which the walk's pace goes on from.
-      const reach = reachablePace({ ...asked, last: state.stride }, pace);
-      if (reach) {
+      // From a stand, falling to start (`GaitTuning.fallsToStart`), the step is planned at the pace the walk will have as it lands, the gait's
+      // acceleration over its swing: planned at its first instant's, it lands where it stood. The
+      // walk's pace still goes toward the one asked at that acceleration, the step planned ahead of it.
+      const fromStand = walk !== null && walk !== undefined && fallsToStart({ ...asked, walk, held: hipHeld, last: state.stride, under: null });
+      const reach = reachablePace({ ...asked, last: state.stride }, fromStand ? leadPace(pace, walk, gait.accel * gait.seconds) : pace);
+      if (reach && !fromStand) {
         pace[0] = reach[0];
         pace[1] = reach[1];
       }
-      state.striding = [pace[0], pace[1]];
+      state.striding = reach ? [reach[0], reach[1]] : [pace[0], pace[1]];
       const caught = reach || !recovery || !unheld(s, hold, recovery.margin + held) ? null : recoveryStep(s, { recovery, holding: hold, under: null });
       if (caught) {
         // No pace between the walk's and the body's own has a step the legs reach: no walk's step

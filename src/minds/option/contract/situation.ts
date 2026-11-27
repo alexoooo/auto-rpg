@@ -5,7 +5,7 @@ import type { Rulebook } from "../../../combat/rulebook.ts";
 import type { BodySense } from "../../../core/bodies/senses.ts";
 import type { BearingEnd, BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Cover } from "../../../skills/framework/intent.ts";
-import type { Spot } from "../../../skills/framework/menu.ts";
+import type { Footing } from "../../../skills/framework/menu.ts";
 import type { Profile, StanceNumbers, Stances } from "../../../skills/framework/profile/profile.ts";
 import type { Read, Source } from "../../../skills/framework/profile/source.ts";
 import type { LegsUnmet } from "../../../skills/framework/skill.ts";
@@ -74,7 +74,7 @@ export interface Percepts {
   /** The seconds its regain has held it in its try. */
   readonly regained: number;
   /** Where on the ground it stands and the way it faces: its stance's centre and its heading. */
-  readonly where: Spot;
+  readonly where: Footing;
   /** What its reader keeps of the stretches it has spent within each foe's reach (`ReachMemory`). */
   readonly reached: ReachMemory;
   /** Its orders; null with none. */

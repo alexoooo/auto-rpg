@@ -13,6 +13,7 @@ import { runCycleSettings, validRunCycle, type RunCycleSettings } from "./walk-r
 import { WALK_RUN, WALK_RUN_CYCLE, validWalkRun, walkRun, type WalkRunSettings } from "./walk-run/walk-run.ts";
 import { learnedRun, learnedRunFaults, type LearnedRunSettings } from "./walk-run/learned-run.ts";
 import { validStanceEnvelope, type StanceEnvelope } from "../../../control/stance/stance-envelope.ts";
+import { measuredStops } from "../shared/stops.ts";
 
 /** **The walk and run's settings for a body**: its physical gait and optional learned corrections. */
 export interface WalkRunRecord {
@@ -75,28 +76,41 @@ function walkRunRefusal(spec: BodySpec): string | null {
   return null;
 }
 
-/** The walk and run's variations: the walk and run. */
+/**
+ * The walk and run of the variation `variation` as `config` and its body's record set it, `steps`
+ * laid over the stride its walk steps by, stopping as that variation was measured to (`measuredStops`).
+ */
+function made(body: Body, config: WalkRunConfig, variation: string, steps: Partial<GaitTuning>) {
+  const { walk, run, braking, stride, learned, envelope, steered } = tunedOver(dataOf("walk-run")[body.built.spec.model]?.settings ?? DEFAULTS, config);
+  const motion = walkRun(body, walk, run, { braking, stride, steps, envelope, entry: learned?.entry, trim: learned?.trim,
+    stops: measuredStops(body.built.spec, `walk-run/${variation}`) });
+  // Steered with no learned corrections, there is no actor to steer: the gait runs as it is, and a trainer finds no learner in it.
+  return learned ? learnedRun(body, motion, learned, run.settle, { steered }) : motion;
+}
+
+/**
+ * The walk and run's variations: the walk and run; and its quick start, the walk beneath it
+ * setting off by steps that fall to start (`GaitTuning.fallsToStart`), as the stance walk's
+ * quick start does.
+ */
 const VARIATIONS = {
-  "walk-run": (body: Body, config: WalkRunConfig) => {
-    const { walk, run, braking, stride, learned, envelope, steered } = tunedOver(dataOf("walk-run")[body.built.spec.model]?.settings ?? DEFAULTS, config);
-    const motion = walkRun(body, walk, run, { braking, stride, envelope, entry: learned?.entry, trim: learned?.trim });
-    // Steered with no learned corrections, there is no actor to steer: the gait runs as it is, and a trainer finds no learner in it.
-    return learned ? learnedRun(body, motion, learned, run.settle, { steered }) : motion;
-  },
+  "walk-run": (body: Body, config: WalkRunConfig) => made(body, config, "walk-run", {}),
+  "quick-start": (body: Body, config: WalkRunConfig) => made(body, config, "quick-start", { fallsToStart: true }),
 };
 
 /**
  * **The walk and run** (`walkRun`): its settings its body's record (`assets/skills/locomotion/walk-run/walk-run.json`,
  * `dataOf("walk-run")`), else the defaults (`WALK_RUN`, `WALK_RUN_CYCLE`) scaled to its leg, a
  * research `tuning` over either, with the record's learned corrections (`learnedRun`) where it
- * has them, their actor steered by a trainer where the tuning says `steered`. It holds its run's envelope (`walkRunEnvelope`, or the record's) and states it stops at
- * `RUN_STOPPING` (`walkRun`).
+ * has them, their actor steered by a trainer where the tuning says `steered`. It holds its run's envelope (`walkRunEnvelope`, or the record's) and stops
+ * as its variation was measured to (`measuredStops`, `walkRun`).
  */
 export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
   // Two footprints, with the marks of their speed behind them.
   icon: "M12 3.3a2.8 4.2 0 0 1 0 8.4a2.8 4.2 0 0 1 0-8.4ZM12 12.6a1.9 1.9 0 0 1 0 3.8a1.9 1.9 0 0 1 0-3.8ZM19 7.8a2.8 4.2 0 0 1 0 8.4a2.8 4.2 0 0 1 0-8.4ZM19 17.1a1.9 1.9 0 0 1 0 3.8a1.9 1.9 0 0 1 0-3.8ZM2 6h5v1.5H2ZM1 11.3h5v1.5H1ZM2 16.6h5v1.5H2Z",
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk and run", travels: true, fields: [], slots: [], defaults: { kind: "walk-run" },
-  gaits: [{ name: "run", label: "Run", legs: { kind: "walk-run" } }],
+  // The quick start first: of two gaits priced alike, the first listed is walked.
+  gaits: [{ name: "quick-run", label: "Quick-start run", legs: { kind: "walk-run", variation: "quick-start" } }, { name: "run", label: "Run", legs: { kind: "walk-run" } }],
   keys: { kind: true, variation: true, tuning: true },
   tuning: ["walk", "run", "braking", "stride", "learned", "envelope", "steered"],
   ...varied({ skill: "walk-run", label: "walk and run", variations: VARIATIONS, of: (body, config) => [body.built.spec, config], fits: [walkRunRefusal] }),

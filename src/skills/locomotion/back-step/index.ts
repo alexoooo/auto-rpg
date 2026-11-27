@@ -163,8 +163,7 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
     supports: walk.supports,
     get lower() { return walk.lower; },
     get envelope() { return walk.envelope; },
-    get stopping() { return walk.stopping; },
-    get lag() { return walk.lag; },
+    get stops() { return walk.stops; },
     // While it turns in a sway, the heading it has turned to: what a strike's window reads.
     get heading() { return state.facing ?? walk.heading; },
     get pace() { return walk.pace; },

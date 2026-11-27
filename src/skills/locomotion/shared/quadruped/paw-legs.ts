@@ -61,8 +61,10 @@ export function pawLegs(body: Body, gaits: Readonly<Partial<Record<PawGaitName, 
   const root = body.muscles.dynamics.root.segment, names = GAIT_NAMES.filter(name => gaits[name] !== undefined), creep = gaits.crawl;
   if (!names.length) throw new Error("paw legs need an enabled gait");
   const envelopes = Object.fromEntries(names.map(name => [name, envelopeOf(name, gaits[name]!.reach)]));
+  // A paw gait's stop is set, not measured: braked at its travel's rate, it is taken to stop on its place.
+  const stops = Object.fromEntries(names.map(name => [name, deepFreeze([{ below: Infinity, lag: 0, rates: [{ stopping: gaits[name]!.travel.stopping, past: 0 }] }])]));
   const limits: Readonly<Record<string, GaitLimits>> = Object.freeze(Object.fromEntries(names.map(name =>
-    [name, Object.freeze({ envelope: envelopes[name]!, stopping: gaits[name]!.travel.stopping, lag: 0 })])));
+    [name, Object.freeze({ envelope: envelopes[name]!, stops: stops[name]! })])));
   const state = {
     kind: names[0]!, reacquire: false, homeAt: 0, stable: 0, pace: 0,
     /** The support's count (`SupportGoal.sequence`): a gait changed or the footing sought afresh. */
@@ -141,8 +143,7 @@ export function pawLegs(body: Body, gaits: Readonly<Partial<Record<PawGaitName, 
     supports: Object.freeze(pawsOf(built.spec).map(paw => paw.name)),
     lower: 0,
     get heading() { return view.stance.facing; },
-    get stopping() { return gaits[state.kind]!.travel.stopping; },
-    lag: 0,
+    get stops() { return stops[state.kind]!; },
     get pace() { return state.pace; },
     get placed() { return !state.reacquire && gaits[state.kind]!.state.phase === "settle"; },
     get gait() { return state.kind; },

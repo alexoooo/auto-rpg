@@ -1,7 +1,7 @@
 import type { Ground, Leaves, Outcome, TakenFrom } from "../contract/terms.ts";
 import type { Position } from "../../../control/ground-reading.ts";
 import { FALLEN } from "../predictions/by-hand.ts";
-import type { Spot } from "../../../skills/framework/menu.ts";
+import type { Footing } from "../../../skills/framework/menu.ts";
 import type { Exit } from "../../../skills/framework/profile/profile.ts";
 import type { Situation } from "../contract/situation.ts";
 import { atan2, cos, sin } from "../../../core/math/real.ts";
@@ -48,7 +48,7 @@ export const unchanged = (leaves: Leaves): boolean => leaves.where === undefined
  * focus through where it stands at `at` (the way it faces, back, where it stands on the focus's
  * centre), facing the focus.
  */
-export function along(at: Situation, range: number): Spot {
+export function along(at: Situation, range: number): Footing {
   const focus = at.focus!, where = at.where, apart = at.apart, to = Math.max(0, range + apart - at.range);
   const x = apart > 0 ? (where.x - focus.centre.x) / apart : -sin(where.face), z = apart > 0 ? (where.z - focus.centre.z) / apart : -cos(where.face);
   return { x: focus.centre.x + x * to, z: focus.centre.z + z * to, face: atan2(-x, -z) };

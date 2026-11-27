@@ -145,7 +145,7 @@ test("a worker startup frame failure reports its error and disposes the complete
  */
 test("mind threads send a gait value replaced since it was last said", async () => {
   // A report's owners replace a value that changes (`gaitLimits`, `src/skills/framework/arbiter.ts`); the thread sends each field whose value is new.
-  let gaits = [{ envelope: null, stopping: 1, lag: 0 }];
+  let gaits = [{ envelope: null, stops: [{ below: Infinity, lag: 0, rates: [{ stopping: 1, past: 0 }] }] }];
   globalThis.__lifetimeSeatHost = { handle() {}, decide() {}, says: () => ({ has: "fixture", report: { prospects: null, heading: 0, gaits, navigation: null, kit: null, actions: [], ended: [] } }) };
   const apart = new URL("../src/minds/seat/apart.ts", import.meta.url).href;
   const hook = registerHooks({ resolve(specifier, context, next) {
@@ -160,11 +160,11 @@ test("mind threads send a gait value replaced since it was last said", async () 
     const sent = [], thread = mindThread(length => new Float64Array(length), { say(reply) { sent.push(reply); }, answered() {} });
     const step = (seq) => { thread.handle({ seq, asks: [{ seat: 0, ask: { kind: "step" } }] }); return sent.at(-1).said[0].report; };
     const made = thread.handle({ seq: 1, specs: [[0, modelSpec("man")]], asks: [{ seat: 0, ask: { kind: "make", recipe: { statics: { spec: 0 } } }, inbound: new Float64Array(), outbound: new Float64Array() }] });
-    assert.deepEqual(made.said[0].report.gaits, [{ envelope: null, stopping: 1, lag: 0 }]);
+    assert.deepEqual(made.said[0].report.gaits, [{ envelope: null, stops: [{ below: Infinity, lag: 0, rates: [{ stopping: 1, past: 0 }] }] }]);
     assert.equal("gaits" in step(2), false, "a gait value said already does not cross again");
-    gaits = [{ envelope: null, stopping: 9, lag: 0 }];
-    assert.deepEqual(step(3).gaits, [{ envelope: null, stopping: 9, lag: 0 }]);
-    assert.deepEqual(made.said[0].report.gaits, [{ envelope: null, stopping: 1, lag: 0 }]);
+    gaits = [{ envelope: null, stops: [{ below: Infinity, lag: 0, rates: [{ stopping: 9, past: 0 }] }] }];
+    assert.deepEqual(step(3).gaits, [{ envelope: null, stops: [{ below: Infinity, lag: 0, rates: [{ stopping: 9, past: 0 }] }] }]);
+    assert.deepEqual(made.said[0].report.gaits, [{ envelope: null, stops: [{ below: Infinity, lag: 0, rates: [{ stopping: 1, past: 0 }] }] }]);
   } finally { hook.deregister(); delete globalThis.__lifetimeSeatHost; }
 });
 

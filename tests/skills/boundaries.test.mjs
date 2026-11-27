@@ -221,10 +221,10 @@ test("replacement paw gaits normalize both travel axes and supply their own brak
       { parts: { of: (_role, config) => ({ fits: () => null, make: () => gaits[config.kind] }) } });
     legs.goal(body.view, { walk: [1, .5], face: 0, gait: "trot" }, body.commanded.dt);
     assert.deepEqual(seen.trot, { move: { x: .25, z: .5 }, face: { x: 0, z: 1 }, height: null });
-    assert.equal(legs.stopping, .7);
+    assert.equal(legs.stops[0].rates[0].stopping, .7);
     legs.goal(body.view, { walk: [1, .5], face: 0, gait: "crawl" }, body.commanded.dt);
     assert.deepEqual(seen.crawl, { move: { x: .125, z: .25 }, face: { x: 0, z: 1 }, height: null });
-    assert.equal(legs.stopping, 1.1);
+    assert.equal(legs.stops[0].rates[0].stopping, 1.1);
   } finally { body.dispose(); stand.dispose(); }
 });
 import { standingFooting } from "../../src/control/support.ts";

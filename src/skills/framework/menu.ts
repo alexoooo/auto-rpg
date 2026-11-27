@@ -101,20 +101,24 @@ export function menuOf(kit: readonly KitEntry[], view: BodyView, around: ActionA
   return entries;
 }
 
-/**
- * **A spot**: where a walk ends on the ground (`x`, `z`) and the way the body faces there (`face`,
- * rad); where the walk goes round a body, the way there (`route`, its last point the spot) and that
- * body (`by`, `MovementRequest`'s). The body stands there within `near` m of it (`ARRIVED` unless
- * given), facing within `facing` rad of its way where that is given. Where the spot moves with a
- * body, its `velocity` on the ground, m/s.
- */
-export interface Spot {
+/** **Where a body stands**: its point on the ground (`x`, `z`) and the way it faces there (`face`, rad). */
+export interface Footing {
   readonly x: number;
   readonly z: number;
   readonly face: number;
+}
+
+/**
+ * **A spot**: where a walk ends (`Footing`); where the walk goes round a body, the way there
+ * (`route`, its last point the spot) and that body (`by`, `MovementRequest`'s). The body stands
+ * there within `near` m of it, set by what the spot is for (a window's, `windowNear`; a point's,
+ * `ARRIVED`), facing within `facing` rad of its way where that is given. Where the spot moves with
+ * a body, its `velocity` on the ground, m/s.
+ */
+export interface Spot extends Footing {
   readonly route?: readonly GroundPoint[];
   readonly by?: string;
-  readonly near?: number;
+  readonly near: number;
   readonly facing?: number;
   readonly velocity?: GroundPoint;
 }

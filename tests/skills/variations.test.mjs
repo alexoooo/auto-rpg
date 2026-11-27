@@ -110,7 +110,7 @@ test("selected navigation choices keep separate routes and restore the active pl
   assert.equal(options.length, configs.length * enabled.length, "each enabled planner is paired with each enabled gait");
   const sight = { view: { time: 0, stance: { centre: { x: 0, y: 1, z: 0 }, velocity: { x: 0, y: 0, z: 0 } },
     senses: { side: "party", others: [], solids: [] } }, report: { legs: { heading: 0 } } };
-  const gait = { envelope: null, stopping: 1, lag: 0 }, request = x => ({ kind: "place", points: [{ x, z: 6 }], near: .1 });
+  const gait = { envelope: null, stops: [{ below: Infinity, lag: 0, rates: [{ stopping: 1, past: 0 }] }] }, request = x => ({ kind: "place", points: [{ x, z: 6 }], near: .1 });
   let saved, expected;
   for (const [i, config] of configs.entries()) {
     navigation.select(skillName(config));

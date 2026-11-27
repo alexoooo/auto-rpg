@@ -1,5 +1,5 @@
 import type { Position } from "../../../control/ground-reading.ts";
-import type { Spot } from "../../../skills/framework/menu.ts";
+import type { Footing } from "../../../skills/framework/menu.ts";
 import type { StanceNumbers } from "../../../skills/framework/profile/profile.ts";
 import type { FoePhase } from "../../../skills/perception/threat.ts";
 import type { Source } from "../../../skills/framework/profile/source.ts";
@@ -18,7 +18,7 @@ export interface Ground { readonly x: number; readonly z: number }
  * where its Option knows. What it does not name is as it was, the foe included (`placed`).
  */
 export interface Leaves {
-  readonly where?: Spot;
+  readonly where?: Footing;
   readonly around?: number;
   readonly posture?: Position;
   readonly grace?: number;

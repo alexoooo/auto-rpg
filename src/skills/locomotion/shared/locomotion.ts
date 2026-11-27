@@ -1,5 +1,5 @@
 import type { StanceGoal, SwingGoal } from "../../../control/stance/goal.ts";
-import type { LegsDrive, Locomotion } from "../../framework/locomotion-part.ts";
+import type { GaitStop, LegsDrive, Locomotion } from "../../framework/locomotion-part.ts";
 import { supportHeight } from "../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
 
@@ -92,15 +92,22 @@ const stepsOf = (carriage: Carriage, width: number, base = STANCE_GAIT): GaitTun
  */
 const RISING_SECONDS = 1.3;
 
-/** How fast the stance's walk is asked to slow to a stop, m/sÃ‚Â² (`Locomotion.stopping`): a controller setting. */
+/**
+ * How fast the stance's walk is asked to slow to a stop, m/s²: a controller setting. The pace
+ * under way comes down at it (`LocomotionState.going`), and a walk whose stops are not measured
+ * is braked at it (`STANCE_STOPS`).
+ */
 export const STANCE_STOPPING = 0.5;
 
 /**
- * How long the stance's walk goes on at its speed once asked to slow, s (`Locomotion.lag`): the step
+ * How long the stance's walk goes on at its speed once asked to slow, s (`GaitStop.lag`): the step
  * under way lands where it was planned and the next is planned at the pace the walk has come down
  * to, so it goes on through a swing and a double support (`STANCE_GAIT`'s).
  */
-const STANCE_LAG = STANCE_GAIT.seconds + STANCE_GAIT.transfer;
+export const STANCE_LAG = STANCE_GAIT.seconds + STANCE_GAIT.transfer;
+
+/** How a stance walk stops where its stops are not measured: after its lag, at `STANCE_STOPPING`, taken to stop on its place. */
+export const STANCE_STOPS: readonly GaitStop[] = deepFreeze([{ below: Infinity, lag: STANCE_LAG, rates: [{ stopping: STANCE_STOPPING, past: 0 }] }]);
 
 /**
  * **A body's legs, under the stance**: both feet bearing, the centre of mass held at a height
@@ -176,6 +183,8 @@ interface WalkOptions {
    * midpoint, across and ahead, m, and a sole's length, m; what the square carriage settles to.
    */
   readonly builtFooting: { readonly offsets: Footing; readonly length: number };
+  /** How it stops (`Locomotion.stops`): its gait's as measured; `STANCE_STOPS` where none is given. */
+  readonly stops?: readonly GaitStop[];
 }
 
 
@@ -281,7 +290,7 @@ export function validTurnStartup(startup?: TurnStartup): boolean {
     && Number.isFinite(startup.limit) && startup.limit > 0);
 }
 
-export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (() => StanceEnvelope | null), { gait, turnLimit, turnStartup, carriage = CARRIAGES.square, builtFooting, segments }: WalkOptions): StanceWalk {
+export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (() => StanceEnvelope | null), { gait, turnLimit, turnStartup, carriage = CARRIAGES.square, builtFooting, segments, stops = STANCE_STOPS }: WalkOptions): StanceWalk {
   const envelopeNow = (): StanceEnvelope | null => typeof limits === "function" ? limits() : limits;
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
@@ -351,7 +360,7 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
     return { ...base, swing: placing.step };
   };
   return {
-    state, get envelope() { return envelopeNow(); }, supports: names, stopping: STANCE_STOPPING, lag: STANCE_LAG,
+    state, get envelope() { return envelopeNow(); }, supports: names, stops,
     get lower() { return state.carriage.lower; },
     get heading() { return state.heading; },
     get pace() { return state.pace; },

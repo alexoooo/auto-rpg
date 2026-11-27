@@ -21,8 +21,7 @@ export interface Legs {
  * **A kind of locomotion**: a part of role `locomotion` that owns its config's type, keys,
  * defaults, faults and fit, and makes a body's legs over its gaits (`GaitPart`). The legs it makes
  * state their limits to the speed rule (`travelSpeed`, `src/skills/locomotion/shared/travel.ts`): what they hold
- * (`Locomotion.envelope`), how long they go on once asked to slow (`Locomotion.lag`) and how fast
- * they stop (`Locomotion.stopping`).
+ * (`Locomotion.envelope`) and how they stop (`Locomotion.stops`).
  */
 export interface LocomotionPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "locomotion";
@@ -94,15 +93,11 @@ export interface Locomotion extends Skill {
   /** The heading the legs face, rad: the frame a walk is asked in. */
   readonly heading: number;
   /**
-   * How fast it slows to a stop, m/sÃ‚Â²: the deceleration the movement pipeline brakes by before a
-   * place and a corner (`travelSpeed`, `src/skills/locomotion/shared/travel.ts`); 0 for legs that do not walk, which the speed rule takes nowhere.
+   * How it stops, by the stretches of its speeds, slowest first (`GaitStop`): what the movement
+   * pipeline brakes by before a place and a corner (`travelSpeed`, `src/skills/locomotion/shared/travel.ts`);
+   * none for legs that do not walk, which the speed rule takes nowhere.
    */
-  readonly stopping: number;
-  /**
-   * How long it goes on at its speed once asked to slow, s, before it slows at `stopping`: what the
-   * speed rule counts before a place and a corner (`travelSpeed`).
-   */
-  readonly lag: number;
+  readonly stops: readonly GaitStop[];
   /** Its memory (`src/core/state.ts`). */
   readonly state: object;
   /** The walk's speed asked, m/s (0 standing); absent, legs that do not say. */
@@ -143,5 +138,19 @@ export type LegsDrive =
   | { readonly kind: "support"; readonly goal: SupportGoal | null }
   | { readonly kind: "drive"; readonly posture: Pose; readonly pushes: readonly MusclePush[]; readonly held?: number; readonly assist?: BodyControl["assist"]; readonly configurations?: BodyCommand["configurations"] };
 
-/** What the speed rule reads of the gait the body goes by: what it holds, how long it goes on once asked to slow, and how fast it stops. */
-export type GaitLimits = Pick<Locomotion, "envelope" | "stopping" | "lag">;
+/**
+ * **How a gait stops from the speeds of one stretch** (`Locomotion.stops`): up to `below` m/s
+ * (Infinity, the last stretch), it goes on at its speed for `lag` s once asked to slow, then slows
+ * at a rate the speed rule brakes it by; `rates` are the rates it may be braked at, m/s², slowest
+ * first, each with the farthest past a place it went braked at it (`past`, m; Infinity where it
+ * fell), as measured (`research/skills/locomotion/stance/stance-stops.mjs`) or as set for legs
+ * not measured. A request's tolerance picks the rate (`stoppingWithin`).
+ */
+export interface GaitStop {
+  readonly below: number;
+  readonly lag: number;
+  readonly rates: readonly { readonly stopping: number; readonly past: number }[];
+}
+
+/** What the speed rule reads of the gait the body goes by: what it holds, and how it stops (`GaitStop`). */
+export type GaitLimits = Pick<Locomotion, "envelope" | "stops">;

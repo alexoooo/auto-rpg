@@ -5,6 +5,7 @@ import { heldPace, steeredPace } from "../../../control/stance/stance-envelope.t
 import { legSeconds } from "../../../skills/locomotion/shared/travel.ts";
 import type { GroundPoint } from "../../../skills/framework/movement.ts";
 import { keepOut } from "../../../skills/locomotion/shared/navigation/clear-step.ts";
+import { rangeNear } from "../../../skills/locomotion/shared/navigation/navigation.ts";
 import type { Walk, Walker, WalkStart } from "../contract/context.ts";
 import type { Situation } from "../contract/situation.ts";
 import { orderedFacing } from "../../ordered.ts";
@@ -24,7 +25,7 @@ interface WalkFrom { readonly from: GroundPoint; readonly on: number; readonly b
 /**
  * **A rule for how a walk starts**, as `Walker.seconds` prices it: of the body at `where` going at
  * `velocity`, about to walk `way` (some point of which is off `where`) by a gait that goes on at its
- * speed for `lag` s once asked to change it (`Locomotion.lag`), where its way is timed from and at what
+ * speed for `lag` s once asked to change it (`GaitStop.lag`), where its way is timed from and at what
  * speed (`legSeconds`), and the seconds before that.
  */
 interface WalkStartRule {
@@ -65,15 +66,16 @@ export function walker(_spec: BodySpec, start: WalkStart): Walker {
   /** The way the frame of `face` (rad) reads a ground direction: forward and to the right; forward everywhere with none. */
   const frameOf = (face: number | null) => (x: number, z: number): readonly [number, number] =>
     face === null ? [1, 0] : [x * sin(face) + z * cos(face), x * cos(face) - z * sin(face)];
-  const seconds = (now: Situation, gait: GaitName, way: readonly GroundPoint[], face: number | null): number[] => {
+  const seconds = (now: Situation, gait: GaitName, way: readonly GroundPoint[], face: number | null, near: number): number[] => {
     const limits = now.sight.legs.limitsOf(gait), where = now.where, v = now.velocity, envelope = limits?.envelope;
     const most = face === null && envelope ? Math.min(ceiling(now), steeredPace(envelope, heldPace(envelope, 1, 0))) : ceiling(now);
     if (!limits) {
       let at: GroundPoint = where;
       return way.map((point) => { const length = hypot(point.x - at.x, point.z - at.z); at = point; return length > 0 ? length / most : 0; });
     }
-    const { from, on, before } = WALK_STARTS[start].start({ x: where.x, z: where.z }, way, v, limits.lag);
-    const legs = legSeconds(limits, { from, way, frame: frameOf(face), on, ceiling: most });
+    // A walk sets off in the first stretch of its gait's speeds, so it goes on for that stretch's lag.
+    const { from, on, before } = WALK_STARTS[start].start({ x: where.x, z: where.z }, way, v, limits.stops[0]?.lag ?? 0);
+    const legs = legSeconds(limits, { from, way, frame: frameOf(face), on, ceiling: most, near });
     if (before > 0) legs[0]! += before;
     return legs;
   };
@@ -89,7 +91,7 @@ export function walker(_spec: BodySpec, start: WalkStart): Walker {
         let length = 0, at: GroundPoint = where;
         for (const point of way) { length += hypot(point.x - at.x, point.z - at.z); at = point; }
         if (length <= near) return stride(now);
-        const time = seconds(now, gait, way, face).reduce((sum, one) => sum + one, 0);
+        const time = seconds(now, gait, way, face, near).reduce((sum, one) => sum + one, 0);
         return time > 0 ? length / time : stride(now);
       };
       switch (move.kind) {
@@ -105,7 +107,7 @@ export function walker(_spec: BodySpec, start: WalkStart): Walker {
           const dx = other.centre.x - where.x, dz = other.centre.z - where.z, apart = hypot(dx, dz), gap = apart - (move.near + move.far) / 2;
           if (apart - move.far <= 0 && move.near - apart <= 0) return stride(now);
           const spot = { x: where.x + dx * gap / apart, z: where.z + dz * gap / apart };
-          return along(route?.route.length ? route.route : [spot], 0);
+          return along(route?.route.length ? route.route : [spot], rangeNear(move));
         }
         case "place": {
           const goal = move.points.at(-1)!;

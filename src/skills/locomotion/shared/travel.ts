@@ -1,4 +1,4 @@
-import type { GaitLimits } from "../../framework/locomotion-part.ts";
+import type { GaitLimits, GaitStop } from "../../framework/locomotion-part.ts";
 import type { GroundPoint } from "../../framework/movement.ts";
 import { heldPace, turnAt } from "../../../control/stance/stance-envelope.ts";
 import { hypot } from "../../../core/math/real.ts";
@@ -63,22 +63,47 @@ function cornerSpeed(gait: GaitLimits, halfTurn: number, room: number): number {
 }
 
 /**
- * The speed a gait comes down from to `end` m/s within `distance` m, m/s, going on at `on` m/s, the
- * speed it has the way it goes, for its `lag` s first, then slowing at its `stopping` m/s²; any,
- * with no end ahead. A body still goes on nothing, so a walk from a stand is asked what it stops
- * from, and comes to its place.
+ * The rate `stop` is braked at to come to a place no farther past it than `near` m, m/s²: the
+ * fastest of its rates that, with every slower one, went no farther past at its worst; its slowest
+ * where none did.
  */
-function slowFrom(gait: GaitLimits, distance: number, on: number, end = 0): number {
+export function stoppingWithin(stop: GaitStop, near: number): number {
+  let rate = stop.rates[0]?.stopping ?? 0;
+  for (const one of stop.rates) {
+    if (one.past > near) break;
+    rate = one.stopping;
+  }
+  return rate;
+}
+
+/**
+ * The speed a gait comes down from to `end` m/s within `distance` m, coming no farther past than
+ * `near` m, m/s: in each stretch of its speeds (`GaitStop`), going on at `on` m/s, the speed it has
+ * the way it goes, for that stretch's lag first, then slowing at the rate the stretch is braked at
+ * for `near` (`stoppingWithin`), no faster than the stretch goes; a stretch past the first counts
+ * only where it goes faster than the one before it, so a gait is asked a speed of a stretch only
+ * where that stretch's own stop allows it. Any, with no end ahead; the end itself, for legs that
+ * state no stop. A body still goes on nothing, so a walk from a stand is asked what it stops from,
+ * and comes to its place.
+ */
+function slowFrom(gait: GaitLimits, distance: number, on: number, near: number, end = 0): number {
   if (distance === Infinity) return Infinity;
-  return Math.sqrt(end * end + 2 * gait.stopping * Math.max(0, distance - Math.max(0, on) * gait.lag));
+  let speed = end, below = 0;
+  for (const stop of gait.stops) {
+    const most = Math.min(stop.below, Math.sqrt(end * end + 2 * stoppingWithin(stop, near) * Math.max(0, distance - Math.max(0, on) * stop.lag)));
+    if (below === 0 || most > below) speed = Math.max(speed, most);
+    below = stop.below;
+  }
+  return speed;
 }
 
 /**
  * **A body going along its way, as the speed rule reads it** (`travelSpeed`): the way it goes,
  * `way`, forward and to the right in its heading's frame (any length); how far it has `left` to
  * go, m; its way's `corners` (`cornersOf`), it `gone` m along them; the speed it has the way it
- * goes, `on`, m/s; and the goal's own `ceiling`, m/s (Infinity where it gives none). Called in a
- * step, its caller fills one it made once.
+ * goes, `on`, m/s; the goal's own `ceiling`, m/s (Infinity where it gives none); and how near
+ * its end it stands, m (`near`: how far past the end it may come). Called in a step, its caller
+ * fills one it made once.
  */
 export interface Going {
   way: readonly [forward: number, right: number];
@@ -87,6 +112,7 @@ export interface Going {
   gone: number;
   on: number;
   ceiling: number;
+  near: number;
 }
 
 /**
@@ -94,20 +120,20 @@ export interface Going {
  *
  * - the gait's top speed the way it is going, relative to where it faces (`heldPace` on its
  *   envelope; none stated, no bound);
- * - the speed it stops from in the m it has left, going on at the speed it has the way it goes for
- *   its lag (`Locomotion.lag`), then slowing at its stopping deceleration (`Locomotion.stopping`);
+ * - the speed it stops from in the m it has left, coming no farther past than it stands near its
+ *   end, by how its gait stops (`Locomotion.stops`, `slowFrom`);
  * - for each corner ahead, the speed it slows from to that corner's (`cornerSpeed`) by the corner, the
  *   same way: each one past the m it has gone along the way, that much nearer;
  * - its ceiling, the goal's own.
  */
-export function travelSpeed(gait: GaitLimits, { way, left, corners, gone, on, ceiling }: Readonly<Going>): number {
+export function travelSpeed(gait: GaitLimits, { way, left, corners, gone, on, ceiling, near }: Readonly<Going>): number {
   const envelope = gait.envelope;
-  let speed = Math.min(ceiling, envelope ? heldPace(envelope, way[0], way[1]) : Infinity, slowFrom(gait, left, on));
+  let speed = Math.min(ceiling, envelope ? heldPace(envelope, way[0], way[1]) : Infinity, slowFrom(gait, left, on, near));
   for (let k = 0; k < corners.length; k++) {
     const corner = corners[k]!;
     if (!(corner.distance > gone)) continue;
     const at = cornerSpeed(gait, corner.halfTurn, corner.room);
-    if (at < speed) speed = Math.min(speed, slowFrom(gait, corner.distance - gone, on, at));
+    if (at < speed) speed = Math.min(speed, slowFrom(gait, corner.distance - gone, on, near, at));
   }
   return speed;
 }
@@ -131,19 +157,19 @@ const PIECE = .25;
  * How long each leg of the way from `from` through `way` takes, s, the body going at the speed
  * rule's speed for `gait` all along it (`travelSpeed`: what it holds the way each leg goes, `frame`
  * giving that way, forward and to the right, of a leg's ground direction; stopping at the way's end
- * and slowing for its corners), from `on` m/s, under `ceiling`: each piece of `PIECE` m crossed at
+ * and slowing for its corners), from `on` m/s, under `ceiling`, standing within `near` m of its end: each piece of `PIECE` m crossed at
  * the mean of the speed it is entered at and the speed asked at its middle. Infinity for a leg the
  * gait does not go.
  */
-export function legSeconds(gait: GaitLimits, { from, way, frame, on, ceiling }: {
+export function legSeconds(gait: GaitLimits, { from, way, frame, on, ceiling, near }: {
   readonly from: GroundPoint; readonly way: readonly GroundPoint[]; readonly frame: (x: number, z: number) => readonly [number, number];
-  readonly on: number; readonly ceiling: number;
+  readonly on: number; readonly ceiling: number; readonly near: number;
 }): number[] {
   const corners = cornersOf(from, way), seconds: number[] = [];
   let total = 0, at = from;
   for (const point of way) { total += hypot(point.x - at.x, point.z - at.z); at = point; }
   let gone = 0, speed = on;
-  const going: Going = { way: [1, 0], left: total, corners, gone: 0, on, ceiling };
+  const going: Going = { way: [1, 0], left: total, corners, gone: 0, on, ceiling, near };
   at = from;
   for (const point of way) {
     const x = point.x - at.x, z = point.z - at.z, length = hypot(x, z), pieces = Math.max(1, Math.ceil(length / PIECE)), step = length / pieces;

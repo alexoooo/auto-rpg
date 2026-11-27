@@ -172,6 +172,17 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], p
     }
     return [pendulum * (r.x - reading.place.x), pendulum * (r.z - reading.place.z)];
   }
+  if (phasing.phase === "shift" && phasing.swing.handover) {
+    // A step from a stand falling to start (`GaitTuning.fallsToStart`): the plan falls as the pendulum about a point of both soles chosen, as a
+    // double support's is, to bring its capture point to the step's handover by the swing's time
+    // from the shift's start, so the foot lifts from a body already going the way it walks. A
+    // shift to the bearing sole's middle lifts it from a body standing still, and the step,
+    // re-aimed from its capture point, lands where it stood.
+    const w = Math.sqrt(pendulum), grow = exp(w * Math.max(phasing.swing.seconds - step.held, PIVOT_FLOOR)), [tx, tz] = phasing.swing.handover;
+    const [px, pz] = pivotWithin(heldBy(stance), r.x + u.x / w, r.z + u.z / w, (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow), 0);
+    reading.place.set(px, 0, pz);
+    return [pendulum * (r.x - reading.place.x), pendulum * (r.z - reading.place.z)];
+  }
   if (phasing.phase === "shift") {
     // Before a step the plan goes toward the bearing sole's middle, as fast as its constant
     // takes it, past what a stance on both feet holds: the foot lifts before it gets there.
@@ -295,8 +306,17 @@ function shiftWeight(s: Stance, phasing: Phasing, height: number, dt: number): v
   } else {
     const c = reading.centre, vel = reading.velocity, g = gravityOf(s);
     const w = pendulumRate(g, height), cx = c.x + vel.x / w, cz = c.z + vel.z / w;
-    const [hx, hz] = withinSupport([bearingOf(bearer)], cx, cz, 0);
-    if (hx === cx && hz === cz) reading.phase = "swing";
+    if (swing.handover) {
+      // A step from a stand falling to start lifts once its capture point reaches the handover, past the line through
+      // it across the way there from the soles' middle, or once the swing's time has gone.
+      step.held += dt;
+      const other = s.feet.find((f) => f !== bearer)!, mx = (other.middle.x + bearer.middle.x) / 2, mz = (other.middle.z + bearer.middle.z) / 2;
+      const [tx, tz] = swing.handover, dx = tx - mx, dz = tz - mz;
+      if ((cx - tx) * dx + (cz - tz) * dz >= 0 || step.held >= swing.seconds) reading.phase = "swing";
+    } else {
+      const [hx, hz] = withinSupport([bearingOf(bearer)], cx, cz, 0);
+      if (hx === cx && hz === cz) reading.phase = "swing";
+    }
   }
 }
 
@@ -482,7 +502,7 @@ function chooseStep(s: Stance, goal: StanceGoal | null): Phasing {
   else if (!step.catching) step.catching = catchStep(s);
   // A catch runs to its landing, re-aimed on the way.
   if (step.catching) aimRecovery(s);
-  else if (stepsOfItself(s, goal)) ownStep(s, { heading: goal.heading, hip: goal.height - s.rise, halted: goal.halt === true });
+  else if (stepsOfItself(s, goal)) ownStep(s, { heading: goal.heading, hip: goal.height - s.rise, halted: goal.halt === true, walk: goal.walk });
   else {
     reading.own = null;
     // A requested step uses its goal's heading, independent of the last catch's facing.

@@ -1,33 +1,33 @@
 {
   "man": {
-    "made": "Authored: the extension carried to the push kick's drive through (its strike point 0.15 m past the target, level, the knee straight), followed firm, the trunk upright on the standing foot (lean 0), on the timings and window searched for the bent-knee extension at 6e48b9c8.",
+    "made": "Searched on the man at 41ec73e6 (research/skills/skill-search.mjs): CMA over chamberSeconds, extendSeconds, retractSeconds, pathSeconds, transferSeconds, follow, decel, alongNear, alongFar from 218a680a6's record, 33 generations of 16, on the kick's row on the Strike drill, the trials the front kick is offered (its base rung) on its cells' training twins at 120 Hz, 64 trials a candidate, 5020 s; on fresh trials on its cells' own cases at 120 and 480 Hz, the worse counting the search's best scored 0.173 (0 falls) and the record it replaces 0.138 (7 falls): the best is kept.",
     "settings": {
       "transferLimit": 2,
       "setLimit": 3,
       "recenterLimit": 3,
-      "transferSeconds": 0.1624,
+      "transferSeconds": 0.1575,
       "transferSlow": 0.12,
-      "lean": 0,
-      "ahead": 0,
+      "lean": 0.4,
+      "ahead": 0.1,
       "hold": 0.03,
       "lower": 0.03,
-      "follow": 0.0841,
-      "decel": 267.2544,
-      "alongNear": 0.7953,
-      "alongFar": 1.04,
+      "follow": 0.0196,
+      "decel": 533.5883,
+      "alongNear": 0.7632,
+      "alongFar": 0.9348,
       "across": 0.25886821185469516,
       "low": 0.9,
       "high": 1.15,
       "facing": 0.5,
       "admitSpeed": 0.6,
-      "chamberSeconds": 0.35,
+      "chamberSeconds": 0.2917,
       "chamberLift": 0.2,
       "chamberKnee": 2.1,
-      "extendSeconds": 0.1479,
+      "extendSeconds": 0.1289,
       "through": 0.15,
-      "retractSeconds": 0.08,
+      "retractSeconds": 0.0943,
       "counter": 0,
-      "pathSeconds": 0.0172
+      "pathSeconds": 0.0181
     }
   }
 }

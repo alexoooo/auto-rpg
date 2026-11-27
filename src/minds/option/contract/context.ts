@@ -56,12 +56,13 @@ export interface Walker {
    * How long each leg of the way from where the body is through `way` takes by `gait`, s: at the
    * speed the legs are asked all along it (`legSeconds`, the speed rule), from the speed the body
    * is priced as starting at (`WalkStart`), facing `face` where given and else the way each leg
-   * goes, under the orders' ceiling; at that ceiling where the legs have no such gait. What an
+   * goes, under the orders' ceiling, coming to its end as a place it stands within `near` m of
+   * is come to (`Going.near`); at that ceiling where the legs have no such gait. What an
    * Option prices a walk by. Facing the way each leg goes, the body steers as it walks, so a gait
    * is priced no faster than it can steer (`steeredPace`). A walk that cannot turn at its top
    * speed slows itself to a speed it can turn at.
    */
-  seconds(now: Situation, gait: GaitName, way: readonly GroundPoint[], face: number | null): number[];
+  seconds(now: Situation, gait: GaitName, way: readonly GroundPoint[], face: number | null, near: number): number[];
   /**
    * The forward speed the legs' gait now was measured to hold, m/s, or the explicit ordered pace
    * without an envelope: what a second of orders already carried out is priced by, the same by

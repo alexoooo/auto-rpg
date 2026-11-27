@@ -18,7 +18,7 @@ const gaitsOf = (spec: BodySpec, parts: PartLookup) => (["gait", "paw-gait"] as 
 function idleLegs(body: Body): Locomotion {
   const state = { unmet: { ...ALL_MET } }, all = maskOf(LEGS_FIELDS);
   return { state, supports: (body.built.spec.ends ?? []).filter(end => end.kind === "foot" || end.kind === "paw").map(end => end.name),
-    lower: 0, stopping: 0, lag: 0, envelope: null, gaits: [], limitsOf: () => null,
+    lower: 0, stops: [], envelope: null, gaits: [], limitsOf: () => null,
     get heading() { return body.view.stance.facing; }, get unmet() { return state.unmet; }, resume() {},
     goal(_view, goal) { state.unmet.fields = fieldsOf(setIn(goal, all)); return { kind: "drive", posture: {}, pushes: [] }; },
   };

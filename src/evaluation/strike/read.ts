@@ -414,7 +414,10 @@ const BACK = Object.freeze({ within: .05, still: .3 });
  * When a trial ends: the protocol's longest, how long it runs on after the action's end, how long
  * it waits after the action's end or its let-go for the limb back at its guard (`recover`), and how
  * long the striker may wait to be admitted `settled` s after the drill has the body. A trial whose
- * target its skill refuses as `beyond` ends there: standing as the drill stands it, it stays so.
+ * target its skill refuses as `beyond` ends there: standing as the drill stands it, it stays so. A
+ * target the rung lays down (`laid`) stays a target while the striker senses it down, still
+ * falling or settling into its band: a refusal ends its trial only once the striker, having sensed
+ * it down, senses it up again.
  */
 interface Ending {
   readonly seconds: number; readonly settle: number; readonly recover: number; readonly settled: number; readonly patience: number;
@@ -532,6 +535,11 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   trunk?.update();
   const built = trunk ? trunk.centre.y : 0;
   let lay: boolean | null = null;
+  /**
+   * Whether the striker has sensed the laid target down since the drill had the body, and whether
+   * it has sensed it up again since: a refusal ends the trial only once it has risen (`Ending`).
+   */
+  let lain = false, risen = false;
   /** The striker's view, where its body is under the command layers: where its fists were as its last step read them. */
   const view = "view" in striker.body ? (striker.body as CommandedBody).view : null;
   let asked: StrikeReading["asked"] = null;
@@ -638,6 +646,11 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       }
       if (handed === null) { handed = fought || thrown.by === "fight" ? world.time : 0; atHand = sensed(); }
       if (trunk && lay === null && world.time >= handed + ending.settled) { trunk.update(); lay = trunk.centre.y < LIES * built; }
+      if (trunk && !risen) {
+        const down = striker.senses().others.some((one) => one.id === struck.id && one.down);
+        risen = lain && !down;
+        lain ||= down;
+      }
       // The drill's action: the first with the asked limb at a body that the fight did not ask, or
       // the fight's own that the drill carries on from its moment (`adopts`), under way as it takes the body.
       const action = id !== null ? skills.report.actions.find((one) => one.id === id)
@@ -710,7 +723,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       const watched = letAt ?? watching;
       return world.time >= since + ending.seconds || times.ended !== null && world.time >= times.ended + ending.settle
         && (again !== null || watched !== null && world.time >= watched + ending.recover)
-        || id === null && handed !== null && (phase === "beyond" || world.time >= handed + ending.settled + ending.patience);
+        || id === null && handed !== null && (phase === "beyond" && (trunk === null || risen) || world.time >= handed + ending.settled + ending.patience);
     },
     reading() {
       // The trial's blows: those from the step the drill had the body, the bout's start but in a fight, whose earlier blows are the fight's.

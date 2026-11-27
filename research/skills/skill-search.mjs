@@ -401,31 +401,41 @@ if (!isMainThread && workerData?.search) {
   // The trials the start loses here: the most a candidate may lose and be ranked by its score alone, as the confirmation keeps a best losing no more than the record.
   const allowed = (await scored(pool, start, trials)).falls;
   console.error(`${skill} on ${body}: ${trials.length} trials a candidate, ${lambda} candidates a generation, ${values.generations === undefined && values.patience !== undefined ? `until ${patience} generations raise nothing` : `${generations} generations`}, ${workers} workers, the start losing ${allowed}`);
-  const { best } = await cmaSearch({ look: { body, variation: looked }, n: search.dims.length, start: unit, sigma: Number(values.sigma ?? .2), lambda, generations, seed: Number(values.seed ?? 1), resume,
+  // Ranked as its confirmation keeps a best (`kept`): within the start's trials lost, by the score; past them, the fewer lost first, whatever it scores.
+  const rank = (a, b) => Math.max(a.falls, allowed) - Math.max(b.falls, allowed) || b.score - a.score;
+  /** What the search holds as its result: the best it keeps on the worse of its rates (`cmaSearch`'s `kept`), as its confirmation will read it. */
+  const held = (kept) => ({ score: (kept.worse ?? kept.r).score, settings: decode(search, start, kept.u), falls: (kept.worse ?? kept.r).falls, each: kept.r.each, g: kept.g,
+    ...(kept.worse ? { searched: { score: kept.r.score, falls: kept.r.falls } } : {}) });
+  const { best, kept } = await cmaSearch({ look: { body, variation: looked }, n: search.dims.length, start: unit, sigma: Number(values.sigma ?? .2), lambda, generations, seed: Number(values.seed ?? 1), resume,
     // A candidate none of whose trials counts scores as one that threw.
     score: async (u) => { const r = await scored(pool, decode(search, start, u), trials); return { ...r, score: r.score ?? search.error }; },
-    // Ranked as its confirmation keeps a best (`kept`): within the start's trials lost, by the score; past them, the fewer lost first, whatever it scores.
-    rank: (a, b) => Math.max(a.falls, allowed) - Math.max(b.falls, allowed) || b.score - a.score,
-    // A best that has risen is read at its confirmation's finer rates too, in the background: one losing more trials there is told at once, with its settings.
+    rank,
+    // A best that has risen is read at its confirmation's finer rates too, in the background: one losing more trials there is told at once. Its reading is the worst of those rates, with its settings.
     check: search.rates?.length > 1 ? async (risen) => {
       const settings = decode(search, start, risen.u);
+      let worst = null;
       for (const hz of search.rates.slice(1)) {
-        const r = await scored(pool, settings, trials, hz), lost = r.falls - risen.r.falls;
-        console.error(JSON.stringify({ checked: risen.g, hz, score: +(r.score ?? search.error).toFixed(4), falls: r.falls, searched: { score: +risen.score.toFixed(4), falls: risen.r.falls },
-          ...(lost > 0 ? { fails: `${lost} more ${search.lost} at ${hz} Hz`, settings } : {}) }));
+        const r = await scored(pool, settings, trials, hz), lost = r.falls - risen.r.falls, at = { ...r, score: r.score ?? search.error };
+        console.error(JSON.stringify({ checked: risen.g, hz, score: +at.score.toFixed(4), falls: r.falls, searched: { score: +risen.score.toFixed(4), falls: risen.r.falls },
+          ...(lost > 0 ? { fails: `${lost} more ${search.lost} at ${hz} Hz` } : {}), settings }));
+        if (!worst || rank(at, worst) > 0) worst = at;
       }
+      return worst;
     } : undefined,
-    onGeneration(entry, { best, checkpoint }) {
+    onGeneration(entry, { best, kept, checkpoint }) {
       console.error(JSON.stringify({ ...entry, seconds: Math.round((Date.now() - started) / 1000) }));
       raised = best.g ?? raised;
       // How the search ended, once it has: on its plateau, at `--until`'s score, or at its count of generations with neither reached.
       ended = best.score >= until ? "until" : entry.g - raised >= patience ? "plateau" : entry.g + 1 >= generations ? "generations" : null;
       save(values.out, JSON.stringify({ skill, body, ...(loadout ? { loadout } : {}), ...(target ? { target } : {}), from, start, lambda, trials: trials.length, dims: search.dims, log: checkpoint.log,
         seconds: before + Math.round((Date.now() - started) / 1000), ...(ended ? { ended } : {}),
-        best: { score: best.score, settings: decode(search, start, best.u), falls: best.r.falls, each: best.r.each }, checkpoint }));
+        best: held(kept), checkpoint }));
       if (ended) return false;
     } });
-  console.log(JSON.stringify({ skill, body, ended, best: { score: best.score, g: best.g, settings: decode(search, start, best.u) }, seconds: Math.round((Date.now() - started) / 1000) }));
+  // The last best is checked as the search ends, so what it keeps is written again once every check is in.
+  const final = held(kept);
+  save(values.out, JSON.stringify({ ...JSON.parse(readFileSync(values.out, "utf8")), best: final }));
+  console.log(JSON.stringify({ skill, body, ended, best: final, risen: { score: best.score, g: best.g }, seconds: Math.round((Date.now() - started) / 1000) }));
   await pool.terminate();
   process.exit(0);
 }
