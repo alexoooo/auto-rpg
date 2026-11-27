@@ -255,7 +255,12 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   stand, falling toward it, wherever it had no stride of its own, so a body it took over moving
   was thrown on the way it went. Now only a body whose capture point is over its feet falls to
   start (`fallsToStart`, `gait.ts`): the scorecard's knockouts within 60 s 0.741 (0.678 to 0.795)
-  against 0.713, downs a bout 1.38 against 1.55; its start from a stand as it was.
+  against 0.713, downs a bout 1.38 against 1.55; its start from a stand as it was. And only about a
+  bearing sole reaching back to the body's centre the way it walks: a back step left the man on
+  his front foot, 0.61 m ahead of his centre, and asked to walk on, he fell back off it at 2 m/s.
+- **The walk and run's walk stretch after its walk's lag, read again**: with its measured stops,
+  the scorecard's knockouts within 60 s 0.528 against 0.741, downs a bout 2.50 against 1.38, before
+  the bearing sole's test; the falls of eight bouts, at the quick start and the back step.
 - **Next**: the walk and run's walk stretch braked after its walk's lag, and its measured stops,
   read again now that a walk takes a body over moving; the low front kick searched again at the empty-handed
   man on `sparring-laid`'s twin (`skill-search.mjs stomp/front man --loadout empty,empty --target

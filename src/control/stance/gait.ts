@@ -244,15 +244,20 @@ function outside(s: Stance, velocity: Vector3, of: readonly FootState[]): number
 
 /**
  * **Whether a step planned from `ask` falls to start** (`GaitTuning.fallsToStart`): its gait's
- * does, from a stand: no step before it (`last`) or under way, and the body's capture point over
- * its feet. A body taken over moving, with no stride of its own, is not standing, and is caught as
- * it goes.
+ * does, from a stand: no step before it (`last`) or under way, the body's capture point over its
+ * feet, and its bearing sole (the foot it does not start with, `startingSide`) reaching back to
+ * the centre or behind it the way it walks, so that falling about it the body falls the way it
+ * walks. A body taken over moving, with no stride of its own, is not standing, and is caught as it
+ * goes; one stood on a foot ahead of it, as a step back leaves it, would fall back off it.
  */
-function fallsToStart({ feet, centre, velocity, g, tuning, last, under }: WalkAsk): boolean {
+function fallsToStart({ feet, centre, velocity, g, walk, heading, tuning, last, under }: WalkAsk): boolean {
   if (!tuning.fallsToStart || last || under) return false;
   const w = pendulumRate(g, overSoles(feet, centre)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   const [hx, hz] = withinSupport(heldBy(feet), xi, zi, 0);
-  return hx === xi && hz === zi;
+  if (hx !== xi || hz !== zi) return false;
+  const { front, heel } = feet.find((f) => f.side !== startingSide(feet, walk, heading, tuning))!.ends;
+  const along = (point: Vector3): number => (point.x - centre.x) * walk[0] + (point.z - centre.z) * walk[1];
+  return Math.min(along(front.middle), along(heel.middle)) <= 0;
 }
 
 /** How far the stance's body's capture point, at `velocity`, is from `handover`, m. */
