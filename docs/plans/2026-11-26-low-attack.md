@@ -174,9 +174,25 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   was followed by a fall. A body moving off faster is knocked down more when struck, most often
   mid-way through a step to catch itself. The owner: "I don't care if it make something worse, that
   just reveals another broken thing that must be fixed."
-- **Next**: the recovery when struck while moving, read on the scorecard with the quick start
-  picked, until its knockouts match or beat the default's; then the quick start the default, and
-  the walk-run's start read again under it. Then the low front kick searched again at the
+- **Picked, the quick start costs a little, its mechanism unread.** The Warrior holding the quick
+  start in the braced walk's place and the staggered walk (`+stance-walk/quick-start+stance-walk/staggered`;
+  a variation named replaces every one of its skill's), offered in the braced walk's place
+  (2b7847483: walks priced alike, a tie goes to the gait listed first), on the scorecard
+  (warrior-drawn, 216 bouts each, `--fresh`), against HEAD:
+
+  | | front kick | front kick, low front kick |
+  | --- | --- | --- |
+  | knockouts within 60 s | 0.509 → 0.435 | 0.546 → 0.481 |
+  | time to a knockout, mean, s | 56.8 → 59.8 | 54.2 → 58.1 |
+  | downs a bout | 2.08 → 2.48 | 2.12 → 2.60 |
+
+  Each knockout gap is about 1.4 standard errors. The falls in 24 of the front kick's bouts, a fall
+  after at least 0.5 s up: 48 on HEAD (35 in a step to catch a push, 11 standing, 2 in a walking
+  step), 40 with the quick start (29, 8, 3). It stays off in the default.
+- **Next**: the falls in a step to catch a push, three quarters of every fall with the quick start
+  or without, the kicker's falls among them: what fails in a catch step, read on HEAD's default
+  Warrior first and on the quick start second; then the quick start the default where it matches
+  or beats the default's knockouts, and the walk-run's start read again under it. Then the low front kick searched again at the
   empty-handed man on `sparring-laid`'s twin (`skill-search.mjs stomp/front man --loadout
   empty,empty --target man`, 80 starts each), and the price below.
 
