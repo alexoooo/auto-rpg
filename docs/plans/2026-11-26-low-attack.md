@@ -273,6 +273,14 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   1.1 m), arriving at 6.5 s, the man rising at 4.4; 40 of its 80 trials on its twin end `beyond`.
   Swayed by its capture point since (the approaches' back step), it falls in 1 drill fight of 48
   against 10, and the scorecard reads 0.667 against 0.597.
+- **A start fell the way one instant asked.** 33 of the low front kick's 80 trials on its twin
+  first walked back, 19 of the 37 `beyond`: on one step, the drill's settling stand beside a foe
+  just fallen is walked out of him (`keepOut`, nothing exempt on a stand), and the quick start's
+  step from a stand, planned from that one step's walk and never re-aimed before it lifts, fell
+  the body back for a second against the spot asked forward after. A step not yet lifted whose
+  walk has turned from the one it was planned at is now planned again: the traced trial arrives at
+  5.26 s against 6.51, the kick's record on the twin scores 0.133 against 0.005 at 120 Hz (0.006 at
+  480 Hz), 39 `beyond` against 40; the scorecard 0.662 (0.597 to 0.722) against 0.667.
 - **The low front kick waits on its arrival.** Searched again at the empty-handed man on
   `sparring-laid`'s twin (`--loadout empty,empty --target man`), its record scoring 0.005 with 17
   falls: the first generation's best 0.131 (0.030 at 480 Hz, 18 falls), the next three's 0.075,
