@@ -4,7 +4,9 @@
  *
  *   node research/minds/fork-bank.mjs <entrant> [<entrant>] [--horizon 4] [--every 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]
  *
- * It reads the bank this commit made, so it refuses with a build input changed and not committed.
+ * It reads the bank of the last commit that changed what the game computes (`gameCommit`), so it
+ * refuses with that changed and not committed (`gameChanged`); each line names the commit it was
+ * forked at.
  * Each state is loaded from its save and played `--horizon` s on, once for each Option the side
  * had on offer there (its key: its place in the Mind's Options and its target) under each of
  * `--nudges` nudges of `--nudge` N s (`nudgesOf`, the same for every Option of the state, rule 5),
@@ -27,10 +29,10 @@ import { parseArgs } from "node:util";
 import { deserialize } from "node:v8";
 import { gunzipSync } from "node:zlib";
 import { defaultLanes } from "../../scripts/lanes.mjs";
-import { commitOf, uncommittedInputs } from "../../scripts/build-identity.mjs";
+import { commitOf } from "../../scripts/build-identity.mjs";
 import { rolloutPool } from "../rollout-pool.mjs";
 import { nudgesOf } from "../rollouts.mjs";
-import { bankOf } from "./record.mjs";
+import { bankOf, gameChanged, gameCommit } from "./record.mjs";
 
 const USAGE = "usage: node research/minds/fork-bank.mjs <entrant> [<entrant>] [--horizon 4] [--every 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]";
 const { values: flags, positionals } = parseArgs({ allowPositionals: true, options: {
@@ -45,8 +47,8 @@ await import("../../tests/harness/preload-data.mjs");
 const { EVALUATIONS } = await import("../../src/app/node/evaluation.ts");
 const { DEFAULT_ENGINE } = await import("../../src/core/physics/engines.ts");
 
-const commit = commitOf(), changed = commit ? uncommittedInputs() : [];
-if (!commit || changed.length) throw new Error(`the forks are of the bank's commit: ${commit ? `commit ${changed.join(", ")} first` : "no commit"}`);
+const commit = gameCommit(), changed = gameChanged(), at = commitOf();
+if (changed.length) throw new Error(`the forks are of the bank's commit: commit ${changed.join(", ")} first`);
 const tournament = EVALUATIONS.tournament, entrants = positionals.map((id) => tournament.subjects([id])[0].id);
 const folder = bankOf([entrants[0], entrants[1] ?? entrants[0]], commit), index = join(folder, "bank.jsonl"), out = join(folder, "forks.jsonl");
 if (!existsSync(index)) throw new Error(`no bank of this matchup at ${commit}: node research/minds/bank.mjs first`);
@@ -84,7 +86,7 @@ try {
       const astray = forks.filter(({ row }) => row.at !== state.at).length;
       if (astray) { failed++; console.log(`${state.key} ${state.side} at ${state.t.toFixed(3)} s: ${astray} of ${forks.length} forks did not start on the bank's poses`); }
       for (const { row } of forks) row.chose?.taken ? taken++ : refused++;
-      appendFileSync(out, JSON.stringify({ key: state.key, side: state.side, t: state.t, time: state.time, from: state.from, file: state.file, pick: state.pick, ...settings, trials: state.trials,
+      appendFileSync(out, JSON.stringify({ commit: at, key: state.key, side: state.side, t: state.t, time: state.time, from: state.from, file: state.file, pick: state.pick, ...settings, trials: state.trials,
         forks: forks.map(({ key, name, trial, row }) => ({ key, name, trial, chose: row.chose, steps: row.steps - state.from, verdict: row.verdict, out: row.out, watched: row.watched })) }, round) + "\n");
       forked += forks.length; statesForked++;
     }

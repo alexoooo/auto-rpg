@@ -31,6 +31,7 @@
  */
 import { appendFileSync, createReadStream, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { hostname } from "node:os";
+import { execFileSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -60,6 +61,16 @@ export const folderOf = (entrants) => join(ROOT, ".cache/record", matchupOf(entr
 
 /** The folder the forked record's bank of a matchup keeps its states in at `commit` (`bank.mjs`), with the forks of them (`fork-bank.mjs`). */
 export const bankOf = (entrants, commit) => join(ROOT, ".cache/bank", matchupOf(entrants), commit);
+
+/** What the game computes from, as a fork reads it: a bank is of the last commit that changed these. */
+const GAME = Object.freeze(["src", "assets", "vendor/rapier", "tests/harness", "package.json", "package-lock.json"]);
+const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" });
+
+/** The last commit that changed what the game computes (`GAME`): a bank and its forks are of it, whatever commits came after that did not. */
+export const gameCommit = () => git("log", "-1", "--format=%H", "--", ...GAME).trim();
+
+/** What the game computes from that differs from `gameCommit` or is untracked, each as `git status` names it. */
+export const gameChanged = () => git("status", "--porcelain", "--untracked-files=all", "--", ...GAME).split("\n").filter((line) => line.length > 3);
 
 /** Every `.jsonl` file in `folder`, by name. */
 const filesIn = (folder) => existsSync(folder) ? readdirSync(folder).filter((name) => name.endsWith(".jsonl")).sort().map((name) => join(folder, name)) : [];

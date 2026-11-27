@@ -13,8 +13,10 @@
  *   whether it was. Refused, it leaves the decision and the Option's aim as the game's.
  *
  * And once that decision has made its set, the set is handed to `globalThis.__optionSet`: `side`,
- * `time` and `running`, each choice that runs from then on, the same three, the first chosen
- * first. A choice that is not in it has ended or been let go.
+ * `time` and `running`, each choice that runs from then on, the same three and whether it ran on
+ * from before this decision (false where it was begun at it, though it ran before and was over),
+ * the first chosen first. A choice that is not in it, or that did not run on, or runs at another
+ * target, has ended or been let go.
  *
  * An Option is named by its place in the Mind's Options and its target, as the warm start keys it
  * (`warmStart`, `tree-search.ts`). A chance draw the selection makes is still made, so a forced
@@ -58,9 +60,10 @@ const BRANCHED = `      const best = stream ? order.find(free) : undefined;
 const SET = `      state.running = [...chosen];
 `;
 
-/** The same, handed to `__optionSet` once made. */
-const SET_TOLD = `      state.running = [...chosen];
-      globalThis.__optionSet?.({ side: now.sight.view.senses.side, time: now.time, running: chosen.map((i) => [i, Math.max(0, state.aims[i]), choices[i].name]) });
+/** The same, handed to `__optionSet` once made, before it replaces the set that ran. */
+const SET_TOLD = `      globalThis.__optionSet?.({ side: now.sight.view.senses.side, time: now.time,
+        running: chosen.map((i) => [i, Math.max(0, state.aims[i]), choices[i].name, state.running.includes(i)]) });
+      state.running = [...chosen];
 `;
 
 /** What the rewritten module sets, so `rollout` knows the hook is in place; and a module already rewritten is left alone. */

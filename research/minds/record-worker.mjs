@@ -5,12 +5,13 @@
  * search's root and the Options it weighed (`move-prior-hook.mjs`), and the Option the selection
  * took (`option-fork-hook.mjs`, given no Option to force).
  *
- * A job with `bank` (`{ every, folder }`) also keeps states for the forked record's bank
+ * A job with `bank` (`{ every, folder, name }`, its saves named by `name`) also keeps states for the forked record's bank
  * (`bank.mjs`): of each side's decisions made afresh with an Option to take, every `every`th
  * (from a place set by the bout's), the bout as it stood before the step it was made in
  * (`Duel.save`), written to `folder`, and answered beside the row: its side, its time, the step
  * the save is at, the poses' digest there, what was on offer and what the Mind took. The bout
- * saves itself before every step to have it, which changes nothing it does.
+ * saves itself before every step to have it, which changes nothing it does but costs: a bout of
+ * the Warrior's mirror took 660 worker-seconds so, against 145 without.
  */
 import { register } from "node:module";
 import { parentPort } from "node:worker_threads";
@@ -62,7 +63,7 @@ async function playBout({ protocol, index, entrants, bank = null }) {
     for (const row of deciding[side]) if (row.t === duel.clock && pick) row.ran = [optionOf(pick[2]), pick[1]];
     deciding[side].length = 0;
     if (!bank || !pick || offered.length === 0 || (made[side]++ + index) % bank.every !== 0) return;
-    const file = `${index}-${side}-${from}.v8.gz`;
+    const file = `${bank.name}-${side}-${from}.v8.gz`;
     writeFileSync(join(bank.folder, file), gzipSync(serialize(save)));
     banked.push({ side, t: duel.clock, time, from, at, offered, pick, file });
   };

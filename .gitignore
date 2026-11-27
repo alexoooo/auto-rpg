@@ -21,6 +21,9 @@ public/assets/generated/
 # The fight record: a bout a row, by matchup (research/minds/record.mjs). `npm run clean` leaves it.
 .cache/record/
 
+# The forked record's bank of saved states and its forks, by matchup and commit (research/minds/bank.mjs, fork-bank.mjs).
+.cache/bank/
+
 # Disposable work: probes, logs, before-readings, screenshots in .tmp/<task>/, worktrees in
 # .tmp/worktrees/<name>/. `npm run clean` deletes what is a day old.
 .tmp/

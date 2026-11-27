@@ -8,8 +8,8 @@
  *   node research/minds/fork-sureness.mjs <entrant> [<entrant>] [--commit <sha>] [--horizon 4] [--every 1] [--nudge 0.5]
  *
  * It reads the forks of the bank at `--commit` (this one unless named) under those settings. At a
- * state it compares the Options taken under every nudge it was forked under (rule 5: alike nudges
- * only). For each horizon it prints, over the states with two or more such Options: the median
+ * state it compares the Options taken, and read, under every nudge it was forked under (rule 5:
+ * alike nudges only). For each horizon it prints, over the states with two or more such Options: the median
  * spread (each Option's standard deviation across nudges, pooled at the state), the median spread of
  * the Options' means and the median gap from the best mean to the next; how much of the variance
  * of a single fork's worth lies between Options; and, for each count of nudges n that two disjoint
@@ -51,11 +51,11 @@ const pricingOf = (id) => pricings.get(id) ?? pricings.set(id, pricing(tournamen
 const entrantOf = (key, side) => key.split("/").slice(2).join("/").split(" v ")[side === "left" ? 0 : 1];
 
 const forks = [...states.values()].flatMap((state) => state.forks);
-const taken = forks.filter((fork) => fork.chose?.taken), runs = taken.map((fork) => fork.watched.run?.seconds ?? Infinity).sort((a, b) => a - b);
+const taken = forks.filter((fork) => fork.chose?.taken), runs = taken.filter((fork) => fork.watched.run || !fork.verdict).map((fork) => fork.watched.run?.seconds ?? Infinity).sort((a, b) => a - b);
 const share = (n, of) => `${(100 * n / Math.max(1, of)).toFixed(1)} %`;
 console.log(`${states.size} states of the bank at ${commit}, ${forks.length} forks, ${horizon} s on at ${nudge} N s, read every ${every} s`);
 console.log(`taken ${share(taken.length, forks.length)} (the rest not priced or not free at the fork's decision, under its nudge)`);
-console.log(`an Option taken ran: within 0.15 s ${share(runs.filter((s) => s <= .15).length, runs.length)}, median ${runs[runs.length >> 1]?.toFixed(2)} s, to the fork's end ${share(runs.filter((s) => s === Infinity).length, runs.length)}`);
+console.log(`an Option taken ran: within 0.15 s ${share(runs.filter((s) => s <= .15).length, runs.length)}, median ${runs[runs.length >> 1]?.toFixed(2)} s, to the fork's end ${share(runs.filter((s) => s === Infinity).length, runs.length)}; ${taken.length - runs.length} more ran until the bout ended`);
 
 const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.length ? (s.length % 2 ? s[s.length >> 1] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : NaN; };
 const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -71,7 +71,7 @@ for (let h = every; h <= horizon + 1e-9; h += every) {
     const byKey = new Map();
     for (const fork of state.forks) (byKey.get(fork.key) ?? byKey.set(fork.key, new Map()).get(fork.key)).set(fork.trial, fork);
     const table = [...byKey.values()].filter((row) => trials.every((t) => row.get(t)?.chose?.taken))
-      .map((row) => trials.map((t) => forkedWorth(row.get(t), side, h, every, priced)));
+      .map((row) => trials.map((t) => forkedWorth(row.get(t), side, h, every, priced))).filter((row) => row.every((worth) => worth !== null));
     if (table.length < 2 || trials.length < 2) continue;
     const within = mean(table.map(variance)), means = table.map(mean).sort((a, b) => b - a);
     spreads.push(Math.sqrt(within)); between.push(Math.sqrt(variance(means))); gaps.push(means[0] - means[1]);

@@ -60,10 +60,10 @@ const HOOKED = ["__optionDecision", "__optionSet", "__searchLines"];
  * the move prior's hook (`minds/move-prior-hook.mjs`) registered too: the clock at the fork
  * (`t0`, s); both lives at it and at each change, `[clock, left, right]`; its root's reading at
  * its first search in the fork (`start`, as the record keeps a root's, `root-reading.mjs`), and
- * at each `every` s from the fork the reading of its last search by then (`marks`). With
- * `option`, also how the Option it took ran (`run`): the seconds from its decision to the first
- * decision whose set it is not in, ended or let go, and the reading of the side's last search by
- * then; null where it ran to the fork's end.
+ * at each `every` s from the fork its last search by then (`marks`: its clock `t` and its
+ * `reading`; null before its first). With `option`, also how the Option it took ran (`run`): the
+ * seconds from its decision to the first decision that did not run it on at its target, ended or
+ * let go, and the side's last search by then; null where it ran to the fork's end or the bout's.
  *
  * The row: the step reached; the poses' digest at the fork (`at`: two forks of one bout at one
  * step agree in it, or one of them is not that bout), the digest of the trace from the fork on,
@@ -116,11 +116,15 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
         if (!root.focus || sideOf(root) !== watch.side) return;
         const reading = rootReading(root, at);
         if (!reading) return;
-        last = reading;
+        last = { t: duel.clock, reading };
         watched.start ??= reading;
       };
+      // The set of the forced decision itself is passed over: from the next decision on, the Option must run on, at its target.
+      let first = true;
       if (option) globalThis.__optionSet = ({ side, running }) => {
-        if (side === option.side && chose?.taken && ended === null && !running.some(([i]) => i === index)) ended = duel.clock;
+        if (side !== option.side || !chose?.taken || ended !== null) return;
+        if (first) { first = false; return; }
+        if (!running.some(([i, k, , on]) => i === index && k === target && on)) ended = duel.clock;
       };
     }
     const trace = traceOf(builts);
@@ -129,7 +133,7 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
       if (!watch) continue;
       const now = lives(), was = watched.lives.at(-1);
       if (now[1] !== was[1] || now[2] !== was[2]) watched.lives.push(now);
-      if (ended !== null && watched.run === null) watched.run = { seconds: ended - choseAt, reading: last };
+      if (ended !== null && watched.run === null) watched.run = { seconds: ended - choseAt, ...last };
       while (duel.clock - watched.t0 >= (mark + 1) * watch.every - 1e-9) { watched.marks.push(last); mark++; }
     }
     return {
