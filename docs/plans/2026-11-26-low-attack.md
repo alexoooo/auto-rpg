@@ -307,8 +307,15 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   The clearest (no blow, standing, 0.91 m apart) never swayed: a kick ended with its foot in the
   air, the back step waited armed for a square stance, and the stance's catch of that foot,
   re-aimed each step, never set it down while the bearing foot slid 0.8 m out from under him.
-- **Next**: the low front kick's close and the price below; then a kick's end with its foot in the
-  air and the stance's catch of it.
+- **A kick handed the legs over with its foot in the air.** 6 of the fights' 32 falls followed a
+  kick ended with its kicking foot up, 5 of them into the back step: the kick released its stroke
+  at its retract, and the strike Option yields there. Its release now waits for the foot set down.
+  It moves the man's kick/front profiles (`recovers`, 1.083 s to 0.750 on the same 1,383 trials;
+  its run the same), measured again on sparring-feet; stomp/front's trials are the same to the
+  last. With them, the scorecard 0.736 (0.674 to 0.790) against 0.722, downs 1.43 a bout against
+  1.67. The fitted value was fit before it.
+- **Next**: the value refit on this tree (`npm run measure`); the low front kick's close and the
+  price below.
 
 ## Then: a strike's price, every start a number
 
