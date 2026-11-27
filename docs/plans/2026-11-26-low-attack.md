@@ -251,8 +251,13 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   walk-run,quick-run` measures them). The falls that lag brings are a walk taking a body over from
   the back step moving: one traced, the quick start takes it backing off at 0.94 m/s, and it goes
   on to 2.78 m/s and falls.
-- **Next**: a walk taking a body over moving (the quick start's step from a stand, planned so
-  with no stride of its own however the body goes), then the walk and run's stops into the asset; the low front kick searched again at the empty-handed
+- **A step falls to start only from a stand.** The quick start planned its first step as from a
+  stand, falling toward it, wherever it had no stride of its own, so a body it took over moving
+  was thrown on the way it went. Now only a body whose capture point is over its feet falls to
+  start (`fallsToStart`, `gait.ts`): the scorecard's knockouts within 60 s 0.741 (0.678 to 0.795)
+  against 0.713, downs a bout 1.38 against 1.55; its start from a stand as it was.
+- **Next**: the walk and run's walk stretch braked after its walk's lag, and its measured stops,
+  read again now that a walk takes a body over moving; the low front kick searched again at the empty-handed
   man on `sparring-laid`'s twin (`skill-search.mjs stomp/front man --loadout empty,empty --target
   man`, 80 starts each), and the price below.
 
