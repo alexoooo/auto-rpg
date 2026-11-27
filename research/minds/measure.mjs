@@ -20,15 +20,12 @@
  *
  * It refuses to start without an entrant, and has no way to run on everything (rule 4).
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { hostname } from "node:os";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
-import { defaultLanes, simulationWorker } from "../../scripts/lanes.mjs";
-import { commitOf, uncommittedInputs } from "../../scripts/build-identity.mjs";
-import { workerJobs } from "../worker-jobs.mjs";
-import { folderOf, keyOf, keysIn, readingOf, rowsIn, rowText } from "./record.mjs";
+import { defaultLanes } from "../../scripts/lanes.mjs";
+import { folderOf, keyOf, keysIn, playRecord, readingOf, rowsIn } from "./record.mjs";
 import { fitValue, followed, HORIZONS, readValue } from "./value-fit.mjs";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -83,7 +80,7 @@ const jobs = (a.id === b.id ? [[a, b]] : [[a, b], [b, a]]).flatMap(([left, right
   cases.conditions.map((_, index) => ({ key: keyOf(flags.protocol, index, left.id, right.id), protocol: flags.protocol, index, entrants: [left, right] })));
 const kept = await keysIn(folder), toPlay = flags.again ? jobs : jobs.filter((job) => !kept.has(job.key));
 console.log(`${matchup} on ${flags.protocol}: ${jobs.length} bouts, ${jobs.filter((job) => kept.has(job.key)).length} in the record, ${toPlay.length} to play`);
-if (toPlay.length > 0) await play(toPlay);
+if (toPlay.length > 0) await playRecord(toPlay, { folder, lanes: flags.workers ? Number(flags.workers) : defaultLanes() });
 
 // Fit.
 const record = await statesOf(folder);
@@ -106,28 +103,6 @@ for (const fit of FITS) {
   console.log(`  wrote ${fit.asset}: ${made.origin}`);
 }
 process.exit(refused ? 1 : 0);
-
-/** Play `jobs` on the workers, each row kept as it comes, and say the price from the first chunk. */
-async function play(jobs) {
-  const lanes = flags.workers ? Number(flags.workers) : defaultLanes(), commit = commitOf(), changed = (commit ? uncommittedInputs() : []).length > 0, file = join(folder, `${hostname()}.jsonl`);
-  const chunk = Math.min(lanes, jobs.length), from = performance.now();
-  let done = 0;
-  mkdirSync(folder, { recursive: true });
-  console.log(`playing on ${lanes} workers at ${commit ?? "no commit"}${changed ? " with build inputs changed" : ""}; stop it by its PID (${process.pid}) and run it again to go on`);
-  await workerJobs(jobs, { lanes, create: () => simulationWorker(new URL("./record-worker.mjs", import.meta.url)),
-    result: ({ result }, job) => {
-      appendFileSync(file, rowText({ key: job.key, ...result, commit, changed, date: new Date().toISOString() }) + "\n");
-      done++;
-      const seconds = (performance.now() - from) / 1000;
-      console.log(`${job.key}: ${result.roots.length} roots, ${result.end.toFixed(1)} s (${done} of ${jobs.length})`);
-      if (done === chunk && jobs.length > chunk) {
-        const each = seconds / chunk * lanes, rest = (jobs.length - done) * each / lanes;
-        console.log(`the price, from the first ${chunk}: ${(each).toFixed(0)} worker-seconds a bout, so about ${(rest / 60).toFixed(0)} min more for the other ${jobs.length - done}`);
-      }
-      return null;
-    } });
-  console.log(`played ${jobs.length} bouts in ${((performance.now() - from) / 60000).toFixed(1)} min`);
-}
 
 /**
  * **The record's states for the fits** in `folder`: each root as the fitted value reads it, both

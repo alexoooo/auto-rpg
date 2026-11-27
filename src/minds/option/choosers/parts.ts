@@ -55,7 +55,7 @@ const VALUED_DEPTHS: readonly number[] = Object.freeze([1, 2]);
  * How far ahead the valued chooser looks unless its config says (`ValuedConfig.horizon`), s: set
  * so that from every posture the body lies in, a way up's standing falls within it.
  */
-const HORIZON = handSet({
+export const HORIZON = handSet({
   name: "HORIZON", sort: "preference", field: "horizon",
   says: "How far ahead a searching chooser looks, s.",
   value: 20,

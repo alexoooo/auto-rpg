@@ -12,10 +12,14 @@
  *   selection would price it at (`Deciding.keep`) and it is on offer and priced there; it says
  *   whether it was. Refused, it leaves the decision and the Option's aim as the game's.
  *
+ * And once that decision has made its set, the set is handed to `globalThis.__optionSet`: `side`,
+ * `time` and `running`, each choice that runs from then on, the same three, the first chosen
+ * first. A choice that is not in it has ended or been let go.
+ *
  * An Option is named by its place in the Mind's Options and its target, as the warm start keys it
  * (`warmStart`, `tree-search.ts`). A chance draw the selection makes is still made, so a forced
  * Option that is the selection's own pick leaves the same stream. With no `__optionDecision` set,
- * no argument is even read, and every decision is the game's.
+ * no argument is even read, and every decision is the game's; with no `__optionSet`, likewise.
  */
 const SELECTION = "/src/minds/option/choosers/select-set.ts";
 
@@ -50,6 +54,15 @@ const BRANCHED = `      const best = stream ? order.find(free) : undefined;
       if ((forced ?? drawnFirst) !== undefined) take(forced ?? drawnFirst);
 `;
 
+/** Where the selection has made its set at a decision afresh. */
+const SET = `      state.running = [...chosen];
+`;
+
+/** The same, handed to `__optionSet` once made. */
+const SET_TOLD = `      state.running = [...chosen];
+      globalThis.__optionSet?.({ side: now.sight.view.senses.side, time: now.time, running: chosen.map((i) => [i, Math.max(0, state.aims[i]), choices[i].name]) });
+`;
+
 /** What the rewritten module sets, so `rollout` knows the hook is in place; and a module already rewritten is left alone. */
 const MARK = "\nglobalThis.__optionForkHook = true;\n";
 
@@ -61,5 +74,6 @@ export async function load(url, context, next) {
   const text = textOf(out.source);
   if (text.includes(MARK)) return out;
   if (text.split(FIRST).length !== 2) throw new Error("the selection no longer takes its first choice where the option fork's hook looks");
-  return { ...out, source: text.replace(FIRST, BRANCHED) + MARK };
+  if (text.split(SET).length !== 2) throw new Error("the selection no longer makes its set where the option fork's hook looks");
+  return { ...out, source: text.replace(FIRST, BRANCHED).replace(SET, SET_TOLD) + MARK };
 }

@@ -9,6 +9,7 @@ import { traceOf } from "../src/evaluation/trace.ts";
 import { buildBout } from "../src/app/node/evaluation.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 import { rootSegment } from "../src/core/bodies/read-body.ts";
+import { rootReading, sideOf } from "./minds/root-reading.mjs";
 
 const other = (side) => side === "left" ? "right" : "left";
 
@@ -19,13 +20,26 @@ export function poseDigest(builts) {
   return trace.digest();
 }
 
-/** A bout for each recipe this thread has been asked to fork by a load, built once and loaded into for every such fork of it. */
-const bouts = new Map();
-function boutOf(recipe) {
-  const key = JSON.stringify(recipe);
-  if (!bouts.has(key)) bouts.set(key, buildBout(recipe, { engine: BOUT_ENGINE }));
-  return bouts.get(key);
+/**
+ * A bout for each recipe and engine this thread has been asked to fork by a load, built once and
+ * loaded into for every such fork of it; the last few kept (`KEPT`), the one least lately asked for
+ * let go past them, since a thread may fork the states of many bouts.
+ */
+const bouts = new Map(), KEPT = 4;
+function boutOf(recipe, engine) {
+  const key = `${engine} ${JSON.stringify(recipe)}`, kept = bouts.get(key) ?? buildBout(recipe, { engine });
+  bouts.delete(key);
+  bouts.set(key, kept);
+  if (bouts.size > KEPT) {
+    const [oldest, built] = bouts.entries().next().value;
+    bouts.delete(oldest);
+    void built.then((bout) => bout.dispose());
+  }
+  return kept;
 }
+
+/** The hooks' globals a fork sets: an outer watcher's are set aside while it plays. */
+const HOOKED = ["__optionDecision", "__optionSet", "__searchLines"];
 
 /**
  * `recipe`'s bout under `tape` up to its step `from`, then `steps` more under `branch` (orders
@@ -42,6 +56,15 @@ function boutOf(recipe) {
  * That needs the option fork's hook (`option-fork-hook.mjs`) registered before the Mind's code
  * loads.
  *
+ * With `watch` (`{ side, every }`) the fork also keeps what `side` met (`watched`), which needs
+ * the move prior's hook (`minds/move-prior-hook.mjs`) registered too: the clock at the fork
+ * (`t0`, s); both lives at it and at each change, `[clock, left, right]`; its root's reading at
+ * its first search in the fork (`start`, as the record keeps a root's, `root-reading.mjs`), and
+ * at each `every` s from the fork the reading of its last search by then (`marks`). With
+ * `option`, also how the Option it took ran (`run`): the seconds from its decision to the first
+ * decision whose set it is not in, ended or let go, and the reading of the side's last search by
+ * then; null where it ran to the fork's end.
+ *
  * The row: the step reached; the poses' digest at the fork (`at`: two forks of one bout at one
  * step agree in it, or one of them is not that bout), the digest of the trace from the fork on,
  * and the poses' digest at the end; the verdict, each side's bar, who is out, and where each
@@ -51,14 +74,14 @@ function boutOf(recipe) {
  * `chose` is null where the side made no decision afresh in the fork. Nothing in the row says how
  * the fork was reached.
  */
-export async function rollout({ recipe, tape = [], from, branch = [], steps, nudges = [], save = null, option = null }) {
+export async function rollout({ recipe, tape = [], from, branch = [], steps, nudges = [], save = null, option = null, watch = null, engine = BOUT_ENGINE }) {
   if (branch.some((entry) => entry.step < from)) throw new Error("a branch cannot order the past");
-  if (option && !globalThis.__optionForkHook) throw new Error("a fork that takes an Option needs research/option-fork-hook.mjs registered before the Mind's code loads");
-  const { world, duel, dispose } = await (save ? boutOf(recipe) : buildBout(recipe, { engine: BOUT_ENGINE }));
+  if ((option || watch) && !globalThis.__optionForkHook) throw new Error("a fork that takes an Option or watches needs research/option-fork-hook.mjs registered before the Mind's code loads");
+  const { world, duel, dispose } = await (save ? boutOf(recipe, engine) : buildBout(recipe, { engine }));
   // A fork reports its decisions to no one outside it: an outer watcher is set aside until it is over.
-  const before = globalThis.__optionDecision;
-  globalThis.__optionDecision = undefined;
-  let chose = null;
+  const before = HOOKED.map((name) => globalThis[name]);
+  for (const name of HOOKED) globalThis[name] = undefined;
+  let chose = null, watched = null;
   try {
     const builts = SIDES.map((side) => duel.duelists[side].built);
     if (save) {
@@ -76,24 +99,48 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
       root.body.applyImpulse(new Vector3(...impulse), centreOfToRef(root, new Vector3()));
     }
     // Armed only from the fork on: a replay's decisions before it are the trunk's.
+    const [index, target] = option ? option.key.split(":").map(Number) : [];
+    let choseAt = null;
     if (option) {
-      const [index, target] = option.key.split(":").map(Number);
       globalThis.__optionDecision = (decision) => {
         if (chose || decision.side !== option.side) return;
+        choseAt = duel.clock;
         chose = { time: decision.time, own: decision.pick && `${decision.pick[0]}:${decision.pick[1]}`, taken: decision.force(index, target) };
       };
     }
+    const lives = () => [duel.clock, duel.life("left"), duel.life("right")];
+    let last = null, ended = null, mark = 0;
+    if (watch) {
+      watched = { t0: duel.clock, lives: [lives()], start: null, marks: [], ...(option ? { run: null } : {}) };
+      globalThis.__searchLines = (root, at) => {
+        if (!root.focus || sideOf(root) !== watch.side) return;
+        const reading = rootReading(root, at);
+        if (!reading) return;
+        last = reading;
+        watched.start ??= reading;
+      };
+      if (option) globalThis.__optionSet = ({ side, running }) => {
+        if (side === option.side && chose?.taken && ended === null && !running.some(([i]) => i === index)) ended = duel.clock;
+      };
+    }
     const trace = traceOf(builts);
-    while (!duel.verdict && duel.steps < from + steps) { world.step(); trace.take(); }
+    while (!duel.verdict && duel.steps < from + steps) {
+      world.step(); trace.take();
+      if (!watch) continue;
+      const now = lives(), was = watched.lives.at(-1);
+      if (now[1] !== was[1] || now[2] !== was[2]) watched.lives.push(now);
+      if (ended !== null && watched.run === null) watched.run = { seconds: ended - choseAt, reading: last };
+      while (duel.clock - watched.t0 >= (mark + 1) * watch.every - 1e-9) { watched.marks.push(last); mark++; }
+    }
     return {
       from, steps: duel.steps, at, digest: trace.digest(), end: poseDigest(builts), verdict: duel.verdict,
       bars: SIDES.map((side) => duel.duelists[side].pool.bar()),
       out: SIDES.filter((side) => !duel.duelists[side].standing),
       centres: SIDES.map((side) => duel.duelists[side].body.view.stance.centre.asArray()),
-      ...(option ? { chose } : {}),
+      ...(option ? { chose } : {}), ...(watch ? { watched } : {}),
     };
   } finally {
-    globalThis.__optionDecision = before;
+    HOOKED.forEach((name, k) => { globalThis[name] = before[k]; });
     if (!save) dispose();
   }
 }
