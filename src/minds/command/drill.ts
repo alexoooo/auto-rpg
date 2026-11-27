@@ -1,6 +1,6 @@
 import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
 import { approachPace, arrivedIn, settledAt, straightSpot, widened, windowArrival, windowHolds, windowNear } from "../../skills/intent/action-window.ts";
-import { directMovement, placeMovement, SWAY } from "../../skills/framework/movement.ts";
+import { directMovement, SWAY } from "../../skills/framework/movement.ts";
 import { isRegion, type Orders } from "../orders.ts";
 import type { ActionStatus, Readiness, Region, Window } from "../../skills/framework/action.ts";
 import { covers, skillOf, type KitEntry, type MenuEntry, type Spot } from "../../skills/framework/menu.ts";
@@ -250,8 +250,8 @@ function drillCommander(config: DrillCommanderConfig): Commander {
         if (state.held) state.set ??= state.spot || !windowHolds(window, at.x, at.z, toward) ? spot.face : toward;
         if (config.pace === undefined || state.held || arrived) return decided(member, stay(state.set ?? spot.face));
         state.walked = true;
-        const move = spot.route ? { kind: "place" as const, points: spot.route.map((point) => ({ x: point.x, z: point.z })), near, ...(spot.by === undefined ? {} : { by: spot.by }) }
-          : placeMovement({ x: spot.x, z: spot.z }, near);
+        // A place by the foe it strikes where its menu names none (`MovementRequest`'s `by`): the walk there is not kept off that foe where it lies.
+        const move = { kind: "place" as const, points: (spot.route ?? [spot]).map((point) => ({ x: point.x, z: point.z })), near, by: spot.by ?? foe.id };
         return decided(member, { move, pace: approachPace(config.pace, distance), face: heading(spot.face) });
       }
       const face = state.set ?? toward;
