@@ -202,6 +202,17 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   bout 1.62 against 2.08. Its falls now go forward as well as back (its look's one fall,
   f862c1860d0f). The centre held ahead alone, the trunk upright, fell after 10.3 % of kicks
   against 15.8 % in 24 bouts replayed: whether it keeps the landing is next.
+- **Most time down is both lying, choosing to.** In the 24 bouts of that scorecard, 659 s down over
+  1,330 s of bouts (both sides): 55 % on the back, 33 % on the front; 72 % with both down, and in
+  4 bouts both lie to the end. A fall on the back lasts 36.6 s on the mean and rises in 4 of 10,
+  one on the front 11.9 s and 19 of 21. Lying, each Mind takes `flatten` over every way up: the
+  fitted value (`assets/minds/fitted-value.json`, fit at 33be0e76f) prices a body lying on its back
+  as dealing more over the next 20 s than one standing (0.230 against 0.155, bout 8 at 50 s, the
+  side behind), a rise of the bouts it was fit on in that price, while the tree's own rise from the
+  back (a roll, then front-sit-back, 7.8 s) pays its time; and on the front, lying is safer than
+  standing near a foe lying (life taken 0.10 against 0.17, bout 13 at 75 s, the side ahead). What
+  would change it: a lying body made costly to lie (the low attack, below), then the value fitted
+  again on the empty man's mirror, where a body that lies stays down.
 - **Next**: the kicker's falls in a catch step, read on the default Warrior first and on the
   quick start second; then the quick start the default where it matches
   or beats the default's knockouts, and the walk-run's start read again under it. Then the low front kick searched again at the
