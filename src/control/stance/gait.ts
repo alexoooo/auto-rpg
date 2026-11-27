@@ -51,6 +51,12 @@ interface WalkAsk {
   readonly feet: readonly FootState[]; readonly centre: Vector3; readonly velocity: Vector3; readonly g: number;
   readonly walk: readonly [number, number]; readonly heading: number; readonly tuning: GaitTuning;
   readonly hip: number; readonly held: number; readonly bend: number | null; readonly last: Side | null; readonly under: Underway | null;
+  /**
+   * The walk asked of a stand, world (x, z), m/s, or with none asked the pace it goes at: what a
+   * first step starts by, its foot (`startingSide`) and whether it falls (`fallsToStart`), the pace
+   * it is planned at (`walk`) bent toward what the legs reach.
+   */
+  readonly start: readonly [number, number];
 }
 
 /** A walk's step, and whether the leg lands the whole of its landing (`reachableStep`). */
@@ -250,13 +256,13 @@ function outside(s: Stance, velocity: Vector3, of: readonly FootState[]): number
  * walks. A body taken over moving, with no stride of its own, is not standing, and is caught as it
  * goes; one stood on a foot ahead of it, as a step back leaves it, would fall back off it.
  */
-function fallsToStart({ feet, centre, velocity, g, walk, heading, tuning, last, under }: WalkAsk): boolean {
+function fallsToStart({ feet, centre, velocity, g, start, heading, tuning, last, under }: WalkAsk): boolean {
   if (!tuning.fallsToStart || last || under) return false;
   const w = pendulumRate(g, overSoles(feet, centre)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   const [hx, hz] = withinSupport(heldBy(feet), xi, zi, 0);
   if (hx !== xi || hz !== zi) return false;
-  const { front, heel } = feet.find((f) => f.side !== startingSide(feet, walk, heading, tuning))!.ends;
-  const along = (point: Vector3): number => (point.x - centre.x) * walk[0] + (point.z - centre.z) * walk[1];
+  const { front, heel } = feet.find((f) => f.side !== startingSide(feet, start, heading, tuning))!.ends;
+  const along = (point: Vector3): number => (point.x - centre.x) * start[0] + (point.z - centre.z) * start[1];
   return Math.min(along(front.middle), along(heel.middle)) <= 0;
 }
 
@@ -484,7 +490,7 @@ function startingSide(feet: readonly FootState[], walk: readonly [number, number
 
 /**
  * A walk's next step at the velocity `walk`, world (x, z), m/s: the foot other than `last`'s steps,
- * or, starting, the one `startingSide` gives.
+ * or, starting, the one `startingSide` gives for the walk it starts by (`start`).
  *
  * The capture point xi = c + v / w, the body falling about a point p of the bearing sole, runs to
  * e = p + (xi - p) exp(w T) by the swing's end T (Kajita et al. 2001). In a steady walk, each step
@@ -503,8 +509,8 @@ function startingSide(feet: readonly FootState[], walk: readonly [number, number
  * lands leaning from `held`, the height the plan holds them at (`landingLeanOf`).
  */
 function walkStep(ask: WalkAsk): Planned {
-  const { feet, centre, velocity, g, walk, heading, tuning, hip, held, bend, last, under } = ask;
-  const side: Side = under ? named(feet, under.foot).side : last ? otherSide(last) : startingSide(feet, walk, heading, tuning);
+  const { feet, centre, velocity, g, walk, heading, tuning, hip, held, bend, last, under, start } = ask;
+  const side: Side = under ? named(feet, under.foot).side : last ? otherSide(last) : startingSide(feet, start, heading, tuning);
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The pelvis's right across the ground at the heading the step lands facing: +x at heading 0.
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
@@ -740,7 +746,7 @@ export function ownStep(s: Stance, { heading, hip, halted, walk }: { readonly he
   // The height the plan holds the hips at: its own less the centre of mass's rise over them, or the goal's before it has one.
   const hipHeld = state.plan.on ? state.plan.at.y - s.rise : hip;
   // What every walk's step here is planned from but its walk, its held height and its last and under way.
-  const asked = { feet, centre: reading.centre, velocity: reading.velocity, g: gravityOf(s), heading, tuning: gait, hip: hips, bend };
+  const asked = { feet, centre: reading.centre, velocity: reading.velocity, g: gravityOf(s), heading, tuning: gait, hip: hips, bend, start: walk ?? [pace[0], pace[1]] as const };
   if (!reading.own && reading.phase === "stand") {
     const going = pace[0] !== 0 || pace[1] !== 0, held = assistReach(s), hold = holding(s), carried = carriedVelocity(s);
     if (going || (state.stride && recovery && outside(s, carried, hold) > recovery.margin + held)) {

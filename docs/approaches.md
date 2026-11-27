@@ -328,6 +328,13 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   - **Watched** by the owner, 2026-11-19: "i watched it in the browser, honestly it looks pretty
     good. i compared empty handed warrior without staggered/step-back (which is what we started
     with) vs with both -- and the two skills fight significantly better."
+  - **Swayed by its capture point**: a sway that asked the centre 0.1 m past the rear sole, for
+    the stance to clamp, threw a body already going back past what its catching steps held (one
+    traced, no blow taken: the capture point 0.09, 0.17, then 0.5 m out, the man at 2.07 m/s and
+    down). Asked where its capture point comes over the rear sole's middle instead, it falls in 1
+    of 48 drill fights against 10 (`mind-held`), takes 0.295 of the punches against 0.317, loses
+    5.39 HP a fight against 4.42, the bodies standing longer; the scorecard's knockouts within
+    60 s 0.667 (0.601 to 0.726) against 0.597.
   *Shown.*
 - **More blocks are not more wins**: a hand at cover is a hand not countering (`8b3c65b8`,
   `1500f2da`). A guard is judged on life kept and taken. *Repeated.*

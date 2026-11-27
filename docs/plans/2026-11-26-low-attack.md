@@ -260,11 +260,26 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   his front foot, 0.61 m ahead of his centre, and asked to walk on, he fell back off it at 2 m/s.
 - **The walk and run's walk stretch after its walk's lag, read again**: with its measured stops,
   the scorecard's knockouts within 60 s 0.528 against 0.741, downs a bout 2.50 against 1.38, before
-  the bearing sole's test; the falls of eight bouts, at the quick start and the back step.
-- **Next**: the walk and run's walk stretch braked after its walk's lag, and its measured stops,
-  read again now that a walk takes a body over moving; the low front kick searched again at the empty-handed
-  man on `sparring-laid`'s twin (`skill-search.mjs stomp/front man --loadout empty,empty --target
-  man`, 80 starts each), and the price below.
+  the bearing sole's test; 0.611 against 0.745 after it; and on the shared Mind defaults, 0.542
+  (0.475 to 0.607) against 0.597 (0.531 to 0.660) at 44d1aa1dd, downs a bout 2.11 against 1.93. Kept
+  out still, the cost narrowing as the walk's starts are mended. Its falls, twelve bouts each: 23
+  against 13, the back step's 13 against 4, 9 of them at more than 1 m/s.
+- **The back step throws a body moving back.** One traced on main (bout 0, 8.4 to 10.1 s, no blow
+  taken): its sway asks the centre 0.1 m past the rear sole (`BEYOND`) as the body already goes
+  back at 0.3 m/s; the stance's catching steps (the left at 8.95 s, the right at 9.15 s) never
+  bring the capture point back within the feet, which it leaves by 0.09, then 0.17, then 0.5 m, and
+  the man goes on back to 2.07 m/s and down. The low front kick's close waits on the same: it
+  brakes at the run's unmeasured 0.2 m/s² over its walk stretch (from 3 s, 0.76 to 0.24 m/s over
+  1.1 m), arriving at 6.5 s, the man rising at 4.4; 40 of its 80 trials on its twin end `beyond`.
+  Swayed by its capture point since (the approaches' back step), it falls in 1 drill fight of 48
+  against 10, and the scorecard reads 0.667 against 0.597.
+- **The low front kick waits on its arrival.** Searched again at the empty-handed man on
+  `sparring-laid`'s twin (`--loadout empty,empty --target man`), its record scoring 0.005 with 17
+  falls: the first generation's best 0.131 (0.030 at 480 Hz, 18 falls), the next three's 0.075,
+  0.077 and 0.070, their medians about 0.04, stopped there. With half its trials `beyond`, its
+  timings do not move it: its arrival does.
+- **Next**: the walk and run's honest stop read again on the back step swayed by its capture
+  point, the low front kick's close with it; then the price below.
 
 ## Then: a strike's price, every start a number
 
@@ -289,3 +304,13 @@ man first:
 **Its gate**: the scorecard's priced dealt over given, by slice, near 1 in every slice; the front
 kick's slice with the foe striking, 3.04 now, the first. A part that proves not simple in the
 code is said so before it is built.
+
+## After the kicks land: shorter fights
+
+The merge of the shared Mind defaults (f3743dea2) made the Warrior's Mind beat its old self and its
+own mirror slower: on the scorecard (warrior-drawn), knockouts within 60 s 0.583 (0.517 to 0.647)
+at f74a3df3b against 0.745 (0.683 to 0.799) at e62f6ff59, downs a bout 1.92 against 1.49. The
+owner, on 2026-11-27: "Stronger and slower is fine for now, but after we land the two kicks and
+other changes, we can come back and see how to make fights shorter (perhaps increase aggression
+or something else)." So once the front and the low front kick have landed, fights are made
+shorter, read on the same scorecard against the baseline then.
