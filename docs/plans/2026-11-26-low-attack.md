@@ -314,8 +314,13 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   its run the same), measured again on sparring-feet; stomp/front's trials are the same to the
   last. With them, the scorecard 0.736 (0.674 to 0.790) against 0.722, downs 1.43 a bout against
   1.67. The fitted value was fit before it.
-- **Next**: the value refit on this tree (`npm run measure`); the low front kick's close and the
-  price below.
+- **The value refit after it** (7a8b6e60c): the scorecard 0.741 (0.678 to 0.795) against 0.736,
+  downs 1.64 a bout (1.38 to 1.94) against 1.43 (1.20 to 1.66), their intervals overlapping: the
+  next reading tells whether the rise holds. It moves the empty man's mirror at every gap from
+  0.6 to 3 m, the straight-punch data and the option entrant, against 4d44b5579's value. The low
+  front kick's try on its twin there scores 0.088 at 120 Hz (0.058 at 480 Hz), 15 falls, 34 of
+  80 `beyond`.
+- **Next**: the low front kick's close, read from its try's `beyond` trials; then the price below.
 
 ## Then: a strike's price, every start a number
 
