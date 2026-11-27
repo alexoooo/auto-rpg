@@ -170,9 +170,8 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   | the first step's pace alone | 28 | | | |
   | with | 37 | 19 | 10 | 7 |
 
-  Nearly all were struck ("brace while tumbling"); of 37 starts given up before their lift, one
-  was followed by a fall. A body moving off faster is knocked down more when struck, most often
-  mid-way through a step to catch itself. The owner: "I don't care if it make something worse, that
+  Of 37 starts given up before their lift, one was followed by a fall. Most falls came mid-way
+  through a step to catch the body; why the start makes more of them is not read. The owner: "I don't care if it make something worse, that
   just reveals another broken thing that must be fixed."
 - **Picked, the quick start costs a little, its mechanism unread.** The Warrior holding the quick
   start in the braced walk's place and the staggered walk (`+stance-walk/quick-start+stance-walk/staggered`;
@@ -189,9 +188,14 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   Each knockout gap is about 1.4 standard errors. The falls in 24 of the front kick's bouts, a fall
   after at least 0.5 s up: 48 on HEAD (35 in a step to catch a push, 11 standing, 2 in a walking
   step), 40 with the quick start (29, 8, 3). It stays off in the default.
-- **Next**: the falls in a step to catch a push, three quarters of every fall with the quick start
-  or without, the kicker's falls among them: what fails in a catch step, read on HEAD's default
-  Warrior first and on the quick start second; then the quick start the default where it matches
+- **The falls in a catch step are the kicker's own, not blows.** On HEAD's default Warrior (front
+  kick, 24 bouts), of 35 falls in a catch step, 30 lost no life in the 0.5 s before the catch
+  began, and 22 were kicking as it began (most having just chosen a back step); its foot was
+  already off the ground in all but four, and the capture point 0.2 to 1.0 m from where it was to
+  land. About 20 never landed before the fall. These are the falls [the kicker's falls](2026-11-25-kicker-falls.md)
+  reads ("no catch spares these falls").
+- **Next**: the kicker's falls in a catch step, read on HEAD's default Warrior first and on the
+  quick start second; then the quick start the default where it matches
   or beats the default's knockouts, and the walk-run's start read again under it. Then the low front kick searched again at the
   empty-handed man on `sparring-laid`'s twin (`skill-search.mjs stomp/front man --loadout
   empty,empty --target man`, 80 starts each), and the price below.
