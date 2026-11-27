@@ -40,7 +40,8 @@ const AT_END = (run) => run.to !== null, ENDED = (run) => run.to !== null && run
  * **Each quantity a run measures**: which runs it reads (`reads`), what it measured (`of`; null
  * where it does not say), what its model said (`model`; null where it says nothing of it), and
  * whether it is an angle (`circular`: read about its state's mean direction, and its distances
- * wrapped).
+ * wrapped), and the least error worth telling from none (`floor`: an Option's runs alike under
+ * every nudge have no noise, and a model a hair off them is not wrong by more than the nudges).
  * - The life dealt over a run is all the body dealt, its free limbs' blows too, so it is read for
  *   strikes alone. Life is the bars', so the end rules' drain is not in it.
  * - The model's life is over its own seconds and a run's over its own, so the life a second is
@@ -50,20 +51,20 @@ const AT_END = (run) => run.to !== null, ENDED = (run) => run.to !== null && run
  *   bearing: there the search reckons it afresh from where the foe is then (`placedWith`).
  */
 export const QUANTITIES = {
-  "seconds, not open": { reads: ENDED, of: (run, p) => p && !p.open ? run.seconds : null, model: (p) => p.duration },
-  "life taken": { reads: NOT_CAPPED, of: (run) => run.taken, model: (p) => p.taken },
-  "life taken a second": { reads: NOT_CAPPED, of: (run) => run.seconds > 0 ? run.taken / run.seconds : null, model: (p) => p.duration > 0 ? p.taken / p.duration : null },
-  "life dealt, strikes": { reads: NOT_CAPPED, of: (run, p) => strikes(p) ? run.dealt : null, model: (p) => p.dealt },
-  "landed, strikes": { reads: NOT_CAPPED, of: (run, p) => strikes(p) ? (run.dealt > 0 ? 1 : 0) : null, model: () => null },
-  "x at its end, m": { reads: AT_END, of: (run) => run.to.x, model: (p, run) => expected(p, "x", run.from.x) },
-  "z at its end, m": { reads: AT_END, of: (run) => run.to.z, model: (p, run) => expected(p, "z", run.from.z) },
-  "heading turned, rad": { reads: AT_END, circular: true, of: (run) => turn(run.to.face - run.from.face), model: (p, run) => turn(expected(p, "face", run.from.face) - run.from.face) },
-  "bearing around the foe, rad": { reads: AT_END, circular: true, of: (run) => run.to.around,
+  "seconds, not open": { floor: .05, reads: ENDED, of: (run, p) => p && !p.open ? run.seconds : null, model: (p) => p.duration },
+  "life taken": { floor: .005, reads: NOT_CAPPED, of: (run) => run.taken, model: (p) => p.taken },
+  "life taken a second": { floor: .005, reads: NOT_CAPPED, of: (run) => run.seconds > 0 ? run.taken / run.seconds : null, model: (p) => p.duration > 0 ? p.taken / p.duration : null },
+  "life dealt, strikes": { floor: .005, reads: NOT_CAPPED, of: (run, p) => strikes(p) ? run.dealt : null, model: (p) => p.dealt },
+  "landed, strikes": { floor: .1, reads: NOT_CAPPED, of: (run, p) => strikes(p) ? (run.dealt > 0 ? 1 : 0) : null, model: () => null },
+  "x at its end, m": { floor: .03, reads: AT_END, of: (run) => run.to.x, model: (p, run) => expected(p, "x", run.from.x) },
+  "z at its end, m": { floor: .03, reads: AT_END, of: (run) => run.to.z, model: (p, run) => expected(p, "z", run.from.z) },
+  "heading turned, rad": { floor: .05, reads: AT_END, circular: true, of: (run) => turn(run.to.face - run.from.face), model: (p, run) => turn(expected(p, "face", run.from.face) - run.from.face) },
+  "bearing around the foe, rad": { floor: .1, reads: AT_END, circular: true, of: (run) => run.to.around,
     model: (p, run) => p.outcomes.some((o) => o.x !== undefined && o.around === undefined) ? null : expected(p, "around", run.from.around) },
-  "range at its end, m": { reads: AT_END, of: (run) => run.to.range, model: () => null },
-  "velocity x at its end, m/s": { reads: AT_END, of: (run) => run.to.vx, model: (p, run) => expected(p, "vx", run.from.vx) },
-  "velocity z at its end, m/s": { reads: AT_END, of: (run) => run.to.vz, model: (p, run) => expected(p, "vz", run.from.vz) },
-  "standing at its end": { reads: AT_END, of: (run) => run.to.posture === "standing" ? 1 : 0,
+  "range at its end, m": { floor: .03, reads: AT_END, of: (run) => run.to.range, model: () => null },
+  "velocity x at its end, m/s": { floor: .05, reads: AT_END, of: (run) => run.to.vx, model: (p, run) => expected(p, "vx", run.from.vx) },
+  "velocity z at its end, m/s": { floor: .05, reads: AT_END, of: (run) => run.to.vz, model: (p, run) => expected(p, "vz", run.from.vz) },
+  "standing at its end": { floor: .1, reads: AT_END, of: (run) => run.to.posture === "standing" ? 1 : 0,
     model: (p, run) => p.outcomes.reduce((a, o) => a + o.chance * ((o.posture ?? run.from.posture) === "standing" ? 1 : 0), 0) / p.outcomes.reduce((a, o) => a + o.chance, 0) },
 };
 
@@ -75,20 +76,23 @@ export const apartIn = (quantity, a, b) => quantity.circular ? turn(a - b) : a -
  * under whose runs the quantity reads, with its readings (`values`, in the nudges' order; an angle
  * unwrapped about the state's mean direction, so its means and spreads are an angle's) and its
  * first fork. Twins (runs alike under every nudge, as one run by two navigators) once. With the
- * nudges' count.
+ * nudges' count. With `some`, a row holds the runs the quantity reads however many of the nudges
+ * they are (one or more): where only the Option's mean is read, as against its model, a run cut at
+ * the cap or the verdict then leaves its row in and the long runs are not read the shorter.
  */
-export function tableOf(state, quantity) {
+export function tableOf(state, quantity, { some = false } = {}) {
   const trials = [...new Set(state.forks.map((fork) => fork.trial))].sort((a, b) => a - b);
   const byKey = new Map();
   for (const fork of state.forks) (byKey.get(fork.key) ?? byKey.set(fork.key, new Map()).get(fork.key)).set(fork.trial, fork);
   const rows = [], seen = new Set();
   for (const row of byKey.values()) {
-    if (!trials.every((t) => row.get(t)?.run && quantity.reads(row.get(t).run))) continue;
-    const values = trials.map((t) => quantity.of(row.get(t).run, row.get(t).predicted));
+    const read = trials.filter((t) => row.get(t)?.run && quantity.reads(row.get(t).run));
+    if (some ? read.length === 0 : read.length < trials.length) continue;
+    const values = read.map((t) => quantity.of(row.get(t).run, row.get(t).predicted));
     const twin = JSON.stringify(trials.map((t) => row.get(t).run));
     if (values.some((v) => v === null || !Number.isFinite(v)) || seen.has(twin)) continue;
     seen.add(twin);
-    rows.push({ values, fork: row.get(trials[0]) });
+    rows.push({ values, fork: row.get(read[0]) });
   }
   if (quantity.circular && rows.length) {
     const centre = circularMean(rows.flatMap((row) => row.values));

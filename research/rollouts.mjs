@@ -39,7 +39,7 @@ function boutOf(recipe, engine) {
 }
 
 /** **What a measured run is** (`rollout`'s `measure`), as a number: a row of an older one is not read as one of this, nor forked on as one. */
-export const MEASURE = 2;
+export const MEASURE = 3;
 
 /** The hooks' globals a fork sets: an outer watcher's are set aside while it plays. */
 const HOOKED = ["__optionDecision", "__optionSet", "__optionEnded", "__searchLines"];
@@ -80,8 +80,8 @@ const termsOf = (terms) => terms && {
  * open Option is not held. That needs the option fork's hook (`option-fork-hook.mjs`) registered
  * before the Mind's code loads.
  *
- * With `measure` (`{ side, key, measure: { until } }`) the Option is held, at its exit too and an
- * open one for `until` s, and the fork is played until the Option's run ends and no further. That needs the move
+ * With `measure` (`{ side, key, measure: { until } }`) the Option is held, an open one for `until` s,
+ * and at its exit left to the Mind (a strike kept there strikes again), and the fork is played until the Option's run ends and no further. That needs the move
  * prior's hook (`minds/move-prior-hook.mjs`) registered too. The row then also holds:
  * - `predicted`: what the Option's model said at the decision it was taken at, as that decision's
  *   search asked it (`modelAt`; an open one asked over `until` s): its kind, whether it is open,
@@ -90,7 +90,7 @@ const termsOf = (terms) => terms && {
  * - `run`: what it did, measured, with nothing estimated: the seconds from that decision to the
  *   one its run ended at; how it ended (`ended`: "over" over or out of its
  *   entry or off offer, "held" an open one held its `until`, "dropped" its claims or its offer
- *   refused it while it yielded or at its exit, "cap" still running at the fork's end, "verdict" the bout over);
+ *   refused it while it yielded, "let go" the Mind let it go at its exit, "cap" still running at the fork's end, "verdict" the bout over);
  *   the life it dealt and took meanwhile; and where the body stood at its start and at its end
  *   (`from`, `to`, as the Mind's reading of the situation there has them, `placeOf`; `to` null
  *   where it was cut); the seconds to its exit, where it came to one (`exit`, a strike's release),
@@ -163,8 +163,8 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
           status = mine?.[2] ?? "over";
           if (measure && open && duel.clock - choseAt >= measure.until - 1e-9) return finish("held", decision.now);
           if (measure && status === "exit") exit ??= duel.clock - choseAt;
-          // Held: at each later decision it ran on to at its target, yielding, it is taken again: a committed one runs on anyway, and one at its exit is the Mind's to keep or let go (measured, it is held through it, as its model runs it to its end).
-          if (hold && mine && (status === "yields" || measure && status === "exit") && (!mine[3] || measure)) decision.force(index, target);
+          // Held: at each later decision it ran on to at its target, yielding, it is taken again: a committed one runs on anyway, and one at its exit is the Mind's to keep or let go.
+          if (hold && mine && status === "yields" && (!mine[3] || measure)) decision.force(index, target);
           return;
         }
         choseAt = duel.clock;
@@ -189,7 +189,7 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
         if (side !== option.side || !chose?.taken || ended) return;
         if (first) { first = false; return; }
         if (running.some(([i, k, , on]) => i === index && k === target && on)) return;
-        if (measure) finish(status === "over" ? "over" : "dropped", now);
+        if (measure) finish(status === "over" ? "over" : status === "exit" ? "let go" : "dropped", now);
         else ended = true;
       };
     }

@@ -16,11 +16,13 @@
  * - `noise/gap`: at each state, the noise of an Option's mean over all the nudges (their spread
  *   over the root of their count, pooled over the state's Options) over the spread of the
  *   Options' means there: its median and its 90th percentile over the states. Below 1, a state's
- *   Options are told apart by their means;
+ *   Options are told apart by their means (but see below);
  * - `model`: the median distance from the Option's model, as its search asked it at the fork
  *   (its ends weighed by their chances), to the mean of what it did, over every Option of every
  *   state the model says it of; and the share of those whose model is more than twice its mean's
- *   noise away, so wrong by more than the nudges account for.
+ *   noise away, and more than the quantity's floor, so wrong by more than the nudges account for.
+ * The noise is in the gap too, the gap being of means over the nudges: where the Options do not
+ * differ at all, noise/gap comes to about 1, not 0. Below it, they differ by more than the noise.
  * Before them, how the runs ended, and why those that ended over or were dropped did: what the
  * Option said of itself there (`run.why`).
  */
@@ -62,7 +64,7 @@ for (const [name, quantity] of Object.entries(QUANTITIES)) {
       if (said === null) continue;
       const error = Math.abs(apartIn(quantity, said, mean(values)));
       errors.push(error);
-      if (error > 2 * Math.sqrt(variance(values) / trials) + 1e-9) beyond++;
+      if (error > Math.max(quantity.floor, 2 * Math.sqrt(variance(values) / trials))) beyond++;
     }
     if (rows.length < 2) continue;
     const within = mean(rows.map((row) => variance(row.values))), total = variance(rows.flatMap((row) => row.values)), gap = Math.sqrt(variance(rows.map((row) => mean(row.values))));

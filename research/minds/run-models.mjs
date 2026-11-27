@@ -7,7 +7,8 @@
  *   node research/minds/run-models.mjs <entrant> [<entrant>] [--commit <sha>] [--cap 6] [--until 1] [--nudge 0.5] [--largest 15]
  *
  * It reads the runs as `run-sureness.mjs` does. An Option at a state is read where it was taken
- * under every nudge and the quantity reads its runs (`tableOf`). By kind of Option, and then for the largest
+ * and the quantity reads its runs under one nudge or more (`tableOf`'s `some`), so a long Option is
+ * not read only where it ran short. By kind of Option, and then for the largest
  * errors by Option (its name less its navigator, so a walk's two navigators are one), for each
  * quantity: how many Options at states, the model's mean, the measured mean, the model's bias (its
  * mean error, and that over its standard error, how sure the bias is: the Options of one state
@@ -37,11 +38,11 @@ const familyOf = (name) => name.replace(/ \([a-z-]+-navigation\/[a-z-]+-navigati
 const read = [];
 for (const [name, quantity] of Object.entries(QUANTITIES)) {
   for (const [file, state] of states) {
-    const { trials, rows } = tableOf(state, quantity);
+    const { trials, rows } = tableOf(state, quantity, { some: true });
     if (trials < 2) continue;
     for (const { values, fork } of rows) {
       const said = saidOf(fork, quantity);
-      if (said !== null) read.push({ quantity: name, state: file, kind: fork.predicted.kind, family: familyOf(fork.name), said, done: mean(values), error: apartIn(quantity, said, mean(values)), noise: Math.sqrt(variance(values) / trials) });
+      if (said !== null) read.push({ quantity: name, state: file, kind: fork.predicted.kind, family: familyOf(fork.name), said, done: mean(values), error: apartIn(quantity, said, mean(values)), noise: Math.sqrt(variance(values) / values.length) });
     }
   }
 }
