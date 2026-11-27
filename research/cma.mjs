@@ -54,9 +54,14 @@ export function workerPool(url, workerData, count) {
  * score ranks as that confirmation keeps). Where the best has risen since it was last checked, and
  * at most every `checkEvery` generations, `check(best)` reads it in the background while the
  * search goes on (a best read at the finer rate its confirmation plays, so a best that holds at
- * one rate alone is told at once and not at the end). `onGeneration(entry, search)` hears each generation's
- * best, median and step, with the search's best so far and its mean. Returns the best
- * (`{ score, u, r, g }`), the last mean and the log. `look` names the movement it tunes, `{ body,
+ * one rate alone is told at once and not at the end), and once more at the end where the last best
+ * was not. A check resolves to its reading (`{ score }` and what `rank` reads), and each checked
+ * best keeps the worse of it and its own by `rank` (`worse`): the search keeps (`kept`) the checked
+ * best whose worse reading ranks best, as its confirmation keeps on the worse of its rates, so a
+ * best that rose at one rate while it fell at the other is not what it returns. `onGeneration(entry, search)` hears each generation's
+ * best, median and step, with the search's best so far, what it keeps so far and its mean. Returns the best
+ * (`{ score, u, r, g }`), the kept (the best with its `worse`; the best where nothing is checked),
+ * the last mean and the log. `look` names the movement it tunes, `{ body,
  * variation }`: a search starts only on a skill whose look at its code now says it looks like the
  * motion and works some of the time (`requireLook`; [the skill recipe](../docs/recipes/skill.md#the-procedure)).
  */
@@ -89,9 +94,14 @@ export async function cmaSearch({ n, start, sigma = 0.25, spread, lambda, genera
   let nextGeneration = resume?.generation ?? 0;
   if (resume) { m = [...resume.mean]; sigma = resume.sigma; }
   const snapshot = () => structuredClone({ version: 1, n, lambda, random: state, generation: nextGeneration,
-    mean: m, covariance: C, ps, pc, sigma, best, log });
+    mean: m, covariance: C, ps, pc, sigma, best, kept, log });
   const checks = [];
-  let checked = null, checkedAt = -Infinity;
+  let checked = null, checkedAt = -Infinity, kept = resume?.kept ? structuredClone(resume.kept) : null;
+  // A checked best is kept where the worse of its two readings ranks above the kept one's.
+  const checking = (one) => { checked = one; checks.push(Promise.resolve(check(one)).then((finer) => {
+    const worse = finer && rank(finer, one.r) > 0 ? finer : one.r;
+    if (!kept || rank(worse, kept.worse) < 0) kept = { ...one, worse };
+  })); };
   for (let g = nextGeneration; g < generations; g++) {
     // The first generation's first candidate is the start itself.
     const us = Array.from({ length: lambda }, (_, k) => g === 0 && k === 0 && start ? m.slice() : m.map((mi, i) => Math.min(1, Math.max(0, mi + sigma * Math.sqrt(C[i]) * gauss()))));
@@ -99,7 +109,7 @@ export async function cmaSearch({ n, start, sigma = 0.25, spread, lambda, genera
     if (rs.some(r => !Number.isFinite(r?.score))) throw new Error('CMA requires finite scores for every candidate');
     const order = rs.map((_, i) => i).sort((a, b) => rank(rs[a], rs[b]));
     if (!best.r || rank(rs[order[0]], best.r) < 0) best = { score: rs[order[0]].score, u: us[order[0]], r: rs[order[0]], g };
-    if (check && best.u && best !== checked && g - checkedAt >= checkEvery) { checked = best; checkedAt = g; checks.push(check(best)); }
+    if (check && best.u && best !== checked && g - checkedAt >= checkEvery) { checkedAt = g; checking(best); }
     const old = m.slice();
     m = m.map((_, i) => order.slice(0, mu).reduce((a, k, j) => a + weights[j] * us[k][i], 0));
     const y = m.map((mi, i) => (mi - old[i]) / sigma);
@@ -117,8 +127,9 @@ export async function cmaSearch({ n, start, sigma = 0.25, spread, lambda, genera
       ...(error ? { firstError: String(error).slice(0, 500) } : {}) });
     if (log.length > 1000) log.shift();
     nextGeneration = g + 1;
-    if (await onGeneration?.(log.at(-1), { best, mean: m, log, checkpoint: snapshot() }) === false) break;
+    if (await onGeneration?.(log.at(-1), { best, kept: kept ?? best, mean: m, log, checkpoint: snapshot() }) === false) break;
   }
+  if (check && best.u && best !== checked) checking(best);
   await Promise.all(checks);
-  return { best, mean: m, log, checkpoint: snapshot() };
+  return { best, kept: kept ?? best, mean: m, log, checkpoint: snapshot() };
 }

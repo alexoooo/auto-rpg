@@ -79,6 +79,11 @@ By hand, on its drill, read by its score ([a skill's value](#a-skills-value)):
   falling more, toward a best the confirmation refuses; ranked by falls first, it would climb
   toward not kicking. Hand-picked variants are not a search. Given no
   clock or count, it runs to its plateau (`--patience 30`). Price it from its first generation.
+- **Its result is the best it keeps on the worse of its rates**: each best that rises is read at
+  the confirmation's finer rate as it goes and at the end, and the search returns the checked best
+  whose worse reading ranks best (`cmaSearch`'s `kept`). The front kick's search went on rising at
+  120 Hz while it fell at 480 Hz (0.217 and 0.135 at its 18th generation, 0.255 and 0.104 at its
+  29th); a search that returned its last best would lose the peak its confirmation keeps.
 - **Its best is looked at again before it is written** (`npm run look -- <body> <variation>
   --tuning <its settings>`; `--write` refuses without that verdict).
 - **It ends better** (installed), **flat** (the record kept: this search stopped finding gains,
