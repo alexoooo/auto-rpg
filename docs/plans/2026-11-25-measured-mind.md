@@ -707,14 +707,10 @@ where it is needed least.
 - **Wide bodies.** The man offered every Option registered that fits him empty-handed, so the
   reading is where scale will be. The body with the most Options the game offers is armed, and
   is read on the owner's word (parked, below).
-- **Three targets.** Fitted to where the search's runs went (the search taught by itself, refitted
-  on the guided search's runs for two or three rounds, and no further: rule 4); to what bodies did
-  in the record; and to each Option's forked worth, a softmax of what each Option on offer was
-  worth when the state was forked once for each ([the forked record](2026-11-26-forked-record.md)).
-  The last does not depend on where the search's runs went, which is what PUCT changes. It is not
-  read while the forked record finds a forked worth does not rank a state's Options at a count this
-  machine affords (its step 4: at 2 s, 8 nudges, the spread across nudges is about four times the
-  Options' spread).
+- **Two targets.** Fitted to where the search's runs went (the search taught by itself, refitted
+  on the guided search's runs for two or three rounds, and no further: rule 4); and to what bodies
+  did in the record. The forks give no third: what one Option does to the next 2 s does not rank a
+  state's Options ([the forked record](2026-11-26-forked-record.md#where-it-stands)).
 - **No kind.** Every variant reads an Option by its model alone (mechanism 5).
 - **Screened on the regret bank first**, where the forked record has built it: each variant's
   regret at the banked states, then a match for those that pass.
@@ -767,8 +763,8 @@ game or to unpark something, and the work goes on meanwhile.
 3. **The fight record and the measuring command, which holds rules 2 and 4.** One row format
    that each fit and profile reads: the decision states `fitted-value.mjs` keeps, with every
    Option on offer and its model (as `move-prior.mjs` keeps them), the share of the search's
-   runs each took, the Option run, what followed, and where the foe went; and room for each
-   Option's forked worth and what it did, where [the forked record](2026-11-26-forked-record.md)
+   runs each took, the Option run, what followed, and where the foe went; and room for what each
+   Option did, measured to its exit, where [the forked record](2026-11-26-forked-record.md)
    has forked the state. The measuring command
    is given what is in hand, plays that, adds its rows and fits that body's entries, and refuses
    as rules 2 and 4 say. Scope: the empty-handed Warrior's mirror. Its first rows are a new
@@ -787,9 +783,8 @@ game or to unpark something, and the work goes on meanwhile.
    check compares only the readings of pairings with rows of their own. Read with it: each
    pairing's own fit against the pooled one on that pairing's held-out bouts. Scope: the rat
    against the Warrior; the Warrior's mirror shown unmoved.
-6. **The action prior** (mechanism 5): fitted on the record, on each target it has (not the forked
-   worth, which [the forked record](2026-11-26-forked-record.md#where-it-stands) found does not
-   rank a state's Options at a count this machine affords), reading no Option's kind;
+6. **The action prior** (mechanism 5): fitted on the record, on each target it has (the forks give it
+   none: [the forked record](2026-11-26-forked-record.md#where-it-stands)), reading no Option's kind;
    read in the game as an asset, as the fitted value is. Its held-out nats against the price's
    softmax, by how many Options were on offer. Scope: the empty-handed Warrior's record, step 3's.
 7. **PUCT with the prior**, tried as the section above says: the prior-weighted mean first, then
@@ -838,7 +833,7 @@ game or to unpark something, and the work goes on meanwhile.
     the sum of the skill kinds. It enters by the config path: the walk's Gait field gains "the
     best for each place" beside "Every gait", pickable. Read first on what exists, playing
     nothing: the share of the search's runs spent on another gait or navigator to the same site
-    (the record), and how far apart such twins' forked worths are (fork step 5). Then a match and
+    (the record), and how far apart such twins' measured runs are (fork step 5). Then a match and
     the thinking. What it gives up is a gait chosen for what it sets up a step or two later. The
     rule holds for every skill after it: a manner of doing a thing is chosen inside its Option.
     Scope: the empty-handed Warrior, then him offered every Option that fits him.
@@ -930,7 +925,8 @@ game or to unpark something, and the work goes on meanwhile.
   by it) and 27 fingerprint cases, all the man's (his 25 mirror bouts, the straight punch's data,
   the `option` entrant). Weighing old rows at half for each newer one is built and not yet read:
   every row is of one play.
-- **Next: fork steps 2 to 4.** This plan and [the forked record](2026-11-26-forked-record.md) go
+- **Next: fork steps 3 and 4 again**, on the label the forked record now names (what each Option
+  did, measured to its exit), on the bank fork step 2 took at `62c688f5f`. This plan and [the forked record](2026-11-26-forked-record.md) go
   in this order on one machine (the forked record's steps marked "fork"):
   1. Step 3 (landed).
   2. Fork steps 2 to 4, on the code step 3 leaves, before anything moves the Warrior's mirror.
