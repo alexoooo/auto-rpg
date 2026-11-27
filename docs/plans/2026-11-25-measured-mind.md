@@ -837,7 +837,24 @@ game or to unpark something, and the work goes on meanwhile.
 - **No asset names the Minds that played it yet.** The measuring tools write them from now on;
   the inventory says "not recorded" of each asset measured before, and none is measured again
   for it (rule 4).
-- **Next: step 2.** [The forked record](2026-11-26-forked-record.md) runs beside steps 2 to 5,
+- **Step 2 landed** (`f3743dea2`). Every body's default is the settings every body shares
+  (`option-shared`), and the man's and the rat's add only their situation's (above). Read on its
+  scope, by bar 4, at `f3743dea2`:
+  - **The Warrior**: his new default against his old (10 Hz, every 0.2 s) over the 288 bouts of
+    `warrior-drawn`: 0.653 (0.597 to 0.705), margin 0.134, knocking out within 60 s in 25.7 %
+    of bouts against 13.9 %, taking 64.9 % of the other's life by 60 s against 52.8 %.
+  - **The rat**: `option-presses` against his new default over the 288 bouts of the
+    tournament's `gaps-drawn`: 0.208 (0.163 to 0.253), the man's life taken by 60 s 0.355,
+    knocking out within 60 s in 5.9 %; 1 HP or more by 60 s in 208 bouts, killed within 60 s in
+    128. Before, against his old default: 0.149, 0.355, 4.9 %, 234 and 134.
+  - **The thinking**, both bodies, eight Warrior mirror bouts each, interleaved on the
+    performance cores: 242 ms a simulated second against 179, over the bouts whose physics was
+    the machine's usual 62 ms a second (five and six of eight: the others' physics read 109 to
+    150, the machine busy). A third more thinking, as the timings' readings said (229 at 20 Hz
+    every 0.1 s, 179 at 10 Hz every 0.2 s).
+  - Moved and not read: the woman, the skeleton, the reptile and the armed man (the fingerprint's
+    39 cases, in its commit).
+- **Next: step 3.** [The forked record](2026-11-26-forked-record.md) runs beside steps 2 to 5,
   which do not need it.
 
 ## Parked by the owner

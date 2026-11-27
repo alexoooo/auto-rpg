@@ -882,6 +882,17 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   (-0.075 to 0.006) at 20 Hz every 0.1 s, -0.001 at 60 Hz every 0.1 s and -0.027 at 20 Hz every
   0.2 s. The tournament's `gaps`, 48 bouts each, had read these timings from 0.125 to 0.292.
   *Counted.*
+- **The settings every body shares beat the Warrior's old default, 0.653, for a third more
+  thinking**: the empty-handed Warrior's default (`option-lean`) on the shared settings
+  (`option-shared`, `f3743dea2`: 20 Hz, every 0.1 s, his own backup, aggression and initiative)
+  against it as it was (10 Hz, every 0.2 s), over the 288 bouts of `warrior-drawn`: 0.653 (0.597
+  to 0.705), margin 0.134 (0.086 to 0.183), knocking out within 60 s in 25.7 % of bouts against
+  13.9 %, taking 64.9 % of the other's life by 60 s against 52.8 %. Thinking, both bodies, eight
+  Warrior mirror bouts each, interleaved on the performance cores: 242 ms a simulated second
+  against 179, over the five and six bouts whose physics read the machine's usual 62 ms a second
+  (the rest read 109 to 150, the machine busy). The rat's default, on the same shared settings,
+  against him over the 288 bouts of the tournament's `gaps-drawn`: 0.208 (0.163 to 0.253), the
+  man's life taken by 60 s 0.355, against 0.149 and 0.355 before both changed. *Counted.*
 - **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of
