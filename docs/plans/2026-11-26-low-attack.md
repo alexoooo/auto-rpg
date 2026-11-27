@@ -347,9 +347,15 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   against 1.64, 2.87 changes a second against 3.05 (hold 0.34 against 0.32), closing 0.10 m/s.
   The re-plan lands about where the hold was. At the flicker read, the near side was not asked for
   at all that step: which sides the Mind asks for, not the menu's hold.
-- **Next**: whether a step of hold between approach steps slows the walk at all (the stander's
-  speed through them); then the low front kick's arrival, after the owner's word on the gait
-  switch's price; then the price below.
+- **The hold flickers are the chooser's target keep.** Every site beside the body has its spot
+  each step (the near side's one leg away), but within `Deciding.keep` of a walk aimed at a site,
+  each walk claiming the legs is priced at that site alone: when its route grows (5.25 s to 7.12)
+  all of them fall below hold, which has no target and is not held to one, and hold runs a step
+  before another site is chosen. A flicker's step keeps the walk's speed (0.48 m/s); the 58 s of
+  hold over the downs are long stretches, at 0.31 m/s against an approach's 0.45. The keep is
+  the chooser's, with the gait switch's price, for the owner's word.
+- **Next**: why no low attack is on offer for about 0.4 of a down (the long holds); then the price
+  below.
 
 ## Then: a strike's price, every start a number
 
