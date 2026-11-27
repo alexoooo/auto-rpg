@@ -1,6 +1,6 @@
 // One rollout at a time (`rollouts.mjs`): each job is answered only when its rollout is done.
 // The option fork's hook and the move prior's are registered first, so a job may name an Option
-// and watch (`rollout`'s `option` and `watch`); a job that does neither plays as it did without them.
+// and measure its run (`rollout`'s `option` and its `measure`); a job that does neither plays as it did without them.
 import { register } from "node:module";
 import { parentPort } from "node:worker_threads";
 

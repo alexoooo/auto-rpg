@@ -93,8 +93,10 @@ that fits him, because that is where the number of Options is large.
    let go by the Mind at its exit. At that step it reads what the Option's model gives (`Terms`,
    `src/minds/option/contract/terms.ts`), in the model's units:
    - how long it ran, s, and how it ended;
-   - the life it dealt and the life it took over its run, the blow coming at its start included;
-   - whether it landed, for a strike;
+   - the life it dealt and the life it took over its run, the blow coming at its start included.
+     What the body dealt meanwhile includes its free limbs' blows (a hold's legs stand while the
+     Mind punches), so it is the Option's own, and read, only for a strike;
+   - whether it landed, for a strike (it dealt some life);
    - where it left the body (`Leaves`): where it stands and faces, its bearing around the foe,
      its posture and its velocity over the ground, as the Mind's own reading of the situation at
      that step reads them, and what the foe was doing then.
@@ -102,8 +104,8 @@ that fits him, because that is where the number of Options is large.
    Nothing in a label is estimated: no fitted value and no model is read into it. An open Option,
    which runs as long as it is held, is held a set time, and its model is asked over that time
    (`Ask.until`). A run still going at a cap of a few seconds is kept as cut at the cap and never
-   read as an exit. Beside each label is what the Option's model predicted at the same state, which
-   the search's root already holds. The rows are in the format of the measured-mind record (its
+   read as an exit. Beside each label is what the Option's model predicted at the decision it was
+   taken at, as that decision's search asked it. The rows are in the format of the measured-mind record (its
    step 3), so every fit there can read them.
 4. **How sure a label is**, read before any fit uses it, for each quantity step 3 reads: how much
    of its variance across a state's forks lies between the Options rather than across the
@@ -159,7 +161,7 @@ value's own estimate, and it did not rank a state's Options. Nor did the life me
   `research/option-fork-hook.mjs`. On the warrior protocol's bout 0, all 687 forks given the
   Mind's own choice ended on the trunk's trace to the bit. With `hold`, the Mind takes the Option
   again at each decision it runs on to while it yields, so it runs to its exit as a search's line
-  runs it. An open Option is not held, since a search prices it as an instant. Without `hold`,
+  runs it. `hold` leaves an open Option to the Mind; step 3's fork holds one a set time. Without `hold`,
   the Mind cancels at its next rethink, 0.1 s on, what it would not have chosen. That happened to
   73 % of forced Options in 16 states, and 219 of 468 forks there were identical to another of the
   same state and nudge. So the bank's forks hold.
@@ -175,10 +177,9 @@ value's own estimate, and it did not rank a state's Options. Nor did the life me
   in the record at the bank's commit, where the root priced 98 % of the Options forked.
 - **The first labels** (100 states, held, 8 nudges of 0.5 N s, 2 s on). Each state's best Option
   by 4 nudges, judged by the other 4:
-  - By the forked worth (`research/minds/forked-worth.mjs`, `fork-sureness.mjs`), it gains a
-    median 0.008 life over an Option drawn at random (10th to 90th percentiles -0.26 to 0.54). A
-    fork's worth spreads 0.33 life across nudges, the Options' means 0.087, and the Options are 5 %
-    of a fork's variance. Read at 0.5 s, the worth agreed with itself and predicted nothing of
+  - By the forked worth, it gains a median 0.008 life over an Option drawn at random (10th to
+    90th percentiles -0.26 to 0.54). A fork's worth spreads 0.33 life across nudges, the Options'
+    means 0.087, and the Options are 5 % of a fork's variance. Read at 0.5 s, the worth agreed with itself and predicted nothing of
     2 s: it was the fitted value reading itself, as a fresh reader found.
   - By the life dealt less taken over the 2 s, nothing estimated, it gains a median 0.0014 (10th
     to 90th -0.015 to 0.076), better at 59 % of states and worse at 20 %. The life spreads 0.051
@@ -188,9 +189,13 @@ value's own estimate, and it did not rank a state's Options. Nor did the life me
     the life it dealt while it ran 28 %.
 
   These rows are not step 3's label. At 2 s many runs had not ended (every roll, and 620 of 664
-  cover guards), the end was read at the side's last search before it (up to 0.1 s early), and
-  landing was not kept. The code takes from them: the fork stops at the Option's exit or a cap and
-  reads there, and the forked worth goes.
+  cover guards), the end was read from the side's last search rather than at the exit, and the
+  model's prediction was not kept beside it.
+- **Step 3's fork** (`rollout`'s `measure`, `research/minds/fork-bank.mjs`, into the bank's
+  `runs.jsonl`): the Option held, an open one for `--until` s, the fork stopped where its run
+  ends or at `--cap` s, and what it did read there, beside what its model said as that decision's
+  search asked it. On two states, every Option's fork with the model asked ended on the same poses
+  as without. Step 4's reader is `research/minds/run-sureness.mjs`.
 
 What this leaves of the steps after: step 5 reads each Option's model against step 3's labels,
 pooled over states. Nothing in the forks ranks a state's Options, so the action prior gets no
