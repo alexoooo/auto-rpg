@@ -53,9 +53,10 @@ const HOOKED = ["__optionDecision", "__optionSet", "__searchLines"];
  * With `option` (`{ side, key }`) the branch is also an Option: at the first decision `side`'s
  * Mind makes afresh from the fork on, it takes the Option `key` names ("3:0": its place in the
  * Mind's Options and its target, as the warm start keys them), then decides as it always does;
- * with `hold` (`{ side, key, hold: true }`) the Mind takes it again at each decision it runs on to,
- * so it runs until it ends of itself (over, or out of its entry) or is no longer on offer, and the
- * Mind decides as it always does from then.
+ * with `hold` (`{ side, key, hold: true }`) the Mind takes it again at each decision it runs on to
+ * while it yields, so it runs to its exit as a search's line runs it (over, out of its entry, no
+ * longer on offer, or at its exit, where the Mind keeps it or lets it go as it always does). An
+ * open Option is not held: a search prices it as an instant.
  * That needs the option fork's hook (`option-fork-hook.mjs`) registered before the Mind's code
  * loads.
  *
@@ -107,14 +108,23 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
     if (option) {
       globalThis.__optionDecision = (decision) => {
         if (decision.side !== option.side) return;
-        // Held: at each later decision it ran on to at its target, it is taken again, until it ends of itself or is not on offer.
-        if (chose) { if (option.hold && chose.taken && ended === null && decision.running.some(([i, k]) => i === index && k === target)) decision.force(index, target); return; }
+        // Held: at each later decision it ran on to at its target, yielding, it is taken again: a committed one runs on anyway, and one at its exit, or open, is the Mind's to keep or let go.
+        if (chose) {
+          if (option.hold && chose.taken && ended === null && decision.running.some(([i, k, status, open]) => i === index && k === target && status === "yields" && !open)) decision.force(index, target);
+          return;
+        }
         choseAt = duel.clock;
         chose = { time: decision.time, own: decision.pick && `${decision.pick[0]}:${decision.pick[1]}`, taken: decision.force(index, target) };
       };
     }
     const lives = () => [duel.clock, duel.life("left"), duel.life("right")];
-    let last = null, ended = null, mark = 0;
+    let last = null, ended = null, mark = 0, first = true;
+    // The set of the forced decision itself is passed over: from the next decision on, the Option must run on, at its target.
+    if (option) globalThis.__optionSet = ({ side, running }) => {
+      if (side !== option.side || !chose?.taken || ended !== null) return;
+      if (first) { first = false; return; }
+      if (!running.some(([i, k, , on]) => i === index && k === target && on)) ended = duel.clock;
+    };
     if (watch) {
       watched = { t0: duel.clock, lives: [lives()], start: null, marks: [], ...(option ? { run: null } : {}) };
       globalThis.__searchLines = (root, at) => {
@@ -123,13 +133,6 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
         if (!reading) return;
         last = { t: duel.clock, reading };
         watched.start ??= reading;
-      };
-      // The set of the forced decision itself is passed over: from the next decision on, the Option must run on, at its target.
-      let first = true;
-      if (option) globalThis.__optionSet = ({ side, running }) => {
-        if (side !== option.side || !chose?.taken || ended !== null) return;
-        if (first) { first = false; return; }
-        if (!running.some(([i, k, , on]) => i === index && k === target && on)) ended = duel.clock;
       };
     }
     const trace = traceOf(builts);

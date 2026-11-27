@@ -12,7 +12,7 @@
  * `--nudges` nudges of `--nudge` N s (`nudgesOf`, the same for every Option of the state, rule 5),
  * the side's Mind taking that Option at its first decision and then deciding as it always does,
  * the other's as it always does (`rollout`'s `option`); with `--hold`, taking it again at each
- * decision it runs on to, so it runs until it ends of itself, as a search's line runs its Option. Each fork keeps what the side met
+ * decision it runs on to, so it runs to its exit as a search's line runs it (an open one not held). Each fork keeps what the side met
  * (`rollout`'s `watch`): the lives, how long the Option ran, and the side's reading at its first
  * search, at the Option's end and every `--every` s.
  *
