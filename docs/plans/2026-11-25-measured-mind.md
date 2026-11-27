@@ -868,21 +868,22 @@ game or to unpark something, and the work goes on meanwhile.
   its scope, the empty-handed Warrior's mirror, at `91054ef50`: 144 bouts, 164,537 decision
   states. The fitted value refitted to them reads his held-out play truer at every horizon, and
   with it he plays `option-tail` 0.606 where the fit in the game plays it 0.566
-  ([the approaches](../approaches.md#minds)). Written to the game, it moved 7 inventory rows (the
+  ([the approaches](../approaches.md#minds)). It is the game's: it moved 7 inventory rows (the
   fitted value's origin, now naming its Minds, and six of the man's kick and stomp profiles, stale
   by it) and 27 fingerprint cases, all the man's (his 25 mirror bouts, the straight punch's data,
-  the `option` entrant). It is not the game's yet: it would move the mirror the forks' bank
-  replays (below), so it lands as step 4's first commit, made again by
-  `npm run measure -- option-lean/man/empty,empty --write` (its fit is seeded). Weighing old rows
-  at half for each newer one is built and not yet read: every row is of one play.
+  the `option` entrant). Weighing old rows at half for each newer one is built and not yet read:
+  every row is of one play.
 - **Next: fork steps 2 to 4.** This plan and [the forked record](2026-11-26-forked-record.md) go
   in this order on one machine (the forked record's steps marked "fork"):
   1. Step 3 (landed).
   2. Fork steps 2 to 4, on the code step 3 leaves, before anything moves the Warrior's mirror.
      The record keeps no saves: its bouts play again only on the code and assets that played
-     them. So the bank is taken while that holds, and the forks label the Mind whose run shares
-     the record holds, at the same states, which is what step 6 and fork step 5 compare.
-  3. Step 4, its first commit the fitted value refitted to the record (step 3's reading).
+     them. The record's rows were played on the fit step 3 replaced, so the bank first plays the
+     mirror again on the code in hand (`npm run measure -- option-lean/man/empty,empty --again`,
+     about 19 min), whose rows are then the game's Mind's. The bank is taken while that holds, and
+     the forks label the Mind whose run shares the record holds, at the same states, which is what
+     step 6 and fork step 5 compare.
+  3. Step 4.
   4. Fork steps 5 and 6.
   5. Step 6, then step 7.
   6. Step 5, by the owner's choice (2026-11-27: "MM5 after MM7"). The rat's bouts against the

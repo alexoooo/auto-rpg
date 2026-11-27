@@ -905,8 +905,7 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   `warrior-drawn`: 0.606 (0.552 to 0.660) on the new fit against 0.566 (0.514 to 0.622) on the old,
   margin 0.142 against 0.108, knocking out within 60 s in 51.7 % of bouts against 45.1 %, taking
   0.828 of the other's life by 60 s against 0.787. Two matches against one opponent, not one
-  paired: every figure moved the same way, each by less than its interval. The refit is not the
-  game's yet (the measured-mind plan's order: the forks' bank replays the record first).
+  paired: every figure moved the same way, each by less than its interval. It is the game's.
   *Counted.*
 - **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
