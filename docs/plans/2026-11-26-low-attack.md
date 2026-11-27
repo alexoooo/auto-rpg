@@ -125,17 +125,60 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   trial of `stance-trials.mjs` by the walk-run, traced), the man goes 0.03 to 0.12 m/s for 1.1 s:
   the walk's weight shift (0.45 s, the centre still), a short first step, then the left foot set
   0.36 m behind the start before the drive; 0.9 m/s at 1.7 s and 1.8 at 2.2, then 2.5 to 2.9 m/s
-  against the 2 asked. Whether the Warrior's own gaits start the same way is not yet read.
+  against the 2 asked.
 - **Ordered by the owner**, on the run gait, seen in the game: "it has ok top speed but it's quite
-  slow to get there", and "i think we'll need to fix both these issues". The run's start is
-  ordered: why its first second does not move, looked at in frames, authored to reach pace as fast
-  as its body holds, and its envelope measured with it. The back walk's 0.7 m/s (1.5 before) is
-  the walk-run's: ordered for the Warrior only if his legs walk back by it. The window a route
-  runs to, changing foot and side between decisions, and the run's overshoot are noted, not started.
-- **Next**: the low front kick searched again at the empty-handed man, as the bite is, on the rung
-  its profile is measured on: `sparring-laid`'s twin (`sparring-laid-twin`, its starts from
-  another stream), its own cases confirming (`skill-search.mjs stomp/front man --loadout
-  empty,empty --target man`, 80 starts each); then the price below.
+  slow to get there", and "i think we'll need to fix both these issues". The back walk's 0.7 m/s is
+  the walk-run's, not the Warrior's: his legs walk back by the stance walk, 1.2 m/s on today's code
+  (47944b7dc). The window a route runs to, changing foot and side between decisions, and the run's
+  overshoot are noted, not started.
+- **In the bouts the stander does not make the pace asked, and the limits are not why.** Twelve
+  front kick and low front kick mirrors, every 0.1 s with one side down and the other standing:
+  the stance walk is asked 0.70 m/s on 272 of its 340 steps asked to move, the fastest pace its
+  envelope turns at while the heading still turns (`steeredPace`), and the body makes 0.45 (median).
+  Each changed by hand and replayed (24 bouts) moved the close by nothing: the man's stance turns
+  allowed at every speed (asked pace 0.82, made 0.45), his side walks to 2 m/s, the stance's
+  stopping 0.5 to 2 m/s².
+- **Every gait he holds went nowhere for its first second from standing**: braced, staggered, the
+  stance's own walk and the walk-run passed 0.2 m/s at 0.9 to 1.1 s, whatever pace was asked. The
+  first step from a stand was planned at the pace of the walk's first instant (its acceleration
+  over one step, about 0.02 m/s) and its weight shift took the body onto the bearing sole and no
+  further, so it landed where it stood and the walk went from the second step.
+- **The quick start (`stance-walk/quick-start`), pickable in the Arena, off in the default.** Steps
+  that fall to start (`GaitTuning.fallsToStart`): a step from a stand planned at the pace the walk
+  will have as it lands, and its shift falling about both soles toward the capture point it needs
+  at the lift (`SwingGoal.handover`), lifting there or at the swing's time. By it, from standing,
+  the man passes 0.2 m/s at 0.23 s (0.91 braced), makes 0.40 to 0.49 m/s over the first second
+  (0.05), is 0.87 m on by 1.3 s (0.25), the first step 0.20 m forward; seen from the side, the feet
+  part at 0.4 s and he strides with a heel strike by 0.8 s, the trunk upright. As the stance's
+  default it closed the walk-run's stall too (90 % of 2 m/s at 1.33 s, 2.23 before); as a
+  variation, the walk-run keeps its stall.
+- **As the default, the start slowed knockouts in every subject**, and so it is a variation for
+  now. The scorecard (warrior-drawn, 216 bouts each, `--fresh`), today's code with and without it:
+
+  | | no kick | front kick | front kick, low front kick |
+  | --- | --- | --- | --- |
+  | knockouts within 60 s, without → with | 0.769 → 0.625 | 0.509 → 0.366 | 0.546 → 0.421 |
+  | time to a knockout, mean, s | 45.1 → 52.0 | 56.8 → 62.9 | 54.2 → 59.9 |
+  | downs a bout | 1.03 → 2.07 | 2.08 → 3.13 | 2.12 → 3.09 |
+
+  The falls, no kick, 24 bouts, a fall after at least 0.5 s up, by what its stance was doing 0.25 s
+  before:
+
+  | | falls | in a step to catch a push | standing, no step | in a walking step |
+  | --- | --- | --- | --- | --- |
+  | without | 17 | 11 | 3 | 2 |
+  | the first step's pace alone | 28 | | | |
+  | with | 37 | 19 | 10 | 7 |
+
+  Nearly all were struck ("brace while tumbling"); of 37 starts given up before their lift, one
+  was followed by a fall. A body moving off faster is knocked down more when struck, most often
+  mid-way through a step to catch itself. The owner: "I don't care if it make something worse, that
+  just reveals another broken thing that must be fixed."
+- **Next**: the recovery when struck while moving, read on the scorecard with the quick start
+  picked, until its knockouts match or beat the default's; then the quick start the default, and
+  the walk-run's start read again under it. Then the low front kick searched again at the
+  empty-handed man on `sparring-laid`'s twin (`skill-search.mjs stomp/front man --loadout
+  empty,empty --target man`, 80 starts each), and the price below.
 
 ## Then: a strike's price, every start a number
 

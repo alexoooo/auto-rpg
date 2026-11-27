@@ -89,6 +89,12 @@ export interface GaitTuning {
    * where it stands (`startingSide`); false or none, with the one on the side the walk goes.
    */
   readonly startsToward?: boolean;
+  /**
+   * Whether a walk from a stand falls the way it goes before its first lift (`SwingGoal.handover`),
+   * its first step planned at the pace the walk will have as it lands; false or none, it shifts
+   * onto the bearing sole, and the first step is planned at the walk's pace as it sets off.
+   */
+  readonly fallsToStart?: boolean;
 }
 
 /** The settings of a step taken to catch a push. */
@@ -158,7 +164,7 @@ export const STANCE_GAIT: GaitTuning = Object.freeze({ seconds: 0.3, lift: 0.05,
 export function validGaitTuning(value: unknown): value is GaitTuning {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const gait = value as GaitTuning;
-  const keys = ["seconds", "lift", "width", "longest", "reserve", "effort", "clearance", "accel", "crouch", "horizon", "transfer"] as const, optional = ["preswing", "startsToward"] as const;
+  const keys = ["seconds", "lift", "width", "longest", "reserve", "effort", "clearance", "accel", "crouch", "horizon", "transfer"] as const, optional = ["preswing", "startsToward", "fallsToStart"] as const;
   if (Object.keys(gait).some(key => ![...keys, ...optional].some(known => known === key))) return false;
   if (!keys.every(key => Number.isFinite(gait[key]))) return false;
   return gait.seconds > 0 && gait.longest > 0 && gait.accel > 0 && gait.horizon > 0
@@ -168,7 +174,8 @@ export function validGaitTuning(value: unknown): value is GaitTuning {
     && (gait.preswing !== null && typeof gait.preswing === "object" && !Array.isArray(gait.preswing)
       && Object.keys(gait.preswing).every(key => key === "knee" || key === "seconds") && Number.isFinite(gait.preswing.knee) && gait.preswing.knee >= 0
       && Number.isFinite(gait.preswing.seconds) && gait.preswing.seconds > 0)
-    && (gait.startsToward === undefined || typeof gait.startsToward === "boolean");
+    && (gait.startsToward === undefined || typeof gait.startsToward === "boolean")
+    && (gait.fallsToStart === undefined || typeof gait.fallsToStart === "boolean");
 }
 
 /**

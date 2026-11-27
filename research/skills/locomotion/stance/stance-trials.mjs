@@ -180,7 +180,7 @@ function shoveTrunk(stand, impulse, way) {
 /**
  * The locomotion skill `legs` names, driving `b`: null for the stance's own walk, which a trial asks
  * of the stance's goal itself; `"walk-run"` for the walk and run (`src/skills/locomotion/walk-run/walk-run/walk-run.ts`),
- * free to run; `"braced"` and `"staggered"` for the stance walk's two variations (`STANCE_WALK_PART`), named, as a body may hold both.
+ * free to run; `"braced"`, `"staggered"` and `"quick-start"` for the stance walk's variations (`STANCE_WALK_PART`), named, as a body may hold several.
  */
 function skillOf(legs, b, stride) {
   switch (legs) {
@@ -189,6 +189,7 @@ function skillOf(legs, b, stride) {
     case "walk-run": return stride === undefined ? WALK_RUN_PART.make(b.commanded, { kind: "walk-run" }) : walkRun(b.commanded, WALK_RUN, WALK_RUN_CYCLE, { stride });
     case "braced": return STANCE_WALK_PART.make(b.commanded, { kind: "stance-walk", variation: "stance-walk" });
     case "staggered": return STANCE_WALK_PART.make(b.commanded, { kind: "stance-walk", variation: "staggered" });
+    case "quick-start": return STANCE_WALK_PART.make(b.commanded, { kind: "stance-walk", variation: "quick-start" });
     default: throw new Error(`no locomotion skill named ${legs}`);
   }
 }
@@ -213,9 +214,10 @@ function skillCommand(skill, view, walk, face, dt, posture, keep) {
  * lab's gusts blow on it throughout (`startWind`, `src/game/lab/wind.ts`). `stood` is the soles' distance
  * apart across the way as it sets off, m, and `width` their mean as each lands over the 3 s measured
  * (null if none landed), and the greatest absolute pelvis facing, rad, through travel and rest.
- * `trace` retains each step's motion, stance recovery state and hip rotation readings.
+ * `trace` retains each step's motion, stance recovery state and hip rotation readings; `watch`, if
+ * given, is called with the body built and the world's time after each step (to draw it).
  */
-export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null, wind = null, setOff = 5, rest = 4, steadiness = null, stride, trace = false }) {
+export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null, wind = null, setOff = 5, rest = 4, steadiness = null, stride, trace = false, watch = null }) {
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { steadiness });
   const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
   if (isRefused(blowing)) { b.dispose(); stand.dispose(); throw new Error(blowing.refused); }
@@ -238,6 +240,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
     const run = (seconds) => {
       for (let i = 0; i < stand.seconds(seconds); i++) {
         stand.step(1);
+        watch?.(b.built, stand.world.time);
         const s = b.view.stance;
         // The sink is read over the lower sole: the stance's support is raised with a sole that swings high, as a run's does.
         if (goal) low = Math.max(low, goal.height - (s.centre.y - Math.min(s.ends[footOn(b.built.spec, "left")].middle.y, s.ends[footOn(b.built.spec, "right")].middle.y)));

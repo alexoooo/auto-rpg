@@ -74,6 +74,8 @@ export interface SwingGoal {
   /**
    * A walk's double support before the lift, s (`transferStep`): both soles bear, and the foot lifts
    * when it is over, not on the capture point; the plan brings its capture point to `handover` by then.
+   * A step from a stand that falls to start (`walkStep`, `GaitTuning.fallsToStart`) has a `handover` and no double support: its shift falls about
+   * both soles toward it, and the foot lifts on reaching it or once the swing's time has gone.
    */
   readonly transfer?: number;
   readonly handover?: readonly [number, number];
