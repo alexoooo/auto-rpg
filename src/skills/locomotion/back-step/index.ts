@@ -1,6 +1,7 @@
 import type { Body, BodyView } from "../../../control/body.ts";
 import type { BearingEnd } from "../../../core/bodies/spec/body.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
+import { pendulumRate } from "../../../control/stance/gait.ts";
 import { soleRefusal } from "../../../control/support.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { cos, sin } from "../../../core/math/real.ts";
@@ -10,9 +11,6 @@ import { varied, type Varied } from "../../framework/variations.ts";
 import type { LegsAsked } from "../../framework/skill.ts";
 import { STAGGERED, validCarriage, type Carriage } from "../shared/locomotion.ts";
 import { stanceWalk } from "../shared/stance-walk.ts";
-
-/** How far behind the rear sole's middle the back step asks the centre, m: past where the stance holds it (within its support), so it goes as far back as the stance lets it. */
-const BEYOND = .1;
 
 /** How long the back step holds the body back, and takes to bring it back over the middle of its feet, s, unless its config says. */
 const SWAY = deepFreeze({ out: .7, back: .5 });
@@ -72,12 +70,23 @@ function stepOver(step: FootStep, view: BodyView, dt: number): boolean {
 }
 
 /**
+ * **Where the back step asks the centre while it sways out**, world (x, z), m: where its capture
+ * point, the centre and its velocity over the pendulum's rate (Kajita et al. 2001), comes to `rear`,
+ * the rear sole's middle: as far back as the body can sway and still stop over that foot, a body
+ * going back already asked less far.
+ */
+function swayedTo(view: BodyView, rear: readonly [number, number], g: number): readonly [number, number] {
+  const s = view.stance, w = pendulumRate(g, s.centre.y - s.support.y);
+  return [rear[0] - s.velocity.x / w, rear[1] - s.velocity.z / w];
+}
+
+/**
  * **The back step**: a gait that sways the body back over its rear foot, the walk in the stance
  * (`stanceWalk`) in the same carriage but for one field of the legs goal. Each time the legs take
  * it up (`Locomotion.resume`, as Move changes to it), once the stance stands on both feet taking no
- * step (`squared`), it asks the stance's centre (`LegsGoal.centre`) `BEYOND` behind the sole
- * further back along its heading for `out` s, and then where the centre began for `back` s, with no
- * walk and no step: the stance carries the whole body back over that foot, the head and trunk with
+ * step (`squared`), it asks the stance's centre (`LegsGoal.centre`) where its capture point comes
+ * over the sole further back along its heading (`swayedTo`) for `out` s, and then where the centre
+ * began for `back` s, with no walk and no step: the stance carries the whole body back over that foot, the head and trunk with
  * the centre, and in again; with a `stepIn`, once the body comes forward again, the lead foot steps
  * that far in (`STEP`) and the centre is brought in as far past where it began. Then it follows
  * (`follow`), or is the walk. It ends with the centre where it began, since a walk taken up stands
@@ -86,9 +95,9 @@ function stepOver(step: FootStep, view: BodyView, dt: number): boolean {
  * itself is another skill's (a stomp's), and goes to the walk as asked.
  */
 function backStep(body: Body, config: BackStepConfig): Locomotion {
-  const walk = stanceWalk(body, { carriage: config.carriage });
+  const walk = stanceWalk(body, { carriage: config.carriage }), g = -body.built.physics.gravity[1];
   const out = config.out ?? SWAY.out, back = config.back ?? SWAY.back, stepIn = config.stepIn ?? 0, stagger = config.carriage?.stagger ?? 0;
-  /** Where the centre is asked out and back, world (x, z), m, and how long since the sway began, s; whether it waits for the stance to stand square; its step in and its follow's step under way; the heading it has turned to. */
+  /** The rear sole's middle the body sways over, world (x, z), m, and where the centre is brought back to; how long since the sway began, s; whether it waits for the stance to stand square; its step in and its follow's step under way; the heading it has turned to. */
   const state = { aim: null as readonly [number, number] | null, from: null as readonly [number, number] | null, seconds: 0, armed: false, walk: walk.state,
     step: null as FootStep | null, stepped: false, waited: 0, follow: null as FootStep | null, facing: null as number | null };
   /** `goal` asked of the walk while it sways, facing the heading it has turned to (`BackStepConfig.turn`); itself where it turns none. */
@@ -146,15 +155,15 @@ function backStep(body: Body, config: BackStepConfig): Locomotion {
     if (state.facing !== null && over) { const facing = state.facing; state.facing = null; walk.resume(view, facing); }
     if (state.armed && squared(view)) {
       state.armed = false;
-      const rear = endsAlong(view, walk.heading).at(-1)!.middle, h = walk.heading;
-      state.aim = [rear.x - BEYOND * sin(h), rear.z - BEYOND * cos(h)]; state.from = [view.stance.centre.x, view.stance.centre.z];
+      const rear = endsAlong(view, walk.heading).at(-1)!.middle;
+      state.aim = [rear.x, rear.z]; state.from = [view.stance.centre.x, view.stance.centre.z];
     }
     if (state.armed) return walk.goal(view, { ...goal, walk: null }, dt);
     if (over && config.follow) return following(view, goal, dt, config.follow);
     if (!state.aim || over) return walk.goal(view, goal, dt);
     const stepped = steppingIn(view, goal, dt);
     if (stepped) return walk.goal(view, stepped, dt);
-    const centre = state.seconds < out ? state.aim : state.from!;
+    const centre = state.seconds < out ? swayedTo(view, state.aim, g) : state.from!;
     state.seconds += dt;
     return walk.goal(view, swaying({ ...goal, walk: null, swing: null, centre }, dt), dt);
   };

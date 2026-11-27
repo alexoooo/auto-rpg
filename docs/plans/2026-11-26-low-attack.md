@@ -271,13 +271,15 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   the man goes on back to 2.07 m/s and down. The low front kick's close waits on the same: it
   brakes at the run's unmeasured 0.2 m/s² over its walk stretch (from 3 s, 0.76 to 0.24 m/s over
   1.1 m), arriving at 6.5 s, the man rising at 4.4; 40 of its 80 trials on its twin end `beyond`.
+  Swayed by its capture point since (the approaches' back step), it falls in 1 drill fight of 48
+  against 10, and the scorecard reads 0.667 against 0.597.
 - **The low front kick waits on its arrival.** Searched again at the empty-handed man on
   `sparring-laid`'s twin (`--loadout empty,empty --target man`), its record scoring 0.005 with 17
   falls: the first generation's best 0.131 (0.030 at 480 Hz, 18 falls), the next three's 0.075,
   0.077 and 0.070, their medians about 0.04, stopped there. With half its trials `beyond`, its
   timings do not move it: its arrival does.
-- **Next**: the back step's sway held within what its steps catch, then the walk and run's
-  honest stop read again, the low front kick's close with it; then the price below.
+- **Next**: the walk and run's honest stop read again on the back step swayed by its capture
+  point, the low front kick's close with it; then the price below.
 
 ## Then: a strike's price, every start a number
 
