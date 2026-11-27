@@ -300,8 +300,15 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   its follow did, and a step is lifted only by its own foot's swing: that fall is gone, the
   scorecard 0.722 (0.659 to 0.778) against 0.704, downs 1.67 a bout against 1.82, the back step's
   drill as it was (fell 0.021). The back step still begins 15 of the fights' 32 falls.
-- **Next**: the back step's other falls in the fights traced; then the low front kick's close and
-  the price below.
+- **The back step's falls are fewer than counted.** Of the 15 a fall names the back step in (the
+  gait running as the body lands), 8 chose it on a body already going down, 0.67 to 0.78 m over
+  its support against 0.90 standing, 5 of them after a blow. Of the 7 it chose upright, 3 fell in
+  the sway out, 4 in the sway back; 2 of those after a blow, 2 already going back near 0.9 m/s.
+  The clearest (no blow, standing, 0.91 m apart) never swayed: a kick ended with its foot in the
+  air, the back step waited armed for a square stance, and the stance's catch of that foot,
+  re-aimed each step, never set it down while the bearing foot slid 0.8 m out from under him.
+- **Next**: the low front kick's close and the price below; then a kick's end with its foot in the
+  air and the stance's catch of it.
 
 ## Then: a strike's price, every start a number
 
