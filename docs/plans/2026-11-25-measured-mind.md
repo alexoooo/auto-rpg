@@ -854,14 +854,35 @@ game or to unpark something, and the work goes on meanwhile.
     every 0.1 s, 179 at 10 Hz every 0.2 s).
   - Moved and not read: the woman, the skeleton, the reptile and the armed man (the fingerprint's
     39 cases, in its commit).
-- **Next: step 3.** Then this plan and [the forked record](2026-11-26-forked-record.md) go in
-  this order on one machine (the forked record's steps marked "fork"):
-  1. Step 3.
+- **Step 3 landed** (`91054ef50`). What is in hand is named as the tournament names an entrant
+  (`mind/body/left,right`; one entrant is its mirror), so another body, loadout or pairing is the
+  same command with other names. The record (`research/minds/record.mjs`) is one row a bout in
+  `.cache/record/<matchup>/`, outside Git: every decision state a tree search started from, both
+  sides', as the fitted leaf reads it; every Option the search weighed, with its price, runs and
+  worth; the Option then taken; the lives at each change; each body as numbers and the Mind that
+  played it. A line has room for a fork's reading. The command (`npm run measure`) plays only the
+  bouts the record lacks, so it goes on where it was stopped; says its price after its first
+  chunk; and refuses to write a fit that moves a pairing with no rows added (shown: the mirror's
+  rows relabelled as the man against the woman were refused, naming the man's mirror and the
+  woman's). It plays the tournament's `measuring` draws, 9 to 14, which no reading plays. Read on
+  its scope, the empty-handed Warrior's mirror, at `91054ef50`: 144 bouts, 164,537 decision
+  states. The fitted value refitted to them reads his held-out play truer at every horizon, and
+  with it he plays `option-tail` 0.606 where the fit in the game plays it 0.566
+  ([the approaches](../approaches.md#minds)). Written to the game, it moved 7 inventory rows (the
+  fitted value's origin, now naming its Minds, and six of the man's kick and stomp profiles, stale
+  by it) and 27 fingerprint cases, all the man's (his 25 mirror bouts, the straight punch's data,
+  the `option` entrant). It is not the game's yet: it would move the mirror the forks' bank
+  replays (below), so it lands as step 4's first commit, made again by
+  `npm run measure -- option-lean/man/empty,empty --write` (its fit is seeded). Weighing old rows
+  at half for each newer one is built and not yet read: every row is of one play.
+- **Next: fork steps 2 to 4.** This plan and [the forked record](2026-11-26-forked-record.md) go
+  in this order on one machine (the forked record's steps marked "fork"):
+  1. Step 3 (landed).
   2. Fork steps 2 to 4, on the code step 3 leaves, before anything moves the Warrior's mirror.
      The record keeps no saves: its bouts play again only on the code and assets that played
      them. So the bank is taken while that holds, and the forks label the Mind whose run shares
      the record holds, at the same states, which is what step 6 and fork step 5 compare.
-  3. Step 4.
+  3. Step 4, its first commit the fitted value refitted to the record (step 3's reading).
   4. Fork steps 5 and 6.
   5. Step 6, then step 7.
   6. Step 5, by the owner's choice (2026-11-27: "MM5 after MM7"). The rat's bouts against the
