@@ -23,13 +23,17 @@
  *   took and its worth; and the Option the selection then took (`ran`, its option and target),
  *   null where it took none new at that decision. The selection may take one the search did not
  *   weigh. Where the foe went and how each body ended are read from the later roots of
- *   either side. What forks of a root's state did, where the forked record played them, is in
- *   its bank's `forks.jsonl` (`fork-bank.mjs`), found by the row's key, the side and `t`.
+ *   either side. What each Option did where the forked record forked a root's state is in its
+ *   bank's `runs.jsonl` (`fork-bank.mjs`), found by the row's key, the side and `t`.
  *
- * Rows are kept in `.cache/record/<matchup>/<machine>.jsonl`, outside Git: a matchup's folder is
- * every row of its two entrants, each machine's in its own file, so machines merge by copying.
+ * Rows are kept in `.cache/record/<matchup>/<machine>.jsonl.gz`, outside Git: a matchup's folder is
+ * every row of its two entrants, each machine's in its own file, so machines merge by copying. Each
+ * row is compressed on its own and appended to the file in one write, so a run stopped by its PID
+ * leaves only whole rows, and the file is read back as one stream. A file kept uncompressed
+ * (`<machine>.jsonl`) is read as well.
  */
 import { appendFileSync, createReadStream, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { createGunzip, gzipSync } from "node:zlib";
 import { hostname } from "node:os";
 import { execFileSync } from "node:child_process";
 import { createInterface } from "node:readline";
@@ -72,11 +76,11 @@ export const gameCommit = () => git("log", "-1", "--format=%H", "--", ...GAME).t
 /** What the game computes from that differs from `gameCommit` or is untracked, each as `git status` names it. */
 export const gameChanged = () => git("status", "--porcelain", "--untracked-files=all", "--", ...GAME).split("\n").filter((line) => line.length > 3);
 
-/** Every `.jsonl` file in `folder`, by name. */
-const filesIn = (folder) => existsSync(folder) ? readdirSync(folder).filter((name) => name.endsWith(".jsonl")).sort().map((name) => join(folder, name)) : [];
+/** Every file of rows in `folder`, compressed (`.jsonl.gz`) or not (`.jsonl`), by name. */
+const filesIn = (folder) => existsSync(folder) ? readdirSync(folder).filter((name) => /.jsonl(.gz)?$/.test(name)).sort().map((name) => join(folder, name)) : [];
 
-/** Each line of `file`, as it is read. */
-const linesOf = (file) => createInterface({ input: createReadStream(file), crlfDelay: Infinity });
+/** Each line of `file`, as it is read: a compressed file's members one stream. */
+const linesOf = (file) => createInterface({ input: file.endsWith(".gz") ? createReadStream(file).pipe(createGunzip()) : createReadStream(file), crlfDelay: Infinity });
 
 /** How many rows `folder` keeps of each key, read from the start of each line alone. */
 export async function keysIn(folder) {
@@ -98,12 +102,12 @@ export const rowText = (row) => JSON.stringify(row, (_, v) => typeof v === "numb
 
 /**
  * **Play `jobs`, bouts for the record**, on `lanes` workers of `record-worker.mjs`, each row
- * appended to `folder`'s file for this machine as it comes, with the commit it was played on;
+ * appended compressed to `folder`'s file for this machine as it comes, with the commit it was played on;
  * the price said from the first chunk. `each(result, job, commit)` sees each worker's answer first
  * and gives the bout's row of it (a worker may answer more than the row, as the bank's saves).
  */
 export async function playRecord(jobs, { folder, lanes, each = (result) => result }) {
-  const commit = commitOf(), changed = (commit ? uncommittedInputs() : []).length > 0, file = join(folder, `${hostname()}.jsonl`);
+  const commit = commitOf(), changed = (commit ? uncommittedInputs() : []).length > 0, file = join(folder, `${hostname()}.jsonl.gz`);
   const chunk = Math.min(lanes, jobs.length), from = performance.now();
   let done = 0;
   mkdirSync(folder, { recursive: true });
@@ -111,7 +115,7 @@ export async function playRecord(jobs, { folder, lanes, each = (result) => resul
   await workerJobs(jobs, { lanes, create: () => simulationWorker(new URL("./record-worker.mjs", import.meta.url)),
     result: ({ result }, job) => {
       const row = each(result, job, commit);
-      appendFileSync(file, rowText({ key: job.key, ...row, commit, changed, date: new Date().toISOString() }) + "\n");
+      appendFileSync(file, gzipSync(rowText({ key: job.key, ...row, commit, changed, date: new Date().toISOString() }) + "\n"));
       done++;
       const seconds = (performance.now() - from) / 1000;
       console.log(`${job.key}: ${row.roots.length} roots, ${row.end.toFixed(1)} s (${done} of ${jobs.length})`);
