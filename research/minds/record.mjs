@@ -29,9 +29,11 @@
  * Rows are kept in `.cache/record/<matchup>/<machine>.jsonl.gz`, outside Git: a matchup's folder is
  * every row of its two entrants, each machine's in its own file, so machines merge by copying. Each
  * row is compressed on its own and appended to the file in one write, so a run stopped by its PID
- * leaves only whole rows, and the file is read back as one stream. A file kept uncompressed
- * (`<machine>.jsonl`) is read as well. Once a play's rows are written, the rows that count for less
- * than an eighth are deleted (`keep`), so a matchup keeps about its last three plays.
+ * leaves only whole rows, and the file is read back as one stream. A row cut short by a full disk
+ * or lost power leaves the file unreadable from there on, as a cut line did when rows were kept
+ * plain; the reader then names the file. A file kept uncompressed (`<machine>.jsonl`) is read as
+ * well. Once a play's rows are written, this machine's rows that count for less than an eighth
+ * are deleted (`keep`), so a matchup keeps its last four plays.
  */
 import { appendFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
 import { once } from "node:events";
@@ -108,39 +110,46 @@ const gameCommitAt = (commit) => {
 };
 
 /**
- * A row's play: the game it was played on (the last commit that changed what the game computes as
- * of its commit, or its commit itself where build inputs differed from it) and the Minds that
- * played it. A commit that changes nothing the game computes starts no new play.
+ * A row's play: the game it was played on and the two Minds that played it, whichever side each
+ * was on, so both side orders of a matchup's run are one play. The game is the last commit that
+ * changed what the game computes as of the row's commit, so a commit that changes nothing the game
+ * computes starts no new play. Where any build input differed from the commit (`changed`, which
+ * counts the research code too), the game is not known: every such row at a commit is one play.
  */
-export const playOf = (row) => JSON.stringify([row.changed ? `${row.commit} changed` : gameCommitAt(row.commit), row.sides.left.played, row.sides.right.played]);
+export const playOf = (row) => JSON.stringify([row.changed ? `${row.commit} changed` : gameCommitAt(row.commit), ...[row.sides.left.played, row.sides.right.played].map((played) => JSON.stringify(played)).sort()]);
 
 /** The least a row may count for and be kept (`keep`). */
 export const LEAST = 1 / 8;
 
 /**
  * **What each row counts for**, of a matchup's rows each given as `{ key, date, play }` (`playOf`):
- * half for each newer play of the matchup, whatever bouts that play was (a play is newer where its
- * first row is), and half again for each newer row of its own bout in its own play.
+ * half for each newer play of the matchup, whatever bouts that play was, and half again for each
+ * newer row of its own bout in its own play. A play is as new as its newest row, so a play taken up
+ * again after another is the newer. Deleting what counts for less than an eighth never moves the
+ * rest: a play's newest row counts for no less than its others.
  */
 export function weightsOf(rows) {
-  const began = new Map(), dates = new Map();
+  const last = new Map(), dates = new Map();
   for (const { key, date, play } of rows) {
-    if (!(began.get(play) <= date)) began.set(play, date);
+    if (!(last.get(play) >= date)) last.set(play, date);
     const bout = `${key}\n${play}`;
     (dates.get(bout) ?? dates.set(bout, []).get(bout)).push(date);
   }
-  const starts = [...began.values()];
-  return rows.map(({ key, date, play }) => 0.5 ** (starts.filter((start) => start > began.get(play)).length + dates.get(`${key}\n${play}`).filter((other) => other > date).length));
+  const ends = [...last.values()];
+  return rows.map(({ key, date, play }) => 0.5 ** (ends.filter((end) => end > last.get(play)).length + dates.get(`${key}\n${play}`).filter((other) => other > date).length));
 }
 
 /** What the game computes from that differs from `gameCommit` or is untracked, each as `git status` names it. */
 export const gameChanged = () => git("status", "--porcelain", "--untracked-files=all", "--", ...GAME).split("\n").filter((line) => line.length > 3);
 
 /** Every file of rows in `folder`, compressed (`.jsonl.gz`) or not (`.jsonl`), by name. */
-const filesIn = (folder) => existsSync(folder) ? readdirSync(folder).filter((name) => /.jsonl(.gz)?$/.test(name)).sort().map((name) => join(folder, name)) : [];
+const filesIn = (folder) => existsSync(folder) ? readdirSync(folder).filter((name) => /\.jsonl(\.gz)?$/.test(name)).sort().map((name) => join(folder, name)) : [];
 
-/** Each line of `file`, as it is read: a compressed file's members one stream. */
-const linesOf = (file) => createInterface({ input: file.endsWith(".gz") ? createReadStream(file).pipe(createGunzip()) : createReadStream(file), crlfDelay: Infinity });
+/** Each line of `file`, as it is read: a compressed file's members one stream. A file it cannot read through fails naming it. */
+async function* linesOf(file) {
+  const raw = createReadStream(file), input = file.endsWith(".gz") ? raw.pipe(createGunzip()) : raw;
+  try { yield* createInterface({ input, crlfDelay: Infinity }); } catch (error) { throw new Error(`the record's ${file} cannot be read through (${error.message}): a row was cut short`); }
+}
 
 /** How many rows `folder` keeps of each key, read from the start of each line alone. */
 export async function keysIn(folder) {
@@ -158,38 +167,39 @@ export async function* rowsIn(folder) {
 }
 
 /**
- * **Keep `folder`'s rows that count for `LEAST` or more** (`weightsOf`), the rest deleted, and
- * every file of them compressed: a machine's uncompressed file and its compressed one become one
- * compressed file. A file is written beside itself and then moved into place, so a run stopped
- * meanwhile leaves the rows as they were. One stopped between the move and deleting the plain file
- * leaves those rows twice: a row of the same bout and time as one before it is deleted as its
- * copy. It gives how many rows it kept and deleted.
+ * **Keep this machine's rows of `folder` that count for `LEAST` or more** (`weightsOf`, over every
+ * machine's rows), the rest deleted, and its file compressed: its uncompressed file and its
+ * compressed one become one compressed file. Another machine's file is its own to prune, so a copy
+ * of it is never one with rows missing. The file is written beside itself and then moved into
+ * place, so a run stopped meanwhile leaves the rows as they were; where a file grew meanwhile (a
+ * play of the matchup appending), nothing is moved and the rows wait for the next play. One stopped
+ * between the move and deleting the plain file leaves those rows twice: a row of the same bout and
+ * time as one before it is deleted as its copy. It gives how many of its rows it kept and deleted.
  */
 export async function keep(folder) {
-  const rows = [], at = (file, line) => `${file}\n${line}`;
+  const rows = [], at = (file, line) => `${file}\n${line}`, sizes = new Map(), mine = join(folder, hostname());
   for (const file of filesIn(folder)) {
     let line = 0;
+    sizes.set(file, statSync(file).size);
     for await (const text of linesOf(file)) if (text) { const row = JSON.parse(text); rows.push({ file, line: line++, key: row.key, date: row.date, play: playOf(row) }); }
   }
-  const weights = weightsOf(rows), seen = new Set();
+  const weights = weightsOf(rows), seen = new Set(), files = filesIn(folder).filter((file) => file.replace(/\.jsonl(\.gz)?$/, "") === mine);
   const copy = ({ key, date }) => seen.has(at(key, date)) || !seen.add(at(key, date));
   const deleted = new Set(rows.filter((row, i) => copy(row) || weights[i] < LEAST).map(({ file, line }) => at(file, line)));
-  const machines = new Map();
-  for (const file of filesIn(folder)) { const stem = file.replace(/\.jsonl(\.gz)?$/, ""); (machines.get(stem) ?? machines.set(stem, []).get(stem)).push(file); }
-  for (const [stem, files] of machines) {
-    if (files.every((file) => file.endsWith(".gz")) && !rows.some(({ file, line }) => files.includes(file) && deleted.has(at(file, line)))) continue;
-    const to = `${stem}.jsonl.gz`, part = `${to}.part`, gzip = createGzip(), out = createWriteStream(part);
-    gzip.pipe(out);
-    for (const file of files) {
-      let line = 0;
-      for await (const text of linesOf(file)) if (text && !deleted.has(at(file, line++)) && !gzip.write(text + "\n")) await once(gzip, "drain");
-    }
-    gzip.end();
-    await finished(out);
-    renameSync(part, to);
-    for (const file of files) if (file !== to) rmSync(file);
+  const own = rows.filter(({ file }) => files.includes(file)), gone = own.filter(({ file, line }) => deleted.has(at(file, line))).length;
+  if (files.every((file) => file.endsWith(".gz")) && gone === 0) return { kept: own.length, deleted: 0 };
+  const to = `${mine}.jsonl.gz`, part = `${to}.part`, gzip = createGzip(), out = createWriteStream(part);
+  gzip.pipe(out);
+  for (const file of files) {
+    let line = 0;
+    for await (const text of linesOf(file)) if (text && !deleted.has(at(file, line++)) && !gzip.write(text + "\n")) await once(gzip, "drain");
   }
-  return { kept: rows.length - deleted.size, deleted: deleted.size };
+  gzip.end();
+  await finished(out);
+  if (files.some((file) => statSync(file).size !== sizes.get(file))) { rmSync(part); return { kept: own.length, deleted: 0 }; }
+  renameSync(part, to);
+  for (const file of files) if (file !== to) rmSync(file);
+  return { kept: own.length - gone, deleted: gone };
 }
 
 /** A row as written: its numbers to four places, so a row is about half as long, and its key first. */
@@ -224,6 +234,6 @@ export async function playRecord(jobs, { folder, lanes, each = (result) => resul
     } });
   console.log(`played ${jobs.length} bouts in ${((performance.now() - from) / 60000).toFixed(1)} min`);
   const { kept, deleted } = await keep(folder), bytes = bytesIn(RECORD);
-  console.log(`the matchup keeps ${kept} rows${deleted ? `, ${deleted} deleted as counting for less than ${LEAST}` : ""}; the record holds ${(bytes / 2 ** 20).toFixed(0)} MiB`);
+  console.log(`this machine keeps ${kept} rows of the matchup${deleted ? `, ${deleted} deleted as counting for less than ${LEAST}` : ""}; the record holds ${(bytes / 2 ** 20).toFixed(0)} MiB`);
   if (bytes > RECORD_BUDGET) console.log(`warning: the record holds more than its budget of ${(RECORD_BUDGET / 2 ** 20).toFixed(0)} MiB (npm run clean lists it by matchup)`);
 }

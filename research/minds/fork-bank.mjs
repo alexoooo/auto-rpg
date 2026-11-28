@@ -55,6 +55,8 @@ const tournament = EVALUATIONS.tournament, entrants = positionals.map((id) => to
 const folder = bankOf([entrants[0], entrants[1] ?? entrants[0]], commit), index = join(folder, "bank.jsonl"), out = join(folder, "runs.jsonl");
 if (!existsSync(index)) throw new Error(`no bank of this matchup at ${commit}: node research/minds/bank.mjs first`);
 const states = readFileSync(index, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)).filter((state) => !state.none);
+const lost = states.filter((state) => !existsSync(join(folder, state.file))).length;
+if (lost) throw new Error(`${lost} of the bank's ${states.length} saves are gone (npm run clean deletes the saves of a bank a later game change left behind): bank the matchup again`);
 const settings = { measure: MEASURE, cap, until, nudge };
 const same = (line) => line.measure === MEASURE && line.cap === cap && line.until === until && line.nudge === nudge;
 const done = new Map();

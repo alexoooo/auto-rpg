@@ -74,7 +74,7 @@ for (const path of pieces()) {
 if (!dry) execFileSync("git", ["worktree", "prune"], { cwd: ROOT });
 
 // The fight record and the banks: a stale bank's saves deleted, then each listed by size.
-const within = (folder) => existsSync(folder) ? readdirSync(folder).map((name) => join(folder, name)) : [];
+const within = (folder) => existsSync(folder) ? readdirSync(folder, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => join(folder, entry.name)) : [];
 const MiB = (bytes) => `${(bytes / 2 ** 20).toFixed(0)} MiB`;
 const banks = within(BANKS).flatMap(within);
 for (const bank of banks) {

@@ -354,8 +354,8 @@ for every body.
    trials) and `research/minds/foe-placement.mjs collect` (where the foe went). The record is
    kept outside Git (`.cache/record/`), never committed, and its size is managed: its rows
    compressed, old plays deleted as rule 4 says, its size by matchup listed by `npm run clean`,
-   and the measuring command warning past a budget (step 15). It deletes nothing past rule 4's on
-   its own.
+   and the measuring command warning past a budget (step 15). On its own it deletes nothing but
+   what rule 4 says and the saves of a bank a later change to the game left behind.
 2. **What each Option does, measured.** The strike profiles already price a strike by the nearest
    measured trials (`src/skills/framework/profile/`), the struck body as numbers on each trial.
    The same reading is used for every kind of Option: walks, holds, the ways up, the brace, the
@@ -840,7 +840,7 @@ game or to unpark something, and the work goes on meanwhile.
 15. **The record's size and its plays** (mechanism 1, rule 4). Its rows compressed as they are
     kept (gzip members appended to a matchup's file and read back as one stream), so a stopped
     run still goes on where it stopped. A row's weight halved for each newer play of its
-    matchup (the commit and the Minds that played, as each row says), whatever bouts that play
+    matchup (the game and the Minds that played, as each row says), whatever bouts that play
     was, where today it is halved by a newer row of the same bout only; rows counting for less
     than an eighth deleted when the newer ones are kept. `npm run clean` lists the record's size
     by matchup, and the measuring command warns when the record passes a budget. A bank of the
@@ -929,16 +929,23 @@ game or to unpark something, and the work goes on meanwhile.
 - **Step 15 landed** (`56219e92d` and after). Each row is kept compressed, appended in one write
   (`research/minds/record.mjs`). The Warrior's mirror, the record's one matchup, went from 482 MB
   to 63 MB, and the fitted value made from the compressed rows is the same to the byte as the one
-  made from the plain rows. A row counts half for each newer play of its matchup (`weightsOf`):
-  the game it was played on, as the last commit that changed what the game computes, and the
-  Minds that played. After each play, `keep` deletes the rows that count for less than an eighth,
-  so a matchup keeps about its last three plays. The record holds two plays: 144 bouts at
-  `91054ef50` and the bank's 87 at `62c688f5f`. So the first play's 57 bouts that the bank did
-  not play again now count half, where they counted whole. A fit from the record under it, not written, reads the held-out bouts within 0.006 of the fit before (R² of life dealt and taken over 3, 8 and 20 s). `npm run clean` lists the
-  record by matchup against its budget of 1 GiB, and each bank. It deletes the saves of a bank
-  whose commit a later change to the game came after, and keeps its rows. For the bank at
-  `62c688f5f` it chose 1,084 saves, 349 MiB. They were deleted by hand, with the bank's
-  `forks.jsonl`, the forked worth that nothing reads now; its `bank.jsonl` and `runs.jsonl` stay. Nothing was played and no fight moved.
+  made from the plain rows. A row counts half for each newer play of its matchup (`weightsOf`). A
+  play is the game it was played on (the last commit that changed what the game computes) and its
+  two Minds, whichever side each was on; a play is as new as its newest row. After each play,
+  `keep` deletes this machine's rows that count for less than an eighth, so a matchup keeps its
+  last four plays; another machine's file is pruned by its own plays. The record holds two plays:
+  144 bouts at `91054ef50` and the bank's 87 at `62c688f5f`. So the first play's 57 bouts that
+  the bank did not play again now count half, where they counted whole. A fit from the record
+  under it, not written, reads the held-out bouts within 0.006 of the fit before (R² of life dealt
+  and taken over 3, 8 and 20 s). `npm run clean` lists the record by matchup against its budget of
+  1 GiB, and each bank. It deletes the saves of a bank whose commit a later change to the game
+  came after, and keeps its rows; `fork-bank.mjs` refuses a bank whose saves are gone. For the
+  bank at `62c688f5f` it chose 1,084 saves, 349 MiB. They were deleted by hand, with the bank's
+  `forks.jsonl`, the forked worth that nothing reads now; its `bank.jsonl` and `runs.jsonl`
+  stay. A fresh reader refuted the first landing: a matchup of two entrants made two plays of one
+  run, a play taken up again after another counted as the older, `keep` was not idempotent and
+  rewrote other machines' files, and a cut row was not named. Each is mended and checked on
+  made-up rows. Nothing was played and no fight moved.
 - **Next: step 4.** Step 15 and fork steps 1 to 4 have landed, and fork step 5's first reading
   of each Option's model against what it did, on the bank at `62c688f5f`
   ([the forked record](2026-11-26-forked-record.md#where-it-stands)). This plan and the forked
