@@ -378,8 +378,16 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   0.55 s and slower than 0.12 m/s at 0.65. Walking in adds nothing to it (0.33 to 0.87 s at a body
   laid down); `ahead` at 0 changes nothing; a quicker pose is slower and falls (`transferSeconds`
   0.08: 0.75 to 2 s, 5 of 20 down; 0.05: 11 down).
-- **Next**: a kick's weight shift begun before its transfer (where a walk in leaves the weight, or
-  a stance that bears it already); then the price below.
+- **The Mind kicks with the foot that bears the weight.** Over the 24 bouts' 129 kicks, at each
+  one's begin the kicking foot bore more than 0.6 of the ground's push in 118 (the median all of
+  it), often with the other foot off the ground. Where both feet's kicks were on offer (113), the
+  chosen foot was the loaded one in 103, and the free foot's was priced lower every time (by 0.12
+  at the median, 0.23 of the chosen's worth). Neither lead nor rear decides it (the feet within
+  0.02 m of square at the median; the rear foot 68 times, the lead 45). The price cannot count the
+  weight shift: a profile's start is its range, velocity, place in the window and stance numbers
+  (stagger, width, height), and none of them says which foot bears.
+- **Next**: what in the price follows the loaded foot; then a kick priced from where its weight is
+  (which foot bears, a stance number its profile's trials record); then the price below.
 
 ## Then: a strike's price, every start a number
 
