@@ -996,6 +996,13 @@ game or to unpark something, and the work goes on meanwhile.
   chooser's hold on a running target is a field (`keep`, `e3b13e0a4`): keeping none loses (0.397);
   of the walks to a lying foe hold cut, it bound 2 %, the window gone at 94 %, the foe rising
   through the stomp's band ([the low attack](2026-11-26-low-attack.md#paused-the-known-issues)).
+- **Against the Mind before this plan, at `3de0c8810`**: `option-lean` as it was before step 2 (the
+  fitted leaf, the mean backup at aggression 4 and initiative 0.3, carry 0.5, 10 Hz, every 0.2 s,
+  predictions measured with signed walk starts and own sways), on today's code and fitted value
+  (the fit it played with is not kept), against today's `option-lean` over 123 units of
+  `warrior-drawn`: today's scores 0.813 (0.764 to 0.858), margin 0.357, knocking out within 60 s
+  in 71.1 % of bouts against 15.4 %. Its thinking is not read here (the machine shared); step 2
+  read a third more at 20 Hz every 0.1 s.
 - **Then: step 10's rest.** Step 15 and fork steps 1 to 4 have landed, and fork step 5's first reading
   of each Option's model against what it did, on the bank at `62c688f5f`
   ([the forked record](2026-11-26-forked-record.md#where-it-stands)). This plan and the forked
