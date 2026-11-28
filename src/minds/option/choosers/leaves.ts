@@ -61,10 +61,21 @@ function predictedLeaf(value: ValuePredictor, weighing: Weighing): Leaf {
     const grace = graceAt(root), valued = value.from(root), tail = tailLeaf(search, root);
     if (!valued) return tail;
     const read = valued.read;
+    // A state's reading, by the seconds left, read once: a state is reached again by other lines (`Space`'s states, made once).
+    const readings = new Map<Situation, Map<number, readonly FollowedBy[] | null>>();
+    const followedAt = (at: Situation, left: number): readonly FollowedBy[] | null => {
+      let byLeft = readings.get(at);
+      if (!byLeft) readings.set(at, byLeft = new Map());
+      let followed = byLeft.get(left);
+      if (followed === undefined) {
+        const offered: Offered[] = [];
+        for (const pair of search.pairsAt(at)) { const terms = search.modelAt(pair, at); if (terms) offered.push(offeredOf(pair.option.kind, pair.option.open === true, terms)); }
+        byLeft.set(left, followed = read(at, at.grace ?? grace, offered, left));
+      }
+      return followed;
+    };
     return { source: valued.source, worth: (at, from) => {
-      const offered: Offered[] = [];
-      for (const pair of search.pairsAt(at)) { const terms = search.modelAt(pair, at); if (terms) offered.push(offeredOf(pair.option.kind, pair.option.open === true, terms)); }
-      const left = search.horizon - from.seconds, followed = read(at, at.grace ?? grace, offered, left);
+      const followed = followedAt(at, search.horizon - from.seconds);
       if (!followed) return tail.worth(at, from);
       const dealt = from.dealt + weighing(followed, "dealt", from.seconds, search.dealtWeight), taken = from.taken + weighing(followed, "taken", from.seconds, search.takenWeight);
       return search.price({ dealt, taken, orders: from.orders, seconds: Math.max(from.seconds, search.horizon) }, at);
