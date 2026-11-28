@@ -8,6 +8,7 @@ import { tumbling, type GroundReading, type Position } from "../../../control/gr
 import { isWayUp, type TechniqueName, type TechniquePart } from "../../../skills/recovery/shared/technique.ts";
 import { edgeExpected } from "../../../skills/recovery/data/profiles.ts";
 import { anyBody, slotSkill, type KeysOf, type PartConfig } from "../../../parts/parts.ts";
+import { optionalChoice } from "../../../parts/fields.ts";
 import { WHOLE, asking, blocked, READY } from "./readiness.ts";
 import type { Status, Option, Step } from "../contract/option.ts";
 import { brace } from "./rest.ts";
@@ -258,10 +259,25 @@ export const WAY_UP_OPTION = deepFreeze({ ...groundKind("way-up", "Way up", null
 export const REPOSITION_OPTION = deepFreeze({ ...groundKind("reposition", "Reposition", null, { purpose: "fallback" }, (given, config, part) => [wayUp(given, config, part, part.edges)]),
   each: every("reposition", "fallback") });
 
-/** **Flatten** (`attempt`): the body laid flat on the side it lies on, priced as a way up to that lie: by its profile where one is measured, by its Mind's guess of a way up else (`groundWay`). */
-export const FLATTEN_OPTION = groundKind("flattening", "Flatten", "flatten", null, (given, config, part) => {
-  const { way, reads } = groundWay(given, skillOf(config), part.defaults.kind as string, "way");
-  return [attempt(given, part, skillOf(config), [], (_from, g) => g?.lie ?? null, way, { reads })];
+/** A flatten's config: on offer where the body lies on its lie already too, unless `already` says not. */
+interface FlattenConfig extends GroundConfig<"flattening"> { readonly already?: "not" }
+
+/** The flatten groundKind makes, its config read as a flatten's. */
+const FLATTEN = groundKind("flattening", "Flatten", "flatten", null, (given, config: FlattenConfig, part) => {
+  const { way, reads } = groundWay(given, skillOf(config), part.defaults.kind as string, "way"), lain = config.already === "not";
+  return [attempt(given, part, skillOf(config), [], (from, g) => { const lie = g?.lie ?? null; return lain && lie === from ? null : lie; }, way, { reads })];
+});
+
+/**
+ * **Flatten** (`attempt`): the body laid flat on the side it lies on, priced as a way up to that
+ * lie: by its profile where one is measured, by its Mind's guess of a way up else (`groundWay`).
+ * Where the body lies on that lie already it goes nowhere, so is on offer there only as its config
+ * says (`already`): by default it is.
+ */
+export const FLATTEN_OPTION = deepFreeze<OptionPart<FlattenConfig>>({
+  ...FLATTEN, keys: { ...FLATTEN.keys, already: true } as KeysOf<FlattenConfig>,
+  fields: [optionalChoice<FlattenConfig, "already">("already", "Where the body lies on its lie already", "It is on offer", () => [["not", "It is not on offer"]])],
+  faults: (config: FlattenConfig, parts: PartLookup) => [...FLATTEN.faults(config, parts), ...config.already === undefined || config.already === "not" ? [] : ["already: not or none"]],
 });
 
 /**
@@ -400,7 +416,7 @@ declare module "../contract/parts.ts" {
   interface OptionConfigs {
     readonly "way-up": GroundConfig<"way-up">;
     readonly reposition: GroundConfig<"reposition">;
-    readonly flattening: GroundConfig<"flattening">;
+    readonly flattening: FlattenConfig;
     readonly regaining: GroundConfig<"regaining">;
     readonly landing: GroundConfig<"landing">;
     readonly "brace-tumbling": GroundConfig<"brace-tumbling">;

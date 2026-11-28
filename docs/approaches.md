@@ -686,6 +686,13 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   (`walks` measured). A fork that holds a walk ends it where its site
   flickers (the other hand's punch holding the trunk, the punch's height band), where the Mind
   takes it again at once, so the forks do not time a walk. *Shown.*
+- **A flatten kept off offer where the body lies on its lie already does not beat it on offer**: a
+  flatten from the back goes to the back (0.08 s, every try ending there in the mirror's record),
+  and was taken again every 0.1 s while the foe lay too. Once the fitted value was read by blows
+  (`df9f674d6`) those loops fell from 2.38 s a side-bout to 0.57, the time lying with the foe down
+  not moving to the brace. Off offer there (the Flatten Option's `already`, not), `option-lean`
+  scored 0.483 (0.455 to 0.512) against it over 121 units of `warrior-drawn`, margin -0.010
+  (-0.026 to 0.007). *Shown even.*
 - **A try on the ground priced as the record's tries did neither beats nor loses to its drill's
   profile and the guesses**: the guesses priced a way up no drill measured from where it lies at
   5 s, done 0.7 (a roll from the back ran 2.78 s in the mirror's record, 80 % ending on the
