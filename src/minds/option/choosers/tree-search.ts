@@ -34,8 +34,33 @@ interface TreeNode extends Tally { readonly at: Situation; readonly floor: numbe
  */
 interface TreeEdge { readonly pair: Pair; readonly step: Step; readonly ends: (TreeNode | null)[]; runs: number; worth: number; readonly kept?: Kept }
 
-/** **What a search starts an Option at its root from** (`RootStart`): its worth, and how many runs it is worth as evidence now. */
-interface Kept { readonly worth: number; readonly weight: number }
+/**
+ * **What a search starts an Option at its root from** (`RootStart`): its worth, and how many runs
+ * it is worth as evidence now; with `lift`, its worth is a lift (`liftOf`), added to its first
+ * step's worth at the root, priced afresh.
+ */
+interface Kept { readonly worth: number; readonly weight: number; readonly lift?: true }
+
+/**
+ * **What `edge`'s search found past its first step** (its lift): the worth of the states its ways
+ * of ending lead to less their leaves' (`TreeNode.floor`), by their chances among those drawn,
+ * its kept lift among its runs.
+ */
+function liftOf(edge: TreeEdge): number {
+  const { worth, floor } = endsOf(edge), kept = edge.kept;
+  return kept?.lift ? (kept.worth * kept.weight + (worth - floor) * edge.runs) / (kept.weight + edge.runs) : worth - floor;
+}
+
+/** **What the states `edge`'s ways of ending lead to are worth**, and their leaves, by their chances among those drawn. */
+function endsOf(edge: TreeEdge): { readonly worth: number; readonly floor: number } {
+  let worth = 0, floor = 0, mass = 0;
+  const outcomes = edge.step.terms.outcomes;
+  for (let k = 0; k < outcomes.length; k++) {
+    const end = edge.ends[k], chance = outcomes[k]!.chance;
+    if (end) { worth += chance * end.worth; floor += chance * end.floor; mass += chance; }
+  }
+  return { worth: worth / mass, floor: floor / mass };
+}
 
 /**
  * **Where a tree search starts its root** (`treeSearch`), one search at a time: each Option and
@@ -55,7 +80,7 @@ export const COLD: RootStart = () => COLD_ROOT;
 /**
  * **A tree chooser's kept work** (`TreeConfig.keeps`), by the focus searched against (its id, or
  * none): when its last search was, s, and each Option and target at its root then, by its place
- * in the options and its target, its worth and the runs it stood on. Plain numbers, in the
+ * in the options and its target, its worth (or its lift, `liftOf`) and the runs it stood on. Plain numbers, in the
  * chooser's state, so a bout saved and loaded searches on from the same.
  */
 interface Warm { byFocus: Record<string, { at: number; keys: string[]; worths: number[]; weights: number[] }> }
@@ -63,19 +88,24 @@ interface Warm { byFocus: Record<string, { at: number; keys: string[]; worths: n
 /**
  * **A warm start** (`RootStart`): what the last search against the same focus kept of its root
  * (`Warm`, its `state`), each Option at the root by its worth and runs, the runs fading by half
- * each `keeps` s since.
+ * each `keeps` s since. With `lift`, each by its lift instead (`liftOf`): what its search found
+ * past its first step, its first step priced afresh at each root.
  */
-export function warmStart(options: readonly Option[], keeps: number): { readonly start: RootStart; readonly state: Warm } {
+export function warmStart(options: readonly Option[], keeps: number, lift = false): { readonly start: RootStart; readonly state: Warm } {
   const keyOf = (pair: Pair): string => `${options.indexOf(pair.option)}:${pair.target}`, state: Warm = { byFocus: {} };
   return { state, start: (root) => {
     const kept = new Map<string, Kept>(), focus = root.focus?.id ?? "", last = state.byFocus[focus];
     if (last && root.time >= last.at) {
       const fade = exp(-log(2) * (root.time - last.at) / keeps);
-      last.keys.forEach((key, i) => kept.set(key, { worth: last.worths[i]!, weight: last.weights[i]! * fade }));
+      last.keys.forEach((key, i) => kept.set(key, { worth: last.worths[i]!, weight: last.weights[i]! * fade, ...lift ? { lift } : {} }));
     }
     return {
       kept: (pair) => kept.get(keyOf(pair)),
-      keep: (edges) => { state.byFocus[focus] = { at: root.time, keys: edges.map((edge) => keyOf(edge.pair)), worths: edges.map((edge) => edge.worth), weights: edges.map((edge) => edge.runs + (edge.kept?.weight ?? 0)) }; },
+      keep: (edges) => {
+        // A cut line is priced at its first step alone: no lift to keep.
+        const kept = lift ? edges.filter((edge) => !edge.step.cut && edge.runs > 0) : edges;
+        state.byFocus[focus] = { at: root.time, keys: kept.map((edge) => keyOf(edge.pair)), worths: kept.map((edge) => lift ? liftOf(edge) : edge.worth), weights: kept.map((edge) => edge.runs + (edge.kept?.weight ?? 0)) };
+      },
     };
   } };
 }
@@ -140,7 +170,8 @@ export function treeSearch(root: Situation, searched: Searched & { readonly runs
   const pick = (node: TreeNode, edges: readonly TreeEdge[]): TreeEdge => {
     let low = Infinity, high = -Infinity;
     for (const edge of edges) {
-      if (edge.runs === 0 && !edge.kept) return edge;
+      // A kept lift waits on its first step priced afresh.
+      if (edge.runs === 0 && (!edge.kept || edge.kept.lift)) return edge;
       low = Math.min(low, edge.worth); high = Math.max(high, edge.worth);
     }
     const scale = exploration * (high - low), total = log(node.runs);
@@ -161,16 +192,11 @@ export function treeSearch(root: Situation, searched: Searched & { readonly runs
   /** What `edge` is worth from the states drawn of its ways of ending (`TreeEdge`); a cut edge keeps its own. */
   const reprice = (edge: TreeEdge): void => {
     if (edge.step.cut) return;
-    let worth = 0, mass = 0;
-    const outcomes = edge.step.terms.outcomes;
-    for (let k = 0; k < outcomes.length; k++) {
-      const end = edge.ends[k], chance = outcomes[k]!.chance;
-      if (end) { worth += chance * end.worth; mass += chance; }
-    }
-    edge.worth = worth / mass;
-    // Kept worth weighs as its runs against this search's.
+    const { worth, floor } = endsOf(edge);
+    edge.worth = worth;
+    // Kept worth weighs as its runs against this search's; a kept lift, on its first step's worth now.
     const kept = edge.kept;
-    if (kept) edge.worth = (kept.worth * kept.weight + edge.worth * edge.runs) / (kept.weight + edge.runs);
+    if (kept) edge.worth = ((kept.lift ? floor + kept.worth : kept.worth) * kept.weight + edge.worth * edge.runs) / (kept.weight + edge.runs);
   };
   const nodes: TreeNode[] = [], taken: TreeEdge[] = [];
   /** One run from the top: down to its first new state or a cut; then every edge and state it went through worth again what lies below. */

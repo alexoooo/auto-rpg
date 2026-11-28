@@ -671,6 +671,15 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   0.635 (0.580 to 0.691) held out at the same runs, but silent 16.2% of a bout against 9.4%: an
   Option worth more at the last root stays chosen. Unset (`c1cdbe73d`), then removed, no Mind
   taking it, then restored on the owner's word (2026-11-20), pickable and unset. *Shown.*
+- **A warm start that keeps only what its search found past each first step wins**: the whole
+  worth kept (`keeps` 0.5 on `option-lean`, 2026-11-28) cut the gait flips 4.5 times (3.85 to
+  0.86 a side-second) and lost, 0.446 (0.373 to 0.510, 102 units): a line's first step, priced
+  afresh by the models at every root, was kept as it stood at the last, and before a fall the
+  kept side ran a line a cold search would leave about twice as often. Kept as its lift instead
+  (`warm` "lift", `liftOf`: the worth of the states its ways of ending lead to less their
+  leaves'), each first step run afresh before its lift counts, it won 0.565 (0.496 to 0.630, 115
+  units), knockouts within 60 s 50.0 % against 35.7 %, at the same 50 runs. Pickable, unset.
+  *Shown.*
 - **A walk timed as the record's walks arrived beats its gait's braking rule**: the rule priced a
   walk as setting off at speed and braking to a stop at the measured stopping rate the whole way,
   over a way the closing foe shortens, about 1.1 s long on a punch's window, the walk arriving
