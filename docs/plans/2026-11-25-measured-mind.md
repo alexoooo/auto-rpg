@@ -1024,16 +1024,21 @@ game or to unpark something, and the work goes on meanwhile.
   mean we need to keep using the hard-coded hack. The simple and general solution is the one
   that I want"; a loss is read as what it still misses. The pinned walks above were a
   diagnostic, never a candidate: "even if it scored better, it could not be the right solution".
-- **A gait switch costs little in arrival; walks under the Mind now arrive later.** Walk times
-  fitted again on the mirror played at `8ce642f6b` with whether the legs went by the walk's gait
-  (the report's `running`) as a feature: a gait the legs are not on priced -0.016, +0.003 and
-  -0.005 s (run, quick start, staggered, medians) from one they are on, where flips are 0.053
-  apart; so no state's feature prices the flips, which come after it. That play's walks arrived
+- **The record cannot say what a gait's flips cost; walks under the Mind now arrive later.** Walk
+  times fitted again on the mirror played at `8ce642f6b` with whether the legs went by the walk's
+  gait (the report's `running`) as a feature priced a gait the legs are not on -0.016, +0.003 and
+  -0.005 s (run, quick start, staggered, medians) from one they are on. That is not a flip's cost:
+  every walk of 0.5 m or more flips (5 to 12 times at the median), so a state with the legs on its
+  gait and one without both arrive after the flips still to come; the feature reads one instant
+  mid-change, and every arrival the walk times are fitted on carries the flips, each gait priced
+  as walking while it flips. What a flip costs needs a walk that does not flip beside one that
+  does, which the record holds none of: forks from banked states where a walk runs, its gait held
+  (the fork's `hold`) against the Mind's own, the arrival's difference under the same nudges. That play's walks arrived
   later than the walk times in the game say, by a median 0.08, 0.23 and 0.28 s, the new fit truer
   on them (mean error 0.36 to 0.38 s against 0.38 to 0.42), and priced by it the Mind lost to
   `option-lean` (0.367, 0.303 to 0.431, 109 units): truer arrival losing, the walk times in the
-  game stale against the Mind searching as one line. Not kept (it measured nothing of a switch).
-  What it says is missing: the flips' own cost, in the walks that flip.
+  game stale against the Mind searching as one line. Not kept (its feature cannot measure a
+  switch).
 - **The thinking, cheaper by what repeated**: a leaf's reading kept per state (`f07d1dff2`, 0.857),
   a gait's model asked once for both navigators (`6565b9d93`, 0.773), each horizon's trees read
   once a read (`e941b8f1c`, 0.920), none moving a pose: 0.61 of the search's time, on 4 measuring
