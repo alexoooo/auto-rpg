@@ -86,7 +86,12 @@ reading named, before any work on it; an item the rebuild answers is struck from
   not the Warrior's (c88a37bb9).
 - [ ] **A variation's profile moves the default Minds**: every Mind reads its foe's body's profiles
   by the skill's name, held or not, so the stepping kick's rows moved 19 default fights and are
-  not kept (c88a37bb9).
+  not kept (c88a37bb9). *Read again*: by design. A foe is read throwing every strike measured on
+  its body because what its character holds is not sensed; reading only those its body's own
+  character holds needs the characters' registry, which a Mind may not reach
+  (`tests/core-boundary.test.mjs`). The man's profiles hold three variations no Warrior holds by
+  default (`kick/push`, `stomp/front`, `straight-punch/drive`), pooled
+  in every Warrior's reading of a man; a variation's profile is written when the variation is kept.
 - [ ] **The low front kick's try**: 0.088 at 120 Hz (0.058 at 480 Hz), 15 falls, 34 of 80
   `beyond` (45248399d).
 
