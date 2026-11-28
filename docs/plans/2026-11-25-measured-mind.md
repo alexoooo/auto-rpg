@@ -1003,6 +1003,16 @@ game or to unpark something, and the work goes on meanwhile.
   `warrior-drawn`: today's scores 0.813 (0.764 to 0.858), margin 0.357, knocking out within 60 s
   in 71.1 % of bouts against 15.4 %. Its thinking is not read here (the machine shared); step 2
   read a third more at 20 Hz every 0.1 s.
+- **Step 14, the navigators**: a walk by each navigator is one model (`walkModel`, `6565b9d93`),
+  and Options on one model are searched as one line (`alike`, `0460936ee`), every body's
+  (`a426848b3`): 0.576 (0.509 to 0.638) against the Mind before, knocking out within 60 s in
+  47.8 % of bouts against 35.3 %; the navigator flips gone. Left of step 14: the gait, still a
+  branch, its flips 3.9 a second at one site.
+- **The thinking, cheaper by what repeated**: a leaf's reading kept per state (`f07d1dff2`, 0.857),
+  a gait's model asked once for both navigators (`6565b9d93`, 0.773), each horizon's trees read
+  once a read (`e941b8f1c`, 0.920), none moving a pose: 0.61 of the search's time, on 4 measuring
+  bouts on a quiet machine. Searching as one line then reads wider (1.5 to 1.75 times a root),
+  about the search's time before the three.
 - **Then: step 10's rest.** Step 15 and fork steps 1 to 4 have landed, and fork step 5's first reading
   of each Option's model against what it did, on the bank at `62c688f5f`
   ([the forked record](2026-11-26-forked-record.md#where-it-stands)). This plan and the forked

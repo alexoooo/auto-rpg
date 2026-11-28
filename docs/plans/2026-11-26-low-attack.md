@@ -56,7 +56,12 @@ reading named, before any work on it; an item the rebuild answers is struck from
   band is above it all along. So this item is the next one's: a body getting up.
 - [ ] **The gait and navigation churn**: 3.05 changes a second over the downs, 0.57 of them a gait
   or navigation of the same strike and limb; no price for a switch (effff4e0a). *Read again*: 3.76
-  a second, 2.18 of them such a twin, the two navigators pricing a walk the same.
+  a second, 2.18 of them such a twin, the two navigators pricing a walk the same. *Mended in
+  part*: the navigators' walks are one model searched as one line (`a426848b3`), every body's:
+  over 4 measuring bouts the navigator flips went from 0.86 a side-second to none, and with the
+  foe down every walk change from 2.64 a second to 0.71; it won 0.576 against the Mind before.
+  Left: the gait flips at one site, the run against the quick start, 3.9 a second over whole
+  bouts (step 14 of the measured-mind plan).
 - [ ] **A body on hands and knees is between the bands**, its trunk 0.43 to 0.62 m: 39 s of the
   76 the stander holds or does other than a low attack (dfa9bb3f0); no band moved strikes it
   (0fa6f77c5). *Read again*: the foe at fours 140 s over 117 downs, the stander 91 s of it doing
@@ -80,7 +85,9 @@ reading named, before any work on it; an item the rebuild answers is struck from
   `warrior-drawn`, 0.504 (0.470 to 0.539), knockouts within 60 s 0.431 against 0.448: even, so
   reaching a body getting up does not move the Warrior's fight.
 - [ ] **The Mind kicks with the loaded foot**, the profiles parting the feet by the start's sway;
-  the free foot would save about 0.07 s (86217be86, ddb24113d).
+  the free foot would save about 0.07 s (86217be86, ddb24113d). *Read again*: no fault. The loaded foot's
+  kick is priced higher because its profile deals more (0.030 against 0.023) and goes down less
+  (0.044 against 0.059); the rebuild changed neither profile.
 - [ ] **The stepping kick's set-down lurch**: it lifts 0.17 s after it begins, but set down the
   kicker comes on into the foe; within 60 s 0.583 against 0.741, downs 2.19 against 1.64; pickable,
   not the Warrior's (c88a37bb9). *Mended*: the kick's trunk held upright over its standing foot
