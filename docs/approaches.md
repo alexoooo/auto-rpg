@@ -686,6 +686,18 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   (`walks` measured). A fork that holds a walk ends it where its site
   flickers (the other hand's punch holding the trunk, the punch's height band), where the Mind
   takes it again at once, so the forks do not time a walk. *Shown.*
+- **An open Option held until its Mind decides again loses to one held to the horizon**, read again
+  once walks were timed as they arrive and the value read by blows: at the scorecard's first
+  decisions the walks in stayed above a hold and a guard (1.10 against 0.86 at 2.65 m), yet
+  `option-lean` so changed (`holds` decision) scored 0.353 (0.276 to 0.431) against it over 58
+  units of `warrior-drawn`, margin -0.119 (-0.185 to -0.051). *Shown.*
+- **A walk by one navigator does not beat a walk by either**: in the open arena both navigators
+  price a walk to a site the same (seconds, life taken and its spot within a centimetre at 73,978
+  pairs), so each site was weighed six ways where three gaits differ (the best other gait a median
+  0.061 below the walk taken), two thirds of every root's lines. By visibility alone (the walk's
+  `navigation`, taken in 87 % of walks), `option-lean` scored 0.405 (0.319 to 0.483) against it over
+  58 units of `warrior-drawn`, margin -0.003 (-0.076 to 0.067), on a loaded machine: fewer twins
+  give walks fewer of the search's runs. *Shown.*
 - **A flatten kept off offer where the body lies on its lie already does not beat it on offer**: a
   flatten from the back goes to the back (0.08 s, every try ending there in the mirror's record),
   and was taken again every 0.1 s while the foe lay too. Once the fitted value was read by blows

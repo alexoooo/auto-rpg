@@ -987,7 +987,12 @@ game or to unpark something, and the work goes on meanwhile.
   again every 0.1 s for as long as its foe lies too (1,803 loops, 2,056 s over 864 side-bouts, the
   longest 59 s, 41 % of it both sides at once), with a way up on offer at 98 % of those roots and
   weighed within 0.01 at half: flatten from the back goes to the back, and lying costs nothing
-  while the foe is down. Next: an Option that goes nowhere taken off offer, read on the mirror.
+  while the foe is down. The fitted value read by blows, its postures apart (`df9f674d6`), took it
+  from 2.38 s a side-bout to 0.57, not moving it to the brace; the flatten that goes nowhere kept
+  off offer (`6387be1b2`, pickable) is even.
+- **Step 4's re-look, answered**: held until the Mind decides again, an open Option loses (0.353).
+- **Step 14's first reading**: two thirds of a root's lines are a walk to a site another walk goes
+  to, the navigators' twins priced the same; one navigator alone loses (0.405, margin even).
 - **Then: step 10's rest.** Step 15 and fork steps 1 to 4 have landed, and fork step 5's first reading
   of each Option's model against what it did, on the bank at `62c688f5f`
   ([the forked record](2026-11-26-forked-record.md#where-it-stands)). This plan and the forked
