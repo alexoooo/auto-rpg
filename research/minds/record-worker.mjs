@@ -34,6 +34,9 @@ const { SIDES } = await import("../../src/game/arena/duel.ts");
 const { playedBy } = await import("../skills/profile-origin.mjs");
 const { poseDigest } = await import("../rollouts.mjs");
 
+/** The likeliest of an Option's ends (`Outcome`), the first of the likeliest; none with none. */
+const likeliest = (outcomes) => outcomes.reduce((best, one) => !best || one.chance > best.chance ? one : best, null);
+
 // A worker's row is its message: Babylon's banner for each bout's scene is not.
 Logger.LogLevels = Logger.NoneLogLevel;
 
@@ -50,8 +53,11 @@ async function playBout({ protocol, index, entrants, bank = null }) {
     if (!duel) return;
     const reading = rootReading(root, at);
     if (!reading) return;
-    const side = sideOf(root), row = { side, t: duel.clock, reading, lines: edges.map(({ pair, step, runs, worth }) =>
-      [optionOf(pair.option.name), Math.max(0, pair.target ?? 0), pair.option.kind, pair.option.open === true ? 1 : 0, step.terms.duration, step.terms.dealt, step.terms.taken, at.price(step, root), runs, worth]), ran: null };
+    const side = sideOf(root), row = { side, t: duel.clock, reading, lines: edges.map(({ pair, step, runs, worth }) => {
+      const where = likeliest(step.terms.outcomes)?.leaves.where ?? null;
+      return [optionOf(pair.option.name), Math.max(0, pair.target ?? 0), pair.option.kind, pair.option.open === true ? 1 : 0, step.terms.duration, step.terms.dealt, step.terms.taken, at.price(step, root), runs, worth,
+        where?.x ?? null, where?.z ?? null];
+    }), ran: null };
     roots.push(row); deciding[side].push(row);
   };
   // The bank's: the save before this step, its step and poses, each side's decisions with an Option to take, and those kept.

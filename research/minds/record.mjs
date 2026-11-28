@@ -50,8 +50,12 @@ import { workerJobs } from "../worker-jobs.mjs";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
-/** What each of a root's `lines` holds, in order: its Option by its place in the row's `options`, and the rest. */
-export const LINE = Object.freeze(["option", "target", "kind", "open", "seconds", "dealt", "taken", "price", "runs", "worth"]);
+/**
+ * What each of a root's `lines` holds, in order: its Option by its place in the row's `options`, and
+ * the rest, last where its likeliest end leaves the body (`x`, `z`; null where it says none, and
+ * absent from a row played before they were kept): a walk's spot.
+ */
+export const LINE = Object.freeze(["option", "target", "kind", "open", "seconds", "dealt", "taken", "price", "runs", "worth", "x", "z"]);
 
 /** What each Option on offer in a root's `reading` holds, in order (`Offered`). */
 export const OFFERED = Object.freeze(["kind", "open", "duration", "dealt", "taken"]);
