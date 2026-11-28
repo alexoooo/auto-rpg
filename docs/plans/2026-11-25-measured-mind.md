@@ -1008,6 +1008,18 @@ game or to unpark something, and the work goes on meanwhile.
   (`a426848b3`): 0.576 (0.509 to 0.638) against the Mind before, knocking out within 60 s in
   47.8 % of bouts against 35.3 %; the navigator flips gone. Left of step 14: the gait, still a
   branch, its flips 3.9 a second at one site.
+- **The gait is worth its branch; its flips are a switch unpriced.** Walks pinned to one gait lose
+  to `option-lean` (`a426848b3`) over `warrior-drawn`: the quick-start run 0.017 (0.004 to 0.034,
+  117 units), the run 0.233 (0.173 to 0.292, 101). Over 4 measuring bouts the walk asks another
+  gait to the same site 5.1 times a second and the legs take one up 1.4 times (the Move changes
+  gait only between steps, slowing the walk to the gait asked meanwhile); each flip's new gait
+  priced above the old by a median 0.053, inside a gait line's own move from root to root (0.081),
+  542 of 1055 undone by the next flip. No draw decides them, and nothing prices the switch: a
+  strike's preparation is the one Option a running choice is credited for letting go (`letGo`).
+  So step 14's switch, priced at what it costs, is every Option's: what letting a running Option
+  go costs, measured by forks from banked states where it runs (it kept against the chooser's
+  next best), by its kind and how far it has gone, a predictions field, pickable, in place of
+  the keep (`KEEP`) where it wins.
 - **The thinking, cheaper by what repeated**: a leaf's reading kept per state (`f07d1dff2`, 0.857),
   a gait's model asked once for both navigators (`6565b9d93`, 0.773), each horizon's trees read
   once a read (`e941b8f1c`, 0.920), none moving a pose: 0.61 of the search's time, on 4 measuring
