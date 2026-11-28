@@ -26,7 +26,7 @@ npm run match -- <a> <b>  # two minds, each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases where no row has them; --fresh plays its subjects' again; --write keeps its results
 npm run evaluate -- table # the grid from saved results; plays nothing (its flags: docs/reference/the-table.md)
 npm run measure -- <entrant> [<entrant>]  # one matchup (mind/body/left,right; one is its mirror) into the fight record, then its fits; --write keeps them; stopped by its PID, run again to go on
-npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
+npm run clean             # delete crash dumps, bytecode, day-old .tmp/ work and stale banks' saves; list the record's size and the strays
 node scripts/fingerprint.mjs          # what the game computes: --json <file> before a change, --compare <file> after names every fight, mirror bout and table reading it moved
 node scripts/inventory.mjs            # what each body's Mind reads to price a fight, and where each reading comes from; plays no bout: --json <file> before a change, --compare <file> after names every row it moved
 ```

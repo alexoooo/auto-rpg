@@ -843,7 +843,9 @@ game or to unpark something, and the work goes on meanwhile.
     matchup (the commit and the Minds that played, as each row says), whatever bouts that play
     was, where today it is halved by a newer row of the same bout only; rows counting for less
     than an eighth deleted when the newer ones are kept. `npm run clean` lists the record's size
-    by matchup, and the measuring command warns when the record passes a budget. It plays
+    by matchup, and the measuring command warns when the record passes a budget. A bank of the
+    forked record that a later change to the game left behind has its saves deleted by
+    `npm run clean`, since nothing forks them again, and its rows kept. It plays
     nothing and moves no fight. Scope: the record as it stands. Reported: its size before and
     after, and a fit made from the compressed rows the same to the byte.
 
@@ -923,9 +925,21 @@ game or to unpark something, and the work goes on meanwhile.
   ([the approaches](../approaches.md#minds)). It is the game's: it moved 7 inventory rows (the
   fitted value's origin, now naming its Minds, and six of the man's kick and stomp profiles, stale
   by it) and 27 fingerprint cases, all the man's (his 25 mirror bouts, the straight punch's data,
-  the `option` entrant). Weighing old rows at half for each newer one is built and not yet read:
-  every row is of one play.
-- **Next: step 15, then step 4.** Fork steps 1 to 4 have landed, and fork step 5's first reading
+  the `option` entrant).
+- **Step 15 landed** (`56219e92d` and after). Each row is kept compressed, appended in one write
+  (`research/minds/record.mjs`). The Warrior's mirror, the record's one matchup, went from 482 MB
+  to 63 MB, and the fitted value made from the compressed rows is the same to the byte as the one
+  made from the plain rows. A row counts half for each newer play of its matchup (`weightsOf`):
+  the game it was played on, as the last commit that changed what the game computes, and the
+  Minds that played. After each play, `keep` deletes the rows that count for less than an eighth,
+  so a matchup keeps about its last three plays. The record holds two plays: 144 bouts at
+  `91054ef50` and the bank's 87 at `62c688f5f`. So the first play's 57 bouts that the bank did
+  not play again now count half, where they counted whole. A fit from the record under it, not written, reads the held-out bouts within 0.006 of the fit before (R² of life dealt and taken over 3, 8 and 20 s). `npm run clean` lists the
+  record by matchup against its budget of 1 GiB, and each bank. It deletes the saves of a bank
+  whose commit a later change to the game came after, and keeps its rows. For the bank at
+  `62c688f5f` it chose 1,084 saves, 349 MiB. They were deleted by hand, with the bank's
+  `forks.jsonl`, the forked worth that nothing reads now; its `bank.jsonl` and `runs.jsonl` stay. Nothing was played and no fight moved.
+- **Next: step 4.** Step 15 and fork steps 1 to 4 have landed, and fork step 5's first reading
   of each Option's model against what it did, on the bank at `62c688f5f`
   ([the forked record](2026-11-26-forked-record.md#where-it-stands)). This plan and the forked
   record go in this order on one machine (the forked record's steps marked "fork"):
@@ -937,7 +951,7 @@ game or to unpark something, and the work goes on meanwhile.
      about 19 min), whose rows are then the game's Mind's. The bank is taken while that holds, and
      the forks label the Mind whose run shares the record holds, at the same states, which is what
      step 6 and fork step 5 compare.
-  3. Step 15, once the forks' bank is taken: the bank reads the record as it is kept now.
+  3. Step 15 (landed), once the forks' bank is taken: the bank reads the record as it is kept now.
   4. Step 4.
   5. Fork step 5 on every Option that fits the Warrior. Fork step 6 waits on a worth that ranks a
      state's Options, which the forks do not give.

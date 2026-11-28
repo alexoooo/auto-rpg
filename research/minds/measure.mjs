@@ -10,8 +10,8 @@
  * reading is played on) with the first entrant on the left, and with two entrants each on each
  * side, on as many workers as the machine spares (`defaultLanes`). It plays only the bouts the
  * record has no row of, so a run stopped partway (by its PID) goes on where it stopped when run
- * again; `--again` plays them all again, the old rows kept and counting for less, each half as much
- * for each newer row of its bout. Its price is said from its first chunk, before the rest.
+ * again; `--again` plays them all again, the old rows counting for less (`weightsOf`). Its price is
+ * said from its first chunk, before the rest.
  *
  * Then each fit (`FITS`) is fitted to the matchup's rows and its held-out readings said. It refuses
  * to write (`--write`) a fit that moves what any other pairing of bodies reads, since those bodies
@@ -25,7 +25,7 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { defaultLanes } from "../../scripts/lanes.mjs";
-import { folderOf, keyOf, keysIn, playRecord, readingOf, rowsIn } from "./record.mjs";
+import { folderOf, keyOf, keysIn, playOf, playRecord, readingOf, rowsIn, weightsOf } from "./record.mjs";
 import { fitValue, followed, HORIZONS, readValue } from "./value-fit.mjs";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -107,19 +107,20 @@ process.exit(refused ? 1 : 0);
 /**
  * **The record's states for the fits** in `folder`: each root as the fitted value reads it, both
  * sides', with what followed it over each horizon, whether its bout is held out (`HELD`), and its
- * weight (half for each newer row of its bout); with the bodies, the pairings of them that played
+ * weight (`weightsOf`); with the bodies, the pairings of them that played
  * (`own against foe`, each way), the bouts and the Minds that played.
  */
 async function statesOf(folder) {
-  const rows = [], newer = new Map();
+  const rows = [];
   for await (const row of rowsIn(folder)) {
-    const states = row.roots.map((root) => ({ x: featuresOf(readingOf(root)), after: HORIZONS.map((h) => followed(row.lives, row.end, root.side, root.t, h)) }));    rows.push({ key: row.key, date: row.date, bout: `${row.protocol}/${row.index}`, sides: row.sides, commit: row.commit, changed: row.changed, states });
-    (newer.get(row.key) ?? newer.set(row.key, []).get(row.key)).push(row.date);
+    const states = row.roots.map((root) => ({ x: featuresOf(readingOf(root)), after: HORIZONS.map((h) => followed(row.lives, row.end, root.side, root.t, h)) }));
+    rows.push({ key: row.key, date: row.date, play: playOf(row), bout: `${row.protocol}/${row.index}`, sides: row.sides, commit: row.commit, changed: row.changed, states });
   }
   const states = [], bodies = new Set(), pairings = new Set(), bouts = new Set(), played = [], commits = new Set(), protocols = new Set();
   let held = 0;
-  for (const row of rows) {
-    const weight = 0.5 ** newer.get(row.key).filter((date) => date > row.date).length, out = HELD(row.bout);
+  const weights = weightsOf(rows);
+  for (const [i, row] of rows.entries()) {
+    const weight = weights[i], out = HELD(row.bout);
     for (const side of Object.values(row.sides)) { bodies.add(side.body); played.push(side.played); }
     pairings.add(`${row.sides.left.body} against ${row.sides.right.body}`).add(`${row.sides.right.body} against ${row.sides.left.body}`);
     bouts.add(row.key); protocols.add(row.bout.split("/")[0]); commits.add(`${row.commit}${row.changed ? " with build inputs changed" : ""}`);
