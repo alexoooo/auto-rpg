@@ -366,7 +366,7 @@ for every body.
    kept outside Git (`.cache/record/`), never committed, and its size is managed: its rows
    compressed, old plays deleted as rule 4 says, its size by matchup listed by `npm run clean`,
    and the measuring command warning past a budget (step 15). On its own it deletes nothing but
-   what rule 4 says and the saves of a bank a later change to the game left behind.
+   what rule 4 says and the saves of the oldest banks past their budget.
 2. **What each Option does, measured.** The strike profiles already price a strike by the nearest
    measured trials (`src/skills/framework/profile/`), the struck body as numbers on each trial.
    The same reading is used for every kind of Option: walks, holds, the ways up, the brace, the
@@ -854,9 +854,11 @@ game or to unpark something, and the work goes on meanwhile.
     matchup (the game and the Minds that played, as each row says), whatever bouts that play
     was, where today it is halved by a newer row of the same bout only; rows counting for less
     than an eighth deleted when the newer ones are kept. `npm run clean` lists the record's size
-    by matchup, and the measuring command warns when the record passes a budget. A bank of the
-    forked record that a later change to the game left behind has its saves deleted by
-    `npm run clean`, since nothing forks them again, and its rows kept. It plays
+    by matchup, and the measuring command warns when the record passes a budget. The forked
+    record's banks keep their saves within a budget (`BANK_BUDGET`, 20 GiB), the newest first;
+    `npm run clean` deletes the saves of those past it and keeps every bank's rows. A save is a
+    fight's state, so a bank is forked on whatever game is in hand, each run naming the game it
+    was forked on. It plays
     nothing and moves no fight. Scope: the record as it stands. Reported: its size before and
     after, and a fit made from the compressed rows the same to the byte.
 
@@ -949,8 +951,11 @@ game or to unpark something, and the work goes on meanwhile.
   the bank did not play again now count half, where they counted whole. A fit from the record
   under it, not written, reads the held-out bouts within 0.006 of the fit before (R² of life dealt
   and taken over 3, 8 and 20 s). `npm run clean` lists the record by matchup against its budget of
-  1 GiB, and each bank. It deletes the saves of a bank whose commit a later change to the game
-  came after, and keeps its rows; `fork-bank.mjs` refuses a bank whose saves are gone. For the
+  1 GiB, and each bank. It deleted the saves of a bank whose commit a later change to the game
+  came after, keeping its rows; on the owner's word (2026-11-27) that was too fragile, the game
+  changing within hours, and the banks are now kept by a budget (`BANK_BUDGET`, 20 GiB of a
+  100 GB budget for all of the game's development), the newest first, a bank forked on whatever
+  game is in hand. `fork-bank.mjs` refuses a bank whose saves are gone. For the
   bank at `62c688f5f` it chose 1,084 saves, 349 MiB. They were deleted by hand, with the bank's
   `forks.jsonl`, the forked worth that nothing reads now; its `bank.jsonl` and `runs.jsonl`
   stay. A fresh reader refuted the first landing: a matchup of two entrants made two plays of one

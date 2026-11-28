@@ -4,7 +4,7 @@
  * Option's model said at the fork, as its search asked it, against the mean of what the Option did
  * under the state's nudges, for each quantity the model says (`QUANTITIES`, `runs.mjs`).
  *
- *   node research/minds/run-models.mjs <entrant> [<entrant>] [--commit <sha>] [--cap 6] [--until 1] [--nudge 0.5] [--largest 15]
+ *   node research/minds/run-models.mjs <entrant> [<entrant>] [--bank <sha>] [--game <sha>] [--cap 6] [--until 1] [--nudge 0.5] [--largest 15]
  *
  * It reads the runs as `run-sureness.mjs` does. An Option at a state is read where it was taken
  * and the quantity reads its runs under one nudge or more (`tableOf`'s `some`), so a long Option is
@@ -16,20 +16,19 @@
  * the median noise of a measured mean (what of the distance the nudges alone account for).
  */
 import { parseArgs } from "node:util";
-import { gameCommit } from "./record.mjs";
 import { QUANTITIES, apartIn, mean, median, runsOf, saidOf, tableOf, variance } from "./runs.mjs";
 
-const USAGE = "usage: node research/minds/run-models.mjs <entrant> [<entrant>] [--commit <sha>] [--cap 6] [--until 1] [--nudge 0.5] [--largest 15]";
+const USAGE = "usage: node research/minds/run-models.mjs <entrant> [<entrant>] [--bank <sha>] [--game <sha>] [--cap 6] [--until 1] [--nudge 0.5] [--largest 15]";
 const { values: flags, positionals } = parseArgs({ allowPositionals: true, options: {
-  commit: { type: "string" }, cap: { type: "string", default: "6" }, until: { type: "string", default: "1" }, nudge: { type: "string", default: "0.5" }, largest: { type: "string", default: "15" },
+  bank: { type: "string" }, game: { type: "string" }, cap: { type: "string", default: "6" }, until: { type: "string", default: "1" }, nudge: { type: "string", default: "0.5" }, largest: { type: "string", default: "15" },
 } });
 if (positionals.length < 1 || positionals.length > 2) { console.error(USAGE); process.exit(1); }
 const settings = { cap: Number(flags.cap), until: Number(flags.until), nudge: Number(flags.nudge) };
 
 await import("../../tests/harness/preload-data.mjs");
 const { EVALUATIONS } = await import("../../src/app/node/evaluation.ts");
-const ids = positionals.map((id) => EVALUATIONS.tournament.subjects([id])[0].id), commit = flags.commit ?? gameCommit();
-const states = runsOf(ids, commit, settings);
+const ids = positionals.map((id) => EVALUATIONS.tournament.subjects([id])[0].id);
+const states = runsOf(ids, flags, settings);
 
 /** An Option's name less its navigator's, so one walk by two navigators is read as one. */
 const familyOf = (name) => name.replace(/ \([a-z-]+-navigation\/[a-z-]+-navigation\)/g, "");
@@ -59,7 +58,7 @@ const fixed = (x) => (Math.abs(x) >= 100 ? x.toFixed(0) : x.toFixed(3)).padStart
 const line = (label, s) => `${label.padEnd(46).slice(0, 46)} ${String(s.n).padStart(5)} ${fixed(s.said)} ${fixed(s.done)} ${fixed(s.bias)} ${fixed(s.sure)} ${fixed(s.distance)} ${fixed(s.noise)}`;
 const HEADER = `${"".padEnd(46)} ${"n".padStart(5)} ${"model".padStart(8)} ${"done".padStart(8)} ${"bias".padStart(8)} ${"bias/se".padStart(8)} ${"distance".padStart(8)} ${"noise".padStart(8)}`;
 
-console.log(`${states.size} states of the bank at ${commit}; each Option to its exit or ${settings.cap} s, an open one held ${settings.until} s, ${settings.nudge} N s`);
+console.log(`${states.size} states of the bank made at ${states.bank}, forked on the game at ${states.game}; each Option to its exit or ${settings.cap} s, an open one held ${settings.until} s, ${settings.nudge} N s`);
 for (const [quantity, group] of grouped((g) => g.quantity)) {
   console.log(`\n${quantity}\n${HEADER}`);
   console.log(line("every Option", summary(group)));

@@ -167,9 +167,10 @@ Options; nor did the life measured alone. So no label ranks a state's Options.
   rethink, 0.1 s on, what it would not have chosen: 73 % of forced Options in 16 states.
 - **The bank** (step 2): `research/minds/bank.mjs` played 87 of the measuring protocol's 144
   bouts of option-lean's mirror at `62c688f5f`, keeping every 80th decision with an Option to
-  take as a save: 989 states, in `.cache/bank/`. Its saves are deleted since, as the
-  measured-mind plan's step 15 deletes those of a bank a later game change left behind; its rows
-  are kept. Saving before every step made a bout cost 660 worker-seconds, against 145 without; a
+  take as a save: 989 states, in `.cache/bank/`. Its saves and its rows are gone from
+  disk since (the saves by the measured-mind plan's step 15 as it first stood, which deleted
+  those of a bank a later game change left behind); the readings below are what is left of it.
+  A bank is now kept by a budget, and forked on whatever game is in hand. Saving before every step made a bout cost 660 worker-seconds, against 145 without; a
   bank played again should save only where the Mind can decide.
 - **The measured run** (step 3, `rollout`'s `measure`, `MEASURE` 3; `research/minds/fork-bank.mjs`
   into the bank's `runs.jsonl`). The Option is held while it yields, an open one 1 s, and at its

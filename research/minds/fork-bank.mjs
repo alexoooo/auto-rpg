@@ -3,11 +3,11 @@
  * forked once for each Option on offer there, under each of the same nudges, and what each Option
  * did measured to its exit.
  *
- *   node research/minds/fork-bank.mjs <entrant> [<entrant>] [--cap 6] [--until 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]
+ *   node research/minds/fork-bank.mjs <entrant> [<entrant>] [--bank <sha>] [--cap 6] [--until 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]
  *
- * It reads the bank of the last commit that changed what the game computes (`gameCommit`), so it
- * refuses with that changed and not committed (`gameChanged`); each line names the commit it was
- * forked at.
+ * It forks the matchup's newest bank, or the one made at `--bank` (`bankFor`), on the game in
+ * hand: each line names the game it was forked on (`gameCommit`), so it refuses with what the game
+ * computes from changed and not committed (`gameChanged`).
  * Each state is loaded from its save and forked once for each Option the side had on offer there
  * (its key: its place in the Mind's Options and its target) under each of `--nudges` nudges of
  * `--nudge` N s (`nudgesOf`, the same for every Option of the state, rule 5). The side's Mind
@@ -19,14 +19,15 @@
  * save), the settings (what a measured run is, `MEASURE`, among them: a state is forked again, and
  * read, only under the measure in hand), and each fork's key, name, nudge, whether it was taken, what its model
  * predicted at that decision and what it did (`rollout`'s `predicted` and `run`). A state is forked
- * under nudges it has no line of, so a run stopped by its PID goes on when run again, and more
- * nudges are added by asking for more. `--states` forks only that many states more, in an order
+ * under nudges it has no line of on the game in hand, so a run stopped by its PID goes on when run
+ * again, a change to the game forks the bank afresh beside the old lines, and more nudges are
+ * added by asking for more. `--states` forks only that many states more, in an order
  * drawn once, so any first few are spread over the bank. Its price is said from its first batch:
  * forks a state, worker-seconds a fork and a state, and states a night (8 h) on this machine's
  * workers. It fails where a state's forks did not all start on the bank's poses.
  */
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { parseArgs } from "node:util";
 import { deserialize } from "node:v8";
 import { gunzipSync } from "node:zlib";
@@ -34,12 +35,12 @@ import { defaultLanes } from "../../scripts/lanes.mjs";
 import { commitOf } from "../../scripts/build-identity.mjs";
 import { rolloutPool } from "../rollout-pool.mjs";
 import { MEASURE, nudgesOf } from "../rollouts.mjs";
-import { bankOf, gameChanged, gameCommit } from "./record.mjs";
+import { bankFor, gameChanged, gameCommit, gameOf } from "./record.mjs";
 
-const USAGE = "usage: node research/minds/fork-bank.mjs <entrant> [<entrant>] [--cap 6] [--until 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]";
+const USAGE = "usage: node research/minds/fork-bank.mjs <entrant> [<entrant>] [--bank <sha>] [--cap 6] [--until 1] [--nudges 4] [--nudge 0.5] [--states N] [--workers N]";
 const { values: flags, positionals } = parseArgs({ allowPositionals: true, options: {
   cap: { type: "string", default: "6" }, until: { type: "string", default: "1" }, nudges: { type: "string", default: "4" }, nudge: { type: "string", default: "0.5" },
-  states: { type: "string" }, workers: { type: "string" },
+  bank: { type: "string" }, states: { type: "string" }, workers: { type: "string" },
 } });
 if (positionals.length < 1 || positionals.length > 2) { console.error(USAGE); process.exit(1); }
 const cap = Number(flags.cap), until = Number(flags.until), nudges = Number(flags.nudges), nudge = Number(flags.nudge);
@@ -49,16 +50,16 @@ await import("../../tests/harness/preload-data.mjs");
 const { EVALUATIONS } = await import("../../src/app/node/evaluation.ts");
 const { DEFAULT_ENGINE } = await import("../../src/core/physics/engines.ts");
 
-const commit = gameCommit(), changed = gameChanged(), at = commitOf();
-if (changed.length) throw new Error(`the forks are of the bank's commit: commit ${changed.join(", ")} first`);
+const game = gameCommit(), changed = gameChanged(), at = commitOf();
+if (changed.length) throw new Error(`each fork names the game it was forked on: commit ${changed.join(", ")} first`);
 const tournament = EVALUATIONS.tournament, entrants = positionals.map((id) => tournament.subjects([id])[0].id);
-const folder = bankOf([entrants[0], entrants[1] ?? entrants[0]], commit), index = join(folder, "bank.jsonl"), out = join(folder, "runs.jsonl");
+const folder = bankFor([entrants[0], entrants[1] ?? entrants[0]], flags.bank), commit = basename(folder), index = join(folder, "bank.jsonl"), out = join(folder, "runs.jsonl");
 if (!existsSync(index)) throw new Error(`no bank of this matchup at ${commit}: node research/minds/bank.mjs first`);
 const states = readFileSync(index, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)).filter((state) => !state.none);
 const lost = states.filter((state) => !existsSync(join(folder, state.file))).length;
-if (lost) throw new Error(`${lost} of the bank's ${states.length} saves are gone (npm run clean deletes the saves of a bank a later game change left behind): bank the matchup again`);
+if (lost) throw new Error(`${lost} of the bank's ${states.length} saves are gone (npm run clean deletes the oldest banks' saves past their budget): bank the matchup again`);
 const settings = { measure: MEASURE, cap, until, nudge };
-const same = (line) => line.measure === MEASURE && line.cap === cap && line.until === until && line.nudge === nudge;
+const same = (line) => gameOf(line, commit) === game && line.measure === MEASURE && line.cap === cap && line.until === until && line.nudge === nudge;
 const done = new Map();
 if (existsSync(out)) for (const line of readFileSync(out, "utf8").split("\n").filter(Boolean).map((text) => JSON.parse(text))) if (same(line))
   done.set(line.file, Math.max(done.get(line.file) ?? 0, line.trials[1]));
@@ -66,7 +67,7 @@ if (existsSync(out)) for (const line of readFileSync(out, "utf8").split("\n").fi
 const drawn = (name) => { let h = 2166136261; for (const c of name) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0; return h; };
 const todo = states.filter((state) => (done.get(state.file) ?? 0) < nudges).sort((a, b) => drawn(a.file) - drawn(b.file))
   .slice(0, flags.states === undefined ? Infinity : Number(flags.states));
-console.log(`forks of the bank at ${commit}: ${states.length} states, ${todo.length} to fork under nudges to ${nudges}; each Option to its exit or ${cap} s, an open one held ${until} s, ${nudge} N s, on ${lanes} workers`);
+console.log(`forks of the bank made at ${commit}, on the game at ${game}: ${states.length} states, ${todo.length} to fork under nudges to ${nudges}; each Option to its exit or ${cap} s, an open one held ${until} s, ${nudge} N s, on ${lanes} workers`);
 
 const pool = rolloutPool(lanes), began = performance.now();
 let forked = 0, statesForked = 0, failed = 0, taken = 0, refused = 0, cut = 0;
@@ -90,7 +91,7 @@ try {
       const astray = forks.filter(({ row }) => row.at !== state.at).length;
       if (astray) { failed++; console.log(`${state.key} ${state.side} at ${state.t.toFixed(3)} s: ${astray} of ${forks.length} forks did not start on the bank's poses`); }
       for (const { row } of forks) { row.chose?.taken ? taken++ : refused++; if (row.run && !row.run.to) cut++; }
-      appendFileSync(out, JSON.stringify({ commit: at, key: state.key, side: state.side, t: state.t, time: state.time, from: state.from, file: state.file, pick: state.pick, ...settings, trials: state.trials,
+      appendFileSync(out, JSON.stringify({ commit: at, game, key: state.key, side: state.side, t: state.t, time: state.time, from: state.from, file: state.file, pick: state.pick, ...settings, trials: state.trials,
         forks: forks.map(({ key, name, trial, row }) => ({ key, name, trial, chose: row.chose, steps: row.steps - state.from, verdict: row.verdict, predicted: row.predicted, run: row.run })) }, round) + "\n");
       forked += forks.length; statesForked++;
     }

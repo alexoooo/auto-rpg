@@ -4,10 +4,10 @@
  * (`QUANTITIES`, `runs.mjs`), how much of it is which Option was taken and how much the nudge,
  * and how far the Options' models are from it.
  *
- *   node research/minds/run-sureness.mjs <entrant> [<entrant>] [--commit <sha>] [--cap 6] [--until 1] [--nudge 0.5]
+ *   node research/minds/run-sureness.mjs <entrant> [<entrant>] [--bank <sha>] [--game <sha>] [--cap 6] [--until 1] [--nudge 0.5]
  *
- * It reads the runs of the bank at `--commit` (the last that changed what the game computes,
- * `gameCommit`, unless named) under those settings and the measure in hand. At a state it
+ * It reads the runs of the matchup's newest bank, or the one made at `--bank`, forked on the last
+ * game it was forked on, or on `--game` (`runsOf`), under those settings and the measure in hand. At a state it
  * compares the Options taken under every nudge the state was forked under whose runs the quantity
  * reads (rule 5: alike nudges only), twins once (`tableOf`). For each quantity it prints, over
  * those states:
@@ -27,24 +27,23 @@
  * Option said of itself there (`run.why`).
  */
 import { parseArgs } from "node:util";
-import { gameCommit } from "./record.mjs";
 import { QUANTITIES, apartIn, mean, median, quantile, runsOf, saidOf, tableOf, variance } from "./runs.mjs";
 
-const USAGE = "usage: node research/minds/run-sureness.mjs <entrant> [<entrant>] [--commit <sha>] [--cap 6] [--until 1] [--nudge 0.5]";
+const USAGE = "usage: node research/minds/run-sureness.mjs <entrant> [<entrant>] [--bank <sha>] [--game <sha>] [--cap 6] [--until 1] [--nudge 0.5]";
 const { values: flags, positionals } = parseArgs({ allowPositionals: true, options: {
-  commit: { type: "string" }, cap: { type: "string", default: "6" }, until: { type: "string", default: "1" }, nudge: { type: "string", default: "0.5" },
+  bank: { type: "string" }, game: { type: "string" }, cap: { type: "string", default: "6" }, until: { type: "string", default: "1" }, nudge: { type: "string", default: "0.5" },
 } });
 if (positionals.length < 1 || positionals.length > 2) { console.error(USAGE); process.exit(1); }
 const settings = { cap: Number(flags.cap), until: Number(flags.until), nudge: Number(flags.nudge) };
 
 await import("../../tests/harness/preload-data.mjs");
 const { EVALUATIONS } = await import("../../src/app/node/evaluation.ts");
-const ids = positionals.map((id) => EVALUATIONS.tournament.subjects([id])[0].id), commit = flags.commit ?? gameCommit();
-const states = runsOf(ids, commit, settings);
+const ids = positionals.map((id) => EVALUATIONS.tournament.subjects([id])[0].id);
+const states = runsOf(ids, flags, settings);
 
 const forks = [...states.values()].flatMap((state) => state.forks), runs = forks.filter((fork) => fork.run);
 const tally = (keys) => { const counts = new Map(); for (const key of keys) counts.set(key, (counts.get(key) ?? 0) + 1); return [...counts].sort((a, b) => b[1] - a[1]); };
-console.log(`${states.size} states of the bank at ${commit}, ${forks.length} forks, ${runs.length} taken; each to its end or ${settings.cap} s, an open one held ${settings.until} s, ${settings.nudge} N s`);
+console.log(`${states.size} states of the bank made at ${states.bank}, forked on the game at ${states.game}, ${forks.length} forks, ${runs.length} taken; each to its end or ${settings.cap} s, an open one held ${settings.until} s, ${settings.nudge} N s`);
 console.log(`ended: ${tally(runs.map((fork) => fork.run.ended)).map(([how, n]) => `${how} ${n}`).join(", ")}; ${runs.filter((fork) => fork.run.to).length} read at an end`);
 console.log(`model asked at the fork for ${runs.filter((fork) => fork.predicted).length} of ${runs.length}`);
 console.log("why runs ended over or were dropped (kind, ending: its status, its entry):");

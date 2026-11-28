@@ -4,17 +4,24 @@
  * each quantity a run measures beside what its model says of it.
  */
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { bankOf } from "./record.mjs";
+import { basename, join } from "node:path";
+import { bankFor, gameOf } from "./record.mjs";
 import { MEASURE } from "../rollouts.mjs";
 
-/** Each state's forks under these settings and the measure in hand (`MEASURE`), every line of it together, by its save; it fails where the bank at `commit` has none. */
-export function runsOf(ids, commit, { cap, until, nudge }) {
-  const file = join(bankOf([ids[0], ids[1] ?? ids[0]], commit), "runs.jsonl");
-  if (!existsSync(file)) throw new Error(`no runs of this matchup's bank at ${commit}`);
-  const states = new Map();
-  for (const line of readFileSync(file, "utf8").split("\n").filter(Boolean).map((text) => JSON.parse(text))) {
-    if (line.measure !== MEASURE || line.cap !== cap || line.until !== until || line.nudge !== nudge) continue;
+/**
+ * Each state's forks under these settings and the measure in hand (`MEASURE`), every line of it
+ * together, by its save, of the matchup's newest bank or the one made at `bank` (`bankFor`), and of
+ * one game: `game` where named, else the last the bank was forked on, so one Mind's runs are read
+ * together. It fails where there are none.
+ */
+export function runsOf(ids, { bank, game }, { cap, until, nudge }) {
+  const folder = bankFor([ids[0], ids[1] ?? ids[0]], bank), commit = basename(folder), file = join(folder, "runs.jsonl");
+  if (!existsSync(file)) throw new Error(`no runs of this matchup's bank made at ${commit}`);
+  const lines = readFileSync(file, "utf8").split("\n").filter(Boolean).map((text) => JSON.parse(text));
+  const on = game ?? (lines.length ? gameOf(lines.at(-1), commit) : null), states = new Map();
+  states.bank = commit; states.game = on;
+  for (const line of lines) {
+    if (gameOf(line, commit) !== on || line.measure !== MEASURE || line.cap !== cap || line.until !== until || line.nudge !== nudge) continue;
     const state = states.get(line.file) ?? states.set(line.file, { ...line, forks: [] }).get(line.file);
     state.forks.push(...line.forks);
   }

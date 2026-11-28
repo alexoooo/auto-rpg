@@ -68,14 +68,35 @@ const matchupOf = (entrants) => [...entrants].sort().join(" v ").replace(/[^\w.-
 /** Where the record keeps its matchups' folders, and how many bytes they may hold before a play warns. */
 export const RECORD = join(ROOT, ".cache/record"), RECORD_BUDGET = 1 << 30;
 
-/** Where the forked record's banks are kept: a folder a matchup, and in it a folder a commit. */
-export const BANKS = join(ROOT, ".cache/bank");
+/**
+ * Where the forked record's banks are kept, a folder a matchup and in it a folder a commit; and how
+ * many bytes their saves may hold before `npm run clean` deletes the oldest bank's saves.
+ */
+export const BANKS = join(ROOT, ".cache/bank"), BANK_BUDGET = 20 * 2 ** 30;
 
 /** The folder a matchup's rows are kept in. */
 export const folderOf = (entrants) => join(RECORD, matchupOf(entrants));
 
 /** The folder the forked record's bank of a matchup keeps its states in at `commit` (`bank.mjs`), with the forks of them (`fork-bank.mjs`). */
 export const bankOf = (entrants, commit) => join(BANKS, matchupOf(entrants), commit);
+
+/** Each bank of every matchup (a folder with a `bank.jsonl`), the newest first by when its index was last written. */
+export const banksIn = (folder = BANKS) => readdirSync(folder, { withFileTypes: true }).filter((entry) => entry.isDirectory())
+  .flatMap((entry) => { const path = join(folder, entry.name); return existsSync(join(path, "bank.jsonl")) ? [path] : banksIn(path); })
+  .sort((a, b) => statSync(join(b, "bank.jsonl")).mtimeMs - statSync(join(a, "bank.jsonl")).mtimeMs);
+
+/**
+ * **The bank of a matchup that is forked and read** (`fork-bank.mjs`, `runs.mjs`): the one made at
+ * `commit` where it is named, else the newest. A save is a fight's state, so a bank is forked on
+ * whatever game is in hand, each run naming the game it was forked on (`gameCommit`); a save the
+ * game in hand no longer starts on its poses is refused where it is forked.
+ */
+export const bankFor = (entrants, commit) => {
+  if (commit) return bankOf(entrants, commit);
+  const matchup = join(BANKS, matchupOf(entrants)), found = existsSync(matchup) ? banksIn(matchup) : [];
+  if (!found.length) throw new Error("no bank of this matchup: node research/minds/bank.mjs first");
+  return found[0];
+};
 
 /** How many bytes `path` holds, everything under it counted. */
 export const bytesIn = (path) => { const own = statSync(path); return own.isDirectory() ? readdirSync(path).reduce((sum, name) => sum + bytesIn(join(path, name)), 0) : own.size; };
@@ -84,19 +105,11 @@ export const bytesIn = (path) => { const own = statSync(path); return own.isDire
 const GAME = Object.freeze(["src", "assets", "vendor/rapier", "tests/harness", "package.json", "package-lock.json"]);
 const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" });
 
-/** The last commit that changed what the game computes (`GAME`): a bank and its forks are of it, whatever commits came after that did not. */
+/** The last commit that changed what the game computes (`GAME`): a bank is made at it and a fork names it, whatever commits came after that did not. */
 export const gameCommit = () => git("log", "-1", "--format=%H", "--", ...GAME).trim();
 
-/**
- * Whether the bank at `commit` is of a game a later commit changed: nothing forks its saves again
- * (`fork-bank.mjs` forks only `gameCommit`'s bank), though its rows are still read. Not where Git
- * does not know the commit, nor where it came after the commit in hand.
- */
-export const bankStale = (commit) => {
-  const now = gameCommit();
-  if (commit === now) return false;
-  try { execFileSync("git", ["merge-base", "--is-ancestor", commit, now], { cwd: ROOT, stdio: "ignore" }); return true; } catch { return false; }
-};
+/** The game a line of a bank's runs (`fork-bank.mjs`) was forked on: its own, or, before lines named it, the bank's (`commit`), the only one forked then. */
+export const gameOf = (line, commit) => line.game ?? commit;
 
 /** The last commit that changed what the game computes as of each commit a row names; the commit itself where Git does not know it. */
 const gameAt = new Map();
