@@ -64,7 +64,16 @@ reading named, before any work on it; an item the rebuild answers is struck from
   reaches it lands nothing there (0fa6f77c5, each strike's lead-in outlasting the all fours), what
   it waits on is the next item's.
 - [ ] **The start-ups**: the front kick's transfer, its weight shift, 0.63 to 0.68 s from a stand
-  (6d40c9664); the stomp's setup and transfer about 1.5 s (0fa6f77c5).
+  (6d40c9664); the stomp's setup and transfer about 1.5 s (0fa6f77c5). *Read again* on each
+  skill's own twin trials at 120 Hz with the man's records: the front kick's contact at about
+  1.0 s from begun (its transfer 0.65, ending once the centre is over the standing sole, both feet
+  bearing and slower than `transferSlow` for `hold`; its chamber 0.30; its extend 0.13), the
+  stomp's at about 2.8 s (setup 0.85, transfer 0.62, unload 0.21, chamber 0.77 with a tail to 1.5
+  at q90, swing 0.30); no deadline bounds a stage. On the mirror at `df9f674d6` a foe getting up
+  from its front is on all fours 1.05 s (median, q90 1.85), the stomp's window holding 0.23 s of
+  it: the stomp lands only on a foe that lies; the front kick's lead-in is about the all fours'
+  length, so its band brought down to a trunk at 0.4 to 0.6 m and 0.2 s from what its transfer
+  waits for (not the pose's speed, which fell 5 of 20 at 0.08 s) would put it there.
 - [ ] **The Mind kicks with the loaded foot**, the profiles parting the feet by the start's sway;
   the free foot would save about 0.07 s (86217be86, ddb24113d).
 - [ ] **The stepping kick's set-down lurch**: it lifts 0.17 s after it begins, but set down the
