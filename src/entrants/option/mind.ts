@@ -28,8 +28,14 @@ const SHARED = deepFreeze({
   kind: "option", chooser: { kind: "tree", leaf: "fitted-when", carry: .5 }, predictions: { kind: "measured", walkStart: "signed", sways: "own" }, rate: 20, rethink: .1,
 }) satisfies OptionMindConfig;
 
-/** `option-lean`: the shared settings, each state worth its lines' mean (`best` 0) at aggression 4 and initiative 0.3, as read on the empty-handed man. */
-const LEAN = deepFreeze({ ...SHARED, chooser: { ...SHARED.chooser, best: 0, objective: { kind: "few-terms", aggression: 4, initiative: .3 } } }) satisfies OptionMindConfig;
+/**
+ * `option-lean`: the shared settings, each state worth its lines' mean (`best` 0) at aggression 4
+ * and initiative 0.3, and a walk timed as the record's walks arrived (`walks` measured), as read on
+ * the empty-handed man.
+ */
+const LEAN = deepFreeze({
+  ...SHARED, chooser: { ...SHARED.chooser, best: 0, objective: { kind: "few-terms", aggression: 4, initiative: .3 } }, predictions: { ...SHARED.predictions, walks: "measured" },
+}) satisfies OptionMindConfig;
 
 /**
  * Its config, on any body it fits, for fights and for measuring its profiles; and the drills' mind
@@ -51,7 +57,8 @@ const LEAN = deepFreeze({ ...SHARED, chooser: { ...SHARED.chooser, best: 0, obje
  * The bodies' defaults are built on the settings every body shares (`option-shared`), each adding
  * only what was chosen for its situation. The empty-handed man's (`option-lean`) adds the mean
  * backup at aggression 4 and initiative 0.3; looking ten times a second with no reply searched, it
- * was as strong as `option-truer` at about half its thinking. The rat's (`option-presses`) presses
+ * was as strong as `option-truer` at about half its thinking. Its walks are timed as the mirror's
+ * walks were measured to arrive, which beat its gait's braking rule. The rat's (`option-presses`) presses
  * its attack: each state worth its best line (`best` 1), at aggression 5 and initiative 0.3, so it
  * bites the Warrior more often than it waits. And `option-lean` given no guesses
  * (`option-measured`): a strike, a foe's limb, a blow coming or a way up with no measurement is not

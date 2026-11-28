@@ -487,6 +487,9 @@
   "reptile, empty-handed, in front of man, empty-handed",
   "the man holding a made-up item, in front of man, empty-handed"
  ],
+ "found by a name: how long it takes, of a walk": [
+  "man, empty-handed, in front of man, empty-handed"
+ ],
  "found by a name: reading back step": [
   "man, empty-handed, in front of man, empty-handed",
   "man, holding sword, in front of man, empty-handed",
@@ -836,6 +839,9 @@
  ],
  "its Mind is not made: the stance's envelope was not measured on made-up": [
   "a made-up body, empty-handed, in front of man, empty-handed"
+ ],
+ "measured for the pairing: how long it takes, of a walk": [
+  "man, empty-handed, in front of man, empty-handed"
  ],
  "measured for the pairing: reading the foe's fighting, in bouts": [
   "man, empty-handed, in front of man, empty-handed",

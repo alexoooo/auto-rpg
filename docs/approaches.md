@@ -681,7 +681,9 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   start) at the mean, against the mean's 0.52 and 0.74. A walk so timed leaves the body moving
   along its last leg at the arrival speed. `option-lean` so changed won 0.614 (0.555 to 0.673)
   against it over 110 units of `warrior-drawn`, margin 0.127 (0.080 to 0.177); with strikes priced
-  to their exit too, 0.583 (0.526 to 0.640). A fork that holds a walk ends it where its site
+  to their exit too, 0.583 (0.526 to 0.640). Its mirror knocked out within 60 s in 85.6 % (80.3 to
+  89.7) of 216 against 72.7 %, downs 1.20 a bout against 1.69; `option-lean`'s since
+  (`walks` measured). A fork that holds a walk ends it where its site
   flickers (the other hand's punch holding the trunk, the punch's height band), where the Mind
   takes it again at once, so the forks do not time a walk. *Shown.*
 - **A strike priced to its exit, its limb's recovery left off, does not beat it priced until the
