@@ -6,4 +6,5 @@ export const KICK_DATA = {
   "kick/kick": bodyRecords(() => import("./kick.ts").then((m) => m.KICK_RECORDS)),
   "kick/push": bodyRecords(() => import("./push.ts").then((m) => m.PUSH_KICK_RECORDS)),
   "kick/front": bodyRecords(() => import("./front.ts").then((m) => m.FRONT_KICK_RECORDS)),
+  "kick/stepping": bodyRecords(() => import("./stepping.ts").then((m) => m.STEPPING_KICK_RECORDS)),
 } satisfies DataLoaders;

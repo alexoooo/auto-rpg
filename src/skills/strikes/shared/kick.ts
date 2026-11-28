@@ -18,6 +18,7 @@ import type { Pose } from "../../../core/bodies/spec/pose.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../../framework/action.ts";
 import type { LegsGoal } from "../../framework/skill.ts";
 import { withinActionWindow } from "../../intent/action-window.ts";
+import { pendulumRate } from "../../../control/stance/gait.ts";
 import { SIDES, type Side, otherSide } from "../../../core/bodies/bilateral.ts";
 
 /**
@@ -41,8 +42,8 @@ const UNPUSHED = Object.fromEntries((Object.keys(KICK_PUSHES) as PushName[]).fla
 /**
  * **A kick's stages' settings**, every kick's whatever drives its leg (`KICK_PATH`,
  * `FRONT_KICK_PATH`). Control data, not anatomy; seconds, metres, radians and m/s. A kick runs in
- * stages: transfer moves the centre over the standing foot, both feet bearing, until it is quiet
- * there; then it stands on that foot alone, anchored where it stands, as its drive drives the leg
+ * stages: transfer moves the centre over the standing foot, both feet bearing, until the place it
+ * is going (`capture`) is over that foot and it is quiet; then it stands on that foot alone, anchored where it stands, as its drive drives the leg
  * at the target, each freedom neither moves held where the drive found it; set-down is the
  * stance's standing, which steps the kicking foot down where it catches what the drive left moving,
  * each other freedom the drive moved driven back to where the drive found it, until the foot
@@ -53,6 +54,14 @@ const KICK_STAGES = Object.freeze({
   transferLimit: 2, setLimit: 3, recenterLimit: 3,
   /** How fast the trunk is brought over the standing foot and held there, s, and the most the centre may move at the transfer's end, m/s. */
   transferSeconds: .2, transferSlow: .12,
+  /**
+   * How much of the way to its capture point (the centre led by its velocity over the pendulum's
+   * rate) the place the transfer waits to have over the standing sole lies: none, the centre
+   * itself, the body standing still on the foot before it lifts the other; all of it, the capture
+   * point, as the stance's own step lifts its foot (`SwingGoal.shift`), the centre still going
+   * onto the standing foot as the kick begins.
+   */
+  capture: 0,
   /** The root's pitch held on the one foot through the drive, rad (the supported pose's). */
   lean: 0,
   /**
@@ -127,7 +136,7 @@ export type FrontKickTuning = { readonly [K in keyof typeof FRONT_KICK_PATH]: nu
 /** Whether `tuning`'s stages are a kick's: each setting finite, its times and window positive where they must be. */
 const validStages = (tuning: StageTuning): boolean => Object.values(tuning).every(Number.isFinite)
   && [tuning.transferLimit, tuning.setLimit, tuning.recenterLimit, tuning.transferSeconds, tuning.transferSlow, tuning.across, tuning.facing, tuning.decel].every((v) => v > 0)
-  && [tuning.hold, tuning.lower, tuning.follow, tuning.admitSpeed, tuning.low].every((v) => v >= 0)
+  && [tuning.hold, tuning.lower, tuning.follow, tuning.admitSpeed, tuning.low, tuning.capture].every((v) => v >= 0)
   && tuning.alongFar > tuning.alongNear && tuning.high > tuning.low;
 
 /** Whether `tuning` is a push kick's: its stages' (`validStages`), its drive's longest positive and its reach not negative, each push's level within -1 and 1 and its window not negative. */
@@ -403,8 +412,11 @@ function kick(body: Body, actions: readonly string[], resolve: TargetResolver, d
       if (live.phase === "prepare" && (live.withdrawn || !at)) release(!at ? { kind: "lost", reason: "target is no longer sensed" } : { kind: "cancelled" }, "recenter");
       live.time += dt; live.step = dt;
       const foot = live.foot, other = otherSide(foot), centre = view.stance.centre;
-      const inside = withinSupport([feet.find((one) => one.side === other)!], centre.x, centre.z);
-      const bearingReady = support.state.loads[other] > 0 && !support.state.otherSupport && inside[0] === centre.x && inside[1] === centre.z;
+      // The place the transfer waits to have over the standing sole: the centre, led toward its capture point by `capture`.
+      const standing = feet.find((one) => one.side === other)!, velocity = view.stance.velocity;
+      const lead = tuning.capture / pendulumRate(-body.built.physics.gravity[1], centre.y - standing.middle.y);
+      const px = centre.x + velocity.x * lead, pz = centre.z + velocity.z * lead, inside = withinSupport([standing], px, pz);
+      const bearingReady = support.state.loads[other] > 0 && !support.state.otherSupport && inside[0] === px && inside[1] === pz;
       switch (live.stage) {
         case "transfer": {
           live.held = bearingReady && support.state.speed <= tuning.transferSlow ? live.held + dt : 0;

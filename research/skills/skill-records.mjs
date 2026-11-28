@@ -40,6 +40,7 @@ export const SKILLS = Object.freeze({
   "club-blow": (s) => s !== null && typeof s === "object" && validSwing(s),
   bonk: (s) => s !== null && typeof s === "object" && validSwing(s),
   "kick/front": (s) => s !== null && typeof s === "object" && wholeFrontKick(s),
+  "kick/stepping": (s) => s !== null && typeof s === "object" && wholeFrontKick(s),
   "stomp/front": (s) => s !== null && typeof s === "object" && wholeFrontKick(s),
 });
 

@@ -1,0 +1,34 @@
+{
+  "man": {
+    "made": "Authored: the front kick's record (`kick/front`), its transfer ending as the stance's own step lifts its foot: once its capture point is over the standing sole (`capture` 1), the centre going onto it as fast as a walk (`transferSlow` 1).",
+    "settings": {
+      "transferLimit": 2,
+      "setLimit": 3,
+      "recenterLimit": 3,
+      "transferSeconds": 0.1575,
+      "transferSlow": 1,
+      "capture": 1,
+      "lean": 0.4,
+      "ahead": 0.1,
+      "hold": 0.03,
+      "lower": 0.03,
+      "follow": 0.0196,
+      "decel": 533.5883,
+      "alongNear": 0.7632,
+      "alongFar": 0.9348,
+      "across": 0.25886821185469516,
+      "low": 0.9,
+      "high": 1.15,
+      "facing": 0.5,
+      "admitSpeed": 0.6,
+      "chamberSeconds": 0.2917,
+      "chamberLift": 0.2,
+      "chamberKnee": 2.1,
+      "extendSeconds": 0.1289,
+      "through": 0.15,
+      "retractSeconds": 0.0943,
+      "counter": 0,
+      "pathSeconds": 0.0181
+    }
+  }
+}

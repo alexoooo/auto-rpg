@@ -7,6 +7,7 @@
       "recenterLimit": 3,
       "transferSeconds": 0.19341444561168442,
       "transferSlow": 0.12,
+      "capture": 0,
       "lean": -0.5447640381828,
       "ahead": 0,
       "hold": 0.03,

@@ -2,6 +2,7 @@ import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
 import meta from "../../../../assets/skills/strikes/kick/kick.meta.json" with { type: "json" };
 import pushMeta from "../../../../assets/skills/strikes/kick/push.meta.json" with { type: "json" };
 import frontMeta from "../../../../assets/skills/strikes/kick/front.meta.json" with { type: "json" };
+import steppingMeta from "../../../../assets/skills/strikes/kick/stepping.meta.json" with { type: "json" };
 import { dataOf } from "../../../core/data/store.ts";
 import { aimedPoint, type ExecutorMaking, type ExecutorPart } from "../../framework/executor-part.ts";
 import type { ActionConfig } from "../../config.ts";
@@ -15,7 +16,7 @@ import { FRONT_KICK_PATH, frontKickExecutor, kickExecutor, kickRefusal, KICK_PAT
   type FrontKickTuning, type KickTuning } from "../shared/kick.ts";
 
 /** **The kick's records**, each its variation's own (`kick/<variation>`). */
-type KickRecordKey = "kick/kick" | "kick/push" | "kick/front";
+type KickRecordKey = "kick/kick" | "kick/push" | "kick/front" | "kick/stepping";
 
 declare module "../../../core/data/store.ts" {
   interface DataOf {
@@ -25,6 +26,8 @@ declare module "../../../core/data/store.ts" {
     "kick/push": SkillRecords<KickTuning>;
     /** Every body's record of the front kick (`assets/skills/strikes/kick/front.json`). */
     "kick/front": SkillRecords<FrontKickTuning>;
+    /** Every body's record of the stepping front kick (`assets/skills/strikes/kick/stepping.json`). */
+    "kick/stepping": SkillRecords<FrontKickTuning>;
   }
 }
 
@@ -61,12 +64,15 @@ function variation<S>(key: KickRecordKey, bodies: readonly string[], executor: (
  * schedule; the push kick (`kick/push`), its leg the aimed drive's, folded up and driven out
  * level at the foe's middle; and the front kick (`kick/front`), its leg carried along authored paths,
  * chambered, extended at the target and retracted (`frontKickExecutor`), its height band about
- * its own hip's, where a person's push kick meets a body.
+ * its own hip's, where a person's push kick meets a body; and the stepping front kick
+ * (`kick/stepping`), the front kick lifting its foot as a step does, once the place its centre is
+ * going is over the standing foot (`capture`), not once the centre stands still over it.
  */
 const VARIATIONS: Variations<KickVariation> = {
   kick: variation("kick/kick", deepFreeze(meta.bodies), kickExecutor, validKickPart, wholeKick, validKickTuning),
   push: variation("kick/push", deepFreeze(pushMeta.bodies), kickExecutor, validKickPart, wholeKick, validKickTuning),
   front: variation("kick/front", deepFreeze(frontMeta.bodies), frontKickExecutor, validFrontKickPart, wholeFrontKick, validFrontKickTuning),
+  stepping: variation("kick/stepping", deepFreeze(steppingMeta.bodies), frontKickExecutor, validFrontKickPart, wholeFrontKick, validFrontKickTuning),
 };
 
 /** The variation of the kick a body of `spec` runs as `config` names it (`chosenVariation`), or null where it runs no one. */
@@ -89,7 +95,7 @@ export const KICK_PART: ExecutorPart<Config> = {
     (spec, config) => { const variation = variationOf(spec, config); return variation === null || variation.valid(spec, config) ? null : "invalid kick executor settings"; }] }),
   faults: (config) => config.tuning === undefined || (config.variation === undefined ? Object.values(VARIATIONS) : Object.hasOwn(VARIATIONS, config.variation) ? [VARIATIONS[config.variation]!] : [])
     .some((variation) => variation.part(config.tuning)) ? [] : ["invalid kick tuning"],
-  fitReads: ["kick/kick", "kick/push", "kick/front"], reads: variationReads(VARIATIONS), effectors: ["foot.left", "foot.right"], aims: true,
+  fitReads: ["kick/kick", "kick/push", "kick/front", "kick/stepping"], reads: variationReads(VARIATIONS), effectors: ["foot.left", "foot.right"], aims: true,
   asSkill: { group: "Strikes", ends: ["standing"] },
 };
 
