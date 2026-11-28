@@ -976,9 +976,19 @@ game or to unpark something, and the work goes on meanwhile.
   makes over a way the foe shortens, about 1.1 s long on a punch's window; a fork holding a walk
   ends it as its site flickers (the other hand's punch holding the trunk, the punch's height band),
   where the Mind takes it again, so walks are fitted from the record's own, each line now keeping
-  its spot (`292eb8155`). The way up's 5 s and the regain's 2 s are hand-set guesses where no
-  trial begins (`WAYS.way`, `REGAIN_TRY`); the cover's 1 s was the forks' `--until`, not the Mind's.
-- **Next: step 10's walk.** Step 15 and fork steps 1 to 4 have landed, and fork step 5's first reading
+  its spot (`292eb8155`). The cover's 1 s was the forks' `--until`, not the Mind's.
+- **Step 10's walk and ground, landed.** A walk timed as the record's walks arrived (`walks`
+  measured, `736ecce00`) is the empty-handed man's (`dbbd2ffe5`): 0.614 (0.555 to 0.673) against
+  his Mind before, his mirror knocking out within 60 s in 85.6 % against 72.7 %. A try on the
+  ground priced as the record's tries did (`ground` measured, `efdc88cb9`), in place of the way
+  up's 5 s and the regain's 0.9 done where no drill measured them, is pickable and even (0.500).
+  Strikes priced to their exit beside the measured walks are even too (0.518).
+- **A stall on the ground, found.** In the mirror's record a body lying on its back takes flatten
+  again every 0.1 s for as long as its foe lies too (1,803 loops, 2,056 s over 864 side-bouts, the
+  longest 59 s, 41 % of it both sides at once), with a way up on offer at 98 % of those roots and
+  weighed within 0.01 at half: flatten from the back goes to the back, and lying costs nothing
+  while the foe is down. Next: an Option that goes nowhere taken off offer, read on the mirror.
+- **Then: step 10's rest.** Step 15 and fork steps 1 to 4 have landed, and fork step 5's first reading
   of each Option's model against what it did, on the bank at `62c688f5f`
   ([the forked record](2026-11-26-forked-record.md#where-it-stands)). This plan and the forked
   record go in this order on one machine (the forked record's steps marked "fork"):
