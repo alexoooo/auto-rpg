@@ -691,6 +691,12 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   decisions the walks in stayed above a hold and a guard (1.10 against 0.86 at 2.65 m), yet
   `option-lean` so changed (`holds` decision) scored 0.353 (0.276 to 0.431) against it over 58
   units of `warrior-drawn`, margin -0.119 (-0.185 to -0.051). *Shown.*
+- **Options made on one model searched as one line win**: a walk by each navigator to a site is
+  the same model (`walkModel`, `6565b9d93`), so the tree's twins tied in price yet split its runs
+  and changed places by its draws. Searched as one line (`alike` "one"), each priced as it,
+  `option-lean` scored 0.576 (0.509 to 0.638) against itself over 112 units of `warrior-drawn`,
+  margin 0.041 (-0.019 to 0.099), knocking out within 60 s in 47.8 % of bouts against 35.3 %.
+  *Shown.*
 - **A chooser that keeps no target loses to one that keeps it its second**: the keep (`keep`, `KEEP`
   1 s) prices a running Option and those claiming what it claims at its target alone; of the walks
   to a lying foe hold cut (306 on the mirror at `df9f674d6`), it bound 2 %, the window gone at 94 %

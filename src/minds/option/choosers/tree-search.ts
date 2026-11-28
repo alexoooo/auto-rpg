@@ -108,9 +108,10 @@ function backedUp(node: TreeNode, best: number): number {
  * its Option is cut (`cutWorth`); then each Option and state it went through is worth again what
  * lies below it (`TreeEdge`; a state its best line by `best`, `backedUp`). Every Option on offer
  * at `root` is run at least once. Its root's Options start from what `start` gives them, as
- * evidence of as many runs as it says.
+ * evidence of as many runs as it says. Where `alike`, Options made on one model at one target (a
+ * search's slot, `Pair.slot`) are one line at each state, the first's, and each priced as it.
  */
-export function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly best: number; readonly held: number; readonly stream: { next(): number }; readonly leaf: Leaf; readonly start: RootStart }): PricedLine[] {
+export function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly best: number; readonly held: number; readonly stream: { next(): number }; readonly leaf: Leaf; readonly start: RootStart; readonly alike?: boolean }): PricedLine[] {
   const { runs, exploration, best, held, stream, start } = searched;
   const predictions = root.predictions;
   let pressure: Pressure | undefined;
@@ -126,11 +127,11 @@ export function treeSearch(root: Situation, searched: Searched & { readonly runs
   // A cut edge draws no way of ending (`run`): it shares one empty store.
   const edgesOf = (node: TreeNode): TreeEdge[] => {
     if (node.edges) return node.edges;
-    const pairs = at.pairsAt(node.at), edges = new Array<TreeEdge>(pairs.length);
-    for (let i = 0; i < pairs.length; i++) {
-      const pair = pairs[i]!, step = at.heldStepOf(pair, node.at, node, held);
-      const was = node === top ? started.kept(pair) : undefined;
-      edges[i] = { pair, runs: 0, worth: was?.worth ?? 0, ends: [], step, ...(was && was.weight > 0 ? { kept: was } : {}) };
+    const pairs = at.pairsAt(node.at), edges: TreeEdge[] = [], slots = new Set<number>();
+    for (const pair of pairs) {
+      if (searched.alike) { if (slots.has(pair.slot)) continue; slots.add(pair.slot); }
+      const step = at.heldStepOf(pair, node.at, node, held), was = node === top ? started.kept(pair) : undefined;
+      edges.push({ pair, runs: 0, worth: was?.worth ?? 0, ends: [], step, ...(was && was.weight > 0 ? { kept: was } : {}) });
     }
     if (node === top) for (const edge of edges) node.runs += edge.kept?.weight ?? 0;
     return node.edges = edges;
@@ -192,12 +193,15 @@ export function treeSearch(root: Situation, searched: Searched & { readonly runs
     for (const visited of nodes) visited.runs++;
   };
   for (let k = 0; k < Math.max(runs, edgesOf(top).length); k++) run();
-  const edges = top.edges!, prices = new Array<PricedLine>(edges.length);
+  const edges = top.edges!;
   started.keep(edges);
   // A line cut at its first step is priced by where that step leaves the body (`cutWorth`) and reaches no leaf, so its end is not priced.
   const foe = foeSource(searched.carry);
-  for (let i = 0; i < edges.length; i++) { const edge = edges[i]!; prices[i] = { pair: edge.pair, worth: edge.worth, terms: edge.step.terms, foe, end: edge.step.cut ? END_UNPRICED : leafAt.source }; }
-  return prices;
+  const line = (pair: Pair, edge: TreeEdge): PricedLine => ({ pair, worth: edge.worth, terms: edge.step.terms, foe, end: edge.step.cut ? END_UNPRICED : leafAt.source });
+  if (!searched.alike) return edges.map((edge) => line(edge.pair, edge));
+  // Each pair on offer at the root is priced as its slot's line.
+  const bySlot = new Map(edges.map((edge) => [edge.pair.slot, edge]));
+  return at.pairsAt(root).map((pair) => line(pair, bySlot.get(pair.slot)!));
 }
 
 /** What a tree search is given (`treeSearch`). */

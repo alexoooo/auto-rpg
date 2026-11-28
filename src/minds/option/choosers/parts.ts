@@ -1,6 +1,6 @@
 import { deepFreeze } from "../../../core/state.ts";
 import { handSet } from "../../../core/hand-set.ts";
-import { number, type PartField } from "../../../parts/fields.ts";
+import { number, optionalChoice, type PartField } from "../../../parts/fields.ts";
 import type { ConfigFor, PartLookup } from "../../../parts/lookup.ts";
 import type { ChooserPart } from "../contract/parts.ts";
 import { anyBody, slotOne, type PartConfig, type Supplied } from "../../../parts/parts.ts";
@@ -165,7 +165,7 @@ const EXPLORATION = handSet({
  * none unless given) and how (`against`, `AGAINST`; its worst unless given), and what every
  * search is given (`SearchConfig`).
  */
-interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs?: number; readonly exploration?: number; readonly leaf?: LeafName; readonly holds?: HoldsName; readonly keeps?: number; readonly best?: number; readonly replies?: number; readonly against?: AgainstName }
+interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs?: number; readonly exploration?: number; readonly leaf?: LeafName; readonly holds?: HoldsName; readonly keeps?: number; readonly best?: number; readonly replies?: number; readonly against?: AgainstName; readonly alike?: "one" }
 
 /**
  * **How long the tree holds an open Option** (`Option.open`: a hold, a guard) on a line
@@ -216,6 +216,12 @@ function kindField(key: "leaf" | "holds" | "against", label: string, kinds: Read
 /** The tree's kind of leaf (`LEAVES`), the tail written as none; shown where there is more than one. */
 const LEAF_FIELD = kindField("leaf", "Leaf", LEAVES, "tail");
 
+/**
+ * Whether the tree searches Options made on one model (`Option.model`: a walk by each navigator) as
+ * one line (`alike` "one", `treeSearch`), each priced as it, or each as its own (none).
+ */
+const ALIKE_FIELD = optionalChoice<TreeConfig, "alike">("alike", "Options made on one model are searched", "Each as its own line", () => [["one", "As one line"]]);
+
 /** How long the tree holds an open Option (`HOLDS`), to the horizon written as none. */
 const HOLDS_FIELD = kindField("holds", "Holds an open Option", HOLDS, "horizon");
 
@@ -232,8 +238,8 @@ const AGAINST_FIELD = kindField("against", "Against its replies", AGAINST, "wors
  * targets keeps the one it runs at as long as its config says (`keep`), `KEEP` s unless given.
  */
 export const TREE_CHOOSER = deepFreeze<ChooserPart<TreeConfig>>({
-  role: "chooser", label: "By tree", fields: [obedienceField<TreeConfig>(), horizonField<TreeConfig>(), carryField<TreeConfig>(), keepField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], HOLDS_FIELD, REPLIES_FIELD, AGAINST_FIELD, RUNS_FIELD, EXPLORATION_FIELD, BEST_FIELD, KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
-  defaults: { kind: "tree" }, reads: (config) => LEAVES[config.leaf ?? "tail"].reads, keys: { kind: true, runs: true, exploration: true, leaf: true, holds: true, replies: true, against: true, keeps: true, best: true, horizon: true, carry: true, keep: true, obedience: true, margin: true, objective: true }, fits: anyBody,
+  role: "chooser", label: "By tree", fields: [obedienceField<TreeConfig>(), horizonField<TreeConfig>(), carryField<TreeConfig>(), keepField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], HOLDS_FIELD, REPLIES_FIELD, AGAINST_FIELD, RUNS_FIELD, EXPLORATION_FIELD, BEST_FIELD, KEEPS_FIELD, ALIKE_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  defaults: { kind: "tree" }, reads: (config) => LEAVES[config.leaf ?? "tail"].reads, keys: { kind: true, runs: true, exploration: true, leaf: true, holds: true, replies: true, against: true, keeps: true, best: true, alike: true, horizon: true, carry: true, keep: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
     ...config.exploration === undefined || Number.isFinite(config.exploration) && config.exploration >= 0 ? [] : ["exploration: a finite number, not negative"],
@@ -242,11 +248,12 @@ export const TREE_CHOOSER = deepFreeze<ChooserPart<TreeConfig>>({
     ...config.replies === undefined || Number.isSafeInteger(config.replies) && config.replies >= 0 && config.replies <= DIRECTIONS.length ? [] : [`replies: a whole number from 0 to ${DIRECTIONS.length}`],
     ...config.against === undefined || isAgainst(config.against) ? [] : [`against: one of ${Object.keys(AGAINST).join(", ")}`],
     ...config.keeps === undefined || Number.isFinite(config.keeps) && config.keeps > 0 ? [] : ["keeps: a finite time, more than none"],
-    ...config.best === undefined || Number.isFinite(config.best) && config.best >= 0 && config.best <= 1 ? [] : ["best: a number from 0 to 1"]],
+    ...config.best === undefined || Number.isFinite(config.best) && config.best >= 0 && config.best <= 1 ? [] : ["best: a number from 0 to 1"],
+    ...config.alike === undefined || config.alike === "one" ? [] : ["alike: one or none"]],
   make: ({ config, options, seed, parts, body, exchange, rethink }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
-    const searched = { options, objective, obedience, horizon, exchange, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, held: HOLDS[config.holds ?? "horizon"].held({ horizon, rethink }), stream, leaf: LEAVES[config.leaf ?? "tail"].make(body), replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
+    const searched = { options, objective, obedience, horizon, exchange, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, held: HOLDS[config.holds ?? "horizon"].held({ horizon, rethink }), stream, leaf: LEAVES[config.leaf ?? "tail"].make(body), replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD, alike: config.alike === "one" };
     return chooser({ options, appraise: searching((now) => pricedLines(repliedSearch(now, searched))), deciding: { rethink, keep: config.keep ?? KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },
