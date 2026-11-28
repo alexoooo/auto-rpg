@@ -11,7 +11,7 @@ import { covers } from "./cover.ts";
 import { backStepping } from "./back-step.ts";
 import type { Option, Site } from "../contract/option.ts";
 import { followOrders } from "./orders.ts";
-import { gaitsOf, goesBy, walkBy } from "./places.ts";
+import { gaitsOf, goesBy, walkBy, walkModel } from "./places.ts";
 import { guardOf, hold, holdAt } from "./rest.ts";
 import { choosingSkill } from "./selection.ts";
 import { handSet } from "../../../core/hand-set.ts";
@@ -45,10 +45,13 @@ export const WALK_OPTION = deepFreeze<OptionPart<WalkConfig>>({
   keys: { kind: true, gait: true, navigation: true }, fits: anyBody, faults: () => [],
   applicable: (config: WalkConfig, { parts, legs, spec }) => legs === null || gaitsOf(parts, legs, spec).some(gait => config.gait === undefined || gait.name === config.gait),
   skills: (config: WalkConfig) => config.navigation ? { navigation: config.navigation } : {},
-  make: (config: WalkConfig, given: OptionContext) => given.parts.selected("navigation", given.spec)
-    .filter(navigation => !config.navigation || config.navigation.kind === navigation.kind)
-    .flatMap(navigation => gaitsOf(given.parts, given.legs, given.spec).filter(gait => config.gait === undefined || gait.name === config.gait)
-      .map(gait => choosingSkill(walkBy(gait, given.sites, given.walk, given.spec), navigation, "navigation"))),
+  make: (config: WalkConfig, given: OptionContext) => {
+    // A gait's walks by each navigator price alike, so share one model (`walkModel`).
+    const gaits = gaitsOf(given.parts, given.legs, given.spec).filter(gait => config.gait === undefined || gait.name === config.gait)
+      .map(gait => ({ gait, model: walkModel(gait, given.sites, given.walk, given.spec) }));
+    return given.parts.selected("navigation", given.spec).filter(navigation => !config.navigation || config.navigation.kind === navigation.kind)
+      .flatMap(navigation => gaits.map(({ gait, model }) => choosingSkill(walkBy(gait, given.sites, given.walk, model), navigation, "navigation")));
+  },
 });
 
 /** How near a place the body holds there, m, unless its config says. */

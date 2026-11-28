@@ -128,6 +128,25 @@ const WALKED: TermSources = Object.freeze({
 /** Where each answer of a walk's price comes from where its seconds were measured (`Walker.arrival`): its seconds `source`, the rest as `WALKED`; made once a source. */
 const measuredWalk = remembered((source: Source): TermSources => Object.freeze({ ...WALKED, duration: source }));
 
+/** **Where the site at `k` of `sites` is at `at`**, null where it has none or the body is still there. */
+const awayAt = (sites: Sites["all"]) => (at: Situation, k: number): Spot | null => {
+  const spot = sites[k]?.spot(at) ?? null, where = at.where;
+  return spot && !(still(at) && atSpot(spot, where.x, where.z, where.face)) ? spot : null;
+};
+
+/**
+ * **What a walk by `gait` to each of `sites` brings** (`Option.model`): where the body stands and
+ * is not still at the site, the walk there from where it stands (`walkTerms`), standing as the gait
+ * stands it where that was measured on a body of its model (`gaitStance`); else nothing.
+ */
+export function walkModel(gait: GaitOf, { all: sites }: Sites, walk: Walker, spec: BodySpec): Option["model"] {
+  const stance = gaitStance(gait.legs as { readonly kind: string; readonly variation?: string }, spec.model), away = awayAt(sites);
+  return (at, ask) => {
+    const spot = standing(at) ? away(at, ask.target ?? 0) : null;
+    return spot ? walkTerms(at, spot, gait, walk, stance) : null;
+  };
+}
+
 /** A gait as its walk Option names it, and as walk times are kept by (`WalkTimes.gaits`): its label, in lower case; made once a label. */
 const keyOf = remembered((label: string) => label.toLowerCase());
 
@@ -143,17 +162,11 @@ const NOWHERE = blocked("no site to walk to"), THERE = blocked("at its site"), N
  * It always yields and asks for no blow. Its model at a state where the body stands (`standing`)
  * and is not still at its site is the walk there from where it stands (`walkTerms`); its walk goes there (`approachSpot`) by the gait, at the orders' pace, kept out of
  * every fallen body's reach but the one the spot is beside (`Walker.kept`). Named for the gait and
- * where it goes. Its memory is which site it runs at.
+ * where it goes. Its memory is which site it runs at. Walks by one gait to the same sites price
+ * alike, so they may share one `model` (`walkModel`), as a search asks it once a state.
  */
-export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker, spec: BodySpec): Option {
-  const state = { at: 0 }, label = keyOf(gait.label);
-  /** How the body stands walking by the gait (`gaitStance`), where it was measured on a body of its model. */
-  const stance = gaitStance(gait.legs as { readonly kind: string; readonly variation?: string }, spec.model);
-  /** Where its site at `k` is at `at`, null where it has none or the body is there. */
-  const away = (at: Situation, k: number): Spot | null => {
-    const spot = sites[k]?.spot(at) ?? null, where = at.where;
-    return spot && !(still(at) && atSpot(spot, where.x, where.z, where.face)) ? spot : null;
-  };
+export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker, model: Option["model"]): Option {
+  const state = { at: 0 }, label = keyOf(gait.label), away = awayAt(sites);
   return {
     get name() { return `${label} to ${names[state.at] ?? "nowhere"}`; },
     kind: "walk", claims: LEGS, state, targets: names,
@@ -166,10 +179,7 @@ export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker,
     status: (now): Status => away(now, state.at) ? "yields" : "over",
     begin() {},
     end() {},
-    model(at, ask) {
-      const spot = standing(at) ? away(at, ask.target ?? 0) : null;
-      return spot ? walkTerms(at, spot, gait, walk, stance) : null;
-    },
+    model,
     step: (now) => {
       const spot = away(now, state.at), heading = now.sight.report.legs.heading;
       const asked = spot ? approachSpot(now.sight.view, spot, now.orders?.pace ?? Infinity, heading) : { move: null, face: walk.facing(now) };

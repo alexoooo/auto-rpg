@@ -64,7 +64,8 @@ export interface Searched {
 /**
  * **The states a search at `root` reads** (`Situation`), over `options` priced by `objective` at
  * `obedience` over the `horizon`, s, made once a decision. A model is asked at most once a state for
- * each Option and target, and only where something reads it (`modelAt`, `pairsAt`: at `root` an Option
+ * each model and target (`Option.model`: Options made on one, as a walk's by each navigator, share
+ * it), and only where something reads it (`modelAt`, `pairsAt`: at `root` an Option
  * with no targets only where its entry admits, `onOffer`; elsewhere its model says whether it is on
  * offer), and a state an Option leaves
  * the body in made once from each state for each place it names (`child`, `placed`). A path is
@@ -84,11 +85,16 @@ export function space(root: Situation, { options, objective, obedience, horizon,
   for (const option of options) if (option.sites) for (const site of option.sites) sites.add(site.name);
   // Descriptors belong to the search; each situation owns its result row and offered list.
   // Repeated Option identities share slots but keep their occurrences in the offered list.
-  const offsets = new Map<Option, number>(), descriptors: Pair[] = [];
+  // Options made on one model share its slots, one a target.
+  const offsets = new Map<Option, number>(), descriptors: Pair[] = [], slots = new Map<Option["model"], number>();
+  let width = 0;
   for (const option of options) if (!offsets.has(option)) {
+    const targets = Math.max(1, option.targets?.length ?? 0);
+    let first = slots.get(option.model);
+    if (first === undefined) { slots.set(option.model, first = width); width += targets; }
     offsets.set(option, descriptors.length);
-    for (let target = 0; target < Math.max(1, option.targets?.length ?? 0); target++)
-      descriptors.push(Object.freeze({ option, target, slot: descriptors.length, ask: Object.freeze(option.open ? { target } : { target, until: horizon }) }));
+    for (let target = 0; target < targets; target++)
+      descriptors.push(Object.freeze({ option, target, slot: first + target, ask: Object.freeze(option.open ? { target } : { target, until: horizon }) }));
   }
   // A state's offers, all of them (`offered`) and those a held or an arrived leaf reads (`held`, `arrived`); and the states made from it (`children`).
   const models = new Map<Situation, (Terms | null | undefined)[]>(), offered = new Map<Situation, readonly Pair[]>(), children = new Map<Situation, Made[]>();
@@ -98,7 +104,7 @@ export function space(root: Situation, { options, objective, obedience, horizon,
   /** The model of `pair` from `at`, asked once (an open one priced as an instant). */
   const modelAt = (pair: Pair, at: Situation): Terms | null => {
     let row = models.get(at);
-    if (!row) models.set(at, row = new Array<Terms | null | undefined>(descriptors.length));
+    if (!row) models.set(at, row = new Array<Terms | null | undefined>(width));
     const { option, slot } = pair;
     let terms = row[slot];
     if (terms === undefined) row[slot] = terms = option.model(at, pair.ask);
