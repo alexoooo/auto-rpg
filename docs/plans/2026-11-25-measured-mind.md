@@ -1019,7 +1019,11 @@ game or to unpark something, and the work goes on meanwhile.
   So step 14's switch, priced at what it costs, is every Option's: what letting a running Option
   go costs, measured by forks from banked states where it runs (it kept against the chooser's
   next best), by its kind and how far it has gone, a predictions field, pickable, in place of
-  the keep (`KEEP`) where it wins.
+  the keep (`KEEP`). It replaces the keep whatever its first reading: the owner (2026-11-28),
+  "if the general Option cancel doesn't initially beat the ad-hoc hard-coded hacks, that doesn't
+  mean we need to keep using the hard-coded hack. The simple and general solution is the one
+  that I want"; a loss is read as what it still misses. The pinned walks above were a
+  diagnostic, never a candidate: "even if it scored better, it could not be the right solution".
 - **The thinking, cheaper by what repeated**: a leaf's reading kept per state (`f07d1dff2`, 0.857),
   a gait's model asked once for both navigators (`6565b9d93`, 0.773), each horizon's trees read
   once a read (`e941b8f1c`, 0.920), none moving a pose: 0.61 of the search's time, on 4 measuring
