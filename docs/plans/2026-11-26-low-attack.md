@@ -370,8 +370,16 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   foe stays on all fours. And a band admits by the aim's height, while where a kick lands is its
   path's (aimed at the trunk, it meets the knee): a band read from where trials meet the target
   would admit a kick at bodies its aim never reaches.
-- **Next**: why a strike's lead-in (the kick's transfer, the stomp's setup) takes as long as it does
-  after a walk in; then the price below.
+- **The front kick's transfer is the body's weight shift, 0.63 to 0.68 s from a stand.** On the
+  kick's own twin trials (20 kicks), every tick of it timed: the centre is off the standing sole
+  (9.6 s of 13.1 with its speed over `transferSlow`, 0.6 alone) or there but still moving (1.9 s).
+  Holding a pose, the stance takes its centre to the sole at the pose's response, 1 /
+  `transferSeconds`: 0.17 m from between the feet, its speed at most 0.48 m/s, over the sole at
+  0.55 s and slower than 0.12 m/s at 0.65. Walking in adds nothing to it (0.33 to 0.87 s at a body
+  laid down); `ahead` at 0 changes nothing; a quicker pose is slower and falls (`transferSeconds`
+  0.08: 0.75 to 2 s, 5 of 20 down; 0.05: 11 down).
+- **Next**: a kick's weight shift begun before its transfer (where a walk in leaves the weight, or
+  a stance that bears it already); then the price below.
 
 ## Then: a strike's price, every start a number
 
