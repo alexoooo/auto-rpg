@@ -178,21 +178,30 @@ const validFitted = (value: unknown): value is FittedValue => {
     && Array.isArray(v.models) && v.models.length === v.horizons.length && v.models.every((m) => validTrees(m?.dealt) && validTrees(m?.taken));
 };
 
-/** A horizon's dealt and taken at features `x`, by `share`. */
-const fittedAt = (model: FittedValue["models"][number], x: readonly number[], share: number): Followed =>
-  ({ dealt: share * treesAt(model.dealt, x), taken: share * treesAt(model.taken, x) });
+/** **Each horizon's dealt and taken at features `x`**, by its place in `value`'s horizons, each read once. */
+function horizonsAt(value: FittedValue, x: readonly number[]): (k: number) => Followed {
+  const read: (Followed | undefined)[] = new Array(value.models.length);
+  return (k) => read[k] ??= { dealt: treesAt(value.models[k]!.dealt, x), taken: treesAt(value.models[k]!.taken, x) };
+}
+
+/** The horizon at `k`'s dealt and taken (`horizonsAt`), by `share`. */
+const fittedAt = (at: (k: number) => Followed, k: number, share: number): Followed => {
+  const { dealt, taken } = at(k);
+  return { dealt: share * dealt, taken: share * taken };
+};
 
 /**
  * **What `value` reads followed features `x` over `seconds`**: nothing over none; within its
  * first horizon that horizon's by the share of it; between two, the two weighed by where it falls;
- * past the last, the last's.
+ * past the last, the last's. Each horizon is read at `x` once by `at` (`horizonsAt`), shared by the
+ * reads of one `x`.
  */
-export function fittedOver(value: FittedValue, x: readonly number[], seconds: number): Followed {
+export function fittedOver(value: FittedValue, x: readonly number[], seconds: number, at = horizonsAt(value, x)): Followed {
   if (!(seconds > 0)) return { dealt: 0, taken: 0 };
-  const { horizons, models } = value, k = horizons.findIndex((h) => h >= seconds);
-  if (k === 0) return fittedAt(models[0]!, x, seconds / horizons[0]!);
-  if (k < 0) return fittedAt(models[models.length - 1]!, x, 1);
-  const a = horizons[k - 1]!, b = horizons[k]!, t = (seconds - a) / (b - a), low = fittedAt(models[k - 1]!, x, 1 - t), high = fittedAt(models[k]!, x, t);
+  const { horizons } = value, k = horizons.findIndex((h) => h >= seconds);
+  if (k === 0) return fittedAt(at, 0, seconds / horizons[0]!);
+  if (k < 0) return fittedAt(at, horizons.length - 1, 1);
+  const a = horizons[k - 1]!, b = horizons[k]!, t = (seconds - a) / (b - a), low = fittedAt(at, k - 1, 1 - t), high = fittedAt(at, k, t);
   return { dealt: low.dealt + high.dealt, taken: low.taken + high.taken };
 }
 
@@ -201,9 +210,9 @@ export function fittedOver(value: FittedValue, x: readonly number[], seconds: nu
  * `seconds`** (`fittedOver`), rising: what it tells apart of when the life comes. None over none.
  */
 export function fittedBy(value: FittedValue, x: readonly number[], seconds: number): FollowedBy[] {
-  const read: FollowedBy[] = [];
-  for (const by of value.horizons) if (by < seconds) read.push({ by, ...fittedOver(value, x, by) });
-  if (seconds > 0) read.push({ by: seconds, ...fittedOver(value, x, seconds) });
+  const read: FollowedBy[] = [], at = horizonsAt(value, x);
+  for (const by of value.horizons) if (by < seconds) read.push({ by, ...fittedOver(value, x, by, at) });
+  if (seconds > 0) read.push({ by: seconds, ...fittedOver(value, x, seconds, at) });
   return read;
 }
 
