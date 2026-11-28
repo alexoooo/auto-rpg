@@ -386,8 +386,18 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   0.02 m of square at the median; the rear foot 68 times, the lead 45). The price cannot count the
   weight shift: a profile's start is its range, velocity, place in the window and stance numbers
   (stagger, width, height), and none of them says which foot bears.
-- **Next**: what in the price follows the loaded foot; then a kick priced from where its weight is
-  (which foot bears, a stance number its profile's trials record); then the price below.
+- **It is the two feet's profiles, and the free foot would save little.** At the 103 begins, the
+  free foot's kick read through the loaded foot's profile reads as the loaded one's every time;
+  its range, window place or stagger's sign swapped changes nothing. The profiles part by the
+  start's velocity across the line, which follows the sway onto the bearing foot (a left kick
+  begun swaying one way 46 times to 21): the loaded foot's deals more (0.030 against 0.023) and
+  goes down less (0.044 against 0.059). And measured in the bouts, a kick begun on its free foot
+  holds its transfer 0.46 s at the median (7 kicks), one on its loaded foot 0.53 (119): its
+  transfer waits for the centre over the standing sole and still, whichever foot bears.
+  `transferSlow` at 0.25 takes 0.09 s off it, from a stand, with 2 of 20 kickers down; at 0.4 no
+  more, the centre's way onto the sole then the whole of it (0.55 s).
+- **Next**: a kick that lifts its foot while its centre is still going onto the standing foot, as
+  the stance's own step lifts before its centre is over the bearing sole; then the price below.
 
 ## Then: a strike's price, every start a number
 
