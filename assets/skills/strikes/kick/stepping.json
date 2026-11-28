@@ -1,6 +1,6 @@
 {
   "man": {
-    "made": "Authored: the front kick's record (`kick/front`), its transfer ending as the stance's own step lifts its foot: once its capture point is over the standing sole (`capture` 1), the centre going onto it as fast as a walk (`transferSlow` 1).",
+    "made": "Authored: the front kick's record (`kick/front`), its transfer ending as the stance's own step lifts its foot: once its capture point is over the standing sole (`capture` 1), the centre going onto it as fast as a walk (`transferSlow` 1); its trunk held upright over the standing foot (`ahead` 0, `lean` 0), which took out the set-down's lurch into the foe.",
     "settings": {
       "transferLimit": 2,
       "setLimit": 3,
@@ -8,8 +8,8 @@
       "transferSeconds": 0.1575,
       "transferSlow": 1,
       "capture": 1,
-      "lean": 0.4,
-      "ahead": 0.1,
+      "lean": 0,
+      "ahead": 0,
       "hold": 0.03,
       "lower": 0.03,
       "follow": 0.0196,

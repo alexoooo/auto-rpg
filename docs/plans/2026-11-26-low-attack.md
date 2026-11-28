@@ -83,7 +83,13 @@ reading named, before any work on it; an item the rebuild answers is struck from
   the free foot would save about 0.07 s (86217be86, ddb24113d).
 - [ ] **The stepping kick's set-down lurch**: it lifts 0.17 s after it begins, but set down the
   kicker comes on into the foe; within 60 s 0.583 against 0.741, downs 2.19 against 1.64; pickable,
-  not the Warrior's (c88a37bb9).
+  not the Warrior's (c88a37bb9). *Mended*: the kick's trunk held upright over its standing foot
+  (`ahead` 0, `lean` 0, the stepping kick's record; its look at `4c9c478d3918`): set down, the
+  kicker stands apart again, none of 8 down against the record's 1. Its profile (`sparring-feet`,
+  665 trials) landed 10.4 % with the right foot and 6.4 % with the left, down 7.1 and 9.1 %; the
+  Warrior holding it against `option-lean`, over 100 units of `warrior-drawn` with that profile
+  written: 0.537 (0.465 to 0.608), margin 0.045 (-0.011 to 0.099), knockouts within 60 s 0.405
+  against 0.365. Even, so pickable and not the Warrior's; the profile not kept (the next item).
 - [ ] **A variation's profile moves the default Minds**: every Mind reads its foe's body's profiles
   by the skill's name, held or not, so the stepping kick's rows moved 19 default fights and are
   not kept (c88a37bb9). *Read again*: by design. A foe is read throwing every strike measured on
