@@ -992,7 +992,10 @@ game or to unpark something, and the work goes on meanwhile.
   off offer (`6387be1b2`, pickable) is even.
 - **Step 4's re-look, answered**: held until the Mind decides again, an open Option loses (0.353).
 - **Step 14's first reading**: two thirds of a root's lines are a walk to a site another walk goes
-  to, the navigators' twins priced the same; one navigator alone loses (0.405, margin even).
+  to, the navigators' twins priced the same; one navigator alone loses (0.405, margin even). The
+  chooser's hold on a running target is a field (`keep`, `e3b13e0a4`): keeping none loses (0.397);
+  of the walks to a lying foe hold cut, it bound 2 %, the window gone at 94 %, the foe rising
+  through the stomp's band ([the low attack](2026-11-26-low-attack.md#paused-the-known-issues)).
 - **Then: step 10's rest.** Step 15 and fork steps 1 to 4 have landed, and fork step 5's first reading
   of each Option's model against what it did, on the bank at `62c688f5f`
   ([the forked record](2026-11-26-forked-record.md#where-it-stands)). This plan and the forked
