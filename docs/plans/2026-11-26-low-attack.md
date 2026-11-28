@@ -41,15 +41,21 @@ reading named, before any work on it; an item the rebuild answers is struck from
 - [ ] **A strike's price counts its recovery.** Over the 24 downs of the refit scorecard
   (7a8b6e60c), a low strike begun at a body down is priced at 4.46 s and its action runs 1.68 s; a
   kick at a body standing, 2.65 s against 1.83 (the forked record's finding, read here; a walk to
-  a low attack carries it in its price).
+  a low attack carries it in its price). *Read again on the rebuilt Mind*: priced to its exit
+  (`strikesTo`, `d69d34c9e`, pickable) beside measured walks, even (0.518), so not the Warrior's.
 - [ ] **Walks to a lying foe are cut by the chooser's target keep.** Of 84 walks to a low attack
   over those downs, 72 end in hold after a median 0.31 s, priced 2.96 s; 4 reach their strike, in
-  3.40 s against 2.84 priced (2695a4ae2; the reading above).
+  3.40 s against 2.84 priced (2695a4ae2; the reading above). *Read again* on the rebuilt Mind's
+  mirror (`df9f674d6`, 117 downs): 461 walks, 3.94 a down, priced 0.77 s at the median where they
+  were 2.96; 306 end in hold (66 %) after a median 0.11 s, 124 in a walk to another window, 11 reach
+  their strike. The price is answered; the cut is not.
 - [ ] **The gait and navigation churn**: 3.05 changes a second over the downs, 0.57 of them a gait
-  or navigation of the same strike and limb; no price for a switch (effff4e0a).
+  or navigation of the same strike and limb; no price for a switch (effff4e0a). *Read again*: 3.76
+  a second, 2.18 of them such a twin, the two navigators pricing a walk the same.
 - [ ] **A body on hands and knees is between the bands**, its trunk 0.43 to 0.62 m: 39 s of the
   76 the stander holds or does other than a low attack (dfa9bb3f0); no band moved strikes it
-  (0fa6f77c5).
+  (0fa6f77c5). *Read again*: the foe at fours 140 s over 117 downs, the stander 91 s of it doing
+  other than a low attack, in 88 of which none is weighed: the bands, unchanged.
 - [ ] **The start-ups**: the front kick's transfer, its weight shift, 0.63 to 0.68 s from a stand
   (6d40c9664); the stomp's setup and transfer about 1.5 s (0fa6f77c5).
 - [ ] **The Mind kicks with the loaded foot**, the profiles parting the feet by the start's sway;
