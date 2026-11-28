@@ -5,6 +5,7 @@ import type { Followed, FollowedBy, Offered, Valued, ValuePredictor, ValueReader
 import { measuredFrom, type Side, type Source } from "../../../../skills/framework/profile/source.ts";
 import { remembered } from "../../../../core/remembered.ts";
 import type { Situation } from "../../contract/situation.ts";
+import { POSITIONS } from "../../../../control/ground-reading.ts";
 import type { Terms } from "../../contract/terms.ts";
 import { treesAt, validTrees, type Trees } from "./boosted-trees.ts";
 import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
@@ -89,7 +90,7 @@ export function readingAt(at: Situation, grace: number, offered: readonly Offere
 /** An Option's kind and its model at a state, as offered (`Offered`). */
 export const offeredOf = (kind: string, open: boolean, terms: Terms): Offered => ({ kind, open, duration: terms.duration, dealt: terms.dealt, taken: terms.taken });
 
-const PHASES = ["clear", "striking", "down", "rising"], POSTURES = ["standing", "between", "lying", "sitting", "kneeling"];
+const PHASES = ["clear", "striking", "down", "rising"];
 const code = (list: readonly string[], value: string) => { const i = list.indexOf(value); return i < 0 ? list.length : i; };
 const finite = (x: number) => Number.isFinite(x) ? x : 0;
 
@@ -121,7 +122,7 @@ export function featuresOf(r: Reading): number[] {
     if (kind === "walk") bestWalkRate = Math.max(bestWalkRate, rate);
   }
   return [Math.min(r.range, FARTHEST), Math.min(r.apart, FARTHEST), rvx * ux + rvz * uz, Math.abs(-rvx * uz + rvz * ux), hypot(...r.velocity), hypot(...r.foeVelocity),
-    r.down ? 1 : 0, code(POSTURES, r.posture), code(POSTURES, r.foePosture), code(PHASES, r.phase), r.phase === "striking" ? 1 : 0,
+    r.down ? 1 : 0, code(POSITIONS, r.posture), code(POSITIONS, r.foePosture), code(PHASES, r.phase), r.phase === "striking" ? 1 : 0,
     r.incoming ? 1 : 0, r.ward ? 1 : 0, r.contact, r.rising ? 1 : 0, r.around, r.life, r.foeLife, r.lead, r.lateness, ...r.stance, ...r.foeStance,
     finite(bestRate), bestStrikeDealt, finite(bestStrikeRate), finite(bestWalkRate), r.offered.length, strikes, openTakenMax, finite(runTakenMin), runTakenMax,
     bestStrikeDur, bestRateDur, r.tumbled, r.regained, r.grace];

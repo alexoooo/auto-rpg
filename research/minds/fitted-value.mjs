@@ -76,6 +76,9 @@ async function collect(protocol, from, to, dir, mindPath) {
 /** Fit each horizon to the states in `dirs`, say each one's held-out R², and keep them in the asset `out` where given. */
 async function fitAll(dirs, out) {
   const { FEATURES, featuresOf } = await import("../../src/minds/option/predictions/value/fitted-value.ts");
+  const { drainOf, GAME_ENDS } = await import("../../src/game/arena/end-rule.ts");
+  // The tournament's bouts are played under the game's end rules.
+  const drained = drainOf(GAME_ENDS);
   const { playedOnce } = await import("../skills/profile-origin.mjs");
   const states = [], bouts = new Set(), bodies = new Set(), played = [];
   for (const dir of dirs) for (const name of readdirSync(dir).filter((file) => /^states-.*\.jsonl$/.test(file)).sort())
@@ -87,7 +90,7 @@ async function fitAll(dirs, out) {
       bouts.add(bout); for (const body of row.bodies) bodies.add(body);
       played.push(...row.played);
       for (const { side, t, reading } of roots)
-        states.push({ x: featuresOf(reading), held: HELD(bout), weight: 1, after: HORIZONS.map((h) => followed(lives, end, side, t, h)) });
+        states.push({ x: featuresOf(reading), held: HELD(bout), weight: 1, after: HORIZONS.map((h) => followed(lives, end, side, t, h, drained)) });
     }
   console.log(`${states.length} states of ${bouts.size} bouts: ${states.filter((s) => !s.held).length} fitted, ${states.filter((s) => s.held).length} held out`);
   const { models, fitted, held } = fitValue(states, FEATURES.length);

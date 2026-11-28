@@ -45,6 +45,15 @@ export interface EndRule<C extends EndRuleConfig = EndRuleConfig> {
  */
 export const GAME_ENDS: readonly EndRuleConfig[] = deepFreeze([{ kind: "damage" }, { kind: "drain" }]);
 
+/**
+ * **What the end rules `ends` have drained of every side's full life** `seconds` into the bout,
+ * as a share (`EndRule.drained`), each rule under its defaults where its config names none.
+ */
+export function drainOf(ends: readonly EndRuleConfig[]): (seconds: number) => number {
+  const rules = ends.map((config) => { const rule = endRuleOf(config); return [rule, { ...rule.defaults, ...config }] as const; });
+  return (seconds) => rules.reduce((sum, [rule, config]) => sum + (rule.drained?.(seconds, config) ?? 0), 0);
+}
+
 /** The end rule of `config`'s kind; an error for a kind none is. */
 export function endRuleOf(config: EndRuleConfig): EndRule {
   const rule = Object.hasOwn(END_RULES, config.kind) ? (END_RULES as unknown as Readonly<Record<string, EndRule>>)[config.kind] : undefined;

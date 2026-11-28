@@ -11,12 +11,18 @@ export const HORIZONS = Object.freeze([3, 8, 20]);
 /** The trees: as many, as deep, at least so many states a leaf, so shrunk, each on a share of the states and of the features. */
 const TREES = Object.freeze({ rounds: 300, rate: .03, depth: 4, minLeaf: 400, lambda: 50, subsample: .5, colsample: .7 });
 
-/** What `side` dealt and took over `h` s from `t` (to the bout's `end`), by its lives at each change (`lives`: [clock, left's, right's]). */
-export function followed(lives, end, side, t, h) {
+/**
+ * What `side` dealt and took by blows over `h` s from `t` (to the bout's `end`), by its lives at
+ * each change (`lives`: [clock, left's, right's], each its bar less what the end rules drained):
+ * each life's fall, less what `drained` (`drainOf`, the share of every side's full life the bout's
+ * end rules drained by a clock) says was drained of both meanwhile, since the drain falls on both
+ * alike and no choice brings it. None less than none.
+ */
+export function followed(lives, end, side, t, h, drained) {
   const at = (when) => { let lo = 0, hi = lives.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (lives[m][0] <= when + 1e-9) lo = m; else hi = m - 1; } return lives[lo]; };
-  const [, l0, r0] = at(t), [, l1, r1] = at(Math.min(t + h, end));
+  const until = Math.min(t + h, end), [, l0, r0] = at(t), [, l1, r1] = at(until), both = drained(until) - drained(t);
   const [own, foe] = side === "left" ? [l0 - l1, r0 - r1] : [r0 - r1, l0 - l1];
-  return { dealt: foe, taken: own };
+  return { dealt: Math.max(0, foe - both), taken: Math.max(0, own - both) };
 }
 
 /**

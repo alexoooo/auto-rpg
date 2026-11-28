@@ -958,6 +958,19 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   0.828 of the other's life by 60 s against 0.787. Two matches against one opponent, not one
   paired: every figure moved the same way, each by less than its interval. It is the game's.
   *Counted.*
+- **The fitted value read by blows, its postures apart, reads truer and fights no worse.** It
+  read every lying posture as one (its code listed "lying", which no position is), so it could not
+  tell the back from the front a way up leads to; and its targets were the lives the end rule
+  drains alike from 60 s, which at aggression 4 a step that takes its seconds forfeits as gain, so
+  the shortest step wins (a flatten from the back to the back taken again every 0.1 s, 2,056 s of
+  the mirror's record). Coded by every position (`POSITIONS`) and fitted on what blows dealt and
+  took, the drain taken out (`followed`, `drainOf`), on the mirror's 432 bouts: R² held out of
+  dealt, taken and 2 dealt less taken 0.174, 0.170, 0.055 at 3 s; 0.238, 0.237, 0.065 at 8 s;
+  0.322, 0.317, 0.086 at 20 s, where the fit in place read them 0.140, 0.136, 0.044; 0.168, 0.165,
+  0.036; 0.207, 0.213, 0.029. In play, `option-lean` against itself on the tail leaf (which reads
+  no fitted value) over `warrior-drawn`: 0.500 (0.422 to 0.572) on the new against 0.484 (0.406 to
+  0.565) on the old, over 83 and 77 units; two matches against one opponent. On the tail leaf
+  `option-lean` plays its fitted leaf even either way. It is the game's. *Shown.*
 - **`option-lean`'s decisions in a page**: its decision lands in the one step it is made in: with the
   minds on worker threads as a page runs them, a step's 99th percentile is 36 ms (`option-truer`
   202 ms), its dearest steps a multiple of its 12 steps a decision apart, and deciding is 38 % of

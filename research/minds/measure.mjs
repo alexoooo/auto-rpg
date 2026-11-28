@@ -44,6 +44,9 @@ const { FEATURES, featuresOf } = await import("../../src/minds/option/prediction
 const { digestOf, playedOnce } = await import("../skills/profile-origin.mjs");
 const { treesAt } = await import("../../src/minds/option/predictions/value/boosted-trees.ts");
 const { WALK_FEATURES, walkFeatures } = await import("../../src/minds/option/predictions/walk-times.ts");
+const { drainOf, GAME_ENDS } = await import("../../src/game/arena/end-rule.ts");
+/** What the tournament's bouts drained of each side's life by a clock: they are played under the game's end rules. */
+const drained = drainOf(GAME_ENDS);
 
 const tournament = EVALUATIONS.tournament, cases = tournament.protocols[flags.protocol];
 if (!cases) throw new Error(`the tournament has no protocol ${flags.protocol}: ${Object.keys(tournament.protocols).join(", ")}`);
@@ -149,7 +152,7 @@ process.exit(refused ? 1 : 0);
 async function statesOf(folder) {
   const rows = [];
   for await (const row of rowsIn(folder)) {
-    const states = row.roots.map((root) => ({ x: featuresOf(readingOf(root)), after: HORIZONS.map((h) => followed(row.lives, row.end, root.side, root.t, h)) }));
+    const states = row.roots.map((root) => ({ x: featuresOf(readingOf(root)), after: HORIZONS.map((h) => followed(row.lives, row.end, root.side, root.t, h, drained)) }));
     rows.push({ key: row.key, date: row.date, play: playOf(row), bout: `${row.protocol}/${row.index}`, sides: row.sides, commit: row.commit, changed: row.changed, states, walks: walksOf(row, walkFeatures), tries: triesOf(row) });
   }
   const states = [], walks = [], tries = [], bodies = new Set(), pairings = new Set(), bouts = new Set(), played = [], commits = new Set(), protocols = new Set();
