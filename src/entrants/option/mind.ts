@@ -6,25 +6,26 @@ import { deepFreeze } from "../../core/state.ts";
  * Its Option configuration names no Options, so it fights by every one registered (`optionsOf`),
  * of which a body offers those whose skill it fits, with the limbs it has (`skillsOf`). It looks
  * for a change it watches at 60 Hz, every other control step (`OptionMindConfig.rate`), where its
- * strike and gait profiles are measured. It searches by tree, each leaf the value fitted to what followed (`leaf` fitted),
- * each state worth the mean of its lines by their runs (`best` 0), at aggression 4, a blow's worth
- * falling by 0.3 a second along a line (`initiative`).
+ * strike and gait profiles are measured. It searches by tree, each leaf the value fitted to what
+ * followed, weighed by when it says the life comes (`leaf` fitted-when), each state worth the mean
+ * of its lines by their runs (`best` 0), at aggression 4, a blow's worth falling by 0.3 a second
+ * along a line (`initiative`).
  */
-const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "tree", leaf: "fitted", best: 0, objective: { kind: "few-terms", aggression: 4, initiative: .3 } }, rate: 60 });
+const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "tree", leaf: "fitted-when", best: 0, objective: { kind: "few-terms", aggression: 4, initiative: .3 } }, rate: 60 });
 
 /**
  * **The settings every body shares** (`option-shared`). A fix, or a gain in scale or speed, is
  * every body's; only what was chosen for one situation is a body's own. The fixes make prices
- * truer: the leaf is the fitted value, which stands aside on a body it was not fitted on
- * (`fittedOn`); the foe is kept moving over a line's first half second (`carry`); a walk starts at
- * its speed along its way (`walkStart` signed) and a sway leaves the body by its own steps
- * (`sways` own). The gain is in its timing: it looks for a change it watches 20 times a second
+ * truer: the leaf is the fitted value, weighed by when it says the life comes, which stands
+ * aside on a body it was not fitted on (`fittedOn`); the foe is kept moving over a line's first
+ * half second (`carry`); a walk starts at its speed along its way (`walkStart` signed) and a sway
+ * leaves the body by its own steps (`sways` own). The gain is in its timing: it looks for a change it watches 20 times a second
  * and searches every 0.1 s. On the empty-handed Warrior, searching every 0.1 s beats 0.2 s, and
  * 20 Hz plays 60 Hz even for a sixth less thinking; the rat plays the Warrior as it did at
  * 60 Hz every 0.2 s (`docs/approaches.md`).
  */
 const SHARED = deepFreeze({
-  kind: "option", chooser: { kind: "tree", leaf: "fitted", carry: .5 }, predictions: { kind: "measured", walkStart: "signed", sways: "own" }, rate: 20, rethink: .1,
+  kind: "option", chooser: { kind: "tree", leaf: "fitted-when", carry: .5 }, predictions: { kind: "measured", walkStart: "signed", sways: "own" }, rate: 20, rethink: .1,
 }) satisfies OptionMindConfig;
 
 /** `option-lean`: the shared settings, each state worth its lines' mean (`best` 0) at aggression 4 and initiative 0.3, as read on the empty-handed man. */

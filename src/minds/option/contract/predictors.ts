@@ -110,6 +110,9 @@ export interface Offered { readonly kind: string; readonly open: boolean; readon
 /** **What followed a state**: the life dealt and taken. */
 export interface Followed { readonly dealt: number; readonly taken: number }
 
+/** **What followed a state by `by` s after it** (`ValueReader`): the life dealt and taken over those seconds. */
+export interface FollowedBy extends Followed { readonly by: number }
+
 /** **What a state is worth where a line of a search stops.** */
 export interface ValuePredictor {
   /** What it gives one search begun at `root` (`Valued`). Null where it has no reading of this body against this foe. */
@@ -124,8 +127,10 @@ export interface Valued {
 
 /**
  * The life expected to be dealt and taken over the `seconds` after `at`, read with the Options on
- * offer there as their models price one try (`offered`) and the body's `grace` there (`graceAt`).
- * Null where it has no reading of this state. A search asks it at every leaf, so it takes its
- * arguments by place and no argument object is made.
+ * offer there as their models price one try (`offered`) and the body's `grace` there (`graceAt`):
+ * by each time the reader tells apart within those seconds, rising, the last by `seconds`
+ * (`FollowedBy`), so a price can weigh the life by when it comes. Null where it has no reading of
+ * this state. A search asks it at every leaf, so it takes its arguments by place and no argument
+ * object is made.
  */
-export type ValueReader = (at: Situation, grace: number, offered: readonly Offered[], seconds: number) => Followed | null;
+export type ValueReader = (at: Situation, grace: number, offered: readonly Offered[], seconds: number) => readonly FollowedBy[] | null;

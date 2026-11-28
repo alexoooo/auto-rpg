@@ -1,7 +1,7 @@
 import { deepFreeze } from "../../../../core/state.ts";
 import { handSet } from "../../../../core/hand-set.ts";
 import { hypot } from "../../../../core/math/real.ts";
-import type { Followed, Offered, Valued, ValuePredictor, ValueReader } from "../../contract/predictors.ts";
+import type { Followed, FollowedBy, Offered, Valued, ValuePredictor, ValueReader } from "../../contract/predictors.ts";
 import { measuredFrom, type Side } from "../../../../skills/framework/profile/source.ts";
 import { remembered } from "../../../../core/remembered.ts";
 import type { Situation } from "../../contract/situation.ts";
@@ -185,9 +185,20 @@ export function fittedOver(value: FittedValue, x: readonly number[], seconds: nu
 }
 
 /**
+ * **What `value` reads followed features `x` by each of its horizons short of `seconds`, and by
+ * `seconds`** (`fittedOver`), rising: what it tells apart of when the life comes. None over none.
+ */
+export function fittedBy(value: FittedValue, x: readonly number[], seconds: number): FollowedBy[] {
+  const read: FollowedBy[] = [];
+  for (const by of value.horizons) if (by < seconds) read.push({ by, ...fittedOver(value, x, by) });
+  if (seconds > 0) read.push({ by: seconds, ...fittedOver(value, x, seconds) });
+  return read;
+}
+
+/**
  * **A fitted value as a search asks it** (`ValuePredictor`), for the body `body` (`bodyOf`):
  * `value` read at a state as its features (`readingAt`, `featuresOf`) over the seconds asked
- * (`fittedOver`). It has a reader for a search whose body and focus are both bodies it was
+ * (`fittedBy`). It has a reader for a search whose body and focus are both bodies it was
  * fitted on (`fittedOn`), and no reading of a state without a focus. An error where `value` is
  * no fitted value over today's features (`validFitted`).
  */
@@ -195,7 +206,7 @@ export function fittedValue(value: unknown, body: string): ValuePredictor {
   if (!validFitted(value)) throw new Error("fitted-value: not a value over today's features");
   const read: ValueReader = (at, grace, offered, seconds) => {
     const reading = readingAt(at, grace, offered);
-    return reading ? fittedOver(value, featuresOf(reading), seconds) : null;
+    return reading ? fittedBy(value, featuresOf(reading), seconds) : null;
   };
   // Each body was found by its name among those the value was fitted on, in bouts of the two together.
   const side = (name: string): Side => ({ own: true, of: name, by: "name", gaps: [] });

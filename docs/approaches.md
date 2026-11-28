@@ -671,6 +671,14 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   0.635 (0.580 to 0.691) held out at the same runs, but silent 16.2% of a bout against 9.4%: an
   Option worth more at the last root stays chosen. Unset (`c1cdbe73d`), then removed, no Mind
   taking it, then restored on the owner's word (2026-11-20), pickable and unset. *Shown.*
+- **The fitted leaf weighed by when the value says the life comes beats it weighed evenly**: the
+  leaf counted what the fitted value says follows a state as traded evenly from that state to the
+  horizon, so under initiative (0.3 a second) a state 0.1 s into a line had its 20 s of trading
+  counted nearly whole and one reached by a 3.5 s walk had it counted at 0.41. Weighed span by span
+  between the value's own horizons (3, 8 and 20 s; `fitted-when`), `option-lean` so changed won
+  0.575 (0.505 to 0.645) against it over 93 units of `warrior-drawn`, its mirror knocking out within
+  60 s in 72.7 % (66.4 to 78.2) of 216 against 74.1 %, downs 1.69 a bout against 1.64. Without
+  initiative the two read the same to the bit. *Shown.*
 - **A line's end written as three numbers plays as the tail and the hold at 40% of their time**:
   each side trading life at a rate falling straight with how far apart the two stand, its shape from bout rows and one scale by bouts won: 0.503 at half the
   rows' rate, 0.417 at it, 0.434 at a quarter; 20.1 ms a deciding step against 49.6; with the back
