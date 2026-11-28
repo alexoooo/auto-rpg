@@ -68,6 +68,17 @@ at it (2026-11-25, [the kick's plan](2026-11-25-kicker-falls.md)): "i don't want
 multiple days again, how do we change teh skill development process to force you to follow the
 instructions?"
 
+**This plan before the kicks, the Warrior's mirror its reading** (2026-11-27), with the kick and
+locomotion work paused ([the low attack](2026-11-26-low-attack.md)): "take note of the current
+state of the kick/locomotion work, pause it; implement all of the measured-mind/forked-record
+changes (interleaved as appropriate); use the empty-handed warrior mirror fight that we're
+working on as a validation of the MM/FR work; the rat-specific work can remain out of scope for
+now, just empty-handed warrior; fix all of the kick/locomotion known issues; after all of the
+structural changes are done, we should try to compare and match or exceed the fighting ability of
+the existing mind (but more efficient and accurate). basically i want to implement these changes
+(for scalability and new capabilities), and then use that to helps us finish the
+kicks/locomotion (but with a better foundation)".
+
 So five things at once. Every number the Option Mind predicts with comes from fights the game's
 bodies have played, read by a few mechanisms that are the same for every body. What the game
 needs measured grows with the bodies, items and skills added, never with their pairings. Work on
@@ -960,14 +971,31 @@ game or to unpark something, and the work goes on meanwhile.
      step 6 and fork step 5 compare.
   3. Step 15 (landed), once the forks' bank is taken: the bank reads the record as it is kept now.
   4. Step 4.
-  5. Fork step 5 on every Option that fits the Warrior. Fork step 6 waits on a worth that ranks a
+  5. Step 10's surest errors, from fork step 5's first reading, each a fix of its own: a strike
+     priced with the recovery its Option does not run; a walk to a window priced as arriving at
+     rest; the way up's hand-set 5 s; the cover's 1 s open. They come before the prior and the
+     search are fitted, since both learn from the prices: a prior fitted on wrong prices learns
+     their errors. Each is read on a bank taken on the code in hand; the bank at `62c688f5f`
+     predates a kick's stroke ending with its foot down (`4d44b5579`).
+  6. Fork step 5 on every Option that fits the Warrior. Fork step 6 waits on a worth that ranks a
      state's Options, which the forks do not give.
-  6. Step 14, which reads fork step 5's twins; then step 6, whose prior is fitted over the
-     Options step 14 leaves; then step 7.
-  7. Step 5, by the owner's choice (2026-11-27: "MM5 after MM7"). The rat's bouts against the
-     Warrior are then played once, against the Warrior's Mind after the prior and PUCT, and the
-     same collection serves steps 5, 8 and 9.
-  8. Step 8 onward. Fork step 7 goes anywhere after fork step 3.
+  7. Step 14, which reads fork step 5's twins, with a switch priced at what it costs: the
+     running gait and target are kept unless another, charged its switch, wins (`KEEP`, the
+     chooser's hand-set hold on a target, is what it replaces; the low attack's plan traced it
+     cutting 72 of 84 walks to a lying foe after 0.3 s). Then step 6, whose prior is fitted over
+     the Options step 14 leaves; then step 7.
+  8. Steps 8 and 9 on the Warrior's mirror; the rest of step 10; steps 11 and 12. Fork step 7
+     goes anywhere after fork step 3.
+
+  Out of scope by the owner's word (2026-11-27, the goal): the rat's steps (5 and 13, and 8 and 9
+  as read on the rat), and the procedure's rat readings. Each step is read on the Warrior's
+  mirror by the procedure's step 4. Throughout, the Mind before this plan's prices moved stays
+  pickable as the reference the owner names ("match or exceed the fighting ability of the
+  existing mind (but more efficient and accurate)"): each step's fix is a kind, and the old one
+  stays a setting, so `option-lean` with every one of them at its old setting is today's Mind on
+  the code in hand. At the end it is matched against the new default (288 warrior-drawn bouts),
+  with the thinking and each Option's model error against the forks beside it. A step lands on
+  the match against the game's Mind as it stands; knockouts within 60 s are reported beside it.
 
   A run that reads time (a price said from a first chunk, a Mind's thinking) has the machine to
   itself; runs that read only outcomes may share it. Nothing that moves a fight lands while a
