@@ -98,7 +98,10 @@ const termsOf = (terms) => terms && {
  *   where it was cut); the seconds to its exit, where it came to one (`exit`, a strike's release),
  *   else null; and, where the selection ended it over or out of its entry, what the Option said of
  *   itself as it did, aimed as it ran: its status and its entry (`why`: "ready", or the reason it
- *   does not admit, as "at its site" or "no site to walk to"); null where it ended otherwise.
+ *   does not admit, as "at its site" or "no site to walk to"); null where it ended otherwise;
+ *   and what was on offer at the last decision made afresh while it ran (`offered`, each
+ *   choice's key, place and target, as `option-fork-hook.mjs` gives it; null with none), so a
+ *   walk whose site went away can be told arrived, its site's strike on offer, from cut.
  * The life is the bars' (`Pool.bar`), what blows took: the end rules' drain is not counted.
  * A run ends at a decision, so its seconds are the Mind's: it sees an Option over at its next
  * look (`OptionMindConfig.rate`), and an open one's `until` at its next decision.
@@ -139,14 +142,14 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
     // Armed only from the fork on: a replay's decisions before it are the trunk's.
     const [index, target] = option ? option.key.split(":").map(Number) : [];
     const measure = option?.measure ?? null, hold = option?.hold === true || measure !== null, foe = option && other(option.side);
-    let choseAt = null, open = false, lives = null, start = null, predicted = null, run = null, status = null, first = true, ended = false, exit = null, why = null;
+    let choseAt = null, offered = null, open = false, lives = null, start = null, predicted = null, run = null, status = null, first = true, ended = false, exit = null, why = null;
     const bar = (side) => duel.duelists[side].pool.bar();
     // The searches of the side's latest decision, in order: the first at the situation it decides at, any after at another (a foe's reply imagined, `repliedSearch`).
     const searches = [];
     /** The run ended at the situation `now` (null where it was cut), as `how` says. */
     const finish = (how, now) => {
       ended = true;
-      run = { seconds: duel.clock - choseAt, ended: how, dealt: lives[1] - bar(foe), taken: lives[0] - bar(option.side), from: start, to: now && placeOf(now), exit, why };
+      run = { seconds: duel.clock - choseAt, ended: how, dealt: lives[1] - bar(foe), taken: lives[0] - bar(option.side), from: start, to: now && placeOf(now), exit, why, offered };
     };
     if (measure) {
       if (!globalThis.__moveLinesHook) throw new Error("a fork that measures needs research/minds/move-prior-hook.mjs registered before the Mind's code loads");
@@ -162,6 +165,7 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
         if (chose) {
           if (!chose.taken || ended) return;
           const mine = decision.running.find(([i, k]) => i === index && k === target);
+          offered = decision.offered.map(([i, k]) => `${i}:${k}`);
           status = mine?.[2] ?? "over";
           if (measure && open && duel.clock - choseAt >= measure.until - 1e-9) return finish("held", decision.now);
           if (measure && status === "exit") exit ??= duel.clock - choseAt;
