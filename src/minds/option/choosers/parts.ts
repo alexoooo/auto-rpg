@@ -18,12 +18,12 @@ import { search } from "./search.ts";
 import { repliedSearch, DIRECTIONS, AGAINST, type AgainstName } from "./replies.ts";
 
 /**
- * How long the valued chooser keeps the target an option runs at (`Deciding.keep`), s: one left
- * sooner, for another near alike, was chosen for a worth it was never given the time to earn, and
- * two such are walked toward by turns.
+ * How long a searching chooser keeps the target an option runs at (`Deciding.keep`) unless its
+ * config says (`SearchConfig.keep`), s: one left sooner, for another near alike, was chosen for a
+ * worth it was never given the time to earn, and two such are walked toward by turns.
  */
 const KEEP = handSet({
-  name: "KEEP", sort: "own",
+  name: "KEEP", sort: "preference", field: "keep",
   says: "How long a chooser keeps the target an Option runs at before it may take another, s.",
   value: 1,
 });
@@ -72,7 +72,7 @@ const depthFaults = (depth: number): readonly string[] =>
  * by chance (`Chance`), none unless given, the objective it prices options by (`objective`, a
  * part of role `objective`; the few terms, `FEW_TERMS_PART`, unless given).
  */
-interface SearchConfig { readonly horizon?: number; readonly carry?: number; readonly obedience?: ObedienceLevel; readonly margin?: number; readonly objective?: ConfigFor<"objective"> | null }
+interface SearchConfig { readonly horizon?: number; readonly carry?: number; readonly keep?: number; readonly obedience?: ObedienceLevel; readonly margin?: number; readonly objective?: ConfigFor<"objective"> | null }
 
 /** **The valued chooser's config**: its depth (`VALUED_DEPTHS`), and what every search is given (`SearchConfig`). */
 interface ValuedConfig extends SearchConfig { readonly kind: "valued"; readonly depth: number }
@@ -100,10 +100,14 @@ function horizonField<C extends SearchConfig>(): PartField<C> { return number<C,
 /** How long the focus keeps moving in the states a search reads (`SearchConfig.carry`), s: standing where it is, none, written as none. */
 function carryField<C extends SearchConfig>(): PartField<C> { return number<C, "carry">("carry", "Foe keeps moving", 0, 2, .1, "s", 0); }
 
+/** How long a running Option's target is kept before another may be taken (`SearchConfig.keep`), s: `KEEP` unless given. */
+function keepField<C extends SearchConfig>(): PartField<C> { return number<C, "keep">("keep", "Keeps the target it runs at", 0, 2, .1, "s", KEEP); }
+
 /** What is wrong with what a searching chooser is given (`SearchConfig`), each a sentence. */
 const searchFaults = (config: SearchConfig): readonly string[] => [
   ...config.horizon === undefined || Number.isFinite(config.horizon) && config.horizon > 0 ? [] : ["horizon: a finite time, more than none"],
   ...config.carry === undefined || Number.isFinite(config.carry) && config.carry >= 0 ? [] : ["carry: a finite time, not negative"],
+  ...config.keep === undefined || Number.isFinite(config.keep) && config.keep >= 0 ? [] : ["keep: a finite time, not negative"],
   ...config.margin === undefined || Number.isFinite(config.margin) && config.margin >= 0 ? [] : ["margin: a finite worth, not negative"],
   ...config.obedience === undefined || OBEDIENCE.some(([value]) => value === config.obedience) ? [] : [`obedience: one of ${OBEDIENCE.map(([value]) => value).join(", ")}`]];
 
@@ -120,16 +124,16 @@ function pricing(config: SearchConfig, parts: PartLookup): { readonly obedience:
 /**
  * **Valued**: each option worth its lines in life, searched to its depth over its horizon (`searching`), each path
  * priced by its objective (`Objective.worth`), its orders at its obedience; a running option with
- * targets keeps the one it runs at `KEEP` s.
+ * targets keeps the one it runs at as long as its config says (`keep`), `KEEP` s unless given.
  */
 export const VALUED_CHOOSER = deepFreeze<ChooserPart<ValuedConfig>>({
-  role: "chooser", label: "By worth", fields: [obedienceField<ValuedConfig>(), horizonField<ValuedConfig>(), carryField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
-  defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, carry: true, obedience: true, margin: true, objective: true }, fits: anyBody,
+  role: "chooser", label: "By worth", fields: [obedienceField<ValuedConfig>(), horizonField<ValuedConfig>(), carryField<ValuedConfig>(), keepField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, carry: true, keep: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config.depth), ...searchFaults(config)],
   make: ({ config, options, seed, parts, exchange, rethink }) => {
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON;
     const searched = { options, objective, obedience, horizon, exchange, carry: config.carry ?? 0, depth: config.depth };
-    return chooser({ options, appraise: searching((now) => search(now, searched)), deciding: { rethink, keep: KEEP },
+    return chooser({ options, appraise: searching((now) => search(now, searched)), deciding: { rethink, keep: config.keep ?? KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: {} });
   },
 });
@@ -225,11 +229,11 @@ const AGAINST_FIELD = kindField("against", "Against its replies", AGAINST, "wors
  * **By tree**: each option worth the mean of its runs in a Monte Carlo tree search over its
  * horizon (`treeSearch`), each path priced by its objective (`Objective.worth`), its orders at its
  * obedience; its draws from one stream begun at its seed, kept in its state; a running option with
- * targets keeps the one it runs at `KEEP` s.
+ * targets keeps the one it runs at as long as its config says (`keep`), `KEEP` s unless given.
  */
 export const TREE_CHOOSER = deepFreeze<ChooserPart<TreeConfig>>({
-  role: "chooser", label: "By tree", fields: [obedienceField<TreeConfig>(), horizonField<TreeConfig>(), carryField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], HOLDS_FIELD, REPLIES_FIELD, AGAINST_FIELD, RUNS_FIELD, EXPLORATION_FIELD, BEST_FIELD, KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
-  defaults: { kind: "tree" }, reads: (config) => LEAVES[config.leaf ?? "tail"].reads, keys: { kind: true, runs: true, exploration: true, leaf: true, holds: true, replies: true, against: true, keeps: true, best: true, horizon: true, carry: true, obedience: true, margin: true, objective: true }, fits: anyBody,
+  role: "chooser", label: "By tree", fields: [obedienceField<TreeConfig>(), horizonField<TreeConfig>(), carryField<TreeConfig>(), keepField<TreeConfig>(), ...Object.keys(LEAVES).length > 1 ? [LEAF_FIELD] : [], HOLDS_FIELD, REPLIES_FIELD, AGAINST_FIELD, RUNS_FIELD, EXPLORATION_FIELD, BEST_FIELD, KEEPS_FIELD], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
+  defaults: { kind: "tree" }, reads: (config) => LEAVES[config.leaf ?? "tail"].reads, keys: { kind: true, runs: true, exploration: true, leaf: true, holds: true, replies: true, against: true, keeps: true, best: true, horizon: true, carry: true, keep: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
     ...config.exploration === undefined || Number.isFinite(config.exploration) && config.exploration >= 0 ? [] : ["exploration: a finite number, not negative"],
@@ -243,7 +247,7 @@ export const TREE_CHOOSER = deepFreeze<ChooserPart<TreeConfig>>({
     const { obedience, objective } = pricing(config, parts), horizon = config.horizon ?? HORIZON, runs = config.runs ?? RUNS, exploration = config.exploration ?? EXPLORATION;
     const stream = randomStream(seed), warm = config.keeps === undefined ? null : warmStart(options, config.keeps);
     const searched = { options, objective, obedience, horizon, exchange, carry: config.carry ?? 0, body, runs, exploration, best: config.best ?? 1, held: HOLDS[config.holds ?? "horizon"].held({ horizon, rethink }), stream, leaf: LEAVES[config.leaf ?? "tail"].make(body), replies: config.replies ?? 0, against: config.against ?? "worst", start: warm?.start ?? COLD };
-    return chooser({ options, appraise: searching((now) => pricedLines(repliedSearch(now, searched))), deciding: { rethink, keep: KEEP },
+    return chooser({ options, appraise: searching((now) => pricedLines(repliedSearch(now, searched))), deciding: { rethink, keep: config.keep ?? KEEP },
       chance: { margin: config.margin ?? 0, seed }, objective, holding: FOE_HOLDING, own: { tree: stream.state, ...(warm ? { warm: warm.state } : {}) } });
   },
 });

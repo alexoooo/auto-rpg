@@ -691,6 +691,12 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   decisions the walks in stayed above a hold and a guard (1.10 against 0.86 at 2.65 m), yet
   `option-lean` so changed (`holds` decision) scored 0.353 (0.276 to 0.431) against it over 58
   units of `warrior-drawn`, margin -0.119 (-0.185 to -0.051). *Shown.*
+- **A chooser that keeps no target loses to one that keeps it its second**: the keep (`keep`, `KEEP`
+  1 s) prices a running Option and those claiming what it claims at its target alone; of the walks
+  to a lying foe hold cut (306 on the mirror at `df9f674d6`), it bound 2 %, the window gone at 94 %
+  (the stomp's readiness at a lying trunk flipping on its height band, step to step). Keeping none
+  (`keep` 0), `option-lean` scored 0.397 (0.335 to 0.459) against it over 121 units of
+  `warrior-drawn`, margin -0.077 (-0.130 to -0.029). *Shown.*
 - **A walk by one navigator does not beat a walk by either**: in the open arena both navigators
   price a walk to a site the same (seconds, life taken and its spot within a centimetre at 73,978
   pairs), so each site was weighed six ways where three gaits differ (the best other gait a median
