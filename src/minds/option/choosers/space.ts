@@ -155,24 +155,29 @@ export function space(root: Situation, { options, objective, obedience, horizon,
     if (!Number.isFinite(worth)) throw new Error(`a path is worth ${worth}`);
     return worth;
   };
+  /** The model a line runs `pair` by from `at`, `seconds` s into the horizon: an open one's held `held` s, never past the horizon. */
+  const heldTerms = (pair: Pair, at: Situation, seconds: number, held: number): Terms =>
+    (pair.option.open ? pair.option.model(at, { target: pair.target, until: Math.max(0, Math.min(held, horizon - seconds)) }) : modelAt(pair, at))!;
   /** The model a line runs `pair` by from `at`, `seconds` s into the horizon: an open one's to the horizon. */
-  const termsOf = (pair: Pair, at: Situation, seconds: number): Terms =>
-    (pair.option.open ? pair.option.model(at, { target: pair.target, until: Math.max(0, horizon - seconds) }) : modelAt(pair, at))!;
+  const termsOf = (pair: Pair, at: Situation, seconds: number): Terms => heldTerms(pair, at, seconds, horizon);
   /**
-   * **A step of a line** (`Step`): `pair` run from `at`, after a path that brought `from`, written into `out`.
+   * **A step of a line** (`Step`): `pair` run from `at`, after a path that brought `from`, an open
+   * one held `held` s (`heldTerms`), written into `out`.
    */
-  const stepInto = (out: Work, pair: Pair, at: Situation, from: Tally): Step => {
-    const { dealt, taken, orders, seconds } = from, option = pair.option, terms = termsOf(pair, at, seconds), share = terms.duration > 0 ? Math.max(0, Math.min(1, (horizon - seconds) / terms.duration)) : 1;
+  const stepInto = (out: Work, pair: Pair, at: Situation, from: Tally, held: number): Step => {
+    const { dealt, taken, orders, seconds } = from, option = pair.option, terms = heldTerms(pair, at, seconds, held), share = terms.duration > 0 ? Math.max(0, Math.min(1, (horizon - seconds) / terms.duration)) : 1;
     let chances = 0;
     for (let i = 0; i < terms.outcomes.length; i++) chances += terms.outcomes[i]!.chance;
     if (Math.abs(chances - 1) > CHANCES_SUM) throw new Error(`${option.name}'s outcomes' chances sum to ${chances}`);
     const after = seconds + share * terms.duration, counts = takenWeight(seconds, share * terms.duration), dealing = dealtWeight(seconds, share * terms.duration);
     out.terms = terms; out.dealt = dealt + dealing * share * terms.dealt; out.taken = taken + counts * share * terms.taken; out.orders = orders + share * terms.orders; out.seconds = after;
-    out.cut = option.open === true || after >= horizon;
+    out.cut = after >= horizon || option.open === true && seconds + held >= horizon;
     return out;
   };
-  /** A step of a line, made anew: what a tree's edge keeps. */
-  const stepOf = (pair: Pair, at: Situation, from: Tally): Step => stepInto(blankStep(), pair, at, from);
+  /** A step of a line, made anew: what a tree's edge keeps, an open one held to the horizon. */
+  const stepOf = (pair: Pair, at: Situation, from: Tally): Step => stepInto(blankStep(), pair, at, from, horizon);
+  /** A step of a line, made anew, an open one held `held` s: one held short of the horizon ends where it leaves the body, and the line goes on from there. */
+  const heldStepOf = (pair: Pair, at: Situation, from: Tally, held: number): Step => stepInto(blankStep(), pair, at, from, held);
   // A line's step is read until the line's worth is found, through its deeper lines: a frame for each depth of the line under way.
   const frames: Work[] = [];
   let depth = 0;
@@ -191,7 +196,7 @@ export function space(root: Situation, { options, objective, obedience, horizon,
    * arrived where 0).
    */
   const line = (pair: Pair, at: Situation, left: number, from: Tally): number => {
-    const step = stepInto(frames[depth] ??= blankStep(), pair, at, from), terms = step.terms;
+    const step = stepInto(frames[depth] ??= blankStep(), pair, at, from, horizon), terms = step.terms;
     if (step.cut) return cutWorth(at, step);
     depth++;
     let worth = 0;
@@ -233,13 +238,13 @@ export function space(root: Situation, { options, objective, obedience, horizon,
   };
   /** What an Option run again from a leaf reads of the search (`Rerun`). */
   const rerun: Rerun = { horizon, dealtWeight, takenWeight, modelAt, child, price, leaf };
-  return { horizon, dealtWeight, takenWeight, pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
+  return { horizon, dealtWeight, takenWeight, pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, heldStepOf, cutWorth, line, leaf };
 }
 
 /** **The states a search reads** (`space`). */
 export type Space = ReturnType<typeof space>;
 
-/** **A step of a line** (`space`'s `stepOf`): its Option's model, and what the path has brought once it has run (`Tally`), what it brings counted by the share of its time within the horizon; an open Option, or one the horizon cuts, ends the path (`cut`). */
+/** **A step of a line** (`space`'s `stepOf`): its Option's model, and what the path has brought once it has run (`Tally`), what it brings counted by the share of its time within the horizon; an open Option held to the horizon, or one the horizon cuts, ends the path (`cut`). */
 export interface Step extends Tally { readonly terms: Terms; readonly cut: boolean }
 /** A step as it is written (`stepInto`). */
 type Work = { -readonly [K in keyof Step]: Step[K] };

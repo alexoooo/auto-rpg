@@ -110,8 +110,8 @@ function backedUp(node: TreeNode, best: number): number {
  * at `root` is run at least once. Its root's Options start from what `start` gives them, as
  * evidence of as many runs as it says.
  */
-export function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly best: number; readonly stream: { next(): number }; readonly leaf: Leaf; readonly start: RootStart }): PricedLine[] {
-  const { runs, exploration, best, stream, start } = searched;
+export function treeSearch(root: Situation, searched: Searched & { readonly runs: number; readonly exploration: number; readonly best: number; readonly held: number; readonly stream: { next(): number }; readonly leaf: Leaf; readonly start: RootStart }): PricedLine[] {
+  const { runs, exploration, best, held, stream, start } = searched;
   const predictions = root.predictions;
   let pressure: Pressure | undefined;
   root = Object.create(root, { predictions: { value: Object.create(predictions, {
@@ -128,7 +128,7 @@ export function treeSearch(root: Situation, searched: Searched & { readonly runs
     if (node.edges) return node.edges;
     const pairs = at.pairsAt(node.at), edges = new Array<TreeEdge>(pairs.length);
     for (let i = 0; i < pairs.length; i++) {
-      const pair = pairs[i]!, step = at.stepOf(pair, node.at, node);
+      const pair = pairs[i]!, step = at.heldStepOf(pair, node.at, node, held);
       const was = node === top ? started.kept(pair) : undefined;
       edges[i] = { pair, runs: 0, worth: was?.worth ?? 0, ends: [], step, ...(was && was.weight > 0 ? { kept: was } : {}) };
     }
