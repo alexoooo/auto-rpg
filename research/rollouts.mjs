@@ -47,10 +47,12 @@ const HOOKED = ["__optionDecision", "__optionSet", "__optionEnded", "__searchLin
 /**
  * Where the situation `now` has the body, as a measured run keeps its ends: its place and
  * heading, its bearing around the foe, its posture, its velocity over the ground, how far off the
- * foe is, head to head and centre to centre, and what the foe is doing.
+ * foe is, head to head and centre to centre, what the foe is doing, and where the foe's centre is
+ * and how it moves over the ground (`foe`, none with no focus).
  */
 const placeOf = (now) => ({ x: now.where.x, z: now.where.z, face: now.where.face, around: now.around, posture: now.posture,
-  vx: now.velocity.x, vz: now.velocity.z, range: now.range, apart: now.apart, phase: now.phase });
+  vx: now.velocity.x, vz: now.velocity.z, range: now.range, apart: now.apart, phase: now.phase,
+  ...(now.focus ? { foe: { x: now.focus.centre.x, z: now.focus.centre.z, vx: now.focus.velocity.x, vz: now.focus.velocity.z } } : {}) });
 
 /** An Option's model (`Terms`) as a row keeps it: its seconds, the life it deals and takes, and each way it ends with its chance, its leaves flat. Null for none. */
 const termsOf = (terms) => terms && {
