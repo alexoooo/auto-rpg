@@ -73,7 +73,12 @@ reading named, before any work on it; an item the rebuild answers is struck from
   from its front is on all fours 1.05 s (median, q90 1.85), the stomp's window holding 0.23 s of
   it: the stomp lands only on a foe that lies; the front kick's lead-in is about the all fours'
   length, so its band brought down to a trunk at 0.4 to 0.6 m and 0.2 s from what its transfer
-  waits for (not the pose's speed, which fell 5 of 20 at 0.08 s) would put it there.
+  waits for (not the pose's speed, which fell 5 of 20 at 0.08 s) would put it there. *Tried*: the
+  low front kick with the stepping kick's transfer (`capture` 1, `transferSlow` 1) and its band to
+  0.7 of the leg's reach, in place of the stomp on `option-lean`: on its twin, landed 5 of 18 as
+  the record does, none down against its 3; against `option-lean` over 116 units of
+  `warrior-drawn`, 0.504 (0.470 to 0.539), knockouts within 60 s 0.431 against 0.448: even, so
+  reaching a body getting up does not move the Warrior's fight.
 - [ ] **The Mind kicks with the loaded foot**, the profiles parting the feet by the start's sway;
   the free foot would save about 0.07 s (86217be86, ddb24113d).
 - [ ] **The stepping kick's set-down lurch**: it lifts 0.17 s after it begins, but set down the
