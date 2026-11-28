@@ -32,6 +32,37 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   If the front and low kick are working properly, then I don't see why they wouldn't win." So a
   lost match is not a trade recorded: it is more work on whichever kick the readings point to.
 
+## Paused: the known issues
+
+Paused by the owner's word until the Mind's rebuild (the measured-mind and forked-record plans,
+the Warrior's mirror) lands. Then each item is read again on the rebuilt Mind, one at a time, its
+reading named, before any work on it; an item the rebuild answers is struck from the list.
+
+- [ ] **A strike's price counts its recovery.** Over the 24 downs of the refit scorecard
+  (7a8b6e60c), a low strike begun at a body down is priced at 4.46 s and its action runs 1.68 s; a
+  kick at a body standing, 2.65 s against 1.83 (the forked record's finding, read here; a walk to
+  a low attack carries it in its price).
+- [ ] **Walks to a lying foe are cut by the chooser's target keep.** Of 84 walks to a low attack
+  over those downs, 72 end in hold after a median 0.31 s, priced 2.96 s; 4 reach their strike, in
+  3.40 s against 2.84 priced (2695a4ae2; the reading above).
+- [ ] **The gait and navigation churn**: 3.05 changes a second over the downs, 0.57 of them a gait
+  or navigation of the same strike and limb; no price for a switch (effff4e0a).
+- [ ] **A body on hands and knees is between the bands**, its trunk 0.43 to 0.62 m: 39 s of the
+  76 the stander holds or does other than a low attack (dfa9bb3f0); no band moved strikes it
+  (0fa6f77c5).
+- [ ] **The start-ups**: the front kick's transfer, its weight shift, 0.63 to 0.68 s from a stand
+  (6d40c9664); the stomp's setup and transfer about 1.5 s (0fa6f77c5).
+- [ ] **The Mind kicks with the loaded foot**, the profiles parting the feet by the start's sway;
+  the free foot would save about 0.07 s (86217be86, ddb24113d).
+- [ ] **The stepping kick's set-down lurch**: it lifts 0.17 s after it begins, but set down the
+  kicker comes on into the foe; within 60 s 0.583 against 0.741, downs 2.19 against 1.64; pickable,
+  not the Warrior's (c88a37bb9).
+- [ ] **A variation's profile moves the default Minds**: every Mind reads its foe's body's profiles
+  by the skill's name, held or not, so the stepping kick's rows moved 19 default fights and are
+  not kept (c88a37bb9).
+- [ ] **The low front kick's try**: 0.088 at 120 Hz (0.058 at 480 Hz), 15 falls, 34 of 80
+  `beyond` (45248399d).
+
 ## Where it stands
 
 - **The low front kick (`stomp/front`), authored**: the front kick's executor (`frontKickExecutor`,
@@ -396,8 +427,12 @@ Once it is tuned, it is read on warrior-drawn, the empty-handed man alone:
   transfer waits for the centre over the standing sole and still, whichever foot bears.
   `transferSlow` at 0.25 takes 0.09 s off it, from a stand, with 2 of 20 kickers down; at 0.4 no
   more, the centre's way onto the sole then the whole of it (0.55 s).
-- **Next**: a kick that lifts its foot while its centre is still going onto the standing foot, as
-  the stance's own step lifts before its centre is over the bearing sole; then the price below.
+- **The stepping front kick lifts as a step does, and loses.** Its transfer waits for the capture
+  point over the standing sole (`capture` 1): it lifts 0.17 s after it begins; its look meets the
+  shin and knee as the front kick's does, its set-down lurching on into the foe; its profile runs
+  1.49 s against 1.9, landing a little less and falling more; on the scorecard 0.583 within 60 s
+  against 0.741 (c88a37bb9). Pickable in the Skills panel; kick/front stays the Warrior's.
+- **Next**: paused (above).
 
 ## Then: a strike's price, every start a number
 
