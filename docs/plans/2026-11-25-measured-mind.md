@@ -1033,7 +1033,18 @@ game or to unpark something, and the work goes on meanwhile.
   mid-change, and every arrival the walk times are fitted on carries the flips, each gait priced
   as walking while it flips. What a flip costs needs a walk that does not flip beside one that
   does, which the record holds none of: forks from banked states where a walk runs, its gait held
-  (the fork's `hold`) against the Mind's own, the arrival's difference under the same nudges. That play's walks arrived
+  (the fork's `hold`) against the Mind's own, the arrival's difference under the same nudges.
+- **A gait's flips cost nothing measured over 3 s; the gait's choice is mispriced.** 300 walk
+  states of the bank at `2dbbce2ff`, played with today's `option-lean` for 3 s under 4 nudges of
+  0.5 N s: the Mind's own (3.2 gait flips a second) against the same with each walk the Mind
+  picks swapped to a held gait where on offer (2 % of picks not). Held at the Mind's first gait,
+  less its own: net life -0.006 ± 0.009 (bar fractions, 95 %), the first strike +0.008 ± 0.016 s,
+  a strike in 0.018 ± 0.014 more forks (1196 pairs). Staggered held throughout +0.012 ± 0.009,
+  quick start -0.014 ± 0.010, run -0.003 ± 0.010: one gait over another moves more than flipping
+  between them. A probe (`.tmp/flips/`), not a candidate. The warm start (`keeps` 0.5) cut the
+  flips 4.5 times (3.85 to 0.86 a side-second, the worker's four bouts) at the same thinking and
+  lost, 0.446 (0.373 to 0.510, 102 units), its side down more (getting up 54 % of its idle
+  decisions). That play's walks arrived
   later than the walk times in the game say, by a median 0.08, 0.23 and 0.28 s, the new fit truer
   on them (mean error 0.36 to 0.38 s against 0.38 to 0.42), and priced by it the Mind lost to
   `option-lean` (0.367, 0.303 to 0.431, 109 units): truer arrival losing, the walk times in the
