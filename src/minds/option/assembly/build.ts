@@ -63,7 +63,7 @@ export function buildOptionMind(host: BodyHost, config: ResolvedConfig): MindMad
 
       // What it predicts by, as its predictions part makes it; then its Options, its exchange predictor, given the strikes they model, its reader and its chooser.
       const predictors = parts.of("predictions", config.predictions).make(config.predictions);
-      const walk = walker(spec, predictors.walkStart), record = optionRecord();
+      const walk = walker(spec, predictors.walkStart, predictors.walkArrivals?.(bodyOf(spec)) ?? null), record = optionRecord();
       const options = optionsOf(config.options, { spec, hz, rate, delay: body.delay, parts, walk, legs, guards: guard, outcomes: predictors.outcomes, guesses: predictors.guesses, record });
       const exchange = predictors.exchange({ strikes: options.flatMap((option) => option.modelled ? [option.modelled] : []) });
       const reader = situationReader({ spec, hz, rate, delay: body.delay, rules: host.rules, exchange, ordersOf: (sight) => host.orders(sight.view.senses), record, parts, techniques: named.techniques });

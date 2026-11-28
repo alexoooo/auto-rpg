@@ -204,7 +204,7 @@ test("walk pricing refuses zero pace and bounds tiny-pace pressure sampling", ()
   const at = { where: { x: 0, z: 0, face: 0 }, apart: 1, range: 1, grace: 0,
     focus: { centre: new Vector3(1, 0, 0), velocity: new Vector3(), segments: new Map(), spec },
     orders: { pace: 0, face: null }, predictions: { pressure, danger: { life: 0 }, turns: 0, steps: () => ({ x: 0, z: 0 }) }, sight: { legs: { envelope: null, limitsOf: () => null }, report: { legs: { heading: 0 } }, view: { stance: { centre: new Vector3() } } } };
-  const spot = { x: 0, z: 1, face: 0 }, walk = walker(spec, "speed");
+  const spot = { x: 0, z: 1, face: 0 }, walk = walker(spec, "speed", null);
   assert.equal(walkTerms(at, spot, gait, walk), null);
   at.orders.pace = 1e-12;
   Object.defineProperty(at.focus, "centre", { get() { samples++; return new Vector3(1, 0, 0); } });

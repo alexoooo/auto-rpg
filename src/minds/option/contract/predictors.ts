@@ -8,6 +8,7 @@ import type { WalkStart } from "./context.ts";
 import type { Coming, DownCost, ModelledStrike, Pressure, Seen, Situation } from "./situation.ts";
 import type { Terms } from "./terms.ts";
 import type { Source } from "../../../skills/framework/profile/source.ts";
+import type { GroundPoint } from "../../../skills/framework/movement.ts";
 
 /** A move the foe is expected to make: a velocity over the ground, m/s, and the seconds it keeps it. */
 export interface FoeMove {
@@ -51,9 +52,17 @@ export interface Predictors {
   exchange(given: { readonly strikes: readonly ModelledStrike[] }): ExchangePredictor;
   /** The speed a walk is priced as starting at. */
   readonly walkStart: WalkStart;
+  /** When a body's walks arrive, for the body as a fitted model names it (`bodyOf`), where a walk is timed by what walks measured (`walkArrivals`); null where its gait's reckoning times it, or none of the body's walks were measured. */
+  readonly walkArrivals: ((body: string) => Arrivals | null) | null;
   /** What it guesses where nothing is measured. Null where it guesses nothing: a strike, a limb, a blow coming or a way up with no measurement is then not priced. */
   readonly guesses: Guesses | null;
 }
+
+/** **A walk's arrival as measured**: the seconds it takes to its spot, the speed along its way it arrives at, m/s, and where that reading comes from. */
+export interface Arrival { readonly seconds: number; readonly speed: number; readonly source: Source }
+
+/** **When a walk arrives** (`Walker.arrival`): of the body at `at` walking by the gait its walk Option names `gait` to `spot`; null where nothing measured reads it there. */
+export type Arrivals = (at: Situation, gait: string, spot: GroundPoint) => Arrival | null;
 
 /** **What an Option is taken to bring where no drill measured it**: the seconds it runs, and the share of its tries that do what it does. */
 export interface Prior {

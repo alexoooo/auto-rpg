@@ -19,7 +19,8 @@ import { gaitStance } from "../../../skills/locomotion/move/gaits.ts";
 import { CLINCH, CLINCH_FALLS, clinched } from "../predictions/by-hand.ts";
 import { NO_BLOW, PRESSED, STILL, upOrDown } from "./outcomes.ts";
 import type { Terms, TermSources } from "../contract/terms.ts";
-import { byHand } from "../../../skills/framework/profile/source.ts";
+import { byHand, type Source } from "../../../skills/framework/profile/source.ts";
+import { remembered } from "../../../core/remembered.ts";
 import type { Walker } from "../contract/context.ts";
 
 /** A gait as Option Mind's legs go by it: its name, its label and its legs' config. */
@@ -59,6 +60,10 @@ const WALK_SPACING = PROFILE_SPANS.range / 2;
  * (`CLINCH`), down in its chance of going down behind. A gait's falls are its own profile's to
  * measure; none is, so a walk is taken to stay up. Given how the gait stands the body (`stance`,
  * `gaitStance`), the pressure along the way is read at it, and the body is left standing so.
+ * Where walks were measured to arrive (`Walker.arrival`), its legs take the measured seconds
+ * between them as the rule shares them out, and it leaves the body at the spot moving along its
+ * last leg at the measured speed. A walk timed so (`Walker.measured`) has no model where its way
+ * has no length: it arrives moving, and has nothing to walk where the body is at its spot already.
  */
 export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker, stance: StanceNumbers | null = null): Terms | null {
   // Walking by the gait, the body stands as the gait stands it, and the focus's pressure is read there.
@@ -66,6 +71,11 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
   const reach = focus ? pressure.edge(at) + offset : 0, points = spot.route ?? [spot];
   // The walk to a spot is ordered as a place to stand within its own nearness of (`Spot.near`, `approachSpot`), and priced so.
   const legs = walk.seconds(at, gait.name, points, focus ? walk.facing(at) : null, spot.near);
+  const ruled = legs.reduce((sum, one) => sum + one, 0);
+  if (walk.measured && ruled === 0) return null;
+  const arrival = walk.measured ? walk.arrival(at, keyOf(gait.label), spot) : null;
+  const timed = arrival !== null && arrival.seconds > 0 && ruled > 0 && Number.isFinite(ruled);
+  if (timed) for (let k = 0; k < legs.length; k++) legs[k] = legs[k]! * arrival.seconds / ruled;
   let duration = 0, taken = 0, grace = graceAt(at), x = from.x, z = from.z;
   for (let k = 0; k < points.length; k++) {
     const point = points[k]!, dx = point.x - x, dz = point.z - z, length = hypot(dx, dz);
@@ -98,8 +108,10 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
   if (!focus) return { duration, dealt: 0, taken: at.predictions.danger.life, orders: 0, outcomes: upOrDown({ where: { x: spot.x, z: spot.z, face: spot.face }, velocity: STILL, ...(stance ? { stance } : {}) }, 0), from: WALKED };
   const where = { x: spot.x, z: spot.z, face: spot.face }, apart = hypot(where.x - focus.centre.x, where.z - focus.centre.z), bearing = bearingAround(focus, where.x, where.z);
   const around = (bearing < 0 ? -1 : 1) * Math.max(0, Math.abs(bearing) - at.predictions.turns * duration);
+  const last = points.length > 1 ? points[points.length - 2]! : from, lx = spot.x - last.x, lz = spot.z - last.z, length = hypot(lx, lz);
+  const velocity = timed && length > 0 ? { x: lx / length * arrival.speed, z: lz / length * arrival.speed } : STILL;
   return { duration, dealt: 0, taken: at.predictions.danger.life + taken, orders: 0,
-    outcomes: upOrDown({ where, around, velocity: STILL, grace, ...(stance ? { stance } : {}) }, apart >= CLINCH.within ? 0 : clinched(at, duration)), from: WALKED };
+    outcomes: upOrDown({ where, around, velocity, grace, ...(stance ? { stance } : {}) }, apart >= CLINCH.within ? 0 : clinched(at, duration)), from: timed ? measuredWalk(arrival.source) : WALKED };
 }
 
 /**
@@ -112,6 +124,12 @@ const WALKED: TermSources = Object.freeze({
   duration: byHand([], "no drill measured a walk: its seconds are its gait's own reckoning of its pace"),
   dealt: NO_BLOW, taken: PRESSED, leaves: CLINCH_FALLS,
 });
+
+/** Where each answer of a walk's price comes from where its seconds were measured (`Walker.arrival`): its seconds `source`, the rest as `WALKED`; made once a source. */
+const measuredWalk = remembered((source: Source): TermSources => Object.freeze({ ...WALKED, duration: source }));
+
+/** A gait as its walk Option names it, and as walk times are kept by (`WalkTimes.gaits`): its label, in lower case; made once a label. */
+const keyOf = remembered((label: string) => label.toLowerCase());
 
 /** No site to walk to. */
 const NOWHERE = blocked("no site to walk to"), THERE = blocked("at its site"), NO_PACE = blocked("no attainable walking pace");
@@ -128,7 +146,7 @@ const NOWHERE = blocked("no site to walk to"), THERE = blocked("at its site"), N
  * where it goes. Its memory is which site it runs at.
  */
 export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker, spec: BodySpec): Option {
-  const state = { at: 0 }, label = gait.label.toLowerCase();
+  const state = { at: 0 }, label = keyOf(gait.label);
   /** How the body stands walking by the gait (`gaitStance`), where it was measured on a body of its model. */
   const stance = gaitStance(gait.legs as { readonly kind: string; readonly variation?: string }, spec.model);
   /** Where its site at `k` is at `at`, null where it has none or the body is there. */

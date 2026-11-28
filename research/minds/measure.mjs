@@ -3,7 +3,7 @@
  * matchup, it plays its bouts, adds their rows to the fight record (`record.mjs`) and fits that
  * matchup's bodies' entries from the record's rows of it alone.
  *
- *   npm run measure -- <entrant> [<entrant>] [--protocol measuring] [--again] [--workers N] [--write]
+ *   npm run measure -- <entrant> [<entrant>] [--protocol measuring] [--again] [--workers N] [--fits value,walks] [--write]
  *
  * An entrant is the tournament's (`mind/body/left,right`: `option-lean/man/empty,empty`); one
  * entrant is its mirror. It plays the tournament's `--protocol` (`measuring` unless named: draws no
@@ -13,7 +13,7 @@
  * again; `--again` plays them all again, the old rows counting for less (`weightsOf`). Its price is
  * said from its first chunk, before the rest.
  *
- * Then each fit (`FITS`) is fitted to the matchup's rows and its held-out readings said. It refuses
+ * Then each fit (`FITS`), or each `--fits` names, is fitted to the matchup's rows and its held-out readings said. It refuses
  * to write (`--write`) a fit that moves what any other pairing of bodies reads, since those bodies
  * had no rows added (rule 2); a fit is written only to where the game reads it, and the commit and
  * the inventory say what it moved.
@@ -27,12 +27,13 @@ import { fileURLToPath } from "node:url";
 import { defaultLanes } from "../../scripts/lanes.mjs";
 import { folderOf, keyOf, keysIn, playOf, playRecord, readingOf, rowsIn, weightsOf } from "./record.mjs";
 import { fitValue, followed, HORIZONS, readValue } from "./value-fit.mjs";
+import { fitWalks, readWalks, walksOf } from "./walk-fit.mjs";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
-const USAGE = "usage: npm run measure -- <entrant> [<entrant>] [--protocol measuring] [--again] [--workers N] [--write]\n  an entrant is mind/body/left,right, as option-lean/man/empty,empty";
+const USAGE = "usage: npm run measure -- <entrant> [<entrant>] [--protocol measuring] [--again] [--workers N] [--fits value,walks] [--write]\n  an entrant is mind/body/left,right, as option-lean/man/empty,empty";
 
 const { values: flags, positionals } = parseArgs({ allowPositionals: true, options: {
-  protocol: { type: "string", default: "measuring" }, again: { type: "boolean", default: false }, workers: { type: "string" }, write: { type: "boolean", default: false },
+  protocol: { type: "string", default: "measuring" }, again: { type: "boolean", default: false }, workers: { type: "string" }, fits: { type: "string" }, write: { type: "boolean", default: false },
 } });
 if (positionals.length < 1 || positionals.length > 2) { console.error(USAGE); process.exit(1); }
 
@@ -41,6 +42,7 @@ const { EVALUATIONS } = await import("../../src/app/node/evaluation.ts");
 const { FEATURES, featuresOf } = await import("../../src/minds/option/predictions/value/fitted-value.ts");
 const { digestOf, playedOnce } = await import("../skills/profile-origin.mjs");
 const { treesAt } = await import("../../src/minds/option/predictions/value/boosted-trees.ts");
+const { WALK_FEATURES, walkFeatures } = await import("../../src/minds/option/predictions/walk-times.ts");
 
 const tournament = EVALUATIONS.tournament, cases = tournament.protocols[flags.protocol];
 if (!cases) throw new Error(`the tournament has no protocol ${flags.protocol}: ${Object.keys(tournament.protocols).join(", ")}`);
@@ -58,6 +60,7 @@ const [a, b = a] = entrants, folder = folderOf([a.id, b.id]), matchup = a.id ===
  * against foe", a digest of what is read), so a fit that moves another pairing is refused.
  */
 const FITS = [{
+  key: "value",
   name: "the fitted value (assets/minds/fitted-value.json)",
   asset: "assets/minds/fitted-value.json",
   fit(record) {
@@ -73,7 +76,24 @@ const FITS = [{
   },
   // A body reads it against a foe where both are among its bodies (`fittedOn`).
   readings: (value) => new Map(value.bodies.flatMap((own) => value.bodies.map((foe) => [`${own} against ${foe}`, digestOf(value.models)]))),
+}, {
+  key: "walks",
+  name: "the walk times (assets/minds/walk-times.json)",
+  asset: "assets/minds/walk-times.json",
+  fit(record) {
+    const { gaits, fitted, held } = fitWalks(record.walks, WALK_FEATURES.length, (line) => console.log(`  ${line}`));
+    const origin = `research/minds/measure.mjs: ${fitted} states of ${matchup}'s walks to a window that arrived, on ${record.protocols.join(" and ")}, played at ${record.commits.join(" and ")} (.cache/record/${folder.split(/[\\/]/).pop()}), ${held} held out`;
+    return { origin, from: { minds: record.played }, bodies: [...record.bodies].sort(), features: WALK_FEATURES, gaits };
+  },
+  inPlace(value, record) {
+    console.log(`  the asset in place (${value.origin}), on the same states:`);
+    readWalks(value.gaits, record.walks, treesAt, (line) => console.log(`  ${line}`));
+  },
+  // A body reads it against a foe where both are among its bodies (`fittedOn`).
+  readings: (value) => new Map(value.bodies.flatMap((own) => value.bodies.map((foe) => [`${own} against ${foe}`, digestOf(value.gaits)]))),
 }];
+const asked = flags.fits ? flags.fits.split(",") : FITS.map((fit) => fit.key), unknown = asked.filter((key) => !FITS.some((fit) => fit.key === key));
+if (unknown.length) throw new Error(`no fit ${unknown.join(", ")}: ${FITS.map((fit) => fit.key).join(", ")}`);
 
 // Play: each condition with the first on the left, and the second there too where they differ.
 const jobs = (a.id === b.id ? [[a, b]] : [[a, b], [b, a]]).flatMap(([left, right]) =>
@@ -87,7 +107,7 @@ const record = await statesOf(folder);
 console.log(`the record: ${record.states.length} states of ${record.bouts.size} bouts, ${record.held} of them held out, the bodies ${[...record.bodies].join(" and ")}`);
 if (record.held === 0 || record.held === record.bouts.size) { console.log("nothing fitted: a fit needs bouts both fitted and held out"); process.exit(0); }
 let refused = false;
-for (const fit of FITS) {
+for (const fit of FITS.filter((fit) => asked.includes(fit.key))) {
   console.log(`\n${fit.name}:`);
   const path = join(ROOT, fit.asset), was = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : null;
   if (was) fit.inPlace(was, record);
@@ -106,17 +126,17 @@ process.exit(refused ? 1 : 0);
 
 /**
  * **The record's states for the fits** in `folder`: each root as the fitted value reads it, both
- * sides', with what followed it over each horizon, whether its bout is held out (`HELD`), and its
- * weight (`weightsOf`); with the bodies, the pairings of them that played
+ * sides', with what followed it over each horizon, and each state of a walk that arrived
+ * (`walksOf`), whether its bout is held out (`HELD`), and its weight (`weightsOf`); with the bodies, the pairings of them that played
  * (`own against foe`, each way), the bouts and the Minds that played.
  */
 async function statesOf(folder) {
   const rows = [];
   for await (const row of rowsIn(folder)) {
     const states = row.roots.map((root) => ({ x: featuresOf(readingOf(root)), after: HORIZONS.map((h) => followed(row.lives, row.end, root.side, root.t, h)) }));
-    rows.push({ key: row.key, date: row.date, play: playOf(row), bout: `${row.protocol}/${row.index}`, sides: row.sides, commit: row.commit, changed: row.changed, states });
+    rows.push({ key: row.key, date: row.date, play: playOf(row), bout: `${row.protocol}/${row.index}`, sides: row.sides, commit: row.commit, changed: row.changed, states, walks: walksOf(row, walkFeatures) });
   }
-  const states = [], bodies = new Set(), pairings = new Set(), bouts = new Set(), played = [], commits = new Set(), protocols = new Set();
+  const states = [], walks = [], bodies = new Set(), pairings = new Set(), bouts = new Set(), played = [], commits = new Set(), protocols = new Set();
   let held = 0;
   const weights = weightsOf(rows);
   for (const [i, row] of rows.entries()) {
@@ -126,8 +146,9 @@ async function statesOf(folder) {
     bouts.add(row.key); protocols.add(row.bout.split("/")[0]); commits.add(`${row.commit}${row.changed ? " with build inputs changed" : ""}`);
     if (out) held++;
     for (const state of row.states) states.push({ ...state, held: out, weight });
+    for (const state of row.walks) walks.push({ ...state, held: out, weight });
   }
-  return { states, bodies, pairings, bouts, held, protocols: [...protocols].sort(), played: playedOnce(played), commits: [...commits] };
+  return { states, walks, bodies, pairings, bouts, held, protocols: [...protocols].sort(), played: playedOnce(played), commits: [...commits] };
 }
 
 /** The bouts held out of a fit: one condition in five, by a hash of its protocol and place, both side orders together. */

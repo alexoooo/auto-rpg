@@ -671,6 +671,19 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   0.635 (0.580 to 0.691) held out at the same runs, but silent 16.2% of a bout against 9.4%: an
   Option worth more at the last root stays chosen. Unset (`c1cdbe73d`), then removed, no Mind
   taking it, then restored on the owner's word (2026-11-20), pickable and unset. *Shown.*
+- **A walk timed as the record's walks arrived beats its gait's braking rule**: the rule priced a
+  walk as setting off at speed and braking to a stop at the measured stopping rate the whole way,
+  over a way the closing foe shortens, about 1.1 s long on a punch's window, the walk arriving
+  moving at about 0.2 m/s. Boosted trees for each gait, over the way to the spot, the body's speed
+  along and across it and the foe's closing (`walks` measured, `assets/minds/walk-times.json`,
+  `npm run measure -- … --fits walks`), fitted on the walks of `option-lean`'s mirror that arrived
+  (the same limb's strike taken next), read held-out walks within 0.28 s (run) and 0.29 s (quick
+  start) at the mean, against the mean's 0.52 and 0.74. A walk so timed leaves the body moving
+  along its last leg at the arrival speed. `option-lean` so changed won 0.614 (0.555 to 0.673)
+  against it over 110 units of `warrior-drawn`, margin 0.127 (0.080 to 0.177); with strikes priced
+  to their exit too, 0.583 (0.526 to 0.640). A fork that holds a walk ends it where its site
+  flickers (the other hand's punch holding the trunk, the punch's height band), where the Mind
+  takes it again at once, so the forks do not time a walk. *Shown.*
 - **A strike priced to its exit, its limb's recovery left off, does not beat it priced until the
   limb is back**: a strike's Option ends at its release and hands the limb on, and its skill takes
   it again at once (a same-hand punch 0.62 s after a release at the median, the early ones landing

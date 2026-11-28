@@ -7,6 +7,7 @@ import type { GroundPoint } from "../../../skills/framework/movement.ts";
 import { keepOut } from "../../../skills/locomotion/shared/navigation/clear-step.ts";
 import { rangeNear } from "../../../skills/locomotion/shared/navigation/navigation.ts";
 import type { Walk, Walker, WalkStart } from "../contract/context.ts";
+import type { Arrivals } from "../contract/predictors.ts";
 import type { Situation } from "../contract/situation.ts";
 import { orderedFacing } from "../../ordered.ts";
 
@@ -53,8 +54,11 @@ export const WALK_STARTS = {
   },
 } as const satisfies Readonly<Record<WalkStart, WalkStartRule>>;
 
-/** **A walker** (`Walker`) for a body of `spec`, a walk priced as starting at the speed `start` says (`WALK_STARTS`). */
-export function walker(_spec: BodySpec, start: WalkStart): Walker {
+/**
+ * **A walker** (`Walker`) for a body of `spec`, a walk priced as starting at the speed `start` says
+ * (`WALK_STARTS`), and arriving as walks were measured to (`arrivals`) where given.
+ */
+export function walker(_spec: BodySpec, start: WalkStart, arrivals: Arrivals | null): Walker {
   const pace = (now: Situation, gait?: GaitName | null, forward = 1, right = 0): number => {
     const envelope = (gait === undefined || gait === null ? null : now.sight.legs.limitsOf(gait)?.envelope) ?? now.sight.legs.envelope;
     return Math.min(envelope ? heldPace(envelope, forward, right) : Infinity, ceiling(now));
@@ -83,6 +87,8 @@ export function walker(_spec: BodySpec, start: WalkStart): Walker {
     pace,
     seconds,
     stride,
+    arrival: (now, gait, spot) => arrivals?.(now, gait, spot) ?? null,
+    measured: arrivals !== null,
     obeying(now: Situation, gait: GaitName | null): number {
       const move = now.orders?.move, face = orderedFacing(now.orders?.face ?? null), where = now.where, route = now.sight.report.navigation;
       if (gait === null || !move) return stride(now);

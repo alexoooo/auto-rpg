@@ -155,7 +155,7 @@ export const bodyOf = (spec: Pick<BodySpec, "model" | "held">): string =>
  * **Whether a model fitted on `bodies`' bouts reads a search** for the body `own` (`bodyOf`)
  * against `focus`: both bodies it was fitted on. Elsewhere what it reads was never seen.
  */
-const fittedOn = (bodies: readonly string[], own: string, focus: Situation["focus"]): boolean =>
+export const fittedOn = (bodies: readonly string[], own: string, focus: Situation["focus"]): boolean =>
   !!focus && bodies.includes(own) && bodies.includes(bodyOf(focus.spec));
 
 /** Whether `value` is a fitted value over today's `FEATURES`, its horizons rising and dealt and taken fitted at each. */

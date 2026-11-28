@@ -330,7 +330,7 @@ test("a fallback recovery Option does not count its own transition as an ordinar
   assert.equal(technique.fits(spec, fallback.skill, GAME.partLookup), null, "the real fallback technique must fit the fixture body");
   assert.ok(from && technique.starts.length, "the fallback must expose a transition and a declared beginning");
   const [option] = REPOSITION_OPTION.make(fallback, { spec, hz: 120, rate: 120, delay: 0, parts: GAME.partLookup, legs: { kind: "move", rules: [], otherwise: "braced" },
-    options: [fallback], outcomes: nearestTrials({}), guesses: BY_HAND, walk: walker(spec, "speed"), record: optionRecord(), sites: { all: [], names: [] } });
+    options: [fallback], outcomes: nearestTrials({}), guesses: BY_HAND, walk: walker(spec, "speed", null), record: optionRecord(), sites: { all: [], names: [] } });
   assert.ok(option, "the fallback constructor must produce its transition Option");
   const ground = { settled: true, position: from, raw: from, side: "left", velocity: new Vector3(), spin: 0 };
   const now = { ground, sight: { view: { ground }, actions: { around: { heading: 0, placed: false, lower: 0, support: null, walk: null }, readiness: () => ({ kind: "ready" }) } } };

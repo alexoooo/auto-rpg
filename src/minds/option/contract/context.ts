@@ -6,7 +6,7 @@ import type { GroundPoint } from "../../../skills/framework/movement.ts";
 import type { OutcomeModel } from "../../../skills/framework/outcomes.ts";
 import type { GaitName } from "../../../skills/framework/skill.ts";
 import type { Sites } from "./option.ts";
-import type { Guesses } from "./predictors.ts";
+import type { Arrival, Guesses } from "./predictors.ts";
 import type { Situation } from "./situation.ts";
 
 /**
@@ -81,6 +81,14 @@ export interface Walker {
   obeying(now: Situation, gait: GaitName | null): number;
   /** The heading to the focus, or the body's own with none. */
   facing(now: Situation): number;
+  /**
+   * When a walk by the gait its walk Option names `gait` (its label, in lower case) from `now` to
+   * `spot` arrives, as walks were measured to (`Arrival`, `walkArrivals`); null where the walk is
+   * timed by its gait's reckoning (`seconds`) alone, or nothing measured reads it there.
+   */
+  arrival(now: Situation, gait: string, spot: GroundPoint): Arrival | null;
+  /** Whether its walks are timed by what walks measured (`Predictors.walkArrivals`), so arrive moving. */
+  readonly measured: boolean;
   /**
    * `asked` kept out of what the body must keep clear of (`keepOut`): a solid's clearance and the
    * reach of every fallen body but `exempt` (the one it means to be near), at the orders' pace
