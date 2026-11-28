@@ -48,14 +48,21 @@ reading named, before any work on it; an item the rebuild answers is struck from
   3.40 s against 2.84 priced (2695a4ae2; the reading above). *Read again* on the rebuilt Mind's
   mirror (`df9f674d6`, 117 downs): 461 walks, 3.94 a down, priced 0.77 s at the median where they
   were 2.96; 306 end in hold (66 %) after a median 0.11 s, 124 in a walk to another window, 11 reach
-  their strike. The price is answered; the cut is not.
+  their strike. The price is answered; the cut is not. *Its cause*: at 94 % of those cuts the
+  walk's window is gone a root later, the foe as it was (the keep bound 2 %; keeping none lost,
+  0.397, `e3b13e0a4`). Probed step by step, the stomp's window holds while the foe lies flat (its
+  trunk 0.1 to 0.3 m) and flips, foot by foot, as the trunk rises through the band's top (0.35 to
+  0.45 m, getting up through all fours, a crouch or between the feet), then is gone; the kick's
+  band is above it all along. So this item is the next one's: a body getting up.
 - [ ] **The gait and navigation churn**: 3.05 changes a second over the downs, 0.57 of them a gait
   or navigation of the same strike and limb; no price for a switch (effff4e0a). *Read again*: 3.76
   a second, 2.18 of them such a twin, the two navigators pricing a walk the same.
 - [ ] **A body on hands and knees is between the bands**, its trunk 0.43 to 0.62 m: 39 s of the
   76 the stander holds or does other than a low attack (dfa9bb3f0); no band moved strikes it
   (0fa6f77c5). *Read again*: the foe at fours 140 s over 117 downs, the stander 91 s of it doing
-  other than a low attack, in 88 of which none is weighed: the bands, unchanged.
+  other than a low attack, in 88 of which none is weighed: the bands, unchanged. Since a band that
+  reaches it lands nothing there (0fa6f77c5, each strike's lead-in outlasting the all fours), what
+  it waits on is the next item's.
 - [ ] **The start-ups**: the front kick's transfer, its weight shift, 0.63 to 0.68 s from a stand
   (6d40c9664); the stomp's setup and transfer about 1.5 s (0fa6f77c5).
 - [ ] **The Mind kicks with the loaded foot**, the profiles parting the feet by the start's sway;
