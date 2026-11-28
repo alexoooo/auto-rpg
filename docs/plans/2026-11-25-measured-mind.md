@@ -962,7 +962,23 @@ game or to unpark something, and the work goes on meanwhile.
   run, a play taken up again after another counted as the older, `keep` was not idempotent and
   rewrote other machines' files, and a cut row was not named. Each is mended and checked on
   made-up rows. Nothing was played and no fight moved.
-- **Next: step 4.** Step 15 and fork steps 1 to 4 have landed, and fork step 5's first reading
+- **Step 4, landed (2026-11-27).** An open Option may be held until its Mind decides again
+  (`holds` decision, `58edcf86c`), pickable and unset: read at traced decisions it prices a hold
+  at about twice any walk in, since a walk's arrival is read at a state its walk's seconds (about
+  twice its run) put far off. The look found the fitted leaf counting what follows as traded
+  evenly to the horizon, a state at a 3.5 s walk's end counted at 0.41 under initiative: weighed by
+  when the value says it comes (`fitted-when`, `2dbbce2ff`), every body's now, it won 0.575 (0.505
+  to 0.645) against it.
+- **Step 10's surest errors, in hand.** A bank taken again at `2dbbce2ff` (1,745 states, 569 MiB),
+  banks now kept by a budget and forked on the game in hand (`197a6a187`). A strike priced to its
+  exit (`strikesTo`, `d69d34c9e`), pickable and unset: 0.454 (0.388 to 0.522) against today's
+  Mind, its mirror quicker to a knockout. A walk's seconds: priced as braking to a stop it never
+  makes over a way the foe shortens, about 1.1 s long on a punch's window; a fork holding a walk
+  ends it as its site flickers (the other hand's punch holding the trunk, the punch's height band),
+  where the Mind takes it again, so walks are fitted from the record's own, each line now keeping
+  its spot (`292eb8155`). The way up's 5 s and the regain's 2 s are hand-set guesses where no
+  trial begins (`WAYS.way`, `REGAIN_TRY`); the cover's 1 s was the forks' `--until`, not the Mind's.
+- **Next: step 10's walk.** Step 15 and fork steps 1 to 4 have landed, and fork step 5's first reading
   of each Option's model against what it did, on the bank at `62c688f5f`
   ([the forked record](2026-11-26-forked-record.md#where-it-stands)). This plan and the forked
   record go in this order on one machine (the forked record's steps marked "fork"):
