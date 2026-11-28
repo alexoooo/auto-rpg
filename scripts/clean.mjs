@@ -6,6 +6,9 @@
  * - deletes each piece of `.tmp/` work (an entry of `.tmp/`, or of `.tmp/worktrees/`) that nothing
  *   has touched for a day, or all of them with `--all`, and then forgets the worktrees so deleted
  *   (`git worktree prune`);
+ * - deletes the saves of each bank of the forked record that a later change to the game left
+ *   behind (`bankStale`, `research/minds/record.mjs`): nothing forks them again. Its rows stay;
+ * - lists the fight record's size by matchup, against its budget (`RECORD_BUDGET`), and each bank's;
  * - lists the strays it leaves, for a person to move into `.tmp/`, keep in `.gitignore`, or delete.
  *
  * A deletion never follows a link: a worktree's `node_modules` junction goes, and the folder it
@@ -16,9 +19,10 @@
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readdirSync, rmSync } from "node:fs";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import { parseArgs } from "node:util";
 import { ROOT, strays, TMP, WORKTREES } from "./workspace.mjs";
+import { BANKS, bankStale, bytesIn, RECORD, RECORD_BUDGET } from "../research/minds/record.mjs";
 
 /** How long `.tmp/` work is kept untouched, ms. */
 const STALE_MS = 24 * 60 * 60 * 1000;
@@ -68,6 +72,28 @@ for (const path of pieces()) {
   if (values.all || age > STALE_MS) remove(path, values.all ? "all of .tmp" : `untouched ${(age / 3600000).toFixed(0)} h`);
 }
 if (!dry) execFileSync("git", ["worktree", "prune"], { cwd: ROOT });
+
+// The fight record and the banks: a stale bank's saves deleted, then each listed by size.
+const within = (folder) => existsSync(folder) ? readdirSync(folder, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => join(folder, entry.name)) : [];
+const MiB = (bytes) => `${(bytes / 2 ** 20).toFixed(0)} MiB`;
+const banks = within(BANKS).flatMap(within);
+for (const bank of banks) {
+  const saves = readdirSync(bank).filter((name) => name.endsWith(".v8.gz"));
+  if (!saves.length || !bankStale(basename(bank))) continue;
+  const bytes = saves.reduce((sum, name) => sum + bytesIn(join(bank, name)), 0);
+  console.log(`${dry ? "would delete" : "deleted"} ${saves.length} saves, ${MiB(bytes)}, of ${shown(bank)} (a later commit changed the game; its rows stay)`);
+  if (!dry) for (const name of saves) rmSync(join(bank, name));
+}
+const matchups = within(RECORD).map((path) => [path, bytesIn(path)]);
+if (matchups.length) {
+  console.log(`
+the fight record, ${MiB(matchups.reduce((sum, [, bytes]) => sum + bytes, 0))} of its budget of ${MiB(RECORD_BUDGET)}:`);
+  for (const [path, bytes] of matchups.sort((a, b) => b[1] - a[1])) console.log(`  ${MiB(bytes).padStart(8)}  ${shown(path)}`);
+}
+if (banks.length) {
+  console.log("the banks:");
+  for (const bank of banks) console.log(`  ${MiB(bytesIn(bank)).padStart(8)}  ${shown(bank)}`);
+}
 
 const left = strays();
 if (left.length) {

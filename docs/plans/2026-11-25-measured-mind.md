@@ -111,12 +111,19 @@ work, told to refute it (the procedure's step 5).
    adding: rows to a profile, or one more fit beside those already there. So adding rows moves
    only what was borrowed there. A body with its own rows, against a foe it had measured, reads
    as it did when another body's rows are added. (Its own rows made again do move it: rule 4.)
-   A reading that pools every row does not keep this (the written form does so today, below). A
-   reading borrowed from the nearest body prices worse than the body's own, by how much is not
-   settled ([the approaches](../approaches.md#minds)). It is there so a new body fights on the
-   day it is added, not so it fights well.
+   Where a body has no rows of its own, it reads what is pooled over every row, both bodies'
+   numbers (and what each holds) among what the pooled fit reads, so every bout played teaches
+   every body something (the owner, 2026-11-27: the fallback to pooled measurements "seems like
+   it would gain efficiency without any obvious down side"). Adding rows moves the pooled fit,
+   and only borrowed readings read it, so this rule holds. What breaks it is a pooled reading in
+   place of a body's own (the written form does so today, below). A borrowed reading prices worse
+   than the body's own, by how much is not settled ([the approaches](../approaches.md#minds)),
+   and worse the farther the body is from every body with rows, where the pooled fit
+   extrapolates: the inventory says how far. It is there so a new body fights on the day it is
+   added, not so it fights well.
    *Held by* the measuring command: it reads every body and foe that had their own rows before
-   it adds and after, and writes nothing if one moved. It plays nothing to do so.
+   it adds and after, and writes nothing if one of those readings moved; a borrowed reading may
+   move. It plays nothing to do so.
 3. **Every reading says where it came from**, of the body and of the foe: its own, borrowed
    (from which, and how far off in the numbers), or by hand; and how stale it is, which is what
    has changed since it was measured: the body, the skill, the Minds that fought, and what they
@@ -152,8 +159,12 @@ work, told to refute it (the procedure's step 5).
    because another was. A change to the Mind makes the fitted value and the action prior staler
    the same way, since both are fitted to how the Mind played. From time to time a measurement
    is refreshed, by choice, the inventory listing the stalest. Where rows of the same thing are
-   made again, the old ones are kept and count for less as newer ones arrive (the agent's
-   reading of "go gradually stale"; the owner's to correct).
+   made again, the old ones are kept and count for less as newer ones arrive: half for each newer
+   play of the same thing (the code and the Minds that played it, as each row says), whatever
+   bouts it played, and deleted once they count for less than an eighth, so a matchup keeps a few
+   plays at most (the agent's reading of "go gradually stale"; the owner's to correct). This is
+   what keeps a change from costing a square: a change to one body makes every pairing it is in
+   staler and measures none of them again, so its price is what is chosen to be measured.
    *Held by* the measuring command: it has no way to run on everything, refuses to start without
    what is in hand, and says its price from its first chunk before it plays the rest.
 5. **A step is read on what it is about, and reported so.** Each step names the bodies it is read
@@ -307,7 +318,7 @@ body. It replaces any reading taken across every body.
 
 | Added | It fights at once by | Measuring it asks | It never asks |
 | --- | --- | --- | --- |
-| A body | the settings every body shares, on the nearest body's profiles, value and prior, each marked borrowed | its own skills' drills, and its bouts against the foes in hand | another body measured again; a table for each foe |
+| A body | the settings every body shares, on the nearest body's profiles and the pooled value and prior, each marked borrowed | its own skills' drills, and its bouts against the foes in hand | another body measured again; a table for each foe |
 | An item | its mass and reach, read from its spec; the trials nearest in those numbers | trials holding it, of the skills that use it | a table for each loadout |
 | A skill | its model, which the action prior reads; its outcomes from the nearest body that has drilled it, marked borrowed | its drill, on the body that has it | another skill measured again |
 
@@ -315,6 +326,11 @@ A skill no body has drilled has no outcomes: its profile is empty, and nothing i
 hand to fill it. An Option with no outcomes is not offered in a fight, and the inventory lists
 it as not measured. Its drill is part of making the skill
 ([the skill recipe](../recipes/skill.md#the-procedure)), so it fights once that has run.
+
+A skill adds branches to the search as the sum of the skill kinds, never their product: what to
+do is branched on, and how to do it (the gait, the navigator) is chosen inside the Option (step
+14). So a new gait or navigator adds work inside each walk and no branch, and the forks, which
+grow with the branches, do not multiply either.
 
 Each count is checked against the code when its mechanism lands, and stated in the step's report.
 
@@ -335,7 +351,11 @@ for every body.
    what exists: `research/minds/fitted-value.mjs collect` (decision states),
    `research/skills/strikes/strike-bouts.mjs --save` (a bout's decisions, each with its offers,
    and its strikes as trials), `research/skills/strikes/bout-profiles.mjs` (profiles from those
-   trials) and `research/minds/foe-placement.mjs collect` (where the foe went).
+   trials) and `research/minds/foe-placement.mjs collect` (where the foe went). The record is
+   kept outside Git (`.cache/record/`), never committed, and its size is managed: its rows
+   compressed, old plays deleted as rule 4 says, its size by matchup listed by `npm run clean`,
+   and the measuring command warning past a budget (step 15). On its own it deletes nothing but
+   what rule 4 says and the saves of a bank a later change to the game left behind.
 2. **What each Option does, measured.** The strike profiles already price a strike by the nearest
    measured trials (`src/skills/framework/profile/`), the struck body as numbers on each trial.
    The same reading is used for every kind of Option: walks, holds, the ways up, the brace, the
@@ -353,10 +373,12 @@ for every body.
    (`src/minds/option/predictions/value/fitted-value.ts`) prices what follows a state from what followed such states
    in fights. It prices the end of every line, including one the horizon cuts and an open Option
    (a hold, a guard). A fit names the bodies and foes whose bouts it was fitted on, as numbers. A
-   state is read by the fit nearest in both, marked borrowed on the side that is not its own:
-   today the man's fit is of a man against a man, and against any other foe it stands aside
-   (`fittedOn`). A fit from one more collection is one more entry beside the others. What has to
-   be fitted grows with the bodies worked on.
+   state is read by the fit of its own pairing where there is one; else by one fit pooled over
+   every row of the record, both bodies' numbers among what it reads, marked borrowed with how
+   far the nearest body with rows is. Today the man's fit is of a man against a man, and against
+   any other foe it stands aside (`fittedOn`). A fit from one more collection is one more entry
+   beside the others, and the pooled fit is made again over all of them. What has to be fitted
+   grows with the pairings worked on, never with every pairing.
 5. **What a body does here, learned: the action prior.** For a state and each Option on offer, the
    chance a body takes it. It reads an Option by what its model says (whether it is open, its
    seconds, what it deals and takes, its price), never by its kind or its name (the owner,
@@ -365,8 +387,9 @@ for every body.
    with no search, for a body that cannot afford one. A fit names its bodies, as the fitted
    value's does, and is read by the same rule.
 
-Whether one fit over several bodies reads a new body better than the nearest body's own fit is
-read when a body is added that has neither, not before.
+A body with no rows reads the pooled fit (rule 2), by the owner's choice (2026-11-27). Whether a
+pairing's own fit reads it better than the pooled one is read in step 5, on the held-out bouts of
+each pairing with rows; where it does not, an own fit is not worth keeping.
 
 ## What is guessed now, and what replaces it
 
@@ -684,11 +707,10 @@ where it is needed least.
 - **Wide bodies.** The man offered every Option registered that fits him empty-handed, so the
   reading is where scale will be. The body with the most Options the game offers is armed, and
   is read on the owner's word (parked, below).
-- **Three targets.** Fitted to where the search's runs went (the search taught by itself, refitted
-  on the guided search's runs for two or three rounds, and no further: rule 4); to what bodies did
-  in the record; and to each Option's forked worth, a softmax of what each Option on offer was
-  worth when the state was forked once for each ([the forked record](2026-11-26-forked-record.md)).
-  The last does not depend on where the search's runs went, which is what PUCT changes.
+- **Two targets.** Fitted to where the search's runs went (the search taught by itself, refitted
+  on the guided search's runs for two or three rounds, and no further: rule 4); and to what bodies
+  did in the record. The forks give no third: what one Option does to the next 2 s does not rank a
+  state's Options ([the forked record](2026-11-26-forked-record.md#where-it-stands)).
 - **No kind.** Every variant reads an Option by its model alone (mechanism 5).
 - **Screened on the regret bank first**, where the forked record has built it: each variant's
   regret at the banked states, then a match for those that pass.
@@ -741,8 +763,8 @@ game or to unpark something, and the work goes on meanwhile.
 3. **The fight record and the measuring command, which holds rules 2 and 4.** One row format
    that each fit and profile reads: the decision states `fitted-value.mjs` keeps, with every
    Option on offer and its model (as `move-prior.mjs` keeps them), the share of the search's
-   runs each took, the Option run, what followed, and where the foe went; and room for each
-   Option's forked worth and what it did, where [the forked record](2026-11-26-forked-record.md)
+   runs each took, the Option run, what followed, and where the foe went; and room for what each
+   Option did, measured to its exit, where [the forked record](2026-11-26-forked-record.md)
    has forked the state. The measuring command
    is given what is in hand, plays that, adds its rows and fits that body's entries, and refuses
    as rules 2 and 4 say. Scope: the empty-handed Warrior's mirror. Its first rows are a new
@@ -750,14 +772,19 @@ game or to unpark something, and the work goes on meanwhile.
    `research/runs/`, outside Git and not on every machine, and were not `option-lean`'s.
 4. **The end of every line priced** (mechanism 4): the fitted value read at cut lines and open
    Options, through the fitted leaf the man already uses. Scope: the empty-handed Warrior.
-5. **The fitted value by the nearest-fit rule** (mechanism 4), as a kind beside `fittedOn`'s
-   standing aside: a fit naming its bodies and foes, a state read by the nearest. With it set,
-   the Warrior against the rat reads his mirror's fit, marked borrowed, where he read the tail's
-   leaf. Then a fit from the rat's bouts against the Warrior, both sides' decisions in it, its
-   cost said first against the man's 1044 bouts. Scope: the rat against the Warrior; the
-   Warrior's mirror shown unmoved.
-6. **The action prior** (mechanism 5): fitted on the record, on each target it has (the forked
-   worth once the forked record has landed it, the others meanwhile), reading no Option's kind;
+5. **The fitted value's own fits and its pooled fallback** (mechanism 4), as a kind beside
+   `fittedOn`'s standing aside: the asset a list of fits, each naming its bodies and foes; a
+   state read by its own pairing's fit where there is one, else by one fit pooled over every row
+   of the record, both bodies' numbers (and what each holds) among its features, marked borrowed
+   with how far the nearest body with rows is. With it set, the Warrior against the rat reads the
+   pooled fit, marked borrowed, where he read the tail's leaf. Then the rat's bouts against the
+   Warrior into the record (`npm run measure`), both sides' decisions in it, their own fit
+   beside the mirror's, and the pooled fit made again over both. The measuring command's rule 2
+   check compares only the readings of pairings with rows of their own. Read with it: each
+   pairing's own fit against the pooled one on that pairing's held-out bouts. Scope: the rat
+   against the Warrior; the Warrior's mirror shown unmoved.
+6. **The action prior** (mechanism 5): fitted on the record, on each target it has (the forks give it
+   none: [the forked record](2026-11-26-forked-record.md#where-it-stands)), reading no Option's kind;
    read in the game as an asset, as the fitted value is. Its held-out nats against the price's
    softmax, by how many Options were on offer. Scope: the empty-handed Warrior's record, step 3's.
 7. **PUCT with the prior**, tried as the section above says: the prior-weighted mean first, then
@@ -794,6 +821,33 @@ game or to unpark something, and the work goes on meanwhile.
     prices measured, the rat on the settings every body shares is read against it, by the rat's
     reading. If it is as good, that becomes the rat's default, and retiring `option-presses`
     waits on the owner's word. If not, what the rat keeps is named as its situation's.
+
+14. **What to do is branched on; how to do it is chosen inside the Option.** Today each gait and
+    each navigator is a walk Option of its own, every site its target (`WALK_OPTION`,
+    `src/minds/option/options/kinds.ts`), so the search branches on navigators times gaits times
+    sites: each new strike window adds about six walk branches, and a new gait multiplies every
+    site. Instead a walk is one Option a site. Its gait is the one the Mind's objective prices
+    best there (`walkTerms` for each gait, a model call each, not a branch). Its navigator is
+    the navigation role's own selection (`controllerSelection`,
+    `src/skills/assembly/navigations.ts`). So the search's branches, and the forks', grow as
+    the sum of the skill kinds. It enters by the config path: the walk's Gait field gains "the
+    best for each place" beside "Every gait", pickable. Read first on what exists, playing
+    nothing: the share of the search's runs spent on another gait or navigator to the same site
+    (the record), and how far apart such twins' measured runs are (fork step 5). Then a match and
+    the thinking. What it gives up is a gait chosen for what it sets up a step or two later. The
+    rule holds for every skill after it: a manner of doing a thing is chosen inside its Option.
+    Scope: the empty-handed Warrior, then him offered every Option that fits him.
+15. **The record's size and its plays** (mechanism 1, rule 4). Its rows compressed as they are
+    kept (gzip members appended to a matchup's file and read back as one stream), so a stopped
+    run still goes on where it stopped. A row's weight halved for each newer play of its
+    matchup (the game and the Minds that played, as each row says), whatever bouts that play
+    was, where today it is halved by a newer row of the same bout only; rows counting for less
+    than an eighth deleted when the newer ones are kept. `npm run clean` lists the record's size
+    by matchup, and the measuring command warns when the record passes a budget. A bank of the
+    forked record that a later change to the game left behind has its saves deleted by
+    `npm run clean`, since nothing forks them again, and its rows kept. It plays
+    nothing and moves no fight. Scope: the record as it stands. Reported: its size before and
+    after, and a fit made from the compressed rows the same to the byte.
 
 ## Where it stands
 
@@ -871,25 +925,49 @@ game or to unpark something, and the work goes on meanwhile.
   ([the approaches](../approaches.md#minds)). It is the game's: it moved 7 inventory rows (the
   fitted value's origin, now naming its Minds, and six of the man's kick and stomp profiles, stale
   by it) and 27 fingerprint cases, all the man's (his 25 mirror bouts, the straight punch's data,
-  the `option` entrant). Weighing old rows at half for each newer one is built and not yet read:
-  every row is of one play.
-- **Next: fork steps 2 to 4.** This plan and [the forked record](2026-11-26-forked-record.md) go
-  in this order on one machine (the forked record's steps marked "fork"):
+  the `option` entrant).
+- **Step 15 landed** (`56219e92d` and after). Each row is kept compressed, appended in one write
+  (`research/minds/record.mjs`). The Warrior's mirror, the record's one matchup, went from 482 MB
+  to 63 MB, and the fitted value made from the compressed rows is the same to the byte as the one
+  made from the plain rows. A row counts half for each newer play of its matchup (`weightsOf`). A
+  play is the game it was played on (the last commit that changed what the game computes) and its
+  two Minds, whichever side each was on; a play is as new as its newest row. After each play,
+  `keep` deletes this machine's rows that count for less than an eighth, so a matchup keeps its
+  last four plays; another machine's file is pruned by its own plays. The record holds two plays:
+  144 bouts at `91054ef50` and the bank's 87 at `62c688f5f`. So the first play's 57 bouts that
+  the bank did not play again now count half, where they counted whole. A fit from the record
+  under it, not written, reads the held-out bouts within 0.006 of the fit before (R² of life dealt
+  and taken over 3, 8 and 20 s). `npm run clean` lists the record by matchup against its budget of
+  1 GiB, and each bank. It deletes the saves of a bank whose commit a later change to the game
+  came after, and keeps its rows; `fork-bank.mjs` refuses a bank whose saves are gone. For the
+  bank at `62c688f5f` it chose 1,084 saves, 349 MiB. They were deleted by hand, with the bank's
+  `forks.jsonl`, the forked worth that nothing reads now; its `bank.jsonl` and `runs.jsonl`
+  stay. A fresh reader refuted the first landing: a matchup of two entrants made two plays of one
+  run, a play taken up again after another counted as the older, `keep` was not idempotent and
+  rewrote other machines' files, and a cut row was not named. Each is mended and checked on
+  made-up rows. Nothing was played and no fight moved.
+- **Next: step 4.** Step 15 and fork steps 1 to 4 have landed, and fork step 5's first reading
+  of each Option's model against what it did, on the bank at `62c688f5f`
+  ([the forked record](2026-11-26-forked-record.md#where-it-stands)). This plan and the forked
+  record go in this order on one machine (the forked record's steps marked "fork"):
   1. Step 3 (landed).
-  2. Fork steps 2 to 4, on the code step 3 leaves, before anything moves the Warrior's mirror.
+  2. Fork steps 2 to 4 (landed), on the code step 3 leaves, before anything moves the Warrior's mirror.
      The record keeps no saves: its bouts play again only on the code and assets that played
      them. The record's rows were played on the fit step 3 replaced, so the bank first plays the
      mirror again on the code in hand (`npm run measure -- option-lean/man/empty,empty --again`,
      about 19 min), whose rows are then the game's Mind's. The bank is taken while that holds, and
      the forks label the Mind whose run shares the record holds, at the same states, which is what
      step 6 and fork step 5 compare.
-  3. Step 4.
-  4. Fork steps 5 and 6.
-  5. Step 6, then step 7.
-  6. Step 5, by the owner's choice (2026-11-27: "MM5 after MM7"). The rat's bouts against the
+  3. Step 15 (landed), once the forks' bank is taken: the bank reads the record as it is kept now.
+  4. Step 4.
+  5. Fork step 5 on every Option that fits the Warrior. Fork step 6 waits on a worth that ranks a
+     state's Options, which the forks do not give.
+  6. Step 14, which reads fork step 5's twins; then step 6, whose prior is fitted over the
+     Options step 14 leaves; then step 7.
+  7. Step 5, by the owner's choice (2026-11-27: "MM5 after MM7"). The rat's bouts against the
      Warrior are then played once, against the Warrior's Mind after the prior and PUCT, and the
      same collection serves steps 5, 8 and 9.
-  7. Step 8 onward. Fork step 7 goes anywhere after fork step 3.
+  8. Step 8 onward. Fork step 7 goes anywhere after fork step 3.
 
   A run that reads time (a price said from a first chunk, a Mind's thinking) has the machine to
   itself; runs that read only outcomes may share it. Nothing that moves a fight lands while a

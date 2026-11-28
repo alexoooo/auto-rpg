@@ -22,19 +22,22 @@ Every predictor today learns from one sample: the future that followed the Optio
 A deterministic fork can go back to the same state and play each other Option instead. That gives
 labels for every Option on offer, not just the one chosen:
 
+- **Each Option's model.** Each model is measured in drills, borrowed, or set by hand. A fork shows
+  what the Option really did from a fight's state, measured to its exit, next to what its model
+  predicted at that same state. Nothing in that label is estimated, and what an Option does is
+  mostly which Option it is, not chance (step 4).
 - **The action prior's target.** Last time, the prior was fitted to where the search's runs went.
   Those shares were close to even (2.441 nats a root, against 2.684 for even shares, `7f7b33aff`).
-  They also depend on how the search spends its runs, which is exactly what PUCT changes. A
-  forked worth for each Option depends on neither.
-- **Each Option's model.** Each model is measured in drills, borrowed, or set by hand. A fork shows
-  what the Option really did from a fight's state, next to what its model predicted at that same
-  state.
+  They also depend on how the search spends its runs, which is exactly what PUCT changes. The
+  forks give the prior no target of its own: what one Option does to the next 2 s does not rank
+  a state's Options (step 4). The prior gains from them through the models they correct.
 - **The fitted value.** Several nudged forks of one state give the mean of what follows it and
   how much that varies, where today there is one sample.
-- **A test bank for searches.** With a forked worth for every Option at a bank of states, a search
-  variant is scored by its regret, decision by decision: the best Option's forked worth less the
-  forked worth of the Option it chose. That screens variants in minutes. Tournaments still
-  confirm the ones that pass.
+- **A test bank for searches.** With a worth for every Option at a bank of states, a search
+  variant is scored by its regret, decision by decision: the best Option's worth less the worth
+  of the Option it chose. That screens variants in minutes. Tournaments still confirm the ones
+  that pass. It needs a worth that ranks a state's Options, which the forks do not give at a
+  count this machine affords (step 4).
 - **A new skill.** Its Options are forked on the saved states alone, and their rows are added.
   Nothing else is forked again.
 
@@ -47,8 +50,9 @@ labels for every Option on offer, not just the one chosen:
 3. **Its cost grows with the Options, never with their square.** A state's forks are its Options
    times its nudges. Adding one Option adds its own forks and nothing more. Each step states its
    counts.
-4. **Labels go stale; they are not redone.** A forked worth is the worth of "this Option, then the
-   Mind plays as it does", so it belongs to the Minds that played the forks. Each row names them,
+4. **Labels go stale; they are not redone.** A label is what the Option did with the Minds around
+   it deciding as they do (the foe's, and its own for the limbs the Option leaves free), so it
+   belongs to the Minds that played the forks. Each row names them,
    as a measured asset does (`Origin`). Nothing is forked again because the Mind changed. That
    happens only when someone chooses to (the measured-mind plan's rule 4).
 5. **Every Option at a state gets the same nudges.** Without a nudge a fork plays one exact future,
@@ -65,7 +69,7 @@ that fits him, because that is where the number of Options is large.
 
 1. **A fork that takes a given Option.** The research fork (`rollout`, `research/rollouts.mjs`)
    gains a branch that is an Option. At the fork's first search, the side's Mind takes the named
-   Option, then decides as it always does. An Option is named by its key: its place in the Mind's
+   Option, then decides as it always does; held (`hold`), it is taken again while it runs on, to its exit. An Option is named by its key: its place in the Mind's
    Options and its target, as the warm start keys them (`warmStart`,
    `src/minds/option/choosers/tree-search.ts`). This is done with a load hook, the way
    `research/minds/move-prior-hook.mjs` reads the search, so the game's code does not change.
@@ -80,36 +84,43 @@ that fits him, because that is where the number of Options is large.
    (`npm run measure`'s `--again`). The states are sampled at a fixed stride. Each is kept as a
    save (`Duel.save`) with its recipe and its step, so the bank stands when the Mind changes
    after it. Nothing that moves the Warrior's mirror lands while the bank is played or forked. Each state is forked once for each Option
-   on offer, times the nudges (`nudgesOf`), for a horizon of a few seconds, with the Mind playing
-   on both sides. Before the rest is run, its price is said from its first chunk: forks a state,
+   on offer, times the nudges (`nudgesOf`), each until its Option exits (step 3), with the Mind
+   playing on both sides. Before the rest is run, its price is said from its first chunk: forks a state,
    worker-seconds a fork with today's Mind inside it, and states a night on this machine's
    workers.
-3. **What a row holds.** For each Option and nudge:
-   - its forked worth: the life dealt and taken over the horizon, weighed as the Mind's objective
-     weighs them, with the end priced by the fitted value where the body has one;
-   - what the Option did: how long it ran before it ended or the Mind let it go, whether it
-     landed, what it dealt and took, the body's posture and range at its end, and where the foe
-     went.
+3. **What a row holds: what the Option did, measured to its end.** Each fork holds its Option
+   (step 1) while it yields and plays until its run ends: over, out of its entry, no longer on
+   offer, or let go by the Mind at its exit (there it is the Mind's, as in the game: a strike kept
+   on strikes again). At that step it reads what the Option's model gives (`Terms`,
+   `src/minds/option/contract/terms.ts`), in the model's units:
+   - how long it ran, s, and how it ended;
+   - the life it dealt and the life it took over its run, the blow coming at its start included.
+     What the body dealt meanwhile includes its free limbs' blows (a hold's legs stand while the
+     Mind punches), so it is the Option's own, and read, only for a strike;
+   - whether it landed, for a strike (it dealt some life);
+   - where it left the body (`Leaves`): where it stands and faces, its bearing around the foe,
+     its posture and its velocity over the ground, as the Mind's own reading of the situation at
+     that step reads them, and what the foe was doing then.
 
-   Beside these is what the Option's model predicted at the same state, which the search's root
-   already holds. The rows are in the format of the measured-mind record (its step 3), so every
-   fit there can read them.
-4. **How sure a label is**, read before any fit uses it. The spread of a forked worth across
-   nudges, against the gaps between the Options at the same state. And whether the best Option
-   from half the nudges is the best from the other half. The nudge count and the horizon are
-   chosen from this. If the spread swamps the gaps at a nudge count that can be afforded, that is
-   said, and the label is not used to rank Options at that count.
-5. **First readings, with nothing fitted.**
-   - The game's Mind against the forks: at each state, how its root prices rank the Options
-     against their forked worths, and the regret of its choice, in life.
-   - Each Option's model against the forks: predicted against forked seconds, dealt, taken and
-     landing, by kind of Option, with the largest errors named. This is the order for the
-     measured-mind plan's step 10.
-   - The forked target against the old one: the entropy of a softmax of the forked worths,
-     against the run shares' 2.441 nats. This shows whether the new target says more.
-
+   Nothing in a label is estimated: no fitted value and no model is read into it. An open Option,
+   which runs as long as it is held, is held a set time, and its model is asked over that time
+   (`Ask.until`). A run still going at a cap of a few seconds is kept as cut at the cap and never
+   read as an exit. Beside each label is what the Option's model predicted at the decision it was
+   taken at, as that decision's search asked it. The rows are in the format of the measured-mind record (its
+   step 3), so every fit there can read them.
+4. **How sure a label is**, read before any fit uses it, for each quantity step 3 reads: how much
+   of its variance across a state's forks lies between the Options rather than across the
+   nudges, and how far its mean over some nudges is from its mean over others, against the gaps
+   a fit has to learn (between the Options at a state, and between a model's prediction and the
+   mean). Also the share of runs cut at the cap. The nudge count and the cap are chosen from this:
+   the least that reads those gaps through the spread. A quantity whose spread swamps them at a
+   count that can be afforded is said, and is not fitted at that count.
+5. **First readings, with nothing fitted.** Each Option's model against the forks: predicted
+   against measured seconds, dealt, taken, landing and where it leaves the body, by kind of
+   Option, with the largest errors named. This is the order for the measured-mind plan's step 10.
    Read on the Warrior's own Options, then on every Option that fits him.
-6. **The regret bank as a command.** It takes a Mind config and a bank, and builds that Mind at
+6. **The regret bank as a command.** It waits on a worth that ranks a state's Options (step 4's
+   reading of the first forks). Then it takes a Mind config and a bank, and builds that Mind at
    each banked state. The Mind that played the bank keeps the memory its save holds; any other
    config starts cold. Each Mind searches once at each state. The command prints the mean regret
    with its spread, and the thinking. *Checked*: the Mind that played the bank, read both warm and
@@ -131,8 +142,8 @@ that fits him, because that is where the number of Options is large.
 - **The Mind searches every 0.1 s**, so a 60 s bout has about 600 decision states a side. The bank
   samples them; it does not keep them all.
 - **The Mind can let go of a running Option** at its next decision (`letGo`,
-  `src/minds/option/choosers/chooser.ts`). So a forked worth is the worth of starting the Option
-  now and then playing on. That is the choice the search's root makes.
+  `src/minds/option/choosers/chooser.ts`). So a fork that measures an Option holds it to its exit,
+  as a search's line runs it (step 1's `hold`).
 - **The record reads its decisions through the same hook** (`option-fork-hook.mjs`), given
   nothing to force. A step that changes the hook keeps that path the game's: the option fork's
   check and the record's bout 0 played again show it.
@@ -141,22 +152,72 @@ that fits him, because that is where the number of Options is large.
 
 ## Where it stands
 
-**Step 1 has landed.** `rollout` takes an `option`, by the load hook
-`research/option-fork-hook.mjs`, which rewrites the selection (`selectSet`) where the side's Mind
-takes its first priced choice. The rollout workers register the hook, so a pooled fork may name an
-Option too. A fork refuses an Option the Mind could not take there: its claims taken, not priced
-at this decision, or a target the keep rules out (`Deciding.keep`). The row says whether it was
-taken. `research/option-fork-check.mjs` read the warrior protocol's bout 0 (2.65 m, the game's
-Mind on both sides, left won by draining at 60.88 s). It forked every one of the 687 decisions with
-an Option to take, at 2 s, with no nudge. All 687 forks given the Mind's own choice ended on the
-trunk's trace and poses to the bit. Of the 687 given the worst Option on offer, all were taken and
-684 ended elsewhere. The next best is often a twin of the Mind's own: the same run by another
-navigator. On a 5 s bout, 7 of 12 such forks ended on the trunk's poses. 1,374 forks took 2,821 s
-on one thread, 2.05 s a fork, beside the measured-mind plan's step 2 on the same machine, so not a
-price. No game file changed, so the fingerprint cannot move and was not played.
+**Steps 1 to 4 have landed, and step 5's first reading.** A fork measures what each Option did
+to its end, nothing estimated, beside what its model said at the decision. At 8 nudges those
+labels tell most models' errors from the nudges, and the models are wrong for most Options, some
+by a lot. The first try labelled a fork by its forked worth: the life dealt and taken over 2 s,
+weighed by the Mind's objective, with the rest of the Mind's 20 s horizon read from the fitted
+value. Most of that label was the fitted value's own estimate, and it did not rank a state's
+Options; nor did the life measured alone. So no label ranks a state's Options.
 
-Next: step 2, once the measured-mind plan's step 3 has landed and before its step 4. The order of
-the two plans on one machine is in [its "Where it stands"](2026-11-25-measured-mind.md#where-it-stands).
+- **The fork** (step 1): `rollout` takes an `option` by the load hook
+  `research/option-fork-hook.mjs`. On the warrior protocol's bout 0, all 687 forks given the
+  Mind's own choice ended on the trunk's trace to the bit. With `hold`, the Mind takes the Option
+  again at each decision it runs on to while it yields. Without it, the Mind cancels at its next
+  rethink, 0.1 s on, what it would not have chosen: 73 % of forced Options in 16 states.
+- **The bank** (step 2): `research/minds/bank.mjs` played 87 of the measuring protocol's 144
+  bouts of option-lean's mirror at `62c688f5f`, keeping every 80th decision with an Option to
+  take as a save: 989 states, in `.cache/bank/`. Its saves are deleted since, as the
+  measured-mind plan's step 15 deletes those of a bank a later game change left behind; its rows
+  are kept. Saving before every step made a bout cost 660 worker-seconds, against 145 without; a
+  bank played again should save only where the Mind can decide.
+- **The measured run** (step 3, `rollout`'s `measure`, `MEASURE` 3; `research/minds/fork-bank.mjs`
+  into the bank's `runs.jsonl`). The Option is held while it yields, an open one 1 s, and at its
+  exit is the Mind's; the fork stops where its run ends, or at 6 s. A fork costs 0.69
+  worker-seconds; a state has about 8 Options, so 43 worker-seconds under 8 nudges, and 100 states
+  took 18 minutes on 4 workers. 638 of 5,872 runs were cut at 6 s or the verdict. On three states,
+  all 26 forks with the model asked and the ending read end on the same poses as without. Two
+  fresh readers' findings are answered: a strike held through its release struck again; the end
+  rules' drain was read as life taken (the life is now the bars'); why an Option ended was read
+  after the Mind had re-aimed it; and the readers dropped Options that were not twins, averaged
+  bearings as numbers, and left out every Option with one run cut.
+- **How sure a label is** (step 4, `research/minds/run-sureness.mjs`, 100 states, 8 nudges of
+  0.5 N s). At a state, the noise of an Option's mean over the nudges against the spread of the
+  Options' means (median over states; about 1 where Options do not differ): its seconds 0.08,
+  place 0.17 to 0.26, range 0.24, heading 0.28, bearing 0.35, velocity 0.35 to 0.37, life taken
+  0.59 (a single fork's life is 17 % which Option it was). The 90th percentiles are near 1: at
+  about a tenth of the states the Options are alike in a quantity. Strikes are few: six states
+  have two or more on offer. The model is wrong by more than twice its mean's noise, and more
+  than the least error worth telling, for 90 % of the Options in seconds, 77 % in bearing, 76 %
+  of strikes in life dealt, 70 and 65 % in place, 55 to 58 % in velocity, 56 % in life taken,
+  42 % in heading and 5 % in standing. So the labels are read at 8 nudges.
+- **Each Option's model against what it did** (step 5's first reading,
+  `research/minds/run-models.mjs`), the surest errors:
+  - Rolls are priced at 5.0 s by the Mind's hand-set guess for a way up
+    (`src/minds/option/predictions/by-hand.ts`) and run 2.6 s.
+  - A punch is modelled at 1.1 s and runs 0.27 s; a kick 2.8 to 2.9 s against 1.1 to 1.4 s. The
+    model counts the recovery after the release (`strike.ts`, the blow's seconds and its
+    recovery), which the Option does not run: it ends just after its release. At eight states the
+    forced strike ended at once, mostly where the Mind's own choice was that strike in its
+    release, which the model prices as a fresh blow. A punch's life taken is modelled 3 times
+    what it takes (1.7 times a second), what it deals 1.9 times.
+  - Walks arrive: "no site to walk to" is a strike's window reached with the limb ready, or the
+    edge of the foe's reach passed. To a punch's window they run about the seconds modelled; to a
+    kick's or a stomp's window 0.3 to 0.6 of them. They end moving where they are modelled still,
+    and their bearing at the end is off by a median 2 rad.
+  - The cover is modelled open for 1 s and ends of itself in 0.05 to 0.1 s, and its model takes
+    what the hold's does: no credit for the blow it covers.
+  - The back step runs 1.57 s against 1.24.
+
+  These go first in the measured-mind plan's step 10.
+
+What this leaves: step 5 on every Option that fits the Warrior; the fits of the Options' models on
+these labels are the measured-mind plan's (its step 10). Nothing ranks a state's Options, so the
+action prior gets no forked target (the measured-mind plan's step 6 fits on the targets it has)
+and step 6's regret bank waits. Step 7 needs no ranking and goes anywhere after step 3.
+
+Next, in the order the measured-mind plan gives: its step 4. It moves the Warrior's mirror, so the
+bank at `62c688f5f` is read as it stands and not forked again on the code after it.
 
 ## What done is
 

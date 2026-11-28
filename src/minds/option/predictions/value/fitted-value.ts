@@ -175,7 +175,7 @@ const fittedAt = (model: FittedValue["models"][number], x: readonly number[], sh
  * first horizon that horizon's by the share of it; between two, the two weighed by where it falls;
  * past the last, the last's.
  */
-function fittedOver(value: FittedValue, x: readonly number[], seconds: number): Followed {
+export function fittedOver(value: FittedValue, x: readonly number[], seconds: number): Followed {
   if (!(seconds > 0)) return { dealt: 0, taken: 0 };
   const { horizons, models } = value, k = horizons.findIndex((h) => h >= seconds);
   if (k === 0) return fittedAt(models[0]!, x, seconds / horizons[0]!);
