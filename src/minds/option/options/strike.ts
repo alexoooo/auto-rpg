@@ -100,7 +100,8 @@ interface Striking { readonly action: ActionConfig; readonly walk: Walker; reado
  * Its model, where its mind's outcome model answers it (`StrikeMeasure`: against the focus's body,
  * read at the senses' reaction time): what it expects at the range
  * (to its reach), the start's velocity (`startOf`) and the focus's phase: the focus's life its blows took, how long
- * it ran until its limb was back (`Expected.recovers`), and its chance of ending down; through the blow coming, and the focus's pressure while it
+ * it ran until its limb was back (`Expected.recovers`; none where its model is over at its exit,
+ * `atExit`), and its chance of ending down; through the blow coming, and the focus's pressure while it
  * runs, past the focus's latency (`threatened`, `graceAt`); and, its blow
  * begun and not yet committed, what letting it go cost there at its progress (`Expected.letGo`).
  * Else its guess (`Guesses.strike`), read the same way, where its Mind has guesses; with neither

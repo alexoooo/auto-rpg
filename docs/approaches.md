@@ -671,6 +671,15 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   0.635 (0.580 to 0.691) held out at the same runs, but silent 16.2% of a bout against 9.4%: an
   Option worth more at the last root stays chosen. Unset (`c1cdbe73d`), then removed, no Mind
   taking it, then restored on the owner's word (2026-11-20), pickable and unset. *Shown.*
+- **A strike priced to its exit, its limb's recovery left off, does not beat it priced until the
+  limb is back**: a strike's Option ends at its release and hands the limb on, and its skill takes
+  it again at once (a same-hand punch 0.62 s after a release at the median, the early ones landing
+  as well), yet its price counted the recovery its profile measured (a punch 1.11 s against 0.36
+  run, a kick 2.71 against 1.49). Priced to its exit (`strikesTo` exit), `option-lean` scored 0.454
+  (0.388 to 0.522) against it over 103 units of `warrior-drawn`; its mirror knocked out within
+  60 s in 79.6 % (73.8 to 84.5) of 216 against 72.7 %, downs 1.38 a bout against 1.69. Read while a
+  walk is priced at about twice its run, so a strike priced true beside it is not yet the fix read
+  alone. *Shown.*
 - **The fitted leaf weighed by when the value says the life comes beats it weighed evenly**: the
   leaf counted what the fitted value says follows a state as traded evenly from that state to the
   horizon, so under initiative (0.3 a second) a state 0.1 s into a line had its 20 s of trading

@@ -65,6 +65,30 @@ export const nearestTrials = (tables: Tables): OutcomeModel => profilesReadBy(ta
 export const writtenForms = (tables: Tables): OutcomeModel => profilesReadBy(tables, formReading);
 
 /**
+ * **`model` with an act over at its exit**: a reading expects no recovery after it
+ * (`Expected.recovers` 0), where its Option ends at its exit and hands the limb on, as a strike's
+ * does at its release (`strikeOption`): the limb comes back under whatever is taken next, and its
+ * skill takes it again before it is back. Every other reading as `model`'s.
+ */
+export function atExit(model: OutcomeModel): OutcomeModel {
+  return {
+    act(table, asked) {
+      const act = model.act(table, asked);
+      return act && {
+        stale: act.stale, read: act.read,
+        reading(struck, spec, postures) {
+          const reading = act.reading(struck, spec, postures);
+          return reading && Object.create(reading, { expect: { value: (at: Parameters<ProfileReading["expect"]>[0], body: BodySpec | null) => {
+            const expected = reading.expect(at, body);
+            return expected && { ...expected, recovers: 0 };
+          } } }) as ProfileReading;
+        },
+      };
+    },
+  };
+}
+
+/**
  * **`model` with a sway left by its own steps**: where a reading expects its own steps' share of
  * the move (`Exit.own`, a sway's), it leaves the two that much further apart, all of its trials
  * (`stays` 0), not by how far apart its trials ended (`moved`), which holds its trials' foe's

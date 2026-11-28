@@ -7,7 +7,7 @@ import { validPressures } from "./exchange/pressure-table.ts";
 import { ProfileExchange } from "./exchange/profile.ts";
 import { BY_HAND } from "./by-hand.ts";
 import type { Guesses } from "../contract/predictors.ts";
-import { nearestTrials, ownSteps, writtenForms, type OutcomeModel, type Tables } from "../../../skills/framework/outcomes.ts";
+import { atExit, nearestTrials, ownSteps, writtenForms, type OutcomeModel, type Tables } from "../../../skills/framework/outcomes.ts";
 import { optionalChoice } from "../../../parts/fields.ts";
 import type { WalkStart } from "../contract/context.ts";
 import { WALK_STARTS } from "../options/walk.ts";
@@ -20,9 +20,13 @@ import { WALK_STARTS } from "../options/walk.ts";
  * its trials nearest the start (`nearest`, `nearestTrials`). Its foe stands where it is as an
  * Option runs. Its walks are priced as starting at the body's speed, or as another walk start
  * says (`WALK_STARTS`). A sway leaves the body where its trials ended (`range`, the
- * default) or by its own steps (`own`, `SWAYS`).
+ * default) or by its own steps (`own`, `SWAYS`). A strike is priced until its limb is back at
+ * its guard (`back`, the default) or until its exit, where its Option ends (`exit`, `STRIKES_TO`).
  */
-interface MeasuredConfig<K extends string> { readonly kind: K; readonly edges?: readonly Profile[]; readonly pressure?: "rate" | "measured"; readonly outcomes?: "nearest" | "written"; readonly walkStart?: Exclude<WalkStart, "speed">; readonly sways?: "own" }
+interface MeasuredConfig<K extends string> {
+  readonly kind: K; readonly edges?: readonly Profile[]; readonly pressure?: "rate" | "measured"; readonly outcomes?: "nearest" | "written";
+  readonly walkStart?: Exclude<WalkStart, "speed">; readonly sways?: "own"; readonly strikesTo?: "exit";
+}
 
 /** The walk starts a config names (`MeasuredConfig.walkStart`), each with its label: all but the body's speed, the default. */
 const STARTED = Object.entries(WALK_STARTS).filter(([start]) => start !== "speed").map(([start, rule]) => [start as Exclude<WalkStart, "speed">, rule.label] as const);
@@ -32,6 +36,11 @@ const SWAYS: Readonly<Record<"range" | NonNullable<MeasuredConfig<string>["sways
   range: (model) => model, own: ownSteps,
 };
 
+/** **How long a strike is priced as running** (`MeasuredConfig.strikesTo`): what each makes of an outcome model. */
+const STRIKES_TO: Readonly<Record<"back" | NonNullable<MeasuredConfig<string>["strikesTo"]>, (model: OutcomeModel) => OutcomeModel>> = {
+  back: (model) => model, exit: atExit,
+};
+
 /**
  * **A kind of predictions read from what was measured**, named `kind` and labelled `label`:
  * supplied ground profiles where given, otherwise the drills' (`dataOf`); each model its own
@@ -39,18 +48,20 @@ const SWAYS: Readonly<Record<"range" | NonNullable<MeasuredConfig<string>["sways
  * nothing there.
  */
 const measuredPredictions = <K extends string>({ kind, label, guesses }: { readonly kind: K; readonly label: string; readonly guesses: Guesses | null }) => deepFreeze<PredictionsPart<MeasuredConfig<K>>>({
-  role: "predictions", label, slots: [], defaults: { kind }, keys: { kind: true, edges: true, pressure: true, outcomes: true, walkStart: true, sways: true }, tuning: ["edges"],
+  role: "predictions", label, slots: [], defaults: { kind }, keys: { kind: true, edges: true, pressure: true, outcomes: true, walkStart: true, sways: true, strikesTo: true }, tuning: ["edges"],
   fields: [optionalChoice<MeasuredConfig<K>, "walkStart">("walkStart", "A walk starts at", WALK_STARTS.speed.label, () => STARTED),
-    optionalChoice<MeasuredConfig<K>, "sways">("sways", "A sway leaves the body", "Where its trials ended", () => [["own", "By its own steps"]])],
+    optionalChoice<MeasuredConfig<K>, "sways">("sways", "A sway leaves the body", "Where its trials ended", () => [["own", "By its own steps"]]),
+    optionalChoice<MeasuredConfig<K>, "strikesTo">("strikesTo", "A strike is priced until", "Its limb is back", () => [["exit", "Its exit"]])],
   fits: anyBody, faults: config => [...config.edges === undefined || validProfiles(config.edges) ? [] : ["edges: invalid profiles"],
     ...config.pressure === undefined || config.pressure === "rate" || config.pressure === "measured" ? [] : ["pressure: rate or measured"],
     ...config.outcomes === undefined || Object.hasOwn(OUTCOMES, config.outcomes) ? [] : ["outcomes: nearest or written"],
     ...config.walkStart === undefined || STARTED.some(([start]) => start === config.walkStart) ? [] : [`walkStart: ${STARTED.map(([start]) => start).join(", ")} or none`],
-    ...config.sways === undefined || config.sways === "own" ? [] : ["sways: own or none"]],
+    ...config.sways === undefined || config.sways === "own" ? [] : ["sways: own or none"],
+    ...config.strikesTo === undefined || config.strikesTo === "exit" ? [] : ["strikesTo: exit or none"]],
   reads: config => [...config.edges === undefined ? ["strike-profiles", "edge-profiles", "step-profiles"] as const : ["strike-profiles", "step-profiles"] as const, ...config.pressure !== "rate" ? ["pressure-profiles"] as const : []],
   make: config => {
     const tables = deepFreeze({ strikes: dataOf("strike-profiles"), edges: config.edges ?? dataOf("edge-profiles"), steps: dataOf("step-profiles") });
-    const outcomes = SWAYS[config.sways ?? "range"](OUTCOMES[config.outcomes ?? "written"](tables)), pressures = config.pressure === "rate" ? null : measuredPressures();
+    const outcomes = STRIKES_TO[config.strikesTo ?? "back"](SWAYS[config.sways ?? "range"](OUTCOMES[config.outcomes ?? "written"](tables))), pressures = config.pressure === "rate" ? null : measuredPressures();
     return { outcomes, exchange: ({ strikes }) => new ProfileExchange({ strikes, measured: tables.strikes, pressures, guesses }), walkStart: config.walkStart ?? "speed", guesses };
   },
 });
