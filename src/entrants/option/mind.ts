@@ -19,13 +19,14 @@ const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: 
  * truer: the leaf is the fitted value, weighed by when it says the life comes, which stands
  * aside on a body it was not fitted on (`fittedOn`); the foe is kept moving over a line's first
  * half second (`carry`); a walk starts at its speed along its way (`walkStart` signed) and a sway
- * leaves the body by its own steps (`sways` own). The gain is in its timing: it looks for a change it watches 20 times a second
+ * leaves the body by its own steps (`sways` own); Options made on one model, a walk by each
+ * navigator, are searched as one line (`alike`). The gain is in its timing: it looks for a change it watches 20 times a second
  * and searches every 0.1 s. On the empty-handed Warrior, searching every 0.1 s beats 0.2 s, and
  * 20 Hz plays 60 Hz even for a sixth less thinking; the rat plays the Warrior as it did at
  * 60 Hz every 0.2 s (`docs/approaches.md`).
  */
 const SHARED = deepFreeze({
-  kind: "option", chooser: { kind: "tree", leaf: "fitted-when", carry: .5 }, predictions: { kind: "measured", walkStart: "signed", sways: "own" }, rate: 20, rethink: .1,
+  kind: "option", chooser: { kind: "tree", leaf: "fitted-when", carry: .5, alike: "one" }, predictions: { kind: "measured", walkStart: "signed", sways: "own" }, rate: 20, rethink: .1,
 }) satisfies OptionMindConfig;
 
 /**
