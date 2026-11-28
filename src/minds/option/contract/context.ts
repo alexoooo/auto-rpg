@@ -6,7 +6,7 @@ import type { GroundPoint } from "../../../skills/framework/movement.ts";
 import type { OutcomeModel } from "../../../skills/framework/outcomes.ts";
 import type { GaitName } from "../../../skills/framework/skill.ts";
 import type { Sites } from "./option.ts";
-import type { Arrival, Guesses } from "./predictors.ts";
+import type { Arrival, Guesses, MeasuredTries } from "./predictors.ts";
 import type { Situation } from "./situation.ts";
 
 /**
@@ -32,6 +32,8 @@ export interface OptionContext {
   readonly outcomes: OutcomeModel;
   /** What its Options guess where nothing is measured (`Predictors.guesses`); null where they guess nothing. */
   readonly guesses: Guesses | null;
+  /** What its tries on the ground were measured to do, where they are priced so (`Predictors.groundTries`); null where profiles and guesses price them. */
+  readonly tries: MeasuredTries | null;
   readonly walk: Walker;
   readonly record: OptionRecord;
   readonly sites: Sites;

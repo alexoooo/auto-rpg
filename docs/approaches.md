@@ -686,6 +686,17 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   (`walks` measured). A fork that holds a walk ends it where its site
   flickers (the other hand's punch holding the trunk, the punch's height band), where the Mind
   takes it again at once, so the forks do not time a walk. *Shown.*
+- **A try on the ground priced as the record's tries did neither beats nor loses to its drill's
+  profile and the guesses**: the guesses priced a way up no drill measured from where it lies at
+  5 s, done 0.7 (a roll from the back ran 2.78 s in the mirror's record, 80 % ending on the
+  front), and a regain done 0.9 (from between its feet 25 % stood, 75 % still between). Each way
+  up and regain by its Option and the posture begun lying in, from 20 tries up, its seconds at
+  the mean and the share ending in each posture (`ground` measured, `assets/minds/ground-tries.json`,
+  `npm run measure -- … --fits ground`), the profiles' cells read within a few tenths of a second.
+  `option-lean` so changed scored 0.500 (0.459 to 0.541) against it over 97 units of
+  `warrior-drawn`, margin 0.018 (-0.009 to 0.045): the guesses' errors cost no fights. Not
+  installed: its readings are of one pairing, found by the bodies' names, where the profiles are
+  read by numbers. *Shown even.*
 - **A strike priced to its exit, its limb's recovery left off, does not beat it priced until the
   limb is back**: a strike's Option ends at its release and hands the limb on, and its skill takes
   it again at once (a same-hand punch 0.62 s after a release at the median, the early ones landing
@@ -694,7 +705,8 @@ the Skeleton falls on 11 to 12 of 50 (`e563ce37`).
   (0.388 to 0.522) against it over 103 units of `warrior-drawn`; its mirror knocked out within
   60 s in 79.6 % (73.8 to 84.5) of 216 against 72.7 %, downs 1.38 a bout against 1.69. Read while a
   walk is priced at about twice its run, so a strike priced true beside it is not yet the fix read
-  alone. *Shown.*
+  alone. With walks timed as measured on both sides, even: 0.518 (0.456 to 0.580) over 113 units,
+  margin 0.003 (-0.050 to 0.056). *Shown.*
 - **The fitted leaf weighed by when the value says the life comes beats it weighed evenly**: the
   leaf counted what the fitted value says follows a state as traded evenly from that state to the
   horizon, so under initiative (0.3 a second) a state 0.1 s into a line had its 20 s of trading

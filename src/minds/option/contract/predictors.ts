@@ -54,6 +54,8 @@ export interface Predictors {
   readonly walkStart: WalkStart;
   /** When a body's walks arrive, for the body as a fitted model names it (`bodyOf`), where a walk is timed by what walks measured (`walkArrivals`); null where its gait's reckoning times it, or none of the body's walks were measured. */
   readonly walkArrivals: ((body: string) => Arrivals | null) | null;
+  /** What a body's tries on the ground did, for the body as a fitted model names it (`bodyOf`), where they are priced by what the record's tries did (`groundTries`); null where profiles and guesses price them, or none of the body's tries were measured. */
+  readonly groundTries: ((body: string) => MeasuredTries | null) | null;
   /** What it guesses where nothing is measured. Null where it guesses nothing: a strike, a limb, a blow coming or a way up with no measurement is then not priced. */
   readonly guesses: Guesses | null;
 }
@@ -63,6 +65,25 @@ export interface Arrival { readonly seconds: number; readonly speed: number; rea
 
 /** **When a walk arrives** (`Walker.arrival`): of the body at `at` walking by the gait its walk Option names `gait` to `spot`; null where nothing measured reads it there. */
 export type Arrivals = (at: Situation, gait: string, spot: GroundPoint) => Arrival | null;
+
+/**
+ * **A try on the ground as measured**: its seconds; the share of tries that ended where it goes
+ * (`done`), the rest coming to rest where `ends` say, by share; and where those readings come from.
+ */
+export interface MeasuredTry {
+  readonly seconds: number;
+  readonly done: number;
+  readonly ends: readonly { readonly at: string; readonly share: number }[];
+  readonly source: Source;
+}
+
+/** **What a body's tries on the ground were measured to do** (`OptionContext.tries`). */
+export interface MeasuredTries {
+  /** A try of the Option named `name` begun lying in `from`, going to `to`, of the body at `at`; null where nothing measured reads it. */
+  of(at: Situation, name: string, from: string, to: string): MeasuredTry | null;
+  /** Where what it reads of the Option named `name` comes from for the body at `at`; null where nothing measured is read of it. */
+  source(at: Situation, name: string): Source | null;
+}
 
 /** **What an Option is taken to bring where no drill measured it**: the seconds it runs, and the share of its tries that do what it does. */
 export interface Prior {

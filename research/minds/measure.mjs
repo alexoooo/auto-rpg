@@ -3,7 +3,7 @@
  * matchup, it plays its bouts, adds their rows to the fight record (`record.mjs`) and fits that
  * matchup's bodies' entries from the record's rows of it alone.
  *
- *   npm run measure -- <entrant> [<entrant>] [--protocol measuring] [--again] [--workers N] [--fits value,walks] [--write]
+ *   npm run measure -- <entrant> [<entrant>] [--protocol measuring] [--again] [--workers N] [--fits value,walks,ground] [--write]
  *
  * An entrant is the tournament's (`mind/body/left,right`: `option-lean/man/empty,empty`); one
  * entrant is its mirror. It plays the tournament's `--protocol` (`measuring` unless named: draws no
@@ -28,6 +28,7 @@ import { defaultLanes } from "../../scripts/lanes.mjs";
 import { folderOf, keyOf, keysIn, playOf, playRecord, readingOf, rowsIn, weightsOf } from "./record.mjs";
 import { fitValue, followed, HORIZONS, readValue } from "./value-fit.mjs";
 import { fitWalks, readWalks, walksOf } from "./walk-fit.mjs";
+import { fitTries, readTries, triesOf } from "./ground-fit.mjs";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const USAGE = "usage: npm run measure -- <entrant> [<entrant>] [--protocol measuring] [--again] [--workers N] [--fits value,walks] [--write]\n  an entrant is mind/body/left,right, as option-lean/man/empty,empty";
@@ -91,6 +92,21 @@ const FITS = [{
   },
   // A body reads it against a foe where both are among its bodies (`fittedOn`).
   readings: (value) => new Map(value.bodies.flatMap((own) => value.bodies.map((foe) => [`${own} against ${foe}`, digestOf(value.gaits)]))),
+}, {
+  key: "ground",
+  name: "the ground tries (assets/minds/ground-tries.json)",
+  asset: "assets/minds/ground-tries.json",
+  fit(record) {
+    const { ways, fitted, held } = fitTries(record.tries, (line) => console.log(`  ${line}`));
+    const origin = `research/minds/measure.mjs: ${fitted} tries on the ground of ${matchup}, on ${record.protocols.join(" and ")}, played at ${record.commits.join(" and ")} (.cache/record/${folder.split(/[\\/]/).pop()}), ${held} held out`;
+    return { origin, from: { minds: record.played }, bodies: [...record.bodies].sort(), ways };
+  },
+  inPlace(value, record) {
+    console.log(`  the asset in place (${value.origin}), on the same tries:`);
+    readTries(value.ways, record.tries, (line) => console.log(`  ${line}`));
+  },
+  // A body reads it against a foe where both are among its bodies (`fittedOn`).
+  readings: (value) => new Map(value.bodies.flatMap((own) => value.bodies.map((foe) => [`${own} against ${foe}`, digestOf(value.ways)]))),
 }];
 const asked = flags.fits ? flags.fits.split(",") : FITS.map((fit) => fit.key), unknown = asked.filter((key) => !FITS.some((fit) => fit.key === key));
 if (unknown.length) throw new Error(`no fit ${unknown.join(", ")}: ${FITS.map((fit) => fit.key).join(", ")}`);
@@ -127,16 +143,16 @@ process.exit(refused ? 1 : 0);
 /**
  * **The record's states for the fits** in `folder`: each root as the fitted value reads it, both
  * sides', with what followed it over each horizon, and each state of a walk that arrived
- * (`walksOf`), whether its bout is held out (`HELD`), and its weight (`weightsOf`); with the bodies, the pairings of them that played
+ * (`walksOf`), and each try on the ground (`triesOf`), whether its bout is held out (`HELD`), and its weight (`weightsOf`); with the bodies, the pairings of them that played
  * (`own against foe`, each way), the bouts and the Minds that played.
  */
 async function statesOf(folder) {
   const rows = [];
   for await (const row of rowsIn(folder)) {
     const states = row.roots.map((root) => ({ x: featuresOf(readingOf(root)), after: HORIZONS.map((h) => followed(row.lives, row.end, root.side, root.t, h)) }));
-    rows.push({ key: row.key, date: row.date, play: playOf(row), bout: `${row.protocol}/${row.index}`, sides: row.sides, commit: row.commit, changed: row.changed, states, walks: walksOf(row, walkFeatures) });
+    rows.push({ key: row.key, date: row.date, play: playOf(row), bout: `${row.protocol}/${row.index}`, sides: row.sides, commit: row.commit, changed: row.changed, states, walks: walksOf(row, walkFeatures), tries: triesOf(row) });
   }
-  const states = [], walks = [], bodies = new Set(), pairings = new Set(), bouts = new Set(), played = [], commits = new Set(), protocols = new Set();
+  const states = [], walks = [], tries = [], bodies = new Set(), pairings = new Set(), bouts = new Set(), played = [], commits = new Set(), protocols = new Set();
   let held = 0;
   const weights = weightsOf(rows);
   for (const [i, row] of rows.entries()) {
@@ -147,8 +163,9 @@ async function statesOf(folder) {
     if (out) held++;
     for (const state of row.states) states.push({ ...state, held: out, weight });
     for (const state of row.walks) walks.push({ ...state, held: out, weight });
+    for (const one of row.tries) tries.push({ ...one, held: out, weight });
   }
-  return { states, walks, bodies, pairings, bouts, held, protocols: [...protocols].sort(), played: playedOnce(played), commits: [...commits] };
+  return { states, walks, tries, bodies, pairings, bouts, held, protocols: [...protocols].sort(), played: playedOnce(played), commits: [...commits] };
 }
 
 /** The bouts held out of a fit: one condition in five, by a hash of its protocol and place, both side orders together. */

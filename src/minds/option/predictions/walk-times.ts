@@ -1,12 +1,10 @@
 import { deepFreeze } from "../../../core/state.ts";
 import { hypot } from "../../../core/math/real.ts";
-import { remembered } from "../../../core/remembered.ts";
-import { measuredFrom, type Side, type Source } from "../../../skills/framework/profile/source.ts";
 import type { Arrivals } from "../contract/predictors.ts";
 import type { GroundPoint } from "../../../skills/framework/movement.ts";
 import type { Origin } from "../../../skills/framework/profile/profile.ts";
 import { treesAt, validTrees, type Trees } from "./value/boosted-trees.ts";
-import { bodyOf, fittedOn } from "./value/fitted-value.ts";
+import { fittedSource } from "./value/fitted-value.ts";
 
 /**
  * **What a walk's arrival is read from** (`walkFeatures`), by name, in order: the way to its spot,
@@ -60,14 +58,12 @@ export function walkFeatures(where: GroundPoint, velocity: GroundPoint, foe: Gro
  */
 export function walkArrivals(value: WalkTimes, body: string): Arrivals | null {
   if (!value.bodies.includes(body)) return null;
-  const side = (name: string): Side => ({ own: true, of: name, by: "name", gaps: [] });
-  /** Where a reading against a foe of the body `foe` comes from; made once a foe's body. */
-  const against = remembered((foe: string): Source => measuredFrom({ body: side(body), target: side(foe), pairing: true }));
+  const sourceOf = fittedSource(value.bodies, body);
   return (at, gait, spot) => {
-    const focus = at.focus, model = value.gaits[gait];
-    if (!focus || !model || !fittedOn(value.bodies, body, focus)) return null;
+    const focus = at.focus, model = value.gaits[gait], source = model ? sourceOf(focus) : null;
+    if (!focus || !model || !source) return null;
     const { x } = walkFeatures(at.where, at.velocity, focus.velocity, spot);
     if (!x.every((read, f) => read >= model.over[f]![0] && read <= model.over[f]![1])) return null;
-    return { seconds: Math.max(0, treesAt(model.seconds, x)), speed: Math.max(0, treesAt(model.speed, x)), source: against(bodyOf(focus.spec)) };
+    return { seconds: Math.max(0, treesAt(model.seconds, x)), speed: Math.max(0, treesAt(model.speed, x)), source };
   };
 }
